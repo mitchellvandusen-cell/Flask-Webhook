@@ -201,6 +201,13 @@ def webhook():
     return grok_insurance()
 
 
+@app.route("/outreach", methods=["GET", "POST"])
+def outreach():
+    if request.method == "POST":
+        return "OK", 200
+    return "Up and running", 200
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
