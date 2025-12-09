@@ -7,18 +7,7 @@ logger = logging.getLogger(__name__)
 
 _client = None
 
-
-def get_client():
-    """Get or create the xAI client with lazy initialization."""
-    global _client
-    if _client is None:
-        api_key = os.environ.get("XAI_API_KEY")
-        if not api_key:
-            raise ValueError("XAI_API_KEY environment variable is not set")
-        _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
-    return _client
-
-NEPQ_SYSTEM_PROMPT = """You are an expert sales assistant trained in NEPQ (Neuro-Emotional Persuasion Questioning) methodology. 
+DEFAULT_NEPQ_PROMPT = """You are an expert sales assistant trained in NEPQ (Neuro-Emotional Persuasion Questioning) methodology. 
 Your role is to respond to inbound SMS messages from potential customers in a way that:
 
 1. Builds rapport and trust immediately
@@ -32,27 +21,45 @@ Your role is to respond to inbound SMS messages from potential customers in a wa
 Remember: NEPQ is about helping people buy, not selling to them. Focus on their emotional needs and desired outcomes."""
 
 
-def generate_nepq_response(first_name: str, message: str) -> str:
+def get_client():
+    """Get or create the xAI client with lazy initialization."""
+    global _client
+    if _client is None:
+        api_key = os.environ.get("XAI_API_KEY")
+        if not api_key:
+            raise ValueError("XAI_API_KEY environment variable is not set")
+        _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
+    return _client
+
+
+def generate_nepq_response(first_name: str, message: str, system_prompt: str = None, conversation_history: list = None) -> str:
     """
     Generate an NEPQ-style response using xAI Grok.
     
     Args:
         first_name: The customer's first name
         message: The incoming SMS message from the customer
+        system_prompt: Custom system prompt (uses default if None)
+        conversation_history: List of previous messages for context
         
     Returns:
         A personalized NEPQ-style response suitable for SMS
     """
     try:
+        prompt = system_prompt or DEFAULT_NEPQ_PROMPT
         user_prompt = f"Customer name: {first_name}\nTheir message: {message}\n\nGenerate an appropriate NEPQ-style SMS response."
+        
+        messages = [{"role": "system", "content": prompt}]
+        
+        if conversation_history:
+            messages.extend(conversation_history[-10:])
+        
+        messages.append({"role": "user", "content": user_prompt})
         
         client = get_client()
         response = client.chat.completions.create(
             model="grok-2-1212",
-            messages=[
-                {"role": "system", "content": NEPQ_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ],
+            messages=messages,
             max_tokens=150,
             temperature=0.7
         )

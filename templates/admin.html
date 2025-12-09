@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NEPQ Webhook Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Dashboard</h2>
+    <span class="text-muted">Webhook Analytics & Logs</span>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card info">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Total Requests</h6>
+                <h3 class="mb-0">{{ total_requests }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card success">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Successful</h6>
+                <h3 class="mb-0">{{ success_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card error">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Errors</h6>
+                <h3 class="mb-0">{{ error_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Avg Response Time</h6>
+                <h3 class="mb-0">{{ avg_processing_time }}ms</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Recent Webhook Logs</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Time</th>
+                        <th>Name</th>
+                        <th>Message</th>
+                        <th>Response</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td class="text-nowrap">
+                            <small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                        </td>
+                        <td>{{ log.first_name }}</td>
+                        <td>
+                            <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ log.incoming_message }}">
+                                {{ log.incoming_message[:50] }}{% if log.incoming_message|length > 50 %}...{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if log.response_message %}
+                            <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ log.response_message }}">
+                                {{ log.response_message[:50] }}{% if log.response_message|length > 50 %}...{% endif %}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.status == 'success' %}
+                            <span class="badge bg-success">Success</span>
+                            {% else %}
+                            <span class="badge bg-danger">Error</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.processing_time_ms or '-' }}ms</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            No webhook logs yet. Send a request to the /webhook endpoint to see logs here.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if logs.pages > 1 %}
+    <div class="card-footer bg-white">
+        <nav>
+            <ul class="pagination mb-0 justify-content-center">
+                {% if logs.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ logs.prev_num }}">Previous</a>
+                </li>
+                {% endif %}
+                {% for p in logs.iter_pages() %}
+                    {% if p %}
+                    <li class="page-item {% if p == logs.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                {% if logs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ logs.next_num }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card mt-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Active Personas</h5>
+    </div>
+    <div class="card-body">
+        {% if personas %}
+        <div class="row">
+            {% for persona in personas %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            {{ persona.name }}
+                            {% if persona.is_default %}
+                            <span class="badge bg-primary">Default</span>
+                            {% endif %}
+                        </h6>
+                        <p class="card-text small text-muted">{{ persona.description or 'No description' }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No personas configured. <a href="/admin/personas">Create one</a></p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

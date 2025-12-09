@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NEPQ Webhook Admin{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .sidebar {
+            min-height: 100vh;
+            background-color: #212529;
+        }
+        .sidebar a {
+            color: rgba(255,255,255,.8);
+            text-decoration: none;
+            padding: 12px 20px;
+            display: block;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            color: #fff;
+            background-color: rgba(255,255,255,.1);
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+        }
+        .stat-card {
+            border-left: 4px solid;
+        }
+        .stat-card.success { border-left-color: #198754; }
+        .stat-card.error { border-left-color: #dc3545; }
+        .stat-card.info { border-left-color: #0d6efd; }
+        .stat-card.warning { border-left-color: #ffc107; }
+        .log-entry {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+        }
+        .badge-success { background-color: #198754; }
+        .badge-error { background-color: #dc3545; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-2 d-none d-md-block sidebar py-3">
+                <div class="text-center mb-4">
+                    <h5 class="text-white">NEPQ Webhook</h5>
+                </div>
+                <a href="/admin" class="{% if request.path == '/admin' %}active{% endif %}">
+                    <i data-feather="activity"></i> Dashboard
+                </a>
+                <a href="/admin/personas" class="{% if request.path == '/admin/personas' %}active{% endif %}">
+                    <i data-feather="users"></i> Personas
+                </a>
+                <a href="/" target="_blank">
+                    <i data-feather="external-link"></i> API Docs
+                </a>
+                <hr class="my-3 border-secondary">
+                <a href="/admin/logout">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </nav>
+            <main class="col-md-10 ms-sm-auto px-4 py-4">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script>feather.replace()</script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

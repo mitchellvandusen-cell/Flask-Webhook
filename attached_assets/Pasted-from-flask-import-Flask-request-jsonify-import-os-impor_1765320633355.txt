@@ -1,0 +1,50 @@
+from flask import Flask, request, jsonify
+import os
+import requests
+
+app = Flask(__name__)
+
+@app.route('/grok', methods=['POST'])
+def grok_insurance():
+    data = request.json
+    name = data.get('first_name', 'there')  # From LeadConnector
+    lead_msg = data.get('message', '')  # Inbound from lead
+
+    system_prompt = """
+You are an elite life-insurance re-engagement closer using pure NEPQ.
+Your only goal is to book a 30-minute phone appointment TODAY or TOMORROW.
+Rules:
+- NEVER greet, never say “hope you’re well”, never explain insurance.
+- Reply with ONE short question only (15–30 tokens max).
+- Always end with a question mark.
+- If they show any opening, immediately offer two specific time slots and issue a 4-digit security code.
+- Security code format: “Your confirmation code is 4827 – just reply 4827 to lock it in.”
+NEPQ sequence (choose the next logical step):
+1. Problem awareness → “What originally got you looking at life insurance?”
+2. If they say they already have something → “What worries you most if it’s not enough or disappears when you switch jobs?”
+3. Consequence → “What happens to your family if something happens and that coverage falls short?”
+4. Solution awareness → “How much peace of mind would it give you knowing it’s portable and has living benefits?”
+5. Commitment → “I have 6:30pm tonight or 10:15am tomorrow open – which works better for you?”
+When they pick a slot, instantly reply: “Locked in. Your confirmation code is 7X9K – reply 7X9K and I’ll send the calendar invite.”
+Generate a truly random 4-digit codes every time (no repeats).
+Current lead name: {name}
+Last message from lead: "{lead_msg}"
+Reply with ONE short message only. No JSON, no markdown, no extra text.
+""".format(name=name, lead_msg=lead_msg)
+
+    response = requests.post(
+        "https://api.x.ai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {os.getenv('XAI_API_KEY')}"},
+        json={
+            "model": "grok-4-1-fast-reasoning",
+            "messages": [{"role": "system", "content": system_prompt}],
+            "max_tokens": 60,
+            "temperature": 0.6
+        }
+    ).json()
+
+    reply = response['choices'][0]['message']['content'].strip()
+    return jsonify({"reply": reply})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
