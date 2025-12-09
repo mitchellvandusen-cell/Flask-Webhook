@@ -213,28 +213,11 @@ def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
 
 
-@app.route('/', methods=['GET'])
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    return jsonify({
-        "service": "NEPQ Life Insurance Webhook API",
-        "version": "2.0.0",
-        "endpoints": {
-            "POST /grok": {
-                "description": "Process lead message and generate NEPQ response",
-                "payload": {
-                    "first_name": "string (required)",
-                    "message": "string (required)"
-                },
-                "response": {
-                    "reply": "AI-generated NEPQ response"
-                }
-            },
-            "POST /webhook": {
-                "description": "Alias for /grok endpoint"
-            },
-            "GET /health": "Health check endpoint"
-        }
-    })
+    if request.method == 'POST':
+        return grok_insurance()
+    return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
 
 
 if __name__ == '__main__':

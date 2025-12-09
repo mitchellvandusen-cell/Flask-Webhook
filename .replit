@@ -35,3 +35,7 @@ integrations = ["python_xai:1.0.0"]
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 40427
+externalPort = 3000
