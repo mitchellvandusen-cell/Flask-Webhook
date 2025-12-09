@@ -2,13 +2,16 @@
 
 ## Overview
 
-This is a Flask-based webhook API service that generates AI-powered sales responses using comprehensive NEPQ (Neuro-Emotional Persuasion Questioning) methodology by Jeremy Miner. The service receives inbound SMS/message data via webhooks, processes them through xAI's Grok model, and returns personalized sales responses optimized for SMS communication.
+This is a Flask-based webhook API service that generates AI-powered sales responses using NEPQ (Neuro-Emotional Persuasion Questioning) methodology by Jeremy Miner. The service receives inbound SMS/message data via webhooks, processes them through xAI's Grok model, and returns personalized sales responses optimized for SMS communication.
 
 The primary use case is life insurance lead re-engagement, where the AI assistant helps book phone appointments by asking strategic questions rather than using pushy sales tactics.
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language
+- No database required - simple stateless API
+- No em dashes (--) in responses
+- Root URL accepts POST directly for webhook
 
 ## System Architecture
 
@@ -17,49 +20,23 @@ Preferred communication style: Simple, everyday language.
 - Single-file architecture in `main.py` for simplicity
 
 ### AI Integration
-- Uses **xAI's Grok API** via direct HTTP requests
+- Uses **xAI's Grok API** via OpenAI-compatible client
 - Base URL: `https://api.x.ai/v1`
-- Model: `grok-4-1-fast-reasoning`
+- Model: `grok-2-1212`
 - Comprehensive NEPQ system prompt with full methodology
 
-### NEPQ Methodology Included
-The system prompt contains complete NEPQ framework:
+## API Endpoints
 
-**Question Framework:**
-- Problem Awareness Questions (discover pain points)
-- Consequence Questions (deepen urgency)
-- Solution Awareness Questions (guide to next step)
-- Commitment Questions (book appointments)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | POST | Main webhook - process message and return NEPQ response |
+| `/grok` | POST | Alias for main webhook |
+| `/webhook` | POST | Alias for main webhook |
+| `/outreach` | GET/POST | Returns "Up and running" (GET) or "OK" (POST) |
+| `/health` | GET | Health check endpoint |
 
-**Objection Handling:**
-- "Can't afford it" / pricing objections
-- "Already have insurance through work"
-- "Need to think about it" / spouse objections
-- "Don't trust insurance companies"
-- "Too young" / "Too old" objections
-- "Send me information" / email requests
-- "Busy" / timing objections
-- "Not interested" rejections
-- Pricing/cost questions
+## Request Format
 
-**Special Features:**
-- Handles weird/off-topic questions by redirecting to booking
-- Auto-generates random confirmation codes for appointments
-- Never answers questions it shouldn't - always redirects to booking call
-
-### API Design
-- Main webhook endpoint: `POST /grok`
-- Accepts JSON with `first_name` and `message` fields
-- Returns JSON with `reply` field containing AI response
-- Health check: `GET /health`
-- API docs: `GET /`
-
-## Endpoints
-
-### POST /grok
-Process lead message and generate NEPQ response.
-
-**Request:**
 ```json
 {
   "first_name": "John",
@@ -67,22 +44,23 @@ Process lead message and generate NEPQ response.
 }
 ```
 
-**Response:**
+## Response Format
+
 ```json
 {
   "reply": "What originally got you looking at life insurance, John?"
 }
 ```
 
-### GET /health
-Health check endpoint.
-
-### GET /
-API documentation.
-
 ## Environment Variables Required
 - `SESSION_SECRET`: Flask session encryption key
 - `XAI_API_KEY`: xAI/Grok API authentication
+
+## Key Features
+- NEPQ methodology for non-pushy sales
+- Automatic confirmation code generation for appointments
+- Em dash filtering (replaced with commas)
+- Short SMS-friendly responses (15-40 words)
 
 ## Key Files
 - `main.py` - Complete Flask application with NEPQ system prompt

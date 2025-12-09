@@ -37,6 +37,7 @@ Book a 30-minute phone appointment TODAY or TOMORROW. Every response must move t
 7. Generate truly random 4-character codes (letters + numbers) for confirmations
 8. Be conversational, curious, and empathetic - NOT pushy or salesy
 9. Use their first name naturally when appropriate
+10. NEVER use em dashes (--) or (—) in your responses - use commas or periods instead
 
 === NEPQ QUESTION FRAMEWORK ===
 Follow this sequence based on conversation stage:
@@ -193,6 +194,7 @@ Generate ONE short NEPQ-style response. No JSON, no markdown, no extra text. Jus
     )
 
     reply = response.choices[0].message.content.strip()
+    reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
     return jsonify({"reply": reply})
 
 
@@ -213,11 +215,9 @@ def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['POST'])
 def index():
-    if request.method == 'POST':
-        return grok_insurance()
-    return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
+    return grok_insurance()
 
 
 if __name__ == '__main__':
