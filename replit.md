@@ -79,7 +79,29 @@ For multi-tenant (friends using their own GHL accounts), also add:
 | ghl_location_id | (their location ID) |
 | agent_name | Devon |
 
+**Optional intent field** - controls the AI's objective:
+| Key | Value |
+|-----|-------|
+| intent | book_appointment |
+
 That's it! The API will generate an NEPQ response and automatically send it back to the contact via SMS.
+
+## Intent Recognition
+
+The AI recognizes the "intent" custom field to adjust its approach. Supported intents:
+
+| Intent | Description |
+|--------|-------------|
+| `book_appointment` | Push for specific time slots, close the deal |
+| `qualify` | Ask Stage 1 NEPQ questions to uncover pain points |
+| `reengage` | Soft, curious opener for cold leads who haven't responded |
+| `follow_up` | Continue from previous conversation, check for questions |
+| `nurture` | Keep relationship warm, build rapport without pushing |
+| `objection_handling` | Use curiosity to understand and address concerns |
+| `initial_outreach` | First message, introduce and ask what got them looking |
+| `general` | Default, follow standard NEPQ framework |
+
+Aliases work too: "book", "booking", "schedule" all map to `book_appointment`.
 
 ## Unified /ghl Endpoint Actions
 

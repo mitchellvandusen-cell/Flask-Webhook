@@ -571,10 +571,71 @@ Lead: "What's the weather like there?"
 → "Ha - that's a first! But hey, let's get your family protected. When works for a quick call?"
 """
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None):
+INTENT_DIRECTIVES = {
+    "book_appointment": "Your primary goal is to get the lead to commit to a specific time for a phone call. Offer concrete time slots and push for a booking.",
+    "qualify": "Focus on Stage 1 NEPQ questions to uncover their pain points and motivations. Ask about their situation, family, and what got them looking.",
+    "reengage": "This is a cold lead who hasn't responded in a while. Use a soft, curious opener. Don't be pushy. Ask an easy question to restart the conversation.",
+    "follow_up": "Continue where you left off. Reference your previous conversation if possible. Check if they've thought about it or have any questions.",
+    "nurture": "Keep the relationship warm. Don't push for a booking yet. Ask about their life, build rapport, and stay top of mind.",
+    "objection_handling": "The lead has raised an objection. Use curiosity to understand their concern deeply before redirecting to the solution.",
+    "initial_outreach": "This is the first message. Introduce yourself briefly and ask what originally got them looking at life insurance.",
+    "general": "Follow the standard NEPQ framework. Assess where they are in the conversation and respond appropriately."
+}
+
+def extract_intent(data, message=""):
+    """Extract and normalize intent from request data or message content"""
+    raw_intent = data.get('intent') or data.get('Intent') or data.get('INTENT', '')
+    
+    if not raw_intent and 'custom_fields' in data:
+        for field in data.get('custom_fields', []):
+            if field.get('key', '').lower() == 'intent':
+                raw_intent = field.get('value', '')
+                break
+    
+    raw_intent = str(raw_intent).lower().strip().replace(' ', '_').replace('-', '_')
+    
+    intent_map = {
+        'book': 'book_appointment',
+        'book_appointment': 'book_appointment',
+        'booking': 'book_appointment',
+        'schedule': 'book_appointment',
+        'qualify': 'qualify',
+        'qualification': 'qualify',
+        'reengage': 'reengage',
+        're_engage': 'reengage',
+        're-engage': 'reengage',
+        'reengagement': 'reengage',
+        'follow_up': 'follow_up',
+        'followup': 'follow_up',
+        'follow': 'follow_up',
+        'nurture': 'nurture',
+        'warm': 'nurture',
+        'objection': 'objection_handling',
+        'objection_handling': 'objection_handling',
+        'initial': 'initial_outreach',
+        'initial_outreach': 'initial_outreach',
+        'outreach': 'initial_outreach',
+        'first_message': 'initial_outreach',
+        'respond': 'general',
+        'general': 'general',
+        '': 'general'
+    }
+    
+    normalized = intent_map.get(raw_intent, 'general')
+    
+    if normalized == 'general' and message:
+        lower_msg = message.lower()
+        if 'initial outreach' in lower_msg or 'first message' in lower_msg or 'just entered pipeline' in lower_msg:
+            normalized = 'initial_outreach'
+    
+    return normalized
+
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general"):
     """Generate NEPQ response using Grok AI"""
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+    
+    intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
     
     history_text = ""
     if conversation_history and len(conversation_history) > 0:
@@ -585,13 +646,21 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
 
 """
     
+    intent_section = f"""
+=== CURRENT INTENT/OBJECTIVE ===
+Intent: {intent}
+Directive: {intent_directive}
+===
+
+"""
+    
     user_content = f"""
 You are: {agent_name}
 Lead name: {first_name}
-{history_text}Latest message from lead: "{message}"
+{intent_section}{history_text}Latest message from lead: "{message}"
 Confirmation code to use if booking: {confirmation_code}
 
-Based on the conversation history above, generate ONE short NEPQ-style response that continues the conversation naturally.
+Based on the intent directive and conversation history above, generate ONE short NEPQ-style response that continues the conversation naturally.
 Do NOT repeat anything you've already said. Do NOT re-introduce yourself if you already have.
 No JSON, no markdown, no extra text. Just the response message.
 If you need to introduce yourself or sign off, use the name "{agent_name}".
@@ -667,6 +736,9 @@ def ghl_unified():
         conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
         logger.debug(f"Fetched {len(conversation_history)} messages from history")
         
+        intent = extract_intent(data, message)
+        logger.debug(f"Extracted intent in /ghl respond: {intent}")
+        
         start_time_iso, formatted_time, _ = parse_booking_time(message)
         appointment_created = False
         appointment_details = None
@@ -699,7 +771,7 @@ def ghl_unified():
                 reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
                 reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
             else:
-                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
+                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent)
             
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             
@@ -709,6 +781,7 @@ def ghl_unified():
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
                 "confirmation_code": confirmation_code,
+                "intent": intent,
                 "appointment_created": appointment_created,
                 "booking_attempted": bool(start_time_iso),
                 "booking_error": booking_error,
@@ -875,13 +948,15 @@ def index():
     first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
     message = data.get('message') or data.get('body') or data.get('text', '')
     agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
-    intent = data.get('intent', 'respond')
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
     logger.debug(f"Root webhook request: {safe_data}")
     
     if not message:
         message = "initial outreach - contact just entered pipeline, send first message to start conversation"
+    
+    intent = extract_intent(data, message)
+    logger.debug(f"Extracted intent: {intent}")
     
     conversation_history = []
     if contact_id and api_key and location_id:
@@ -928,7 +1003,7 @@ def index():
             reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
             reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
         else:
-            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
+            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent)
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
