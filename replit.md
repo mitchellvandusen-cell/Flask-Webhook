@@ -58,21 +58,18 @@ If `ghl_api_key` and `ghl_location_id` are not provided, the API falls back to e
 
 ## GHL Webhook Setup
 
-When setting up the webhook in GoHighLevel, use these Custom Data fields:
+When setting up the webhook in GoHighLevel:
 
-### For /ghl endpoint (recommended):
+**URL:** `https://InsuranceGrokBot.replit.app/`
+
+**Custom Data fields:**
 | Key | Value |
 |-----|-------|
-| action | respond |
 | contact_id | {{contact.id}} |
 | first_name | {{contact.first_name}} |
 | message | {{message.body}} |
 
-### For simple webhook (root URL /):
-| Key | Value |
-|-----|-------|
-| first_name | {{contact.first_name}} |
-| message | {{message.body}} |
+That's it! The API will generate an NEPQ response and automatically send it back to the contact via SMS.
 
 ## Unified /ghl Endpoint Actions
 
