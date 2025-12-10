@@ -29,37 +29,51 @@ The primary use case is life insurance lead re-engagement, where the AI assistan
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/ghl` | POST | **Unified GHL endpoint** - handles all actions (respond, appointment, stage, contact, search) |
 | `/` | POST | Main webhook - process message and return NEPQ response |
 | `/grok` | POST | Alias for main webhook |
 | `/webhook` | POST | Alias for main webhook |
-| `/ghl-webhook` | POST | GoHighLevel webhook - processes message and sends SMS response via GHL API |
-| `/ghl-appointment` | POST | Create appointment in GoHighLevel calendar |
-| `/ghl-stage` | POST | Update opportunity stage or create new opportunity in GHL |
+| `/ghl-webhook` | POST | Legacy - redirects to /ghl with action=respond |
+| `/ghl-appointment` | POST | Legacy - redirects to /ghl with action=appointment |
+| `/ghl-stage` | POST | Legacy - redirects to /ghl with action=stage |
 | `/outreach` | GET/POST | Returns "Up and running" (GET) or "OK" (POST) |
 | `/health` | GET | Health check endpoint |
 
-## Request Formats
+## Multi-Tenant Support
 
-### Basic Webhook (/, /grok, /webhook)
+The `/ghl` endpoint supports multiple users (you and your friends) by accepting GHL credentials in the request body:
+
 ```json
 {
+  "action": "respond",
+  "ghl_api_key": "your-friends-api-key",
+  "ghl_location_id": "your-friends-location-id",
+  "contact_id": "abc123",
   "first_name": "John",
-  "message": "I saw your ad about life insurance"
+  "message": "I saw your ad"
 }
 ```
 
-### GHL Webhook (/ghl-webhook)
+If `ghl_api_key` and `ghl_location_id` are not provided, the API falls back to environment variables (your default setup).
+
+## Unified /ghl Endpoint Actions
+
+### action: "respond" (default)
+Generate NEPQ response and send SMS
 ```json
 {
+  "action": "respond",
   "contact_id": "abc123",
   "first_name": "John",
   "message": "I saw your ad about life insurance"
 }
 ```
 
-### GHL Appointment (/ghl-appointment)
+### action: "appointment"
+Create calendar appointment
 ```json
 {
+  "action": "appointment",
   "contact_id": "abc123",
   "calendar_id": "cal123",
   "start_time": "2024-01-15T18:30:00Z",
@@ -68,18 +82,19 @@ The primary use case is life insurance lead re-engagement, where the AI assistan
 }
 ```
 
-### GHL Stage (/ghl-stage)
-Update existing opportunity:
+### action: "stage"
+Update or create opportunity
 ```json
 {
+  "action": "stage",
   "opportunity_id": "opp123",
   "stage_id": "stage456"
 }
 ```
-
-Create new opportunity:
+Or create new:
 ```json
 {
+  "action": "stage",
   "contact_id": "abc123",
   "pipeline_id": "pipe789",
   "stage_id": "stage456",
@@ -87,22 +102,46 @@ Create new opportunity:
 }
 ```
 
+### action: "contact"
+Get contact info
+```json
+{
+  "action": "contact",
+  "contact_id": "abc123"
+}
+```
+
+### action: "search"
+Search contacts by phone
+```json
+{
+  "action": "search",
+  "phone": "+15551234567"
+}
+```
+
 ## Response Format
 
 ```json
 {
-  "reply": "What originally got you looking at life insurance, John?"
+  "success": true,
+  "reply": "What originally got you looking at life insurance, John?",
+  "contact_id": "abc123",
+  "sms_sent": true,
+  "confirmation_code": "7K9X"
 }
 ```
 
 ## Environment Variables Required
 - `SESSION_SECRET`: Flask session encryption key
 - `XAI_API_KEY`: xAI/Grok API authentication
-- `GHL_API_KEY`: GoHighLevel Private Integration Token
-- `GHL_LOCATION_ID`: GoHighLevel Location ID
+- `GHL_API_KEY`: GoHighLevel Private Integration Token (optional if passed in body)
+- `GHL_LOCATION_ID`: GoHighLevel Location ID (optional if passed in body)
 
 ## Key Features
 - NEPQ methodology for non-pushy sales
+- Single unified `/ghl` endpoint for all GHL operations
+- Multi-tenant support via request body credentials
 - Automatic confirmation code generation for appointments
 - Em dash filtering (replaced with commas)
 - Short SMS-friendly responses (15-40 words)

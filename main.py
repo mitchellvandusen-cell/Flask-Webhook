@@ -29,10 +29,17 @@ def get_client():
 def generate_confirmation_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
-def get_ghl_credentials():
-    """Get GHL credentials from request headers or fall back to environment variables"""
-    api_key = request.headers.get('X-GHL-API-Key') or os.environ.get("GHL_API_KEY")
-    location_id = request.headers.get('X-GHL-Location-ID') or os.environ.get("GHL_LOCATION_ID")
+def get_ghl_credentials(data=None):
+    """
+    Get GHL credentials with priority:
+    1. Request body (ghl_api_key, ghl_location_id) - for multi-tenant via webhooks
+    2. Environment variables - for your own default setup
+    """
+    if data is None:
+        data = {}
+    
+    api_key = data.get('ghl_api_key') or os.environ.get("GHL_API_KEY")
+    location_id = data.get('ghl_location_id') or os.environ.get("GHL_LOCATION_ID")
     return api_key, location_id
 
 def get_ghl_headers(api_key):
@@ -345,7 +352,8 @@ Generate ONE short NEPQ-style response. No JSON, no markdown, no extra text. Jus
         temperature=0.7
     )
 
-    reply = response.choices[0].message.content.strip()
+    content = response.choices[0].message.content or ""
+    reply = content.strip()
     reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
     return reply, confirmation_code
 
@@ -355,9 +363,11 @@ def ghl_unified():
     """
     Unified GoHighLevel endpoint. Handles all GHL actions via a single URL.
     
-    Multi-tenant: Pass your GHL credentials via headers:
-    - X-GHL-API-Key: Your GHL Private Integration Token
-    - X-GHL-Location-ID: Your GHL Location ID
+    Multi-tenant: Pass GHL credentials in the JSON body:
+    - ghl_api_key: Your GHL Private Integration Token
+    - ghl_location_id: Your GHL Location ID
+    
+    If not provided, falls back to environment variables (for your own setup).
     
     Actions (specified via 'action' field in JSON body):
     
@@ -382,9 +392,10 @@ def ghl_unified():
     data = request.json or {}
     action = data.get('action', 'respond')
     
-    api_key, location_id = get_ghl_credentials()
+    api_key, location_id = get_ghl_credentials(data)
     
-    logger.debug(f"GHL unified request - action: {action}, data: {data}")
+    safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
+    logger.debug(f"GHL unified request - action: {action}, data: {safe_data}")
     
     if action == 'respond':
         contact_id = data.get('contact_id') or data.get('contactId')
