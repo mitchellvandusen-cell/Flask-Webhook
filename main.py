@@ -306,6 +306,9 @@ When they pick a time:
 
 === EXAMPLES ===
 
+Lead: "initial outreach - contact just entered pipeline, send first message to start conversation"
+→ "Hey {first_name}, I noticed you were looking into life insurance. What got you thinking about it?"
+
 Lead: "Hi, I saw your ad about life insurance"
 → "What originally got you looking at life insurance?"
 
@@ -565,6 +568,9 @@ def index():
     """
     Main webhook - generates NEPQ response and sends SMS automatically.
     Just set URL to https://InsuranceGrokBot.replit.app/ with Custom Data.
+    
+    If no message is provided (like for tag/pipeline triggers), generates
+    an initial outreach message to start the conversation.
     """
     data = request.json or {}
     
@@ -573,12 +579,13 @@ def index():
     contact_id = data.get('contact_id') or data.get('contactId')
     first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
     message = data.get('message') or data.get('body') or data.get('text', '')
+    intent = data.get('intent', 'respond')
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
     logger.debug(f"Root webhook request: {safe_data}")
     
     if not message:
-        return jsonify({"error": "message required"}), 400
+        message = "initial outreach - contact just entered pipeline, send first message to start conversation"
     
     try:
         reply, confirmation_code = generate_nepq_response(first_name, message)
@@ -590,13 +597,17 @@ def index():
                 "reply": reply,
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
-                "confirmation_code": confirmation_code
+                "confirmation_code": confirmation_code,
+                "intent": intent
             })
         else:
+            logger.warning(f"Missing credentials - contact_id: {contact_id}, api_key: {'set' if api_key else 'missing'}, location_id: {'set' if location_id else 'missing'}")
             return jsonify({
                 "success": True,
                 "reply": reply,
-                "confirmation_code": confirmation_code
+                "confirmation_code": confirmation_code,
+                "sms_sent": False,
+                "warning": "SMS not sent - missing contact_id or GHL credentials"
             })
     except Exception as e:
         logger.error(f"Error: {e}")
