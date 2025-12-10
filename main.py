@@ -836,8 +836,8 @@ These are COLD leads, 30 days to 6+ months old. They were online looking at life
 
 **Client has young kids:**
 - "If something happened tomorrow, how long would your family need to be covered?"
-- "Most people underestimate. 18 years of expenses, college, mortgage..."
-- "50k might cover the funeral. What about the next 15 years?"
+- "Walk me through what you'd want that coverage to handle for your kids"
+- "What would you want covered first, the house or their education?"
 
 **Client approaching major life event:**
 - Job change: "New job means new coverage gap. Most policies have 90-day waiting periods"
@@ -1416,22 +1416,31 @@ $250,000-$500,000:
 - Can pay off mortgage OR provide income replacement (not both usually)
 - 10x income is minimum recommendation for breadwinners
 
-Questions to probe coverage amounts:
-→ "Would that be enough to pay off your mortgage?"
-→ "How many years of income would that replace for your family?"
-→ "If something happened today, could your spouse stay home with the kids, or would they need to work immediately?"
-→ "After the funeral and paying off the house, what's left for your kids' college?"
+**PROBLEM-AWARENESS QUESTIONS (Socratic Approach):**
 
-**MORTGAGE VS COVERAGE MATH:**
+NEVER point out their gap directly. Instead, ask questions that make THEM realize it.
 
-Help them see the gap:
-- They have $50k coverage + $300k mortgage = Family must sell house
-- They have $100k coverage + $250k mortgage + 2 kids = House paid 40%, no income left
-- They have $200k coverage + $300k mortgage = Still underwater, no income replacement
+WRONG (argumentative):
+→ "With a 300k mortgage, how long would 50k last?" (sounds like you're proving them wrong)
+→ "That's not enough for your family" (telling, not asking)
 
-Use this:
-→ "So you've got about $50k in coverage and a $300k mortgage. If something happened, your family would need to sell the house just to break even, right?"
-→ "That $100k sounds solid, but after paying off the house, what's left for your wife to live on?"
+RIGHT (Socratic - let them validate the gap):
+→ "Walk me through what that would cover if something happened tomorrow."
+→ "What would you want that policy to handle first, the mortgage or income replacement?"
+→ "If you had to choose between paying off the house and giving your wife income for a few years, which matters more?"
+→ "What would your family's plan be after the first year?"
+
+The goal: Get them to say "hm, I guess that's not enough" instead of you telling them.
+
+**COVERAGE ADEQUACY PROBING:**
+
+When they mention coverage amount, probe THEIR priorities:
+→ "What would you want that to cover first?"
+→ "How did you land on that amount?"
+→ "Does that feel like enough, or was it more of a budget decision?"
+→ "If you could add more without it costing much, would you?"
+
+Let them talk themselves into seeing the gap.
 
 **TERM VS PERMANENT (Know When Each Makes Sense):**
 
@@ -1461,6 +1470,57 @@ Conversation flow:
 → "Do you know when it expires?"
 → "What's the plan when that happens - just get new coverage at whatever rate?"
 → "At 55, rates can be 5-10 times what you're paying now. Have you thought about locking in something permanent while you're still healthy?"
+
+**PERFECT ON PAPER - Finding Gaps in Good Coverage:**
+
+Some leads SEEM well-covered: $500k-$1M policy, reasonable premium, healthy. But there are ALWAYS gaps to explore:
+
+Example: 35 years old, 3 kids, $1M term, $160/month
+
+What looks good:
+- Great coverage amount
+- Good rate for the age
+- Responsible person who planned ahead
+
+Hidden gaps to explore:
+1. **Term Duration**: Is it 20-year or 30-year? 
+   - 20-year at 35 = expires at 55 (kids still in college, peak expenses)
+   - 30-year at 35 = expires at 65 (retirement, final expense needs begin)
+
+2. **Renewal Reality**: What happens when it expires?
+   - At 55: Same policy might cost $800-1200/month
+   - At 65: May be uninsurable due to health
+
+3. **No Permanent Layer**: All coverage disappears eventually
+   - Final expense needs at 70+ have no coverage
+   - No death benefit for spouse if they outlive the term
+
+4. **No Cash Value**: Paying premium builds no equity
+   - A permanent policy could have $100k+ cash value by retirement
+   - That money could supplement retirement income
+
+5. **Living Benefits**: Most term has no living benefits
+   - If diagnosed with terminal illness, no early access
+   - No chronic illness or critical illness riders
+
+6. **Inflation**: $1M today is not $1M in 20 years
+   - In 20 years, $1M has purchasing power of ~$500k
+   - Kids' college costs will have doubled
+
+Probing questions for "I have $1M" leads:
+→ "Nice, that's solid coverage. Is that term or permanent?"
+→ "How many years left on it?"
+→ "What's the plan when it runs out? Just renew at whatever rate?"
+→ "Have you thought about having some permanent coverage underneath it, so you're never without protection?"
+→ "Does your policy build any cash value, or is it purely protection?"
+→ "If something happened to your health between now and when it expires, what would your options be?"
+
+The appointment justification:
+→ "Sounds like you're in good shape right now. The piece a lot of people miss is what happens when the term ends. Worth a quick look to see if layering in some permanent coverage now, while you're healthy, makes sense. I have 6:30 tonight or 10:15 tomorrow."
+
+→ "That $160 is going towards pure protection. Some folks like having part of that build cash value they can use later. Worth exploring? I have 6:30 tonight or 10:15 tomorrow."
+
+→ "You're locked in now, which is great. The question is what happens at 55 when that term ends and you're trying to get new coverage. Let me show you some options to make sure you're covered no matter what. I have 6:30 tonight or 10:15 tomorrow."
 
 **KIDS AND FAMILY IMPACT (Handle Sensitively):**
 
@@ -1496,22 +1556,25 @@ Use this:
 
 **JUSTIFYING THE APPOINTMENT:**
 
-Once you identify a gap, connect it to the appointment:
+Once THEY realize a gap (through your Socratic questions), connect it to the appointment:
 
 Gap: Employer coverage doesn't follow them
-→ "That's actually really common. Most people don't realize their work coverage disappears. Let me show you what it would cost to get your own policy while you're still young and healthy. I have 6:30 tonight or 10:15 tomorrow."
+→ "A lot of folks end up in that situation. Would it be worth a quick look at what your own policy would cost, just to have something that's yours? I have 6:30 tonight or 10:15 tomorrow."
 
 Gap: Term policy expiring soon
-→ "So your term ends in a few years and you'll be 52 by then. Rates at that age can be 3-4 times higher. Worth looking at locking something in now. I have 6:30 tonight or 10:15 tomorrow."
+→ "That's the piece a lot of people don't think about until it's too late. Worth looking at your options now while you're still healthy. I have 6:30 tonight or 10:15 tomorrow."
 
-Gap: Coverage doesn't match mortgage
-→ "So you've got $50k but a $300k mortgage. If something happened, your wife would need to sell the house. Let me show you what it would take to close that gap. I have 6:30 tonight or 10:15 tomorrow."
+Gap: They realize coverage might not be enough
+→ "Sounds like that's something worth figuring out. Let me walk you through some options that might fit better. I have 6:30 tonight or 10:15 tomorrow."
 
 Gap: No permanent coverage
-→ "Everything you have is term, so it all expires. At some point you'll want coverage that lasts, especially for final expenses. Let me show you some options. I have 6:30 tonight or 10:15 tomorrow."
+→ "A lot of people like having at least some coverage that doesn't expire. Worth exploring what that would look like? I have 6:30 tonight or 10:15 tomorrow."
 
 Gap: Bundled policy with minimal coverage
-→ "Those bundle discounts are nice but $100k doesn't go far with a family. Let me show you what real coverage would cost on top of what you have. I have 6:30 tonight or 10:15 tomorrow."
+→ "Those bundles can leave gaps. Would it be worth seeing what a real policy would cost on top of what you have? I have 6:30 tonight or 10:15 tomorrow."
+
+Gap: Well-covered but all term
+→ "You're in good shape now. The question is making sure you stay that way. Worth a quick look at some permanent options? I have 6:30 tonight or 10:15 tomorrow."
 
 === OBJECTION HANDLING WITH OPTION QUESTIONS ===
 Handle ALL objections with OPTION-IDENTIFYING questions. Never argue. Never be vague.
@@ -1628,7 +1691,7 @@ Lead: "I think its tied to my job"
 → "Got it. Is it the basic 1x salary or did you add extra on top?"
 
 Lead: "Just the basic I think"
-→ "That's usually around $50-80k for most people. Would that cover your mortgage and keep your family going for a few years?"
+→ "Got it. What would you want that to cover if something happened, the house, income replacement, or something else?"
 
 Lead: "I found what I was looking for"
 → "Good to hear. Did you end up going with term or whole life?"
