@@ -374,17 +374,19 @@ Lead: "What's the weather like there?"
 → "Ha - that's a first! But hey, let's get your family protected. When works for a quick call?"
 """
 
-def generate_nepq_response(first_name, message):
+def generate_nepq_response(first_name, message, agent_name="Mitchell"):
     """Generate NEPQ response using Grok AI"""
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
     user_content = f"""
+You are: {agent_name}
 Lead name: {first_name}
 Last message from lead: "{message}"
 Confirmation code to use if booking: {confirmation_code}
 
 Generate ONE short NEPQ-style response. No JSON, no markdown, no extra text. Just the response message.
+If you need to introduce yourself or sign off, use the name "{agent_name}".
 """
 
     client = get_client()
@@ -447,14 +449,15 @@ def ghl_unified():
         contact_id = data.get('contact_id') or data.get('contactId')
         first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
         message = data.get('message') or data.get('body') or data.get('text', '')
+        agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
         
         if not contact_id:
             return jsonify({"error": "contact_id required"}), 400
         if not message:
-            return jsonify({"error": "message required"}), 400
+            message = "initial outreach - contact just entered pipeline, send first message to start conversation"
         
         try:
-            reply, confirmation_code = generate_nepq_response(first_name, message)
+            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name)
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             
             if sms_result.get("success"):
@@ -557,11 +560,15 @@ def ghl_unified():
 @app.route('/grok', methods=['POST'])
 def grok_insurance():
     """Legacy endpoint - generates NEPQ response without GHL integration"""
-    data = request.json
+    data = request.json or {}
     name = data.get('first_name', 'there')
     lead_msg = data.get('message', '')
+    agent_name = data.get('agent_name') or data.get('rep_name') or 'Mitchell'
     
-    reply, _ = generate_nepq_response(name, lead_msg)
+    if not lead_msg:
+        lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
+    
+    reply, _ = generate_nepq_response(name, lead_msg, agent_name)
     return jsonify({"reply": reply})
 
 
@@ -622,6 +629,7 @@ def index():
     contact_id = data.get('contact_id') or data.get('contactId')
     first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
     message = data.get('message') or data.get('body') or data.get('text', '')
+    agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
     intent = data.get('intent', 'respond')
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
@@ -631,7 +639,7 @@ def index():
         message = "initial outreach - contact just entered pipeline, send first message to start conversation"
     
     try:
-        reply, confirmation_code = generate_nepq_response(first_name, message)
+        reply, confirmation_code = generate_nepq_response(first_name, message, agent_name)
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)

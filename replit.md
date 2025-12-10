@@ -68,6 +68,16 @@ When setting up the webhook in GoHighLevel:
 | contact_id | {{contact.id}} |
 | first_name | {{contact.first_name}} |
 | message | {{message.body}} |
+| agent_name | Mitchell |
+
+Replace "Mitchell" with your name (or Devon, etc). The AI will identify as that person.
+
+For multi-tenant (friends using their own GHL accounts), also add:
+| Key | Value |
+|-----|-------|
+| ghl_api_key | (their private integration token) |
+| ghl_location_id | (their location ID) |
+| agent_name | Devon |
 
 That's it! The API will generate an NEPQ response and automatically send it back to the contact via SMS.
 
