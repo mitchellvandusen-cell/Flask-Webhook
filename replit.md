@@ -32,15 +32,58 @@ The primary use case is life insurance lead re-engagement, where the AI assistan
 | `/` | POST | Main webhook - process message and return NEPQ response |
 | `/grok` | POST | Alias for main webhook |
 | `/webhook` | POST | Alias for main webhook |
+| `/ghl-webhook` | POST | GoHighLevel webhook - processes message and sends SMS response via GHL API |
+| `/ghl-appointment` | POST | Create appointment in GoHighLevel calendar |
+| `/ghl-stage` | POST | Update opportunity stage or create new opportunity in GHL |
 | `/outreach` | GET/POST | Returns "Up and running" (GET) or "OK" (POST) |
 | `/health` | GET | Health check endpoint |
 
-## Request Format
+## Request Formats
 
+### Basic Webhook (/, /grok, /webhook)
 ```json
 {
   "first_name": "John",
   "message": "I saw your ad about life insurance"
+}
+```
+
+### GHL Webhook (/ghl-webhook)
+```json
+{
+  "contact_id": "abc123",
+  "first_name": "John",
+  "message": "I saw your ad about life insurance"
+}
+```
+
+### GHL Appointment (/ghl-appointment)
+```json
+{
+  "contact_id": "abc123",
+  "calendar_id": "cal123",
+  "start_time": "2024-01-15T18:30:00Z",
+  "duration_minutes": 30,
+  "title": "Life Insurance Consultation"
+}
+```
+
+### GHL Stage (/ghl-stage)
+Update existing opportunity:
+```json
+{
+  "opportunity_id": "opp123",
+  "stage_id": "stage456"
+}
+```
+
+Create new opportunity:
+```json
+{
+  "contact_id": "abc123",
+  "pipeline_id": "pipe789",
+  "stage_id": "stage456",
+  "name": "Life Insurance Lead"
 }
 ```
 
@@ -55,6 +98,8 @@ The primary use case is life insurance lead re-engagement, where the AI assistan
 ## Environment Variables Required
 - `SESSION_SECRET`: Flask session encryption key
 - `XAI_API_KEY`: xAI/Grok API authentication
+- `GHL_API_KEY`: GoHighLevel Private Integration Token
+- `GHL_LOCATION_ID`: GoHighLevel Location ID
 
 ## Key Features
 - NEPQ methodology for non-pushy sales

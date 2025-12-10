@@ -2,10 +2,20 @@ from flask import Flask, request, jsonify
 import os
 import random
 import string
+import logging
+import requests
+from datetime import datetime, timedelta
 from openai import OpenAI
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
+
+GHL_BASE_URL = "https://services.leadconnectorhq.com"
+GHL_API_KEY = os.environ.get("GHL_API_KEY")
+GHL_LOCATION_ID = os.environ.get("GHL_LOCATION_ID")
 
 _client = None
 
@@ -20,6 +30,149 @@ def get_client():
 
 def generate_confirmation_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+
+def get_ghl_headers():
+    return {
+        "Authorization": f"Bearer {GHL_API_KEY}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json"
+    }
+
+def send_sms_via_ghl(contact_id, message):
+    """Send SMS to a contact via GoHighLevel Conversations API"""
+    if not GHL_API_KEY or not GHL_LOCATION_ID:
+        logger.error("GHL credentials not set")
+        return {"success": False, "error": "GHL credentials not set"}
+    
+    url = f"{GHL_BASE_URL}/conversations/messages"
+    payload = {
+        "type": "SMS",
+        "contactId": contact_id,
+        "locationId": GHL_LOCATION_ID,
+        "message": message
+    }
+    
+    try:
+        response = requests.post(url, headers=get_ghl_headers(), json=payload)
+        response.raise_for_status()
+        logger.info(f"SMS sent successfully to contact {contact_id}")
+        return {"success": True, "data": response.json()}
+    except requests.RequestException as e:
+        logger.error(f"Failed to send SMS: {e}")
+        error_detail = str(e)
+        if hasattr(e, 'response') and e.response is not None:
+            try:
+                error_detail = e.response.json()
+            except:
+                error_detail = e.response.text
+        return {"success": False, "error": error_detail}
+
+def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, title="Life Insurance Consultation"):
+    """Create an appointment in GoHighLevel calendar"""
+    if not GHL_API_KEY:
+        logger.error("GHL_API_KEY not set")
+        return None
+    
+    url = f"{GHL_BASE_URL}/calendars/events"
+    payload = {
+        "calendarId": calendar_id,
+        "locationId": GHL_LOCATION_ID,
+        "contactId": contact_id,
+        "startTime": start_time,
+        "endTime": end_time,
+        "title": title,
+        "appointmentStatus": "confirmed"
+    }
+    
+    try:
+        response = requests.post(url, headers=get_ghl_headers(), json=payload)
+        response.raise_for_status()
+        logger.info(f"Appointment created for contact {contact_id}")
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to create appointment: {e}")
+        return None
+
+def get_contact_info(contact_id):
+    """Get contact details from GoHighLevel"""
+    if not GHL_API_KEY:
+        logger.error("GHL_API_KEY not set")
+        return None
+    
+    url = f"{GHL_BASE_URL}/contacts/{contact_id}"
+    
+    try:
+        response = requests.get(url, headers=get_ghl_headers())
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to get contact: {e}")
+        return None
+
+def update_contact_stage(opportunity_id, stage_id):
+    """Update an existing opportunity's stage in GoHighLevel"""
+    if not GHL_API_KEY:
+        logger.error("GHL_API_KEY not set")
+        return None
+    
+    url = f"{GHL_BASE_URL}/opportunities/{opportunity_id}"
+    payload = {
+        "stageId": stage_id
+    }
+    
+    try:
+        response = requests.put(url, headers=get_ghl_headers(), json=payload)
+        response.raise_for_status()
+        logger.info(f"Opportunity {opportunity_id} moved to stage {stage_id}")
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to update stage: {e}")
+        return None
+
+def create_opportunity(contact_id, pipeline_id, stage_id, name="Life Insurance Lead"):
+    """Create a new opportunity for a contact in GoHighLevel"""
+    if not GHL_API_KEY or not GHL_LOCATION_ID:
+        logger.error("GHL credentials not set")
+        return None
+    
+    url = f"{GHL_BASE_URL}/opportunities/"
+    payload = {
+        "pipelineId": pipeline_id,
+        "locationId": GHL_LOCATION_ID,
+        "contactId": contact_id,
+        "stageId": stage_id,
+        "status": "open",
+        "name": name
+    }
+    
+    try:
+        response = requests.post(url, headers=get_ghl_headers(), json=payload)
+        response.raise_for_status()
+        logger.info(f"Opportunity created for contact {contact_id}")
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to create opportunity: {e}")
+        return None
+
+def search_contacts_by_phone(phone):
+    """Search for a contact by phone number"""
+    if not GHL_API_KEY or not GHL_LOCATION_ID:
+        logger.error("GHL credentials not set")
+        return None
+    
+    url = f"{GHL_BASE_URL}/contacts/search"
+    payload = {
+        "locationId": GHL_LOCATION_ID,
+        "query": phone
+    }
+    
+    try:
+        response = requests.post(url, headers=get_ghl_headers(), json=payload)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to search contacts: {e}")
+        return None
 
 NEPQ_SYSTEM_PROMPT = """
 You are an elite life-insurance re-engagement closer using pure NEPQ (Neuro-Emotional Persuasion Questioning) methodology by Jeremy Miner.
@@ -213,6 +366,169 @@ def outreach():
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
+
+
+@app.route('/ghl-webhook', methods=['POST'])
+def ghl_webhook():
+    """
+    Handle incoming webhooks from GoHighLevel.
+    Accepts GHL webhook payload, generates NEPQ response, and sends SMS back via GHL API.
+    
+    Expected GHL webhook payload fields:
+    - contact_id: The GHL contact ID
+    - first_name: Contact's first name
+    - message or body: The incoming SMS message
+    - phone: Contact's phone number (optional, for lookup)
+    """
+    data = request.json
+    logger.debug(f"GHL webhook received: {data}")
+    
+    contact_id = data.get('contact_id') or data.get('contactId')
+    first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
+    message = data.get('message') or data.get('body') or data.get('text', '')
+    
+    if not contact_id:
+        logger.warning("No contact_id in webhook payload")
+        return jsonify({"error": "contact_id required"}), 400
+    
+    if not message:
+        logger.warning("No message in webhook payload")
+        return jsonify({"error": "message required"}), 400
+    
+    confirmation_code = generate_confirmation_code()
+    full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+    
+    user_content = f"""
+Lead name: {first_name}
+Last message from lead: "{message}"
+Confirmation code to use if booking: {confirmation_code}
+
+Generate ONE short NEPQ-style response. No JSON, no markdown, no extra text. Just the response message.
+"""
+
+    try:
+        client = get_client()
+        response = client.chat.completions.create(
+            model="grok-2-1212",
+            messages=[
+                {"role": "system", "content": full_prompt},
+                {"role": "user", "content": user_content}
+            ],
+            max_tokens=100,
+            temperature=0.7
+        )
+        
+        reply = response.choices[0].message.content.strip()
+        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
+        
+        sms_result = send_sms_via_ghl(contact_id, reply)
+        
+        if sms_result.get("success"):
+            return jsonify({
+                "success": True,
+                "reply": reply,
+                "contact_id": contact_id,
+                "sms_sent": True,
+                "confirmation_code": confirmation_code
+            })
+        else:
+            logger.error(f"SMS delivery failed: {sms_result.get('error')}")
+            return jsonify({
+                "success": False,
+                "reply": reply,
+                "contact_id": contact_id,
+                "sms_sent": False,
+                "sms_error": sms_result.get("error"),
+                "confirmation_code": confirmation_code
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error processing GHL webhook: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/ghl-appointment', methods=['POST'])
+def ghl_appointment():
+    """
+    Create an appointment in GoHighLevel.
+    
+    Expected payload:
+    - contact_id: The GHL contact ID
+    - calendar_id: The GHL calendar ID
+    - start_time: ISO format datetime (e.g., "2024-01-15T18:30:00Z")
+    - duration_minutes: Duration in minutes (default: 30)
+    - title: Appointment title (optional)
+    """
+    data = request.json
+    logger.debug(f"GHL appointment request: {data}")
+    
+    contact_id = data.get('contact_id') or data.get('contactId')
+    calendar_id = data.get('calendar_id') or data.get('calendarId')
+    start_time = data.get('start_time') or data.get('startTime')
+    duration_minutes = data.get('duration_minutes', 30)
+    title = data.get('title', 'Life Insurance Consultation')
+    
+    if not contact_id or not calendar_id or not start_time:
+        return jsonify({"error": "contact_id, calendar_id, and start_time required"}), 400
+    
+    try:
+        start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        end_dt = start_dt + timedelta(minutes=duration_minutes)
+        end_time = end_dt.isoformat()
+        
+        result = create_ghl_appointment(contact_id, calendar_id, start_time, end_time, title)
+        
+        if result:
+            return jsonify({"success": True, "appointment": result})
+        else:
+            return jsonify({"error": "Failed to create appointment"}), 500
+            
+    except Exception as e:
+        logger.error(f"Error creating appointment: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/ghl-stage', methods=['POST'])
+def ghl_stage():
+    """
+    Update an opportunity's stage in GoHighLevel, or create a new opportunity.
+    
+    For updating existing opportunity:
+    - opportunity_id: The existing opportunity ID
+    - stage_id: The stage ID to move to
+    
+    For creating new opportunity:
+    - contact_id: The GHL contact ID
+    - pipeline_id: The pipeline ID
+    - stage_id: The initial stage ID
+    - name: Opportunity name (optional)
+    """
+    data = request.json
+    logger.debug(f"GHL stage update request: {data}")
+    
+    opportunity_id = data.get('opportunity_id') or data.get('opportunityId')
+    contact_id = data.get('contact_id') or data.get('contactId')
+    pipeline_id = data.get('pipeline_id') or data.get('pipelineId')
+    stage_id = data.get('stage_id') or data.get('stageId')
+    name = data.get('name', 'Life Insurance Lead')
+    
+    if not stage_id:
+        return jsonify({"error": "stage_id required"}), 400
+    
+    if opportunity_id:
+        result = update_contact_stage(opportunity_id, stage_id)
+        if result:
+            return jsonify({"success": True, "opportunity": result})
+        else:
+            return jsonify({"error": "Failed to update stage"}), 500
+    elif contact_id and pipeline_id:
+        result = create_opportunity(contact_id, pipeline_id, stage_id, name)
+        if result:
+            return jsonify({"success": True, "opportunity": result, "created": True})
+        else:
+            return jsonify({"error": "Failed to create opportunity"}), 500
+    else:
+        return jsonify({"error": "Either opportunity_id OR (contact_id and pipeline_id) required"}), 400
 
 
 @app.route('/', methods=['POST'])

@@ -35,3 +35,8 @@ integrations = ["python_xai:1.0.0"]
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+GHL_LOCATION_ID = "k7l0zdwaMruhP7NZHin2"
