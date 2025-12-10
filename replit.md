@@ -5,10 +5,12 @@
 This is a Flask-based webhook API service that generates AI-powered sales responses using a blended sales methodology for life insurance lead re-engagement. The service receives inbound SMS/message data via webhooks, processes them through xAI's Grok model, and returns personalized sales responses optimized for SMS communication.
 
 ### Sales Framework Blend
-The AI uses three complementary frameworks:
+The AI uses five complementary frameworks:
 1. **NEPQ (Primary)**: Neuro-Emotional Persuasion Questioning by Jeremy Miner - questions create curiosity and uncover problems
 2. **Straight Line Persuasion**: Jordan Belfort - every message moves toward the goal, redirect elegantly when derailed
 3. **Psychology of Selling**: Brian Tracy - persistence wins, rejection is redirection, stay calm and curious
+4. **Never Split the Difference**: Chris Voss FBI negotiation - tactical empathy, calibrated questions ("How am I supposed to do that?"), labeling emotions ("It sounds like..."), mirroring, and getting to "That's right"
+5. **Gap Selling**: Keenan - understand Current State (where they are) vs Future State (where they want to be), the GAP is the value you provide; be an expert, not a friend
 
 ### Target Leads
 - Cold leads 30 days to 6+ months old
