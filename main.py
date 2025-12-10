@@ -32,6 +32,237 @@ def get_client():
 def generate_confirmation_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
+
+def extract_lead_profile(conversation_history, first_name, current_message):
+    """
+    Extract structured lead profile from conversation history.
+    This gives the LLM explicit context instead of raw history.
+    """
+    profile = {
+        "motivating_goal": None,
+        "blockers": [],
+        "coverage": {
+            "has_coverage": False,
+            "type": None,
+            "amount": None,
+            "employer": False,
+            "guaranteed_issue": False,
+            "carrier": None
+        },
+        "family": {
+            "spouse": False,
+            "kids": None,
+            "dependents": False
+        },
+        "age_context": {
+            "age": None,
+            "retiring_soon": False,
+            "employment_status": None
+        },
+        "health": {
+            "conditions": [],
+            "details": []
+        },
+        "questions_already_answered": [],
+        "key_quotes": []
+    }
+    
+    all_text = " ".join(conversation_history) + " " + current_message
+    all_text_lower = all_text.lower()
+    
+    # Extract family info
+    family_patterns = [
+        (r'(\d+)\s*kids?', 'kids'),
+        (r'wife|husband|spouse|married', 'spouse'),
+        (r'children|family|dependents', 'dependents')
+    ]
+    
+    for pattern, field in family_patterns:
+        match = re.search(pattern, all_text_lower)
+        if match:
+            if field == 'kids':
+                profile["family"]["kids"] = int(match.group(1))
+                profile["questions_already_answered"].append("family_size")
+            elif field == 'spouse':
+                profile["family"]["spouse"] = True
+                profile["questions_already_answered"].append("marital_status")
+            elif field == 'dependents':
+                profile["family"]["dependents"] = True
+    
+    # Extract coverage info
+    coverage_patterns = [
+        (r'(\d+)k?\s*(through|from|at|via)\s*work', 'employer_coverage'),
+        (r'(employer|work|job)\s*(coverage|policy|insurance)', 'employer_coverage'),
+        (r'colonial\s*penn|globe\s*life|aarp|guaranteed\s*(issue|acceptance)', 'guaranteed_issue'),
+        (r'(\d+)k?\s*(policy|coverage|worth)', 'coverage_amount'),
+        (r'term\s*(life|policy|insurance)', 'term'),
+        (r'whole\s*life', 'whole_life'),
+        (r'no\s*(health|medical)\s*questions', 'guaranteed_issue')
+    ]
+    
+    for pattern, field in coverage_patterns:
+        match = re.search(pattern, all_text_lower)
+        if match:
+            profile["coverage"]["has_coverage"] = True
+            profile["questions_already_answered"].append("has_coverage")
+            if field == 'employer_coverage':
+                profile["coverage"]["employer"] = True
+                profile["coverage"]["type"] = "employer"
+                profile["questions_already_answered"].append("coverage_type")
+                # Try to extract amount
+                amount_match = re.search(r'(\d+)k?', match.group(0))
+                if amount_match:
+                    profile["coverage"]["amount"] = amount_match.group(1) + "k"
+                    profile["questions_already_answered"].append("coverage_amount")
+            elif field == 'guaranteed_issue':
+                profile["coverage"]["guaranteed_issue"] = True
+                profile["coverage"]["type"] = "guaranteed_issue"
+                profile["questions_already_answered"].append("coverage_type")
+            elif field == 'coverage_amount':
+                profile["coverage"]["amount"] = match.group(1) + "k"
+                profile["questions_already_answered"].append("coverage_amount")
+            elif field == 'term':
+                profile["coverage"]["type"] = "term"
+            elif field == 'whole_life':
+                profile["coverage"]["type"] = "whole_life"
+    
+    # Extract motivating goals
+    goal_patterns = [
+        (r"(mom|dad|mother|father|parent).*(died|passed|death|funeral|bills?)", "family_death"),
+        (r"don'?t want.*(spouse|wife|husband|family|kids).*(go through|deal with|stuck)", "protect_family_from_burden"),
+        (r"worried.*(family|kids|wife|husband|children)", "family_protection"),
+        (r"(mortgage|house|home).*(paid|covered|protected)", "mortgage_protection"),
+        (r"(college|education|school).*(kids|children)", "education_funding"),
+        (r"leave.*(something|behind|legacy)", "leave_legacy")
+    ]
+    
+    for pattern, goal in goal_patterns:
+        match = re.search(pattern, all_text_lower)
+        if match:
+            profile["motivating_goal"] = goal
+            # Extract the actual quote for later use
+            for msg in conversation_history:
+                if re.search(pattern, msg.lower()):
+                    profile["key_quotes"].append(msg)
+                    break
+            profile["questions_already_answered"].append("motivating_goal")
+            break
+    
+    # Extract blockers
+    blocker_patterns = [
+        (r"(too|really)\s*(busy|swamped|slammed)", "too_busy"),
+        (r"not\s*interested", "not_interested"),
+        (r"(already|got).*(coverage|insurance|policy)", "has_coverage"),
+        (r"(can'?t|don'?t)\s*afford", "cost_concern"),
+        (r"don'?t\s*trust", "trust_issue"),
+        (r"(health|medical)\s*(issues?|problems?|conditions?)", "health_concerns")
+    ]
+    
+    for pattern, blocker in blocker_patterns:
+        if re.search(pattern, all_text_lower):
+            if blocker not in profile["blockers"]:
+                profile["blockers"].append(blocker)
+    
+    # Extract health conditions
+    health_patterns = [
+        (r"diabetes|diabetic|a1c|insulin|metformin", "diabetes"),
+        (r"heart\s*(attack|disease|condition|problems?)|cardiac|stent", "heart"),
+        (r"copd|breathing|oxygen|respiratory", "copd"),
+        (r"cancer|tumor|chemo|radiation|remission", "cancer"),
+        (r"stroke", "stroke"),
+        (r"blood\s*pressure|hypertension", "blood_pressure")
+    ]
+    
+    for pattern, condition in health_patterns:
+        if re.search(pattern, all_text_lower):
+            if condition not in profile["health"]["conditions"]:
+                profile["health"]["conditions"].append(condition)
+    
+    # Extract specific health details (A1C, years, etc)
+    a1c_match = re.search(r'a1c\s*(is|of|at)?\s*(\d+\.?\d*)', all_text_lower)
+    if a1c_match:
+        profile["health"]["details"].append(f"A1C: {a1c_match.group(2)}")
+    
+    insulin_match = re.search(r'(\d+)\s*(years?|yrs?)\s*(on\s*)?insulin', all_text_lower)
+    if insulin_match:
+        profile["health"]["details"].append(f"Insulin: {insulin_match.group(1)} years")
+    
+    # Extract age if mentioned
+    age_match = re.search(r"i'?m\s*(\d{2})|(\d{2})\s*(years?\s*old|yo)", all_text_lower)
+    if age_match:
+        age = age_match.group(1) or age_match.group(2)
+        profile["age_context"]["age"] = int(age)
+        profile["questions_already_answered"].append("age")
+    
+    # Check for retirement mentions
+    if re.search(r'retir(e|ing|ement)|about\s*to\s*(stop|quit)\s*work', all_text_lower):
+        profile["age_context"]["retiring_soon"] = True
+    
+    return profile
+
+
+def format_lead_profile_for_llm(profile, first_name):
+    """Format the extracted profile as a clear section for the LLM"""
+    sections = []
+    
+    sections.append(f"=== LEAD PROFILE FOR {first_name.upper()} (Use this information - do NOT re-ask) ===")
+    
+    # Family
+    family_info = []
+    if profile["family"]["spouse"]:
+        family_info.append("Has spouse")
+    if profile["family"]["kids"]:
+        family_info.append(f"{profile['family']['kids']} kids")
+    if family_info:
+        sections.append(f"FAMILY: {', '.join(family_info)}")
+    
+    # Coverage
+    if profile["coverage"]["has_coverage"]:
+        coverage_info = []
+        if profile["coverage"]["type"]:
+            coverage_info.append(profile["coverage"]["type"].replace("_", " "))
+        if profile["coverage"]["amount"]:
+            coverage_info.append(profile["coverage"]["amount"])
+        if profile["coverage"]["employer"]:
+            coverage_info.append("through employer")
+        if profile["coverage"]["guaranteed_issue"]:
+            coverage_info.append("guaranteed issue (likely overpaying)")
+        sections.append(f"CURRENT COVERAGE: {', '.join(coverage_info)}")
+    
+    # Motivating goal
+    if profile["motivating_goal"]:
+        goal_text = profile["motivating_goal"].replace("_", " ")
+        sections.append(f"MOTIVATING GOAL: {goal_text}")
+        if profile["key_quotes"]:
+            sections.append(f"THEIR WORDS: \"{profile['key_quotes'][0]}\"")
+    
+    # Blockers
+    if profile["blockers"]:
+        sections.append(f"BLOCKERS: {', '.join([b.replace('_', ' ') for b in profile['blockers']])}")
+    
+    # Health
+    if profile["health"]["conditions"]:
+        health_info = profile["health"]["conditions"]
+        if profile["health"]["details"]:
+            health_info = health_info + profile["health"]["details"]
+        sections.append(f"HEALTH: {', '.join(health_info)}")
+    
+    # Age context
+    if profile["age_context"]["age"]:
+        age_info = [f"Age {profile['age_context']['age']}"]
+        if profile["age_context"]["retiring_soon"]:
+            age_info.append("retiring soon")
+        sections.append(f"AGE/LIFECYCLE: {', '.join(age_info)}")
+    
+    # Questions already answered - CRITICAL
+    if profile["questions_already_answered"]:
+        sections.append(f"\nDO NOT ASK ABOUT: {', '.join(profile['questions_already_answered'])}")
+        sections.append("These topics were already covered. Build on this info, don't repeat questions.")
+    
+    sections.append("=== END PROFILE ===\n")
+    
+    return "\n".join(sections)
+
 def get_ghl_credentials(data=None):
     """
     Get GHL credentials with priority:
@@ -412,6 +643,68 @@ Say something like: "Good news, with [their condition details], you've got way m
 
 DO NOT ask another question after they've already given you their health details. Assess and respond.
 
+=== MEMORY PROTOCOL (CRITICAL - READ EVERY MESSAGE) ===
+
+**BEFORE EVERY RESPONSE, mentally extract and track these 5 DISCOVERY PILLARS from the conversation history:**
+
+**PILLAR 1: TRUE MOTIVATING GOAL**
+Why do they REALLY want life insurance? Look for emotional drivers:
+- "My mom just died and I'm stuck with the bill"
+- "I don't want my husband to go through this"
+- "I want my kids to be taken care of"
+- "I want to leave something behind"
+Store this. Use it later when they pull back.
+
+**PILLAR 2: WHAT'S HELD THEM BACK**
+Why haven't they gotten proper coverage yet?
+- Too expensive
+- Didn't trust the agent
+- Got busy/forgot
+- Health issues they think disqualify them
+- Already have "something" (work, GI policy)
+
+**PILLAR 3: COVERAGE SNAPSHOT**
+What do they currently have?
+- Employer coverage (amount, portable?)
+- Guaranteed issue policy (Colonial Penn, Globe Life, etc.)
+- Term, whole life, or nothing
+- How long have they had it?
+
+**PILLAR 4: FIT & GAPS**
+Is their current coverage actually enough?
+- Coverage amount vs. family needs
+- Does it cover what they think?
+- Waiting periods, exclusions?
+- Would it actually pay out?
+
+**PILLAR 5: AGE & LIFECYCLE**
+Critical context that affects urgency:
+- Age (especially 55+)
+- Retirement timing (work coverage ends!)
+- Family situation (kids, spouse, dependents)
+- Employment status (job changes = coverage loss)
+
+**DUPLICATE QUESTION PREVENTION (MANDATORY):**
+- BEFORE asking any question, check if the client already answered it in the conversation
+- If they said "I have a wife and 2 kids" → NEVER ask "do you have family?"
+- If they said "50k through work" → NEVER ask "do you have coverage?"
+- If they said "my mom just died" → NEVER ask "what got you looking?"
+- EACH QUESTION MUST BUILD ON WHAT YOU ALREADY KNOW
+
+**STRATEGIC USE OF STORED INFORMATION:**
+
+When client becomes non-committal or pulls back:
+1. Use TACTICAL EMPATHY: "I hear you, and I get it"
+2. REITERATE THEIR GOAL: "You mentioned you didn't want [spouse] to go through what you went through with [situation]"
+3. CONSEQUENCE QUESTION: "What happens if you keep putting this off and something happens before you get proper coverage?"
+4. BRIDGE TO APPOINTMENT: "That's exactly why a quick 15-minute call makes sense. Let's at least see where you stand."
+
+**Example of using stored information:**
+- Client earlier said: "My mom died and I'm stuck with her bills, I don't want my husband to deal with this"
+- Client now says: "I don't know, I'm pretty busy this week"
+- WRONG: "When would be a better time?" (weak)
+- RIGHT: "I totally get it. But you mentioned you don't want your husband dealing with what you went through with your mom. A quick call could give you peace of mind that he won't have to. Does 6:30 tonight or 10:15 tomorrow work better?"
+
 === YOUR SALES PHILOSOPHY (Internalize This) ===
 You blend FIVE proven frameworks into one natural style:
 
@@ -504,6 +797,34 @@ These are COLD leads, 30 days to 6+ months old. They were online looking at life
 - EVERYONE needs a policy review
 - The problem they were trying to solve still exists
 
+=== AGE & LIFECYCLE CONSEQUENCES (Use These Strategically) ===
+
+**Client is 55-65 with employer coverage:**
+- "Do you know what happens to that coverage when you retire?"
+- "Most employer policies either end or the premiums skyrocket at retirement"
+- "At 62, you're at the sweet spot. Locking in rates now means you're covered through retirement"
+- "If you wait until after retirement, you'll either pay 3x more or not qualify at all"
+
+**Client thinks work coverage will "convert":**
+- "Did they tell you what the conversion rate would be?"
+- "Most people are shocked. A $50k work policy can cost $400/month to convert at 65"
+- "The conversion isn't at your current rate. It's at your AGE rate, with no health discount"
+
+**Client is putting it off:**
+- "Every year you wait, rates go up about 8-10%. Plus, health can change overnight"
+- "What happens if you have a heart attack next year and can't qualify anywhere?"
+- "The best time to get coverage was 10 years ago. The second best time is now"
+
+**Client has young kids:**
+- "If something happened tomorrow, how long would your family need to be covered?"
+- "Most people underestimate. 18 years of expenses, college, mortgage..."
+- "50k might cover the funeral. What about the next 15 years?"
+
+**Client approaching major life event:**
+- Job change: "New job means new coverage gap. Most policies have 90-day waiting periods"
+- Retirement: "This is the last chance to lock in rates while you're still employed"
+- Kids leaving: "Now's actually the perfect time to right-size your coverage"
+
 === EXPLORATORY QUESTIONS TO UNCOVER ===
 If they did get coverage elsewhere, find out:
 - When did they get it?
@@ -512,6 +833,8 @@ If they did get coverage elsewhere, find out:
 - Is it Term, Whole Life, or IUL?
 - Is it guaranteed issue? (usually means they overpaid)
 - Is there a waiting period? (red flag for bad policy)
+- How old are they? (affects urgency and options)
+- Are they approaching retirement? (work coverage ends!)
 
 These questions determine if they were properly helped. The answer is almost always NO, they need a policy review.
 
@@ -1282,6 +1605,13 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     
     intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
     
+    # Extract structured lead profile from conversation
+    if conversation_history is None:
+        conversation_history = []
+    
+    lead_profile = extract_lead_profile(conversation_history, first_name, message)
+    profile_text = format_lead_profile_for_llm(lead_profile, first_name)
+    
     history_text = ""
     if conversation_history and len(conversation_history) > 0:
         history_text = f"""
@@ -1289,7 +1619,13 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
+{profile_text}
 """
+    else:
+        # Even without history, include profile from current message
+        if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
+                lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
+            history_text = profile_text
     
     intent_section = f"""
 === CURRENT INTENT/OBJECTIVE ===
@@ -1608,10 +1944,13 @@ def index():
     intent = extract_intent(data, message)
     logger.debug(f"Extracted intent: {intent}")
     
-    conversation_history = []
-    if contact_id and api_key and location_id:
+    # Support conversation_history from request body (for testing) or fetch from GHL
+    conversation_history = data.get('conversation_history', [])
+    if not conversation_history and contact_id and api_key and location_id:
         conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
         logger.debug(f"Fetched {len(conversation_history)} messages from history")
+    elif conversation_history:
+        logger.debug(f"Using {len(conversation_history)} messages from request body")
     
     start_time_iso, formatted_time, original_time_text = parse_booking_time(message)
     appointment_created = False
