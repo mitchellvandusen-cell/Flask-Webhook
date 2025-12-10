@@ -484,7 +484,7 @@ def ghl_unified():
     
     elif action == 'appointment':
         contact_id = data.get('contact_id') or data.get('contactId')
-        calendar_id = data.get('calendar_id') or data.get('calendarId')
+        calendar_id = data.get('calendar_id') or data.get('calendarId') or os.environ.get('GHL_CALENDAR_ID')
         start_time = data.get('start_time') or data.get('startTime')
         duration_minutes = data.get('duration_minutes', 30)
         title = data.get('title', 'Life Insurance Consultation')
