@@ -222,7 +222,40 @@ def parse_booking_time(message, timezone_str="America/Chicago"):
     
     now = datetime.now(tz)
     
-    parsed = dateparser.parse(message, settings={
+    time_patterns_with_specific_time = [
+        r'(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm))',
+        r'(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+(?:on\s+)?(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)',
+        r'(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))',
+        r'(tomorrow|today)\s+at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)',
+    ]
+    
+    time_text = None
+    for pattern in time_patterns_with_specific_time:
+        match = re.search(pattern, message_lower)
+        if match:
+            time_text = match.group(0)
+            break
+    
+    has_specific_time = False
+    if not time_text:
+        day_match = re.search(r'\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', message_lower)
+        time_match = re.search(r'\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b', message_lower)
+        period_match = re.search(r'\b(morning|afternoon|evening)\b', message_lower)
+        
+        if day_match and (time_match or period_match):
+            if time_match:
+                time_text = f"{day_match.group(1)} at {time_match.group(1)}"
+                has_specific_time = True
+            else:
+                time_text = day_match.group(1)
+    else:
+        has_specific_time = True
+    
+    if not time_text:
+        return None, None, None
+    
+    parsed = dateparser.parse(time_text, settings={
+        'PREFER_DATES_FROM': 'future',
         'PREFER_DAY_OF_MONTH': 'first',
         'TIMEZONE': timezone_str,
         'RETURN_AS_TIMEZONE_AWARE': True
@@ -232,15 +265,15 @@ def parse_booking_time(message, timezone_str="America/Chicago"):
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=tz)
         
-        if parsed.hour == 0 and parsed.minute == 0:
+        if not has_specific_time:
             if 'morning' in message_lower:
-                parsed = parsed.replace(hour=10, minute=0)
+                parsed = parsed.replace(hour=10, minute=0, second=0, microsecond=0)
             elif 'afternoon' in message_lower:
-                parsed = parsed.replace(hour=14, minute=0)
+                parsed = parsed.replace(hour=14, minute=0, second=0, microsecond=0)
             elif 'evening' in message_lower or 'tonight' in message_lower:
-                parsed = parsed.replace(hour=18, minute=0)
+                parsed = parsed.replace(hour=18, minute=0, second=0, microsecond=0)
             else:
-                parsed = parsed.replace(hour=10, minute=0)
+                parsed = parsed.replace(hour=10, minute=0, second=0, microsecond=0)
         
         if parsed <= now:
             return None, None, None
