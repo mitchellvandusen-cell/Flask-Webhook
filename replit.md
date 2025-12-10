@@ -194,13 +194,17 @@ Search contacts by phone
 ## Key Features
 - NEPQ methodology for non-pushy sales
 - Single unified `/ghl` endpoint for all GHL operations
-- Multi-tenant support via request body credentials
+- Multi-tenant support via request body credentials (including calendar_id)
 - Automatic confirmation code generation for appointments
 - Em dash filtering (replaced with commas)
 - Short SMS-friendly responses (15-40 words)
 - **Auto-booking**: Detects natural language times (e.g., "tuesday at 10am", "tomorrow afternoon") and automatically creates calendar appointments
+- **Dynamic assignedUserId**: Automatically fetches the team member from calendar metadata
 - Timezone-aware scheduling (defaults to Central Time)
 - Proper error handling with HTTP 422 for booking failures
+
+## Test Contact
+- **Mitchell VanDusen**: Contact ID `ETrze7esz1r1kAG9rgfN`, Phone: 605-900-6562
 
 ## Key Files
 - `main.py` - Complete Flask application with NEPQ system prompt
