@@ -37,6 +37,9 @@ def extract_lead_profile(conversation_history, first_name, current_message):
     """
     Extract structured lead profile from conversation history.
     This gives the LLM explicit context instead of raw history.
+    
+    CRITICAL: Only extract from LEAD messages, not agent messages.
+    This prevents treating agent questions as answered facts.
     """
     profile = {
         "motivating_goal": None,
@@ -67,7 +70,23 @@ def extract_lead_profile(conversation_history, first_name, current_message):
         "key_quotes": []
     }
     
-    all_text = " ".join(conversation_history) + " " + current_message
+    # CRITICAL: Only extract from lead messages, not agent messages
+    # Filter to only messages from the lead (not "You:" prefixed)
+    lead_messages = []
+    for msg in conversation_history:
+        msg_stripped = msg.strip()
+        # Skip agent messages (prefixed with "You:", "Agent:", "Mitchell:", etc)
+        if msg_stripped.startswith(("You:", "Agent:", "Mitchell:", "Devon:", "Rep:")):
+            continue
+        # Extract content after "Lead:" prefix if present
+        if msg_stripped.startswith("Lead:"):
+            lead_messages.append(msg_stripped[5:].strip())
+        else:
+            # If no prefix, assume it might be a lead message (raw format)
+            lead_messages.append(msg_stripped)
+    
+    # Combine lead messages with current message for extraction
+    all_text = " ".join(lead_messages) + " " + current_message
     all_text_lower = all_text.lower()
     
     # Extract family info
