@@ -81,11 +81,46 @@ def send_sms_via_ghl(contact_id, message, api_key, location_id):
                 error_detail = e.response.text
         return {"success": False, "error": error_detail}
 
-def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_key, location_id, title="Life Insurance Consultation"):
+def get_calendar_info(calendar_id, api_key):
+    """Get calendar details including team members from GoHighLevel"""
+    if not api_key or not calendar_id:
+        return None
+    
+    url = f"{GHL_BASE_URL}/calendars/{calendar_id}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-04-15",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to get calendar info: {e}")
+        return None
+
+def get_calendar_assigned_user(calendar_id, api_key):
+    """Get the first assigned user ID from a calendar's team members"""
+    calendar_data = get_calendar_info(calendar_id, api_key)
+    if calendar_data and 'calendar' in calendar_data:
+        team_members = calendar_data['calendar'].get('teamMembers', [])
+        if team_members:
+            return team_members[0].get('userId')
+    return None
+
+def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_key, location_id, title="Life Insurance Consultation", assigned_user_id=None):
     """Create an appointment in GoHighLevel calendar"""
     if not api_key:
         logger.error("GHL_API_KEY not set")
-        return None
+        return {"success": False, "error": "GHL_API_KEY not set"}
+    
+    if not assigned_user_id:
+        assigned_user_id = get_calendar_assigned_user(calendar_id, api_key)
+        if not assigned_user_id:
+            logger.error("No assignedUserId found for calendar")
+            return {"success": False, "error": "No team member assigned to calendar"}
     
     url = f"{GHL_BASE_URL}/calendars/events/appointments"
     headers = {
@@ -101,6 +136,7 @@ def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_ke
         "endTime": end_time,
         "title": title,
         "appointmentStatus": "confirmed",
+        "assignedUserId": assigned_user_id,
         "ignoreFreeSlotValidation": True
     }
     
@@ -108,15 +144,18 @@ def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_ke
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         logger.info(f"Appointment created for contact {contact_id}")
-        return response.json()
+        return {"success": True, "data": response.json()}
     except requests.RequestException as e:
         logger.error(f"Failed to create appointment: {e}")
+        error_detail = str(e)
         if hasattr(e, 'response') and e.response is not None:
             try:
-                logger.error(f"Response: {e.response.json()}")
+                error_detail = e.response.json()
+                logger.error(f"Response: {error_detail}")
             except:
-                logger.error(f"Response: {e.response.text}")
-        return None
+                error_detail = e.response.text
+                logger.error(f"Response: {error_detail}")
+        return {"success": False, "error": error_detail}
 
 def get_contact_info(contact_id, api_key):
     """Get contact details from GoHighLevel"""
@@ -628,27 +667,61 @@ def ghl_unified():
         conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
         logger.debug(f"Fetched {len(conversation_history)} messages from history")
         
+        start_time_iso, formatted_time, _ = parse_booking_time(message)
+        appointment_created = False
+        appointment_details = None
+        booking_error = None
+        
+        if start_time_iso and contact_id and api_key and location_id:
+            logger.info(f"Detected booking time in /ghl respond: {formatted_time}")
+            calendar_id = data.get('calendar_id') or data.get('calendarId') or os.environ.get('GHL_CALENDAR_ID')
+            if calendar_id:
+                start_dt = datetime.fromisoformat(start_time_iso)
+                end_dt = start_dt + timedelta(minutes=30)
+                end_time_iso = end_dt.isoformat()
+                
+                appointment_result = create_ghl_appointment(
+                    contact_id, calendar_id, start_time_iso, end_time_iso,
+                    api_key, location_id, "Life Insurance Consultation"
+                )
+                
+                if appointment_result.get("success"):
+                    appointment_created = True
+                    appointment_details = {"formatted_time": formatted_time}
+                else:
+                    booking_error = appointment_result.get("error", "Appointment creation failed")
+            else:
+                booking_error = "Calendar not configured"
+        
         try:
-            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
+            if appointment_created and appointment_details:
+                confirmation_code = generate_confirmation_code()
+                reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
+                reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+            else:
+                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
+            
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             
+            response_data = {
+                "success": True if not booking_error else False,
+                "reply": reply,
+                "contact_id": contact_id,
+                "sms_sent": sms_result.get("success", False),
+                "confirmation_code": confirmation_code,
+                "appointment_created": appointment_created,
+                "booking_attempted": bool(start_time_iso),
+                "booking_error": booking_error,
+                "time_detected": formatted_time
+            }
+            if appointment_created:
+                response_data["appointment_time"] = formatted_time
+            
             if sms_result.get("success"):
-                return jsonify({
-                    "success": True,
-                    "reply": reply,
-                    "contact_id": contact_id,
-                    "sms_sent": True,
-                    "confirmation_code": confirmation_code
-                })
+                return jsonify(response_data), 200 if not booking_error else 422
             else:
-                return jsonify({
-                    "success": False,
-                    "reply": reply,
-                    "contact_id": contact_id,
-                    "sms_sent": False,
-                    "sms_error": sms_result.get("error"),
-                    "confirmation_code": confirmation_code
-                }), 500
+                response_data["sms_error"] = sms_result.get("error")
+                return jsonify(response_data), 500
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return jsonify({"error": str(e)}), 500
@@ -670,10 +743,10 @@ def ghl_unified():
             
             result = create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_key, location_id, title)
             
-            if result:
-                return jsonify({"success": True, "appointment": result})
+            if result.get("success"):
+                return jsonify({"success": True, "appointment": result.get("data")})
             else:
-                return jsonify({"error": "Failed to create appointment"}), 500
+                return jsonify({"success": False, "error": result.get("error", "Failed to create appointment")}), 422
         except Exception as e:
             logger.error(f"Error creating appointment: {e}")
             return jsonify({"error": str(e)}), 500
@@ -837,16 +910,17 @@ def index():
                 api_key, location_id, "Life Insurance Consultation"
             )
             
-            if appointment_result:
+            if appointment_result.get("success"):
                 appointment_created = True
                 appointment_details = {
                     "start_time": start_time_iso,
-                    "formatted_time": formatted_time
+                    "formatted_time": formatted_time,
+                    "appointment_id": appointment_result.get("data", {}).get("id")
                 }
                 logger.info(f"Appointment created for {formatted_time}")
             else:
                 logger.error(f"Failed to create appointment for {formatted_time}")
-                booking_error = "Appointment creation failed"
+                booking_error = appointment_result.get("error", "Appointment creation failed")
     
     try:
         if appointment_created and appointment_details:
