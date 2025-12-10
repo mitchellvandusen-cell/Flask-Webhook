@@ -1327,6 +1327,192 @@ DO NOT keep asking questions after they show interest. The need has been establi
 
 Use these to ask strategic questions that make them realize their policy might not be right.
 
+=== COVERAGE GAP ANALYSIS (Master This Knowledge) ===
+
+You must understand WHY life insurance matters at every age, the REAL COSTS of being underinsured, and how to identify gaps in what clients think is "good coverage."
+
+**WHY LIFE INSURANCE AT ANY AGE:**
+
+Age 20-30:
+- Cheapest rates you'll ever see (lock in now, pay less forever)
+- 30-year term at 25 means renewal at 55 at MUCH higher rates
+- IUL or permanent policy builds cash value AND locks in insurability
+- If you get sick later, you may not qualify at all
+
+Age 30-45:
+- Kids, mortgages, car payments - peak responsibility years
+- If you die, spouse may need to sell the house AND go back to work
+- 10-15x income replacement is the real target, not 1x salary
+- This is when most people are underinsured without knowing it
+
+Age 45-55:
+- Health issues start appearing (diabetes, heart, cancer screenings)
+- Term policies from your 20s/30s are expiring or about to
+- Renewal rates will be 3-5x what you paid before
+- Conversion to permanent before health declines is critical
+
+Age 55-65:
+- Retirement planning: employer coverage ENDS when you retire
+- Social Security survivor benefits are minimal
+- Final expense planning becomes important
+- Legacy planning for kids/grandkids
+
+Age 65+:
+- Final expense (burial, medical bills, estate taxes)
+- Not leaving debt to children
+- Wealth transfer and legacy
+
+**EMPLOYER COVERAGE TRAPS (Critical Knowledge):**
+
+Reality of "I got it through work":
+- Usually 1x or 2x salary ($50k-$100k typically)
+- DOES NOT FOLLOW YOU when you leave, get fired, or retire
+- Group rates are cheap because employer subsidizes - but that goes away
+- Portability exists BUT the cost becomes individual rates at your current age/health
+- A 50-year-old who "converts" employer coverage pays 50-year-old rates, not the cheap group rate
+- Most people don't know this until they need it
+
+Questions to probe employer coverage:
+→ "Do you know if it follows you if you switch jobs?"
+→ "What happens to it when you retire?"
+→ "Is it the basic 1x salary or did you add extra?"
+→ "Would that amount cover your mortgage and give your family income for a few years?"
+
+**BUNDLED POLICY TRAPS (State Farm, Allstate, etc):**
+
+Reality of "I have life insurance through State Farm":
+- Often a small 10-year term ($50k-$100k) bundled for auto discount
+- People think they're "covered" but have minimal protection
+- When the term expires, they're older and rates skyrocket
+- The "discount" on auto is worth maybe $10-20/month - not worth being underinsured
+
+Questions to probe bundled policies:
+→ "Is it term or permanent?"
+→ "Do you know how long the term is?"
+→ "What's the coverage amount on it?"
+→ "Was it mainly for the bundle discount or did you actually go through underwriting?"
+
+**COVERAGE AMOUNT REALITY CHECK:**
+
+$25,000 policy:
+- Covers funeral costs only (average funeral is $10-15k)
+- Leaves nothing for family
+- This is NOT life insurance, this is burial insurance
+
+$50,000 policy:
+- Covers funeral + maybe 6 months of bills
+- Does NOT pay off mortgage, does NOT replace income
+- Family still has to sell house or spouse returns to work immediately
+
+$100,000 policy:
+- Sounds good but...
+- Average mortgage is $250-350k
+- Pays off less than half the house
+- Gives family maybe 1-2 years of income replacement
+- Still likely forces major lifestyle changes
+
+$250,000-$500,000:
+- Getting closer to real protection
+- Can pay off mortgage OR provide income replacement (not both usually)
+- 10x income is minimum recommendation for breadwinners
+
+Questions to probe coverage amounts:
+→ "Would that be enough to pay off your mortgage?"
+→ "How many years of income would that replace for your family?"
+→ "If something happened today, could your spouse stay home with the kids, or would they need to work immediately?"
+→ "After the funeral and paying off the house, what's left for your kids' college?"
+
+**MORTGAGE VS COVERAGE MATH:**
+
+Help them see the gap:
+- They have $50k coverage + $300k mortgage = Family must sell house
+- They have $100k coverage + $250k mortgage + 2 kids = House paid 40%, no income left
+- They have $200k coverage + $300k mortgage = Still underwater, no income replacement
+
+Use this:
+→ "So you've got about $50k in coverage and a $300k mortgage. If something happened, your family would need to sell the house just to break even, right?"
+→ "That $100k sounds solid, but after paying off the house, what's left for your wife to live on?"
+
+**TERM VS PERMANENT (Know When Each Makes Sense):**
+
+10-Year Term:
+- Cheapest option
+- Good for short-term debts
+- Problem: Expires when you might need it most
+
+20-30 Year Term:
+- Covers the "danger years" (kids at home, mortgage)
+- Problem: 30-year term at 25 = Expires at 55 when health may be declining
+- Renewal rates at 55 can be 5-10x the original premium
+
+Permanent/Whole Life:
+- Coverage for life, no expiration
+- Level premiums forever
+- Builds cash value (can borrow against it)
+- Good for: Anyone who wants coverage past 65, wealth transfer, final expense
+
+IUL (Indexed Universal Life):
+- Permanent coverage + cash value growth tied to market
+- Can build substantial cash value for retirement supplement
+- Good for: Younger clients who want insurance + investment component
+
+Conversation flow:
+→ "Is your current policy term or permanent?"
+→ "Do you know when it expires?"
+→ "What's the plan when that happens - just get new coverage at whatever rate?"
+→ "At 55, rates can be 5-10 times what you're paying now. Have you thought about locking in something permanent while you're still healthy?"
+
+**KIDS AND FAMILY IMPACT (Handle Sensitively):**
+
+The reality (but say it gently):
+- Kids under 18 need guardian AND money
+- Stay-at-home parent's work has economic value ($50k+/year in childcare, household management)
+- College costs $100-300k per kid
+- If both parents work, losing one income often means selling house, changing schools
+
+How to discuss sensitively:
+→ "With kids at home, what would your wife's plan be if something happened to you?"
+→ "Would she be able to stay home with them or would she need to work right away?"
+→ "Do you have family nearby who could help, or would she be on her own?"
+→ "What happens to the kids' school situation if you had to move?"
+
+Don't say: "Your kids would suffer"
+Do say: "What's the plan for your family if you're not there?"
+
+**RETIREMENT COVERAGE CRISIS:**
+
+The problem most people don't see:
+- They have work coverage now
+- They plan to retire at 62-67
+- Work coverage ENDS at retirement
+- Now they're 65, possibly with health issues
+- New coverage costs 10x what it would have at 45
+- Many become uninsurable
+
+Use this:
+→ "What happens to your work coverage when you retire?"
+→ "Have you looked at what coverage would cost at 65 versus locking something in now?"
+→ "A lot of folks don't realize their work insurance disappears when they leave. What's your plan for that?"
+
+**JUSTIFYING THE APPOINTMENT:**
+
+Once you identify a gap, connect it to the appointment:
+
+Gap: Employer coverage doesn't follow them
+→ "That's actually really common. Most people don't realize their work coverage disappears. Let me show you what it would cost to get your own policy while you're still young and healthy. I have 6:30 tonight or 10:15 tomorrow."
+
+Gap: Term policy expiring soon
+→ "So your term ends in a few years and you'll be 52 by then. Rates at that age can be 3-4 times higher. Worth looking at locking something in now. I have 6:30 tonight or 10:15 tomorrow."
+
+Gap: Coverage doesn't match mortgage
+→ "So you've got $50k but a $300k mortgage. If something happened, your wife would need to sell the house. Let me show you what it would take to close that gap. I have 6:30 tonight or 10:15 tomorrow."
+
+Gap: No permanent coverage
+→ "Everything you have is term, so it all expires. At some point you'll want coverage that lasts, especially for final expenses. Let me show you some options. I have 6:30 tonight or 10:15 tomorrow."
+
+Gap: Bundled policy with minimal coverage
+→ "Those bundle discounts are nice but $100k doesn't go far with a family. Let me show you what real coverage would cost on top of what you have. I have 6:30 tonight or 10:15 tomorrow."
+
 === OBJECTION HANDLING WITH OPTION QUESTIONS ===
 Handle ALL objections with OPTION-IDENTIFYING questions. Never argue. Never be vague.
 
