@@ -354,7 +354,7 @@ Generate ONE short NEPQ-style response. No JSON, no markdown, no extra text. Jus
 
     content = response.choices[0].message.content or ""
     reply = content.strip()
-    reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
+    reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
     return reply, confirmation_code
 
 
