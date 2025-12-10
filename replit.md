@@ -18,6 +18,35 @@ The AI uses five complementary frameworks:
 - Most haven't thought about insurance in months
 - Guard is UP, will try to end conversations early
 
+### Coverage Gap Analysis
+The agent has deep knowledge of life insurance scenarios and can identify:
+
+**Age-Based Awareness:**
+- 20-30: Lock in rates young, term vs IUL/permanent considerations
+- 30-45: Peak responsibility years, 10-15x income replacement target
+- 45-55: Health issues appearing, term policies expiring
+- 55-65: Retirement coverage crisis, employer coverage ending
+- 65+: Final expense, legacy planning
+
+**Coverage Traps:**
+- Employer coverage: Doesn't follow you, group rates disappear at retirement
+- Bundled policies (State Farm): Often minimal coverage for bundle discount
+- Term expiration: 30-year term at 25 = renewal at 55 at 5-10x rates
+- Coverage math: $50k policy vs $300k mortgage = family must sell house
+
+**Smart Probing:**
+- "Does it follow you if you switch jobs or retire?"
+- "What's your plan when the term expires?"
+- "With a 300k mortgage, how long would 50k last your family?"
+- Handles family/kids impact sensitively but honestly
+
+### Lead Profile Memory
+Server-side extraction of conversation data prevents duplicate questions:
+- Tracks: family, coverage, motivating goal, blockers, health, age
+- Only extracts from LEAD messages (not agent questions)
+- Formats as explicit "DO NOT ASK ABOUT" list for the AI
+- Uses stored info for consequence-based closes when client resists
+
 ## User Preferences
 
 - Preferred communication style: Simple, everyday language
