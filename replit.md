@@ -56,6 +56,24 @@ The `/ghl` endpoint supports multiple users (you and your friends) by accepting 
 
 If `ghl_api_key` and `ghl_location_id` are not provided, the API falls back to environment variables (your default setup).
 
+## GHL Webhook Setup
+
+When setting up the webhook in GoHighLevel, use these Custom Data fields:
+
+### For /ghl endpoint (recommended):
+| Key | Value |
+|-----|-------|
+| action | respond |
+| contact_id | {{contact.id}} |
+| first_name | {{contact.first_name}} |
+| message | {{message.body}} |
+
+### For simple webhook (root URL /):
+| Key | Value |
+|-----|-------|
+| first_name | {{contact.first_name}} |
+| message | {{message.body}} |
+
 ## Unified /ghl Endpoint Actions
 
 ### action: "respond" (default)
@@ -63,9 +81,9 @@ Generate NEPQ response and send SMS
 ```json
 {
   "action": "respond",
-  "contact_id": "abc123",
-  "first_name": "John",
-  "message": "I saw your ad about life insurance"
+  "contact_id": "{{contact.id}}",
+  "first_name": "{{contact.first_name}}",
+  "message": "{{message.body}}"
 }
 ```
 
