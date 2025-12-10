@@ -153,7 +153,34 @@ Search contacts by phone
   "reply": "What originally got you looking at life insurance, John?",
   "contact_id": "abc123",
   "sms_sent": true,
-  "confirmation_code": "7K9X"
+  "confirmation_code": "7K9X",
+  "appointment_created": false,
+  "booking_attempted": false,
+  "booking_error": null,
+  "time_detected": null
+}
+```
+
+### Auto-Booking Response (when time is detected)
+```json
+{
+  "success": true,
+  "reply": "You're all set for Thursday, December 11 at 02:00 PM...",
+  "appointment_created": true,
+  "appointment_time": "Thursday, December 11 at 02:00 PM",
+  "booking_attempted": true,
+  "booking_error": null,
+  "time_detected": "Thursday, December 11 at 02:00 PM"
+}
+```
+
+### Booking Failure Response (HTTP 422)
+```json
+{
+  "success": false,
+  "booking_attempted": true,
+  "booking_error": "Calendar not configured",
+  "time_detected": "Thursday, December 11 at 02:00 PM"
 }
 ```
 
@@ -162,6 +189,7 @@ Search contacts by phone
 - `XAI_API_KEY`: xAI/Grok API authentication
 - `GHL_API_KEY`: GoHighLevel Private Integration Token (optional if passed in body)
 - `GHL_LOCATION_ID`: GoHighLevel Location ID (optional if passed in body)
+- `GHL_CALENDAR_ID`: GoHighLevel Calendar ID for auto-booking appointments
 
 ## Key Features
 - NEPQ methodology for non-pushy sales
@@ -170,6 +198,9 @@ Search contacts by phone
 - Automatic confirmation code generation for appointments
 - Em dash filtering (replaced with commas)
 - Short SMS-friendly responses (15-40 words)
+- **Auto-booking**: Detects natural language times (e.g., "tuesday at 10am", "tomorrow afternoon") and automatically creates calendar appointments
+- Timezone-aware scheduling (defaults to Central Time)
+- Proper error handling with HTTP 422 for booking failures
 
 ## Key Files
 - `main.py` - Complete Flask application with NEPQ system prompt
