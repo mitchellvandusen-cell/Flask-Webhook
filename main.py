@@ -185,6 +185,52 @@ def search_contacts_by_phone(phone, api_key, location_id):
         logger.error(f"Failed to search contacts: {e}")
         return None
 
+def get_conversation_history(contact_id, api_key, location_id, limit=10):
+    """Get recent conversation messages for a contact from GoHighLevel"""
+    if not api_key or not location_id or not contact_id:
+        logger.error("Missing credentials for conversation history")
+        return []
+    
+    url = f"{GHL_BASE_URL}/conversations/search"
+    payload = {
+        "locationId": location_id,
+        "contactId": contact_id
+    }
+    
+    try:
+        response = requests.post(url, headers=get_ghl_headers(api_key), json=payload)
+        response.raise_for_status()
+        data = response.json()
+        conversations = data.get('conversations', [])
+        
+        if not conversations:
+            return []
+        
+        conversation_id = conversations[0].get('id')
+        if not conversation_id:
+            return []
+        
+        msg_url = f"{GHL_BASE_URL}/conversations/{conversation_id}/messages"
+        msg_response = requests.get(msg_url, headers=get_ghl_headers(api_key))
+        msg_response.raise_for_status()
+        msg_data = msg_response.json()
+        
+        messages = msg_data.get('messages', [])
+        recent_messages = messages[:limit] if len(messages) > limit else messages
+        
+        formatted = []
+        for msg in reversed(recent_messages):
+            direction = msg.get('direction', 'outbound')
+            body = msg.get('body', '')
+            if body:
+                role = "Lead" if direction == 'inbound' else "You"
+                formatted.append(f"{role}: {body}")
+        
+        return formatted
+    except requests.RequestException as e:
+        logger.error(f"Failed to get conversation history: {e}")
+        return []
+
 NEPQ_SYSTEM_PROMPT = """
 You are an elite life-insurance re-engagement closer using pure NEPQ (Neuro-Emotional Persuasion Questioning) methodology by Jeremy Miner.
 
@@ -375,18 +421,29 @@ Lead: "What's the weather like there?"
 → "Ha - that's a first! But hey, let's get your family protected. When works for a quick call?"
 """
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell"):
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None):
     """Generate NEPQ response using Grok AI"""
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
+    history_text = ""
+    if conversation_history and len(conversation_history) > 0:
+        history_text = f"""
+=== CONVERSATION HISTORY (read this carefully before responding) ===
+{chr(10).join(conversation_history)}
+=== END OF HISTORY ===
+
+"""
+    
     user_content = f"""
 You are: {agent_name}
 Lead name: {first_name}
-Last message from lead: "{message}"
+{history_text}Latest message from lead: "{message}"
 Confirmation code to use if booking: {confirmation_code}
 
-Generate ONE short NEPQ-style response. No JSON, no markdown, no extra text. Just the response message.
+Based on the conversation history above, generate ONE short NEPQ-style response that continues the conversation naturally.
+Do NOT repeat anything you've already said. Do NOT re-introduce yourself if you already have.
+No JSON, no markdown, no extra text. Just the response message.
 If you need to introduce yourself or sign off, use the name "{agent_name}".
 """
 
@@ -457,8 +514,11 @@ def ghl_unified():
         if not message:
             message = "initial outreach - contact just entered pipeline, send first message to start conversation"
         
+        conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
+        logger.debug(f"Fetched {len(conversation_history)} messages from history")
+        
         try:
-            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name)
+            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             
             if sms_result.get("success"):
@@ -639,8 +699,13 @@ def index():
     if not message:
         message = "initial outreach - contact just entered pipeline, send first message to start conversation"
     
+    conversation_history = []
+    if contact_id and api_key and location_id:
+        conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
+        logger.debug(f"Fetched {len(conversation_history)} messages from history")
+    
     try:
-        reply, confirmation_code = generate_nepq_response(first_name, message, agent_name)
+        reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
@@ -650,7 +715,8 @@ def index():
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
                 "confirmation_code": confirmation_code,
-                "intent": intent
+                "intent": intent,
+                "history_messages": len(conversation_history)
             })
         else:
             logger.warning(f"Missing credentials - contact_id: {contact_id}, api_key: {'set' if api_key else 'missing'}, location_id: {'set' if location_id else 'missing'}")
