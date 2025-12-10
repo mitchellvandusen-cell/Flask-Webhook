@@ -2,9 +2,19 @@
 
 ## Overview
 
-This is a Flask-based webhook API service that generates AI-powered sales responses using NEPQ (Neuro-Emotional Persuasion Questioning) methodology by Jeremy Miner. The service receives inbound SMS/message data via webhooks, processes them through xAI's Grok model, and returns personalized sales responses optimized for SMS communication.
+This is a Flask-based webhook API service that generates AI-powered sales responses using a blended sales methodology for life insurance lead re-engagement. The service receives inbound SMS/message data via webhooks, processes them through xAI's Grok model, and returns personalized sales responses optimized for SMS communication.
 
-The primary use case is life insurance lead re-engagement, where the AI assistant helps book phone appointments by asking strategic questions rather than using pushy sales tactics.
+### Sales Framework Blend
+The AI uses three complementary frameworks:
+1. **NEPQ (Primary)**: Neuro-Emotional Persuasion Questioning by Jeremy Miner - questions create curiosity and uncover problems
+2. **Straight Line Persuasion**: Jordan Belfort - every message moves toward the goal, redirect elegantly when derailed
+3. **Psychology of Selling**: Brian Tracy - persistence wins, rejection is redirection, stay calm and curious
+
+### Target Leads
+- Cold leads 30 days to 6+ months old
+- Previously looked at life insurance but never purchased
+- Most haven't thought about insurance in months
+- Guard is UP, will try to end conversations early
 
 ## User Preferences
 
@@ -12,6 +22,9 @@ The primary use case is life insurance lead re-engagement, where the AI assistan
 - No database required - simple stateless API
 - No em dashes (--) in responses
 - Root URL accepts POST directly for webhook
+- Don't overuse first name - only every 3-4 messages like normal texting
+- Agent interprets what customer REALLY means (e.g., "got coverage through work" = "stop texting me")
+- Conversation-first approach - find problems before suggesting appointments
 
 ## System Architecture
 
