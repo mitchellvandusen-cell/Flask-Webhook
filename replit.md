@@ -34,11 +34,16 @@ The agent has deep knowledge of life insurance scenarios and can identify:
 - Term expiration: 30-year term at 25 = renewal at 55 at 5-10x rates
 - Coverage math: $50k policy vs $300k mortgage = family must sell house
 
-**Smart Probing:**
+**Smart Probing (Socratic Approach):**
 - "Does it follow you if you switch jobs or retire?"
 - "What's your plan when the term expires?"
-- "With a 300k mortgage, how long would 50k last your family?"
-- Handles family/kids impact sensitively but honestly
+- "What would you want that coverage to cover first, the house or income replacement?"
+- Uses problem-awareness questions that let clients realize gaps themselves
+
+**Perfect on Paper Framework:**
+- Even $1M term policies have hidden gaps (term duration, renewal rates, no permanent layer)
+- Probes: "How many years left?", "What's the plan when it runs out?", "Does it build cash value?"
+- Identifies gaps in seemingly perfect coverage to justify appointments
 
 ### Lead Profile Memory
 Server-side extraction of conversation data prevents duplicate questions:
