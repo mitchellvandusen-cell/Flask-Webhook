@@ -116,6 +116,33 @@ The AI recognizes the "intent" custom field to adjust its approach. Supported in
 
 Aliases work too: "book", "booking", "schedule" all map to `book_appointment`.
 
+## Guaranteed Issue Qualification Workflow
+
+The AI automatically detects when leads have "guaranteed issue" type products and probes their health to find better options:
+
+**Trigger Detection:**
+- "no health questions" / "guaranteed issue" / "guaranteed acceptance"
+- Provider names: Colonial Penn, Globe Life, AARP
+- "I have health issues" / "I can't qualify anywhere"
+
+**Health Probing (sensitive, conversational):**
+| Condition | Follow-up Questions |
+|-----------|-------------------|
+| Diabetes | Pills or insulin? A1C level? How long? |
+| Heart/Cardiac | Full heart attack or stent? How long ago? Stable now? |
+| COPD | Mild or severe? Oxygen use? Still smoking? |
+| Cancer | Type? How long ago? In remission? |
+| Stroke | How long ago? Any lasting effects? |
+
+**Carrier Mapping:**
+The AI cross-references health conditions against an underwriting guide to identify carriers that might accept them without guaranteed issue terms.
+
+**Need Statement:**
+After qualification, the AI creates a need-based appointment reason: "Based on what you told me, you might not need guaranteed issue. Some carriers accept [condition] with no waiting period. Want me to look into it?"
+
+**Closing Rule:**
+When lead shows interest ("yeah that sounds good", "I'd like to look into that"), the AI immediately offers appointment times.
+
 ## Unified /ghl Endpoint Actions
 
 ### action: "respond" (default)
