@@ -87,7 +87,12 @@ def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_ke
         logger.error("GHL_API_KEY not set")
         return None
     
-    url = f"{GHL_BASE_URL}/calendars/events"
+    url = f"{GHL_BASE_URL}/calendars/events/appointments"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-04-15",
+        "Content-Type": "application/json"
+    }
     payload = {
         "calendarId": calendar_id,
         "locationId": location_id,
@@ -95,16 +100,22 @@ def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_ke
         "startTime": start_time,
         "endTime": end_time,
         "title": title,
-        "appointmentStatus": "confirmed"
+        "appointmentStatus": "confirmed",
+        "ignoreFreeSlotValidation": True
     }
     
     try:
-        response = requests.post(url, headers=get_ghl_headers(api_key), json=payload)
+        response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         logger.info(f"Appointment created for contact {contact_id}")
         return response.json()
     except requests.RequestException as e:
         logger.error(f"Failed to create appointment: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            try:
+                logger.error(f"Response: {e.response.json()}")
+            except:
+                logger.error(f"Response: {e.response.text}")
         return None
 
 def get_contact_info(contact_id, api_key):
