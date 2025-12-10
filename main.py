@@ -7,6 +7,7 @@ import requests
 import dateparser
 import re
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from openai import OpenAI
 
 logging.basicConfig(level=logging.DEBUG)
@@ -186,6 +187,70 @@ def search_contacts_by_phone(phone, api_key, location_id):
     except requests.RequestException as e:
         logger.error(f"Failed to search contacts: {e}")
         return None
+
+def parse_booking_time(message, timezone_str="America/Chicago"):
+    """
+    Parse natural language time expressions into timezone-aware datetime.
+    Returns (datetime_iso_string, formatted_time, original_text) or (None, None, None) if no time found.
+    
+    timezone_str: IANA timezone name, defaults to America/Chicago (Central Time)
+    """
+    time_keywords = [
+        'tomorrow', 'today', 'monday', 'tuesday', 'wednesday', 'thursday', 
+        'friday', 'saturday', 'sunday', 'am', 'pm', 'morning', 'afternoon',
+        'evening', 'tonight', 'noon', "o'clock", 'oclock'
+    ]
+    
+    message_lower = message.lower()
+    has_time_keyword = any(keyword in message_lower for keyword in time_keywords)
+    
+    if not has_time_keyword:
+        return None, None, None
+    
+    affirmative_patterns = [
+        r'\b(yes|yeah|yea|yep|sure|ok|okay|sounds good|works|perfect|great|let\'s do|lets do|that works|i can do|i\'m free|im free)\b'
+    ]
+    has_affirmative = any(re.search(pattern, message_lower) for pattern in affirmative_patterns)
+    
+    if not has_affirmative and not any(word in message_lower for word in ['morning', 'afternoon', 'evening', 'am', 'pm']):
+        return None, None, None
+    
+    try:
+        tz = ZoneInfo(timezone_str)
+    except Exception:
+        tz = ZoneInfo("America/Chicago")
+    
+    now = datetime.now(tz)
+    
+    parsed = dateparser.parse(message, settings={
+        'PREFER_DAY_OF_MONTH': 'first',
+        'TIMEZONE': timezone_str,
+        'RETURN_AS_TIMEZONE_AWARE': True
+    })
+    
+    if parsed:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=tz)
+        
+        if parsed.hour == 0 and parsed.minute == 0:
+            if 'morning' in message_lower:
+                parsed = parsed.replace(hour=10, minute=0)
+            elif 'afternoon' in message_lower:
+                parsed = parsed.replace(hour=14, minute=0)
+            elif 'evening' in message_lower or 'tonight' in message_lower:
+                parsed = parsed.replace(hour=18, minute=0)
+            else:
+                parsed = parsed.replace(hour=10, minute=0)
+        
+        if parsed <= now:
+            return None, None, None
+        
+        iso_string = parsed.isoformat()
+        formatted_time = parsed.strftime("%A, %B %d at %I:%M %p")
+        
+        return iso_string, formatted_time, message
+    
+    return None, None, None
 
 def get_conversation_history(contact_id, api_key, location_id, limit=10):
     """Get recent conversation messages for a contact from GoHighLevel"""
@@ -706,32 +771,86 @@ def index():
         conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
         logger.debug(f"Fetched {len(conversation_history)} messages from history")
     
+    start_time_iso, formatted_time, original_time_text = parse_booking_time(message)
+    appointment_created = False
+    appointment_details = None
+    booking_error = None
+    
+    if start_time_iso and contact_id and api_key and location_id:
+        logger.info(f"Detected booking time: {formatted_time} from message: {message}")
+        
+        calendar_id = os.environ.get('GHL_CALENDAR_ID')
+        if not calendar_id:
+            logger.error("GHL_CALENDAR_ID not configured, cannot create appointment")
+            booking_error = "Calendar not configured"
+        else:
+            start_dt = datetime.fromisoformat(start_time_iso)
+            end_dt = start_dt + timedelta(minutes=30)
+            end_time_iso = end_dt.isoformat()
+            
+            appointment_result = create_ghl_appointment(
+                contact_id, calendar_id, start_time_iso, end_time_iso, 
+                api_key, location_id, "Life Insurance Consultation"
+            )
+            
+            if appointment_result:
+                appointment_created = True
+                appointment_details = {
+                    "start_time": start_time_iso,
+                    "formatted_time": formatted_time
+                }
+                logger.info(f"Appointment created for {formatted_time}")
+            else:
+                logger.error(f"Failed to create appointment for {formatted_time}")
+                booking_error = "Appointment creation failed"
+    
     try:
-        reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
+        if appointment_created and appointment_details:
+            confirmation_code = generate_confirmation_code()
+            reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
+            reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+        else:
+            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history)
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
-            return jsonify({
-                "success": True,
+            
+            is_success = True if not booking_error else False
+            
+            response_data = {
+                "success": is_success,
                 "reply": reply,
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
                 "confirmation_code": confirmation_code,
                 "intent": intent,
-                "history_messages": len(conversation_history)
-            })
+                "history_messages": len(conversation_history),
+                "appointment_created": appointment_created,
+                "booking_attempted": bool(start_time_iso),
+                "booking_error": booking_error,
+                "time_detected": formatted_time if formatted_time else None
+            }
+            if appointment_created and appointment_details:
+                response_data["appointment_time"] = appointment_details["formatted_time"]
+            return jsonify(response_data), 200 if is_success else 422
         else:
             logger.warning(f"Missing credentials - contact_id: {contact_id}, api_key: {'set' if api_key else 'missing'}, location_id: {'set' if location_id else 'missing'}")
-            return jsonify({
-                "success": True,
+            is_success = True if not booking_error else False
+            response_data = {
+                "success": is_success,
                 "reply": reply,
                 "confirmation_code": confirmation_code,
                 "sms_sent": False,
-                "warning": "SMS not sent - missing contact_id or GHL credentials"
-            })
+                "warning": "SMS not sent - missing contact_id or GHL credentials",
+                "appointment_created": False,
+                "booking_attempted": bool(start_time_iso),
+                "booking_error": booking_error,
+                "time_detected": formatted_time if formatted_time else None
+            }
+            return jsonify(response_data), 200 if is_success else 422
     except Exception as e:
         logger.error(f"Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == '__main__':
