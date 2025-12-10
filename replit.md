@@ -135,7 +135,18 @@ The AI automatically detects when leads have "guaranteed issue" type products an
 | Stroke | How long ago? Any lasting effects? |
 
 **Carrier Mapping:**
-The AI cross-references health conditions against an underwriting guide to identify carriers that might accept them without guaranteed issue terms.
+The AI cross-references health conditions against a detailed underwriting guide with 40+ carriers including:
+- **Diabetes**: A1C thresholds (under 8%, 8-8.6%, 8.7-9.9%), insulin usage, time on insulin, age at diagnosis
+- **Heart Conditions**: Time since heart attack/stent (6mo, 1yr, 2yr, 3yr thresholds), CHF (very limited options)
+- **COPD**: Oxygen use, tobacco status, time since diagnosis
+- **Stroke**: Time since event, recovery status, presence of diabetes
+- **Cancer**: Remission period, type, recurrence history
+- **Mental Health**: Hospitalization history, medication status
+
+The AI gives verdicts based on this data:
+- **Tough cases** (A1C 9+, uncontrolled 10+ years): Honest about limited options
+- **Hopeful cases** (A1C under 8.5, controlled conditions): Offers appointment times
+- **Borderline cases**: Worth exploring, offers to dig into it
 
 **Need Statement:**
 After qualification, the AI creates a need-based appointment reason: "Based on what you told me, you might not need guaranteed issue. Some carriers accept [condition] with no waiting period. Want me to look into it?"
