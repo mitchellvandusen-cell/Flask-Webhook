@@ -1,0 +1,85 @@
+import json
+import re
+
+def qualify_lead(message: str, phone: str):
+    message = message.lower().strip()
+    
+    # Load or init state
+    row = db.query("SELECT state, asked_questions FROM lead_qualification WHERE phone = ?", (phone,))
+    if row:
+        state = json.loads(row[0][0]) if isinstance(row[0][0], str) else row[0][0]
+        asked = row[0][1]
+    else:
+        state = CHECKLIST_FIELDS.copy()
+        asked = []
+        db.execute("INSERT INTO lead_qualification (phone, state) VALUES (?, ?)", (phone, json.dumps(state)))
+    
+    # ——————— Extract info from current message ———————
+    updated = False
+    
+    # Basic yes/no
+    if re.search(r'\byes\b', message): 
+        if "policy" in message or "coverage" in message or "insured" in message:
+            state["has_policy"] = True; updated = True
+        if "living benefit" in message or "chronic" in message or "terminal" in message:
+            state["living_benefits"] = True; updated = True
+        if "term" in message and ("10" in message or "15" in message or "20" in message or "25" in message or "30" in message):
+            state["term_policy"] = True; updated = True
+        if "whole life" in message or "permanent" in message:
+            state["whole_life"] = True; updated = True
+        if "iul" in message or "indexed" in message:
+            state["iul"] = True; updated = True
+    
+    if re.search(r'\bno\b', message):
+        if "policy" in message or "coverage" in message:
+            state["has_policy"] = False; updated = True
+        if "living benefit" in message:
+            state["living_benefits"] = False; updated = True
+    
+    # Term length
+    for length in ["10", "15", "20", "25", "30", "35", "40"]:
+        if length in message and ("year" in message or "term" in message):
+            state["term_length"] = int(length); updated = True
+    
+    # Face amount
+    amount_match = re.search(r'\$?(\d+[,\d{3}]*(?:\.\d+)?)\s*(k|thousand|million)?', message)
+    if amount_match:
+        state["face_amount"] = message[amount_match.start():amount_match.end()]
+        updated = True
+    
+    # Health issues (add common ones you care about)
+    health_keywords = ["diabetes", "cancer", "heart", "stroke", "copd", "hep", "liver", "kidney"]
+    for issue in health_keywords:
+        if issue in message and issue not in state["health_issues"]:
+            state["health_issues"].append(issue); updated = True
+    
+    # Save back
+    if updated:
+        db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+    
+    # ——————— Decide next question (NEVER repeat) ———————
+    if "has_policy" not in asked and state["has_policy"] is None:
+        return "Do you currently have any life insurance coverage in place?"
+        asked.append("has_policy")
+    
+    if state["has_policy"] == True and "living_benefits" not in asked and state["living_benefits"] is None:
+        return "Does your current policy include living benefits (ability to use the death benefit if you become chronically or terminally ill)?"
+        asked.append("living_benefits")
+    
+    if state["has_policy"] == True and state["living_benefits"] == False and "term_policy" not in asked:
+        return "Is your current coverage a term policy or something permanent like whole life or IUL?"
+        asked.append("term_policy")
+    
+    # … keep adding the exact sequence you want
+    
+    # ——————— Final Qualification Logic (run every time) ———————
+    score, reason = instant_qualify(state)
+    
+    if score >= 7:  # Hot lead
+        return f"Awesome! Based on what you’ve shared {reason}. I’m sending you two calendar links right now so we can lock in your new coverage with living benefits included at no extra cost. Which works better for you?"
+    elif score <= 3:  # Likely satisfied or not qualified
+        db.execute("UPDATE lead_qualification SET qualified = false WHERE phone = ?", (phone,))
+        return "Thanks for the info! From what you described it sounds like you’re in a really solid position already. I’ll pause outreach for now — if anything ever changes just reply here."
+    else:
+        # Keep qualifying – ask next missing item in priority order
+        return next_question(state, asked)

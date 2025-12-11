@@ -79,6 +79,411 @@ def normalize_keys(data):
     return {k.lower(): v for k, v in data.items()}
 
 
+# ============================================================================
+# CONTACT QUALIFICATION STATE - Persistent memory per contact_id
+# ============================================================================
+
+def get_qualification_state(contact_id):
+    """
+    Get or create qualification state for a contact.
+    Returns dict with all qualification fields.
+    """
+    if not contact_id:
+        return None
+    
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("SELECT * FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+        row = cur.fetchone()
+        
+        if row:
+            result = dict(row)
+            conn.close()
+            return result
+        
+        # Create new record if doesn't exist
+        cur.execute("""
+            INSERT INTO contact_qualification (contact_id) 
+            VALUES (%s) 
+            RETURNING *
+        """, (contact_id,))
+        row = cur.fetchone()
+        conn.commit()
+        result = dict(row) if row else None
+        conn.close()
+        return result
+        
+    except Exception as e:
+        logger.warning(f"Could not get qualification state: {e}")
+        return None
+
+
+def update_qualification_state(contact_id, updates):
+    """
+    Update qualification state fields for a contact.
+    updates: dict of field_name -> value
+    """
+    if not contact_id or not updates:
+        return False
+    
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+        cur = conn.cursor()
+        
+        # Ensure contact exists first
+        cur.execute("""
+            INSERT INTO contact_qualification (contact_id) 
+            VALUES (%s) 
+            ON CONFLICT (contact_id) DO NOTHING
+        """, (contact_id,))
+        
+        # Build dynamic update query
+        set_clauses = []
+        values = []
+        for field, value in updates.items():
+            set_clauses.append(f"{field} = %s")
+            values.append(value)
+        
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(contact_id)
+        
+        query = f"UPDATE contact_qualification SET {', '.join(set_clauses)} WHERE contact_id = %s"
+        cur.execute(query, values)
+        conn.commit()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        logger.warning(f"Could not update qualification state: {e}")
+        return False
+
+
+def add_to_qualification_array(contact_id, field, value):
+    """
+    Add a value to an array field (health_conditions, topics_asked, etc.)
+    Won't add duplicates.
+    """
+    if not contact_id or not field or not value:
+        return False
+    
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+        cur = conn.cursor()
+        
+        # Ensure contact exists
+        cur.execute("""
+            INSERT INTO contact_qualification (contact_id) 
+            VALUES (%s) 
+            ON CONFLICT (contact_id) DO NOTHING
+        """, (contact_id,))
+        
+        # Add to array if not already present
+        cur.execute(f"""
+            UPDATE contact_qualification 
+            SET {field} = array_append(
+                CASE WHEN %s = ANY({field}) THEN {field} 
+                ELSE {field} END,
+                CASE WHEN %s = ANY({field}) THEN NULL ELSE %s END
+            ),
+            updated_at = CURRENT_TIMESTAMP
+            WHERE contact_id = %s
+        """, (value, value, value, contact_id))
+        conn.commit()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        logger.warning(f"Could not add to qualification array: {e}")
+        return False
+
+
+def extract_and_update_qualification(contact_id, message, conversation_history=None):
+    """
+    Extract qualification data from message and update state.
+    Called after each message to build persistent memory.
+    """
+    if not contact_id or not message:
+        return {}
+    
+    updates = {}
+    all_text = message.lower()
+    if conversation_history:
+        all_text = " ".join([m.replace("Lead:", "").replace("You:", "") for m in conversation_history]) + " " + message
+    all_text = all_text.lower()
+    
+    # === COVERAGE STATUS ===
+    if re.search(r"(have|got|already).*(coverage|policy|insurance|protected)", all_text):
+        updates["has_policy"] = True
+    if re.search(r"(don'?t|dont|no).*(coverage|policy|insurance)", all_text):
+        updates["has_policy"] = False
+    
+    # Living benefits
+    if re.search(r"(living benefits|access.*(funds|money).*alive|accelerated)", all_text):
+        if re.search(r"(yes|yeah|has|have|it does|got that)", message.lower()):
+            updates["has_living_benefits"] = True
+        elif re.search(r"(no|nope|just.*death|doesn'?t|dont)", message.lower()):
+            updates["has_living_benefits"] = False
+    
+    # === POLICY SOURCE ===
+    if re.search(r"(my own|personal|private|individual).*(policy|coverage|insurance)", all_text):
+        updates["is_personal_policy"] = True
+        updates["is_employer_based"] = False
+    if re.search(r"(through|from|at|via).*(work|job|employer|company)", all_text):
+        updates["is_employer_based"] = True
+        updates["is_personal_policy"] = False
+    
+    # === POLICY TYPES ===
+    if re.search(r"term\s*(life|policy|insurance|plan)", all_text):
+        updates["is_term"] = True
+    if re.search(r"whole\s*life", all_text):
+        updates["is_whole_life"] = True
+    if re.search(r"\biul\b|indexed\s*universal", all_text):
+        updates["is_iul"] = True
+    if re.search(r"guaranteed\s*(issue|acceptance)|no\s*(health|medical)\s*questions|colonial\s*penn|globe\s*life", all_text):
+        updates["is_guaranteed_issue"] = True
+    
+    # Term length
+    term_match = re.search(r"(\d{2})\s*year\s*term", all_text)
+    if term_match:
+        updates["term_length"] = int(term_match.group(1))
+    
+    # === COVERAGE DETAILS ===
+    # Face amount
+    amount_match = re.search(r"(\$?\d{1,3}(?:,?\d{3})*|\d+k)\s*(coverage|policy|worth|face|death\s*benefit)?", all_text)
+    if amount_match:
+        amount = amount_match.group(1).replace(",", "").replace("$", "")
+        if "k" in amount.lower():
+            updates["face_amount"] = amount.upper()
+        elif int(amount) > 1000:
+            updates["face_amount"] = str(int(int(amount) / 1000)) + "k"
+    
+    # Carrier detection
+    from insurance_companies import find_company_in_message
+    company = find_company_in_message(message)
+    if company:
+        updates["carrier"] = company
+    
+    # === FAMILY ===
+    if re.search(r"wife|husband|spouse|married", all_text):
+        updates["has_spouse"] = True
+    if re.search(r"single|not\s*married|divorced|widowed", all_text):
+        updates["has_spouse"] = False
+    
+    kids_match = re.search(r"(\d+)\s*kids?", all_text)
+    if kids_match:
+        updates["num_kids"] = int(kids_match.group(1))
+    if re.search(r"no\s*kids|don'?t\s*have\s*kids|childless", all_text):
+        updates["num_kids"] = 0
+    
+    # === HEALTH CONDITIONS ===
+    health_conditions = []
+    health_patterns = {
+        "diabetes": r"diabetes|diabetic|a1c|insulin|metformin",
+        "heart": r"heart\s*(attack|disease|condition|problem)|cardiac|stent",
+        "cancer": r"cancer|tumor|chemo|radiation|remission",
+        "copd": r"copd|breathing|oxygen|respiratory|emphysema",
+        "stroke": r"stroke",
+        "blood_pressure": r"blood\s*pressure|hypertension",
+        "sleep_apnea": r"sleep\s*apnea|cpap",
+        "anxiety_depression": r"anxiety|depression|mental\s*health",
+    }
+    for condition, pattern in health_patterns.items():
+        if re.search(pattern, all_text):
+            health_conditions.append(condition)
+    
+    # Tobacco
+    if re.search(r"smok(e|er|ing)|tobacco|cigarette|vape|nicotine", all_text):
+        updates["tobacco_user"] = True
+    if re.search(r"(don'?t|never|quit|stopped)\s*smok", all_text):
+        updates["tobacco_user"] = False
+    
+    # === DEMOGRAPHICS ===
+    age_match = re.search(r"i'?m\s*(\d{2})|(\d{2})\s*years?\s*old|age\s*(\d{2})", all_text)
+    if age_match:
+        age = age_match.group(1) or age_match.group(2) or age_match.group(3)
+        updates["age"] = int(age)
+    
+    if re.search(r"retir(e|ing|ed|ement)|about\s*to\s*(stop|quit)\s*work", all_text):
+        updates["retiring_soon"] = True
+    
+    # === MOTIVATING GOALS ===
+    goal_patterns = {
+        "family_protection": r"protect.*(family|wife|husband|kids)|worried.*(family|kids)",
+        "mortgage_protection": r"(mortgage|house|home).*(paid|covered|protected)",
+        "leave_legacy": r"leave.*(something|behind|legacy)",
+        "funeral_costs": r"funeral|burial|final\s*expenses",
+        "family_death": r"(mom|dad|parent).*(died|passed|death)",
+    }
+    for goal, pattern in goal_patterns.items():
+        if re.search(pattern, all_text):
+            updates["motivating_goal"] = goal
+            break
+    
+    # === BLOCKERS ===
+    blockers = []
+    if re.search(r"(too|really)\s*(busy|swamped)", all_text):
+        blockers.append("too_busy")
+    if re.search(r"(can'?t|don'?t)\s*afford|too\s*expensive", all_text):
+        blockers.append("cost_concern")
+    if re.search(r"don'?t\s*trust|scam", all_text):
+        blockers.append("trust_issue")
+    if re.search(r"need\s*to\s*think|talk\s*to\s*(spouse|wife|husband)", all_text):
+        blockers.append("needs_time")
+    
+    # Apply updates
+    if updates:
+        update_qualification_state(contact_id, updates)
+    
+    # Add health conditions to array
+    for condition in health_conditions:
+        add_to_qualification_array(contact_id, "health_conditions", condition)
+    
+    # Add blockers to array
+    for blocker in blockers:
+        add_to_qualification_array(contact_id, "blockers", blocker)
+    
+    return updates
+
+
+def format_qualification_for_prompt(qualification_state):
+    """
+    Format qualification state as context for the LLM prompt.
+    """
+    if not qualification_state:
+        return ""
+    
+    sections = []
+    q = qualification_state
+    
+    # Coverage status
+    coverage_facts = []
+    if q.get("has_policy") is True:
+        coverage_facts.append("HAS COVERAGE")
+    elif q.get("has_policy") is False:
+        coverage_facts.append("NO COVERAGE")
+    
+    if q.get("is_employer_based"):
+        coverage_facts.append("through employer")
+    elif q.get("is_personal_policy"):
+        coverage_facts.append("personal policy")
+    
+    if q.get("carrier"):
+        coverage_facts.append(f"with {q['carrier']}")
+    
+    if coverage_facts:
+        sections.append(f"Coverage: {', '.join(coverage_facts)}")
+    
+    # Policy type
+    policy_types = []
+    if q.get("is_term"):
+        term_info = "Term"
+        if q.get("term_length"):
+            term_info += f" ({q['term_length']}yr)"
+        policy_types.append(term_info)
+    if q.get("is_whole_life"):
+        policy_types.append("Whole Life")
+    if q.get("is_iul"):
+        policy_types.append("IUL")
+    if q.get("is_guaranteed_issue"):
+        policy_types.append("Guaranteed Issue")
+    
+    if policy_types:
+        sections.append(f"Policy Type: {', '.join(policy_types)}")
+    
+    # Living benefits
+    if q.get("has_living_benefits") is True:
+        sections.append("Living Benefits: YES (has them)")
+    elif q.get("has_living_benefits") is False:
+        sections.append("Living Benefits: NO (doesn't have)")
+    
+    # Face amount
+    if q.get("face_amount"):
+        sections.append(f"Face Amount: {q['face_amount']}")
+    
+    # Family
+    family_facts = []
+    if q.get("has_spouse") is True:
+        family_facts.append("married")
+    elif q.get("has_spouse") is False:
+        family_facts.append("single")
+    if q.get("num_kids") is not None:
+        family_facts.append(f"{q['num_kids']} kids")
+    if family_facts:
+        sections.append(f"Family: {', '.join(family_facts)}")
+    
+    # Health
+    if q.get("health_conditions") and len(q["health_conditions"]) > 0:
+        sections.append(f"Health Conditions: {', '.join(q['health_conditions'])}")
+    if q.get("tobacco_user") is True:
+        sections.append("Tobacco: YES")
+    elif q.get("tobacco_user") is False:
+        sections.append("Tobacco: NO")
+    
+    # Demographics
+    if q.get("age"):
+        sections.append(f"Age: {q['age']}")
+    if q.get("retiring_soon"):
+        sections.append("Retiring Soon: YES")
+    
+    # Motivation
+    if q.get("motivating_goal"):
+        sections.append(f"Motivation: {q['motivating_goal'].replace('_', ' ').title()}")
+    
+    # Blockers
+    if q.get("blockers") and len(q["blockers"]) > 0:
+        sections.append(f"Blockers: {', '.join(q['blockers'])}")
+    
+    # Topics already asked
+    if q.get("topics_asked") and len(q["topics_asked"]) > 0:
+        sections.append(f"DO NOT ASK ABOUT: {', '.join(q['topics_asked'])}")
+    
+    if not sections:
+        return ""
+    
+    return f"""
+=== KNOWN FACTS ABOUT THIS CONTACT (from database memory) ===
+{chr(10).join(sections)}
+=== USE THIS INFO - DO NOT ASK ABOUT THINGS YOU ALREADY KNOW ===
+
+"""
+
+
+def mark_topic_asked(contact_id, topic):
+    """Mark a topic as asked to prevent repeat questions."""
+    add_to_qualification_array(contact_id, "topics_asked", topic)
+
+
+def increment_exchanges(contact_id):
+    """Increment the exchange counter for a contact."""
+    if not contact_id:
+        return
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE contact_qualification 
+            SET total_exchanges = total_exchanges + 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE contact_id = %s
+        """, (contact_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Could not increment exchanges: {e}")
+
+
+# ============================================================================
+# END CONTACT QUALIFICATION STATE
+# ============================================================================
+
+
 def extract_lead_profile(conversation_history, first_name, current_message):
     """
     Extract structured lead profile from conversation history.
@@ -2476,6 +2881,28 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     
     lead_profile = extract_lead_profile(conversation_history, first_name, message)
     
+    # === QUALIFICATION STATE: Persistent memory per contact ===
+    qualification_state = None
+    qualification_context = ""
+    if contact_id:
+        # Load existing qualification state from database
+        qualification_state = get_qualification_state(contact_id)
+        
+        # Extract and update qualification from this message
+        extracted_updates = extract_and_update_qualification(contact_id, message, conversation_history)
+        if extracted_updates:
+            logger.info(f"QUALIFICATION: Extracted updates: {extracted_updates}")
+            # Reload state after updates
+            qualification_state = get_qualification_state(contact_id)
+        
+        # Increment exchange counter
+        increment_exchanges(contact_id)
+        
+        # Format qualification for prompt
+        qualification_context = format_qualification_for_prompt(qualification_state)
+        if qualification_context:
+            logger.debug(f"QUALIFICATION: Injecting known facts into prompt")
+    
     # === LAYER 2: Build Conversation State (Source of Truth) ===
     conv_state = build_state_from_history(
         contact_id=contact_id or "unknown",
@@ -2979,7 +3406,7 @@ Directive: {intent_directive}
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
-{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
+{qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
 """
     else:
         # Even without history, include profile and intent from current message
@@ -2991,9 +3418,9 @@ Directive: {intent_directive}
 """
         if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
                 lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
-            history_text = f"{intent_section}{profile_text}"
+            history_text = f"{qualification_context}{intent_section}{profile_text}"
         else:
-            history_text = intent_section
+            history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
     
     # Score the previous response based on this incoming message
     outcome_score = None
