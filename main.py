@@ -2441,34 +2441,8 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # STEP 4: EVALUATE - ALL messages go through the unified brain
     # No shortcuts - the brain decides how to handle everything including exits
     # =========================================================================
-    # EXIT triggers become suggestions for the brain, not bypasses
     if trigger_code == "EXIT":
         logger.info("STEP 4: Exit trigger detected, passing to unified brain for evaluation")
-    
-    # Build the FULL context for Grok to evaluate
-    full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
-    
-    # Inject ALL knowledge
-    full_prompt += f"""
-
-=== FULL KNOWLEDGE BASE (re-read this every time) ===
-{all_knowledge}
-
-=== TRIGGER SYSTEM SUGGESTION ===
-The trigger system suggests this response: "{trigger_suggestion or 'No trigger matched'}"
-Triggers detected: {triggers_found}
-
-=== PROVEN OUTCOME PATTERNS (responses that led to appointments) ===
-{outcome_context if outcome_context else 'No proven patterns yet for this scenario'}
-
-=== YOUR TASK ===
-1. You just re-read ALL your knowledge above
-2. The client said: "{message}"
-3. Evaluate: Is the trigger suggestion the best? Is an outcome pattern better? Or do you have something better?
-4. If trigger or outcome pattern is perfect, use it exactly
-5. If you can improve it using your knowledge, do so
-6. Respond in 12-35 words, SMS friendly
-"""
     
     # Extract structured lead profile from conversation
     if conversation_history is None:
@@ -2741,12 +2715,19 @@ YOU MUST NOT:
 - Ask the same question again
 - Ask a similar question about the same topic
 - Repeat ANY variation of your last question
+- Say goodbye or exit (soft rejections are NOT hard stops)
 
 YOU MUST:
-- Acknowledge their boundary: "Fair enough" / "Got it" / "No worries"  
-- Either pivot to a COMPLETELY different topic OR exit gracefully with value
-- Example: "Fair enough. Just make sure whatever you have covers you while you're alive, not just if something happens. Take care."
-=== DO NOT REPEAT - THEY WILL GET ANNOYED ===
+- Acknowledge briefly: "Fair enough" / "Got it" / "No worries"  
+- Pivot to a COMPLETELY DIFFERENT re-frame from this list:
+  1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
+  2. Portability: "Does it follow you if you switch jobs?"
+  3. Amount: "Is it enough to replace your income for a few years?"
+  4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
+  5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
+
+DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
+=== TRY A NEW ANGLE - DON'T GIVE UP ===
 
 """
             
@@ -3068,7 +3049,6 @@ Is soft dismissive: {is_soft_dismissive}
 Is hard dismissive: {is_hard_dismissive}
 
 {state_instructions}
-{profile_text}
 
 CONFIRMATION CODE (if booking): {confirmation_code}
 

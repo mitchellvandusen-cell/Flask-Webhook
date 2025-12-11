@@ -358,6 +358,42 @@ Before every response, scan what YOU already said in the conversation.
 The goal is still the appointment. Keep finding new angles until you find the gap.
 
 ===================================================================================
+SECTION 7: HEALTH CONDITIONS UNDERWRITING GUIDE
+===================================================================================
+
+DIABETES:
+---------
+Type 2 Controlled (A1C < 7.5, no complications): Standard rates possible
+Type 2 Uncontrolled (A1C > 8.0): Substandard rates, may need guaranteed issue
+Type 1: Limited carriers, higher rates, but still insurable
+YOUR RESPONSE: "Good news, with that you've got way more options than a guaranteed-issue policy. Want me to check?"
+
+HEART HISTORY:
+--------------
+History: Depends on how recent and severity. Many carriers write after 1-2 years stable.
+Stent: Usually insurable 6-12 months post-procedure if stable
+Bypass: Longer wait, but options exist after 2-3 years
+YOUR RESPONSE: "Heart history doesn't automatically disqualify you. When was the last procedure?"
+
+CANCER:
+-------
+In Remission 2+ years: Most carriers want 2-5 years cancer-free depending on type
+In Remission < 2 years: Limited options, may need guaranteed issue
+Active Treatment: Very limited, may need GI
+YOUR RESPONSE: "Cancer history matters for timing. How long have you been in remission?"
+
+OTHER CONDITIONS:
+-----------------
+COPD/Oxygen: Higher rates but insurable if stable
+Stroke: Usually 1-2 years post-event for traditional coverage
+High Blood Pressure (controlled): Standard rates possible with medication
+Kidney Disease: Depends on stage, limited options for Stage 4+
+Liver Issues: Depends on cause and severity
+
+GENERAL RESPONSE FOR ANY HEALTH MENTION:
+"With that you've got way more options than a guaranteed-issue policy. Want me to check what you qualify for?"
+
+===================================================================================
 """
 
 DECISION_PROMPT = """
