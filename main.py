@@ -1485,7 +1485,8 @@ TRIGGERS = {
     "HEALTH": r"(diabetes|a1c|insulin|heart|stent|cancer|copd|oxygen|stroke|blood.*pressure|high bp|hypertension)",
     "SPOUSE": r"(wife|husband|spouse|partner|talk.*to.*them|ask.*them|check.*with|run.*by)",
     "NEED_TO_THINK": r"(think.*about|need.*time|not sure|consider|sleep on|get back)",
-    "TOO_EXPENSIVE": r"(too.*expensive|cant.*afford|out of.*budget|too much money)"
+    "TOO_EXPENSIVE": r"(too.*expensive|cant.*afford|out of.*budget|too much money)",
+    "FRUSTRATED_REPEAT": r"(already asked|you asked|asked.*that|move on|lets move on|let's move on|stop asking|quit asking|enough questions|too many questions)"
 }
 
 def force_response(message, api_key=None, calendar_id=None, timezone="America/New_York"):
@@ -1600,6 +1601,13 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
             "Makes sense. What would help you decide?"
         ]
         return random.choice(responses), "TRIG"
+    
+    if re.search(TRIGGERS["FRUSTRATED_REPEAT"], m):
+        slot_text, has_slots = get_slot_text()
+        if has_slots and slot_text:
+            return f"My bad. Let me just do a quick review and make sure you're not overpaying. {slot_text}, which works?", "TRIG"
+        else:
+            return "My bad. Let me just do a quick review and make sure you're not overpaying. When works for a quick call?", "TRIG"
     
     # No trigger matched - let LLM handle it
     return None, None
@@ -3399,10 +3407,17 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # For BUYING_SIGNAL and PRICE triggers, bypass LLM to ensure calendar times are used
     # This prevents the LLM from making up fake appointment times
     if trigger_code == "TRIG" and trigger_suggestion:
-        # Check if this is a calendar-related trigger that should bypass LLM
+        # Check if this is a trigger that should bypass LLM
         triggers_str = str(triggers_found)
+        m_lower = message.lower().strip()
+        # Calendar-related triggers bypass to use real calendar times
         if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
             logger.info(f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}")
+            return trigger_suggestion, confirmation_code
+        # Frustrated/repeat triggers bypass to apologize and pivot immediately
+        frustrated_patterns = ["already asked", "move on", "stop asking", "enough questions"]
+        if any(p in m_lower for p in frustrated_patterns):
+            logger.info(f"STEP 4: Frustrated repeat trigger detected, using deterministic response: {trigger_suggestion}")
             return trigger_suggestion, confirmation_code
     
     if trigger_code == "EXIT":
