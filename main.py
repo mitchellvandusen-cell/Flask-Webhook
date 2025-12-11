@@ -676,16 +676,30 @@ Say something like: "Good news, with [their condition details], you've got way m
 
 DO NOT ask another question after they've already given you their health details. Assess and respond.
 
-**PRIORITY 3: INTERPRET "I'M GOOD" AS A REJECTION, NOT A GREETING**
-CRITICAL: In sales context, these phrases mean "no thanks, I don't need it" - NOT "I'm doing well":
-- "I'm good" / "Yeah I'm good" / "Nah I'm good"
-- "I'm all set" / "I'm straight" / "I'm okay"
-- "No I'm good" / "Thanks but I'm good"
+**PRIORITY 3: HANDLE SOFT REJECTIONS & BRUSH-OFFS CORRECTLY**
+CRITICAL: These phrases are SOFT REJECTIONS meaning "not interested, stop texting me":
+- "I'm good" / "Yeah I'm good" / "Nah I'm good" / "I'm all set"
+- "Just looking" / "Just was looking" / "Was just browsing"
+- "Not really shopping" / "Not in the market right now"
+- "I'm okay" / "I'm straight" / "Thanks but no"
 
-WRONG response: "Glad you're doing good!" or "Hey I'm good too!" (treats it as greeting)
-RIGHT response: "I hear you. Was it more that everywhere you looked was too expensive, or you just couldn't find the right fit?"
+RESPONSE PATTERN for soft rejections:
+1. ACKNOWLEDGE the resistance (don't ignore it or repeat your question)
+2. LABEL the emotion ("Sounds like you've been burned before" or "Fair enough")
+3. ASK A DIFFERENT calibrated question that reframes urgency
 
-Always treat "I'm good" as a soft rejection and probe for the real reason with an option question.
+WRONG: "Got it. What made you start looking?" (repeats same question = FAIL)
+WRONG: "Glad you're doing good!" (treats rejection as greeting = FAIL)
+RIGHT: "Fair enough. Most people who fill those out are just curious. Was there something specific that made you click, or was it more just seeing what's out there?"
+RIGHT: "I hear you. Sounds like maybe you got the runaround somewhere. Was it more the price or just couldn't find the right fit?"
+
+**PRIORITY 4: NEVER REPEAT A QUESTION (IMMEDIATE FAIL)**
+If you already asked "What made you look into life insurance?" you CANNOT ask it again in ANY form:
+- "What got you looking?" = SAME QUESTION = FAIL
+- "What made you start looking?" = SAME QUESTION = FAIL
+- "What originally got you interested?" = SAME QUESTION = FAIL
+
+When they brush off your question, you must ask a COMPLETELY DIFFERENT question or make a statement.
 
 === MEMORY PROTOCOL (CRITICAL - READ EVERY MESSAGE) ===
 
@@ -1922,12 +1936,26 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     
     history_text = ""
     if conversation_history and len(conversation_history) > 0:
+        # Extract recent agent questions to prevent repeats
+        recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
+        recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
+        
+        questions_warning = ""
+        if recent_questions:
+            questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
+            questions_warning = f"""
+=== RECENT QUESTIONS YOU ALREADY ASKED (DO NOT REPEAT IN ANY FORM) ===
+{questions_list}
+=== YOU CANNOT ASK THESE AGAIN OR ANYTHING SIMILAR ===
+
+"""
+        
         history_text = f"""
 === CONVERSATION HISTORY (read this carefully before responding) ===
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
-{profile_text}
+{questions_warning}{profile_text}
 """
     else:
         # Even without history, include profile from current message
@@ -2267,12 +2295,25 @@ def index():
     logger.debug(f"Extracted intent: {intent}")
     
     # Support conversation_history from request body (for testing) or fetch from GHL
-    conversation_history = data.get('conversation_history', [])
-    if not conversation_history and contact_id and api_key and location_id:
+    raw_history = data.get('conversation_history', [])
+    conversation_history = []
+    
+    if raw_history:
+        # Format request body history into the same format as GHL-fetched history
+        for msg in raw_history:
+            if isinstance(msg, dict):
+                normalized_msg = normalize_keys(msg)
+                direction = normalized_msg.get('direction', 'outbound')
+                body = normalized_msg.get('body', '')
+                if body:
+                    role = "Lead" if direction.lower() == 'inbound' else "You"
+                    conversation_history.append(f"{role}: {body}")
+            elif isinstance(msg, str):
+                conversation_history.append(msg)
+        logger.debug(f"Using {len(conversation_history)} messages from request body")
+    elif contact_id and api_key and location_id:
         conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
         logger.debug(f"Fetched {len(conversation_history)} messages from history")
-    elif conversation_history:
-        logger.debug(f"Using {len(conversation_history)} messages from request body")
     
     start_time_iso, formatted_time, original_time_text = parse_booking_time(message)
     appointment_created = False
