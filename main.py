@@ -468,9 +468,46 @@ def format_qualification_for_prompt(qualification_state):
     if q.get("topics_asked") and len(q["topics_asked"]) > 0:
         topic_list = ', '.join(q['topics_asked'])
         sections.append(f"TOPICS ALREADY COVERED (DO NOT ASK AGAIN): {topic_list}")
-        # Add explicit instructions for common blocked topics
-        if "employer_portability" in q["topics_asked"] or "job_coverage" in q["topics_asked"]:
-            sections.append("ALREADY CONFIRMED: This is NOT employer coverage. Do NOT ask about job portability or retiring.")
+    
+    # === SEMANTIC BLOCKING - questions that are LOGICALLY off the table ===
+    blocked_questions = []
+    
+    # Personal policy = employer questions are nonsensical
+    if q.get("is_personal_policy") or "employer_portability" in (q.get("topics_asked") or []):
+        blocked_questions.extend([
+            "Does it continue after retirement?",
+            "What happens when you leave your job?",
+            "Can you convert it?",
+            "Is it portable?",
+            "What happens if you retire?",
+            "Does it go with you if you leave?",
+            "Any retirement questions - THIS IS A PERSONAL POLICY"
+        ])
+    
+    # If they told us policy type, don't ask about it
+    if q.get("is_term"):
+        blocked_questions.append("Is it term or whole life?")
+    if q.get("is_whole_life") or q.get("is_iul"):
+        blocked_questions.append("Is it term or permanent?")
+    
+    # If they told us living benefits status
+    if q.get("has_living_benefits") is not None:
+        blocked_questions.append("Does it have living benefits?")
+    
+    # If we know their goal
+    if q.get("motivating_goal"):
+        blocked_questions.append("What made you want to look at coverage?")
+    
+    # If we know other policies status
+    if q.get("has_other_policies") is not None:
+        blocked_questions.append("Any other policies?")
+    
+    if blocked_questions:
+        sections.append(f"""
+=== QUESTIONS YOU CANNOT ASK (already answered or logically irrelevant) ===
+{chr(10).join('- ' + bq for bq in blocked_questions)}
+=== ASKING ANY OF THESE MAKES THE CONVERSATION FEEL ROBOTIC ===
+""")
     
     if not sections:
         return ""
@@ -746,7 +783,8 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
         
         # Check for personal/private policy FIRST (NOT through work) - ask about other policies
         # Must check BEFORE employer detection to avoid matching "not through work"
-        if re.search(r"(private|personal|not\s*(through|from)\s*(work|job|employer)|my\s*own\b|individual)", m):
+        # Expanded patterns: "not an employer policy", "not through work", "private", "personal", "my own"
+        if re.search(r"(private|personal|not\s*(an?\s*)?(through|from|employer)\s*(policy|work|job)?|my\s*own\b|individual|isn'?t\s*from\s*work)", m):
             update_qualification_state(contact_id, {
                 "is_personal_policy": True,
                 "is_employer_based": False,
@@ -3948,28 +3986,96 @@ Remember: Apply your knowledge, don't just pattern match.
                 # Always break after max retries to avoid infinite loop
                 break
     
-    # Server-side duplicate rejection
-    if recent_agent_messages:
-        recent_normalized = [msg.lower().replace("you: ", "") for msg in recent_agent_messages[-3:]]
-        reply_normalized = reply.lower()
-        
-        # Check for semantic duplicates (similar key phrases)
-        is_duplicate = False
-        for prev in recent_normalized:
-            # Check if reply contains same question pattern
-            if "what's on your mind" in reply_normalized and "what's on your mind" in prev:
+    # Server-side semantic duplicate rejection (75% similarity check)
+    is_duplicate = False
+    duplicate_reason = None
+    
+    # Build question themes that are semantically equivalent
+    QUESTION_THEMES = {
+        "retirement_portability": [
+            "continue after retirement", "leave your job", "retire", "portable", 
+            "convert it", "goes with you", "when you leave", "portability",
+            "if you quit", "stop working", "leaving the company"
+        ],
+        "policy_type": [
+            "term or whole", "term or permanent", "what type", "kind of policy",
+            "is it term", "is it whole life", "iul", "universal life"
+        ],
+        "living_benefits": [
+            "living benefits", "accelerated death", "chronic illness", 
+            "critical illness", "terminal illness", "access while alive"
+        ],
+        "coverage_goal": [
+            "what made you", "why did you", "what's the goal", "what were you",
+            "originally looking", "why coverage", "what prompted"
+        ],
+        "other_policies": [
+            "other policies", "any other", "additional coverage", "also have",
+            "multiple policies", "work policy", "another plan"
+        ],
+        "motivation": [
+            "what's on your mind", "what's been on", "what specifically", 
+            "what are you thinking", "what concerns you"
+        ]
+    }
+    
+    def get_question_theme(text):
+        """Return the theme(s) of a message."""
+        text_lower = text.lower()
+        themes = []
+        for theme, keywords in QUESTION_THEMES.items():
+            if any(kw in text_lower for kw in keywords):
+                themes.append(theme)
+        return themes
+    
+    # Get themes in this reply
+    reply_themes = get_question_theme(reply)
+    
+    # Check against recent agent messages
+    if recent_agent_messages and reply_themes:
+        for prev_msg in recent_agent_messages[-5:]:  # Check last 5 messages
+            prev_themes = get_question_theme(prev_msg)
+            # If any theme matches, it's a semantic duplicate
+            shared_themes = set(reply_themes) & set(prev_themes)
+            if shared_themes:
                 is_duplicate = True
-            elif "what made you" in reply_normalized and "what made you" in prev:
-                is_duplicate = True
-            elif "what specifically" in reply_normalized and "what specifically" in prev:
-                is_duplicate = True
-            elif "what's been on" in reply_normalized and "what's been on" in prev:
-                is_duplicate = True
-        
-        # If duplicate detected, use close template fallback
-        if is_duplicate:
-            import random
-            reply = random.choice(close_templates)
+                duplicate_reason = f"Theme '{list(shared_themes)[0]}' already asked"
+                break
+    
+    # Also check against qualification state for logically blocked questions
+    if contact_id and not is_duplicate:
+        qual_state = get_qualification_state(contact_id)
+        if qual_state:
+            reply_lower = reply.lower()
+            # Personal policy + asking about retirement = blocked
+            if qual_state.get("is_personal_policy") or qual_state.get("is_employer_based") == False:
+                if any(kw in reply_lower for kw in ["retirement", "retire", "leave your job", "portable", "convert"]):
+                    is_duplicate = True
+                    duplicate_reason = "Retirement question blocked - personal policy confirmed"
+            
+            # Already know living benefits status
+            if qual_state.get("has_living_benefits") is not None:
+                if "living benefits" in reply_lower:
+                    is_duplicate = True
+                    duplicate_reason = "Living benefits already known"
+            
+            # Already know other policies status
+            if qual_state.get("has_other_policies") is not None:
+                if any(kw in reply_lower for kw in ["other policies", "any other", "additional"]):
+                    is_duplicate = True
+                    duplicate_reason = "Other policies already asked"
+    
+    # If duplicate detected, use progression-based fallback
+    if is_duplicate:
+        logger.warning(f"SEMANTIC DUPLICATE BLOCKED: {duplicate_reason}")
+        import random
+        # Use a natural progression question instead
+        progression_questions = [
+            "What would make a quick review worth your time?",
+            "I have 6:30 tonight or 10:15 tomorrow, which works better?",
+            "Just want to make sure you're not overpaying. Quick 5-minute review, what time works?",
+        ]
+        reply = random.choice(progression_questions)
     
     # =========================================================================
     # STEP 5: LOG THE DECISION (so we can track what worked)

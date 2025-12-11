@@ -65,8 +65,24 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
     *   Health: `health_conditions[]`, `tobacco_user`, `age`, `retiring_soon`
     *   Motivation: `motivating_goal`, `blockers[]`
     *   Tracking: `total_exchanges`, `topics_asked[]`, `conversation_stage`
+    *   Flow State: `waiting_for_other_policies`, `waiting_for_goal`, `has_other_policies`
 -   **Prompt injection**: Known facts are injected into prompts to prevent repeat questions.
 -   **Topic-based repeat prevention**: Blocks asking about topics already covered (living benefits, portability, amount, term length, company).
+
+### Semantic Duplicate Prevention (Relevancy Tracker)
+-   **Theme-based blocking**: Questions are categorized into themes (retirement_portability, policy_type, living_benefits, coverage_goal, other_policies, motivation).
+-   **75% similarity check**: If a new question shares a theme with any of the last 5 agent messages, it's blocked.
+-   **Logical inference blocking**: When `is_personal_policy=true` or `is_employer_based=false`, all retirement/portability questions are automatically blocked.
+-   **State-aware blocking**: If `has_living_benefits` is known, won't ask about it. If `has_other_policies` is known, won't ask again.
+-   **Fallback behavior**: When a duplicate is blocked, uses a progression question (appointment offer) instead of repeating.
+
+### Private Policy Flow (Updated)
+When lead says "not an employer policy" / "private" / "personal" / "not through work":
+1. Sets `is_personal_policy=true`, `is_employer_based=false`
+2. Adds `employer_portability` and `job_coverage` to `topics_asked` (blocks future questions)
+3. Asks "Any other policies through work or otherwise?" (`waiting_for_other_policies=true`)
+4. After answer, asks "What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?" (`waiting_for_goal=true`)
+5. Captures goal as `motivating_goal` (add_coverage, cover_mortgage, final_expense, family_protection, etc.)
 
 ### Outcome-Based Learning System
 -   Utilizes PostgreSQL to store successful `response_patterns`, `contact_history`, and `outcome_tracker`.
