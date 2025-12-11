@@ -2343,6 +2343,29 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
     history_text = ""
     recent_agent_messages = []
     recent_lead_messages = []
+    
+    # Initialize dismissive detection variables (will be updated if conversation history exists)
+    is_soft_dismissive = False
+    is_hard_dismissive = False
+    soft_dismissive_count = 0
+    
+    # Check current message for dismissive phrases even without history
+    soft_dismissive_phrases = [
+        "not telling you", "none of your business", "why do you need to know",
+        "thats personal", "that's personal", "private", "why does it matter"
+    ]
+    hard_dismissive_phrases = [
+        "stop texting", "leave me alone", "f off", "fuck off", "go away",
+        "dont text me", "don't text me", "stop messaging", "stop contacting",
+        "remove me", "unsubscribe", "take me off", "do not contact",
+        "dont call", "don't call", "never contact"
+    ]
+    current_lower = message.lower()
+    is_soft_dismissive = any(phrase in current_lower for phrase in soft_dismissive_phrases)
+    is_hard_dismissive = any(phrase in current_lower for phrase in hard_dismissive_phrases)
+    if is_soft_dismissive:
+        soft_dismissive_count = 1
+    
     if conversation_history and len(conversation_history) > 0:
         # Extract recent agent questions to prevent repeats
         recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
@@ -2359,16 +2382,13 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 
 """
         
-        # Detect DISMISSIVE responses (hard shutdowns - must exit gracefully)
-        dismissive_phrases = [
-            "not telling you", "none of your business", "why do you need to know",
-            "stop texting", "leave me alone", "f off", "fuck off", "go away",
-            "dont text me", "don't text me", "stop messaging", "who is this",
-            "remove me", "unsubscribe", "take me off", "do not contact"
-        ]
-        
-        current_lower = message.lower()
-        is_dismissive = any(phrase in current_lower for phrase in dismissive_phrases)
+        # Count soft dismissive responses in history to escalate response
+        # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
+        history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
+        for msg in history_lead_messages:
+            msg_lower = msg.lower()
+            if any(phrase in msg_lower for phrase in soft_dismissive_phrases):
+                soft_dismissive_count += 1
         
         # Detect rejection patterns in lead messages
         rejection_phrases = [
@@ -2389,17 +2409,77 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         
         # Add explicit exchange count warning
         exchange_warning = ""
-        if is_dismissive:
+        
+        # HARD DISMISSIVE = wants to end contact completely (must exit)
+        if is_hard_dismissive:
             exchange_warning = f"""
-=== CRITICAL: DISMISSIVE RESPONSE - EXIT NOW ===
-The lead said something like "I'm not telling you that" or "none of your business".
-They feel INTERROGATED. You've pushed too hard.
-DO NOT ask another question. DO NOT try to redirect.
-Your response MUST be a SHORT graceful exit like:
-"Fair enough, no pressure. I'll check back another time."
-"No problem at all. Take care."
-"Got it. Have a good one."
-=== DO NOT ASK A QUESTION - JUST SAY GOODBYE ===
+=== CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
+The lead said "leave me alone", "stop texting", or similar.
+This is a clear request to stop. You MUST exit immediately.
+Your response MUST be SHORT and final:
+"Got it. Take care."
+"No problem. Have a good one."
+=== EXIT NOW - NO QUESTIONS ===
+
+"""
+        # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
+        elif is_soft_dismissive:
+            if soft_dismissive_count == 1:
+                # First resistance: Tactical empathy + curiosity pivot (Voss + NEPQ)
+                exchange_warning = f"""
+=== RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
+They said something like "I'm not telling you that" - they feel the question was too invasive.
+DO NOT back off. DO NOT ask the same type of question.
+Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
+
+PATTERN: Label + Pivot
+1. LABEL their feeling: "It sounds like that question felt a bit over the line."
+2. SOFTEN: "Totally fair, I get it."
+3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
+
+EXAMPLE RESPONSES:
+- "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
+- "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
+- "Got it, no need to get into details. Was there something specific that made you start looking?"
+
+DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
+=== USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
+
+"""
+            elif soft_dismissive_count == 2:
+                # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
+                exchange_warning = f"""
+=== SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
+They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
+Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
+
+PATTERN: Acknowledge + Reference their words + Calibrated question
+1. ACKNOWLEDGE: "I hear you."
+2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
+3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
+
+IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
+IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
+IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
+
+Use their OWN WORDS to reconnect. Don't ask new invasive questions.
+=== REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
+
+"""
+            else:
+                # Third+ resistance: Soft exit with door open
+                exchange_warning = f"""
+=== THIRD RESISTANCE - SOFT EXIT WITH DOOR OPEN ===
+They've resisted {soft_dismissive_count} times. They're not ready today.
+Don't give up forever, but exit gracefully and leave the door open for next time.
+
+PATTERN: Acknowledge + Exit + Door open
+"No worries at all. I'll check back in a bit. If anything changes, you have my number."
+"Totally understand. I'll circle back another time. Take care."
+"Got it. I'll reach out again down the road. Have a good one."
+
+DO NOT ask another question. Exit gracefully.
+=== SOFT EXIT - LEAVE DOOR OPEN ===
 
 """
         elif rejection_count >= 5:
@@ -2494,11 +2574,72 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
         "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
     ]
     
+    # Hard dismissive templates (must exit immediately)
+    hard_exit_templates = [
+        "Got it. Take care.",
+        "No problem. Have a good one."
+    ]
+    
+    # Soft dismissive templates (when all else fails after 3+ resistance)
+    soft_exit_templates = [
+        "No worries at all. I'll check back in a bit.",
+        "Totally understand. I'll circle back another time.",
+        "Got it. I'll reach out again down the road. Have a good one."
+    ]
+    
+    # First resistance templates (empathy + pivot - Voss + NEPQ)
+    first_resistance_templates = [
+        "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?",
+        "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?",
+        "Got it, no need to get into details. Was there something specific that made you start looking?",
+        "Totally fair. I get it. Out of curiosity, what had you considering coverage back then?"
+    ]
+    
+    # Second resistance templates (calibrated question + reference what they shared)
+    # These reference spouse/family since that's the most common info shared
+    second_resistance_family_templates = [
+        "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?",
+        "Got it. You said your wife has been asking about this. What would you want covered for her?",
+        "Fair enough. Earlier you mentioned your wife is worried. What specifically concerns her?"
+    ]
+    second_resistance_generic_templates = [
+        "I hear you. Just trying to help figure out what makes sense. Is there a better time to chat?",
+        "Got it. No pressure at all. Would a quick call work better than texting?",
+        "Fair enough. I'll keep it brief. Is there anything specific you want me to look into?"
+    ]
+    
     client = get_client()
     
-    # If we're in close stage, use template directly (server-side enforcement)
-    # This ensures no off-stage questions can leak through
-    if stage == "close":
+    # FIRST: Check for hard dismissive (wants no contact) - exit immediately
+    if is_hard_dismissive:
+        import random
+        reply = random.choice(hard_exit_templates)
+        return reply, confirmation_code
+    
+    # SECOND: Check for third+ soft dismissive - soft exit with door open
+    if is_soft_dismissive and soft_dismissive_count >= 3:
+        import random
+        reply = random.choice(soft_exit_templates)
+        return reply, confirmation_code
+    
+    # THIRD: Check for second soft dismissive - calibrated question + gap recall
+    if is_soft_dismissive and soft_dismissive_count == 2:
+        import random
+        # Use family templates if we know they have spouse
+        if lead_profile.get("family", {}).get("spouse"):
+            reply = random.choice(second_resistance_family_templates)
+        else:
+            reply = random.choice(second_resistance_generic_templates)
+        return reply, confirmation_code
+    
+    # FOURTH: Check for first soft dismissive - empathy + pivot
+    if is_soft_dismissive and soft_dismissive_count == 1:
+        import random
+        reply = random.choice(first_resistance_templates)
+        return reply, confirmation_code
+    
+    # FOURTH: If we're in close stage AND not dismissive, use template directly
+    if stage == "close" and not is_soft_dismissive:
         import random
         reply = random.choice(close_templates)
         reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
