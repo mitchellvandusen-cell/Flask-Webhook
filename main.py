@@ -774,18 +774,26 @@ WRONG: "Okay, thanks anyway!" (gives up too easily)
 WRONG: "But you really need this because..." (argues/lectures)
 RIGHT: "Fair enough. Most people who say that haven't looked at their policy in years. If yours actually covers what you think, I'll leave you alone. Does it include living benefits?"
 
-**DOUBLE REJECTION = EXIT GRACEFULLY (MANDATORY)**
-If they've already rejected once AND you made a justification/probe, and they reject AGAIN with:
-- "no thanks" / "no I'm good" / "I'm good thanks" / "not interested"
-- Any variation of declining after you already tried once
+**PERSISTENCE THROUGH TEXT (4-5 ATTEMPTS BEFORE EXIT)**
+Remember: This is TEXT. The client has full control, they can ignore you anytime.
+You CANNOT respond unless THEY respond first. So if they're still replying, there's still a chance.
 
-You MUST exit gracefully. Do NOT keep pushing:
+Keep working the conversation using all 5 frameworks until:
+- They say "stop texting" / "remove me" / "take me off your list" → EXIT IMMEDIATELY
+- They've rejected 4-5 times with no progress → EXIT GRACEFULLY
+- They stop responding (ignored) → You can't do anything anyway
+
+Each rejection is a chance to try a DIFFERENT framework approach:
+- Rejection 1: Try Gap Selling (expose coverage gaps)
+- Rejection 2: Try Straight Line (redirect without arguing)
+- Rejection 3: Try Never Split the Difference (label emotion, mirror)
+- Rejection 4: Try Brian Tracy (persistence, calm curiosity)
+- Rejection 5: Exit gracefully, leave door open
+
+EXIT phrases (after 4-5 rejections):
 "No problem. If anything changes, you have my number."
 "All good. Take care."
-"Got it. I'll let you go. Reach out if you ever need anything."
-
-WRONG: Asking yet another question after two rejections (this is pushy and annoying)
-RIGHT: Graceful exit that leaves the door open
+"Got it. Reach out if you ever need anything."
 
 === MEMORY PROTOCOL (CRITICAL - READ EVERY MESSAGE) ===
 
@@ -2060,11 +2068,11 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         
         # Add explicit exchange count warning
         exchange_warning = ""
-        if rejection_count >= 2:
+        if rejection_count >= 5:
             exchange_warning = f"""
-=== CRITICAL: DOUBLE REJECTION DETECTED - EXIT GRACEFULLY ===
-The lead has rejected {rejection_count} times. They are NOT interested.
-DO NOT ask another question. DO NOT keep pushing.
+=== CRITICAL: {rejection_count} REJECTIONS - TIME TO EXIT GRACEFULLY ===
+The lead has rejected {rejection_count} times. You've given it a solid effort.
+DO NOT keep pushing. Exit gracefully and leave the door open.
 Your response MUST be a graceful exit like:
 "No problem. If anything changes, you have my number."
 "All good. Take care."
