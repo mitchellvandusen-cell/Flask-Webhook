@@ -2695,6 +2695,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
     is_soft_dismissive = False
     is_hard_dismissive = False
     soft_dismissive_count = 0
+    topics_warning = ""  # Initialize for topic-based repeat prevention
     
     # Check current message for dismissive phrases even without history
     soft_dismissive_phrases = [
@@ -2722,6 +2723,56 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
         recent_lead_messages = [msg for msg in conversation_history if msg.startswith("Lead:")]
         recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
+        
+        # TOPIC-BASED REPEAT DETECTION - Detect topics already asked (not just exact questions)
+        all_agent_text = " ".join([msg.lower() for msg in recent_agent_messages])
+        topics_already_asked = []
+        
+        # Living benefits detection (multiple phrasings)
+        if any(phrase in all_agent_text for phrase in [
+            "living benefits", "access funds", "access part of", "touch the money",
+            "seriously ill while alive", "sick while you", "while you're still alive",
+            "accelerated", "chronic illness", "terminal illness rider"
+        ]):
+            topics_already_asked.append("LIVING_BENEFITS")
+        
+        # Portability detection
+        if any(phrase in all_agent_text for phrase in [
+            "follow you if you", "switch jobs", "tied to your employer", "portable",
+            "retire", "leave the company", "change jobs"
+        ]):
+            topics_already_asked.append("PORTABILITY")
+        
+        # Amount/coverage detection
+        if any(phrase in all_agent_text for phrase in [
+            "how much", "coverage amount", "replace your income", "enough to cover",
+            "10x your income", "what amount"
+        ]):
+            topics_already_asked.append("AMOUNT")
+        
+        # Term length detection
+        if any(phrase in all_agent_text for phrase in [
+            "how many years", "when does it expire", "term length", "years left",
+            "renew", "rate lock"
+        ]):
+            topics_already_asked.append("TERM_LENGTH")
+        
+        # Company/who detection
+        if any(phrase in all_agent_text for phrase in [
+            "who'd you go with", "who did you go with", "which company", "what company",
+            "who are you with"
+        ]):
+            topics_already_asked.append("COMPANY")
+        
+        # Build blocked topics warning
+        topics_warning = ""
+        if topics_already_asked:
+            topics_warning = f"""
+=== TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
+{chr(10).join([f"- {t}" for t in topics_already_asked])}
+=== CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
+
+"""
         
         questions_warning = ""
         if recent_questions:
@@ -2928,7 +2979,7 @@ Directive: {intent_directive}
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
-{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{questions_warning}{profile_text}
+{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
 """
     else:
         # Even without history, include profile and intent from current message
