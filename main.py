@@ -988,6 +988,21 @@ def extract_lead_profile(conversation_history, first_name, current_message):
             elif field == 'dependents':
                 profile["family"]["dependents"] = True
     
+    # Check if the current message is a bare number (direct answer to "how much coverage")
+    # This handles replies like "800000" or "500k" when asked about coverage amount
+    bare_number_match = re.match(r'^[\$]?(\d{4,7})k?$', current_message.strip().replace(',', ''))
+    if bare_number_match:
+        amount = int(bare_number_match.group(1))
+        # Format nicely - if over 1000, assume it's the full amount
+        if amount >= 1000:
+            profile["coverage"]["amount"] = f"{amount // 1000}k"
+        else:
+            profile["coverage"]["amount"] = f"{amount}k"
+        profile["coverage"]["has_coverage"] = True
+        if "coverage_amount" not in profile["questions_already_answered"]:
+            profile["questions_already_answered"].append("coverage_amount")
+        logger.debug(f"Captured bare number as coverage amount: {profile['coverage']['amount']}")
+    
     # Extract coverage info
     coverage_patterns = [
         (r'(\d+)k?\s*(through|from|at|via)\s*work', 'employer_coverage'),
