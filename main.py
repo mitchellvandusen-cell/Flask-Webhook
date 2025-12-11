@@ -10,6 +10,18 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from openai import OpenAI
 
+# Three-layer conversation architecture
+from conversation_engine import (
+    ConversationState, ConversationStage,
+    build_state_from_history, format_state_for_prompt,
+    PolicyEngine, detect_dismissive, parse_reflection, strip_reflection
+)
+from playbook import (
+    get_template_response, get_few_shot_examples,
+    get_resistance_template, get_hard_exit_template, get_closing_template,
+    match_scenario
+)
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -2128,8 +2140,13 @@ def extract_intent(data, message=""):
     
     return normalized
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general"):
-    """Generate NEPQ response using Grok AI"""
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None):
+    """Generate NEPQ response using Grok AI with three-layer architecture:
+    
+    Layer 1: Base Model (Grok) - guided via prompts
+    Layer 2: Conversation State Machine - deterministic stage tracking
+    Layer 3: Playbook - template responses for common scenarios
+    """
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
@@ -2138,6 +2155,16 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         conversation_history = []
     
     lead_profile = extract_lead_profile(conversation_history, first_name, message)
+    
+    # === LAYER 2: Build Conversation State (Source of Truth) ===
+    conv_state = build_state_from_history(
+        contact_id=contact_id or "unknown",
+        first_name=first_name,
+        conversation_history=conversation_history,
+        current_message=message
+    )
+    state_instructions = format_state_for_prompt(conv_state)
+    logger.debug(f"Conversation state: stage={conv_state.stage.value}, exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}")
     
     # === BUYING SIGNAL DETECTION - Override intent when lead shows readiness ===
     # Must be context-aware to avoid false positives from negations/sarcasm
@@ -2554,15 +2581,35 @@ Directive: {intent_directive}
 
 """
     
+    # Add self-reflection instructions (from Grok's recommendations)
+    self_reflection_instructions = """
+=== SELF-REFLECTION (internal - do not show to lead) ===
+After your response, add a <reflection> tag with:
+1. Score 1-10 on: Relevance (advances goal?), Coherence (builds on history?), Effectiveness (likely to get response?)
+2. Note what worked and what to improve
+3. If any score <7, adjust your response before sending
+
+Example:
+Your response here
+<reflection>Relevance: 8/10 - directly advances discovery. Coherence: 9/10 - references their spouse. Effectiveness: 7/10 - could be more specific. Improvement: next time offer concrete times.</reflection>
+===
+"""
+    
     user_content = f"""
 You are: {agent_name}
 Lead name: {first_name}
+{state_instructions}
 {intent_section}{history_text}Latest message from lead: "{message}"
 Confirmation code to use if booking: {confirmation_code}
 
-Based on the intent directive and conversation history above, generate ONE short NEPQ-style response that continues the conversation naturally.
-Do NOT repeat anything you've already said. Do NOT re-introduce yourself if you already have.
-No JSON, no markdown, no extra text. Just the response message.
+{self_reflection_instructions}
+Based on the conversation state and history above, generate ONE short NEPQ-style response that:
+1. Follows the DO/DON'T rules for your current stage
+2. Does NOT repeat questions already asked
+3. Uses what you already know instead of re-asking
+4. Keeps it natural (15-40 words for SMS)
+
+Add your <reflection> at the end for self-scoring.
 If you need to introduce yourself or sign off, use the name "{agent_name}".
 """
 
@@ -2645,24 +2692,72 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
         reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
         return reply, confirmation_code
     
-    response = client.chat.completions.create(
-        model="grok-2-1212",
-        messages=[
-            {"role": "system", "content": full_prompt},
-            {"role": "user", "content": user_content}
-        ],
-        max_tokens=150,
-        temperature=0.7
-    )
+    # === LAYER 2: Policy Validation with Retry Loop ===
+    max_retries = 2
+    retry_count = 0
+    correction_prompt = ""
+    
+    while retry_count <= max_retries:
+        response = client.chat.completions.create(
+            model="grok-2-1212",
+            messages=[
+                {"role": "system", "content": full_prompt},
+                {"role": "user", "content": user_content + correction_prompt}
+            ],
+            max_tokens=200,  # Increased to allow for reflection
+            temperature=0.7
+        )
 
-    content = response.choices[0].message.content or ""
-    reply = content.strip()
-    # Remove quotation marks wrapping the response
-    if reply.startswith('"') and reply.endswith('"'):
-        reply = reply[1:-1]
-    if reply.startswith("'") and reply.endswith("'"):
-        reply = reply[1:-1]
-    reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
+        content = response.choices[0].message.content or ""
+        
+        # Parse self-reflection BEFORE stripping (so we can use scores for validation)
+        reflection = parse_reflection(content)
+        reflection_scores = {}
+        if reflection:
+            reflection_scores = reflection.get('scores', {})
+            logger.debug(f"Self-reflection scores: {reflection_scores}")
+            if reflection.get('improvement'):
+                logger.debug(f"Self-improvement note: {reflection['improvement']}")
+        
+        # Strip reflection tags from the actual reply
+        reply = strip_reflection(content).strip()
+        
+        # Remove quotation marks wrapping the response
+        if reply.startswith('"') and reply.endswith('"'):
+            reply = reply[1:-1]
+        if reply.startswith("'") and reply.endswith("'"):
+            reply = reply[1:-1]
+        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
+        
+        # Validate response using PolicyEngine (pass reflection scores for scoring-based rejection)
+        is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(reply, conv_state, reflection_scores)
+        
+        if is_valid:
+            logger.debug("Policy validation passed")
+            break
+        else:
+            retry_count += 1
+            logger.warning(f"Policy validation failed (attempt {retry_count}): {error_reason}")
+            
+            if retry_count <= max_retries:
+                correction_prompt = PolicyEngine.get_regeneration_prompt(error_reason, correction_guidance)
+            else:
+                # Fallback to template after max retries
+                logger.warning("Max retries exceeded, falling back to playbook template")
+                scenario = match_scenario(message)
+                if scenario:
+                    template_reply = get_template_response(
+                        scenario["stage"], 
+                        scenario["response_key"],
+                        {"first_name": first_name}
+                    )
+                    if template_reply:
+                        reply = template_reply
+                        break
+                # Ultimate fallback: closing template
+                closing_reply = get_closing_template("offer_times")
+                if closing_reply:
+                    reply = closing_reply
     
     # Server-side duplicate rejection
     if recent_agent_messages:
@@ -2779,7 +2874,7 @@ def ghl_unified():
                 reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
                 reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
             else:
-                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent)
+                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id)
             
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             
@@ -3040,7 +3135,7 @@ def index():
             reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
             reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
         else:
-            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent)
+            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id)
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)

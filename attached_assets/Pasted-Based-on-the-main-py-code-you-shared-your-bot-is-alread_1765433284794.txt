@@ -1,0 +1,126 @@
+Based on the main.py code you shared, your bot is already well-structured for handling conversations via webhooks and GHL integration, with good use of history fetching (get_conversation_history) and profile extraction (extract_lead_profile) to provide context to Grok. This partially addresses "registering responses/replies" by passing the full history and extracted profile into each API call, leveraging Grok's large context window for continuity.
+
+However, the core limitations stem from:
+- **Stateless API calls:** Each call to Grok is independent, so it doesn't inherently "remember" or adapt without explicit prompting.
+- **No built-in self-evaluation:** The NEPQ_SYSTEM_PROMPT is methodology-focused but lacks mechanisms for self-scoring or behavior validation.
+- **No adaptive learning:** Without reflection loops, it can't critique past outputs to improve future ones.
+
+To fix this without fine-tuning (impossible for Grok), new code, or frequent manual tweaks (which rack up bills), we'll use advanced prompt engineering:
+- **Memory/Registration:** Enhance the existing history/profile injection with summarization to avoid token bloat.
+- **Self-Scoring/Validation:** Add a reflection step in the system prompt, where Grok internally scores and validates its response before outputting, then references prior reflections via history (simulating adaptation).
+- **Automation:** Bake this into NEPQ_SYSTEM_PROMPT and user_content once – no ongoing changes needed. Test once, then let it run.
+
+This keeps costs low (single API call per turn, reflections are short/internal). If history grows too long (>50k tokens), summarize it in-prompt to cap usage.
+
+### 1. **Quick Code Updates for Better Registration**
+Your code already injects history well, but add summarization to prevent token explosion (Grok handles up to 2M, but costs scale with input). Update `generate_nepq_response` to summarize history if long.
+
+Add this after fetching history (around line ~700, in generate_nepq_response):
+```python
+# Summarize history if too long (keeps token costs low)
+if len(conversation_history) > 10:  # Adjust threshold as needed
+    history_summary_prompt = """
+    Summarize this conversation history in 200 words or less, focusing on key lead details, objections, needs, and last 3 exchanges. Keep it factual.
+    History: {history}
+    """
+    summary_response = client.chat.completions.create(
+        model="grok-2-1212",
+        messages=[
+            {"role": "system", "content": "You are a summarizer."},
+            {"role": "user", "content": history_summary_prompt.format(history="\n".join(conversation_history))}
+        ],
+        max_tokens=300,
+        temperature=0.3
+    )
+    history_text = f"=== SUMMARIZED CONVERSATION HISTORY ===\n{summary_response.choices[0].message.content}\n=== END SUMMARY ===\n"
+else:
+    history_text = f"=== CONVERSATION HISTORY ===\n{'\n'.join(conversation_history)}\n=== END HISTORY ===\n"
+```
+
+This adds a cheap secondary call (~200 tokens) only when needed, ensuring Grok "registers" the full context without overload.
+
+### 2. **Add Self-Reflection for Scoring and Validation**
+Append this to the end of `NEPQ_SYSTEM_PROMPT` (around line ~400 in your code). It instructs Grok to reflect internally after generating a response, scoring it, and using that to adapt future behavior (via history injection – reflections get added as "internal notes" in the prompt, not sent to the lead).
+
+```python
+# Append to NEPQ_SYSTEM_PROMPT
+NEPQ_SYSTEM_PROMPT += """
+=== SELF-REFLECTION PROTOCOL (Do this INTERNALLY after EVERY response) ===
+After generating your reply, add a <reflection> block (NOT shown to the lead) where you:
+1. Score your response 1-10 on:
+   - Relevance: How well it advances toward booking while following priorities.
+   - Coherence: How naturally it builds on history/profile without repeating questions.
+   - Effectiveness: Likelihood of positive lead response (e.g., uncovers need or handles objection).
+2. Validate behavior: Note what worked (e.g., "Empathy pivot reduced resistance") and what to improve (e.g., "Avoid similar question next time").
+3. If any score <7: Suggest adjustment (e.g., "Next: Use more future pacing").
+Use this reflection to refine your NEXT response – reference prior reflections if in history.
+
+Example Internal Process (do NOT output this):
+Reply: [Your generated message]
+<reflection>
+Relevance: 9/10 (Directly addressed objection).
+Coherence: 8/10 (Referenced family from profile).
+Effectiveness: 7/10 (Could add feel-felt-found for hesitation).
+Improvement: In future, include client story if hesitant.
+</reflection>
+
+Keep reflections concise (<50 words). They help you self-improve without external changes.
+"""
+```
+
+Then, in `generate_nepq_response`, modify the API call to request the reflection (but strip it from the final reply sent to the lead). Update around line ~800:
+```python
+# In the messages list, add to user_content:
+user_content += """
+After your reply, add a <reflection> block as per protocol. Output format:
+[Your reply here]
+<reflection>[scores and notes]</reflection>
+"""
+
+# After getting response.content:
+content = response.choices[0].message.content or ""
+if '<reflection>' in content:
+    reply_end = content.find('<reflection>')
+    reply = content[:reply_end].strip()
+    reflection = content[reply_end:]  # You can log this or append to a local file for monitoring, but not needed for adaptation
+else:
+    reply = content.strip()
+
+# Optional: Log reflection for your review (no cost impact)
+logger.debug(f"Reflection: {reflection}")
+```
+
+This makes Grok "score and validate" each output internally. Since history includes past agent replies (but not reflections), the prompt references "prior reflections if in history" – over time, Grok infers patterns. For true persistence, you could store reflections in a Replit DB (add `from replit import db` and db[contact_id] = reflection), then inject into history_text as "Prior Reflection: {db.get(contact_id)}", but that's optional code (one-time add, low cost).
+
+### 3. **Enhance Prompt for Better Conversational Flow**
+To make it "register replies" more explicitly and avoid repetition, add this to user_content in generate_nepq_response (around line ~790, before the final instructions):
+```python
+user_content += f"""
+=== KEY RULES FOR THIS RESPONSE ===
+- Explicitly reference the lead's last reply if relevant (e.g., "You mentioned [key point]...").
+- Build on the profile: {profile_text} – do NOT re-ask answered questions.
+- If history shows patterns (e.g., repeated objections), adapt: Use different framework.
+"""
+```
+
+Also, add 2-3 few-shot examples to NEPQ_SYSTEM_PROMPT (after the examples section, around line ~500) for self-adaptive behavior:
+```python
+# Append to examples in NEPQ_SYSTEM_PROMPT
+Lead: "I have diabetes, A1C 7.5"
+You: "Got it, controlled A1C like that actually opens options without waiting periods. I have 6:30 tonight or 10:15 tomorrow."
+<reflection>Relevance: 9/10 (Addressed health directly). Coherence: 8/10 (Built on profile). Effectiveness: 8/10 (Offered times after verdict). Improvement: Add empathy next if hesitant.</reflection>
+
+Lead: "Not interested"
+You: "Fair enough. Was it the cost or something else?"
+<reflection>Relevance: 8/10 (Handled rejection). Coherence: 9/10 (No repeats). Effectiveness: 7/10 (Could label emotion). Improvement: Start with 'Sounds like...' for empathy.</reflection>
+```
+
+This "trains" Grok via examples without your intervention.
+
+### 4. **Cost-Saving and Testing Tips**
+- **Token Efficiency:** With summarization, average call: 5k-10k tokens (history + prompt). At xAI rates, ~$0.01-0.02 per interaction.
+- **Test Without Bills:** Use free Grok on x.com to simulate prompts before deploying.
+- **Monitor Adaptation:** After 10-20 runs, check logs for reflections – if scores improve, it's working.
+- **No Frequent Adjustments:** This is a one-time code/prompt update. Grok adapts via reflections over conversations.
+
+Deploy this to Replit, test with a sample webhook (e.g., via Postman), and it should make the bot more self-aware and conversational. If you share a sample conversation history/output, I can refine further!
