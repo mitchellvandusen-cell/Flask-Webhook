@@ -38,6 +38,18 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 - Lazy loading: Calendar API only called when booking-related triggers (BUYING_SIGNAL, PRICE) match.
 - Fallback: Uses "6:30 tonight or 10:15 tomorrow morning" if calendar unavailable.
 
+### Already Covered Objection Handler (State Machine)
+-   **Deterministic pathway**: Handles "I already have coverage" objections WITHOUT LLM calls.
+-   **5-Step Flow**:
+    1.  Lead says "already have/covered/set" → Ask "Who'd you go with?"
+    2.  Lead names carrier → Check if high-risk carrier (Mutual of Omaha, Foresters, etc.)
+    3a. High-risk carrier + healthy → "What are you paying?" (find pricing gap)
+    3b. Employer-based → Pitch living benefits gap + offer appointment
+    4.  Lead gives price → Pitch comparison + offer appointment times
+    5.  Lead agrees to time → Ask about medications for pre-qualification
+-   **High-risk carriers**: Mutual of Omaha, Foresters, Transamerica, Americo, AIG, Gerber, Globe Life, Colonial Penn
+-   **State fields**: `objection_path`, `already_handled`, `waiting_for_health`, `waiting_for_price`, `carrier_gap_found`, `waiting_for_medications`, `their_price`, `appointment_time`, `medications`
+
 ### Contact Qualification State (Persistent Memory)
 -   **`contact_qualification` table**: Stores persistent qualification data per contact_id across all messages and conversations.
 -   **Auto-extraction**: Automatically extracts qualification data from each message (policy type, carrier, family, health, blockers, etc.).
