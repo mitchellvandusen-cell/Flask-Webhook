@@ -74,6 +74,40 @@ Server-side extraction of conversation data prevents duplicate questions:
 - Model: `grok-2-1212`
 - Comprehensive NEPQ system prompt with full methodology
 
+### Three-Layer Conversation Architecture
+
+The system uses a three-layer architecture for reliable, on-strategy responses:
+
+**Layer 1: Base Model (Grok)**
+- Receives prompts with state context, stage instructions, and self-reflection requirements
+- Outputs responses with `<reflection>` tags containing self-assessed scores (relevance, coherence, effectiveness)
+
+**Layer 2: Conversation State Machine (Python)**
+- `conversation_engine.py` - Deterministic stage tracking and policy validation
+- **ConversationState**: Tracks stage, exchange count, facts extracted, topics answered, dismissive counts
+- **Stage Detection**: Automatic progression based on exchange count and problem revealed:
+  - INITIAL_OUTREACH → DISCOVERY (first exchange)
+  - DISCOVERY → CONSEQUENCE (problem revealed)
+  - CONSEQUENCE → CLOSING (3+ exchanges)
+- **PolicyEngine**: Validates responses before sending, checks:
+  - Format rules (length, em dashes, multiple questions)
+  - Self-reflection scores (reject if any score < 6)
+  - Stage-specific rules (no closing in initial, must offer times in closing)
+  - Repeat question detection (don't re-ask answered topics)
+
+**Layer 3: Playbook Library (Python)**
+- `playbook.py` - Template responses for common scenarios
+- Stage-specific scenarios with ideal responses
+- Few-shot examples for consistent tone
+- Fallback templates when LLM fails validation 2x
+
+**Validation Loop:**
+1. LLM generates response with self-reflection
+2. Parse reflection scores before stripping tags
+3. PolicyEngine validates against rules
+4. If invalid: retry with corrective feedback (max 2 retries)
+5. If still invalid: fall back to playbook templates
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -317,3 +351,5 @@ Search contacts by phone
 
 ## Key Files
 - `main.py` - Complete Flask application with NEPQ system prompt
+- `conversation_engine.py` - Three-layer architecture: ConversationState, stage detection, PolicyEngine validation
+- `playbook.py` - Template responses by stage and scenario for fallback reliability
