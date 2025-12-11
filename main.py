@@ -29,6 +29,12 @@ from outcome_learning import (
     save_new_pattern, mark_appointment_booked,
     check_for_burns, VibeClassification
 )
+# Knowledge base - bot reads this FIRST before responding
+from knowledge_base import (
+    get_all_knowledge, get_relevant_knowledge, 
+    format_knowledge_for_prompt, identify_triggers,
+    PRODUCT_KNOWLEDGE, HEALTH_CONDITIONS, OBJECTION_HANDLERS
+)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -536,6 +542,7 @@ def format_slot_options(slots, timezone="America/New_York"):
 
 # ==================== DETERMINISTIC TRIGGER MAP (runs BEFORE LLM) ====================
 # These patterns get instant responses without burning API tokens
+# Responses are based on knowledge_base.py - bot "reads" knowledge first
 TRIGGERS = {
     "HARD_EXIT": r"(stop|remove|leave.*alone|fuck|f off|do not contact|dnc|unsolicited|spam|unsubscribe|take me off|harassment)",
     "COVERAGE_CLAIM": r"(covered|all set|already have|got.*covered|im good|yeah good|nah good|taken care|handled|found.*policy|found.*something)",
@@ -543,10 +550,13 @@ TRIGGERS = {
     "TERM": r"(term.*life|term.*policy|10.?year|15.?year|20.?year|30.?year)",
     "PERMANENT": r"(whole.*life|permanent|cash.*value|iul|universal.*life|indexed)",
     "GI": r"(guaranteed.*issue|no.*exam|colonial.*penn|globe.*life|aarp|no.*health|no questions|final.*expense|burial)",
-    "PRICE": r"(how.*much|quote|rate|price|cost|premium|expensive|cant.*afford|too much)",
+    "PRICE": r"(how.*much|quote|rate|price|cost|premium)",
     "BUYING_SIGNAL": r"^\s*(yes|sure|okay|ok|yeah|yep|perfect|works|lets do it|let's do it|im in|i'm in|sign me up|sounds good|that sounds good|works for me)[!.,?\s]*$",
-    "SOFT_REJECT": r"(not.*interested|no thanks|busy|bad.*time|just.*looking|maybe.*later|think.*about|not right now)",
-    "HEALTH": r"(diabetes|a1c|insulin|heart|stent|cancer|copd|oxygen|stroke|blood.*pressure|high bp|hypertension)"
+    "SOFT_REJECT": r"(not.*interested|no thanks|busy|bad.*time|just.*looking|maybe.*later|not right now)",
+    "HEALTH": r"(diabetes|a1c|insulin|heart|stent|cancer|copd|oxygen|stroke|blood.*pressure|high bp|hypertension)",
+    "SPOUSE": r"(wife|husband|spouse|partner|talk.*to.*them|ask.*them|check.*with|run.*by)",
+    "NEED_TO_THINK": r"(think.*about|need.*time|not sure|consider|sleep on|get back)",
+    "TOO_EXPENSIVE": r"(too.*expensive|cant.*afford|out of.*budget|too much money)"
 }
 
 def force_response(message, api_key=None, calendar_id=None, timezone="America/New_York"):
@@ -599,6 +609,14 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
     if re.search(TRIGGERS["PERMANENT"], m):
         return "Does that one have living benefits, or just the death benefit?", "TRIG"
     
+    if re.search(TRIGGERS["TOO_EXPENSIVE"], m):
+        responses = [
+            "What were they quoting you for coverage?",
+            "Was that for term or permanent?",
+            "Sometimes the wrong policy gets quoted. What did they show you?"
+        ]
+        return random.choice(responses), "TRIG"
+    
     if re.search(TRIGGERS["PRICE"], m):
         return f"Depends on health and coverage. I have {get_slot_text()}, which works for accurate numbers?", "TRIG"
     
@@ -607,6 +625,22 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
     
     if re.search(TRIGGERS["HEALTH"], m):
         return "Good news, with that you've got way more options than a guaranteed-issue policy. Want me to check?", "TRIG"
+    
+    if re.search(TRIGGERS["SPOUSE"], m):
+        responses = [
+            "Smart to include them. Would a quick 3-way call work better?",
+            "For sure. What questions do you think they'd have?",
+            "Got it. Want me to send some info you can show them?"
+        ]
+        return random.choice(responses), "TRIG"
+    
+    if re.search(TRIGGERS["NEED_TO_THINK"], m):
+        responses = [
+            "Totally get it. What's the main thing you're weighing?",
+            "Of course. Is it the coverage or the cost you're thinking about?",
+            "Makes sense. What would help you decide?"
+        ]
+        return random.choice(responses), "TRIG"
     
     # No trigger matched - let LLM handle it
     return None, None
@@ -2359,22 +2393,45 @@ def extract_intent(data, message=""):
     return normalized
 
 def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York"):
-    """Generate NEPQ response using Grok AI with three-layer architecture:
+    """Generate NEPQ response using knowledge-first architecture:
+    
+    STEP 1: Read all knowledge (knowledge_base.py loaded at import)
+    STEP 2: Identify trigger words in the message
+    STEP 3: Pull relevant knowledge based on triggers
+    STEP 4: Respond appropriately (deterministic or LLM with context)
     
     Layer 0: Deterministic Trigger Map - instant responses for common patterns (no LLM)
-    Layer 1: Base Model (Grok) - guided via prompts
+    Layer 1: Base Model (Grok) - guided via prompts + relevant knowledge
     Layer 2: Conversation State Machine - deterministic stage tracking
     Layer 3: Playbook - template responses for common scenarios
     """
-    # === LAYER 0: Deterministic Trigger Map (runs BEFORE LLM) ===
-    # Check for common patterns that get instant, proven responses
+    # === STEP 1: Knowledge is loaded at module import from knowledge_base.py ===
+    # Contains: PRODUCT_KNOWLEDGE, HEALTH_CONDITIONS, OBJECTION_HANDLERS, BUYING_SIGNALS
+    
+    # === STEP 2: Identify trigger words in the current message ===
+    triggers_found = identify_triggers(message)
+    logger.debug(f"Triggers identified: {triggers_found}")
+    
+    # === STEP 3: Pull relevant knowledge based on triggers ===
+    relevant_knowledge = get_relevant_knowledge(triggers_found)
+    knowledge_context = format_knowledge_for_prompt(relevant_knowledge)
+    if knowledge_context:
+        logger.debug(f"Loaded knowledge sections: {list(relevant_knowledge.keys())}")
+    
+    # === STEP 4: Respond appropriately ===
+    # First try deterministic response (Layer 0)
     forced_reply, force_code = force_response(message, api_key, calendar_id, timezone)
     if forced_reply:
-        logger.info(f"Trigger matched [{force_code}]: returning instant response")
+        logger.info(f"Trigger matched [{force_code}]: returning instant response from knowledge base")
         return forced_reply, force_code if force_code != "TRIG" else generate_confirmation_code()
     
+    # If no deterministic match, use LLM with knowledge context injected
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+    
+    # Inject relevant knowledge into the system prompt
+    if knowledge_context:
+        full_prompt = full_prompt + "\n\n" + knowledge_context
     
     # Extract structured lead profile from conversation
     if conversation_history is None:
