@@ -1990,7 +1990,7 @@ def ghl_unified():
     if action == 'respond':
         contact_id = data.get('contact_id') or data.get('contactId')
         first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
-        message = data.get('message') or data.get('body') or data.get('text', '')
+        message = data.get('message') or data.get('Message') or data.get('body') or data.get('text', '')
         agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
         
         if not contact_id:
@@ -2211,7 +2211,7 @@ def index():
     
     contact_id = data.get('contact_id') or data.get('contactId')
     first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
-    message = data.get('message') or data.get('body') or data.get('text', '')
+    message = data.get('message') or data.get('Message') or data.get('body') or data.get('text', '')
     agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
