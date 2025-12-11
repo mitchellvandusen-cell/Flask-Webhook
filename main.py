@@ -35,6 +35,8 @@ from knowledge_base import (
     format_knowledge_for_prompt, identify_triggers,
     PRODUCT_KNOWLEDGE, HEALTH_CONDITIONS, OBJECTION_HANDLERS
 )
+# Unified Brain - ALL knowledge consolidated for deliberate decision-making
+from unified_brain import get_unified_brain, get_decision_prompt
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -2436,12 +2438,12 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
     
     # =========================================================================
-    # STEP 4: EVALUATE - Let Grok decide the BEST response
+    # STEP 4: EVALUATE - ALL messages go through the unified brain
+    # No shortcuts - the brain decides how to handle everything including exits
     # =========================================================================
-    # For hard exits, skip LLM entirely (cost saver)
+    # EXIT triggers become suggestions for the brain, not bypasses
     if trigger_code == "EXIT":
-        logger.info("STEP 4: Hard exit detected, using trigger directly")
-        return trigger_suggestion, confirmation_code
+        logger.info("STEP 4: Exit trigger detected, passing to unified brain for evaluation")
     
     # Build the FULL context for Grok to evaluate
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
@@ -2992,42 +2994,62 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
     
     client = get_client()
     
-    # FIRST: Check for hard dismissive (wants no contact) - exit immediately
-    if is_hard_dismissive:
-        import random
-        reply = random.choice(hard_exit_templates)
-        return reply, confirmation_code
+    # =========================================================================
+    # UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
+    # No more template shortcuts - the bot must THINK using all its knowledge
+    # =========================================================================
     
-    # SECOND: Check for third+ soft dismissive - soft exit with door open
-    if is_soft_dismissive and soft_dismissive_count >= 3:
-        import random
-        reply = random.choice(soft_exit_templates)
-        return reply, confirmation_code
+    # Build context for the unified brain
+    unified_brain_knowledge = get_unified_brain()
     
-    # THIRD: Check for second soft dismissive - calibrated question + gap recall
-    if is_soft_dismissive and soft_dismissive_count == 2:
-        import random
-        # Use family templates if we know they have spouse
-        if lead_profile.get("family", {}).get("spouse"):
-            reply = random.choice(second_resistance_family_templates)
-        else:
-            reply = random.choice(second_resistance_generic_templates)
-        return reply, confirmation_code
+    # Determine trigger suggestion for evaluation (not bypass)
+    trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
     
-    # FOURTH: Check for first soft dismissive - empathy + pivot
-    if is_soft_dismissive and soft_dismissive_count == 1:
-        import random
-        reply = random.choice(first_resistance_templates)
-        return reply, confirmation_code
+    # Get proven patterns for comparison
+    proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
     
-    # FOURTH: If we're in close stage AND not dismissive, use template directly
-    if stage == "close" and not is_soft_dismissive:
-        import random
-        reply = random.choice(close_templates)
-        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
-        return reply, confirmation_code
+    # Build the decision prompt with all context
+    decision_prompt = get_decision_prompt(
+        message=message,
+        context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
+        stage=stage,
+        trigger_suggestion=trigger_suggestion,
+        proven_patterns=proven_patterns_text
+    )
     
-    # === LAYER 2: Policy Validation with Retry Loop ===
+    # Build unified brain system prompt
+    unified_system_prompt = f"""
+{unified_brain_knowledge}
+
+===================================================================================
+SITUATIONAL CONTEXT
+===================================================================================
+Agent name: {agent_name}
+Lead name: {first_name}
+Current stage: {stage}
+Exchange count: {exchange_count}
+Dismissive count: {soft_dismissive_count}
+Is soft dismissive: {is_soft_dismissive}
+Is hard dismissive: {is_hard_dismissive}
+
+{state_instructions}
+{profile_text}
+
+CONFIRMATION CODE (if booking): {confirmation_code}
+
+===================================================================================
+CRITICAL RULES
+===================================================================================
+1. No em dashes (--) in responses
+2. Keep responses 15-35 words (SMS friendly)
+3. Only use first name every 3-4 messages like normal texting
+4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
+5. After 3 exchanges, STOP asking questions and offer appointment times
+
+{decision_prompt}
+"""
+
+    # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
     max_retries = 2
     retry_count = 0
     correction_prompt = ""
@@ -3035,18 +3057,46 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
     # Use grok-4-1-fast-reasoning for everything (cheap and capable)
     use_model = "grok-4-1-fast-reasoning"
     
+    # Simplified user content for unified brain approach
+    unified_user_content = f"""
+CONVERSATION HISTORY:
+{chr(10).join(conversation_history) if conversation_history else "First message - no history yet"}
+
+LEAD'S MESSAGE: "{message}"
+
+Now THINK through your decision process and respond.
+Remember: Apply your knowledge, don't just pattern match.
+"""
+    
     while retry_count <= max_retries:
         response = client.chat.completions.create(
             model=use_model,
             messages=[
-                {"role": "system", "content": full_prompt},
-                {"role": "user", "content": user_content + correction_prompt}
+                {"role": "system", "content": unified_system_prompt},
+                {"role": "user", "content": unified_user_content + correction_prompt}
             ],
-            max_tokens=200,  # Increased to allow for reflection
+            max_tokens=500,  # Increased to allow for thinking + response
             temperature=0.7
         )
 
         content = response.choices[0].message.content or ""
+        
+        # Parse unified brain thinking for logging
+        thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
+        if thinking_match:
+            thinking = thinking_match.group(1).strip()
+            logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
+        
+        # Extract the actual response
+        response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
+        if response_match:
+            reply = response_match.group(1).strip()
+        else:
+            # Fallback: if no tags, try to get just the last sentence/response
+            # Strip any thinking blocks first
+            reply = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
+            if not reply:
+                reply = content.strip()
         
         # Parse self-reflection BEFORE stripping (so we can use scores for validation)
         reflection = parse_reflection(content)
@@ -3056,9 +3106,6 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
             logger.debug(f"Self-reflection scores: {reflection_scores}")
             if reflection.get('improvement'):
                 logger.debug(f"Self-improvement note: {reflection['improvement']}")
-        
-        # Strip reflection tags from the actual reply
-        reply = strip_reflection(content).strip()
         
         # Remove quotation marks wrapping the response
         if reply.startswith('"') and reply.endswith('"'):
