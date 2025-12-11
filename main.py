@@ -244,18 +244,23 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
             updates["has_living_benefits"] = False
     
     # === POLICY SOURCE ===
-    # Detect personal/private policy - also check for "not through work"
+    # Detect personal/private policy - multiple signals
     is_personal = re.search(r"(my own|personal|private|individual).*(policy|coverage|insurance)", all_text)
     not_through_work = re.search(r"(not|isn'?t|isnt).*(through|from|via|at).*(work|job|employer)", all_text)
+    # "Yes it follows me" = portable = personal policy (not employer-tied)
+    follows_me = re.search(r"(yes\s*)?(it\s*)?(follows|portable|goes with|take it with|keeps?|stays?)", message.lower())
+    # "Not an employer policy" pattern
+    not_employer = re.search(r"not\s*(an?\s*)?(employer|work|job)\s*(policy|plan|coverage)?", message.lower())
     
-    if is_personal or not_through_work:
+    if is_personal or not_through_work or follows_me or not_employer:
         updates["is_personal_policy"] = True
         updates["is_employer_based"] = False
-        # Mark employer portability as answered so LLM stops asking
+        # Mark employer portability as answered so LLM stops asking about retirement/job stuff
         add_to_qualification_array(contact_id, "topics_asked", "employer_portability")
         add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
+        add_to_qualification_array(contact_id, "topics_asked", "retirement")
         
-    if re.search(r"(through|from|at|via).*(work|job|employer|company)", all_text) and not not_through_work:
+    if re.search(r"(through|from|at|via).*(work|job|employer|company)", all_text) and not not_through_work and not follows_me:
         updates["is_employer_based"] = True
         updates["is_personal_policy"] = False
     
@@ -472,8 +477,8 @@ def format_qualification_for_prompt(qualification_state):
     # === SEMANTIC BLOCKING - questions that are LOGICALLY off the table ===
     blocked_questions = []
     
-    # Personal policy = employer questions are nonsensical
-    if q.get("is_personal_policy") or "employer_portability" in (q.get("topics_asked") or []):
+    # Personal policy = employer questions are NONSENSE - absolutely block these
+    if q.get("is_personal_policy") or q.get("is_employer_based") == False or "employer_portability" in (q.get("topics_asked") or []) or "retirement" in (q.get("topics_asked") or []):
         blocked_questions.extend([
             "Does it continue after retirement?",
             "What happens when you leave your job?",
@@ -481,7 +486,9 @@ def format_qualification_for_prompt(qualification_state):
             "Is it portable?",
             "What happens if you retire?",
             "Does it go with you if you leave?",
-            "Any retirement questions - THIS IS A PERSONAL POLICY"
+            "Would you have to convert it?",
+            "Is it tied to the employer?",
+            "STOP - THIS IS A PERSONAL POLICY. Retirement/job questions make no sense."
         ])
     
     # If they told us policy type, don't ask about it
@@ -794,7 +801,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
             if carrier:
                 update_qualification_state(contact_id, {"carrier": carrier})
-            return ("Got it. Any other policies through work or otherwise?"), False
+            return ("Okay is that the only one you have or do you have one also with work?"), False
         
         # Check for employer-based coverage
         if re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m):
