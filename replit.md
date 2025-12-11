@@ -76,6 +76,13 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 -   **State-aware blocking**: If `has_living_benefits` is known, won't ask about it. If `has_other_policies` is known, won't ask again.
 -   **Fallback behavior**: When a duplicate is blocked, uses a progression question (appointment offer) instead of repeating.
 
+### Motivating Goal Question Protection
+-   **Single-use question**: "What got you looking" type questions can only be asked ONCE per conversation. Leads ghost rather than complain about repetition.
+-   **Intent-based detection**: Uses regex patterns to catch semantic variations (what made you, why did you start, what triggered, etc.).
+-   **PolicyEngine blocking**: When LLM attempts to repeat, error code "REPEAT_MOTIVATION_BLOCKED" triggers immediate template substitution.
+-   **Backbone probe templates**: When blocked, uses assertive alternatives like "Usually people don't look up insurance for fun. Something on your mind about it?"
+-   **Progressive alternatives**: Other templates available include "Something must have triggered you to look into this" and "You wouldn't be responding if there wasn't something on your mind about this."
+
 ### Private Policy Flow (Updated)
 When lead says "not an employer policy" / "private" / "personal" / "not through work":
 1. Sets `is_personal_policy=true`, `is_employer_based=false`

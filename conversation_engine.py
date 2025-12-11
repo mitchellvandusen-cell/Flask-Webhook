@@ -568,13 +568,38 @@ class PolicyEngine:
         
         # === STATE-BASED RULES ===
         
+        # === MOTIVATING GOAL QUESTION - SPECIAL HANDLING ===
+        # This is a single-use question that should NEVER be repeated
+        motivating_goal_patterns = [
+            r"what.*(got|made|had).*(you|ya).*(look|think|consider|check)",
+            r"what.*(brought|bring).*(you|ya).*(here|looking)",
+            r"why.*(start|begin|did you).*(look|shop|search)",
+            r"what.*(was|were).*(going on|happening)",
+            r"what.*(originally|initially).*(got|made|had)",
+            r"what.*trigger",
+            r"reason.*(you|to).*(look|put.*info|fill)",
+            r"what.*motivated",
+            r"was there.*specific.*reason",
+            r"something.*(specific|particular).*had you looking"
+        ]
+        
+        is_motivating_question = any(re.search(p, response_lower) for p in motivating_goal_patterns)
+        if is_motivating_question:
+            # Check if already asked (in questions_asked or topics_answered)
+            if "motivating_goal" in state.topics_answered or "motivation" in state.topics_answered:
+                return False, "REPEAT_MOTIVATION_BLOCKED", "USE_BACKBONE_PROBE"
+            
+            # Check conversation history for this question type
+            for prev_q in state.questions_asked:
+                if any(re.search(p, prev_q.lower()) for p in motivating_goal_patterns):
+                    return False, "REPEAT_MOTIVATION_BLOCKED", "USE_BACKBONE_PROBE"
+        
         # Check for re-asking answered topics
         topic_patterns = {
             "marital_status": ["are you married", "do you have a spouse", "do you have a wife", "do you have a husband"],
             "kids": ["do you have kids", "how many kids", "do you have children"],
             "coverage": ["do you have coverage", "do you have any coverage", "are you currently covered", "do you have insurance"],
-            "coverage_source": ["is that through work", "through your employer", "through your job"],
-            "motivation": ["what got you looking", "what made you look", "what originally got you"]
+            "coverage_source": ["is that through work", "through your employer", "through your job"]
         }
         
         for topic in state.topics_answered:
@@ -583,13 +608,18 @@ class PolicyEngine:
                     if pattern in response_lower:
                         return False, f"Re-asked about {topic}", f"You already know about {topic}. Reference what they told you instead of asking again."
         
-        # Check for repeating recent questions
+        # Check for repeating recent questions (non-motivation)
         for prev_question in state.questions_asked[-3:]:
             prev_lower = prev_question.lower()
-            # Check for semantic similarity
-            key_phrases = re.findall(r'what (got|made|originally|was)', prev_lower)
-            for phrase in key_phrases:
-                if phrase in response_lower and "?" in response:
+            # Skip motivation questions - handled above
+            if any(re.search(p, prev_lower) for p in motivating_goal_patterns):
+                continue
+            # Check for semantic similarity on other questions
+            if len(prev_lower) > 10:
+                words = set(prev_lower.split())
+                response_words = set(response_lower.split())
+                overlap = len(words & response_words)
+                if overlap >= 5 and "?" in response:
                     return False, "Repeated a similar question", "Ask a different type of question or move forward."
         
         return True, None, None

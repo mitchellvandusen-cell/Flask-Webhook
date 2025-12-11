@@ -30,6 +30,12 @@ STAGE_TEMPLATES = {
     },
     
     ConversationStage.DISCOVERY: {
+        "backbone_probe": [
+            "Usually people don't look up insurance for fun. Are you saying there was no reason to put your info in online?",
+            "Look, people don't usually fill out insurance forms for no reason. What was going on?",
+            "Fair enough. But you looked into it at some point. Something had to trigger that, right?",
+            "I get it. But nobody fills out a quote request for fun. What changed?"
+        ],
         "ask_family": [
             "Got it. Who would you want that coverage to protect?",
             "Makes sense. Is there anyone depending on your income right now?",
@@ -325,3 +331,34 @@ def get_hard_exit_template() -> Optional[str]:
 def get_closing_template(situation: str = "offer_times", context: Optional[Dict[str, Any]] = None) -> Optional[str]:
     """Get closing template with time offers."""
     return get_template_response(ConversationStage.CLOSING, situation, context or {})
+
+
+def get_backbone_probe_template() -> Optional[str]:
+    """
+    Get a backbone probe response for when the lead deflects/ignores
+    'what got you looking' type questions. Has some teeth to it.
+    """
+    return get_template_response(ConversationStage.DISCOVERY, "backbone_probe")
+
+
+def is_motivating_goal_question(text: str) -> bool:
+    """
+    Detect if the text contains a 'what got you looking' type question.
+    These are single-use questions that should never be repeated.
+    """
+    patterns = [
+        r"what.*(got|made|had).*(you|ya).*(look|think|consider|check)",
+        r"what.*(brought|bring).*(you|ya).*(here|looking)",
+        r"why.*(start|begin|did you).*(look|shop|search)",
+        r"what.*(was|were).*(going on|happening)",
+        r"what.*(originally|initially).*(got|made|had)",
+        r"what.*trigger",
+        r"what.*change.*that made you",
+        r"reason.*(you|to).*(look|put.*info|fill)",
+        r"what.*motivated",
+        r"was there.*specific.*reason",
+        r"something.*(specific|particular).*had you looking"
+    ]
+    text_lower = text.lower()
+    import re
+    return any(re.search(p, text_lower) for p in patterns)

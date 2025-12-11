@@ -19,7 +19,7 @@ from conversation_engine import (
 from playbook import (
     get_template_response, get_few_shot_examples,
     get_resistance_template, get_hard_exit_template, get_closing_template,
-    match_scenario
+    match_scenario, get_backbone_probe_template, is_motivating_goal_question
 )
 # Outcome-based learning system
 from outcome_learning import (
@@ -4138,6 +4138,17 @@ Remember: Apply your knowledge, don't just pattern match.
             logger.debug("Policy validation passed")
             break
         else:
+            # SPECIAL CASE: Motivation question repeat - use backbone probe immediately
+            if error_reason == "REPEAT_MOTIVATION_BLOCKED":
+                logger.info("Motivation question repeat blocked - using backbone probe template")
+                backbone_reply = get_backbone_probe_template()
+                if backbone_reply:
+                    reply = backbone_reply
+                    break
+                # Fallback if backbone template unavailable
+                reply = "Usually people don't look up insurance for fun. Something on your mind about it?"
+                break
+            
             retry_count += 1
             logger.warning(f"Policy validation failed (attempt {retry_count}): {error_reason}")
             
