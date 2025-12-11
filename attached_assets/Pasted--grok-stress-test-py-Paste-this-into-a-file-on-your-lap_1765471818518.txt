@@ -1,0 +1,94 @@
+# grok_stress_test.py
+# Paste this into a file on your laptop (or Vast.ai, or anywhere with Python)
+# Then run: python grok_stress_test.py
+
+import requests
+import random
+import time
+import json
+from datetime import datetime
+
+URL = "https://InsuranceGrokBot.replit.app/grok"
+
+# 120+ real-world variations — collected from actual agents + forums
+VARIATIONS = [
+    # Cold openers
+    "Hi", "Hey", "Hello?", "Who is this", "Wrong number", "???",
+    
+    # Soft rejections
+    "Not interested", "I'm good", "I'm all set", "No thanks", "I'm okay", "Nah I'm good",
+    "Already taken care of", "I already have coverage", "Got it covered thanks",
+    
+    # Hard rejections
+    "Stop texting me", "Take me off your list", "Don't ever contact me again",
+    "I'm blocking you", "This is harassment",
+    
+    # Employer coverage
+    "I have it through work", "Got coverage at my job", "Employer pays for it",
+    "It's a group plan", "Company insurance",
+    
+    # Private policy
+    "I have my own policy", "Got a private one now", "Not through work anymore",
+    
+    # Guaranteed Issue traps
+    "I got Colonial Penn", "It's Globe Life", "AARP plan", "No health questions",
+    "Guaranteed acceptance", "They took me no exam",
+    
+    # Term / whole life
+    "It's term", "20 year term", "Whole life policy", "Has cash value",
+    
+    # Health reveals
+    "I’m on insulin", "A1C is 8.2", "Had a heart attack 3 years ago", "COPD but no oxygen",
+    "Cancer in remission 4 years", "Take metformin only",
+    
+    # Buying signals
+    "Yeah tell me more", "Sounds good", "When can we talk", "Let’s do it",
+    "That works for me", "I’m ready", "Just had a baby need coverage",
+    
+    # Quote beggars
+    "How much is it", "Send me a quote", "What’s the monthly cost",
+    "Cheaper than Colonial Penn?",
+    
+    # Busy / timing
+    "Been crazy at work", "Just got a new job", "Moving next month",
+    "Wife is pregnant", "Just retired",
+    
+    # Trust issues
+    "I don’t trust agents", "Got burned before", "All you guys are the same",
+    
+    # Ghosting (empty message — bot must handle)
+    "",
+]
+
+NAMES = ["Mike","Sarah","John","Lisa","Chris","Dave","Karen","Tom","Amanda","Raj","Alex","Emma","Tyler","Olivia","Noah","Sophia","Ethan","Isabella","Mason","Ava","Jason","Kelly","Brian","Megan","Steve","Laura"]
+
+print("GROK STRESS TEST STARTED — Ctrl+C to stop")
+print(f"Hitting: {URL}")
+print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+
+counter = 0
+while True:
+    counter += 1
+    name = random.choice(NAMES)
+    message = random.choice(VARIATIONS)
+    
+    payload = {
+        "firstName": name,
+        "message": message,
+        "conversationHistory": []  # fresh every time — pure stress test
+    }
+    
+    try:
+        r = requests.post(URL, json=payload, timeout=20)
+        reply = r.json().get("reply", "").strip()
+        status = "✅" if r.status_code == 200 else "❌"
+    except:
+        reply = "[TIMEOUT/ERROR]"
+        status = "💥"
+    
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"{timestamp} | #{counter:4d} | {status} {name:7s} → \"{message or '[EMPTY]'}\"")
+    print(f"                        🤖 → {reply[:100]}{'...' if len(reply)>100 else ''}\n")
+    
+    # Random human delay: 4–30 seconds between texts
+    time.sleep(random.uniform(4, 30))
