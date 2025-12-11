@@ -2393,45 +2393,80 @@ def extract_intent(data, message=""):
     return normalized
 
 def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York"):
-    """Generate NEPQ response using knowledge-first architecture:
+    """Generate NEPQ response using DELIBERATE knowledge-first architecture:
     
-    STEP 1: Read all knowledge (knowledge_base.py loaded at import)
-    STEP 2: Identify trigger words in the message
-    STEP 3: Pull relevant knowledge based on triggers
-    STEP 4: Respond appropriately (deterministic or LLM with context)
+    THE BOT HAS ALZHEIMER'S - Every time it must:
+    1. READ ALL KNOWLEDGE (full main.py context, knowledge_base.py)
+    2. RE-READ CLIENT MESSAGE in context
+    3. CHECK OUTCOME PATTERNS (what worked before)
+    4. EVALUATE: Is trigger best? Is outcome pattern better? Or create new?
+    5. RESPOND + LOG the decision
     
-    Layer 0: Deterministic Trigger Map - instant responses for common patterns (no LLM)
-    Layer 1: Base Model (Grok) - guided via prompts + relevant knowledge
-    Layer 2: Conversation State Machine - deterministic stage tracking
-    Layer 3: Playbook - template responses for common scenarios
+    This ensures the bot NEVER forgets what it knows.
     """
-    # === STEP 1: Knowledge is loaded at module import from knowledge_base.py ===
-    # Contains: PRODUCT_KNOWLEDGE, HEALTH_CONDITIONS, OBJECTION_HANDLERS, BUYING_SIGNALS
-    
-    # === STEP 2: Identify trigger words in the current message ===
-    triggers_found = identify_triggers(message)
-    logger.debug(f"Triggers identified: {triggers_found}")
-    
-    # === STEP 3: Pull relevant knowledge based on triggers ===
-    relevant_knowledge = get_relevant_knowledge(triggers_found)
-    knowledge_context = format_knowledge_for_prompt(relevant_knowledge)
-    if knowledge_context:
-        logger.debug(f"Loaded knowledge sections: {list(relevant_knowledge.keys())}")
-    
-    # === STEP 4: Respond appropriately ===
-    # First try deterministic response (Layer 0)
-    forced_reply, force_code = force_response(message, api_key, calendar_id, timezone)
-    if forced_reply:
-        logger.info(f"Trigger matched [{force_code}]: returning instant response from knowledge base")
-        return forced_reply, force_code if force_code != "TRIG" else generate_confirmation_code()
-    
-    # If no deterministic match, use LLM with knowledge context injected
     confirmation_code = generate_confirmation_code()
+    
+    # =========================================================================
+    # STEP 1: READ ALL KNOWLEDGE (bot re-reads everything it knows)
+    # =========================================================================
+    all_knowledge = get_all_knowledge()  # Full knowledge base as string
+    logger.info(f"STEP 1: Loaded full knowledge base ({len(all_knowledge)} chars)")
+    
+    # =========================================================================
+    # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
+    # =========================================================================
+    triggers_found = identify_triggers(message)
+    trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
+    logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
+    
+    # =========================================================================
+    # STEP 3: CHECK OUTCOME PATTERNS (what worked before for similar messages)
+    # =========================================================================
+    outcome_patterns = []
+    outcome_context = ""
+    try:
+        learning_ctx = get_learning_context(contact_id or "unknown")
+        if learning_ctx and learning_ctx.get("proven_responses"):
+            outcome_patterns = learning_ctx.get("proven_responses", [])[:5]
+            outcome_context = "\n".join([f"- {p}" for p in outcome_patterns])
+            logger.info(f"STEP 3: Found {len(outcome_patterns)} proven outcome patterns")
+        else:
+            logger.info("STEP 3: No proven outcome patterns found")
+    except Exception as e:
+        logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
+    
+    # =========================================================================
+    # STEP 4: EVALUATE - Let Grok decide the BEST response
+    # =========================================================================
+    # For hard exits, skip LLM entirely (cost saver)
+    if trigger_code == "EXIT":
+        logger.info("STEP 4: Hard exit detected, using trigger directly")
+        return trigger_suggestion, confirmation_code
+    
+    # Build the FULL context for Grok to evaluate
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
-    # Inject relevant knowledge into the system prompt
-    if knowledge_context:
-        full_prompt = full_prompt + "\n\n" + knowledge_context
+    # Inject ALL knowledge
+    full_prompt += f"""
+
+=== FULL KNOWLEDGE BASE (re-read this every time) ===
+{all_knowledge}
+
+=== TRIGGER SYSTEM SUGGESTION ===
+The trigger system suggests this response: "{trigger_suggestion or 'No trigger matched'}"
+Triggers detected: {triggers_found}
+
+=== PROVEN OUTCOME PATTERNS (responses that led to appointments) ===
+{outcome_context if outcome_context else 'No proven patterns yet for this scenario'}
+
+=== YOUR TASK ===
+1. You just re-read ALL your knowledge above
+2. The client said: "{message}"
+3. Evaluate: Is the trigger suggestion the best? Is an outcome pattern better? Or do you have something better?
+4. If trigger or outcome pattern is perfect, use it exactly
+5. If you can improve it using your knowledge, do so
+6. Respond in 12-35 words, SMS friendly
+"""
     
     # Extract structured lead profile from conversation
     if conversation_history is None:
@@ -3085,16 +3120,33 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
             import random
             reply = random.choice(close_templates)
     
+    # =========================================================================
+    # STEP 5: LOG THE DECISION (so we can track what worked)
+    # =========================================================================
+    decision_log = {
+        "contact_id": contact_id,
+        "client_message": message[:100],
+        "triggers_found": triggers_found,
+        "trigger_suggestion": trigger_suggestion[:50] if trigger_suggestion else None,
+        "outcome_patterns_count": len(outcome_patterns),
+        "final_reply": reply[:100],
+        "used_trigger": reply == trigger_suggestion if trigger_suggestion else False,
+        "vibe": vibe.value if vibe else None,
+        "outcome_score": outcome_score
+    }
+    logger.info(f"STEP 5: Decision log: {decision_log}")
+    
     # Track the agent's response for outcome learning
     try:
         tracker_id = record_agent_message(contact_id, reply)
-        logger.debug(f"Recorded agent message for tracking: {tracker_id}")
+        logger.info(f"STEP 5: Recorded agent message for tracking: {tracker_id}")
         
         # If this was a good outcome (lead engaged well), save the pattern
         if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
             save_new_pattern(message, reply, vibe, outcome_score)
+            logger.info(f"STEP 5: Saved new winning pattern (score: {outcome_score})")
     except Exception as e:
-        logger.warning(f"Could not record agent message: {e}")
+        logger.warning(f"STEP 5: Could not record agent message: {e}")
     
     return reply, confirmation_code
 
