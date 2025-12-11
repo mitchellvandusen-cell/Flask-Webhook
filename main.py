@@ -36,6 +36,8 @@ from knowledge_base import (
 )
 # Unified Brain - ALL knowledge consolidated for deliberate decision-making
 from unified_brain import get_unified_brain, get_decision_prompt
+# Insurance company validation
+from insurance_companies import find_company_in_message, get_company_context
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -188,6 +190,21 @@ def extract_lead_profile(conversation_history, first_name, current_message):
                 profile["coverage"]["type"] = "term"
             elif field == 'whole_life':
                 profile["coverage"]["type"] = "whole_life"
+    
+    # Detect insurance company names
+    mentioned_company = find_company_in_message(all_text)
+    if mentioned_company:
+        profile["coverage"]["carrier"] = mentioned_company
+        profile["coverage"]["has_coverage"] = True
+        if "carrier" not in profile["questions_already_answered"]:
+            profile["questions_already_answered"].append("carrier")
+        company_context = get_company_context(mentioned_company, all_text)
+        if company_context["is_guaranteed_issue"]:
+            profile["coverage"]["guaranteed_issue"] = True
+            if profile["coverage"]["type"] is None:
+                profile["coverage"]["type"] = "guaranteed_issue"
+        if company_context["is_bundled"] and profile["coverage"]["type"] is None:
+            profile["coverage"]["type"] = "bundled"
     
     # Extract motivating goals
     goal_patterns = [
@@ -587,6 +604,17 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
         return "Got it. Take care.", "EXIT"
     
     if re.search(TRIGGERS["COVERAGE_CLAIM"], m):
+        mentioned_company = find_company_in_message(message)
+        if mentioned_company:
+            company_context = get_company_context(mentioned_company, message)
+            if company_context["is_guaranteed_issue"]:
+                return "Those usually have a 2-3 year waiting period. How long ago did you get it?", "TRIG"
+            elif company_context["is_bundled"]:
+                return "Smart having everything in one place. Is that a term policy or permanent?", "TRIG"
+            elif company_context["is_employer_provider"]:
+                return "Nice. Is that through your job or your own policy?", "TRIG"
+            else:
+                return "Got it. Is that term or permanent coverage?", "TRIG"
         responses = [
             "Nice. Where'd you end up going?",
             "Cool, who'd you go with?",
