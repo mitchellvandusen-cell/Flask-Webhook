@@ -1,0 +1,107 @@
+# FINAL main.py — THE HYBRID BRAIN (2025 Edition)
+# Uses every framework + every byte of knowledge + never wastes a token
+
+import os
+import re
+import random
+import logging
+from flask import Flask, request, jsonify
+import requests
+from openai import OpenAI
+
+app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
+
+# Your Jeremy Miner opener — DO NOT CHANGE
+JEREMY_OPENER = "are you still with that other life insurance plan? theres new living benefits that just came out and alot of people have been asking about them."
+
+# ==================== ALL KNOWLEDGE IN ONE PROMPT (the "brain") ====================
+MASTER_KNOWLEDGE = """
+YOU ARE THE ULTIMATE CLOSER. You perfectly blend 5 frameworks:
+1. NEPQ (primary) — curiosity questions, consequence, transition
+2. Straight Line Persuasion — control the line, loop back, tone
+3. Never Split The Difference — labels, mirrors, calibrated questions, "that's right"
+4. Gap Selling — current vs future state, expose the gap
+5. Brian Tracy — persistence, emotional drivers, future pacing
+
+YOU ALSO KNOW EVERYTHING ABOUT LIFE INSURANCE:
+- Employer coverage dies at retirement/job change
+- Guaranteed Issue = 2–3 year waiting period, 3–5× overpriced
+- Term expires → uninsurable later
+- Living benefits = game changer
+- IUL = cash value + protection
+- Best fits by age, health, family, goals
+- Full underwriting guide (diabetes, heart, COPD, cancer, etc.)
+
+RULES:
+- Never repeat any question ever asked
+- Never give prices/quotes over text
+- After 3 exchanges → offer real calendar slots
+- Use feel-felt-found when they hesitate
+- Use tactical empathy + calibrated questions on resistance
+- Always move toward the appointment
+"""
+
+# ==================== INSTANT TRIGGERS (fast path) ====================
+def instant_reply(message):
+    m = message.lower()
+    if re.search(r"(stop|remove|leave.*alone|fuck|f off|do not contact|dnc)", m):
+        return "Got it. Take care."
+    if re.search(r"(covered|all set|already have|got.*covered|im good|taken care|handled)", m):
+        return random.choice(["Nice. Where'd you end up going?", "Cool, who'd you go with?", "Good to hear. What kind of policy did you land on?"])
+    if re.search(r"(through.*work|employer|job|group|company.*pays)", m):
+        return "Smart. Do you know what happens to that when you retire or switch jobs?"
+    if re.search(r"(how.*much|quote|rate|price|cost|premium)", m):
+        return "Depends on health and coverage. I have 6:30 tonight or 10:15 tomorrow — which works better?"
+    if re.search(r"(yes|sure|okay|lets.*do|when.*talk|sounds.*good|works|perfect)", m):
+        return "Perfect. 6:30 tonight or 10:15 tomorrow morning — which works better?"
+    return None
+
+# ==================== HYBRID BRAIN — THE FINAL FUNCTION ====================
+def generate_response(first_name, message, history=[]):
+    # 1. Get instant trigger reply (if any)
+    trigger_reply = instant_reply(message)
+
+    # 2. Build full context
+    full_context = f"""
+{MASTER_KNOWLEDGE}
+
+Conversation history:
+{chr(10).join(history)}
+
+Latest message: "{message}"
+
+Trigger system suggests: "{trigger_reply or 'No trigger fired'}"
+"""
+
+    # 3. Ask Grok to choose the best reply using EVERYTHING
+    client = OpenAI(base_url="https://api.x.ai/v1", api_key=os.environ["XAI_API_KEY"])
+    
+    response = client.chat.completions.create(
+        model="grok-4-1-fast-reasoning",
+        messages=[{"role": "user", "content": full_context + "\n\nReply in 12–35 words. Use all 5 frameworks + full insurance knowledge. If trigger reply is best, use it exactly that. Otherwise override with the lethal version."}],
+        temperature=0.7,
+        max_tokens=120
+    )
+    
+    reply = response.choices[0].message.content.strip().strip('"')
+    
+    # If Grok used the trigger verbatim → perfect
+    # If Grok made it better → even more perfect
+    
+    code = ''.join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=4))
+    return reply, code
+
+# ==================== WEBHOOK (unchanged except one line) ====================
+@app.route('/', methods=['GET','POST'])
+def webhook():
+    if request.method == 'GET': return "Bot Live"
+
+    data = request.get_json() or {}
+    data = {k.lower(): v for k, v in data.items()}
+
+    contact_id = data.get('contact_id') or data.get('contactid')
+    first_name = data.get('first_name') or data.get('firstname') or "there"
+    message = data.get('message') or data.get('body') or ""
+
+   
