@@ -3017,8 +3017,14 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
         proven_patterns=proven_patterns_text
     )
     
-    # Build unified brain system prompt
+    # Build unified brain system prompt - COMBINE all knowledge sources
+    # Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
+    # Then add unified brain framework for decision-making
+    base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+    
     unified_system_prompt = f"""
+{base_knowledge}
+
 {unified_brain_knowledge}
 
 ===================================================================================
