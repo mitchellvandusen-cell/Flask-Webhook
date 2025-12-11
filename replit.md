@@ -21,15 +21,22 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 
 ### AI Integration
 - Integrates with **xAI's Grok API** via an OpenAI-compatible client.
-- Uses `grok-2-1212` model with a comprehensive NEPQ system prompt.
+- Uses `grok-4-1-fast-reasoning` model (10x cheaper than grok-2-1212: $0.20/$0.50 vs $2/$10 per million tokens).
 
-### Three-Layer Conversation Architecture
-1.  **Layer 1: Base Model (Grok)**: Generates initial responses including self-reflection scores.
+### Four-Layer Conversation Architecture
+0.  **Layer 0: Deterministic Trigger Map (`force_response()`)**: Pattern-matching for common scenarios (term policy, GI, buying signals, price questions, health conditions) that return instant responses without LLM calls. Saves ~40% API costs on common patterns. Only fetches calendar slots when needed (lazy loading).
+1.  **Layer 1: Base Model (Grok)**: Generates AI responses with self-reflection scores for messages that don't match triggers.
 2.  **Layer 2: Conversation State Machine (`conversation_engine.py`)**:
     *   Manages `ConversationState` (stage, exchange count, facts extracted, dismissive counts).
     *   Performs deterministic stage detection (INITIAL_OUTREACH, DISCOVERY, CONSEQUENCE, CLOSING).
     *   **PolicyEngine**: Validates responses for format, self-reflection scores, stage-specific rules, and repeat questions.
 3.  **Layer 3: Playbook Library (`playbook.py`)**: Provides template responses for common scenarios and fallbacks if LLM validation fails.
+
+### Dynamic Calendar Integration
+- `get_available_slots()`: Queries GHL calendar API for real appointment availability.
+- `format_slot_options()`: Formats slots with context-aware time labels (tonight, tomorrow morning, etc.).
+- Lazy loading: Calendar API only called when booking-related triggers (BUYING_SIGNAL, PRICE) match.
+- Fallback: Uses "6:30 tonight or 10:15 tomorrow morning" if calendar unavailable.
 
 ### Outcome-Based Learning System
 -   Utilizes PostgreSQL to store successful `response_patterns`, `contact_history`, and `outcome_tracker`.
@@ -54,6 +61,6 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 
 ## External Dependencies
 
--   **xAI's Grok API**: For AI model inference (`https://api.x.ai/v1`, model: `grok-2-1212`).
+-   **xAI's Grok API**: For AI model inference (`https://api.x.ai/v1`, model: `grok-4-1-fast-reasoning`).
 -   **GoHighLevel (GHL)**: For CRM and marketing automation integration, including sending SMS, managing contacts, opportunities, and calendars.
 -   **PostgreSQL**: Database for storing response patterns, contact history, and outcome tracking.

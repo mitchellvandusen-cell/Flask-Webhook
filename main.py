@@ -446,6 +446,171 @@ def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_ke
                 logger.error(f"Response: {error_detail}")
         return {"success": False, "error": error_detail}
 
+# ==================== CALENDAR SLOTS - GET REAL AVAILABLE TIMES ====================
+def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_ahead=2):
+    """Get available appointment slots from GHL calendar for the next N days"""
+    if not api_key or not calendar_id:
+        logger.warning("No calendar_id or api_key for slot lookup")
+        return None
+    
+    # Calculate date range
+    now = datetime.now(ZoneInfo(timezone))
+    start_date = now.strftime("%Y-%m-%d")
+    end_date = (now + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+    
+    url = f"{GHL_BASE_URL}/calendars/{calendar_id}/free-slots"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-04-15",
+        "Content-Type": "application/json"
+    }
+    params = {
+        "startDate": start_date,
+        "endDate": end_date,
+        "timezone": timezone
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Parse slots and format nicely
+        slots = []
+        for date_key, day_slots in data.get('slots', {}).items():
+            for slot in day_slots[:3]:  # Max 3 slots per day
+                slot_time = datetime.fromisoformat(slot.replace('Z', '+00:00'))
+                slot_local = slot_time.astimezone(ZoneInfo(timezone))
+                slots.append({
+                    "iso": slot,
+                    "formatted": slot_local.strftime("%-I:%M %p"),
+                    "day": slot_local.strftime("%A"),
+                    "date": slot_local.strftime("%m/%d")
+                })
+        
+        return slots[:4]  # Return max 4 slots
+    except requests.RequestException as e:
+        logger.error(f"Failed to get calendar slots: {e}")
+        return None
+
+def format_slot_options(slots, timezone="America/New_York"):
+    """Format available slots into a natural SMS-friendly string"""
+    if not slots or len(slots) == 0:
+        return "6:30 tonight or 10:15 tomorrow morning"  # Fallback
+    
+    now = datetime.now(ZoneInfo(timezone))
+    today = now.strftime("%A")
+    tomorrow = (now + timedelta(days=1)).strftime("%A")
+    
+    formatted = []
+    for slot in slots[:2]:  # Offer 2 options
+        day = slot['day']
+        time = slot['formatted'].lower().replace(' ', '')
+        
+        # Parse actual slot hour to determine morning/evening
+        slot_hour = int(slot['formatted'].split(':')[0].replace(' ', ''))
+        if 'pm' in slot['formatted'].lower() and slot_hour != 12:
+            slot_hour += 12
+        
+        if day == today:
+            if slot_hour >= 17:  # 5pm or later = tonight
+                formatted.append(f"{time} tonight")
+            elif slot_hour < 12:  # Before noon = this morning
+                formatted.append(f"{time} this morning")
+            else:  # Afternoon
+                formatted.append(f"{time} this afternoon")
+        elif day == tomorrow:
+            if slot_hour < 12:
+                formatted.append(f"{time} tomorrow morning")
+            else:
+                formatted.append(f"{time} tomorrow")
+        else:
+            formatted.append(f"{time} {day}")
+    
+    if len(formatted) == 2:
+        return f"{formatted[0]} or {formatted[1]}"
+    elif len(formatted) == 1:
+        return formatted[0]
+    else:
+        return "6:30 tonight or 10:15 tomorrow morning"
+
+# ==================== DETERMINISTIC TRIGGER MAP (runs BEFORE LLM) ====================
+# These patterns get instant responses without burning API tokens
+TRIGGERS = {
+    "HARD_EXIT": r"(stop|remove|leave.*alone|fuck|f off|do not contact|dnc|unsolicited|spam|unsubscribe|take me off|harassment)",
+    "COVERAGE_CLAIM": r"(covered|all set|already have|got.*covered|im good|yeah good|nah good|taken care|handled|found.*policy|found.*something)",
+    "EMPLOYER": r"(through.*work|employer|job.*covers|group.*insurance|company.*pays|benefits|work.*policy)",
+    "TERM": r"(term.*life|term.*policy|10.?year|15.?year|20.?year|30.?year)",
+    "PERMANENT": r"(whole.*life|permanent|cash.*value|iul|universal.*life|indexed)",
+    "GI": r"(guaranteed.*issue|no.*exam|colonial.*penn|globe.*life|aarp|no.*health|no questions|final.*expense|burial)",
+    "PRICE": r"(how.*much|quote|rate|price|cost|premium|expensive|cant.*afford|too much)",
+    "BUYING_SIGNAL": r"^\s*(yes|sure|okay|ok|yeah|yep|perfect|works|lets do it|let's do it|im in|i'm in|sign me up|sounds good|that sounds good|works for me)[!.,?\s]*$",
+    "SOFT_REJECT": r"(not.*interested|no thanks|busy|bad.*time|just.*looking|maybe.*later|think.*about|not right now)",
+    "HEALTH": r"(diabetes|a1c|insulin|heart|stent|cancer|copd|oxygen|stroke|blood.*pressure|high bp|hypertension)"
+}
+
+def force_response(message, api_key=None, calendar_id=None, timezone="America/New_York"):
+    """
+    Check message against trigger patterns and return instant response if matched.
+    Returns (response, code) if triggered, (None, None) if not.
+    Runs BEFORE the LLM to save tokens and ensure consistency.
+    """
+    m = message.lower().strip()
+    
+    # Helper: lazy fetch calendar slots only when needed
+    _slot_cache = [None]
+    def get_slot_text():
+        if _slot_cache[0] is None:
+            if api_key and calendar_id:
+                slots = get_available_slots(calendar_id, api_key, timezone)
+                if slots:
+                    _slot_cache[0] = format_slot_options(slots, timezone)
+                else:
+                    _slot_cache[0] = "6:30 tonight or 10:15 tomorrow morning"
+            else:
+                _slot_cache[0] = "6:30 tonight or 10:15 tomorrow morning"
+        return _slot_cache[0]
+    
+    # Check triggers in priority order
+    if re.search(TRIGGERS["HARD_EXIT"], m):
+        return "Got it. Take care.", "EXIT"
+    
+    if re.search(TRIGGERS["COVERAGE_CLAIM"], m):
+        responses = [
+            "Nice. Where'd you end up going?",
+            "Cool, who'd you go with?",
+            "Good to hear. What kind of policy did you land on?",
+            "Oh nice, through who?"
+        ]
+        return random.choice(responses), "TRIG"
+    
+    if re.search(TRIGGERS["BUYING_SIGNAL"], m):
+        return f"Perfect. {get_slot_text()}, which works better?", "TRIG"
+    
+    if re.search(TRIGGERS["GI"], m):
+        return "Those usually have a 2-3 year waiting period. How long ago did you get it?", "TRIG"
+    
+    if re.search(TRIGGERS["EMPLOYER"], m):
+        return "Smart. Do you know what happens to that when you retire or switch jobs?", "TRIG"
+    
+    if re.search(TRIGGERS["TERM"], m):
+        return "How many years are actually left on that term?", "TRIG"
+    
+    if re.search(TRIGGERS["PERMANENT"], m):
+        return "Does that one have living benefits, or just the death benefit?", "TRIG"
+    
+    if re.search(TRIGGERS["PRICE"], m):
+        return f"Depends on health and coverage. I have {get_slot_text()}, which works for accurate numbers?", "TRIG"
+    
+    if re.search(TRIGGERS["SOFT_REJECT"], m):
+        return "Fair enough. Was it more the price or just couldn't find the right fit last time?", "TRIG"
+    
+    if re.search(TRIGGERS["HEALTH"], m):
+        return "Good news, with that you've got way more options than a guaranteed-issue policy. Want me to check?", "TRIG"
+    
+    # No trigger matched - let LLM handle it
+    return None, None
+
 def get_contact_info(contact_id, api_key):
     """Get contact details from GoHighLevel"""
     if not api_key:
@@ -2193,13 +2358,21 @@ def extract_intent(data, message=""):
     
     return normalized
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None):
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York"):
     """Generate NEPQ response using Grok AI with three-layer architecture:
     
+    Layer 0: Deterministic Trigger Map - instant responses for common patterns (no LLM)
     Layer 1: Base Model (Grok) - guided via prompts
     Layer 2: Conversation State Machine - deterministic stage tracking
     Layer 3: Playbook - template responses for common scenarios
     """
+    # === LAYER 0: Deterministic Trigger Map (runs BEFORE LLM) ===
+    # Check for common patterns that get instant, proven responses
+    forced_reply, force_code = force_response(message, api_key, calendar_id, timezone)
+    if forced_reply:
+        logger.info(f"Trigger matched [{force_code}]: returning instant response")
+        return forced_reply, force_code if force_code != "TRIG" else generate_confirmation_code()
+    
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
@@ -2964,7 +3137,8 @@ def ghl_unified():
                 reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
                 reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
             else:
-                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id)
+                calendar_id_for_slots = data.get('calendar_id') or data.get('calendarid') or os.environ.get('GHL_CALENDAR_ID')
+                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id_for_slots)
             
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             
@@ -3079,7 +3253,10 @@ def grok_insurance():
     if not lead_msg:
         lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
     
-    reply, _ = generate_nepq_response(name, lead_msg, agent_name)
+    # Legacy endpoint - no GHL integration, use env vars if available
+    api_key = os.environ.get('GHL_API_KEY')
+    calendar_id = os.environ.get('GHL_CALENDAR_ID')
+    reply, _ = generate_nepq_response(name, lead_msg, agent_name, api_key=api_key, calendar_id=calendar_id)
     return jsonify({"reply": reply})
 
 
@@ -3324,7 +3501,8 @@ def index():
             reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
             reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
         else:
-            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id)
+            calendar_id_for_slots = os.environ.get('GHL_CALENDAR_ID')
+            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id_for_slots)
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
