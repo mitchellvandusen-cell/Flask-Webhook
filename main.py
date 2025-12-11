@@ -1841,6 +1841,8 @@ INTENT_DIRECTIVES = {
 def extract_intent(data, message=""):
     """Extract and normalize intent from request data or message content.
     Note: Expects data to already be normalized to lowercase keys."""
+    # Ensure message is never None
+    message = message or ""
     raw_intent = data.get('intent', '')
     
     if not raw_intent and 'custom_fields' in data:
