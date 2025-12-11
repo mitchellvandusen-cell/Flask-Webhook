@@ -33,6 +33,16 @@ def generate_confirmation_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
 
+def normalize_keys(data):
+    """
+    Normalize all dictionary keys to lowercase for case-insensitive field handling.
+    This allows GHL webhooks to use any case: message, Message, MESSAGE, etc.
+    """
+    if not isinstance(data, dict):
+        return data
+    return {k.lower(): v for k, v in data.items()}
+
+
 def extract_lead_profile(conversation_history, first_name, current_message):
     """
     Extract structured lead profile from conversation history.
@@ -287,6 +297,8 @@ def get_ghl_credentials(data=None):
     Get GHL credentials with priority:
     1. Request body (ghl_api_key, ghl_location_id) - for multi-tenant via webhooks
     2. Environment variables - for your own default setup
+    
+    Note: Expects data to already be normalized to lowercase keys.
     """
     if data is None:
         data = {}
@@ -1825,8 +1837,9 @@ INTENT_DIRECTIVES = {
 }
 
 def extract_intent(data, message=""):
-    """Extract and normalize intent from request data or message content"""
-    raw_intent = data.get('intent') or data.get('Intent') or data.get('INTENT', '')
+    """Extract and normalize intent from request data or message content.
+    Note: Expects data to already be normalized to lowercase keys."""
+    raw_intent = data.get('intent', '')
     
     if not raw_intent and 'custom_fields' in data:
         for field in data.get('custom_fields', []):
@@ -1979,7 +1992,8 @@ def ghl_unified():
     5. "search" - Search contacts by phone
        Required: phone
     """
-    data = request.json or {}
+    raw_data = request.json or {}
+    data = normalize_keys(raw_data)
     action = data.get('action', 'respond')
     
     api_key, location_id = get_ghl_credentials(data)
@@ -1988,10 +2002,10 @@ def ghl_unified():
     logger.debug(f"GHL unified request - action: {action}, data: {safe_data}")
     
     if action == 'respond':
-        contact_id = data.get('contact_id') or data.get('contactId')
-        first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
-        message = data.get('message') or data.get('Message') or data.get('body') or data.get('text', '')
-        agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
+        contact_id = data.get('contact_id') or data.get('contactid')
+        first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
+        message = data.get('message') or data.get('body') or data.get('text', '')
+        agent_name = data.get('agent_name') or data.get('agentname') or data.get('rep_name') or 'Mitchell'
         
         if not contact_id:
             return jsonify({"error": "contact_id required"}), 400
@@ -2011,7 +2025,7 @@ def ghl_unified():
         
         if start_time_iso and contact_id and api_key and location_id:
             logger.info(f"Detected booking time in /ghl respond: {formatted_time}")
-            calendar_id = data.get('calendar_id') or data.get('calendarId') or os.environ.get('GHL_CALENDAR_ID')
+            calendar_id = data.get('calendar_id') or data.get('calendarid') or os.environ.get('GHL_CALENDAR_ID')
             if calendar_id:
                 start_dt = datetime.fromisoformat(start_time_iso)
                 end_dt = start_dt + timedelta(minutes=30)
@@ -2066,7 +2080,7 @@ def ghl_unified():
     
     elif action == 'appointment':
         contact_id = data.get('contact_id') or data.get('contactId')
-        calendar_id = data.get('calendar_id') or data.get('calendarId') or os.environ.get('GHL_CALENDAR_ID')
+        calendar_id = data.get('calendar_id') or data.get('calendarid') or os.environ.get('GHL_CALENDAR_ID')
         start_time = data.get('start_time') or data.get('startTime')
         duration_minutes = data.get('duration_minutes', 30)
         title = data.get('title', 'Life Insurance Consultation')
@@ -2205,14 +2219,15 @@ def index():
     If no message is provided (like for tag/pipeline triggers), generates
     an initial outreach message to start the conversation.
     """
-    data = request.json or {}
+    raw_data = request.json or {}
+    data = normalize_keys(raw_data)
     
     api_key, location_id = get_ghl_credentials(data)
     
-    contact_id = data.get('contact_id') or data.get('contactId')
-    first_name = data.get('first_name') or data.get('firstName') or data.get('name', 'there')
-    message = data.get('message') or data.get('Message') or data.get('body') or data.get('text', '')
-    agent_name = data.get('agent_name') or data.get('rep_name') or data.get('agentName') or 'Mitchell'
+    contact_id = data.get('contact_id') or data.get('contactid')
+    first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
+    message = data.get('message') or data.get('body') or data.get('text', '')
+    agent_name = data.get('agent_name') or data.get('agentname') or data.get('rep_name') or 'Mitchell'
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
     logger.debug(f"Root webhook request: {safe_data}")
