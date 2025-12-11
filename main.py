@@ -3916,14 +3916,17 @@ Remember: Apply your knowledge, don't just pattern match.
 """
     
     while retry_count <= max_retries:
+        # Note: Grok model only supports temperature, top_p, max_tokens
+        # frequency_penalty and presence_penalty are NOT supported
         response = client.chat.completions.create(
             model=use_model,
             messages=[
                 {"role": "system", "content": unified_system_prompt},
                 {"role": "user", "content": unified_user_content + correction_prompt}
             ],
-            max_tokens=500,  # Increased to allow for thinking + response
-            temperature=0.7
+            max_tokens=500,
+            temperature=0.7,
+            top_p=0.95
         )
 
         content = response.choices[0].message.content or ""
