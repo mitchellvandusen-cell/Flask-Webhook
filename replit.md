@@ -58,6 +58,7 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 -   **Auto-booking**: Detects natural language times for appointment scheduling and integrates with GHL calendars, handling timezones and dynamic `assignedUserId`.
 -   **Intent Recognition**: AI adjusts its approach based on specified intents (e.g., `book_appointment`, `qualify`, `reengage`).
 -   **Guaranteed Issue Qualification Workflow**: Detects "guaranteed issue" inquiries, probes health conditions, cross-references with carrier underwriting guides, and provides tailored appointment justifications.
+-   **Insurance Company Recognition** (`insurance_companies.py`): Validates 100+ major US life insurance carriers to prevent double-messaging (e.g., won't ask "who'd you go with" if lead already named the company). Smart context detection: only Colonial Penn/Globe Life assumed GI; other carriers require corroborating phrases.
 
 ## External Dependencies
 
