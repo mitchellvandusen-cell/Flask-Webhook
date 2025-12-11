@@ -29,10 +29,9 @@ from outcome_learning import (
     save_new_pattern, mark_appointment_booked,
     check_for_burns, VibeClassification
 )
-# Knowledge base - bot reads this FIRST before responding
+# Knowledge base - triggers and patterns
 from knowledge_base import (
-    get_all_knowledge, get_relevant_knowledge, 
-    format_knowledge_for_prompt, identify_triggers,
+    get_relevant_knowledge, format_knowledge_for_prompt, identify_triggers,
     PRODUCT_KNOWLEDGE, HEALTH_CONDITIONS, OBJECTION_HANDLERS
 )
 # Unified Brain - ALL knowledge consolidated for deliberate decision-making
@@ -2409,10 +2408,9 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     confirmation_code = generate_confirmation_code()
     
     # =========================================================================
-    # STEP 1: READ ALL KNOWLEDGE (bot re-reads everything it knows)
+    # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
     # =========================================================================
-    all_knowledge = get_all_knowledge()  # Full knowledge base as string
-    logger.info(f"STEP 1: Loaded full knowledge base ({len(all_knowledge)} chars)")
+    logger.info("STEP 1: Knowledge will be loaded via unified brain")
     
     # =========================================================================
     # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
@@ -2918,14 +2916,6 @@ Directive: {intent_directive}
         else:
             history_text = intent_section
     
-    # Get outcome-based learning context
-    learning_context = ""
-    try:
-        learning_context = get_learning_context(contact_id, message)
-        logger.debug(f"Learning context loaded for {contact_id}")
-    except Exception as e:
-        logger.warning(f"Could not load learning context: {e}")
-    
     # Score the previous response based on this incoming message
     outcome_score = None
     vibe = None
@@ -2935,46 +2925,12 @@ Directive: {intent_directive}
     except Exception as e:
         logger.warning(f"Could not record lead response: {e}")
 
-    # Close stage templates (server-side enforcement)
+    # Close stage templates (server-side enforcement for PolicyEngine fallback)
     close_templates = [
         "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?",
         "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
         "Got it. I can help you find the right coverage. How's 6:30 tonight or 10:15 tomorrow?",
         "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
-    ]
-    
-    # Hard dismissive templates (must exit immediately)
-    hard_exit_templates = [
-        "Got it. Take care.",
-        "No problem. Have a good one."
-    ]
-    
-    # Soft dismissive templates (when all else fails after 3+ resistance)
-    soft_exit_templates = [
-        "No worries at all. I'll check back in a bit.",
-        "Totally understand. I'll circle back another time.",
-        "Got it. I'll reach out again down the road. Have a good one."
-    ]
-    
-    # First resistance templates (empathy + pivot - Voss + NEPQ)
-    first_resistance_templates = [
-        "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?",
-        "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?",
-        "Got it, no need to get into details. Was there something specific that made you start looking?",
-        "Totally fair. I get it. Out of curiosity, what had you considering coverage back then?"
-    ]
-    
-    # Second resistance templates (calibrated question + reference what they shared)
-    # These reference spouse/family since that's the most common info shared
-    second_resistance_family_templates = [
-        "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?",
-        "Got it. You said your wife has been asking about this. What would you want covered for her?",
-        "Fair enough. Earlier you mentioned your wife is worried. What specifically concerns her?"
-    ]
-    second_resistance_generic_templates = [
-        "I hear you. Just trying to help figure out what makes sense. Is there a better time to chat?",
-        "Got it. No pressure at all. Would a quick call work better than texting?",
-        "Fair enough. I'll keep it brief. Is there anything specific you want me to look into?"
     ]
     
     client = get_client()
