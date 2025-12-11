@@ -21,12 +21,27 @@ from playbook import (
     get_resistance_template, get_hard_exit_template, get_closing_template,
     match_scenario
 )
+# Outcome-based learning system
+from outcome_learning import (
+    init_tables as init_learning_tables,
+    classify_vibe, get_learning_context,
+    record_agent_message, record_lead_response,
+    save_new_pattern, mark_appointment_booked,
+    check_for_burns, VibeClassification
+)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
+
+# Initialize outcome learning tables on startup
+try:
+    init_learning_tables()
+    logger.info("Outcome learning system initialized")
+except Exception as e:
+    logger.warning(f"Could not initialize outcome learning tables: {e}")
 
 GHL_BASE_URL = "https://services.leadconnectorhq.com"
 
@@ -2581,6 +2596,23 @@ Directive: {intent_directive}
 
 """
     
+    # Get outcome-based learning context
+    learning_context = ""
+    try:
+        learning_context = get_learning_context(contact_id, message)
+        logger.debug(f"Learning context loaded for {contact_id}")
+    except Exception as e:
+        logger.warning(f"Could not load learning context: {e}")
+    
+    # Score the previous response based on this incoming message
+    outcome_score = None
+    vibe = None
+    try:
+        outcome_score, vibe = record_lead_response(contact_id, message)
+        logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
+    except Exception as e:
+        logger.warning(f"Could not record lead response: {e}")
+    
     # Add self-reflection instructions (from Grok's recommendations)
     self_reflection_instructions = """
 === SELF-REFLECTION (internal - do not show to lead) ===
@@ -2599,11 +2631,11 @@ Your response here
 You are: {agent_name}
 Lead name: {first_name}
 {state_instructions}
-{intent_section}{history_text}Latest message from lead: "{message}"
+{learning_context}{intent_section}{history_text}Latest message from lead: "{message}"
 Confirmation code to use if booking: {confirmation_code}
 
 {self_reflection_instructions}
-Based on the conversation state and history above, generate ONE short NEPQ-style response that:
+Based on the conversation state, learning context, and history above, generate ONE short NEPQ-style response that:
 1. Follows the DO/DON'T rules for your current stage
 2. Does NOT repeat questions already asked
 3. Uses what you already know instead of re-asking
@@ -2782,6 +2814,17 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
             import random
             reply = random.choice(close_templates)
     
+    # Track the agent's response for outcome learning
+    try:
+        tracker_id = record_agent_message(contact_id, reply)
+        logger.debug(f"Recorded agent message for tracking: {tracker_id}")
+        
+        # If this was a good outcome (lead engaged well), save the pattern
+        if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
+            save_new_pattern(message, reply, vibe, outcome_score)
+    except Exception as e:
+        logger.warning(f"Could not record agent message: {e}")
+    
     return reply, confirmation_code
 
 
@@ -2863,6 +2906,12 @@ def ghl_unified():
                 if appointment_result.get("success"):
                     appointment_created = True
                     appointment_details = {"formatted_time": formatted_time}
+                    # Mark appointment for outcome learning bonus
+                    try:
+                        mark_appointment_booked(contact_id)
+                        logger.info(f"Marked appointment booked for outcome learning: {contact_id}")
+                    except Exception as e:
+                        logger.warning(f"Could not mark appointment booked: {e}")
                 else:
                     booking_error = appointment_result.get("error", "Appointment creation failed")
             else:
