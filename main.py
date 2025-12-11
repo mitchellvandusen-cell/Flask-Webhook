@@ -2059,24 +2059,140 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     confirmation_code = generate_confirmation_code()
     full_prompt = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
-    intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
-    
     # Extract structured lead profile from conversation
     if conversation_history is None:
         conversation_history = []
     
     lead_profile = extract_lead_profile(conversation_history, first_name, message)
+    
+    # === BUYING SIGNAL DETECTION - Override intent when lead shows readiness ===
+    # Must be context-aware to avoid false positives from negations/sarcasm
+    current_lower = message.lower()
+    
+    # Negation phrases that cancel buying signals (expanded for common variants)
+    negation_phrases = [
+        "don't need", "dont need", "do not need", "dont really need", "don't really need",
+        "not interested", "no thanks", "no thank", "stop", "leave me alone", 
+        "not looking", "already have", "im good", "i'm good", "i am good",
+        "not right now", "maybe later", "no im good", "nope", "no i dont",
+        "no i don't", "no i'm not", "no im not", "not for me", "pass",
+        "unsubscribe", "remove me", "take me off"
+    ]
+    has_negation = any(phrase in current_lower for phrase in negation_phrases)
+    
+    # Also check for negation patterns via regex
+    import re
+    negation_patterns = [
+        r"\bno\b.*\bneed\b", r"\bnot\b.*\binterested\b", r"\bdon'?t\b.*\bneed\b"
+    ]
+    if not has_negation:
+        for pattern in negation_patterns:
+            if re.search(pattern, current_lower):
+                has_negation = True
+                break
+    
+    # Strong buying signals (unambiguous interest)
+    strong_buying_signals = [
+        "i'd have to get", "id have to get", "would have to get",
+        "need to get new", "get new life insurance", "get new coverage",
+        "sign me up", "let's do it", "lets do it", "i'm in", "im in",
+        "what are my options", "how much would it cost", "what would it cost",
+        "sounds good", "that sounds good", "works for me", "yeah let's do it",
+        "sure", "okay when", "ok when", "yes when can we"
+    ]
+    
+    # Weaker signals that need context (only count if no negation)
+    weak_buying_signals = [
+        "i need", "i'd need", "interested in looking", "looking into it",
+        "want to look", "can you look into", "want coverage"
+    ]
+    
+    detected_buying_signal = False
+    if not has_negation:
+        if any(signal in current_lower for signal in strong_buying_signals):
+            detected_buying_signal = True
+        elif any(signal in current_lower for signal in weak_buying_signals):
+            # Only treat weak signals as buying signals if conversation has context
+            if lead_profile.get("motivating_goal") or lead_profile.get("family", {}).get("spouse"):
+                detected_buying_signal = True
+    
+    # Also detect if they've revealed a problem that we can close on
+    problem_revealed = bool(
+        lead_profile.get("motivating_goal") or 
+        lead_profile.get("coverage", {}).get("coverage_gap") or
+        (lead_profile.get("coverage", {}).get("has_coverage") and 
+         lead_profile.get("coverage", {}).get("coverage_type") == "employer")
+    )
+    
+    # Determine conversation stage
+    if conversation_history:
+        recent_agent = [msg for msg in conversation_history if msg.startswith("You:")]
+        recent_lead = [msg for msg in conversation_history if msg.startswith("Lead:")]
+        exchange_count = min(len(recent_agent), len(recent_lead))
+    else:
+        exchange_count = 0
+    
+    # Stage logic: problem_awareness -> consequence -> close
+    # CRITICAL: Force close after 3 exchanges FIRST - this is the hard stop
+    if exchange_count >= 3:
+        # Force close after 3 exchanges regardless of other signals
+        intent = "book_appointment"
+        stage = "close"
+    elif detected_buying_signal or (exchange_count >= 2 and problem_revealed):
+        # Override to close mode - they're ready or we have enough info
+        intent = "book_appointment"
+        stage = "close"
+    elif problem_revealed:
+        stage = "consequence"
+    else:
+        stage = "problem_awareness"
+    
+    intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
+    
+    # Stage-specific directives for cold leads
+    stage_directives = {
+        "problem_awareness": """
+=== STAGE: PROBLEM AWARENESS ===
+These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
+Ask ONE simple question to uncover a reason they might need coverage:
+- "Just curious, is there something specific that had you looking at coverage back then?"
+- "When you first reached out, was there something going on that made you look into it?"
+- "Any chance something's changed since then, like family or work?"
+DO NOT ask "what's on your mind about insurance" - they don't have anything on their mind.
+After ONE problem question, move to consequence stage.
+===
+""",
+        "consequence": """
+=== STAGE: CONSEQUENCE ===
+You've identified a problem or need. Now ask ONE consequence question:
+- "If something happened to you tomorrow, would [spouse/family] be able to keep the house?"
+- "What would happen to the coverage if you left that job?"
+- "How would that work if rates went up 5x when you're older?"
+After ONE consequence question, move to close stage.
+===
+""",
+        "close": """
+=== STAGE: CLOSE - BOOK THE APPOINTMENT ===
+You have enough information. STOP asking questions.
+Make a statement and offer TWO specific appointment times:
+- "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works?"
+- "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
+DO NOT ask another discovery question. The goal is the appointment.
+===
+"""
+    }
+    
+    stage_directive = stage_directives.get(stage, "")
     profile_text = format_lead_profile_for_llm(lead_profile, first_name)
     
     history_text = ""
+    recent_agent_messages = []
+    recent_lead_messages = []
     if conversation_history and len(conversation_history) > 0:
         # Extract recent agent questions to prevent repeats
         recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
         recent_lead_messages = [msg for msg in conversation_history if msg.startswith("Lead:")]
         recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
-        
-        # Count exchanges (back-and-forth pairs)
-        exchange_count = min(len(recent_agent_messages), len(recent_lead_messages))
         
         questions_warning = ""
         if recent_questions:
@@ -2164,7 +2280,7 @@ Example: "I get it. Had a client last month, same situation, thought he couldn't
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
-{feel_felt_found_prompt}{exchange_warning}{questions_warning}{profile_text}
+{stage_directive}{feel_felt_found_prompt}{exchange_warning}{questions_warning}{profile_text}
 """
     else:
         # Even without history, include profile from current message
@@ -2192,7 +2308,24 @@ No JSON, no markdown, no extra text. Just the response message.
 If you need to introduce yourself or sign off, use the name "{agent_name}".
 """
 
+    # Close stage templates (server-side enforcement)
+    close_templates = [
+        "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?",
+        "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
+        "Got it. I can help you find the right coverage. How's 6:30 tonight or 10:15 tomorrow?",
+        "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
+    ]
+    
     client = get_client()
+    
+    # If we're in close stage, use template directly (server-side enforcement)
+    # This ensures no off-stage questions can leak through
+    if stage == "close":
+        import random
+        reply = random.choice(close_templates)
+        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",")
+        return reply, confirmation_code
+    
     response = client.chat.completions.create(
         model="grok-2-1212",
         messages=[
@@ -2211,6 +2344,30 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
     if reply.startswith("'") and reply.endswith("'"):
         reply = reply[1:-1]
     reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
+    
+    # Server-side duplicate rejection
+    if recent_agent_messages:
+        recent_normalized = [msg.lower().replace("you: ", "") for msg in recent_agent_messages[-3:]]
+        reply_normalized = reply.lower()
+        
+        # Check for semantic duplicates (similar key phrases)
+        is_duplicate = False
+        for prev in recent_normalized:
+            # Check if reply contains same question pattern
+            if "what's on your mind" in reply_normalized and "what's on your mind" in prev:
+                is_duplicate = True
+            elif "what made you" in reply_normalized and "what made you" in prev:
+                is_duplicate = True
+            elif "what specifically" in reply_normalized and "what specifically" in prev:
+                is_duplicate = True
+            elif "what's been on" in reply_normalized and "what's been on" in prev:
+                is_duplicate = True
+        
+        # If duplicate detected, use close template fallback
+        if is_duplicate:
+            import random
+            reply = random.choice(close_templates)
+    
     return reply, confirmation_code
 
 
