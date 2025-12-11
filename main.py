@@ -3059,6 +3059,52 @@ def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
 
 
+@app.route('/stats', methods=['GET', 'POST'])
+def training_stats():
+    """Live training dashboard stats"""
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute('SELECT COUNT(*) as total FROM outcome_tracker')
+        tracked = cur.fetchone()['total']
+        
+        cur.execute('SELECT COUNT(*) as total FROM response_patterns')
+        patterns = cur.fetchone()['total']
+        
+        cur.execute('SELECT COUNT(*) as total FROM contact_history')
+        contacts = cur.fetchone()['total']
+        
+        vibes = {}
+        cur.execute("SELECT vibe_classification, COUNT(*) as cnt FROM outcome_tracker WHERE vibe_classification IS NOT NULL GROUP BY vibe_classification")
+        for row in cur.fetchall():
+            vibes[row['vibe_classification']] = row['cnt']
+        
+        top_patterns = []
+        cur.execute("SELECT trigger_category, score, response_used FROM response_patterns ORDER BY score DESC LIMIT 10")
+        for row in cur.fetchall():
+            top_patterns.append(f"{row['score']:.1f} | {row['trigger_category']}: {row['response_used'][:50]}...")
+        
+        conn.close()
+        
+        return jsonify({
+            "tracked": tracked,
+            "patterns": patterns,
+            "contacts": contacts,
+            "need": vibes.get('need', 0),
+            "direction": vibes.get('direction', 0),
+            "neutral": vibes.get('neutral', 0),
+            "objection": vibes.get('objection', 0),
+            "dismissive": vibes.get('dismissive', 0),
+            "ghosted": vibes.get('ghosted', 0),
+            "top_patterns": top_patterns
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/ghl-webhook', methods=['POST'])
 def ghl_webhook():
     """Legacy endpoint - redirects to unified /ghl endpoint with action=respond"""
