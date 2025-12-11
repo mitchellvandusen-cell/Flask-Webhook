@@ -3028,6 +3028,7 @@ CRITICAL RULES
     max_retries = 2
     retry_count = 0
     correction_prompt = ""
+    reply = "I have 6:30 tonight or 10:15 tomorrow, which works better?"  # Default fallback
     
     # Use grok-4-1-fast-reasoning for everything (cheap and capable)
     use_model = "grok-4-1-fast-reasoning"
@@ -3118,6 +3119,8 @@ Remember: Apply your knowledge, don't just pattern match.
                 closing_reply = get_closing_template("offer_times")
                 if closing_reply:
                     reply = closing_reply
+                # Always break after max retries to avoid infinite loop
+                break
     
     # Server-side duplicate rejection
     if recent_agent_messages:
@@ -3433,13 +3436,16 @@ def training_stats():
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute('SELECT COUNT(*) as total FROM outcome_tracker')
-        tracked = cur.fetchone()['total']
+        row = cur.fetchone()
+        tracked = row['total'] if row else 0
         
         cur.execute('SELECT COUNT(*) as total FROM response_patterns')
-        patterns = cur.fetchone()['total']
+        row = cur.fetchone()
+        patterns = row['total'] if row else 0
         
         cur.execute('SELECT COUNT(*) as total FROM contact_history')
-        contacts = cur.fetchone()['total']
+        row = cur.fetchone()
+        contacts = row['total'] if row else 0
         
         vibes = {}
         cur.execute("SELECT vibe_classification, COUNT(*) as cnt FROM outcome_tracker WHERE vibe_classification IS NOT NULL GROUP BY vibe_classification")
@@ -3479,7 +3485,8 @@ def training_stats():
             FROM outcome_tracker 
             WHERE outcome_score >= 4.0 AND vibe_classification IN ('direction', 'need')
         """)
-        booked = cur.fetchone()['booked']
+        row = cur.fetchone()
+        booked = row['booked'] if row else 0
         
         # Top performers (contacts with highest scores)
         cur.execute("""
@@ -3511,9 +3518,9 @@ def training_stats():
             "objection": vibes.get('objection', 0),
             "dismissive": vibes.get('dismissive', 0),
             "ghosted": vibes.get('ghosted', 0),
-            "shortest_convo": int(length_stats['shortest']) if length_stats['shortest'] else 0,
-            "longest_convo": int(length_stats['longest']) if length_stats['longest'] else 0,
-            "avg_convo": round(float(length_stats['average']), 1) if length_stats['average'] else 0,
+            "shortest_convo": int(length_stats['shortest']) if length_stats and length_stats.get('shortest') else 0,
+            "longest_convo": int(length_stats['longest']) if length_stats and length_stats.get('longest') else 0,
+            "avg_convo": round(float(length_stats['average']), 1) if length_stats and length_stats.get('average') else 0,
             "top_patterns": top_patterns,
             "contact_stats": contact_stats,
             "top_convos": top_convos
