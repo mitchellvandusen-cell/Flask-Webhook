@@ -244,10 +244,18 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
             updates["has_living_benefits"] = False
     
     # === POLICY SOURCE ===
-    if re.search(r"(my own|personal|private|individual).*(policy|coverage|insurance)", all_text):
+    # Detect personal/private policy - also check for "not through work"
+    is_personal = re.search(r"(my own|personal|private|individual).*(policy|coverage|insurance)", all_text)
+    not_through_work = re.search(r"(not|isn'?t|isnt).*(through|from|via|at).*(work|job|employer)", all_text)
+    
+    if is_personal or not_through_work:
         updates["is_personal_policy"] = True
         updates["is_employer_based"] = False
-    if re.search(r"(through|from|at|via).*(work|job|employer|company)", all_text):
+        # Mark employer portability as answered so LLM stops asking
+        add_to_qualification_array(contact_id, "topics_asked", "employer_portability")
+        add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
+        
+    if re.search(r"(through|from|at|via).*(work|job|employer|company)", all_text) and not not_through_work:
         updates["is_employer_based"] = True
         updates["is_personal_policy"] = False
     
@@ -384,7 +392,7 @@ def format_qualification_for_prompt(qualification_state):
     if q.get("is_employer_based"):
         coverage_facts.append("through employer")
     elif q.get("is_personal_policy"):
-        coverage_facts.append("personal policy")
+        coverage_facts.append("personal policy (NOT through work)")
     
     if q.get("carrier"):
         coverage_facts.append(f"with {q['carrier']}")
@@ -452,9 +460,13 @@ def format_qualification_for_prompt(qualification_state):
     if q.get("blockers") and len(q["blockers"]) > 0:
         sections.append(f"Blockers: {', '.join(q['blockers'])}")
     
-    # Topics already asked
+    # Topics already asked - CRITICAL to prevent repeat questions
     if q.get("topics_asked") and len(q["topics_asked"]) > 0:
-        sections.append(f"DO NOT ASK ABOUT: {', '.join(q['topics_asked'])}")
+        topic_list = ', '.join(q['topics_asked'])
+        sections.append(f"TOPICS ALREADY COVERED (DO NOT ASK AGAIN): {topic_list}")
+        # Add explicit instructions for common blocked topics
+        if "employer_portability" in q["topics_asked"] or "job_coverage" in q["topics_asked"]:
+            sections.append("ALREADY CONFIRMED: This is NOT employer coverage. Do NOT ask about job portability or retiring.")
     
     if not sections:
         return ""
