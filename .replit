@@ -41,4 +41,3 @@ externalPort = 80
 [userenv.shared]
 GHL_LOCATION_ID = "k7l0zdwaMruhP7NZHin2"
 GHL_CALENDAR_ID = "S4knucFaXO769HDFlRtv"
-TRAINING_MODE = "1"

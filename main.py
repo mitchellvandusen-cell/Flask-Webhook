@@ -2729,8 +2729,8 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
     retry_count = 0
     correction_prompt = ""
     
-    # Use cheaper model for training (set TRAINING_MODE=1 to enable)
-    use_model = "grok-3-mini" if os.environ.get("TRAINING_MODE") else "grok-2-1212"
+    # Use grok-4-1-fast-reasoning for everything (cheap and capable)
+    use_model = "grok-4-1-fast-reasoning"
     
     while retry_count <= max_retries:
         response = client.chat.completions.create(
