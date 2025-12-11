@@ -493,6 +493,248 @@ def increment_exchanges(contact_id):
 
 
 # ============================================================================
+# ALREADY COVERED OBJECTION HANDLER (State Machine)
+# ============================================================================
+# High-risk carriers (usually have graded/modified policies for sick people)
+HIGH_RISK_CARRIERS = [
+    "mutual of omaha", "foresters", "transamerica", "americo", 
+    "prosperity", "aig", "gerber", "globe life", "colonial penn"
+]
+
+ALREADY_HAVE_TRIGGERS = [
+    "already have", "i'm good", "im good", "taken care of", "i'm covered", 
+    "im covered", "got it", "have insurance", "have a policy", "set", 
+    "all set", "good on", "all good", "covered"
+]
+
+TIME_AGREEMENT_TRIGGERS = [
+    "10:15", "2:30", "tomorrow", "morning", "afternoon", "either", "works", 
+    "yes", "sure", "book it", "let's do it", "lets do it", "sounds good", 
+    "ok", "okay", "alright", "perfect", "that works", "im in", "i'm in"
+]
+
+def extract_carrier_name(text):
+    """Extract insurance carrier from message text."""
+    carriers = {
+        "mutual of omaha": ["mutual of omaha", "moo", "omaha"],
+        "foresters": ["foresters", "forest"],
+        "transamerica": ["transamerica", "trans america"],
+        "americo": ["americo"],
+        "aig": ["aig"],
+        "prudential": ["prudential", "pru"],
+        "lincoln": ["lincoln financial", "lincoln"],
+        "protective": ["protective"],
+        "banner": ["banner"],
+        "sbli": ["sbli"],
+        "new york life": ["new york life", "nyl"],
+        "northwestern mutual": ["northwestern", "northwest mutual"],
+        "state farm": ["state farm"],
+        "allstate": ["allstate"],
+        "nationwide": ["nationwide"],
+        "globe life": ["globe life", "globe"],
+        "colonial penn": ["colonial penn", "colonial"],
+        "gerber": ["gerber"],
+        "aflac": ["aflac"],
+        "metlife": ["metlife", "met life"],
+        "john hancock": ["john hancock", "hancock"],
+        "mass mutual": ["mass mutual", "massmutual"],
+        "principal": ["principal"],
+        "pacific life": ["pacific life"],
+        "unum": ["unum"]
+    }
+    text = text.lower()
+    for name, keywords in carriers.items():
+        if any(k in text for k in keywords):
+            return name
+    return None
+
+
+def already_covered_handler(contact_id, message, state, api_key=None, calendar_id=None, timezone="America/New_York"):
+    """
+    Handle the "Already Have Coverage" objection pathway.
+    This is a deterministic state machine that runs BEFORE the LLM.
+    
+    Returns (response, should_continue) where should_continue=False means use this response.
+    """
+    if not contact_id or not state:
+        return None, True
+    
+    m = message.lower().strip()
+    
+    # Helper for slot text
+    def get_slot_text():
+        if api_key and calendar_id:
+            slots = get_available_slots(calendar_id, api_key, timezone)
+            if slots:
+                return format_slot_options(slots, timezone)
+        return "10:15 tomorrow morning or 2:30 in the afternoon"
+    
+    # ========== STEP 5: They answered medication question ==========
+    if state.get("waiting_for_medications"):
+        # Extract medications
+        if re.search(r'\bnone?\b|no\s*(meds|medications?)?|healthy|nada|nothing|clean', m):
+            meds = "None reported"
+        else:
+            meds = message.strip()
+        
+        update_qualification_state(contact_id, {
+            "medications": meds,
+            "waiting_for_medications": False
+        })
+        
+        appt_time = state.get("appointment_time", "your call")
+        if meds == "None reported":
+            return (f"Awesome, clean health = best rates. I'll have multiple options ready for {appt_time}. "
+                    "Calendar invite coming in the next few minutes. See you then!"), False
+        else:
+            return (f"Got it, thank you! I'll have everything pulled and priced out with multiple carriers before {appt_time}. "
+                    "You'll get a calendar invite + reminder text in the next 5-10 minutes. Talk soon!"), False
+    
+    # ========== STEP 4: They agreed to appointment time ==========
+    if state.get("carrier_gap_found") and any(t in m for t in TIME_AGREEMENT_TRIGGERS):
+        # Pick the time they chose
+        if any(t in m for t in ["10", "morning", "earlier", "first"]):
+            booked_time = "10:15 AM tomorrow"
+        else:
+            booked_time = "2:30 PM tomorrow"
+        
+        update_qualification_state(contact_id, {
+            "is_booked": True,
+            "is_qualified": True,
+            "appointment_time": booked_time,
+            "waiting_for_medications": True
+        })
+        
+        return (f"Perfect, locked you in for {booked_time}. "
+                "Quick question so I can have the absolute best price ready for you when we hop on the call. "
+                "Are you currently taking any medications at all? (Even blood pressure, cholesterol, etc.)"), False
+    
+    # ========== STEP 3B: They told us their price ==========
+    if state.get("waiting_for_price"):
+        price_match = re.search(r'\$?(\d+)', m)
+        if price_match:
+            their_price = int(price_match.group(1))
+            update_qualification_state(contact_id, {
+                "their_price": their_price,
+                "monthly_premium": their_price,
+                "waiting_for_price": False,
+                "carrier_gap_found": True
+            })
+            
+            return ("Yeah that's exactly what I figured. Because they underwrite for higher-risk folks, healthy people usually pay more than they need to. "
+                    f"I can run you a quick comparison right now with carriers that fit healthy profiles better, no cost or obligation. "
+                    f"I have {get_slot_text()}, what works better for you?"), False
+    
+    # ========== STEP 3A: They said they're healthy (golden answer) ==========
+    if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious', m):
+        carrier = state.get("carrier", "your current carrier")
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False,
+            "waiting_for_price": True
+        })
+        
+        return (f"Gotcha. {carrier.title()} is alright, we actually offer them too, but they take a lot of higher-risk clients "
+                "so the pricing is usually higher for healthy people. What are you paying right now if you don't mind me asking?"), False
+    
+    # If they say YES to being sick when asked
+    if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen', m):
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False
+        })
+        # Extract their conditions
+        conditions = []
+        for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen"]:
+            if cond in m:
+                conditions.append(cond)
+                add_to_qualification_array(contact_id, "health_conditions", cond)
+        
+        return ("I hear you. The good news is there are still solid options even with health stuff going on. "
+                f"I have {get_slot_text()}, let's see what we can find for you?"), False
+    
+    # ========== STEP 2: They answered with carrier name ==========
+    if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found"):
+        carrier = extract_carrier_name(m)
+        
+        # Check for employer-based coverage
+        if re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m):
+            update_qualification_state(contact_id, {
+                "is_employer_based": True,
+                "carrier_gap_found": True
+            })
+            return ("Nice! A lot of the workplace plans or the smaller policies people grab are only 50k-100k and don't have living benefits built in. "
+                    f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
+        
+        # Check for high-risk carrier
+        if carrier and any(hr in carrier for hr in HIGH_RISK_CARRIERS):
+            update_qualification_state(contact_id, {
+                "carrier": carrier,
+                "waiting_for_health": True
+            })
+            return "Oh really? Are you super sick, like cancer, recent stroke, COPD, anything like that?", False
+        
+        # Known carrier but not high-risk, still probe
+        if carrier:
+            update_qualification_state(contact_id, {
+                "carrier": carrier,
+                "waiting_for_price": True
+            })
+            return (f"{carrier.title()}, good company. What are you paying monthly right now if you don't mind me asking? "
+                    "Just want to make sure you're getting the best rate for your situation."), False
+        
+        # Unknown carrier or vague answer like "I forget", fallback
+        if re.search(r"(forget|don'?t remember|not sure|idk|i don'?t know|can'?t recall)", m):
+            update_qualification_state(contact_id, {
+                "carrier_gap_found": True
+            })
+            return ("No worries. A lot of folks aren't sure what they have exactly. "
+                    "Most of our clients who thought they were covered actually had gaps they didn't know about. "
+                    f"Takes 5 minutes to review. {get_slot_text()}, what works?"), False
+    
+    # ========== STEP 1: Initial "already covered" trigger ==========
+    if any(trigger in m for trigger in ALREADY_HAVE_TRIGGERS) and not state.get("already_handled"):
+        # Check if they mentioned a carrier or employer in the same message
+        carrier = extract_carrier_name(m)
+        is_employer = re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m)
+        
+        update_qualification_state(contact_id, {
+            "already_handled": True,
+            "objection_path": "already_covered",
+            "has_policy": True
+        })
+        
+        # If they said it's through work, skip to employer gap pitch
+        if is_employer:
+            update_qualification_state(contact_id, {
+                "is_employer_based": True,
+                "carrier_gap_found": True
+            })
+            return ("Nice! A lot of the workplace plans or the smaller policies people grab are only 50k-100k and don't have living benefits built in. "
+                    f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
+        
+        if carrier:
+            # They already told us who, skip asking
+            update_qualification_state(contact_id, {"carrier": carrier})
+            if any(hr in carrier for hr in HIGH_RISK_CARRIERS):
+                update_qualification_state(contact_id, {"waiting_for_health": True})
+                return "Oh really? Are you super sick, like cancer, recent stroke, COPD, anything like that?", False
+            else:
+                update_qualification_state(contact_id, {"waiting_for_price": True})
+                return (f"{carrier.title()}, good company. What are you paying monthly right now if you don't mind me asking? "
+                        "Just want to make sure you're getting the best rate for your situation."), False
+        
+        # Ask who they went with
+        responses = [
+            "Oh nice! Who'd you end up going with?",
+            "Nice, who'd you go with?",
+            "Good to hear. Through who?"
+        ]
+        return random.choice(responses), False
+    
+    # No objection pathway match, continue to LLM
+    return None, True
+
+
+# ============================================================================
 # END CONTACT QUALIFICATION STATE
 # ============================================================================
 
@@ -2910,6 +3152,16 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         
         # Increment exchange counter
         increment_exchanges(contact_id)
+        
+        # === ALREADY COVERED HANDLER: Deterministic state machine ===
+        # This runs BEFORE LLM to handle the common "already have coverage" pathway
+        handler_response, should_continue = already_covered_handler(
+            contact_id, message, qualification_state, 
+            api_key, calendar_id, timezone
+        )
+        if not should_continue and handler_response:
+            logger.info(f"ALREADY_COVERED_HANDLER: Returning deterministic response")
+            return handler_response, confirmation_code
         
         # Format qualification for prompt
         qualification_context = format_qualification_for_prompt(qualification_state)
