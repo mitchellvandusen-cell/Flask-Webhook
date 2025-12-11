@@ -79,6 +79,16 @@ CONVERSATION_SCENARIOS = [
         ]
     },
     {
+        "name": "Alex",
+        "scenario": "Deflection Test (Should NOT Repeat)",
+        "messages": [
+            "Hey",
+            "I got it taken care of thanks",
+            "doesnt matter Im covered",
+            "I said Im covered stop asking",
+        ]
+    },
+    {
         "name": "Karen",
         "scenario": "Price Shopper",
         "messages": [

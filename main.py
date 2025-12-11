@@ -2699,7 +2699,11 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
     # Check current message for dismissive phrases even without history
     soft_dismissive_phrases = [
         "not telling you", "none of your business", "why do you need to know",
-        "thats personal", "that's personal", "private", "why does it matter"
+        "thats personal", "that's personal", "private", "why does it matter",
+        "doesnt matter", "doesn't matter", "dont matter", "don't matter",
+        "not your concern", "why do you care", "im covered", "i'm covered",
+        "already told you", "i said im", "i said i'm", "already said",
+        "just leave it", "drop it", "not important", "thats not important"
     ]
     hard_dismissive_phrases = [
         "stop texting", "leave me alone", "f off", "fuck off", "go away",
@@ -2722,8 +2726,32 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         questions_warning = ""
         if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
+            
+            # Check if lead just deflected our last question
+            last_agent_msg = recent_agent_messages[-1] if recent_agent_messages else ""
+            deflection_warning = ""
+            if is_soft_dismissive and last_agent_msg:
+                last_question = last_agent_msg.replace("You: ", "")
+                deflection_warning = f"""
+=== CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
+You asked: "{last_question}"
+They said: "{message}" (this is a DEFLECTION - they don't want to answer)
+
+YOU MUST NOT:
+- Ask the same question again
+- Ask a similar question about the same topic
+- Repeat ANY variation of your last question
+
+YOU MUST:
+- Acknowledge their boundary: "Fair enough" / "Got it" / "No worries"  
+- Either pivot to a COMPLETELY different topic OR exit gracefully with value
+- Example: "Fair enough. Just make sure whatever you have covers you while you're alive, not just if something happens. Take care."
+=== DO NOT REPEAT - THEY WILL GET ANNOYED ===
+
+"""
+            
             questions_warning = f"""
-=== RECENT QUESTIONS YOU ALREADY ASKED (DO NOT REPEAT IN ANY FORM) ===
+{deflection_warning}=== RECENT QUESTIONS YOU ALREADY ASKED (DO NOT REPEAT IN ANY FORM) ===
 {questions_list}
 === YOU CANNOT ASK THESE AGAIN OR ANYTHING SIMILAR ===
 
@@ -3064,9 +3092,9 @@ CRITICAL RULES
     use_model = "grok-4-1-fast-reasoning"
     
     # Simplified user content for unified brain approach
+    # Include history_text which contains deflection warnings and questions already asked
     unified_user_content = f"""
-CONVERSATION HISTORY:
-{chr(10).join(conversation_history) if conversation_history else "First message - no history yet"}
+{history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
 
 LEAD'S MESSAGE: "{message}"
 
@@ -3408,17 +3436,32 @@ def ghl_unified():
 def grok_insurance():
     """Legacy endpoint - generates NEPQ response without GHL integration"""
     data = request.json or {}
-    name = data.get('first_name', 'there')
+    name = data.get('firstName') or data.get('first_name', 'there')
     lead_msg = data.get('message', '')
     agent_name = data.get('agent_name') or data.get('rep_name') or 'Mitchell'
     
     if not lead_msg:
         lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
     
+    # Parse conversation history from request
+    raw_history = data.get('conversationHistory', [])
+    conversation_history = []
+    if raw_history:
+        for msg in raw_history:
+            if isinstance(msg, dict):
+                direction = msg.get('direction', 'outbound')
+                body = msg.get('body', '')
+                if body:
+                    role = "Lead" if direction.lower() == 'inbound' else "You"
+                    conversation_history.append(f"{role}: {body}")
+            elif isinstance(msg, str):
+                conversation_history.append(msg)
+        logger.debug(f"[/grok] Using {len(conversation_history)} messages from request body")
+    
     # Legacy endpoint - no GHL integration, use env vars if available
     api_key = os.environ.get('GHL_API_KEY')
     calendar_id = os.environ.get('GHL_CALENDAR_ID')
-    reply, _ = generate_nepq_response(name, lead_msg, agent_name, api_key=api_key, calendar_id=calendar_id)
+    reply, _ = generate_nepq_response(name, lead_msg, agent_name, conversation_history=conversation_history, api_key=api_key, calendar_id=calendar_id)
     return jsonify({"reply": reply})
 
 
