@@ -1212,7 +1212,16 @@ People don't say what they mean. Here's how to decode common responses:
 "Send me information" = "I want you to go away without being rude"
 → Info doesn't close deals. Redirect: "What specifically are you trying to figure out?"
 
-The key: Never take responses at face value. Always dig deeper with curiosity.
+"I'm not telling you that" / "None of your business" / "Why do you need to know?" = "You're being too nosy, back off"
+→ They feel interrogated. STOP asking questions about that topic. Acknowledge and pivot:
+→ "Fair enough, no pressure. Just reaching out to see if we could help. Have a good one."
+→ OR if you want to try once more: "Totally get it. I'll check back another time."
+→ DO NOT ask another question after this. They've drawn a line.
+
+"Whatever" / "I don't know" / "I guess" = "I'm not engaged, you're losing me"
+→ They're checked out. Don't keep pushing. Try a softer angle or back off gracefully.
+
+The key: Never take responses at face value. BUT also recognize when someone is shutting you down. Know when to push and when to back off.
 
 === CONVERSATION FLOW ===
 This is a CONVERSATION, not a pitch. Follow this natural progression:
@@ -2241,6 +2250,15 @@ DO NOT ask generic questions like:
 - "What's on your mind about insurance?" (they haven't thought about it in months)
 - "What's been worrying you?" (too presumptuous)
 - "What made you realize you need coverage?" (they may not have realized anything)
+- "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
+- "What are you hoping to achieve?" (too corporate/formal)
+- "What would be ideal for you?" (too vague, they don't know what's possible)
+
+RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
+If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
+→ They feel interrogated. STOP asking questions. Back off gracefully:
+→ "Fair enough, no pressure. I'll check back another time."
+→ DO NOT ask another question after this response.
 
 KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
 
@@ -2341,6 +2359,17 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 
 """
         
+        # Detect DISMISSIVE responses (hard shutdowns - must exit gracefully)
+        dismissive_phrases = [
+            "not telling you", "none of your business", "why do you need to know",
+            "stop texting", "leave me alone", "f off", "fuck off", "go away",
+            "dont text me", "don't text me", "stop messaging", "who is this",
+            "remove me", "unsubscribe", "take me off", "do not contact"
+        ]
+        
+        current_lower = message.lower()
+        is_dismissive = any(phrase in current_lower for phrase in dismissive_phrases)
+        
         # Detect rejection patterns in lead messages
         rejection_phrases = [
             "not interested", "no thanks", "no thank", "im good", "i'm good", 
@@ -2355,13 +2384,25 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
                 rejection_count += 1
         
         # Check if current message is also a rejection
-        current_lower = message.lower()
         if any(phrase in current_lower for phrase in rejection_phrases):
             rejection_count += 1
         
         # Add explicit exchange count warning
         exchange_warning = ""
-        if rejection_count >= 5:
+        if is_dismissive:
+            exchange_warning = f"""
+=== CRITICAL: DISMISSIVE RESPONSE - EXIT NOW ===
+The lead said something like "I'm not telling you that" or "none of your business".
+They feel INTERROGATED. You've pushed too hard.
+DO NOT ask another question. DO NOT try to redirect.
+Your response MUST be a SHORT graceful exit like:
+"Fair enough, no pressure. I'll check back another time."
+"No problem at all. Take care."
+"Got it. Have a good one."
+=== DO NOT ASK A QUESTION - JUST SAY GOODBYE ===
+
+"""
+        elif rejection_count >= 5:
             exchange_warning = f"""
 === CRITICAL: {rejection_count} REJECTIONS - TIME TO EXIT GRACEFULLY ===
 The lead has rejected {rejection_count} times. You've given it a solid effort.
