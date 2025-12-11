@@ -2890,26 +2890,33 @@ Example: "I get it. Had a client last month, same situation, thought he couldn't
 
 """
         
+        intent_section = f"""
+=== CURRENT INTENT/OBJECTIVE ===
+Intent: {intent}
+Directive: {intent_directive}
+===
+"""
+        
         history_text = f"""
 === CONVERSATION HISTORY (read this carefully before responding) ===
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
-{stage_directive}{feel_felt_found_prompt}{exchange_warning}{questions_warning}{profile_text}
+{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{questions_warning}{profile_text}
 """
     else:
-        # Even without history, include profile from current message
-        if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
-                lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
-            history_text = profile_text
-    
-    intent_section = f"""
+        # Even without history, include profile and intent from current message
+        intent_section = f"""
 === CURRENT INTENT/OBJECTIVE ===
 Intent: {intent}
 Directive: {intent_directive}
 ===
-
 """
+        if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
+                lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
+            history_text = f"{intent_section}{profile_text}"
+        else:
+            history_text = intent_section
     
     # Get outcome-based learning context
     learning_context = ""
@@ -2927,38 +2934,6 @@ Directive: {intent_directive}
         logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
     except Exception as e:
         logger.warning(f"Could not record lead response: {e}")
-    
-    # Add self-reflection instructions (from Grok's recommendations)
-    self_reflection_instructions = """
-=== SELF-REFLECTION (internal - do not show to lead) ===
-After your response, add a <reflection> tag with:
-1. Score 1-10 on: Relevance (advances goal?), Coherence (builds on history?), Effectiveness (likely to get response?)
-2. Note what worked and what to improve
-3. If any score <7, adjust your response before sending
-
-Example:
-Your response here
-<reflection>Relevance: 8/10 - directly advances discovery. Coherence: 9/10 - references their spouse. Effectiveness: 7/10 - could be more specific. Improvement: next time offer concrete times.</reflection>
-===
-"""
-    
-    user_content = f"""
-You are: {agent_name}
-Lead name: {first_name}
-{state_instructions}
-{learning_context}{intent_section}{history_text}Latest message from lead: "{message}"
-Confirmation code to use if booking: {confirmation_code}
-
-{self_reflection_instructions}
-Based on the conversation state, learning context, and history above, generate ONE short NEPQ-style response that:
-1. Follows the DO/DON'T rules for your current stage
-2. Does NOT repeat questions already asked
-3. Uses what you already know instead of re-asking
-4. Keeps it natural (15-40 words for SMS)
-
-Add your <reflection> at the end for self-scoring.
-If you need to introduce yourself or sign off, use the name "{agent_name}".
-"""
 
     # Close stage templates (server-side enforcement)
     close_templates = [
