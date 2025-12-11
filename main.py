@@ -333,13 +333,17 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
     if re.search(r"retir(e|ing|ed|ement)|about\s*to\s*(stop|quit)\s*work", all_text):
         updates["retiring_soon"] = True
     
-    # === MOTIVATING GOALS ===
+    # === MOTIVATING GOALS (Why they originally looked) ===
     goal_patterns = {
-        "family_protection": r"protect.*(family|wife|husband|kids)|worried.*(family|kids)",
-        "mortgage_protection": r"(mortgage|house|home).*(paid|covered|protected)",
-        "leave_legacy": r"leave.*(something|behind|legacy)",
-        "funeral_costs": r"funeral|burial|final\s*expenses",
-        "family_death": r"(mom|dad|parent).*(died|passed|death)",
+        # Primary goals the user asked for
+        "add_coverage": r"(add|more|additional|extra)\s*(coverage|protection|insurance)|on\s*top\s*of|supplement",
+        "cover_mortgage": r"cover.*(mortgage|house|home)|(mortgage|house|home).*(paid|covered|protected|taken\s*care)|pay\s*off.*(mortgage|house)",
+        "final_expense": r"final\s*expense|funeral|burial|cremation|end\s*of\s*life|bury\s*me",
+        # Secondary goals
+        "family_protection": r"protect.*(family|wife|husband|kids)|worried.*(family|kids)|leave.*(family|kids)",
+        "leave_legacy": r"leave.*(something|behind|legacy)|inheritance",
+        "income_replacement": r"replace.*(income|salary)|if\s*(i|something)\s*(die|happen)",
+        "family_death": r"(mom|dad|parent|brother|sister).*(died|passed|death|funeral)",
     }
     for goal, pattern in goal_patterns.items():
         if re.search(pattern, all_text):
@@ -628,7 +632,75 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
         return (f"Perfect, got you down for {booked_time}. "
                 "Quick question so I can have the best options ready, are you taking any medications currently?"), False
     
-    # ========== STEP 3: They said NO they're not sick - doubt + book ==========
+    # ========== STEP 3a: They answered "other policies" question ==========
+    if state.get("waiting_for_other_policies"):
+        has_other = re.search(r'\byes\b|yeah|work|employer|job|another|group|spouse', m)
+        no_other = re.search(r'\bno\b|nope|nah|just\s*(this|that|the\s*one)|only\s*(this|that|one)', m)
+        
+        if has_other:
+            update_qualification_state(contact_id, {
+                "waiting_for_other_policies": False,
+                "has_other_policies": True,
+                "waiting_for_goal": True
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "other_policies")
+            # If through work, set employer based
+            if re.search(r"work|employer|job|group", m):
+                update_qualification_state(contact_id, {"is_employer_based": True})
+                return ("Got it, so you have both. A lot of the workplace plans don't have living benefits. "
+                        "What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"), False
+            return ("Makes sense. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"), False
+        elif no_other:
+            update_qualification_state(contact_id, {
+                "waiting_for_other_policies": False,
+                "has_other_policies": False,
+                "waiting_for_goal": True
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "other_policies")
+            return ("Got it. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"), False
+        
+        # Goal mentioned directly in this message
+        goal_match = None
+        if re.search(r"(add|more|additional|extra)\s*(coverage|protection)|on\s*top", m):
+            goal_match = "add_coverage"
+        elif re.search(r"mortgage|house|home", m):
+            goal_match = "cover_mortgage"
+        elif re.search(r"final\s*expense|funeral|burial", m):
+            goal_match = "final_expense"
+        
+        if goal_match:
+            update_qualification_state(contact_id, {
+                "waiting_for_other_policies": False,
+                "motivating_goal": goal_match
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "other_policies")
+            add_to_qualification_array(contact_id, "topics_asked", "original_goal")
+            return None, True  # Let LLM continue with this context
+    
+    # ========== STEP 3b: They answered goal question ==========
+    if state.get("waiting_for_goal"):
+        goal_match = None
+        if re.search(r"(add|more|additional|extra)\s*(coverage|protection)|on\s*top|supplement", m):
+            goal_match = "add_coverage"
+        elif re.search(r"mortgage|house|home", m):
+            goal_match = "cover_mortgage"
+        elif re.search(r"final\s*expense|funeral|burial|cremation", m):
+            goal_match = "final_expense"
+        elif re.search(r"protect|family|kids|wife|husband", m):
+            goal_match = "family_protection"
+        
+        if goal_match:
+            update_qualification_state(contact_id, {
+                "waiting_for_goal": False,
+                "motivating_goal": goal_match
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "original_goal")
+        else:
+            update_qualification_state(contact_id, {"waiting_for_goal": False})
+        
+        return None, True  # Let LLM continue with goal context
+    
+    # ========== STEP 3c: They said NO they're not sick - doubt + book ==========
     if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious|nope|im good', m):
         carrier = state.get("carrier", "them")
         update_qualification_state(contact_id, {
@@ -669,8 +741,22 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 f"I have some time {get_slot_text()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
     
     # ========== STEP 2: They answered with carrier name - combined question ==========
-    if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found") and not state.get("waiting_for_health"):
+    if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found") and not state.get("waiting_for_health") and not state.get("waiting_for_other_policies"):
         carrier = extract_carrier_name(m)
+        
+        # Check for personal/private policy FIRST (NOT through work) - ask about other policies
+        # Must check BEFORE employer detection to avoid matching "not through work"
+        if re.search(r"(private|personal|not\s*(through|from)\s*(work|job|employer)|my\s*own\b|individual)", m):
+            update_qualification_state(contact_id, {
+                "is_personal_policy": True,
+                "is_employer_based": False,
+                "waiting_for_other_policies": True
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "employer_portability")
+            add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
+            if carrier:
+                update_qualification_state(contact_id, {"carrier": carrier})
+            return ("Got it. Any other policies through work or otherwise?"), False
         
         # Check for employer-based coverage
         if re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m):
@@ -681,7 +767,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             return ("Nice! A lot of the workplace plans don't have living benefits built in. "
                     f"I have some time {get_slot_text()}, takes 5 minutes to check. What works?"), False
         
-        # Named a carrier - combined source + health question
+        # Named a carrier without specifying source - combined source + health question
         if carrier:
             update_qualification_state(contact_id, {
                 "carrier": carrier,
