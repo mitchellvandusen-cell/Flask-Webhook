@@ -40,17 +40,20 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 
 ### Already Covered Objection Handler (State Machine)
 -   **Deterministic pathway**: Handles "I already have coverage" objections WITHOUT LLM calls.
--   **5-Step Flow**:
-    1.  Lead says "already have/covered/set" → Ask "Who'd you go with?"
-    2.  Lead names carrier → Ask "Are you sick? Like have had cancer or a heart attack?" (seed doubt)
-    2b. Employer-based → Pitch living benefits gap + offer appointment
-    3.  Lead says no, healthy → "Why I ask, they're good but take high risk people so prices are higher for healthy folks. Did you find them yourself or did someone set you up?"
-    4.  Lead answers → "I contract with them too, just should have been better options. What are you paying?"
-    5.  Lead gives price → "Let's set up a time, I'll have everything ready and make sure you're not paying more than you need to." + offer appointment times
-    6.  Lead agrees to time → Ask about medications for pre-qualification
-    7.  Lead answers meds → Confirm appointment, send calendar invite
--   **Goal**: Justify an appointment to run a proper comparison. If we can't beat their current situation (price, coverage, or add living benefits), we tell them honestly and leave it.
--   **State fields**: `objection_path`, `already_handled`, `waiting_for_health`, `waiting_for_source`, `waiting_for_price`, `carrier_gap_found`, `waiting_for_medications`, `their_price`, `appointment_time`, `medications`
+-   **3-Step Flow to Appointment**:
+    1.  Lead says "already have/covered/set" → "Who'd you go with?"
+    2.  Lead names carrier → "Oh did someone help you get set up with them or did you find them yourself? They usually help people with higher risk, do you have serious health issues?"
+    3.  Lead says no/healthy → Context-aware doubt seeding:
+        - If someone helped: "Weird they put you with them. I mean they're a good company..."
+        - If found themselves: "I mean they're a good company, like I said they just take higher risk people so it's usually more expensive for healthier people like yourself. I have some time tonight or tomorrow, I can do a quick review and just make sure you're not overpaying. Which works best for you?"
+    4.  Lead picks time → "Perfect, got you down for [time]. Quick question so I can have the best options ready, are you taking any medications currently?"
+    5.  Lead answers meds → Confirm appointment, calendar invite coming
+-   **Shortcuts**:
+    - Employer-based coverage → Instant living benefits gap pitch + appointment offer
+    - Carrier mentioned in initial message → Skip to step 2
+    - Lead says YES they're sick → Empathetic pivot to appointment
+-   **Goal**: Subtle doubt-seeding to justify a quick review appointment. If we can't beat their current situation, we tell them honestly.
+-   **State fields**: `objection_path`, `already_handled`, `waiting_for_health`, `carrier_gap_found`, `waiting_for_medications`, `appointment_time`, `medications`
 
 ### Contact Qualification State (Persistent Memory)
 -   **`contact_qualification` table**: Stores persistent qualification data per contact_id across all messages and conversations.
