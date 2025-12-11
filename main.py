@@ -2730,7 +2730,7 @@ If you need to introduce yourself or sign off, use the name "{agent_name}".
     correction_prompt = ""
     
     # Use cheaper model for training (set TRAINING_MODE=1 to enable)
-    use_model = "grok-2-mini" if os.environ.get("TRAINING_MODE") else "grok-2-1212"
+    use_model = "grok-3-mini" if os.environ.get("TRAINING_MODE") else "grok-2-1212"
     
     while retry_count <= max_retries:
         response = client.chat.completions.create(
