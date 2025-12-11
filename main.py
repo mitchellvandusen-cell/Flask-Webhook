@@ -3434,8 +3434,28 @@ def index():
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
     logger.debug(f"Root webhook request: {safe_data}")
     
-    if not message:
-        message = "initial outreach - contact just entered pipeline, send first message to start conversation"
+    # Initial outreach detection - send proven opener for first contact
+    if not message.strip() or message.lower() in ["initial outreach", "first message", ""]:
+        reply = f"Hey {first_name}, are you still with that other life insurance plan? There's new living benefits that just came out and a lot of people have been asking about them."
+        
+        # Send SMS if we have credentials
+        if contact_id and api_key and location_id:
+            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+            return jsonify({
+                "success": True,
+                "reply": reply,
+                "opener": "jeremy_miner_2025",
+                "contact_id": contact_id,
+                "sms_sent": sms_result.get("success", False)
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "reply": reply,
+                "opener": "jeremy_miner_2025",
+                "sms_sent": False,
+                "warning": "No GHL credentials - SMS not sent"
+            })
     
     intent = extract_intent(data, message)
     logger.debug(f"Extracted intent: {intent}")
