@@ -992,7 +992,7 @@ The key: Never take responses at face value. Always dig deeper with curiosity.
 This is a CONVERSATION, not a pitch. Follow this natural progression:
 
 **STAGE 0: INITIAL CONTACT (First message only)**
-- "{first_name}, are you still with your other plan? There have been some recent updates to living-benefit coverage that people have been asking about."
+- "{first_name}, are you still with that other life insurance plan? There have been some recent updates to living-benefit coverage that people have been asking about."
 - Wait for them to respond before continuing
 
 **STAGE 1: DISCOVERY (Have a real conversation)**
@@ -1682,7 +1682,7 @@ When they pick a time:
 === EXAMPLES (notice name is NOT in every message) ===
 
 Lead: "initial outreach - first message"
-→ "{first_name}, are you still with your other plan? There have been some recent updates to living-benefit coverage that people have been asking about."
+→ "{first_name}, are you still with that other life insurance plan? There have been some recent updates to living-benefit coverage that people have been asking about."
 
 Lead: "What plan?" / "What are you talking about?"
 → "The life insurance you were looking at a while back. Did you end up getting something or still figuring it out?"
@@ -1832,7 +1832,7 @@ INTENT_DIRECTIVES = {
     "follow_up": "Continue where you left off. Reference your previous conversation if possible. Check if they've thought about it or have any questions.",
     "nurture": "Keep the relationship warm. Don't push for anything. Ask about their life, build rapport, and stay top of mind.",
     "objection_handling": "The lead has raised an objection. Use curiosity to understand their concern deeply. Don't redirect to booking yet.",
-    "initial_outreach": "This is the FIRST message. Say: '{first_name}, are you still with your other plan? There have been some recent updates to living-benefit coverage that people have been asking about.' Then wait for their response.",
+    "initial_outreach": "This is the FIRST message. Say: '{first_name}, are you still with that other life insurance plan? There have been some recent updates to living-benefit coverage that people have been asking about.' Then wait for their response.",
     "general": "Have a natural conversation. Uncover their situation and needs before ever suggesting an appointment."
 }
 
