@@ -629,13 +629,23 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
     
     m = message.lower().strip()
     
-    # Helper for slot text
+    # Helper for slot text - returns (slot_text, has_real_slots)
     def get_slot_text():
         if api_key and calendar_id:
             slots = get_available_slots(calendar_id, api_key, timezone)
             if slots:
-                return format_slot_options(slots, timezone)
-        return "tonight or tomorrow morning"
+                formatted = format_slot_options(slots, timezone)
+                if formatted:
+                    return formatted, True
+        return None, False
+    
+    # Helper to build appointment offer with real or fallback language
+    def build_appointment_offer(prefix="I have some time"):
+        slot_text, has_slots = get_slot_text()
+        if has_slots and slot_text:
+            return f"{prefix} {slot_text}"
+        else:
+            return "When are you usually free for a quick call"
     
     # ========== STEP 5: They answered medication question ==========
     if state.get("waiting_for_medications"):
@@ -797,14 +807,14 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             update_qualification_state(contact_id, {"is_personal_policy": True})
             # Someone put them with it - "weird they put you with them"
             return (f"Weird they put you with them. I mean they're a good company, like I said they just take higher risk people "
-                    f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
+                    f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
                     "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
         else:
             if found_myself:
                 update_qualification_state(contact_id, {"is_personal_policy": False})
             # They found it themselves or unclear - skip "weird" part
             return (f"I mean they're a good company, like I said they just take higher risk people "
-                    f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
+                    f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
                     "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
     
     # ========== STEP 3b: They said YES they are sick ==========
@@ -818,7 +828,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 add_to_qualification_array(contact_id, "health_conditions", cond)
         
         return ("Makes sense then, they're actually really good for folks with health stuff going on. "
-                f"I have some time {get_slot_text()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
+                f"{build_appointment_offer()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
     
     # ========== STEP 2: They answered with carrier name - combined question ==========
     if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found") and not state.get("waiting_for_health") and not state.get("waiting_for_other_policies"):
@@ -846,7 +856,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "carrier_gap_found": True
             })
             return ("Nice! A lot of the workplace plans don't have living benefits built in. "
-                    f"I have some time {get_slot_text()}, takes 5 minutes to check. What works?"), False
+                    f"{build_appointment_offer()}, takes 5 minutes to check. What works?"), False
         
         # Named a carrier without specifying source - combined source + health question
         if carrier:
@@ -863,7 +873,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "carrier_gap_found": True
             })
             return ("No worries. Most folks who thought they were covered had gaps they didn't know about. "
-                    f"I have some time {get_slot_text()}, takes 5 min to review. What works?"), False
+                    f"{build_appointment_offer()}, takes 5 min to review. What works?"), False
     
     # ========== STEP 1: Initial "already covered" trigger ==========
     if any(trigger in m for trigger in ALREADY_HAVE_TRIGGERS) and not state.get("already_handled"):
@@ -882,7 +892,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "carrier_gap_found": True
             })
             return ("Nice! A lot of the workplace plans don't have living benefits built in. "
-                    f"I have some time {get_slot_text()}, takes 5 minutes to check. What works?"), False
+                    f"{build_appointment_offer()}, takes 5 minutes to check. What works?"), False
         
         if carrier:
             update_qualification_state(contact_id, {
@@ -1306,10 +1316,11 @@ def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_
         logger.warning("No calendar_id or api_key for slot lookup")
         return None
     
-    # Calculate date range
+    # Calculate date range - GHL requires epoch milliseconds
     now = datetime.now(ZoneInfo(timezone))
-    start_date = now.strftime("%Y-%m-%d")
-    end_date = (now + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+    # Start from now, end N days ahead
+    start_epoch_ms = int(now.timestamp() * 1000)
+    end_epoch_ms = int((now + timedelta(days=days_ahead)).timestamp() * 1000)
     
     url = f"{GHL_BASE_URL}/calendars/{calendar_id}/free-slots"
     headers = {
@@ -1318,8 +1329,8 @@ def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_
         "Content-Type": "application/json"
     }
     params = {
-        "startDate": start_date,
-        "endDate": end_date,
+        "startDate": start_epoch_ms,
+        "endDate": end_epoch_ms,
         "timezone": timezone
     }
     
@@ -1327,35 +1338,74 @@ def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_
         response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
+        logger.debug(f"Calendar API raw response: {data}")
         
-        # Parse slots and filter by business hours (8 AM - 7 PM) and days (Mon-Sat)
+        # Parse slots - GHL returns { "calendar_id": { "date": [slots] } } or similar
+        # Handle multiple possible response formats
         slots = []
-        for date_key, day_slots in data.get('slots', {}).items():
-            for slot in day_slots:
-                slot_time = datetime.fromisoformat(slot.replace('Z', '+00:00'))
-                slot_local = slot_time.astimezone(ZoneInfo(timezone))
-                
-                # Filter: Skip Sundays (weekday() == 6 is Sunday)
-                if slot_local.weekday() == 6:
-                    continue
-                
-                # Filter: Only 8 AM to 7 PM (hour 8-18, since 19:00 would end the appointment after 7)
-                slot_hour = slot_local.hour
-                if slot_hour < 8 or slot_hour >= 19:
-                    continue
-                
-                slots.append({
-                    "iso": slot,
-                    "formatted": slot_local.strftime("%-I:%M %p"),
-                    "day": slot_local.strftime("%A"),
-                    "date": slot_local.strftime("%m/%d")
-                })
-                
-                # Max 4 slots total
+        raw_slots = data.get('slots', data)
+        
+        # If it's a list of objects with date and slots properties
+        if isinstance(raw_slots, list):
+            for day_obj in raw_slots:
+                day_slots = day_obj.get('slots', [])
+                date_str = day_obj.get('date', '')
+                for slot_str in day_slots:
+                    try:
+                        # Combine date and time
+                        slot_time = datetime.fromisoformat(f"{date_str}T{slot_str}")
+                        slot_local = slot_time.replace(tzinfo=ZoneInfo(timezone))
+                        
+                        # Filter: Skip Sundays
+                        if slot_local.weekday() == 6:
+                            continue
+                        # Filter: Only 8 AM to 7 PM
+                        if slot_local.hour < 8 or slot_local.hour >= 19:
+                            continue
+                        
+                        slots.append({
+                            "iso": slot_local.isoformat(),
+                            "formatted": slot_local.strftime("%-I:%M %p"),
+                            "day": slot_local.strftime("%A"),
+                            "date": slot_local.strftime("%m/%d")
+                        })
+                        if len(slots) >= 4:
+                            break
+                    except Exception as e:
+                        logger.debug(f"Could not parse slot {slot_str}: {e}")
                 if len(slots) >= 4:
                     break
-            if len(slots) >= 4:
-                break
+        # If it's a dict with date keys and slot arrays
+        elif isinstance(raw_slots, dict):
+            for date_key, day_data in raw_slots.items():
+                if date_key == 'traceId':
+                    continue
+                day_slots = day_data.get('slots', []) if isinstance(day_data, dict) else day_data
+                for slot in day_slots:
+                    slot_time = datetime.fromisoformat(slot.replace('Z', '+00:00'))
+                    slot_local = slot_time.astimezone(ZoneInfo(timezone))
+                    
+                    # Filter: Skip Sundays (weekday() == 6 is Sunday)
+                    if slot_local.weekday() == 6:
+                        continue
+                    
+                    # Filter: Only 8 AM to 7 PM (hour 8-18, since 19:00 would end the appointment after 7)
+                    slot_hour = slot_local.hour
+                    if slot_hour < 8 or slot_hour >= 19:
+                        continue
+                    
+                    slots.append({
+                        "iso": slot,
+                        "formatted": slot_local.strftime("%-I:%M %p"),
+                        "day": slot_local.strftime("%A"),
+                        "date": slot_local.strftime("%m/%d")
+                    })
+                    
+                    # Max 4 slots total
+                    if len(slots) >= 4:
+                        break
+                if len(slots) >= 4:
+                    break
         
         logger.debug(f"Calendar returned {len(slots)} valid slots (8AM-7PM, Mon-Sat)")
         return slots[:4]  # Return max 4 slots
@@ -1366,7 +1416,7 @@ def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_
 def format_slot_options(slots, timezone="America/New_York"):
     """Format available slots into a natural SMS-friendly string"""
     if not slots or len(slots) == 0:
-        return "6:30 tonight or 10:15 tomorrow morning"  # Fallback
+        return None  # No fallback - caller should handle this
     
     now = datetime.now(ZoneInfo(timezone))
     today = now.strftime("%A")
@@ -1402,7 +1452,7 @@ def format_slot_options(slots, timezone="America/New_York"):
     elif len(formatted) == 1:
         return formatted[0]
     else:
-        return "6:30 tonight or 10:15 tomorrow morning"
+        return None  # No valid slots found
 
 # ==================== DETERMINISTIC TRIGGER MAP (runs BEFORE LLM) ====================
 # These patterns get instant responses without burning API tokens
@@ -1431,19 +1481,30 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
     """
     m = message.lower().strip()
     
-    # Helper: lazy fetch calendar slots only when needed
+    # Helper: lazy fetch calendar slots only when needed - returns (slot_text, has_real_slots)
     _slot_cache = [None]
     def get_slot_text():
         if _slot_cache[0] is None:
             if api_key and calendar_id:
                 slots = get_available_slots(calendar_id, api_key, timezone)
                 if slots:
-                    _slot_cache[0] = format_slot_options(slots, timezone)
+                    formatted = format_slot_options(slots, timezone)
+                    if formatted:
+                        _slot_cache[0] = (formatted, True)
+                    else:
+                        _slot_cache[0] = (None, False)
                 else:
-                    _slot_cache[0] = "6:30 tonight or 10:15 tomorrow morning"
+                    _slot_cache[0] = (None, False)
             else:
-                _slot_cache[0] = "6:30 tonight or 10:15 tomorrow morning"
+                _slot_cache[0] = (None, False)
         return _slot_cache[0]
+    
+    def build_appointment_offer(prefix="I have"):
+        slot_text, has_slots = get_slot_text()
+        if has_slots and slot_text:
+            return f"{prefix} {slot_text}"
+        else:
+            return "When are you usually free for a quick call"
     
     # Check triggers in priority order
     if re.search(TRIGGERS["HARD_EXIT"], m):
@@ -1470,7 +1531,11 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
         return random.choice(responses), "TRIG"
     
     if re.search(TRIGGERS["BUYING_SIGNAL"], m):
-        return f"Perfect. {get_slot_text()}, which works better?", "TRIG"
+        slot_text, has_slots = get_slot_text()
+        if has_slots and slot_text:
+            return f"Perfect. {slot_text}, which works better?", "TRIG"
+        else:
+            return "Perfect. When are you usually free for a quick call?", "TRIG"
     
     if re.search(TRIGGERS["GI"], m):
         return "Those usually have a 2-3 year waiting period. How long ago did you get it?", "TRIG"
@@ -1493,7 +1558,11 @@ def force_response(message, api_key=None, calendar_id=None, timezone="America/Ne
         return random.choice(responses), "TRIG"
     
     if re.search(TRIGGERS["PRICE"], m):
-        return f"Depends on health and coverage. I have {get_slot_text()}, which works for accurate numbers?", "TRIG"
+        slot_text, has_slots = get_slot_text()
+        if has_slots and slot_text:
+            return f"Depends on health and coverage. I have {slot_text}, which works for accurate numbers?", "TRIG"
+        else:
+            return "Depends on health and coverage. When are you usually free for a quick call to get accurate numbers?", "TRIG"
     
     if re.search(TRIGGERS["SOFT_REJECT"], m):
         return "Fair enough. Was it more the price or just couldn't find the right fit last time?", "TRIG"
@@ -1755,7 +1824,7 @@ You are an elite life-insurance re-engagement closer with CONVERSATIONAL MASTERY
 When they ask about quotes, rates, costs, comparing companies, term vs whole life, or any detailed insurance question:
 → DO NOT try to answer or ask clarifying questions
 → IMMEDIATELY redirect to a policy review appointment
-→ Say: "Great question. That really depends on your situation. Let's schedule a quick policy review so I can give you accurate info. I have 6:30 tonight or 10:15 tomorrow, which works?"
+→ Say: "Great question. That really depends on your situation. Let's schedule a quick policy review so I can give you accurate info. I have [USE CALENDAR TIMES FROM CONTEXT], which works?"
 
 Examples of technical questions to redirect:
 - "Can you give me a quote?" → redirect to policy review
@@ -1773,7 +1842,7 @@ When a lead tells you their specific health info (A1C level, years with conditio
 Say something like: "I'll be straight with you. With [their condition details], options are pretty limited. The [carrier] policy you have is actually one of the few that would take that. I can still look into it, but I don't want to promise something I can't deliver."
 
 **IF THEIR SITUATION HAS HOPE (better options exist):**
-Say something like: "Good news, with [their condition details], you've got way more options than that [carrier] policy. Several carriers I work with would look at that without a waiting period. I have 6:30 tonight or 10:15 tomorrow, which works to go over options?"
+Say something like: "Good news, with [their condition details], you've got way more options than that [carrier] policy. Several carriers I work with would look at that without a waiting period. I have [USE CALENDAR TIMES FROM CONTEXT], which works to go over options?"
 
 DO NOT ask another question after they've already given you their health details. Assess and respond.
 
@@ -1819,7 +1888,7 @@ WRONG PATTERN (interrogation):
 - "What made you look?" → "Do you have coverage?" → "What's holding you back?" → "When would work?"
 
 RIGHT PATTERN (conversation):
-- "What made you look?" → [they answer] → "Yeah, most people in that situation end up underinsured. The good news is there are options." → [they respond] → "I can look into it. I have 6:30 tonight or 10:15 tomorrow."
+- "What made you look?" → [they answer] → "Yeah, most people in that situation end up underinsured. The good news is there are options." → [they respond] → "I can look into it. I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 **PRIORITY 7: GET TO THE POINT - STOP QUESTIONING, START OFFERING**
 COUNT THE EXCHANGES. If there have been 3+ back-and-forth messages, STOP asking questions and OFFER an appointment.
@@ -1831,7 +1900,7 @@ Signs they're ready (any ONE of these = stop questioning, offer times):
 - They've answered 2+ of your questions already
 
 WRONG after 3+ exchanges: "What would give you peace of mind?" (more questions)
-RIGHT after 3+ exchanges: "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?"
+RIGHT after 3+ exchanges: "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
 
 The goal is BOOKING, not endless discovery. Make the offer.
 
@@ -2034,7 +2103,7 @@ When client becomes non-committal or pulls back:
 - Client earlier said: "My mom died and I'm stuck with her bills, I don't want my husband to deal with this"
 - Client now says: "I don't know, I'm pretty busy this week"
 - WRONG: "When would be a better time?" (weak)
-- RIGHT: "I totally get it. But you mentioned you don't want your husband dealing with what you went through with your mom. A quick call could give you peace of mind that he won't have to. Does 6:30 tonight or 10:15 tomorrow work better?"
+- RIGHT: "I totally get it. But you mentioned you don't want your husband dealing with what you went through with your mom. A quick call could give you peace of mind that he won't have to. Does [USE CALENDAR TIMES FROM CONTEXT] work better?"
 
 === YOUR SALES PHILOSOPHY (Internalize This) ===
 You blend FIVE proven frameworks into one natural style:
@@ -2202,7 +2271,7 @@ Once you've identified a need AND they show interest, STOP ASKING QUESTIONS and 
 - "can you help me figure this out?" → offer times
 - ANY positive response after you mention "better options" or "no waiting period" → offer times
 
-**Pattern:** "Great. I have 6:30 tonight or 10:15 tomorrow morning, which works better?"
+**Pattern:** "Great. I have [USE CALENDAR TIMES FROM CONTEXT] morning, which works better?"
 
 DO NOT keep asking questions after they show interest. The need is established. Close the appointment.
 
@@ -2320,7 +2389,7 @@ Start broad, then narrow down. This gathers intelligence while building rapport:
 3. When FINDING NEED: Use questions from NEPQ, Straight Line Persuasion, or Brian Tracy methodology. When ANSWERING QUESTIONS or GIVING VERDICTS: Respond appropriately without forcing a question.
 4. Always vary your message. Never repeat the same phrasing twice. Be creative and natural.
 5. NEVER explain insurance products, features, or benefits
-6. For DETAILED INSURANCE QUESTIONS (quotes, rates, comparing companies, term vs whole life, how much does it cost, etc.): DO NOT TRY TO ANSWER. Instead, redirect to a policy review appointment. Say something like: "That's a great question. It really depends on your situation. Why don't we schedule a quick policy review so I can give you the right answer? I have 6:30 tonight or 10:15 tomorrow."
+6. For DETAILED INSURANCE QUESTIONS (quotes, rates, comparing companies, term vs whole life, how much does it cost, etc.): DO NOT TRY TO ANSWER. Instead, redirect to a policy review appointment. Say something like: "That's a great question. It really depends on your situation. Why don't we schedule a quick policy review so I can give you the right answer? I have [USE CALENDAR TIMES FROM CONTEXT]."
 7. ONLY offer time slots when you've uncovered a real need/problem AND they show buying signals
 8. Generate truly random 4-character codes (letters + numbers) for confirmations
 9. Be conversational, curious, and empathetic - NOT pushy or salesy
@@ -2665,7 +2734,7 @@ Examples:
 
 → "Sounds like the COPD is mild and you're not on oxygen. A few carriers I work with would take a look at that. If we could get you better coverage for less, would that be worth a quick call?"
 
-→ "Based on what you told me, you might not need to be in that guaranteed issue bucket at all. Some carriers just need to see stable health for a few years. I have 6:30 tonight or 10:15 tomorrow, which works better to go over options?"
+→ "Based on what you told me, you might not need to be in that guaranteed issue bucket at all. Some carriers just need to see stable health for a few years. I have [USE CALENDAR TIMES FROM CONTEXT], which works better to go over options?"
 
 **KEY PRINCIPLES:**
 1. Never promise they'll definitely qualify (say "might" or "probably" or "worth looking at")
@@ -2683,7 +2752,7 @@ Once you have:
 → IMMEDIATELY offer appointment times. Don't ask more questions.
 
 When they respond positively to your need statement ("yeah", "sure", "sounds good", "tell me more", "I'd like that"):
-→ OFFER TIMES RIGHT AWAY: "I have 6:30 tonight or 10:15 tomorrow morning, which works better to go over your options?"
+→ OFFER TIMES RIGHT AWAY: "I have [USE CALENDAR TIMES FROM CONTEXT] morning, which works better to go over your options?"
 
 DO NOT keep asking questions after they show interest. The need has been established. Close.
 
@@ -2902,11 +2971,11 @@ Probing questions for "I have $1M" leads:
 → "If something happened to your health between now and when it expires, what would your options be?"
 
 The appointment justification:
-→ "Sounds like you're in good shape right now. The piece a lot of people miss is what happens when the term ends. Worth a quick look to see if layering in some permanent coverage now, while you're healthy, makes sense. I have 6:30 tonight or 10:15 tomorrow."
+→ "Sounds like you're in good shape right now. The piece a lot of people miss is what happens when the term ends. Worth a quick look to see if layering in some permanent coverage now, while you're healthy, makes sense. I have [USE CALENDAR TIMES FROM CONTEXT]."
 
-→ "That $160 is going towards pure protection. Some folks like having part of that build cash value they can use later. Worth exploring? I have 6:30 tonight or 10:15 tomorrow."
+→ "That $160 is going towards pure protection. Some folks like having part of that build cash value they can use later. Worth exploring? I have [USE CALENDAR TIMES FROM CONTEXT]."
 
-→ "You're locked in now, which is great. The question is what happens at 55 when that term ends and you're trying to get new coverage. Let me show you some options to make sure you're covered no matter what. I have 6:30 tonight or 10:15 tomorrow."
+→ "You're locked in now, which is great. The question is what happens at 55 when that term ends and you're trying to get new coverage. Let me show you some options to make sure you're covered no matter what. I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 **KIDS AND FAMILY IMPACT (Handle Sensitively):**
 
@@ -2945,22 +3014,22 @@ Use this:
 Once THEY realize a gap (through your Socratic questions), connect it to the appointment:
 
 Gap: Employer coverage doesn't follow them
-→ "A lot of folks end up in that situation. Would it be worth a quick look at what your own policy would cost, just to have something that's yours? I have 6:30 tonight or 10:15 tomorrow."
+→ "A lot of folks end up in that situation. Would it be worth a quick look at what your own policy would cost, just to have something that's yours? I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 Gap: Term policy expiring soon
-→ "That's the piece a lot of people don't think about until it's too late. Worth looking at your options now while you're still healthy. I have 6:30 tonight or 10:15 tomorrow."
+→ "That's the piece a lot of people don't think about until it's too late. Worth looking at your options now while you're still healthy. I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 Gap: They realize coverage might not be enough
-→ "Sounds like that's something worth figuring out. Let me walk you through some options that might fit better. I have 6:30 tonight or 10:15 tomorrow."
+→ "Sounds like that's something worth figuring out. Let me walk you through some options that might fit better. I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 Gap: No permanent coverage
-→ "A lot of people like having at least some coverage that doesn't expire. Worth exploring what that would look like? I have 6:30 tonight or 10:15 tomorrow."
+→ "A lot of people like having at least some coverage that doesn't expire. Worth exploring what that would look like? I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 Gap: Bundled policy with minimal coverage
-→ "Those bundles can leave gaps. Would it be worth seeing what a real policy would cost on top of what you have? I have 6:30 tonight or 10:15 tomorrow."
+→ "Those bundles can leave gaps. Would it be worth seeing what a real policy would cost on top of what you have? I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 Gap: Well-covered but all term
-→ "You're in good shape now. The question is making sure you stay that way. Worth a quick look at some permanent options? I have 6:30 tonight or 10:15 tomorrow."
+→ "You're in good shape now. The question is making sure you stay that way. Worth a quick look at some permanent options? I have [USE CALENDAR TIMES FROM CONTEXT]."
 
 === OBJECTION HANDLING WITH OPTION QUESTIONS ===
 Handle ALL objections with OPTION-IDENTIFYING questions. Never argue. Never be vague.
@@ -3041,7 +3110,7 @@ CRITICAL: These phrases mean OFFER TIMES NOW:
 DON'T keep probing after they show interest. The need is established. Close.
 
 When ready to book:
-"I have 6:30 tonight or 10:15 tomorrow morning, which works better?"
+"I have [USE CALENDAR TIMES FROM CONTEXT] morning, which works better?"
 
 When they pick a time:
 "Locked in. Your confirmation code is {CODE}, reply {CODE} and I'll send the calendar invite."
@@ -3111,7 +3180,7 @@ Lead: "I dont know honestly"
 → "That's what most people realize too late. What would give you peace of mind knowing they'd be okay?"
 
 Lead: "Yeah I should probably figure this out"
-→ "I can help with that. I have 6:30 tonight or 10:15 tomorrow morning, which works better?"
+→ "I can help with that. I have [USE CALENDAR TIMES FROM CONTEXT] morning, which works better?"
 
 Lead: "Tomorrow morning"
 → "Locked in. Your confirmation code is 7K9X, reply 7K9X and I'll send the calendar invite."
@@ -3185,19 +3254,19 @@ Lead: "Quit 2 years ago"
 === CLOSING AFTER NEED STATEMENT (CRITICAL) ===
 
 Lead: (after you mention better options) "Yeah that sounds good"
-→ "Great. I have 6:30 tonight or 10:15 tomorrow morning, which works better to go over your options?"
+→ "Great. I have [USE CALENDAR TIMES FROM CONTEXT] morning, which works better to go over your options?"
 
 Lead: (after you mention better options) "Sure tell me more"
 → "Easiest to walk through it together. I have 6:30 tonight or 10am tomorrow, which works better?"
 
 Lead: (after you mention better options) "I'd like to look into that"
-→ "Perfect. Let's set up a quick call. I have 6:30 tonight or 10:15 tomorrow, which works?"
+→ "Perfect. Let's set up a quick call. I have [USE CALENDAR TIMES FROM CONTEXT], which works?"
 
 Lead: (after you mention better options) "Yeah I didnt know that"
 → "Most people don't. Let me dig into your options. I have 6:30 tonight or 10am tomorrow, which is better for you?"
 
 Lead: (after you mention better options) "Really? That would be great"
-→ "Yeah, let's see what we can find. I have 6:30 tonight or 10:15 tomorrow morning, which works?"
+→ "Yeah, let's see what we can find. I have [USE CALENDAR TIMES FROM CONTEXT] morning, which works?"
 """
 
 INTENT_DIRECTIVES = {
@@ -3310,11 +3379,21 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
     
     # =========================================================================
-    # STEP 4: EVALUATE - ALL messages go through the unified brain
-    # No shortcuts - the brain decides how to handle everything including exits
+    # STEP 4: EVALUATE - Check if triggers should bypass LLM
     # =========================================================================
+    # For BUYING_SIGNAL and PRICE triggers, bypass LLM to ensure calendar times are used
+    # This prevents the LLM from making up fake appointment times
+    if trigger_code == "TRIG" and trigger_suggestion:
+        # Check if this is a calendar-related trigger that should bypass LLM
+        triggers_str = str(triggers_found)
+        if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
+            logger.info(f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}")
+            return trigger_suggestion, confirmation_code
+    
     if trigger_code == "EXIT":
-        logger.info("STEP 4: Exit trigger detected, passing to unified brain for evaluation")
+        # Hard exit always bypasses LLM
+        logger.info(f"STEP 4: Exit trigger detected, returning: {trigger_suggestion}")
+        return trigger_suggestion, confirmation_code
     
     # Extract structured lead profile from conversation
     if conversation_history is None:
@@ -3528,9 +3607,9 @@ After consequence question OR future pacing, if they show ANY interest, move to 
 You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
 
 SCENARIO A - FIRST CLOSE ATTEMPT:
-- "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?"
+- "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
 - "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
-- "Got it. I can help you find the right coverage. How's 6:30 tonight or 10:15 tomorrow?"
+- "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
 
 SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
 Acknowledge it briefly, then offer times immediately. Don't ask another question.
@@ -3540,7 +3619,7 @@ This is REQUIRED when they push back. Loop to something THEY said earlier + add 
 Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
 
 Examples:
-- "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. 6:30 tonight or 10:15 tomorrow?"
+- "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
 - "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
 - "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
 
@@ -3810,7 +3889,7 @@ They've rejected many times AND explicitly asked to stop. Exit gracefully.
 === CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
 You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
 Your response MUST be a statement with an appointment offer like:
-"I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?"
+"I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
 === NO MORE QUESTIONS - MAKE THE OFFER ===
 
 """
@@ -3884,9 +3963,9 @@ Directive: {intent_directive}
 
     # Close stage templates (server-side enforcement for PolicyEngine fallback)
     close_templates = [
-        "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?",
+        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
         "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
-        "Got it. I can help you find the right coverage. How's 6:30 tonight or 10:15 tomorrow?",
+        "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
         "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
     ]
     
@@ -3957,7 +4036,7 @@ CRITICAL RULES
     max_retries = 2
     retry_count = 0
     correction_prompt = ""
-    reply = "I have 6:30 tonight or 10:15 tomorrow, which works better?"  # Default fallback
+    reply = "I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"  # Default fallback
     
     # Use grok-4-1-fast-reasoning for everything (cheap and capable)
     use_model = "grok-4-1-fast-reasoning"
@@ -4140,7 +4219,7 @@ Remember: Apply your knowledge, don't just pattern match.
         # Use a natural progression question instead
         progression_questions = [
             "What would make a quick review worth your time?",
-            "I have 6:30 tonight or 10:15 tomorrow, which works better?",
+            "I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
             "Just want to make sure you're not overpaying. Quick 5-minute review, what time works?",
         ]
         reply = random.choice(progression_questions)
