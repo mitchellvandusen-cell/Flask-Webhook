@@ -2121,7 +2121,8 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         lead_profile.get("motivating_goal") or 
         lead_profile.get("coverage", {}).get("coverage_gap") or
         (lead_profile.get("coverage", {}).get("has_coverage") and 
-         lead_profile.get("coverage", {}).get("coverage_type") == "employer")
+         lead_profile.get("coverage", {}).get("type") == "employer") or
+        lead_profile.get("coverage", {}).get("employer")
     )
     
     # Determine conversation stage
@@ -2138,46 +2139,81 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         # Force close after 3 exchanges regardless of other signals
         intent = "book_appointment"
         stage = "close"
-    elif detected_buying_signal or (exchange_count >= 2 and problem_revealed):
-        # Override to close mode - they're ready or we have enough info
+    elif detected_buying_signal:
+        # Buying signal detected - go straight to close
         intent = "book_appointment"
         stage = "close"
+    elif exchange_count >= 2 and problem_revealed:
+        # Had enough conversation with problem revealed - close
+        intent = "book_appointment"
+        stage = "close"
+    elif problem_revealed and exchange_count >= 1:
+        # Problem revealed but only 1 exchange - ask consequence question first
+        stage = "consequence"
     elif problem_revealed:
+        # Problem revealed in first exchange - still consequence
         stage = "consequence"
     else:
         stage = "problem_awareness"
     
     intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
     
-    # Stage-specific directives for cold leads
+    # Stage-specific directives for cold leads (from NEPQ Black Book)
     stage_directives = {
         "problem_awareness": """
-=== STAGE: PROBLEM AWARENESS ===
+=== STAGE: PROBLEM AWARENESS (NEPQ Stage 2) ===
 These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
-Ask ONE simple question to uncover a reason they might need coverage:
-- "Just curious, is there something specific that had you looking at coverage back then?"
-- "When you first reached out, was there something going on that made you look into it?"
-- "Any chance something's changed since then, like family or work?"
-DO NOT ask "what's on your mind about insurance" - they don't have anything on their mind.
-After ONE problem question, move to consequence stage.
+
+COLD LEAD QUESTIONS (choose ONE - they account for the fact leads haven't thought about this):
+- "Just so I have more context, what was going on back then that made you start looking?"
+- "Is there something specific that's changed since then, like work or family?"
+- "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
+- "Was it more just seeing what was out there, or was there something specific going on?"
+
+DO NOT ask generic questions like:
+- "What's on your mind about insurance?" (they haven't thought about it in months)
+- "What's been worrying you?" (too presumptuous)
+- "What made you realize you need coverage?" (they may not have realized anything)
+
+After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
 ===
 """,
         "consequence": """
-=== STAGE: CONSEQUENCE ===
-You've identified a problem or need. Now ask ONE consequence question:
-- "If something happened to you tomorrow, would [spouse/family] be able to keep the house?"
-- "What would happen to the coverage if you left that job?"
-- "How would that work if rates went up 5x when you're older?"
-After ONE consequence question, move to close stage.
+=== STAGE: CONSEQUENCE (NEPQ Stage 2 - Part 2) ===
+You've identified a problem or need. Now help them FEEL the weight of not solving it.
+
+CONSEQUENCE QUESTIONS (choose ONE that fits what they've shared):
+
+IF EMPLOYER COVERAGE:
+- "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
+- "Does that follow you if you switch jobs, or is it tied to that employer?"
+- "What happens to that coverage when you retire?"
+
+IF FAMILY/SPOUSE MENTIONED:
+- "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
+- "What would you want that coverage to handle first, the mortgage or replacing your income?"
+
+IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
+- "How long has that been weighing on you?"
+- "What's been stopping you from getting that handled?"
+
+After ONE consequence question, if they show ANY interest or buying signal, move to CLOSE stage.
 ===
 """,
         "close": """
-=== STAGE: CLOSE - BOOK THE APPOINTMENT ===
-You have enough information. STOP asking questions.
-Make a statement and offer TWO specific appointment times:
-- "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works?"
+=== STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5) ===
+You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
+
+CLOSE WITH VALUE + TIMES:
+- "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?"
 - "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
-DO NOT ask another discovery question. The goal is the appointment.
+- "Got it. I can help you find the right coverage. How's 6:30 tonight or 10:15 tomorrow?"
+- "That makes sense. Let's get you sorted. What works better, 6:30 tonight or 10:15 tomorrow?"
+
+IF THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
+Acknowledge it briefly, then offer times immediately. Don't ask another question.
+
+DO NOT ask discovery questions at this stage. The appointment IS the next step.
 ===
 """
     }
