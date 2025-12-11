@@ -2842,30 +2842,31 @@ Use their OWN WORDS to reconnect. Don't ask new invasive questions.
 
 """
             else:
-                # Third+ resistance: Soft exit with door open
+                # Third+ resistance: Keep trying with different re-frames until hard stop
                 exchange_warning = f"""
-=== THIRD RESISTANCE - SOFT EXIT WITH DOOR OPEN ===
-They've resisted {soft_dismissive_count} times. They're not ready today.
-Don't give up forever, but exit gracefully and leave the door open for next time.
+=== {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
+They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
+"I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
 
-PATTERN: Acknowledge + Exit + Door open
-"No worries at all. I'll check back in a bit. If anything changes, you have my number."
-"Totally understand. I'll circle back another time. Take care."
-"Got it. I'll reach out again down the road. Have a good one."
+DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
 
-DO NOT ask another question. Exit gracefully.
-=== SOFT EXIT - LEAVE DOOR OPEN ===
+1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
+2. Portability: "Does it follow you if you switch jobs or retire?"
+3. Amount: "Is it enough to pay off the house and replace income for a few years?"
+4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
+5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
+
+ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
+=== KEEP GOING - FIND THE GAP ===
 
 """
-        elif rejection_count >= 5:
+        # Only exit on very high rejection count AND hard stop language
+        elif rejection_count >= 8 and is_hard_dismissive:
             exchange_warning = f"""
-=== CRITICAL: {rejection_count} REJECTIONS - TIME TO EXIT GRACEFULLY ===
-The lead has rejected {rejection_count} times. You've given it a solid effort.
-DO NOT keep pushing. Exit gracefully and leave the door open.
-Your response MUST be a graceful exit like:
-"No problem. If anything changes, you have my number."
-"All good. Take care."
-=== STOP SELLING - SAY GOODBYE ===
+=== CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
+They've rejected many times AND explicitly asked to stop. Exit gracefully.
+"Got it. Take care."
+=== EXIT NOW ===
 
 """
         elif exchange_count >= 3:
