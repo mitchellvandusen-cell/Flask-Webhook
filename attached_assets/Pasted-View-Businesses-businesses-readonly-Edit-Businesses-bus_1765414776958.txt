@@ -1,0 +1,264 @@
+View Businesses - businesses.readonly
+
+Edit Businesses - businesses.write
+
+View Calendars - calendars.readonly
+
+Edit Calendars - calendars.write
+
+View Calendar Events - calendars/events.readonly
+
+Edit Calendar Events - calendars/events.write
+
+View Calendar Groups - calendars/groups.readonly
+
+Edit Calendar Groups - calendars/groups.write
+
+View Calendar Resources - calendars/resources.readonly
+
+Edit Calendar Resources - calendars/resources.write
+
+View Campaigns - campaigns.readonly
+
+View Conversations - conversations.readonly
+
+Edit Conversations - conversations.write
+
+View Conversation Messages - conversations/message.readonly
+
+Edit Conversation Messages - conversations/message.write
+
+View Conversation Reports - conversations/reports.readonly
+
+Allows User to update livechat typing status - conversations/livechat.write
+
+View Contacts - contacts.readonly
+
+Edit Contacts - contacts.write
+
+View Objects Schema - objects/schema.readonly
+
+Edit Objects Schema - objects/schema.write
+
+View Objects Record - objects/record.readonly
+
+Edit Objects Record - objects/record.write
+
+Write Associations - associations.write
+
+View Associations - associations.readonly
+
+View Associations Relation - associations/relation.readonly
+
+Write Associations Relation - associations/relation.write
+
+Edit Courses - courses.write
+
+View Courses - courses.readonly
+
+View Forms - forms.readonly
+
+Edit Forms - forms.write
+
+View Invoices - invoices.readonly
+
+Edit Invoices - invoices.write
+
+View Invoice Schedules - invoices/schedule.readonly
+
+Edit Invoice Schedules - invoices/schedule.write
+
+View Invoice Templates - invoices/template.readonly
+
+Edit Invoice Templates - invoices/template.write
+
+invoicesestimatereadonly - invoices/estimate.readonly
+
+invoicesestimatewrite - invoices/estimate.write
+
+View Links - links.readonly
+
+View LC Email - lc-email.readonly
+
+Edit Links - links.write
+
+View Locations - locations.readonly
+
+View Custom Values - locations/customValues.readonly
+
+Edit Custom Values - locations/customValues.write
+
+View Custom Fields - locations/customFields.readonly
+
+Edit Custom Fields - locations/customFields.write
+
+View Tasks - locations/tasks.readonly
+
+Edit Location Tasks - locations/tasks.write
+
+recurringtasksreadonly - recurring-tasks.readonly
+
+recurringtaskswrite - recurring-tasks.write
+
+View Tags - locations/tags.readonly
+
+Edit Tags - locations/tags.write
+
+View Templates - locations/templates.readonly
+
+View Medias - medias.readonly
+
+Edit Medias - medias.write
+
+View Redirect URLs - funnels/redirect.readonly
+
+View Funnel Pages - funnels/page.readonly
+
+View Funnels - funnels/funnel.readonly
+
+View Funnel Page Counts - funnels/pagecount.readonly
+
+Edit Redirect URLs - funnels/redirect.write
+
+View Opportunities - opportunities.readonly
+
+Edit Opportunities - opportunities.write
+
+View Payment Orders - payments/orders.readonly
+
+Edit Payment Orders - payments/orders.write
+
+paymentsorderscollectPayment - payments/orders.collectPayment
+
+View Custom Payment Integrations - payments/integration.readonly
+
+Edit Custom Payment Integrations - payments/integration.write
+
+View Payment Transactions - payments/transactions.readonly
+
+Edit Payment Transactions - payments/subscriptions.readonly
+
+paymentscouponsreadonly - payments/coupons.readonly
+
+paymentscouponswrite - payments/coupons.write
+
+View Custom Payment Providers - payments/custom-provider.readonly
+
+Edit Custom Payment Providers - payments/custom-provider.write
+
+View Products - products.readonly
+
+Edit Products - products.write
+
+View Product Prices - products/prices.readonly
+
+Edit Product Prices - products/prices.write
+
+View Product Collections - products/collection.readonly
+
+Edit Product Collections - products/collection.write
+
+View SaaS Subscriptions - saas/location.read
+
+Edit SaaS Subscriptions - saas/location.write
+
+View Social Media Posts - socialplanner/post.readonly
+
+Edit Social Media Posts - socialplanner/post.write
+
+View Social Media Accounts - socialplanner/account.readonly
+
+Edit Social Media Accounts - socialplanner/account.write
+
+View Social Media CSV - socialplanner/csv.readonly
+
+Edit Social Media CSV - socialplanner/csv.write
+
+View Social Media Categories - socialplanner/category.readonly
+
+View Social Media Tags - socialplanner/tag.readonly
+
+socialplannerstatisticsreadonly - socialplanner/statistics.readonly
+
+View Shipping - store/shipping.readonly
+
+Edit Shipping - store/shipping.write
+
+View Store Settings - store/setting.readonly
+
+Edit Store Settings - store/setting.write
+
+View Surveys - surveys.readonly
+
+View Users - users.readonly
+
+View Workflows - workflows.readonly
+
+Create, Update and Delete Email Templates - emails/builder.write
+
+View Email Templates - emails/builder.readonly
+
+View Email Schedules - emails/schedule.readonly
+
+wordpresssitereadonly - wordpress.site.readonly
+
+Create Blog Post - blogs/post.write
+
+Update Blog Post - blogs/post-update.write
+
+Check Blog Post Slug - blogs/check-slug.readonly
+
+View Blog Categories - blogs/category.readonly
+
+View Blog Authors - blogs/author.readonly
+
+socialplannercategorywrite - socialplanner/category.write
+
+socialplannertagwrite - socialplanner/tag.write
+
+blogspostsreadonly - blogs/posts.readonly
+
+blogslistreadonly - blogs/list.readonly
+
+chargesreadonly - charges.readonly
+
+chargeswrite - charges.write
+
+marketplaceinstallerdetailsreadonly - marketplace-installer-details.readonly
+
+twilioaccountread - twilioaccount.read
+
+phonenumbersread - phonenumbers.read
+
+numberpoolsread - numberpools.read
+
+documents_contractslistreadonly - documents_contracts/list.readonly
+
+documents_contractssendLinkwrite - documents_contracts/sendLink.write
+
+documents_contracts_templatesendLinkwrite - documents_contracts_template/sendLink.write
+
+documents_contracts_templatelistreadonly - documents_contracts_template/list.readonly
+
+voiceaidashboardreadonly - voice-ai-dashboard.readonly
+
+voiceaiagentsreadonly - voice-ai-agents.readonly
+
+voiceaiagentswrite - voice-ai-agents.write
+
+voiceaiagentgoalsreadonly - voice-ai-agent-goals.readonly
+
+voiceaiagentgoalswrite - voice-ai-agent-goals.write
+
+Add/Edit Knowledge Base and its associated assets - knowledge-bases.write
+
+View Knowledge Base and its associated assets - knowledge-bases.readonly
+
+View Conversation AI - conversation-ai.readonly
+
+View and Manage Conversation AI - conversation-ai.write
+
+View Agents in Agent Studio - agent-studio.readonly
+
+Add/Edit Agents in Agent Studio - agent-studio.write
+
