@@ -623,9 +623,20 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             "carrier_gap_found": True
         })
         
-        return (f"Weird you went with them. I mean they're a good company, like I said they just take higher risk people "
-                f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
-                "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
+        # Check if someone helped them or they found it themselves
+        someone_helped = re.search(r'(someone|agent|guy|friend|buddy|family|relative|coworker|rep|salesman|advisor)', m)
+        found_myself = re.search(r'(myself|my own|online|google|website|found them|i did|on my own)', m)
+        
+        if someone_helped:
+            # Someone put them with it - "weird they put you with them"
+            return (f"Weird they put you with them. I mean they're a good company, like I said they just take higher risk people "
+                    f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
+                    "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
+        else:
+            # They found it themselves or unclear - skip "weird" part
+            return (f"I mean they're a good company, like I said they just take higher risk people "
+                    f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
+                    "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
     
     # ========== STEP 3b: They said YES they are sick ==========
     if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen|heart attack|stent|diabetes|kidney', m):
