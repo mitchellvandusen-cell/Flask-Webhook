@@ -495,10 +495,12 @@ def increment_exchanges(contact_id):
 # ============================================================================
 # ALREADY COVERED OBJECTION HANDLER (State Machine)
 # ============================================================================
-# High-risk carriers (usually have graded/modified policies for sick people)
-HIGH_RISK_CARRIERS = [
+# Carriers where we can often find a better option (seed doubt, justify appointment)
+# Not actually "high risk" - just carriers where we frequently beat their rates
+COMPARISON_OPPORTUNITY_CARRIERS = [
     "mutual of omaha", "foresters", "transamerica", "americo", 
-    "prosperity", "aig", "gerber", "globe life", "colonial penn"
+    "prosperity", "aig", "gerber", "globe life", "colonial penn",
+    "aflac", "primerica"
 ]
 
 ALREADY_HAVE_TRIGGERS = [
@@ -609,7 +611,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "Quick question so I can have the absolute best price ready for you when we hop on the call. "
                 "Are you currently taking any medications at all? (Even blood pressure, cholesterol, etc.)"), False
     
-    # ========== STEP 3B: They told us their price ==========
+    # ========== STEP 3: They told us their price ==========
     if state.get("waiting_for_price"):
         price_match = re.search(r'\$?(\d+)', m)
         if price_match:
@@ -621,35 +623,10 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "carrier_gap_found": True
             })
             
-            return ("Yeah that's exactly what I figured. Because they underwrite for higher-risk folks, healthy people usually pay more than they need to. "
-                    f"I can run you a quick comparison right now with carriers that fit healthy profiles better, no cost or obligation. "
+            # Seed doubt and justify appointment - we might be able to do better
+            return (f"Got it. For that ${their_price} I'd want to make sure you're getting the most coverage possible with living benefits included. "
+                    f"I can run a quick comparison with a few carriers, no cost or obligation. "
                     f"I have {get_slot_text()}, what works better for you?"), False
-    
-    # ========== STEP 3A: They said they're healthy (golden answer) ==========
-    if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious', m):
-        carrier = state.get("carrier", "your current carrier")
-        update_qualification_state(contact_id, {
-            "waiting_for_health": False,
-            "waiting_for_price": True
-        })
-        
-        return (f"Gotcha. {carrier.title()} is alright, we actually offer them too, but they take a lot of higher-risk clients "
-                "so the pricing is usually higher for healthy people. What are you paying right now if you don't mind me asking?"), False
-    
-    # If they say YES to being sick when asked
-    if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen', m):
-        update_qualification_state(contact_id, {
-            "waiting_for_health": False
-        })
-        # Extract their conditions
-        conditions = []
-        for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen"]:
-            if cond in m:
-                conditions.append(cond)
-                add_to_qualification_array(contact_id, "health_conditions", cond)
-        
-        return ("I hear you. The good news is there are still solid options even with health stuff going on. "
-                f"I have {get_slot_text()}, let's see what we can find for you?"), False
     
     # ========== STEP 2: They answered with carrier name ==========
     if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found"):
@@ -664,15 +641,16 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             return ("Nice! A lot of the workplace plans or the smaller policies people grab are only 50k-100k and don't have living benefits built in. "
                     f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
         
-        # Check for high-risk carrier
-        if carrier and any(hr in carrier for hr in HIGH_RISK_CARRIERS):
+        # Carrier we often beat on price/coverage - ask about price to seed doubt
+        if carrier and any(c in carrier for c in COMPARISON_OPPORTUNITY_CARRIERS):
             update_qualification_state(contact_id, {
                 "carrier": carrier,
-                "waiting_for_health": True
+                "waiting_for_price": True
             })
-            return "Oh really? Are you super sick, like cancer, recent stroke, COPD, anything like that?", False
+            return (f"{carrier.title()}, solid company. We actually work with them too. "
+                    "What are you paying monthly right now? Just curious if we can do better for you."), False
         
-        # Known carrier but not high-risk, still probe
+        # Known carrier - still probe on price
         if carrier:
             update_qualification_state(contact_id, {
                 "carrier": carrier,

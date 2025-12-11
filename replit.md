@@ -42,13 +42,13 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 -   **Deterministic pathway**: Handles "I already have coverage" objections WITHOUT LLM calls.
 -   **5-Step Flow**:
     1.  Lead says "already have/covered/set" → Ask "Who'd you go with?"
-    2.  Lead names carrier → Check if high-risk carrier (Mutual of Omaha, Foresters, etc.)
-    3a. High-risk carrier + healthy → "What are you paying?" (find pricing gap)
-    3b. Employer-based → Pitch living benefits gap + offer appointment
-    4.  Lead gives price → Pitch comparison + offer appointment times
-    5.  Lead agrees to time → Ask about medications for pre-qualification
--   **High-risk carriers**: Mutual of Omaha, Foresters, Transamerica, Americo, AIG, Gerber, Globe Life, Colonial Penn
--   **State fields**: `objection_path`, `already_handled`, `waiting_for_health`, `waiting_for_price`, `carrier_gap_found`, `waiting_for_medications`, `their_price`, `appointment_time`, `medications`
+    2.  Lead names carrier → Ask "What are you paying monthly?" (seed doubt)
+    2b. Employer-based → Pitch living benefits gap + offer appointment
+    3.  Lead gives price → Pitch comparison (might do better) + offer appointment times
+    4.  Lead agrees to time → Ask about medications for pre-qualification
+    5.  Lead answers meds → Confirm appointment, send calendar invite
+-   **Goal**: Justify an appointment to run a proper comparison. If we can't beat their current situation (price, coverage, or add living benefits), we tell them honestly and leave it.
+-   **State fields**: `objection_path`, `already_handled`, `waiting_for_price`, `carrier_gap_found`, `waiting_for_medications`, `their_price`, `appointment_time`, `medications`
 
 ### Contact Qualification State (Persistent Memory)
 -   **`contact_qualification` table**: Stores persistent qualification data per contact_id across all messages and conversations.
