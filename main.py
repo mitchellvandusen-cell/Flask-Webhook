@@ -504,9 +504,9 @@ COMPARISON_OPPORTUNITY_CARRIERS = [
 ]
 
 ALREADY_HAVE_TRIGGERS = [
-    "already have", "i'm good", "im good", "taken care of", "i'm covered", 
-    "im covered", "got it", "have insurance", "have a policy", "set", 
-    "all set", "good on", "all good", "covered"
+    "already have", "already got", "i'm good", "im good", "taken care of", 
+    "i'm covered", "im covered", "got it", "have insurance", "got insurance",
+    "have a policy", "got a policy", "set", "all set", "good on", "all good", "covered"
 ]
 
 TIME_AGREEMENT_TRIGGERS = [
@@ -713,15 +713,12 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                     f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
         
         if carrier:
-            # They already told us who, skip asking
-            update_qualification_state(contact_id, {"carrier": carrier})
-            if any(hr in carrier for hr in HIGH_RISK_CARRIERS):
-                update_qualification_state(contact_id, {"waiting_for_health": True})
-                return "Oh really? Are you super sick, like cancer, recent stroke, COPD, anything like that?", False
-            else:
-                update_qualification_state(contact_id, {"waiting_for_price": True})
-                return (f"{carrier.title()}, good company. What are you paying monthly right now if you don't mind me asking? "
-                        "Just want to make sure you're getting the best rate for your situation."), False
+            # They already told us who - skip to health question to seed doubt
+            update_qualification_state(contact_id, {
+                "carrier": carrier,
+                "waiting_for_health": True
+            })
+            return "Are you sick? Like have had cancer or a heart attack?", False
         
         # Ask who they went with
         responses = [
