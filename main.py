@@ -632,10 +632,12 @@ def get_conversation_history(contact_id, api_key, location_id, limit=10):
         
         formatted = []
         for msg in reversed(recent_messages):
-            direction = msg.get('direction', 'outbound')
-            body = msg.get('body', '')
+            # Normalize message keys for case-insensitive access
+            normalized_msg = normalize_keys(msg)
+            direction = normalized_msg.get('direction', 'outbound')
+            body = normalized_msg.get('body', '')
             if body:
-                role = "Lead" if direction == 'inbound' else "You"
+                role = "Lead" if direction.lower() == 'inbound' else "You"
                 formatted.append(f"{role}: {body}")
         
         return formatted
