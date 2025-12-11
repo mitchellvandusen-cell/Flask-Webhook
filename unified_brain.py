@@ -407,6 +407,10 @@ CLIENT SAID: "{message}"
 CONVERSATION CONTEXT: {context}
 CONVERSATION STAGE: {stage}
 
+DETECTED PATTERNS: {triggers_found}
+(Use these to know what knowledge sections apply - EMPLOYER means check employer coverage gaps, 
+GI means they have guaranteed issue, DIABETES/HEART/CANCER means apply health underwriting, etc.)
+
 TRIGGER SYSTEM SUGGESTS: "{trigger_suggestion}"
 PROVEN PATTERNS THAT WORKED: {proven_patterns}
 
@@ -447,12 +451,14 @@ def get_unified_brain():
     """Return the full unified knowledge for injection into prompts."""
     return UNIFIED_KNOWLEDGE
 
-def get_decision_prompt(message, context, stage, trigger_suggestion, proven_patterns):
+def get_decision_prompt(message, context, stage, trigger_suggestion, proven_patterns, triggers_found=None):
     """Return the decision prompt with all variables filled in."""
+    triggers_str = ", ".join(triggers_found) if triggers_found else "None detected"
     return DECISION_PROMPT.format(
         message=message,
         context=context,
         stage=stage,
+        triggers_found=triggers_str,
         trigger_suggestion=trigger_suggestion or "No trigger matched",
         proven_patterns=proven_patterns or "No proven patterns yet"
     )

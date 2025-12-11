@@ -2955,7 +2955,8 @@ Directive: {intent_directive}
         context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
         stage=stage,
         trigger_suggestion=trigger_suggestion,
-        proven_patterns=proven_patterns_text
+        proven_patterns=proven_patterns_text,
+        triggers_found=triggers_found
     )
     
     # Build unified brain system prompt - COMBINE all knowledge sources
