@@ -657,7 +657,43 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             return (f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
                     "Calendar invite coming in a few minutes. Talk soon!"), False
     
-    # ========== STEP 4: They agreed to appointment time ==========
+    # ========== STEP 4a: Check for REJECTION of appointment offer FIRST ==========
+    # Must check BEFORE time agreement to avoid "No that's okay" matching "okay"
+    if state.get("carrier_gap_found"):
+        # Rejection patterns - "no" followed by polite decline
+        rejection_patterns = [
+            r"^no\b",  # Starts with "no"
+            r"\bno\s*(that'?s|thats)?\s*(okay|ok|thanks|thank\s*you)\b",  # "no that's okay", "no thanks"
+            r"\bno\s*i\s*(don'?t|dont)\s*(want|need)\b",  # "no I don't want"
+            r"\bnot\s*(interested|right\s*now|for\s*me)\b",  # "not interested"
+            r"\bi'?m\s*(good|okay|fine|all\s*set)\b",  # "I'm good"
+            r"\bpass\b|\bno\s*way\b|\bforget\s*it\b",  # explicit decline
+            r"\bdon'?t\s*(want|need)\s*(to|a|any)?\s*(talk|call|meet|appointment)\b",  # "don't want to talk"
+        ]
+        
+        is_rejection = any(re.search(p, m) for p in rejection_patterns)
+        # But NOT if they also mention a specific time (mixed signal = accept)
+        has_specific_time = re.search(r"(tonight|tomorrow|morning|afternoon|evening|\d+:\d+|\d+\s*(am|pm))", m)
+        
+        if is_rejection and not has_specific_time:
+            # They declined the appointment - try a different angle
+            update_qualification_state(contact_id, {
+                "carrier_gap_found": False,  # Reset so we can try again
+                "appointment_declined": True,
+                "dismissive_count": state.get("dismissive_count", 0) + 1
+            })
+            
+            # Check how many times they've declined
+            decline_count = state.get("dismissive_count", 0) + 1
+            
+            if decline_count >= 2:
+                # Exit gracefully after 2 declines
+                return "Got it, no worries. If you ever have questions about coverage down the road, feel free to reach out. Take care!", False
+            else:
+                # First decline - try a softer angle, let LLM handle it
+                return None, True  # Continue to LLM for different approach
+    
+    # ========== STEP 4b: They agreed to appointment time ==========
     if state.get("carrier_gap_found") and any(t in m for t in TIME_AGREEMENT_TRIGGERS):
         if any(t in m for t in ["tonight", "today", "evening", "6", "7", "8"]):
             booked_time = "tonight"
