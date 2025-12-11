@@ -3419,8 +3419,18 @@ def index():
     
     api_key, location_id = get_ghl_credentials(data)
     
-    contact_id = data.get('contact_id') or data.get('contactid')
-    first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
+    # GHL field extraction - handles all common GHL webhook formats
+    # GHL sends: contactId, contact_id, contact.id, id
+    contact_obj = data.get('contact', {}) if isinstance(data.get('contact'), dict) else {}
+    contact_id = (data.get('contact_id') or data.get('contactid') or data.get('contactId') or
+                  contact_obj.get('id') or data.get('id'))
+    
+    # GHL sends: firstName, first_name, contact.firstName, contact.first_name
+    raw_name = (data.get('first_name') or data.get('firstname') or data.get('firstName') or
+                contact_obj.get('firstName') or contact_obj.get('first_name') or
+                contact_obj.get('name') or data.get('name') or '')
+    # Extract first name if full name provided
+    first_name = str(raw_name).split()[0] if raw_name else 'there'
     
     # Handle message - could be string, dict, or None
     raw_message = data.get('message') or data.get('body') or data.get('text', '')
