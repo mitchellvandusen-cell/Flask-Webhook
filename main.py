@@ -3087,19 +3087,72 @@ def training_stats():
         for row in cur.fetchall():
             top_patterns.append(f"{row['score']:.1f} | {row['trigger_category']}: {row['response_used'][:50]}...")
         
+        # Per-contact stats
+        cur.execute("""
+            SELECT contact_id, COUNT(*) as msg_count 
+            FROM outcome_tracker 
+            GROUP BY contact_id 
+            ORDER BY msg_count DESC 
+            LIMIT 10
+        """)
+        contact_stats = []
+        for row in cur.fetchall():
+            contact_stats.append({"contact": row['contact_id'][:20], "messages": row['msg_count']})
+        
+        # Conversation length stats (messages per contact)
+        cur.execute("""
+            SELECT 
+                MIN(cnt) as shortest,
+                MAX(cnt) as longest,
+                AVG(cnt) as average
+            FROM (SELECT contact_id, COUNT(*) as cnt FROM outcome_tracker GROUP BY contact_id) sub
+        """)
+        length_stats = cur.fetchone()
+        
+        # Booked appointments (direction vibes with high scores often mean bookings)
+        cur.execute("""
+            SELECT COUNT(DISTINCT contact_id) as booked 
+            FROM outcome_tracker 
+            WHERE outcome_score >= 4.0 AND vibe_classification IN ('direction', 'need')
+        """)
+        booked = cur.fetchone()['booked']
+        
+        # Top performers (contacts with highest scores)
+        cur.execute("""
+            SELECT contact_id, MAX(outcome_score) as best_score, COUNT(*) as turns
+            FROM outcome_tracker 
+            WHERE outcome_score IS NOT NULL
+            GROUP BY contact_id 
+            ORDER BY best_score DESC, turns DESC
+            LIMIT 5
+        """)
+        top_convos = []
+        for row in cur.fetchall():
+            top_convos.append({
+                "contact": row['contact_id'][:15],
+                "score": float(row['best_score']) if row['best_score'] else 0,
+                "turns": row['turns']
+            })
+        
         conn.close()
         
         return jsonify({
             "tracked": tracked,
             "patterns": patterns,
             "contacts": contacts,
+            "booked": booked,
             "need": vibes.get('need', 0),
             "direction": vibes.get('direction', 0),
             "neutral": vibes.get('neutral', 0),
             "objection": vibes.get('objection', 0),
             "dismissive": vibes.get('dismissive', 0),
             "ghosted": vibes.get('ghosted', 0),
-            "top_patterns": top_patterns
+            "shortest_convo": int(length_stats['shortest']) if length_stats['shortest'] else 0,
+            "longest_convo": int(length_stats['longest']) if length_stats['longest'] else 0,
+            "avg_convo": round(float(length_stats['average']), 1) if length_stats['average'] else 0,
+            "top_patterns": top_patterns,
+            "contact_stats": contact_stats,
+            "top_convos": top_convos
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
