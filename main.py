@@ -2235,7 +2235,14 @@ def index():
     
     contact_id = data.get('contact_id') or data.get('contactid')
     first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
-    message = data.get('message') or data.get('body') or data.get('text', '')
+    
+    # Handle message - could be string, dict, or None
+    raw_message = data.get('message') or data.get('body') or data.get('text', '')
+    if isinstance(raw_message, dict):
+        message = raw_message.get('body', '') or raw_message.get('text', '') or str(raw_message)
+    else:
+        message = str(raw_message) if raw_message else ''
+    
     agent_name = data.get('agent_name') or data.get('agentname') or data.get('rep_name') or 'Mitchell'
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
