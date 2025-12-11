@@ -1296,7 +1296,12 @@ def create_ghl_appointment(contact_id, calendar_id, start_time, end_time, api_ke
 
 # ==================== CALENDAR SLOTS - GET REAL AVAILABLE TIMES ====================
 def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_ahead=2):
-    """Get available appointment slots from GHL calendar for the next N days"""
+    """Get available appointment slots from GHL calendar for the next N days
+    
+    Filters:
+    - Only 8 AM to 7 PM (8:00 - 19:00)
+    - Monday through Saturday (no Sundays)
+    """
     if not api_key or not calendar_id:
         logger.warning("No calendar_id or api_key for slot lookup")
         return None
@@ -1323,19 +1328,36 @@ def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_
         response.raise_for_status()
         data = response.json()
         
-        # Parse slots and format nicely
+        # Parse slots and filter by business hours (8 AM - 7 PM) and days (Mon-Sat)
         slots = []
         for date_key, day_slots in data.get('slots', {}).items():
-            for slot in day_slots[:3]:  # Max 3 slots per day
+            for slot in day_slots:
                 slot_time = datetime.fromisoformat(slot.replace('Z', '+00:00'))
                 slot_local = slot_time.astimezone(ZoneInfo(timezone))
+                
+                # Filter: Skip Sundays (weekday() == 6 is Sunday)
+                if slot_local.weekday() == 6:
+                    continue
+                
+                # Filter: Only 8 AM to 7 PM (hour 8-18, since 19:00 would end the appointment after 7)
+                slot_hour = slot_local.hour
+                if slot_hour < 8 or slot_hour >= 19:
+                    continue
+                
                 slots.append({
                     "iso": slot,
                     "formatted": slot_local.strftime("%-I:%M %p"),
                     "day": slot_local.strftime("%A"),
                     "date": slot_local.strftime("%m/%d")
                 })
+                
+                # Max 4 slots total
+                if len(slots) >= 4:
+                    break
+            if len(slots) >= 4:
+                break
         
+        logger.debug(f"Calendar returned {len(slots)} valid slots (8AM-7PM, Mon-Sat)")
         return slots[:4]  # Return max 4 slots
     except requests.RequestException as e:
         logger.error(f"Failed to get calendar slots: {e}")
