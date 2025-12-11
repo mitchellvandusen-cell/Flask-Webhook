@@ -38,6 +38,19 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 - Lazy loading: Calendar API only called when booking-related triggers (BUYING_SIGNAL, PRICE) match.
 - Fallback: Uses "6:30 tonight or 10:15 tomorrow morning" if calendar unavailable.
 
+### Contact Qualification State (Persistent Memory)
+-   **`contact_qualification` table**: Stores persistent qualification data per contact_id across all messages and conversations.
+-   **Auto-extraction**: Automatically extracts qualification data from each message (policy type, carrier, family, health, blockers, etc.).
+-   **Fields tracked**:
+    *   Coverage: `has_policy`, `is_term`, `is_whole_life`, `is_iul`, `is_guaranteed_issue`, `term_length`, `face_amount`
+    *   Source: `is_personal_policy`, `is_employer_based`, `carrier`, `has_living_benefits`
+    *   Family: `has_spouse`, `num_kids`, `has_dependents`
+    *   Health: `health_conditions[]`, `tobacco_user`, `age`, `retiring_soon`
+    *   Motivation: `motivating_goal`, `blockers[]`
+    *   Tracking: `total_exchanges`, `topics_asked[]`, `conversation_stage`
+-   **Prompt injection**: Known facts are injected into prompts to prevent repeat questions.
+-   **Topic-based repeat prevention**: Blocks asking about topics already covered (living benefits, portability, amount, term length, company).
+
 ### Outcome-Based Learning System
 -   Utilizes PostgreSQL to store successful `response_patterns`, `contact_history`, and `outcome_tracker`.
 -   Classifies lead responses into "vibes" (ghosted, dismissive, objection, neutral, information, direction, need) to score agent messages.

@@ -166,11 +166,21 @@ def update_qualification_state(contact_id, updates):
 def add_to_qualification_array(contact_id, field, value):
     """
     Add a value to an array field (health_conditions, topics_asked, etc.)
-    Won't add duplicates.
+    Won't add duplicates. Only works with TEXT[] columns.
     """
     if not contact_id or not field or not value:
         return False
     
+    # Validate field is an allowed TEXT[] column
+    allowed_array_fields = {
+        'health_conditions', 'health_details', 'key_quotes',
+        'blockers', 'topics_asked', 'topics_answered'
+    }
+    if field not in allowed_array_fields:
+        logger.warning(f"add_to_qualification_array: Invalid field '{field}' - not a TEXT[] column")
+        return False
+    
+    conn = None
     try:
         import psycopg2
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
@@ -183,24 +193,27 @@ def add_to_qualification_array(contact_id, field, value):
             ON CONFLICT (contact_id) DO NOTHING
         """, (contact_id,))
         
-        # Add to array if not already present
+        # Add to array only if not already present (all validated fields are TEXT[])
         cur.execute(f"""
             UPDATE contact_qualification 
-            SET {field} = array_append(
-                CASE WHEN %s = ANY({field}) THEN {field} 
-                ELSE {field} END,
-                CASE WHEN %s = ANY({field}) THEN NULL ELSE %s END
-            ),
+            SET {field} = CASE 
+                WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[])) THEN {field}
+                ELSE array_append(COALESCE({field}, ARRAY[]::TEXT[]), %s)
+            END,
             updated_at = CURRENT_TIMESTAMP
             WHERE contact_id = %s
-        """, (value, value, value, contact_id))
+        """, (value, value, contact_id))
         conn.commit()
-        conn.close()
         return True
         
     except Exception as e:
         logger.warning(f"Could not add to qualification array: {e}")
+        if conn:
+            conn.rollback()
         return False
+    finally:
+        if conn:
+            conn.close()
 
 
 def extract_and_update_qualification(contact_id, message, conversation_history=None):
@@ -3861,6 +3874,7 @@ def grok_insurance():
     name = data.get('firstName') or data.get('first_name', 'there')
     lead_msg = data.get('message', '')
     agent_name = data.get('agent_name') or data.get('rep_name') or 'Mitchell'
+    contact_id = data.get('contact_id') or data.get('contactId')  # Support qualification memory
     
     if not lead_msg:
         lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
@@ -3883,7 +3897,7 @@ def grok_insurance():
     # Legacy endpoint - no GHL integration, use env vars if available
     api_key = os.environ.get('GHL_API_KEY')
     calendar_id = os.environ.get('GHL_CALENDAR_ID')
-    reply, _ = generate_nepq_response(name, lead_msg, agent_name, conversation_history=conversation_history, api_key=api_key, calendar_id=calendar_id)
+    reply, _ = generate_nepq_response(name, lead_msg, agent_name, conversation_history=conversation_history, contact_id=contact_id, api_key=api_key, calendar_id=calendar_id)
     return jsonify({"reply": reply})
 
 
