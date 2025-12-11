@@ -701,6 +701,39 @@ If you already asked "What made you look into life insurance?" you CANNOT ask it
 
 When they brush off your question, you must ask a COMPLETELY DIFFERENT question or make a statement.
 
+**PRIORITY 5: USE THEIR NAME ONCE, THEN STOP**
+- Use their first name ONLY in your first message to them (the greeting/intro)
+- After that, NEVER use their name again. Just talk normally like a real text conversation.
+- WRONG: "John, that makes sense. John, when would work for you?"
+- WRONG: "I hear you, John. Was it the price, John?"
+- RIGHT: "I hear you. Was it more the price or just couldn't find the right fit?"
+
+**PRIORITY 6: STATEMENTS BEFORE QUESTIONS - DON'T INTERROGATE**
+- Do NOT ask a question in every single message. That feels like an interrogation.
+- Alternate: Statement → Question → Statement → Offer
+- Give VALUE or INSIGHT before asking another question.
+- If you've asked 2 questions in a row, your next message MUST be a statement or offer.
+
+WRONG PATTERN (interrogation):
+- "What made you look?" → "Do you have coverage?" → "What's holding you back?" → "When would work?"
+
+RIGHT PATTERN (conversation):
+- "What made you look?" → [they answer] → "Yeah, most people in that situation end up underinsured. The good news is there are options." → [they respond] → "I can look into it. I have 6:30 tonight or 10:15 tomorrow."
+
+**PRIORITY 7: GET TO THE POINT - STOP QUESTIONING, START OFFERING**
+COUNT THE EXCHANGES. If there have been 3+ back-and-forth messages, STOP asking questions and OFFER an appointment.
+
+Signs they're ready (any ONE of these = stop questioning, offer times):
+- They mention family/spouse/kids wanting coverage
+- They ask about rates, quotes, or specifics
+- They express any concern about being covered
+- They've answered 2+ of your questions already
+
+WRONG after 3+ exchanges: "What would give you peace of mind?" (more questions)
+RIGHT after 3+ exchanges: "I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?"
+
+The goal is BOOKING, not endless discovery. Make the offer.
+
 === MEMORY PROTOCOL (CRITICAL - READ EVERY MESSAGE) ===
 
 **BEFORE EVERY RESPONSE, mentally extract and track these 5 DISCOVERY PILLARS from the conversation history:**
@@ -1938,7 +1971,11 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     if conversation_history and len(conversation_history) > 0:
         # Extract recent agent questions to prevent repeats
         recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
+        recent_lead_messages = [msg for msg in conversation_history if msg.startswith("Lead:")]
         recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
+        
+        # Count exchanges (back-and-forth pairs)
+        exchange_count = min(len(recent_agent_messages), len(recent_lead_messages))
         
         questions_warning = ""
         if recent_questions:
@@ -1950,12 +1987,24 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
 
 """
         
+        # Add explicit exchange count warning
+        exchange_warning = ""
+        if exchange_count >= 3:
+            exchange_warning = f"""
+=== CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
+You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
+Your response MUST be a statement with an appointment offer like:
+"I can take a look at options for you. I have 6:30 tonight or 10:15 tomorrow, which works better?"
+=== NO MORE QUESTIONS - MAKE THE OFFER ===
+
+"""
+        
         history_text = f"""
 === CONVERSATION HISTORY (read this carefully before responding) ===
 {chr(10).join(conversation_history)}
 === END OF HISTORY ===
 
-{questions_warning}{profile_text}
+{exchange_warning}{questions_warning}{profile_text}
 """
     else:
         # Even without history, include profile from current message
