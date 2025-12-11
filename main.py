@@ -556,6 +556,11 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
     Handle the "Already Have Coverage" objection pathway.
     This is a deterministic state machine that runs BEFORE the LLM.
     
+    FLOW (3 steps to appointment):
+    1. "Already covered" → "Who'd you go with?"
+    2. [carrier] → "Did someone help you or find them yourself? They help higher risk, serious health issues?"
+    3. [no/healthy] → "Weird... they're good but higher risk = expensive for healthy. Time tonight/tomorrow?" 
+    
     Returns (response, should_continue) where should_continue=False means use this response.
     """
     if not contact_id or not state:
@@ -569,12 +574,11 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             slots = get_available_slots(calendar_id, api_key, timezone)
             if slots:
                 return format_slot_options(slots, timezone)
-        return "10:15 tomorrow morning or 2:30 in the afternoon"
+        return "tonight or tomorrow morning"
     
     # ========== STEP 5: They answered medication question ==========
     if state.get("waiting_for_medications"):
-        # Extract medications
-        if re.search(r'\bnone?\b|no\s*(meds|medications?)?|healthy|nada|nothing|clean', m):
+        if re.search(r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', m) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
             meds = "None reported"
         else:
             meds = message.strip()
@@ -584,21 +588,22 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             "waiting_for_medications": False
         })
         
-        appt_time = state.get("appointment_time", "your call")
+        appt_time = state.get("appointment_time", "our call")
         if meds == "None reported":
-            return (f"Awesome, clean health = best rates. I'll have multiple options ready for {appt_time}. "
-                    "Calendar invite coming in the next few minutes. See you then!"), False
+            return (f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}. "
+                    "Calendar invite coming your way. Talk soon!"), False
         else:
-            return (f"Got it, thank you! I'll have everything pulled and priced out with multiple carriers before {appt_time}. "
-                    "You'll get a calendar invite + reminder text in the next 5-10 minutes. Talk soon!"), False
+            return (f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
+                    "Calendar invite coming in a few minutes. Talk soon!"), False
     
     # ========== STEP 4: They agreed to appointment time ==========
     if state.get("carrier_gap_found") and any(t in m for t in TIME_AGREEMENT_TRIGGERS):
-        # Pick the time they chose
-        if any(t in m for t in ["10", "morning", "earlier", "first"]):
-            booked_time = "10:15 AM tomorrow"
+        if any(t in m for t in ["tonight", "today", "evening", "6", "7", "8"]):
+            booked_time = "tonight"
+        elif any(t in m for t in ["10", "morning", "earlier", "first", "am"]):
+            booked_time = "tomorrow morning"
         else:
-            booked_time = "2:30 PM tomorrow"
+            booked_time = "tomorrow afternoon"
         
         update_qualification_state(contact_id, {
             "is_booked": True,
@@ -607,61 +612,35 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             "waiting_for_medications": True
         })
         
-        return (f"Perfect, locked you in for {booked_time}. "
-                "Quick question so I can have the absolute best price ready for you when we hop on the call. "
-                "Are you currently taking any medications at all? (Even blood pressure, cholesterol, etc.)"), False
+        return (f"Perfect, got you down for {booked_time}. "
+                "Quick question so I can have the best options ready, are you taking any medications currently?"), False
     
-    # ========== STEP 5: They told us their price - pitch appointment ==========
-    if state.get("waiting_for_price"):
-        price_match = re.search(r'\$?(\d+)', m)
-        if price_match:
-            their_price = int(price_match.group(1))
-            update_qualification_state(contact_id, {
-                "their_price": their_price,
-                "monthly_premium": their_price,
-                "waiting_for_price": False,
-                "carrier_gap_found": True
-            })
-            
-            return (f"I see. Why don't we set up a time, I'll have everything ready and make sure you're not paying more than you need to. "
-                    f"I have {get_slot_text()}, what works better for you?"), False
-    
-    # ========== STEP 4: They answered how they got the policy - ask price ==========
-    if state.get("waiting_for_source"):
-        update_qualification_state(contact_id, {
-            "waiting_for_source": False,
-            "waiting_for_price": True
-        })
+    # ========== STEP 3: They said NO they're not sick - doubt + book ==========
+    if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious|nope|im good', m):
         carrier = state.get("carrier", "them")
-        return (f"Yeah I contract with {carrier} too, there just should have been better options. "
-                "What are you paying if you don't mind me asking?"), False
-    
-    # ========== STEP 3: They said no they're not sick - explain why we asked ==========
-    if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious|nope', m):
-        carrier = state.get("carrier", "them")
-        update_qualification_state(contact_id, {
-            "waiting_for_health": False,
-            "waiting_for_source": True
-        })
-        
-        return (f"Why I ask, {carrier} is a good carrier, they just take more high risk people "
-                "so prices are usually higher for healthy people. Did you find them yourself or did someone set you up with them?"), False
-    
-    # If they say YES they are sick
-    if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen|heart attack|stent', m):
         update_qualification_state(contact_id, {
             "waiting_for_health": False,
             "carrier_gap_found": True
         })
-        # Extract their conditions
-        for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen", "stent"]:
+        
+        return (f"Weird you went with them. I mean they're a good company, like I said they just take higher risk people "
+                f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
+                "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
+    
+    # ========== STEP 3b: They said YES they are sick ==========
+    if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen|heart attack|stent|diabetes|kidney', m):
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False,
+            "carrier_gap_found": True
+        })
+        for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen", "stent", "diabetes", "kidney"]:
             if cond in m:
                 add_to_qualification_array(contact_id, "health_conditions", cond)
         
-        return ("I hear you. The good news is there are still solid options even with health stuff going on. "
-                f"I have {get_slot_text()}, let's see what we can find for you?"), False
+        return ("Makes sense then, they're actually really good for folks with health stuff going on. "
+                f"I have some time {get_slot_text()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
     
-    # ========== STEP 2: They answered with carrier name - seed doubt with health question ==========
+    # ========== STEP 2: They answered with carrier name - combined question ==========
     if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found") and not state.get("waiting_for_health"):
         carrier = extract_carrier_name(m)
         
@@ -671,29 +650,28 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "is_employer_based": True,
                 "carrier_gap_found": True
             })
-            return ("Nice! A lot of the workplace plans or the smaller policies people grab are only 50k-100k and don't have living benefits built in. "
-                    f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
+            return ("Nice! A lot of the workplace plans don't have living benefits built in. "
+                    f"I have some time {get_slot_text()}, takes 5 minutes to check. What works?"), False
         
-        # Named a carrier - seed doubt with health question
+        # Named a carrier - combined source + health question
         if carrier:
             update_qualification_state(contact_id, {
                 "carrier": carrier,
                 "waiting_for_health": True
             })
-            return "Are you sick? Like have had cancer or a heart attack?", False
+            return ("Oh did someone help you get set up with them or did you find them yourself? "
+                    "They usually help people with higher risk, do you have serious health issues?"), False
         
-        # Unknown carrier or vague answer like "I forget", fallback
+        # Unknown carrier or vague answer
         if re.search(r"(forget|don'?t remember|not sure|idk|i don'?t know|can'?t recall)", m):
             update_qualification_state(contact_id, {
                 "carrier_gap_found": True
             })
-            return ("No worries. A lot of folks aren't sure what they have exactly. "
-                    "Most of our clients who thought they were covered actually had gaps they didn't know about. "
-                    f"Takes 5 minutes to review. {get_slot_text()}, what works?"), False
+            return ("No worries. Most folks who thought they were covered had gaps they didn't know about. "
+                    f"I have some time {get_slot_text()}, takes 5 min to review. What works?"), False
     
     # ========== STEP 1: Initial "already covered" trigger ==========
     if any(trigger in m for trigger in ALREADY_HAVE_TRIGGERS) and not state.get("already_handled"):
-        # Check if they mentioned a carrier or employer in the same message
         carrier = extract_carrier_name(m)
         is_employer = re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m)
         
@@ -703,30 +681,23 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             "has_policy": True
         })
         
-        # If they said it's through work, skip to employer gap pitch
         if is_employer:
             update_qualification_state(contact_id, {
                 "is_employer_based": True,
                 "carrier_gap_found": True
             })
-            return ("Nice! A lot of the workplace plans or the smaller policies people grab are only 50k-100k and don't have living benefits built in. "
-                    f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
+            return ("Nice! A lot of the workplace plans don't have living benefits built in. "
+                    f"I have some time {get_slot_text()}, takes 5 minutes to check. What works?"), False
         
         if carrier:
-            # They already told us who - skip to health question to seed doubt
             update_qualification_state(contact_id, {
                 "carrier": carrier,
                 "waiting_for_health": True
             })
-            return "Are you sick? Like have had cancer or a heart attack?", False
+            return ("Oh did someone help you get set up with them or did you find them yourself? "
+                    "They usually help people with higher risk, do you have serious health issues?"), False
         
-        # Ask who they went with
-        responses = [
-            "Oh nice! Who'd you end up going with?",
-            "Nice, who'd you go with?",
-            "Good to hear. Through who?"
-        ]
-        return random.choice(responses), False
+        return "Who'd you go with?", False
     
     # No objection pathway match, continue to LLM
     return None, True
