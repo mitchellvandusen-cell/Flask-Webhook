@@ -510,9 +510,10 @@ ALREADY_HAVE_TRIGGERS = [
 ]
 
 TIME_AGREEMENT_TRIGGERS = [
-    "10:15", "2:30", "tomorrow", "morning", "afternoon", "either", "works", 
-    "yes", "sure", "book it", "let's do it", "lets do it", "sounds good", 
-    "ok", "okay", "alright", "perfect", "that works", "im in", "i'm in"
+    "10:15", "2:30", "tomorrow", "morning", "afternoon", "tonight", "today", 
+    "evening", "either", "works", "yes", "sure", "book it", "let's do it", 
+    "lets do it", "sounds good", "ok", "okay", "alright", "perfect", 
+    "that works", "im in", "i'm in"
 ]
 
 def extract_carrier_name(text):
@@ -627,12 +628,16 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
         someone_helped = re.search(r'(someone|agent|guy|friend|buddy|family|relative|coworker|rep|salesman|advisor)', m)
         found_myself = re.search(r'(myself|my own|online|google|website|found them|i did|on my own)', m)
         
+        # Track how they got the policy
         if someone_helped:
+            update_qualification_state(contact_id, {"is_personal_policy": True})
             # Someone put them with it - "weird they put you with them"
             return (f"Weird they put you with them. I mean they're a good company, like I said they just take higher risk people "
                     f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
                     "I can do a quick review and just make sure you're not overpaying. Which works best for you?"), False
         else:
+            if found_myself:
+                update_qualification_state(contact_id, {"is_personal_policy": False})
             # They found it themselves or unclear - skip "weird" part
             return (f"I mean they're a good company, like I said they just take higher risk people "
                     f"so it's usually more expensive for healthier people like yourself. I have some time {get_slot_text()}, "
