@@ -1,0 +1,41 @@
+# ——————— "Already Have Coverage" Objection Handler ———————
+ALREADY_HAVE_TRIGGERS = ["already have", "i'm good", "taken care of", "i'm covered", "got it", "have insurance", "have a policy", "set"]
+
+if any(trigger in message.lower() for trigger in ALREADY_HAVE_TRIGGERS) and not state.get("already_handled", False):
+    state["already_handled"] = True
+    state["objection_path"] = "already_covered"
+    db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+    return "Oh nice! Who’d you end up going with?"
+
+# They answered the carrier (or said they forgot / through work)
+if state.get("objection_path") == "already_covered" and state.get("already_handled"):
+    carrier = extract_carrier(message.lower())  # simple function below
+    
+    # 1. Mutual of Omaha, Foresters, Transamerica, Americo, etc. (known for graded/modified/high-risk)
+    if carrier in ["mutual of omaha", "moo", "foresters", "transamerica", "americo", "prosperity", "aig graded"]:
+        reply = "Oh really? Are you super sick—like cancer, recent stroke, COPD, anything like that?"
+        state["waiting_for_health_answer"] = True
+        db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+        return reply
+    
+    # 2. They say “No” to being sick (the golden answer)
+    if state.get("waiting_for_health_answer") and re.search(r'\bno\b|not really|nah|healthy', message.lower()):
+        state["waiting_for_health_answer"] = False
+        state["carrier_gap_found"] = True
+        return "Gotcha. Mutual of Omaha is alright—we actually offer them too—but they take a lot of higher-risk clients so the pricing is usually higher for healthy people. What are you paying right now if you don’t mind me asking?"
+    
+    # 3. They tell you the monthly/annual price
+    if state.get("carrier_gap_found") and re.search(r'\$|\d+', message):
+        price_match = re.search(r'\$?(\d+)', message)
+        if price_match:
+            state["their_price"] = int(price_match.group(1))
+            db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+            
+            return ("Yeah that’s exactly what I figured. Because they underwrite for higher-risk folks, healthy people usually pay more than they need to. "
+                    "I can run you a quick comparison right now with carriers that fit healthy profiles better—no cost or obligation. "
+                    "I have 10:15am or 2:30pm tomorrow open—what works better for you?")
+
+    # 4. Fallback carriers (Aflac, Colonial, Globe, etc.) or “through work”
+    if not state.get("carrier_gap_found"):
+        return ("Nice! A lot of the workplace plans or the smaller policies people grab are only $50k–$100k and don’t have living benefits built in. "
+                "Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check—when’s the best time for you tomorrow?")

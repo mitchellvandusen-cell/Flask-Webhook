@@ -1,0 +1,47 @@
+# ——————— They just agreed to a time (or said yes/works/tomorrow) ———————
+TIME_AGREEMENT_TRIGGERS = [
+    "10:15", "2:30", "tomorrow", "morning", "afternoon", "either", "works", "yes", "sure", 
+    "book it", "let's do it", "sounds good", "ok", "okay", "alright", "perfect"
+]
+
+if any(trigger in message.lower() for trigger in TIME_AGREEMENT_TRIGGERS) and state.get("carrier_gap_found"):
+    # Mark them as booked
+    state["appointment_booked"] = True
+    state["qualified"] = True
+    
+    # Pick the time they chose (or default to your two slots)
+    if any(t in message.lower() for t in ["10", "morning", "earlier"]):
+        booked_time = "10:15 AM tomorrow"
+    else:
+        booked_time = "2:30 PM tomorrow"
+    
+    state["appointment_time"] = booked_time
+    db.execute("UPDATE lead_qualification SET state = ?, qualified = true WHERE phone = ?", 
+               (json.dumps(state), phone))
+    
+    reply = (f"Perfect, locked you in for {booked_time}. "
+             "Quick question so I can have the absolute best price ready for you when we hop on the call — "
+             "are you currently taking any medications at all? (Even blood pressure, cholesterol, etc.)")
+    
+    state["waiting_for_medications"] = True
+    db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+    return reply
+
+# ——————— They just answered the medication question ———————
+if state.get("waiting_for_medications"):
+    state["medications"] = message.strip()
+    state["waiting_for_medications"] = False
+    db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+    
+    return (f"Got it, thank you! I’ll have everything pulled and priced out with multiple carriers before {state['appointment_time']}. "
+            "You’ll get a calendar invite + reminder text in the next 5–10 minutes. "
+            "Talk soon!")
+
+# If they say “none” or “no medications”
+if state.get("waiting_for_medications") and re.search(r'\bnone?\b|no|healthy|nada', message.lower()):
+    state["medications"] = "None reported"
+    state["waiting_for_medications"] = False
+    db.execute("UPDATE lead_qualification SET state = ? WHERE phone = ?", (json.dumps(state), phone))
+    
+    return (f"Awesome — clean health = best rates. I’ll have multiple options ready for {state['appointment_time']}. "
+            "Calendar invite coming in the next few minutes. See you then!")
