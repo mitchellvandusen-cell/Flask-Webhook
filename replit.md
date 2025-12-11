@@ -42,13 +42,15 @@ This Flask-based webhook API generates AI-powered sales responses for life insur
 -   **Deterministic pathway**: Handles "I already have coverage" objections WITHOUT LLM calls.
 -   **5-Step Flow**:
     1.  Lead says "already have/covered/set" → Ask "Who'd you go with?"
-    2.  Lead names carrier → Ask "What are you paying monthly?" (seed doubt)
+    2.  Lead names carrier → Ask "Are you sick? Like have had cancer or a heart attack?" (seed doubt)
     2b. Employer-based → Pitch living benefits gap + offer appointment
-    3.  Lead gives price → Pitch comparison (might do better) + offer appointment times
-    4.  Lead agrees to time → Ask about medications for pre-qualification
-    5.  Lead answers meds → Confirm appointment, send calendar invite
+    3.  Lead says no, healthy → "Why I ask, they're good but take high risk people so prices are higher for healthy folks. Did you find them yourself or did someone set you up?"
+    4.  Lead answers → "I contract with them too, just should have been better options. What are you paying?"
+    5.  Lead gives price → "Let's set up a time, I'll have everything ready and make sure you're not paying more than you need to." + offer appointment times
+    6.  Lead agrees to time → Ask about medications for pre-qualification
+    7.  Lead answers meds → Confirm appointment, send calendar invite
 -   **Goal**: Justify an appointment to run a proper comparison. If we can't beat their current situation (price, coverage, or add living benefits), we tell them honestly and leave it.
--   **State fields**: `objection_path`, `already_handled`, `waiting_for_price`, `carrier_gap_found`, `waiting_for_medications`, `their_price`, `appointment_time`, `medications`
+-   **State fields**: `objection_path`, `already_handled`, `waiting_for_health`, `waiting_for_source`, `waiting_for_price`, `carrier_gap_found`, `waiting_for_medications`, `their_price`, `appointment_time`, `medications`
 
 ### Contact Qualification State (Persistent Memory)
 -   **`contact_qualification` table**: Stores persistent qualification data per contact_id across all messages and conversations.

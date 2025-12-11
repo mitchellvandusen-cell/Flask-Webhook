@@ -611,7 +611,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "Quick question so I can have the absolute best price ready for you when we hop on the call. "
                 "Are you currently taking any medications at all? (Even blood pressure, cholesterol, etc.)"), False
     
-    # ========== STEP 3: They told us their price ==========
+    # ========== STEP 5: They told us their price - pitch appointment ==========
     if state.get("waiting_for_price"):
         price_match = re.search(r'\$?(\d+)', m)
         if price_match:
@@ -623,13 +623,46 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
                 "carrier_gap_found": True
             })
             
-            # Seed doubt and justify appointment - we might be able to do better
-            return (f"Got it. For that ${their_price} I'd want to make sure you're getting the most coverage possible with living benefits included. "
-                    f"I can run a quick comparison with a few carriers, no cost or obligation. "
+            return (f"I see. Why don't we set up a time, I'll have everything ready and make sure you're not paying more than you need to. "
                     f"I have {get_slot_text()}, what works better for you?"), False
     
-    # ========== STEP 2: They answered with carrier name ==========
-    if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found"):
+    # ========== STEP 4: They answered how they got the policy - ask price ==========
+    if state.get("waiting_for_source"):
+        update_qualification_state(contact_id, {
+            "waiting_for_source": False,
+            "waiting_for_price": True
+        })
+        carrier = state.get("carrier", "them")
+        return (f"Yeah I contract with {carrier} too, there just should have been better options. "
+                "What are you paying if you don't mind me asking?"), False
+    
+    # ========== STEP 3: They said no they're not sick - explain why we asked ==========
+    if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious|nope', m):
+        carrier = state.get("carrier", "them")
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False,
+            "waiting_for_source": True
+        })
+        
+        return (f"Why I ask, {carrier} is a good carrier, they just take more high risk people "
+                "so prices are usually higher for healthy people. Did you find them yourself or did someone set you up with them?"), False
+    
+    # If they say YES they are sick
+    if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen|heart attack|stent', m):
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False,
+            "carrier_gap_found": True
+        })
+        # Extract their conditions
+        for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen", "stent"]:
+            if cond in m:
+                add_to_qualification_array(contact_id, "health_conditions", cond)
+        
+        return ("I hear you. The good news is there are still solid options even with health stuff going on. "
+                f"I have {get_slot_text()}, let's see what we can find for you?"), False
+    
+    # ========== STEP 2: They answered with carrier name - seed doubt with health question ==========
+    if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found") and not state.get("waiting_for_health"):
         carrier = extract_carrier_name(m)
         
         # Check for employer-based coverage
@@ -641,23 +674,13 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
             return ("Nice! A lot of the workplace plans or the smaller policies people grab are only 50k-100k and don't have living benefits built in. "
                     f"Most of our clients who already had something still saved money and upgraded coverage. Takes 5 minutes to check. {get_slot_text()}, what works?"), False
         
-        # Carrier we often beat on price/coverage - ask about price to seed doubt
-        if carrier and any(c in carrier for c in COMPARISON_OPPORTUNITY_CARRIERS):
-            update_qualification_state(contact_id, {
-                "carrier": carrier,
-                "waiting_for_price": True
-            })
-            return (f"{carrier.title()}, solid company. We actually work with them too. "
-                    "What are you paying monthly right now? Just curious if we can do better for you."), False
-        
-        # Known carrier - still probe on price
+        # Named a carrier - seed doubt with health question
         if carrier:
             update_qualification_state(contact_id, {
                 "carrier": carrier,
-                "waiting_for_price": True
+                "waiting_for_health": True
             })
-            return (f"{carrier.title()}, good company. What are you paying monthly right now if you don't mind me asking? "
-                    "Just want to make sure you're getting the best rate for your situation."), False
+            return "Are you sick? Like have had cancer or a heart attack?", False
         
         # Unknown carrier or vague answer like "I forget", fallback
         if re.search(r"(forget|don'?t remember|not sure|idk|i don'?t know|can'?t recall)", m):
