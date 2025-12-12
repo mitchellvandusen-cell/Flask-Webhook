@@ -3785,7 +3785,7 @@ def extract_intent(data, message=""):
     outcome_patterns = []
     outcome_context = ""
     try:
-        learning_ctx = get_learning_context(contact_id or "unknown")
+        learning_ctx = get_learning_context(contact_id or "unknown", message)
         if learning_ctx and learning_ctx.get("proven_responses"):
             outcome_patterns = learning_ctx.get("proven_responses", [])[:5]
             outcome_context = "\n".join([f"- {p}" for p in outcome_patterns])
