@@ -152,25 +152,131 @@ def normalize_keys(data):
         return data
     return {k.lower(): v for k, v in data.items()}
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York"):
-    """Generate NEPQ response using DELIBERATE knowledge-first architecture:
-    
-    THE BOT HAS ALZHEIMER'S - Every time it must:
-    1. READ ALL KNOWLEDGE (full main.py context, knowledge_base.py)
-    2. RE-READ CLIENT MESSAGE in context
-    3. CHECK OUTCOME PATTERNS (what worked before)
-    4. EVALUATE: Is trigger best? Is outcome pattern better? Or create new?
-    5. RESPOND + LOG the decision
-    
-    This ensures the bot NEVER forgets what it knows.
-    """
+def generate_nepq_response(
+    first_name,
+    message,
+    agent_name="Mitchell",
+    conversation_history=None,
+    intent="general",
+    contact_id=None,
+    api_key=None,
+    calendar_id=None,
+    timezone="America/New_York",
+):
     confirmation_code = generate_confirmation_code()
-    return reply, confirmation_code
-    
-    except Exception as e:
-        logger.exception(f"generate_nepq_response failed: {e}")
-        return "Sorry. Can you repeat that last part?", generate_confirmation_code()
 
+    try:
+        # ------------------------------------------------------------------
+        # 0) Normalize message (CRITICAL – prevents dict.lower() crashes)
+        # ------------------------------------------------------------------
+        if isinstance(message, dict):
+            message = message.get("body") or message.get("message") or message.get("text") or ""
+        elif not isinstance(message, str):
+            message = "" if message is None else str(message)
+
+        message = message.strip()
+        if not message:
+            message = "initial outreach - contact just entered pipeline"
+
+        if conversation_history is None:
+            conversation_history = []
+
+        # ------------------------------------------------------------------
+        # 1) NLP MEMORY (store + topic recall)
+        # ------------------------------------------------------------------
+        save_nlp_message(contact_id, message, "lead")
+        topics_asked = get_topics_already_discussed(contact_id)
+
+        # ------------------------------------------------------------------
+        # 2) CONVERSATION ENGINE (state + stage)
+        # ------------------------------------------------------------------
+        state = build_state_from_history(
+            contact_id=contact_id,
+            first_name=first_name,
+            conversation_history=conversation_history
+        )
+
+        stage = detect_stage(state, message, conversation_history)
+        extract_facts_from_message(state, message)
+
+        # ------------------------------------------------------------------
+        # 3) TRIGGERS (string-safe now)
+        # ------------------------------------------------------------------
+        triggers_found = identify_triggers(message)
+
+        # ------------------------------------------------------------------
+        # 4) KNOWLEDGE BASE (product / objections / health)
+        # ------------------------------------------------------------------
+        knowledge = get_relevant_knowledge(message)
+        knowledge_context = format_knowledge_for_prompt(knowledge)
+
+        # ------------------------------------------------------------------
+        # 5) OUTCOME LEARNING (what worked before)
+        # ------------------------------------------------------------------
+        learning_ctx = get_learning_context(contact_id)
+        proven_patterns = find_similar_successful_patterns(message)
+
+        proven_text = ""
+        if proven_patterns:
+            proven_text = "\n".join(
+                f"- {p['response_used']}" for p in proven_patterns[:3]
+            )
+
+        # ------------------------------------------------------------------
+        # 6) PLAYBOOK (templates + few-shot)
+        # ------------------------------------------------------------------
+        templates = get_template_response(stage, first_name)
+        few_shots = get_few_shot_examples(stage)
+
+        # ------------------------------------------------------------------
+        # 7) UNIFIED BRAIN (final decision prompt)
+        # ------------------------------------------------------------------
+        brain = get_unified_brain()
+
+        decision_prompt = get_decision_prompt(
+            message=message,
+            context=(
+                f"Stage: {stage.value}\n\n"
+                f"Conversation History:\n{conversation_history[-6:]}\n\n"
+                f"Topics already asked:\n{topics_asked}\n\n"
+                f"Knowledge Base:\n{knowledge_context}\n\n"
+                f"Proven Successful Responses:\n{proven_text}\n\n"
+                f"Playbook Templates:\n{templates}\n\n"
+            ),
+            stage=stage.value,
+            trigger_suggestion=None,
+            proven_patterns=proven_text,
+            triggers_found=triggers_found,
+        )
+
+        # ------------------------------------------------------------------
+        # 8) GROK / xAI CALL
+        # ------------------------------------------------------------------
+        client = get_client()
+
+        response = client.chat.completions.create(
+            model="grok-beta",
+            messages=[
+                {"role": "system", "content": brain},
+                {"role": "user", "content": decision_prompt},
+            ],
+            temperature=0.6,
+        )
+
+        reply = response.choices[0].message.content.strip()
+
+        # ------------------------------------------------------------------
+        # 9) FINAL SAFETY + RETURN
+        # ------------------------------------------------------------------
+        if not reply:
+            reply = "Sorry — can you repeat that last part?"
+
+        return reply, confirmation_code
+
+    except Exception as e:
+        logger.exception("generate_nepq_response failed")
+        return "Sorry — can you repeat that last part?", generate_confirmation_code()
+              
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
