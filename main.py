@@ -3570,6 +3570,7 @@ def extract_intent(data, message=""):
 
 def generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id, extra_instruction=""):
     # Add retry instruction at the very top of the prompt
+    
     system_prompt = get_unified_brain()  # or however you build it
     
     if extra_instruction:
