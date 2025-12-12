@@ -65,6 +65,19 @@ try:
 except Exception as e:
     logger.warning(f"Could not initialize outcome learning tables: {e}")
 
+# ONE-TIME DB FIX — run on every startup (harmless if already exists)
+try:
+    import psycopg2
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    cur = conn.cursor()
+    cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS total_exchanges INTEGER DEFAULT 0;")
+    cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS dismissive_count INTEGER DEFAULT 0;")
+    conn.commit()
+    conn.close()
+    print("DB fixed: added total_exchanges + dismissive_count")
+except Exception as e:
+    print("DB already fixed:", e)
+
 # Initialize NLP memory tables on startup
 try:
     init_nlp_tables()
