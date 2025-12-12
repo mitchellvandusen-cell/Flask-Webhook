@@ -44,6 +44,11 @@ from nlp_memory import (
     get_topic_breakdown, get_topics_already_discussed,
     format_nlp_for_prompt, get_contact_nlp_summary
 )
+# Token optimization - tiktoken + sumy for cost reduction
+from token_optimizer import (
+    count_tokens, compress_conversation_history,
+    optimize_prompt, get_token_stats
+)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -3605,6 +3610,12 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     if conversation_history is None:
         conversation_history = []
     
+    # === TOKEN OPTIMIZATION: Compress history if too long ===
+    if len(conversation_history) > 6:
+        original_count = len(conversation_history)
+        conversation_history = compress_conversation_history(conversation_history, max_tokens=1500)
+        logger.info(f"TOKEN_OPT: Compressed history from {original_count} to {len(conversation_history)} messages")
+    
     lead_profile = extract_lead_profile(conversation_history, first_name, message)
     
     # === QUALIFICATION STATE: Persistent memory per contact ===
@@ -4298,6 +4309,11 @@ CRITICAL RULES
     
     # Use grok-4-1-fast-reasoning for everything (cheap and capable)
     use_model = "grok-4-1-fast-reasoning"
+    
+    # === TOKEN STATS: Log cost estimate before API call ===
+    prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
+    stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
+    logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
     
     # Simplified user content for unified brain approach
     # Include history_text which contains deflection warnings and questions already asked
