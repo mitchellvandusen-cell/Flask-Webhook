@@ -3374,6 +3374,23 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     confirmation_code = generate_confirmation_code()
     
     # =========================================================================
+    # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
+    # =========================================================================
+    real_calendar_slots = None
+    if api_key and calendar_id:
+        try:
+            slots = get_available_slots(calendar_id, api_key, timezone)
+            if slots:
+                real_calendar_slots = format_slot_options(slots, timezone)
+                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
+        except Exception as e:
+            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+    
+    if not real_calendar_slots:
+        real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
+        logger.info("STEP 0: Using vague time fallback (no specific times)")
+    
+    # =========================================================================
     # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
     # =========================================================================
     logger.info("STEP 1: Knowledge will be loaded via unified brain")
@@ -4050,6 +4067,10 @@ Is hard dismissive: {is_hard_dismissive}
 
 CONFIRMATION CODE (if booking): {confirmation_code}
 
+=== AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
+{real_calendar_slots}
+NEVER make up appointment times. ONLY offer the times listed above.
+
 ===================================================================================
 CRITICAL RULES
 ===================================================================================
@@ -4058,6 +4079,7 @@ CRITICAL RULES
 3. Only use first name every 3-4 messages like normal texting
 4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
 5. After 3 exchanges, STOP asking questions and offer appointment times
+6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
 
 {decision_prompt}
 """
@@ -4066,7 +4088,7 @@ CRITICAL RULES
     max_retries = 1  # Reduced from 2 for faster response
     retry_count = 0
     correction_prompt = ""
-    reply = "I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"  # Default fallback
+    reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
     
     # Use grok-4-1-fast-reasoning for everything (cheap and capable)
     use_model = "grok-4-1-fast-reasoning"
@@ -4167,10 +4189,8 @@ Remember: Apply your knowledge, don't just pattern match.
                     if template_reply:
                         reply = template_reply
                         break
-                # Ultimate fallback: closing template
-                closing_reply = get_closing_template("offer_times")
-                if closing_reply:
-                    reply = closing_reply
+                # Ultimate fallback: use real calendar slots
+                reply = f"I can help you find the right fit. How's {real_calendar_slots}?"
                 # Always break after max retries to avoid infinite loop
                 break
     
