@@ -381,6 +381,152 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
     return updates
 
 
+def parse_history_for_topics_asked(contact_id, conversation_history):
+    """
+    Parse previous conversation history to retroactively identify topics already asked by the agent.
+    This backfills topics_asked to prevent repeating questions that were already asked in earlier messages.
+    """
+    if not contact_id or not conversation_history:
+        return
+    
+    # Get current topics_asked from database
+    current_state = get_qualification_state(contact_id)
+    existing_topics = set(current_state.get("topics_asked") or []) if current_state else set()
+    
+    # Patterns to detect what topics the AGENT has already asked about
+    AGENT_QUESTION_PATTERNS = {
+        "motivation": [
+            r"what (got|made|brought) you",
+            r"what originally",
+            r"why did you (start|begin|decide)",
+            r"what (triggered|prompted)",
+            r"what's (driving|behind) this",
+            r"what made you want to look",
+            r"something on your mind",
+            r"what were you hoping",
+        ],
+        "living_benefits": [
+            r"living benefits",
+            r"access.*(funds|money|policy).*while.*alive",
+            r"accelerated (death )?benefit",
+            r"critical illness",
+            r"chronic illness",
+        ],
+        "portability": [
+            r"(continue|keep|take).*(after|when|if).*(retire|leave|quit)",
+            r"goes with you",
+            r"follows you",
+            r"portable",
+            r"when you leave",
+        ],
+        "employer_coverage": [
+            r"through (work|your job|employer)",
+            r"work.*policy",
+            r"employer.*(policy|coverage)",
+            r"job.*(policy|coverage)",
+        ],
+        "policy_type": [
+            r"term or (whole|permanent)",
+            r"what (kind|type) of (policy|coverage)",
+            r"is it term",
+            r"is it whole life",
+        ],
+        "family": [
+            r"(married|wife|husband|spouse)",
+            r"(kids|children)",
+            r"family situation",
+        ],
+        "coverage_amount": [
+            r"how much (coverage|insurance|protection)",
+            r"what.*amount",
+            r"face amount",
+        ],
+        "carrier": [
+            r"who.*(with|through|did you go with)",
+            r"which (company|carrier|insurer)",
+            r"who.*set you up",
+        ],
+        "health": [
+            r"health (conditions?|issues?|problems?)",
+            r"taking.*medications?",
+            r"any (medical|health)",
+        ],
+        "other_policies": [
+            r"any other (policies|coverage)",
+            r"other.*(policies|coverage).*(work|otherwise)",
+            r"anything else.*covered",
+        ],
+    }
+    
+    topics_found = set()
+    
+    # Look through agent messages in conversation history
+    for msg in conversation_history:
+        msg_lower = msg.lower() if isinstance(msg, str) else ""
+        
+        # Only check agent messages (start with "You:" or don't have "Lead:")
+        is_agent_msg = msg_lower.startswith("you:") or (not msg_lower.startswith("lead:"))
+        
+        if is_agent_msg:
+            for topic, patterns in AGENT_QUESTION_PATTERNS.items():
+                if topic in existing_topics or topic in topics_found:
+                    continue
+                for pattern in patterns:
+                    if re.search(pattern, msg_lower):
+                        topics_found.add(topic)
+                        logger.debug(f"HISTORY PARSE: Found topic '{topic}' in agent message: {msg[:50]}...")
+                        break
+    
+    # Also check for answered topics based on lead responses
+    LEAD_ANSWER_PATTERNS = {
+        "motivation": [
+            r"(add|more|additional).*(coverage|protection)",
+            r"cover.*(mortgage|house)",
+            r"final expense|funeral|burial",
+            r"protect.*(family|wife|kids)",
+            r"(mom|dad|parent).*(died|passed)",
+            r"leave.*legacy",
+        ],
+        "carrier": [
+            # If lead mentioned a carrier, we don't need to ask
+            r"(state farm|allstate|northwestern|prudential|aig|metlife|john hancock|lincoln|transamerica|pacific life|principal|nationwide|mass mutual|new york life|guardian|mutual of omaha|aflac|colonial penn|globe life)",
+        ],
+        "employer_coverage": [
+            r"(through|from|at|via).*(work|job|employer|company)",
+            r"(not|isn'?t).*(through|from).*(work|job|employer)",
+            r"(my own|personal|private|individual).*(policy|coverage)",
+        ],
+        "living_benefits": [
+            r"(yes|yeah|has|have|it does).*(living benefits)",
+            r"(no|nope|just.*death|doesn'?t).*(living benefits)",
+        ],
+    }
+    
+    for msg in conversation_history:
+        msg_lower = msg.lower() if isinstance(msg, str) else ""
+        
+        # Check lead messages (start with "Lead:")
+        is_lead_msg = msg_lower.startswith("lead:")
+        
+        if is_lead_msg:
+            for topic, patterns in LEAD_ANSWER_PATTERNS.items():
+                if topic in existing_topics or topic in topics_found:
+                    continue
+                for pattern in patterns:
+                    if re.search(pattern, msg_lower):
+                        topics_found.add(topic)
+                        logger.debug(f"HISTORY PARSE: Lead answered '{topic}' in message: {msg[:50]}...")
+                        break
+    
+    # Add all found topics to the database
+    for topic in topics_found:
+        if topic not in existing_topics:
+            add_to_qualification_array(contact_id, "topics_asked", topic)
+            logger.info(f"BACKFILL: Added '{topic}' to topics_asked for contact {contact_id}")
+    
+    return topics_found
+
+
 def format_qualification_for_prompt(qualification_state):
     """
     Format qualification state as context for the LLM prompt.
@@ -3452,7 +3598,12 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     qualification_state = None
     qualification_context = ""
     if contact_id:
-        # Load existing qualification state from database
+        # === STEP 0: Parse conversation history to backfill topics_asked ===
+        # This retroactively identifies topics already asked in previous messages
+        if conversation_history:
+            parse_history_for_topics_asked(contact_id, conversation_history)
+        
+        # Load existing qualification state from database (after backfill)
         qualification_state = get_qualification_state(contact_id)
         
         # Extract and update qualification from this message
@@ -3492,12 +3643,22 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # This prevents re-asking questions that were asked in previous turns
     if qualification_state:
         topics_asked = qualification_state.get("topics_asked") or []
+        
+        # Sync ALL topics from database to conv_state (prevents any topic repetition)
+        for topic in topics_asked:
+            if topic not in conv_state.topics_answered:
+                conv_state.topics_answered.append(topic)
+        
+        # Special handling for motivation (multiple aliases)
         if "motivation" in topics_asked or "original_goal" in topics_asked:
             if "motivation" not in conv_state.topics_answered:
                 conv_state.topics_answered.append("motivation")
             if "motivating_goal" not in conv_state.topics_answered:
                 conv_state.topics_answered.append("motivating_goal")
             logger.info("QUALIFICATION: Motivation question already asked - blocking repeats")
+        
+        if topics_asked:
+            logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
     
     state_instructions = format_state_for_prompt(conv_state)
     logger.debug(f"Conversation state: stage={conv_state.stage.value}, exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}")
