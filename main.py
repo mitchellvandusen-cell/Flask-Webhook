@@ -9,7 +9,6 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from openai import OpenAI
-
 # Three-layer conversation architecture
 from conversation_engine import (
     ConversationState, ConversationStage,
@@ -141,7 +140,7 @@ def normalize_keys(data):
         return data
     return {k.lower(): v for k, v in data.items()}
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York", extra_instruction=""):
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/Central", extra_instruction=""):
         """
         Generate NEPQ response using DELIBERATE knowledge-first architecture.
 
@@ -165,7 +164,6 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
-
 def get_qualification_state(contact_id):
     """
     Get or create qualification state for a contact.
