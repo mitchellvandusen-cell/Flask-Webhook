@@ -3587,7 +3587,7 @@ elif not isinstance(message, str):
 
 message = message.strip()
 
-    triggers_found = identify_triggers(message)
+triggers_found = identify_triggers(message)
     trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
     logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
     logger.info(f"STEP 2: message type after normalize: {type(message)}")
