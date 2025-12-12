@@ -3487,6 +3487,18 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         conversation_history=conversation_history,
         current_message=message
     )
+    
+    # === CRITICAL: Sync qualification_state topics_asked to conv_state.topics_answered ===
+    # This prevents re-asking questions that were asked in previous turns
+    if qualification_state:
+        topics_asked = qualification_state.get("topics_asked") or []
+        if "motivation" in topics_asked or "original_goal" in topics_asked:
+            if "motivation" not in conv_state.topics_answered:
+                conv_state.topics_answered.append("motivation")
+            if "motivating_goal" not in conv_state.topics_answered:
+                conv_state.topics_answered.append("motivating_goal")
+            logger.info("QUALIFICATION: Motivation question already asked - blocking repeats")
+    
     state_instructions = format_state_for_prompt(conv_state)
     logger.debug(f"Conversation state: stage={conv_state.stage.value}, exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}")
     
@@ -4305,6 +4317,17 @@ Remember: Apply your knowledge, don't just pattern match.
     try:
         tracker_id = record_agent_message(contact_id, reply)
         logger.info(f"STEP 5: Recorded agent message for tracking: {tracker_id}")
+        
+        # === CRITICAL: Record motivation questions to prevent repeats ===
+        reply_lower = reply.lower()
+        motivation_patterns = [
+            "what got you", "what made you", "what originally", "why did you",
+            "what brought you", "what were you", "what was going on",
+            "what triggered", "what motivated", "reason you"
+        ]
+        if any(p in reply_lower for p in motivation_patterns) and "?" in reply:
+            add_to_qualification_array(contact_id, "topics_asked", "motivation")
+            logger.info("STEP 5: Recorded motivation question - will block future repeats")
         
         # If this was a good outcome (lead engaged well), save the pattern
         if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
