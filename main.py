@@ -5183,9 +5183,63 @@ def index():
             confirmation_code = generate_confirmation_code()
             reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
             reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+            
         else:
             calendar_id_for_slots = os.environ.get('GHL_CALENDAR_ID')
-            reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id_for_slots)
+
+            # === RETRY LOOP — NEVER DIE, ALWAYS HUMAN ===
+            MAX_RETRIES = 6
+            reply = None
+            confirmation_code = None
+
+            for attempt in range(MAX_RETRIES):
+                extra_instruction = ""
+                if attempt > 0:
+                    nudges = [
+                        "Write a completely different reply. Do not repeat anything from before.",
+                        "Be casual and natural. No sales pressure.",
+                        "Change direction. Say something new.",
+                        "Respond like texting a friend — short and real.",
+                        "Just acknowledge what they said.",
+                        "Say one simple, helpful thing."
+                    ]
+                    extra_instruction = nudges[min(attempt-1, len(nudges)-1)]
+
+                reply, confirmation_code = generate_nepq_response(
+                    first_name, message, agent_name,
+                    conversation_history=conversation_history,
+                    intent=intent,
+                    contact_id=contact_id,
+                    api_key=api_key,
+                    calendar_id=calendar_id_for_slots,
+                    extra_instruction=extra_instruction
+                )
+
+                # Clean formatting
+                reply = reply.replace("—", "-").replace("–", "-").replace("—", "-")
+                reply = re.sub(r'[\U0001F600-\U0001F64F]', '', reply)
+
+                # Direct question? → answer it, no blocking
+                if message.strip().endswith("?"):
+                    break
+
+                # Casual/test message? → simple human reply
+                if any(x in message.lower() for x in ["test", "testing", "hey", "hi", "hello", "what's up", "you there"]):
+                    name = contact.get("firstName", "").strip()
+                    reply = f"Hey{name and ' ' + name + ',' or ''} how can I help?"
+                    break
+
+                # Check duplicate
+                is_duplicate, reason = validate_response_uniqueness(contact_id, reply)
+                if not is_duplicate:
+                    break
+
+                logger.info(f"Attempt {attempt+1} blocked ({reason}) — retrying...")
+
+            # Final fallback (never reached, but safe)
+            if not reply or reply.strip() == "":
+                name = contact.get("firstName", "").strip()
+                reply = f"Hey{name and ' ' + name + ',' or ''} got it. What's on your mind?"
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
