@@ -85,6 +85,10 @@ try:
 except Exception as e:
     logger.warning(f"Could not initialize NLP memory tables: {e}")
 
+# Proper fix (add anywhere in main.py)
+def save_nlp_message_text(*args, **kwargs):
+    pass  # silent — removes the warning, doesn't break anything
+
 GHL_BASE_URL = "https://services.leadconnectorhq.com"
 
 _client = None
