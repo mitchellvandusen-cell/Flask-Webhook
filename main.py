@@ -4667,7 +4667,6 @@ def ghl_unified():
     contact_id = custom.get("contact_id", payload.get("contact_id", ""))
     intent = custom.get("intent", payload.get("intent", ""))
 
-    
     api_key, location_id = get_ghl_credentials(data)
     
     safe_data = {k: v for k, v in data.items() if k not in ('ghl_api_key', 'ghl_location_id')}
@@ -4678,6 +4677,7 @@ def ghl_unified():
         first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
         agent_name = data.get('agent_name') or data.get('agentname') or data.get('rep_name') or 'Mitchell'
         message = message # implicit - dont touch it
+        
         if not contact_id:
             return jsonify({"error": "contact_id required"}), 400
         if not message:
@@ -4688,7 +4688,8 @@ def ghl_unified():
         
         intent = extract_intent(data, message)
         logger.debug(f"Extracted intent in /ghl respond: {intent}")
-        logger.info(f'DBUG message type: {type(message} preview message[:60]})
+        logger.info(f"DBUG message type: {type(message)} preview: str(message)[:60]}")
+        
         start_time_iso, formatted_time, _ = parse_booking_time(message)
         appointment_created = False
         appointment_details = None
