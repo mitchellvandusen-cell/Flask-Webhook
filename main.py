@@ -3573,10 +3573,9 @@ def generate_nepq_response(first_name, message, agent_name, conversation_history
     
     system_prompt = get_unified_brain()  # or however you build it
     
-    if extra_instruction:
+if extra_instruction:
         system_prompt = f"{extra_instruction}\n\n{system_prompt}"
-    
-    # ... rest of your existing code continues here unchanged
+        # ... rest of your existing code continues here unchanged
     
     THE BOT HAS ALZHEIMER'S - Every time it must:
     1. READ ALL KNOWLEDGE (full main.py context, knowledge_base.py)
