@@ -4063,7 +4063,7 @@ CRITICAL RULES
 """
 
     # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
-    max_retries = 2
+    max_retries = 1  # Reduced from 2 for faster response
     retry_count = 0
     correction_prompt = ""
     reply = "I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"  # Default fallback
@@ -4091,7 +4091,7 @@ Remember: Apply your knowledge, don't just pattern match.
                 {"role": "system", "content": unified_system_prompt},
                 {"role": "user", "content": unified_user_content + correction_prompt}
             ],
-            max_tokens=500,
+            max_tokens=350,  # Reduced from 500 for faster response
             temperature=0.7,
             top_p=0.95
         )
