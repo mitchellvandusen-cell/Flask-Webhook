@@ -9,15 +9,10 @@ import re
 import spacy
 import subprocess
 import sys
-def ensure_spacy_model():
-    try:
-        spacy.load("en_core_web_md")
-        print("spaCy model already cached")
-    except OSError:
-        print("Downloading spaCy model once...")
-        subprocess.check_call([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
-# Run it on startup
-ensure_spacy_model()
+
+# NOTE: Do not download spaCy models at runtime in production.
+# Install the model at build time (Dockerfile/requirements) instead.
+
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from openai import OpenAI
@@ -25,7 +20,8 @@ from openai import OpenAI
 from conversation_engine import (
     ConversationState, ConversationStage,
     build_state_from_history, format_state_for_prompt,
-    PolicyEngine, detect_dismissive, parse_reflection, strip_reflection
+    PolicyEngine, detect_dismissive, parse_reflection, strip_reflection,
+    detect_stage, extract_facts_from_message
 )
 from playbook import (
     get_template_response, get_few_shot_examples,
@@ -66,17 +62,6 @@ from token_optimizer import (
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# EMERGENCY FINAL FIX — stops the bot from dying
-# Add this anywhere in main.py (top or bottom)
-
-def save_nlp_message_text(*args, **kwargs):
-    """Temporary stub — prevents NameError crash"""
-    try:
-        from nlp_memory import save_nlp_message
-        save_nlp_message(*args, **kwargs)
-    except:
-        pass  # silently ignore — bot keeps running
-        
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 
@@ -87,7 +72,6 @@ try:
 except Exception as e:
     logger.warning(f"Could not initialize outcome learning tables: {e}")
 
-# ONE-TIME DB FIX — run on every startup (harmless if already exists)
 try:
     import psycopg2
     conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
@@ -96,7 +80,7 @@ try:
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS dismissive_count INTEGER DEFAULT 0;")
     conn.commit()
     conn.close()
-    print("DB fixed: added total_exchanges + dismissive_count")
+    print("DB ensured: contact_qualification table exists")
 except Exception as e:
     print("DB already fixed:", e)
 
@@ -383,12 +367,46 @@ def add_to_qualification_array(contact_id, field, value):
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
         cur = conn.cursor()
         
-        # Ensure contact exists
-        cur.execute("""
-            INSERT INTO contact_qualification (contact_id) 
-            VALUES (%s) 
-            ON CONFLICT (contact_id) DO NOTHING
-        """, (contact_id,))
+       cur.execute("""
+        CREATE TABLE IF NOT EXISTS contact_qualification (
+            contact_id TEXT PRIMARY KEY,
+
+            has_policy BOOLEAN,
+            has_living_benefits BOOLEAN,
+
+            is_personal_policy BOOLEAN,
+            is_employer_based BOOLEAN,
+
+            is_term BOOLEAN,
+            is_whole_life BOOLEAN,
+            is_iul BOOLEAN,
+            is_guaranteed_issue BOOLEAN,
+            term_length INTEGER,
+
+            face_amount TEXT,
+            carrier TEXT,
+
+            has_spouse BOOLEAN,
+            num_kids INTEGER,
+
+            tobacco_user BOOLEAN,
+            health_conditions TEXT[] DEFAULT ARRAY[]::TEXT[],
+            health_details TEXT[] DEFAULT ARRAY[]::TEXT[],
+
+            age INTEGER,
+            retiring_soon BOOLEAN,
+            motivating_goal TEXT,
+
+            topics_asked TEXT[] DEFAULT ARRAY[]::TEXT[],
+            topics_answered TEXT[] DEFAULT ARRAY[]::TEXT[],
+            key_quotes TEXT[] DEFAULT ARRAY[]::TEXT[],
+            blockers TEXT[] DEFAULT ARRAY[]::TEXT[],
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+             );
+        """)
+
         
         # Add to array only if not already present (all validated fields are TEXT[])
         cur.execute(f"""
