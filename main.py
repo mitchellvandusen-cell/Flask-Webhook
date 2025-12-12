@@ -198,6 +198,7 @@ def generate_nepq_response(
             contact_id=contact_id,
             first_name=first_name,
             conversation_history=conversation_history
+            current_message=message
         )
 
         stage = detect_stage(state, message, conversation_history)
