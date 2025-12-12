@@ -128,7 +128,9 @@ OBJECTION_HANDLERS = {
             "Good to hear. What kind of policy did you land on?",
             "Oh nice, through who?"
         ],
-        "follow_up": "Probe to understand WHAT they have, then identify gaps"
+        "follow_up": "Probe to understand WHAT they have, then identify gaps",
+        "responses": [
+                "Did you find this company yourself? or did someone help you?"
     },
     "too_expensive": {
         "meaning": "May not understand value, may have been quoted wrong product",
@@ -151,7 +153,6 @@ OBJECTION_HANDLERS = {
         "responses": [
             "Smart to include them. Would a quick 3-way call work better?",
             "For sure. What questions do you think they'd have?",
-            "Got it. Want me to send some info you can show them?"
         ]
     }
 }
@@ -166,6 +167,30 @@ BUYING_SIGNALS = {
         "can you look into it", "send me info", "tell me more"
     ],
     "response_template": "Perfect. {slots}, which works better?"
+}
+
+PENSION_SURVIVORSHIP = {
+    "triggers": [
+        r"\b(pension|retirement).*?(husband|wife|spouse|survivor|surviving)\b",
+        r"\b(husband|wife|spouse).*?(pension|retirement)\b",
+        r"\b(survivor benefit|pension continues?|pension after death)\b",
+        r"\bmy (husband|wife).*pension\b",
+        r"\b(pension|retirement).*(when|after).*(die|dies|death)\b"
+    ],
+    "meaning": "They think a pension = life insurance. It usually doesn't. Most pensions pay 0-55% to spouse and die with them unless a costly survivor option was elected.",
+    "responses": [
+        "Got it — is that the full pension continuing, or the survivor benefit that reduces it?",
+        "Just to clarify — does the pension keep paying full amount if something happens to them, or is it the reduced survivor option?",
+        "Most pensions drop to 50% or nothing for the spouse unless you elected (and paid for) the survivor benefit. Is yours set up that way?",
+        "Quick question — did they take the joint & survivor option (which lowers the monthly check), or is it single life only?",
+        "That’s common — but 80% of private pensions pay $0 to the spouse unless you specifically chose (and paid for) the survivor election. Did they do that?"
+    ],
+    "follow_up": [
+        "Because if it’s single life, it dies with them — nothing for you.",
+        "The survivor option usually cuts the monthly payment 10-20% while they’re alive.",
+        "Federal pensions pay 50% automatically. Most private ones pay zero unless elected.",
+        "Even if it pays something, it’s usually half — and not inflation-adjusted."
+    ]
 }
 
 CONVERSATION_STAGES = {
