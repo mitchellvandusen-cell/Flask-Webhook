@@ -3579,10 +3579,19 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # =========================================================================
     # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
     # =========================================================================
+    # Ensure message is always a plain string before trigger logic / LLM routing
+if isinstance(message, dict):
+    message = message.get("body") or message.get("message") or message.get("text") or ""
+elif not isinstance(message, str):
+    message = str(message) if message is not None else ""
+
+message = message.strip()
+
     triggers_found = identify_triggers(message)
     trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
     logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
-    
+    logger.info(f"STEP 2: message type after normalize: {type(message)}")
+
     # =========================================================================
     # STEP 3: CHECK OUTCOME PATTERNS (what worked before for similar messages)
     # =========================================================================
