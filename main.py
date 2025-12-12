@@ -4091,7 +4091,7 @@ Remember: Apply your knowledge, don't just pattern match.
                 {"role": "system", "content": unified_system_prompt},
                 {"role": "user", "content": unified_user_content + correction_prompt}
             ],
-            max_tokens=350,  # Reduced from 500 for faster response
+            max_tokens=425,
             temperature=0.7,
             top_p=0.95
         )
