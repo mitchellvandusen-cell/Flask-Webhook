@@ -3605,12 +3605,6 @@ def extract_intent(data, message=""):
     if not real_calendar_slots:
         real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
         logger.info("STEP 0: Using vague time fallback (no specific times)")
-        except Exception as e:
-            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
-    
-    if not real_calendar_slots:
-        real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
-        logger.info("STEP 0: Using vague time fallback (no specific times)")
     
     # =========================================================================
     # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
