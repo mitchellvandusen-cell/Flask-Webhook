@@ -72,17 +72,37 @@ try:
 except Exception as e:
     logger.warning(f"Could not initialize outcome learning tables: {e}")
 
+# ONE-TIME DB FIX — run on every startup (safe/idempotent)
 try:
     import psycopg2
-    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
     cur = conn.cursor()
+
+    # 1) Ensure table exists first
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS contact_qualification (
+        contact_id TEXT PRIMARY KEY,
+        topics_asked TEXT[] DEFAULT ARRAY[]::TEXT[],
+        topics_answered TEXT[] DEFAULT ARRAY[]::TEXT[],
+        key_quotes TEXT[] DEFAULT ARRAY[]::TEXT[],
+        blockers TEXT[] DEFAULT ARRAY[]::TEXT[],
+        health_conditions TEXT[] DEFAULT ARRAY[]::TEXT[],
+        health_details TEXT[] DEFAULT ARRAY[]::TEXT[],
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    # 2) Then ensure columns exist (safe even after table exists)
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS total_exchanges INTEGER DEFAULT 0;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS dismissive_count INTEGER DEFAULT 0;")
+
     conn.commit()
     conn.close()
-    print("DB ensured: contact_qualification table exists")
+    print("DB fixed: ensured contact_qualification table + columns")
 except Exception as e:
-    print("DB already fixed:", e)
+    print("DB fix failed:", e)
+
 
 # Initialize NLP memory tables on startup
 try:
