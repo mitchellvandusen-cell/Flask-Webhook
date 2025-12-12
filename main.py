@@ -88,6 +88,21 @@ def get_client():
 def generate_confirmation_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
+def extract_message_text(data):
+    """
+    Extract the actual message string from a normalized webhook payload.
+    Always returns a string.
+    """
+    if isinstance(data, str):
+        return data
+
+    if isinstance(data, dict):
+        for key in ("message", "body", "text", "content"):
+            val = data.get(key)
+            if isinstance(val, str):
+                return val
+
+    return ""
 
 def normalize_keys(data):
     """
@@ -3601,7 +3616,7 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     if trigger_code == "TRIG" and trigger_suggestion:
         # Check if this is a trigger that should bypass LLM
         triggers_str = str(triggers_found)
-        m_lower = message.lower().strip()
+        m_lower = message_text.lower().strip()
         # Calendar-related triggers bypass to use real calendar times
         if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
             logger.info(f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}")
@@ -4794,7 +4809,7 @@ def grok_insurance():
     if raw_history:
         for msg in raw_history:
             if isinstance(msg, dict):
-                direction = msg.get('direction', 'outbound')
+                direction = msg.get('message', 'outbound')
                 body = msg.get('body', '')
                 if body:
                     role = "Lead" if direction.lower() == 'inbound' else "You"
