@@ -4688,7 +4688,7 @@ def ghl_unified():
         
         intent = extract_intent(data, message)
         logger.debug(f"Extracted intent in /ghl respond: {intent}")
-        logger.info(f"DBUG message type: {type(message)} preview: str(message)[:60]}")
+        logger.info(f"DBUG message type: {type(message)} preview: {str(message)[:60]}")
         
         start_time_iso, formatted_time, _ = parse_booking_time(message)
         appointment_created = False
