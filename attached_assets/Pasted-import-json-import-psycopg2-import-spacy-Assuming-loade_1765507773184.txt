@@ -1,0 +1,85 @@
+import json
+import psycopg2
+import spacy  # Assuming loaded; run 'python -m spacy download en_core_web_md' if needed for better similarity
+from unified_brain import get_all_stored_data  # Your func to load all insurance/frameworks data
+
+nlp = spacy.load("en_core_web_md")  # Use md for vector similarity checks
+
+# DB setup (expand your conversations table)
+cur.execute("""
+CREATE TABLE IF NOT EXISTS outcomes (
+    outcome_id SERIAL PRIMARY KEY,
+    contact_id TEXT,
+    response_text TEXT,
+    outcome_score INTEGER,  # e.g., 1-10 based on success (booking=10, dropoff=1)
+    similar_context JSONB  # Store parsed facts/history summary for matching
+)
+""")
+conn.commit()
+
+def log_outcome(contact_id, response, score, context):
+    # Log after response; call this post-user feedback or simulation
+    cur.execute("INSERT INTO outcomes (contact_id, response_text, outcome_score, similar_context) VALUES (%s, %s, %s, %s)",
+                (contact_id, response, score, json.dumps(context)))
+    conn.commit()
+
+def get_best_outcome_matches(parsed_text, history_summary):
+    # Query DB for similar successful outcomes
+    query = "SELECT response_text FROM outcomes WHERE outcome_score > 7 ORDER BY similarity(similar_context::text, %s) DESC LIMIT 3"
+    cur.execute(query, (json.dumps({'text': parsed_text, 'history': history_summary}),))
+    return [row[0] for row in cur.fetchall()]  # Use pg_trgm extension for similarity; install if needed: CREATE EXTENSION pg_trgm;
+
+def process_message(contact_id, user_message):
+    history = retrieve_texts(contact_id)  # Your existing func
+    
+    # Step 1: Receive text (already here)
+    
+    # Step 2: Read all stored data
+    all_data = get_all_stored_data()  # Loads NEPQ, Straight Line, insurance products, etc.
+    
+    # Step 3: Re-read text (parse deeply with spaCy for entities/intents)
+    doc = nlp(user_message)
+    parsed = {
+        'entities': {ent.label_: ent.text for ent in doc.ents},
+        'keywords': [token.lemma_ for token in doc if not token.is_stop],
+        'intent': 'coverage_discussion' if 'policy' in [t.text.lower() for t in doc] else 'general'  # Expand logic
+    }
+    # Cross-verify with all_data (e.g., if keyword matches product, flag)
+    for kw in parsed['keywords']:
+        if kw in all_data.get('products', {}):
+            parsed['matched_product'] = all_data['products'][kw]
+    
+    # Step 4: Read conversation history (summarize + check repeats)
+    history_text = " ".join([msg['content'] for msg in history])
+    history_doc = nlp(history_text)
+    history_summary = " ".join([sent.text for sent in history_doc.sents][:5])  # Local summary
+    # Similarity check to detect repeats (vector-based)
+    similarity = doc.similarity(history_doc)
+    if similarity > 0.85:  # High sim = potential repeat; adjust threshold
+        system_content += "This is similar to prior—advance without repeating."
+    # Block seen topics
+    seen_topics = set()  # Populate from state or parse history keywords
+    for token in history_doc:
+        if token.lemma_ in user_states[contact_id].get('topics_asked', []):
+            seen_topics.add(token.lemma_)
+    if any(kw in seen_topics for kw in parsed['keywords']):
+        system_content += f"Avoid re-asking on {', '.join(seen_topics)}—reference and pivot."
+
+    # Outcome-based learning: Get best matches
+    best_responses = get_best_outcome_matches(parsed, history_summary)
+    if best_responses:
+        system_content += f"Learn from successful past: {'; '.join(best_responses[:2])}—adapt style for human flow."
+
+    # Step 5: Respond via Grok
+    system_content = f"""
+    Act human: Casual, empathetic, no scripts. Use all data {all_data}, parsed input {parsed}, history {history_summary}.
+    NEVER repeat—check seen {seen_topics}. Choose responses like a pro agent: Probe gaps subtly, book if qualified.
+    """  # Your full prompt here
+    messages = [{"role": "system", "content": system_content}] + history + [{"role": "user", "content": user_message}]
+    payload = {"model": "grok-4.1-fast", "messages": messages, "temperature": 0.7, "max_tokens": 600}
+    bot_reply = requests.post(url, json=payload, headers={"Authorization": f"Bearer {api_key}"}).json()["choices"][0]["message"]["content"]
+    
+    # Post-response: Log for learning (manual score for now; automate later via user feedback)
+    # e.g., log_outcome(contact_id, bot_reply, 8, parsed) if success
+    
+    return bot_reply

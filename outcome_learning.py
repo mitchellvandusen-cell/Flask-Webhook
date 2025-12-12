@@ -65,6 +65,15 @@ def init_tables():
     """Create tables if they don't exist."""
     with get_db_connection() as conn:
         with conn.cursor() as cur:
+            # Enable pg_trgm extension for trigram similarity
+            # Some managed Postgres instances may not allow this - handle gracefully
+            try:
+                cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+                logger.info("pg_trgm extension enabled")
+            except Exception as e:
+                logger.warning(f"Could not enable pg_trgm (may need manual activation): {e}")
+                # Continue with table creation anyway
+            
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS response_patterns (
                     id SERIAL PRIMARY KEY,
@@ -291,6 +300,48 @@ def find_matching_patterns(trigger_category: str, bank: PatternBank, limit: int 
                 patterns = cur.fetchall()
             
             return patterns
+
+
+def find_similar_successful_patterns(trigger_message: str, min_score: float = 2.0, limit: int = 3) -> List[Dict]:
+    """
+    Find patterns with similar trigger messages using pg_trgm trigram similarity.
+    Returns high-scoring patterns that matched similar lead messages.
+    Falls back to score-only matching if pg_trgm is not available.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                try:
+                    # Use pg_trgm similarity to find similar triggers
+                    cur.execute("""
+                        SELECT *, 
+                               similarity(trigger_example, %s) as sim_score
+                        FROM response_patterns 
+                        WHERE score >= %s
+                          AND similarity(trigger_example, %s) > 0.3
+                        ORDER BY sim_score DESC, score DESC
+                        LIMIT %s
+                    """, (trigger_message, min_score, trigger_message, limit))
+                    patterns = cur.fetchall()
+                    
+                    if patterns:
+                        logger.info(f"Found {len(patterns)} similar patterns via trigram match (sim>{patterns[0].get('sim_score', 0):.2f})")
+                    
+                    return patterns
+                except Exception as trgm_error:
+                    # pg_trgm not available - fall back to score-only matching
+                    logger.debug(f"Trigram similarity not available, using score-only: {trgm_error}")
+                    cur.execute("""
+                        SELECT *, 0.0 as sim_score
+                        FROM response_patterns 
+                        WHERE score >= %s
+                        ORDER BY score DESC
+                        LIMIT %s
+                    """, (min_score, limit))
+                    return cur.fetchall()
+    except Exception as e:
+        logger.warning(f"Could not find similar patterns: {e}")
+        return []
 
 
 def format_patterns_for_prompt(patterns: List[Dict]) -> str:

@@ -27,7 +27,8 @@ from outcome_learning import (
     classify_vibe, get_learning_context,
     record_agent_message, record_lead_response,
     save_new_pattern, mark_appointment_booked,
-    check_for_burns, VibeClassification
+    check_for_burns, VibeClassification,
+    find_similar_successful_patterns
 )
 # Knowledge base - triggers and patterns
 from knowledge_base import (
@@ -42,7 +43,8 @@ from insurance_companies import find_company_in_message, get_company_context
 from nlp_memory import (
     init_nlp_tables, save_message as save_nlp_message,
     get_topic_breakdown, get_topics_already_discussed,
-    format_nlp_for_prompt, get_contact_nlp_summary
+    format_nlp_for_prompt, get_contact_nlp_summary,
+    validate_response_uniqueness, get_recent_agent_messages
 )
 # Token optimization - tiktoken + sumy for cost reduction
 from token_optimizer import (
@@ -3579,6 +3581,15 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
             logger.info(f"STEP 3: Found {len(outcome_patterns)} proven outcome patterns")
         else:
             logger.info("STEP 3: No proven outcome patterns found")
+        
+        # === TRIGRAM SIMILARITY: Find patterns with similar trigger messages ===
+        similar_patterns = find_similar_successful_patterns(message, min_score=2.0, limit=3)
+        if similar_patterns:
+            for p in similar_patterns:
+                sim_text = f"Similar trigger (sim={p.get('sim_score', 0):.2f}): {p.get('response_used', '')[:100]}"
+                if sim_text not in outcome_context:
+                    outcome_context += f"\n- {sim_text}"
+            logger.info(f"STEP 3: Found {len(similar_patterns)} trigram-similar patterns")
     except Exception as e:
         logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
     
@@ -4471,6 +4482,17 @@ Remember: Apply your knowledge, don't just pattern match.
                 is_duplicate = True
                 duplicate_reason = f"Theme '{list(shared_themes)[0]}' already asked"
                 break
+    
+    # === VECTOR SIMILARITY CHECK: spaCy-based semantic duplicate detection ===
+    if contact_id and not is_duplicate:
+        try:
+            is_unique, uniqueness_reason = validate_response_uniqueness(contact_id, reply, threshold=0.85)
+            if not is_unique:
+                is_duplicate = True
+                duplicate_reason = f"Vector similarity blocked: {uniqueness_reason}"
+                logger.warning(f"VECTOR_SIMILARITY_BLOCKED: {uniqueness_reason}")
+        except Exception as e:
+            logger.debug(f"Vector similarity check skipped: {e}")
     
     # Also check against qualification state for logically blocked questions
     if contact_id and not is_duplicate:

@@ -17,12 +17,21 @@ logger = logging.getLogger(__name__)
 nlp = None
 
 def get_nlp():
-    """Lazy load spaCy model"""
+    """Lazy load spaCy model - use 'md' for vector similarity, 'sm' as fallback"""
     global nlp
     if nlp is None:
         try:
-            nlp = spacy.load("en_core_web_sm")
-            logger.info("spaCy model loaded successfully")
+            # Try to load medium model first (has word vectors for similarity)
+            nlp = spacy.load("en_core_web_md")
+            logger.info("spaCy en_core_web_md model loaded (with vectors)")
+        except OSError:
+            try:
+                # Fall back to small model (no vectors, similarity will be limited)
+                nlp = spacy.load("en_core_web_sm")
+                logger.warning("spaCy en_core_web_sm loaded (no vectors - similarity limited)")
+            except Exception as e:
+                logger.error(f"Failed to load any spaCy model: {e}")
+                return None
         except Exception as e:
             logger.error(f"Failed to load spaCy model: {e}")
             return None
@@ -429,3 +438,101 @@ def get_topics_already_discussed(contact_id: str) -> List[str]:
             discussed.append(t['topic'])
     
     return list(set(discussed))
+
+
+def check_vector_similarity(proposed_response: str, recent_agent_messages: List[str], threshold: float = 0.85) -> Tuple[bool, float, Optional[str]]:
+    """
+    Check if a proposed response is too similar to recent agent messages using spaCy vectors.
+    
+    Args:
+        proposed_response: The response the agent is about to send
+        recent_agent_messages: List of recent agent messages (typically last 5)
+        threshold: Similarity threshold (0.85 = 85% similar, should be blocked)
+    
+    Returns:
+        Tuple of (is_too_similar, highest_similarity_score, most_similar_message)
+    """
+    nlp_model = get_nlp()
+    if not nlp_model or not recent_agent_messages:
+        return (False, 0.0, None)
+    
+    try:
+        proposed_doc = nlp_model(proposed_response.lower().strip())
+        
+        highest_sim = 0.0
+        most_similar = None
+        
+        for msg in recent_agent_messages[-5:]:  # Check last 5 messages
+            if not msg or len(msg.strip()) < 10:
+                continue
+            
+            msg_doc = nlp_model(msg.lower().strip())
+            
+            # Get vector similarity
+            similarity = proposed_doc.similarity(msg_doc)
+            
+            if similarity > highest_sim:
+                highest_sim = similarity
+                most_similar = msg
+        
+        is_too_similar = highest_sim >= threshold
+        
+        if is_too_similar:
+            logger.warning(f"VECTOR_SIMILARITY: Blocked response (sim={highest_sim:.2f} >= {threshold})")
+            logger.debug(f"Proposed: {proposed_response[:80]}...")
+            logger.debug(f"Similar to: {most_similar[:80]}...")
+        
+        return (is_too_similar, highest_sim, most_similar)
+        
+    except Exception as e:
+        logger.error(f"Vector similarity check failed: {e}")
+        return (False, 0.0, None)
+
+
+def get_recent_agent_messages(contact_id: str, limit: int = 5) -> List[str]:
+    """Get recent agent messages for a contact (for similarity checking)"""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT message_text FROM contact_messages 
+            WHERE contact_id = %s AND message_type = 'agent'
+            ORDER BY created_at DESC
+            LIMIT %s
+        """, (contact_id, limit))
+        
+        return [row[0] for row in cur.fetchall()]
+        
+    except Exception as e:
+        logger.error(f"Error getting recent agent messages: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+
+def validate_response_uniqueness(contact_id: str, proposed_response: str, threshold: float = 0.85) -> Tuple[bool, str]:
+    """
+    Full validation: check if proposed response is unique enough to send.
+    
+    Returns:
+        Tuple of (is_valid, reason)
+        - is_valid: True if response can be sent, False if too similar
+        - reason: Explanation of why blocked (or "OK" if valid)
+    """
+    recent_messages = get_recent_agent_messages(contact_id, limit=5)
+    
+    if not recent_messages:
+        return (True, "OK - no prior messages to compare")
+    
+    is_similar, sim_score, similar_msg = check_vector_similarity(
+        proposed_response, recent_messages, threshold
+    )
+    
+    if is_similar:
+        return (False, f"Too similar to recent message (similarity={sim_score:.2f}): {similar_msg[:50]}...")
+    
+    return (True, f"OK - unique enough (max similarity={sim_score:.2f})")

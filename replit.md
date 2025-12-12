@@ -123,6 +123,20 @@ When lead says "not an employer policy" / "private" / "personal" / "not through 
 -   **Integration**: History compressed to ~1500 tokens max before LLM call.
 -   **Savings**: 50-70% token reduction on long conversations.
 
+### Vector Similarity Check (spaCy-based)
+-   **`nlp_memory.py`**: Added vector similarity checking using spaCy's semantic vectors.
+-   **`check_vector_similarity()`**: Compares proposed response against recent agent messages using spaCy word vectors.
+-   **`validate_response_uniqueness()`**: Full validation that checks if a response is unique enough to send.
+-   **Threshold**: 0.85 similarity (85%+ similar = blocked as semantic duplicate).
+-   **Integration**: Runs after theme-based duplicate detection, catches semantic repeats that keywords miss.
+-   **Fallback**: When blocked, uses progression-based alternatives from playbook.
+
+### Trigram Similarity (pg_trgm)
+-   **PostgreSQL Extension**: `pg_trgm` enabled for fuzzy text matching.
+-   **`find_similar_successful_patterns()`**: Queries DB for patterns with similar trigger messages.
+-   **Similarity Threshold**: 0.3+ trigram similarity to find related patterns.
+-   **Use Case**: Finds what worked before for similar lead messages, even if not exact match.
+
 ### API Endpoints
 -   **`/ghl` (POST)**: Unified endpoint for all GoHighLevel actions (respond, appointment, stage, contact, search), supporting multi-tenant via request body credentials.
 -   **`/`, `/grok`, `/webhook` (POST)**: Main webhooks for processing messages.
