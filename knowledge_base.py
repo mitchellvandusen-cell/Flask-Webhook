@@ -131,6 +131,7 @@ OBJECTION_HANDLERS = {
         "follow_up": "Probe to understand WHAT they have, then identify gaps",
         "responses": [
             "Did you find this company yourself? or did someone help you?"
+        ],
     },
     "too_expensive": {
         "meaning": "May not understand value, may have been quoted wrong product",
