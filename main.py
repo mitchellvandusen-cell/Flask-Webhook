@@ -159,7 +159,7 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     confirmation_code = generate_confirmation_code()
         # FINAL FALLBACK — if everything fails, never return None
     if not reply or not reply.strip():
-    reply = f"Hey{ ' ' + first_name if first_name else ''}, got it. What's on your mind?"
+        reply = f"Hey{ ' ' + first_name if first_name else ''}, got it. What's on your mind?"
     confirmation_code = confirmation_code or generate_confirmation_code()
     return reply, confirmation_code
 
