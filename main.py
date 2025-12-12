@@ -3580,15 +3580,14 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
     # =========================================================================
     # Ensure message is always a plain string before trigger logic / LLM routing
+    if isinstance(message, dict):
+        message = message.get("body") or message.get("message") or message.get("text") or ""
+    elif not isinstance(message, str):
+        message = str(message) if message is not None else ""
+        
+    message = message.strip()
 
-if isinstance(message, dict):
-    message = message.get("body") or message.get("message") or message.get("text") or ""
-elif not isinstance(message, str):
-    message = str(message) if message is not None else ""
-
-message = message.strip()
-
-triggers_found = identify_triggers(message)
+    triggers_found = identify_triggers(message)
     trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
     logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
     logger.info(f"STEP 2: message type after normalize: {type(message)}")
@@ -4636,38 +4635,37 @@ def ghl_unified():
     data = normalize_keys(raw_data)
     custom = data.get("customdata", {})
 
-raw_message = custom.get("message", data.get("message", data.get("body", data.get("text", ""))))
+    raw_message = custom.get("message", data.get("message", data.get("body", data.get("text", ""))))
+    if isinstance(raw_message, dict):
+        message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
+    else:
+        message_text = raw_message
 
-if isinstance(raw_message, dict):
-    message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
-else:
-    message_text = raw_message
-
-message_text = str(message_text).strip()
+    message_text = str(message_text).strip()
 
     action = data.get('action', 'respond')
 
     payload = normalize_keys(request.get_json(force=True))
 
-custom = payload.get("customdata", {})  # GHL "Custom Data" lands here
+    custom = payload.get("customdata", {})  # GHL "Custom Data" lands here
 
-raw_message = custom.get("message", payload.get("message", ""))
+    raw_message = custom.get("message", payload.get("message", ""))
 
-# GHL can send message as string OR as an object like {"body": "..."}
-if isinstance(raw_message, dict):
-    message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
-else:
-    message_text = raw_message
+    # GHL can send message as string OR as an object like {"body": "..."}
+    if isinstance(raw_message, dict):
+        message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
+    else:
+        message_text = raw_message
 
-if not isinstance(message_text, str):
-    message_text = ""
+    if not isinstance(message_text, str):
+        message_text = ""
 
-message_text = message_text.strip()
+    message_text = message_text.strip()
 
-first_name = custom.get("first_name", payload.get("first_name", ""))
-agent_name = custom.get("agent_name", payload.get("agent_name", ""))
-contact_id = custom.get("contact_id", payload.get("contact_id", ""))
-intent = custom.get("intent", payload.get("intent", ""))
+    first_name = custom.get("first_name", payload.get("first_name", ""))
+    agent_name = custom.get("agent_name", payload.get("agent_name", ""))
+    contact_id = custom.get("contact_id", payload.get("contact_id", ""))
+    intent = custom.get("intent", payload.get("intent", ""))
 
     
     api_key, location_id = get_ghl_credentials(data)
