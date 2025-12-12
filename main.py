@@ -165,6 +165,11 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     This ensures the bot NEVER forgets what it knows.
     """
     confirmation_code = generate_confirmation_code()
+return reply, confirmation_code
+except Exception as e:
+    logger.exception(f"generate_nepq_response failed: {e}")
+    return "Sorry. Can you repeat that last part?", generate_confirmation_code()
+
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
