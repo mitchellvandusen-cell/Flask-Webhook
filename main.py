@@ -158,9 +158,14 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         system_prompt = f"{extra_instruction}\n\n{system_prompt}"
     confirmation_code = generate_confirmation_code()
         # FINAL FALLBACK — if everything fails, never return None
+        # FINAL HUMAN SAFETY NET — never silent, never crash
     if not reply or not reply.strip():
-        reply = f"Hey{ ' ' + first_name if first_name else ''}, got it. What's on your mind?"
+        # Use first_name from the webhook payload — guaranteed to exist or be empty string
+        name_part = f" {first_name}" if first_name and first_name.strip() else ""
+        reply = f"Hey{name_part}, got it. What else is on your mind?"
+        # Make sure we always return two values
     confirmation_code = confirmation_code or generate_confirmation_code()
+
     return reply, confirmation_code
 
 # ============================================================================
