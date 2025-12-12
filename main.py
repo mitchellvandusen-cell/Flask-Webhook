@@ -4810,31 +4810,31 @@ def grok_insurance():
     return jsonify({"reply": reply})
 
 
-@app.route('/webhook', methods=['POST'])
+@app.route('/webhook', methods=["GET", 'POST'])
 def webhook():
     return grok_insurance()
 
 
-@app.route("/outreach", methods=["GET", "POST"])
+@app.route("/outreach", methods=["GET", 'POST'])
 def outreach():
     if request.method == "POST":
         return "OK", 200
     return "Up and running", 200
 
 
-@app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET', 'POST'])
 def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
 
 
-@app.route('/nlp/<contact_id>', methods=['GET'])
+@app.route('/nlp/<contact_id>', methods=['GET', 'POST'])
 def nlp_contact_summary(contact_id):
     """Get NLP topic breakdown and message history for a contact"""
     summary = get_contact_nlp_summary(contact_id)
     return jsonify(summary)
 
 
-@app.route('/nlp-topics/<contact_id>', methods=['GET'])
+@app.route('/nlp-topics/<contact_id>', methods=['GET', 'POST'])
 def nlp_topics_only(contact_id):
     """Get just the topic breakdown for a contact"""
     topics = get_topic_breakdown(contact_id)
