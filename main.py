@@ -4448,7 +4448,8 @@ Remember: Apply your knowledge, don't just pattern match.
         ],
         "coverage_goal": [
             "what made you", "why did you", "what's the goal", "what were you",
-            "originally looking", "why coverage", "what prompted"
+            "originally looking", "why coverage", "what prompted", "got you looking",
+            "what got you"
         ],
         "other_policies": [
             "other policies", "any other", "additional coverage", "also have",
