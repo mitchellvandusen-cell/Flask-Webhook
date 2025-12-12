@@ -386,8 +386,7 @@ def add_to_qualification_array(contact_id, field, value):
         import psycopg2
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
         cur = conn.cursor()
-        
-       cur.execute("""
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS contact_qualification (
             contact_id TEXT PRIMARY KEY,
 
