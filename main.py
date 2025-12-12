@@ -197,7 +197,7 @@ def generate_nepq_response(
         state = build_state_from_history(
             contact_id=contact_id,
             first_name=first_name,
-            conversation_history=conversation_history
+            conversation_history=conversation_history,
             current_message=message
         )
 
