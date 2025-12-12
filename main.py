@@ -4578,7 +4578,7 @@ Remember: Apply your knowledge, don't just pattern match.
             logger.info("STEP 5: Recorded motivation question - will block future repeats")
         
         # === NLP MEMORY: Save agent message for topic extraction ===
-        save_nlp_message(contact_id, reply, "agent")
+        save_nlp_message_text(contact_id, reply, "agent")
         logger.debug(f"NLP: Saved agent message for contact {contact_id}")
         
         # If this was a good outcome (lead engaged well), save the pattern
@@ -4624,7 +4624,41 @@ def ghl_unified():
     """
     raw_data = request.json or {}
     data = normalize_keys(raw_data)
+    custom = data.get("customdata", {})
+
+raw_message = custom.get("message", data.get("message", data.get("body", data.get("text", ""))))
+
+if isinstance(raw_message, dict):
+    message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
+else:
+    message_text = raw_message
+
+message_text = str(message_text).strip()
+
     action = data.get('action', 'respond')
+
+    payload = normalize_keys(request.get_json(force=True))
+
+custom = payload.get("customdata", {})  # GHL "Custom Data" lands here
+
+raw_message = custom.get("message", payload.get("message", ""))
+
+# GHL can send message as string OR as an object like {"body": "..."}
+if isinstance(raw_message, dict):
+    message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
+else:
+    message_text = raw_message
+
+if not isinstance(message_text, str):
+    message_text = ""
+
+message_text = message_text.strip()
+
+first_name = custom.get("first_name", payload.get("first_name", ""))
+agent_name = custom.get("agent_name", payload.get("agent_name", ""))
+contact_id = custom.get("contact_id", payload.get("contact_id", ""))
+intent = custom.get("intent", payload.get("intent", ""))
+
     
     api_key, location_id = get_ghl_credentials(data)
     
@@ -4634,9 +4668,8 @@ def ghl_unified():
     if action == 'respond':
         contact_id = data.get('contact_id') or data.get('contactid')
         first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
-        message = data.get('message') or data.get('body') or data.get('text', '')
         agent_name = data.get('agent_name') or data.get('agentname') or data.get('rep_name') or 'Mitchell'
-        
+        message = message # implicit - dont touch it
         if not contact_id:
             return jsonify({"error": "contact_id required"}), 400
         if not message:
@@ -4647,7 +4680,7 @@ def ghl_unified():
         
         intent = extract_intent(data, message)
         logger.debug(f"Extracted intent in /ghl respond: {intent}")
-        
+        logger.info(f'DBUG message type: {type(message} preview message[:60]})
         start_time_iso, formatted_time, _ = parse_booking_time(message)
         appointment_created = False
         appointment_details = None
