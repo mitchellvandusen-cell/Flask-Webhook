@@ -3580,6 +3580,7 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
     # =========================================================================
     # Ensure message is always a plain string before trigger logic / LLM routing
+
 if isinstance(message, dict):
     message = message.get("body") or message.get("message") or message.get("text") or ""
 elif not isinstance(message, str):
