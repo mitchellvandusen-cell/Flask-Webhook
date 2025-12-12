@@ -38,6 +38,12 @@ from knowledge_base import (
 from unified_brain import get_unified_brain, get_decision_prompt
 # Insurance company validation
 from insurance_companies import find_company_in_message, get_company_context
+# NLP Memory - spaCy-based message storage and topic extraction
+from nlp_memory import (
+    init_nlp_tables, save_message as save_nlp_message,
+    get_topic_breakdown, get_topics_already_discussed,
+    format_nlp_for_prompt, get_contact_nlp_summary
+)
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -51,6 +57,13 @@ try:
     logger.info("Outcome learning system initialized")
 except Exception as e:
     logger.warning(f"Could not initialize outcome learning tables: {e}")
+
+# Initialize NLP memory tables on startup
+try:
+    init_nlp_tables()
+    logger.info("NLP memory system initialized")
+except Exception as e:
+    logger.warning(f"Could not initialize NLP memory tables: {e}")
 
 GHL_BASE_URL = "https://services.leadconnectorhq.com"
 
@@ -3597,14 +3610,23 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
     # === QUALIFICATION STATE: Persistent memory per contact ===
     qualification_state = None
     qualification_context = ""
+    nlp_context = ""
     if contact_id:
-        # === STEP 0: Parse conversation history to backfill topics_asked ===
+        # === STEP 0a: Save incoming message to NLP memory ===
+        # Store all messages for spaCy parsing and topic extraction
+        save_nlp_message(contact_id, message, "lead")
+        logger.debug(f"NLP: Saved lead message for contact {contact_id}")
+        
+        # === STEP 0b: Parse conversation history to backfill topics_asked ===
         # This retroactively identifies topics already asked in previous messages
         if conversation_history:
             parse_history_for_topics_asked(contact_id, conversation_history)
         
         # Load existing qualification state from database (after backfill)
         qualification_state = get_qualification_state(contact_id)
+        
+        # === STEP 0c: Get NLP topic breakdown for additional context ===
+        nlp_context = format_nlp_for_prompt(contact_id)
         
         # Extract and update qualification from this message
         extracted_updates = extract_and_update_qualification(contact_id, message, conversation_history)
@@ -3659,6 +3681,17 @@ def generate_nepq_response(first_name, message, agent_name="Mitchell", conversat
         
         if topics_asked:
             logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
+    
+    # === SYNC NLP TOPICS: Also sync topics from spaCy NLP memory ===
+    if contact_id:
+        nlp_topics = get_topics_already_discussed(contact_id)
+        for topic in nlp_topics:
+            # Extract simple topic name (remove category prefix if present)
+            simple_topic = topic.split(":")[-1] if ":" in topic else topic
+            if simple_topic not in conv_state.topics_answered:
+                conv_state.topics_answered.append(simple_topic)
+        if nlp_topics:
+            logger.debug(f"NLP: Synced {len(nlp_topics)} topics from NLP memory")
     
     state_instructions = format_state_for_prompt(conv_state)
     logger.debug(f"Conversation state: stage={conv_state.stage.value}, exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}")
@@ -4490,6 +4523,10 @@ Remember: Apply your knowledge, don't just pattern match.
             add_to_qualification_array(contact_id, "topics_asked", "motivation")
             logger.info("STEP 5: Recorded motivation question - will block future repeats")
         
+        # === NLP MEMORY: Save agent message for topic extraction ===
+        save_nlp_message(contact_id, reply, "agent")
+        logger.debug(f"NLP: Saved agent message for contact {contact_id}")
+        
         # If this was a good outcome (lead engaged well), save the pattern
         if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
             save_new_pattern(message, reply, vibe, outcome_score)
@@ -4749,6 +4786,20 @@ def outreach():
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
+
+
+@app.route('/nlp/<contact_id>', methods=['GET'])
+def nlp_contact_summary(contact_id):
+    """Get NLP topic breakdown and message history for a contact"""
+    summary = get_contact_nlp_summary(contact_id)
+    return jsonify(summary)
+
+
+@app.route('/nlp-topics/<contact_id>', methods=['GET'])
+def nlp_topics_only(contact_id):
+    """Get just the topic breakdown for a contact"""
+    topics = get_topic_breakdown(contact_id)
+    return jsonify({"contact_id": contact_id, "topics": topics})
 
 
 @app.route('/stats', methods=['GET', 'POST'])

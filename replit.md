@@ -98,6 +98,20 @@ When lead says "not an employer policy" / "private" / "personal" / "not through 
 -   Injects high-scoring patterns into future prompts as "PROVEN RESPONSES".
 -   Tracks "burned" contacts and applies a +2.0 bonus to all conversation responses upon appointment booking.
 
+### NLP Memory System (spaCy-based)
+-   **`nlp_memory.py`**: spaCy-powered message storage and topic extraction.
+-   **Tables**:
+    *   `contact_messages`: Stores ALL messages (lead & agent) per contact_id, sorted chronologically.
+    *   `parsed_entities`: spaCy-extracted named entities (PERSON, ORG, MONEY, DATE, etc.).
+    *   `topic_breakdown`: Categorized topics discussed per contact, with mention counts.
+-   **Topic Categories**: coverage_status, policy_type, policy_source, family, health, motivation, objections, buying_signals, carrier.
+-   **Auto-parsing**: Each message is parsed with spaCy on save, extracting entities and matching topic patterns.
+-   **Topic Sync**: NLP topics are synced to `conv_state.topics_answered` to prevent repeat questions.
+-   **API Endpoints**:
+    *   `GET /nlp/<contact_id>`: Full NLP summary (messages, topics, entities).
+    *   `GET /nlp-topics/<contact_id>`: Topic breakdown only.
+-   **Benefits**: Zero API cost for topic extraction, persistent memory across sessions, better organization of lead data.
+
 ### API Endpoints
 -   **`/ghl` (POST)**: Unified endpoint for all GoHighLevel actions (respond, appointment, stage, contact, search), supporting multi-tenant via request body credentials.
 -   **`/`, `/grok`, `/webhook` (POST)**: Main webhooks for processing messages.
