@@ -13,5 +13,5 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:${PORT}", "main:app"]
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "main:app"]
 
