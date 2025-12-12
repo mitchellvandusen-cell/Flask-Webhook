@@ -3568,26 +3568,27 @@ def extract_intent(data, message=""):
     
     return normalized
 
-def generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id, extra_instruction=""):
-    # Add retry instruction at the very top of the prompt
-    
-    system_prompt = get_unified_brain()  # or however you build it
-    
-if extra_instruction:
-        system_prompt = f"{extra_instruction}\n\n{system_prompt}"
-        # ... rest of your existing code continues here unchanged
-    
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York", extra_instruction=""):
+    """
+    Generate NEPQ response using DELIBERATE knowledge-first architecture.
+
     THE BOT HAS ALZHEIMER'S - Every time it must:
     1. READ ALL KNOWLEDGE (full main.py context, knowledge_base.py)
     2. RE-READ CLIENT MESSAGE in context
     3. CHECK OUTCOME PATTERNS (what worked before)
     4. EVALUATE: Is trigger best? Is outcome pattern better? Or create new?
     5. RESPOND + LOG the decision
-    
+
     This ensures the bot NEVER forgets what it knows.
     """
+    # Add retry instruction at the very top of the prompt
+    system_prompt = get_unified_brain()
+
+    if extra_instruction:
+        system_prompt = f"{extra_instruction}\n\n{system_prompt}"
+
     confirmation_code = generate_confirmation_code()
-    
+
     # =========================================================================
     # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
     # =========================================================================
@@ -3598,6 +3599,12 @@ if extra_instruction:
             if slots:
                 real_calendar_slots = format_slot_options(slots, timezone)
                 logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
+        except Exception as e:
+            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+
+    if not real_calendar_slots:
+        real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
+        logger.info("STEP 0: Using vague time fallback (no specific times)")
         except Exception as e:
             logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
     
