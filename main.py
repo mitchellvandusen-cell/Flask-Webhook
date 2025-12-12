@@ -140,7 +140,7 @@ def normalize_keys(data):
         return data
     return {k.lower(): v for k, v in data.items()}
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/Central", extra_instruction=""):
+def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York", extra_instruction=""):
     system_prompt = get_unified_brain()
     if extra_instruction:
         system_prompt = f"{extra_instruction}\n\n{system_prompt}"
