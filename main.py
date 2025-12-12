@@ -141,24 +141,9 @@ def normalize_keys(data):
     return {k.lower(): v for k, v in data.items()}
 
 def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/Central", extra_instruction=""):
-        """
-        Generate NEPQ response using DELIBERATE knowledge-first architecture.
-
-        THE BOT HAS ALZHEIMER'S - Every time it must:
-        1. READ ALL KNOWLEDGE (full main.py context, knowledge_base.py)
-        2. RE-READ CLIENT MESSAGE in context 
-        3. CHECK OUTCOME PATTERNS (what worked before)
-        4. EVALUATE: Is trigger best? Is outcome pattern better? Or create new?
-        5. RESPOND + LOG the decision
-
-        This ensures the bot NEVER forgets what it knows.
-        """
-        # Add retry instruction at the very top of the prompt
     system_prompt = get_unified_brain()
-
     if extra_instruction:
         system_prompt = f"{extra_instruction}\n\n{system_prompt}"
-
     confirmation_code = generate_confirmation_code()
 
 # ============================================================================
