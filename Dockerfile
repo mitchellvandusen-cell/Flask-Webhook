@@ -1,14 +1,17 @@
-FROM python:3.11 AS builder
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-WORKDIR /app
-
-RUN python -m venv .venv
-COPY pyproject.toml ./
-RUN .venv/bin/pip install .
 FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
 WORKDIR /app
-COPY --from=builder /app/.venv .venv/
+
+RUN apt-get update && apt-get install -y build-essential && apt-get clean
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
-CMD ["/app/.venv/bin/flask", "run", "--host=0.0.0.0", "--port=8080"]
+
+EXPOSE 8080
+
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:${PORT}", "main:app"]
+
