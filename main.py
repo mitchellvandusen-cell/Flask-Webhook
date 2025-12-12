@@ -3568,8 +3568,14 @@ def extract_intent(data, message=""):
     
     return normalized
 
-def generate_nepq_response(first_name, message, agent_name="Mitchell", conversation_history=None, intent="general", contact_id=None, api_key=None, calendar_id=None, timezone="America/New_York"):
-    """Generate NEPQ response using DELIBERATE knowledge-first architecture:
+def generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id, extra_instruction=""):
+    # Add retry instruction at the very top of the prompt
+    system_prompt = get_unified_brain()  # or however you build it
+    
+    if extra_instruction:
+        system_prompt = f"{extra_instruction}\n\n{system_prompt}"
+    
+    # ... rest of your existing code continues here unchanged
     
     THE BOT HAS ALZHEIMER'S - Every time it must:
     1. READ ALL KNOWLEDGE (full main.py context, knowledge_base.py)
