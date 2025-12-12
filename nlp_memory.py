@@ -11,7 +11,34 @@ from typing import Dict, List, Optional, Any, Tuple
 import spacy
 import psycopg2
 from psycopg2.extras import RealDictCursor
+# EMERGENCY FIX — auto-download medium model + create missing DB stuff
+import subprocess
+import sys
+import os
 
+# Auto-install + download the good spaCy model (with vectors)
+try:
+    import spacy
+    if not spacy.util.is_package("en_core_web_md"):
+        print("Downloading en_core_web_md (with vectors)...")
+        subprocess.check_call([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
+    nlp = spacy.load("en_core_web_md")
+    print("spaCy medium model loaded — perfect similarity checks")
+except Exception as e:
+    print("spaCy fallback:", e)
+    nlp = spacy.load("en_core_web_sm")
+
+# One-time DB fix — run every startup (harmless if already exists)
+try:
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    cur = conn.cursor()
+    cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+    cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS topics_asked TEXT[] DEFAULT '{}';")
+    conn.commit()
+    conn.close()
+    print("DB fixed: pg_trgm + topics_asked ready")
+except Exception as e:
+    print("DB already good or error:", e)
 logger = logging.getLogger(__name__)
 
 nlp = None
