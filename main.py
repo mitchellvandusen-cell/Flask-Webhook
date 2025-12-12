@@ -6,6 +6,18 @@ import logging
 import requests
 import dateparser
 import re
+import spacy
+import subprocess
+import sys
+def ensure_spacy_model():
+    try:
+        spacy.load("en_core_web_md")
+        print("spaCy model already cached")
+    except OSError:
+        print("Downloading spaCy model once...")
+        subprocess.check_call([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
+# Run it on startup
+ensure_spacy_model()
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from openai import OpenAI
