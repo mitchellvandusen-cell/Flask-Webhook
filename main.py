@@ -61,14 +61,15 @@ from token_optimizer import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 # Startup env check
+
+logger.info("======================")
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 logger.info("=== ENV VAR STATUS ===")
 logger.info(f"GHL_API_KEY: {'SET' if os.environ.get('GHL_API_KEY') else 'MISSING'}")
 logger.info(f"GHL_LOCATION_ID: {'SET' if os.environ.get('GHL_LOCATION_ID') else 'MISSING'}")
 logger.info(f"XAI_API_KEY: {'SET' if os.environ.get('XAI_API_KEY') else 'MISSING'}")
 logger.info(f"DATABASE_URL: {'SET' if os.environ.get('DATABASE_URL') else 'MISSING'}")
-logger.info("======================")
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 # Initialize outcome learning tables on startup
 try:
@@ -131,7 +132,7 @@ def get_client():
         logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
         if not api_key:
             logger.error("XAI_API_KEY not found - cannot create client")
-            raise ValueError("XAI_API_KEY environment variable is not set")
+            logger.ValueError("XAI_API_KEY environment variable is not set")
             _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
             logger.info("xAI client created successfully")
     return _client
@@ -287,6 +288,7 @@ def generate_nepq_response(
         ghl_key = os.environ.get("GHL_API_KEY")
         location_id = os.environ.get("GHL_LOCATION_ID")
         if ghl_key and location_id and contact_id:
+            logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
             url = f"https://services.leadconnectorhq.com/conversations/{contact_id}/messages"
             headers = {"Authorization": f"Bearer {ghl_key}"}
             payload = {"type": "SMS", "message": reply}
@@ -296,7 +298,7 @@ def generate_nepq_response(
             logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
         logger.error(f"SMS send failed: {e}")
-        logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
+        
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
