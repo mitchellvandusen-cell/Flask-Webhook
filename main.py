@@ -259,13 +259,13 @@ def generate_nepq_response(
         # ------------------------------------------------------------------
         client = get_client()
             response = client.chat.completions.create(
-                model="grok-4-1-fast-reasoning",
-                messages=[
-                    {"role": "system", "content": brain},
-                    {"role": "user", "content": decision_prompt},
+            model="grok-4-1-fast-reasoning",
+            messages=[
+                {"role": "system", "content": brain},
+                {"role": "user", "content": decision_prompt},
                 ],
                 temperature=0.6,
-            )
+        )
         raw_reply = response.choices[0].message.content.strip()
         # Extract only the <response> part
         if "<response>" in raw_reply and "</response>" in raw_reply:
