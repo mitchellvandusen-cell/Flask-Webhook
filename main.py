@@ -280,6 +280,27 @@ def generate_nepq_response(
     if not reply or not reply.strip():
         reply = "Hey, got it. What else is on your mind?"
     return reply, confirmation_code or generate_confirmation_code()
+
+    if contact_id and api_key and location_id:
+        sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+        return jsonify({
+            "success": True,
+            "reply": reply,
+            "opener": "jeremy_miner_2025",
+            "contact_id": contact_id,
+            "sms_sent": sms_result.get("success", False)
+        })
+    else:
+        return jsonify({
+            "success": True,
+            "reply": reply,
+            "opener": "jeremy_miner_2025",
+            "sms_sent": False,
+            "warning": "No GHL credentials - SMS not sent"
+        })
+    
+    intent = extract_intent(data, message)
+    logger.debug(f"Extracted intent: {intent}")
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
@@ -1571,7 +1592,7 @@ def format_lead_profile_for_llm(profile, first_name):
     
     return "\n".join(sections)
 
-def get_ghl_credentials(data=None):
+def get_ghl_credentials(calendar_id, api_key):
     """
     Get GHL credentials with priority:
     1. Request body (ghl_api_key, ghl_location_id) - for multi-tenant via webhooks
@@ -4246,16 +4267,6 @@ YOU MUST:
 
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
 === TRY A NEW ANGLE - DON'T GIVE UP ===
-
-"""
-            
-            questions_warning = f"""
-{deflection_warning}=== RECENT QUESTIONS YOU ALREADY ASKED (DO NOT REPEAT IN ANY FORM) ===
-{questions_list}
-=== YOU CANNOT ASK THESE AGAIN OR ANYTHING SIMILAR ===
-
-"""
-        
         # Count soft dismissive responses in history to escalate response
         # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
@@ -4282,7 +4293,7 @@ DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "l
             rejection_count += 1
         
         # Add explicit exchange count warning
-        exchange_warning = ""
+        exchange_warning = """
         
         # HARD DISMISSIVE = wants to end contact completely (must exit)
         if is_hard_dismissive:
