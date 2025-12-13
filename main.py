@@ -277,12 +277,14 @@ def generate_nepq_response(
 # ------------------------------------------------------------------
 # 9) FINAL SAFETY + RETURN
 # ------------------------------------------------------------------
-    if not reply:
-        reply = "Sorry — can you repeat that last part?"
-    return reply, confirmation_code              
+        if not reply:
+            reply = "Sorry — can you repeat that last part?"
+        return reply, confirmation_code
+
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
+
 def get_qualification_state(contact_id):
     """
     Get or create qualification state for a contact.
