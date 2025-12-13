@@ -4183,7 +4183,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
 {chr(10).join([f"- {t}" for t in topics_already_asked])}
 
-"""
+
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
 """    
         questions_warning = """
@@ -4209,7 +4209,7 @@ YOU MUST NOT:
 - Say goodbye or exit (soft rejections are NOT hard stops)
 
 YOU MUST:
-- Acknowledge briefly: "Fair enough" / "Got it" / "No worries"  
+- Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
 - Pivot to a COMPLETELY DIFFERENT re-frame from this list:
   1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
   2. Portability: "Does it follow you if you switch jobs?"
