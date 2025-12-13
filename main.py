@@ -4183,7 +4183,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
 {chr(10).join([f"- {t}" for t in topics_already_asked])}
 
-
+"""
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
 """    
         questions_warning = """
