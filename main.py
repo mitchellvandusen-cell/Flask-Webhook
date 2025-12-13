@@ -58,12 +58,17 @@ from token_optimizer import (
     count_tokens, compress_conversation_history,
     optimize_prompt, get_token_stats
 )
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
+# Startup env check
+logger.info("=== ENV VAR STATUS ===")
+logger.info(f"GHL_API_KEY: {'SET' if os.environ.get('GHL_API_KEY') else 'MISSING'}")
+logger.info(f"GHL_LOCATION_ID: {'SET' if os.environ.get('GHL_LOCATION_ID') else 'MISSING'}")
+logger.info(f"XAI_API_KEY: {'SET' if os.environ.get('XAI_API_KEY') else 'MISSING'}")
+logger.info(f"DATABASE_URL: {'SET' if os.environ.get('DATABASE_URL') else 'MISSING'}")
+logger.info("======================")
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Initialize outcome learning tables on startup
 try:
@@ -118,13 +123,17 @@ GHL_BASE_URL = "https://services.leadconnectorhq.com"
 
 _client = None
 
+
 def get_client():
     global _client
     if _client is None:
         api_key = os.environ.get("XAI_API_KEY")
+        logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
         if not api_key:
+            logger.error("XAI_API_KEY not found - cannot create client")
             raise ValueError("XAI_API_KEY environment variable is not set")
-        _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
+            _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
+            logger.info("xAI client created successfully")
     return _client
 
 def generate_confirmation_code():
@@ -274,7 +283,6 @@ def generate_nepq_response(
             logger.error(f"Grok call failed: {e}")
             reply = "Hey, sorry — something went wrong on my end. Can you try again?"
 
-    logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
     try:
         ghl_key = os.environ.get("GHL_API_KEY")
         location_id = os.environ.get("GHL_LOCATION_ID")
@@ -288,27 +296,7 @@ def generate_nepq_response(
             logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
         logger.error(f"SMS send failed: {e}")
-
-    if contact_id and api_key and location_id:
-        sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
-        return jsonify({
-            "success": True,
-            "reply": reply,
-            "opener": "jeremy_miner_2025",
-            "contact_id": contact_id,
-            "sms_sent": sms_result.get("success", False)
-        })
-    else:
-        return jsonify({
-            "success": True,
-            "reply": reply,
-            "opener": "jeremy_miner_2025",
-            "sms_sent": False,
-            "warning": "No GHL credentials - SMS not sent"
-        })
-    
-    intent = extract_intent(data, message)
-    logger.debug(f"Extracted intent: {intent}")
+        logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
@@ -344,12 +332,11 @@ def get_qualification_state(contact_id):
         conn.commit()
         result = dict(row) if row else None
         conn.close()
-        return result
+            return result
         
     except Exception as e:
         logger.warning(f"Could not get qualification state: {e}")
-        return None
-
+    return None
 
 def update_qualification_state(contact_id, updates):
     """
@@ -476,8 +463,7 @@ def add_to_qualification_array(contact_id, field, value):
     finally:
         if conn:
             conn.close()
-
-
+            
 def extract_and_update_qualification(contact_id, message, conversation_history=None):
     """
     Extract qualification data from message and update state.
@@ -638,17 +624,16 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
     
     # Add blockers to array
     for blocker in blockers:
-        add_to_qualification_array(contact_id, "blockers", blocker)
-    
+        add_to_qualification_array(contact_id, "blockers", blocker) 
     return updates
-
-
+    
 def parse_history_for_topics_asked(contact_id, conversation_history):
     """
     Parse previous conversation history to retroactively identify topics already asked by the agent.
     This backfills topics_asked to prevent repeating questions that were already asked in earlier messages.
     """
     if not contact_id or not conversation_history:
+        logger.info("Parse successful")
         return
     
     # Get current topics_asked from database
