@@ -260,7 +260,7 @@ def generate_nepq_response(
         client = get_client()
 
         response = client.chat.completions.create(
-            model="grok-beta",
+            model="grok-4-1-fast-reasoning",
             messages=[
                 {"role": "system", "content": brain},
                 {"role": "user", "content": decision_prompt},
