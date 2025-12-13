@@ -277,16 +277,16 @@ def generate_nepq_response(
 
         reply = " ".join(reply.split())
 
-    except Exception as e:
-        logger.error(f"Grok call failed: {e}")
-        reply = "Hey, sorry — something went wrong on my end. Can you try again?"
+        except Exception as e:
+            logger.error(f"Grok call failed: {e}")
+            reply = "Hey, sorry — something went wrong on my end. Can you try again?"
         return reply, confirmation_code or generate_confirmation_code()
 
-    # Final safety (if reply is empty)
-    if not reply or not reply.strip():
+        # Final safety (if reply is empty)
+        if not reply or not reply.strip():
         reply = "Hey, got it. What else is on your mind?"
 
-    return reply, confirmation_code or generate_confirmation_code()
+        return reply, confirmation_code or generate_confirmation_code()
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
