@@ -4090,10 +4090,10 @@ Remove negatives:
 - "no pressure to buy anything"
 - "just getting information"
 - "see if there's a better fit"
-"""
+
 ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 ===
-"""
+""",
     }
     
     stage_directive = stage_directives.get(stage, "")
@@ -4185,8 +4185,8 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 
 
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
-"""    
-        questions_warning = """
+ """   
+        questions_warning = 
         if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
             
@@ -4196,6 +4196,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
             if is_soft_dismissive and last_agent_msg:
                 last_question = last_agent_msg.replace("You: ", "")
                 deflection_warning = f"""
+                
 === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
 You asked: "{last_question}"
 They said: "{message}" (this is a DEFLECTION - they don't want to answer)
@@ -4216,6 +4217,7 @@ YOU MUST:
   5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
 
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
+"""
 === TRY A NEW ANGLE - DON'T GIVE UP ===
         # Count soft dismissive responses in history to escalate response
         # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
