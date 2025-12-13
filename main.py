@@ -277,7 +277,7 @@ def generate_nepq_response(
         
     return reply, confirmation_code or generate_confirmation_code()
         # Final safety (if reply is empty)
-        if not reply or not reply.strip():
+    if not reply or not reply.strip():
         reply = "Hey, got it. What else is on your mind?"
     return reply, confirmation_code or generate_confirmation_code()
 # ============================================================================
