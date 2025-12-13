@@ -4090,10 +4090,10 @@ Remove negatives:
 - "no pressure to buy anything"
 - "just getting information"
 - "see if there's a better fit"
-
+"""
 ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 ===
-"""
+
     }
     
     stage_directive = stage_directives.get(stage, "")
@@ -4181,6 +4181,8 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         if topics_already_asked:
             topics_warning = f"""
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
+""",
+
 {chr(10).join([f"- {t}" for t in topics_already_asked])}
 
 
