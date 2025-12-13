@@ -274,12 +274,12 @@ def generate_nepq_response(
             reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
 
         reply = " ".join(reply.split())
-        # ------------------------------------------------------------------
-        # 9) FINAL SAFETY + RETURN
-        # ------------------------------------------------------------------
-        if not reply:
-            reply = "Sorry — can you repeat that last part?"
-        return reply, confirmation_code              
+# ------------------------------------------------------------------
+# 9) FINAL SAFETY + RETURN
+# ------------------------------------------------------------------
+    if not reply:
+        reply = "Sorry — can you repeat that last part?"
+    return reply, confirmation_code              
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
