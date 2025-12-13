@@ -252,26 +252,27 @@ def generate_nepq_response(
             trigger_suggestion=None,
             proven_patterns=proven_text,
             triggers_found=triggers_found,
-        )
+            )
 
         # ------------------------------------------------------------------
         # 8) GROK / xAI CALL
         # ------------------------------------------------------------------
-        client = get_client()
-            response = client.chat.completions.create(
-                model="grok-4.1-fast-reasoning",
-                messages=[{"role": "system", "content": brain},
+            client = get_client()
+                response = client.chat.completions.create(
+                    model="grok-4.1-fast-reasoning",
+                    messages=[{"role": "system", "content": brain},
                           {"role": "user", "content": decision_prompt}
-                         ])
-        raw_reply = response.choices[0].message.content.strip()
+                    ],
+                    tempurature=0.6
+            )
+            raw_reply = response.choices[0].message.content.strip()
+            # Extract only the <response> part
+        if "<response>" in raw_reply and "</response>" in raw_reply:
+            reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
+        else:
+            reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
 
-    # Extract only the <response> part
-    if "<response>" in raw_reply and "</response>" in raw_reply:
-        reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
-    else:
-        reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
-
-    reply = " ".join(reply.split())
+        reply = " ".join(reply.split())
         # ------------------------------------------------------------------
         # 9) FINAL SAFETY + RETURN
         # ------------------------------------------------------------------
