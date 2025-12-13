@@ -4244,7 +4244,7 @@ DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "l
             rejection_count += 1
         
         # Add explicit exchange count warning
-        exchange_warning =
+        exchange_warning = ""
         
         # HARD DISMISSIVE = wants to end contact completely (must exit)
         if is_hard_dismissive:
