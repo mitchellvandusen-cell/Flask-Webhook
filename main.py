@@ -351,25 +351,23 @@ def update_qualification_state(contact_id, updates):
     try:
         import psycopg2
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
-        cur = conn.cursor()
-        
+        cur = conn.cursor()  
         # Ensure contact exists first
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO contact_qualification (contact_id) 
             VALUES (%s) 
             ON CONFLICT (contact_id) DO NOTHING
-        """, (contact_id,))
-        
+            """, 
+        (contact_id,))
         # Build dynamic update query
         set_clauses = []
         values = []
         for field, value in updates.items():
             set_clauses.append(f"{field} = %s")
             values.append(value)
-        
         set_clauses.append("updated_at = CURRENT_TIMESTAMP")
         values.append(contact_id)
-        
         query = f"UPDATE contact_qualification SET {', '.join(set_clauses)} WHERE contact_id = %s"
         cur.execute(query, values)
         conn.commit()
@@ -379,16 +377,14 @@ def update_qualification_state(contact_id, updates):
     except Exception as e:
         logger.warning(f"Could not update qualification state: {e}")
         return False
-
-
+        
 def add_to_qualification_array(contact_id, field, value):
     """
     Add a value to an array field (health_conditions, topics_asked, etc.)
     Won't add duplicates. Only works with TEXT[] columns.
     """
     if not contact_id or not field or not value:
-        return False
-    
+        return False 
     # Validate field is an allowed TEXT[] column
     allowed_array_fields = {
         'health_conditions', 'health_details', 'key_quotes',
@@ -397,18 +393,16 @@ def add_to_qualification_array(contact_id, field, value):
     if field not in allowed_array_fields:
         logger.warning(f"add_to_qualification_array: Invalid field '{field}' - not a TEXT[] column")
         return False
-    
-    conn = None
+        conn = None
+
     try:
         import psycopg2
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
         cur = conn.cursor()
-        cur.execute("""
-        # Add to array only if not already present (all validated fields are TEXT[])
-        cur.execute(f"""
-            UPDATE contact_qualification 
-            SET {field} = CASE 
-                WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[])) THEN {field}
+        # Add to array only if not already present (all validated fields are TEXT[]),
+        cur.execute(f"UPDATE contact_qualification SET {field} = CASE 
+                WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[]))
+                THEN {field}
                 ELSE array_append(COALESCE({field}, ARRAY[]::TEXT[]), %s)
             END,
             updated_at = CURRENT_TIMESTAMP
@@ -4188,11 +4182,11 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
             topics_warning = f"""
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
 {chr(10).join([f"- {t}" for t in topics_already_asked])}
-=== CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
 
-"""
-        
-        questions_warning = ""
+
+=== CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
+    
+        questions_warning = """
         if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
             
