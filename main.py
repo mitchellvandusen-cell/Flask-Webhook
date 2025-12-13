@@ -4181,8 +4181,6 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         if topics_already_asked:
             topics_warning = f"""
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
-""",
-
 {chr(10).join([f"- {t}" for t in topics_already_asked])}
 
 
@@ -4198,8 +4196,6 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
             if is_soft_dismissive and last_agent_msg:
                 last_question = last_agent_msg.replace("You: ", "")
                 deflection_warning = f"""
-"""
-
 === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
 You asked: "{last_question}"
 They said: "{message}" (this is a DEFLECTION - they don't want to answer)
