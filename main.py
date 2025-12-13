@@ -5216,7 +5216,7 @@ def ghl_stage():
 def index():
     """
     Main webhook - generates NEPQ response and sends SMS automatically.
-    Just set URL to https://InsuranceGrokBot.replit.app/ with Custom Data.
+    Just set URL to https://insurancegrokbot.click/ with Custom Data.
     
     If no message is provided (like for tag/pipeline triggers), generates
     an initial outreach message to start the conversation.
