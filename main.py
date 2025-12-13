@@ -125,12 +125,11 @@ _client = None
 def get_client():
     global _client
     if _client is None:
-    api_key = os.environ.get("XAI_API_KEY")
-    logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
-        if not api_key:
-            
-    logger.error("XAI_API_KEY not found - cannot create client")
-            raise.ValueError("XAI_API_KEY environment variable is not set")
+        api_key = os.environ.get("XAI_API_KEY")
+        logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
+            if not api_key:          
+                logger.error("XAI_API_KEY not found - cannot create client")
+                raise ValueError("XAI_API_KEY environment variable is not set")
         _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
         logger.info("xAI client created successfully")
     return _client
