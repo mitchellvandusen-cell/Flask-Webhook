@@ -4863,7 +4863,7 @@ def ghl_unified():
         contact_id = data.get('contact_id') or data.get('contactid')
         first_name = data.get('first_name') or data.get('firstname') or data.get('name', 'there')
         agent_name = data.get('agent_name') or data.get('agentname') or data.get('rep_name') or 'Mitchell'
-        message = message # implicit - dont touch it
+        message = message_text # implicit - dont touch it
         
         if not contact_id:
             return jsonify({"error": "contact_id required"}), 400
