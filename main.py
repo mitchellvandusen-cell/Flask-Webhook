@@ -170,15 +170,12 @@ def generate_nepq_response(
     confirmation_code = generate_confirmation_code()
 
     try:                
-        # ------------------------------------------------------------------
-        # 0) Normalize message (CRITICAL – prevents dict.lower() crashes)
-        # ------------------------------------------------------------------
         if isinstance(message, dict):
             message = message.get("body") or message.get("message") or message.get("text") or ""
-        elif not isinstance(message, str):
+        elif not 
+            isinstance(message, str):
             message = "" if message is None else str(message)
-
-        message = message.strip()
+            message = message.strip()
         if not message:
             message = "initial outreach - contact just entered pipeline"
 
@@ -220,8 +217,8 @@ def generate_nepq_response(
         # ------------------------------------------------------------------
         learning_ctx = get_learning_context(contact_id, current_message=message)
         proven_patterns = find_similar_successful_patterns(message)
-
         proven_text = ""
+        
         if proven_patterns:
             proven_text = "\n".join(
                 f"- {p['response_used']}" for p in proven_patterns[:3]
@@ -278,14 +275,12 @@ def generate_nepq_response(
     except Exception as e:
             logger.error(f"Grok call failed: {e}")
             reply = "Hey, sorry — something went wrong on my end. Can you try again?"
-            
-        return reply, confirmation_code or generate_confirmation_code()
-
+        
+    return reply, confirmation_code or generate_confirmation_code()
         # Final safety (if reply is empty)
         if not reply or not reply.strip():
         reply = "Hey, got it. What else is on your mind?"
-
-        return reply, confirmation_code or generate_confirmation_code()
+    return reply, confirmation_code or generate_confirmation_code()
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
