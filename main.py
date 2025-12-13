@@ -259,7 +259,7 @@ def generate_nepq_response(
                 messages=[{"role": "system", "content": brain},
                           {"role": "user", "content": decision_prompt}
                     ],
-                tempurature=0.6
+                temperature=0.6
             )
         
         raw_reply = response.choices[0].message.content.strip()
