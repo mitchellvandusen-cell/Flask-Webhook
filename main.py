@@ -166,7 +166,7 @@ def generate_nepq_response(
     api_key=None,
     calendar_id=None,
     timezone="America/New_York",
-):
+    ):
     confirmation_code = generate_confirmation_code()
 
     try:
@@ -258,8 +258,7 @@ def generate_nepq_response(
         # 8) GROK / xAI CALL
         # ------------------------------------------------------------------
         client = get_client()
-
-                response = client.chat.completions.create(
+            response = client.chat.completions.create(
             model="grok-4-1-fast-reasoning",
             messages=[
                 {"role": "system", "content": brain},
@@ -268,14 +267,12 @@ def generate_nepq_response(
             temperature=0.6,
             )
         raw_reply = response.choices[0].message.content.strip()
-
         # Extract only the <response> part
         if "<response>" in raw_reply and "</response>" in raw_reply:
             reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
         else:
             # Fallback: take everything after <thinking> or just use raw
             reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
-
         # Clean up any leftover newlines
         reply = " ".join(reply.split())
         reply = response.choices[0].message.content.strip()
