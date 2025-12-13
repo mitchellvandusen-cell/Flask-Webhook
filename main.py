@@ -265,7 +265,8 @@ def generate_nepq_response(
                     ],
                 tempurature=0.6
             )
-            raw_reply = response.choices[0].message.content.strip()
+        
+        raw_reply = response.choices[0].message.content.strip()
             # Extract only the <response> part
         if "<response>" in raw_reply and "</response>" in raw_reply:
             reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
