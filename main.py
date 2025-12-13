@@ -166,7 +166,7 @@ def generate_nepq_response(
     api_key=None,
     calendar_id=None,
     timezone="America/New_York",
-    ):
+):
     confirmation_code = generate_confirmation_code()
 
     try:
@@ -266,7 +266,7 @@ def generate_nepq_response(
                 {"role": "user", "content": decision_prompt},
             ],
             temperature=0.6,
-        )
+            )
         raw_reply = response.choices[0].message.content.strip()
 
         # Extract only the <response> part
@@ -288,8 +288,8 @@ def generate_nepq_response(
 
         return reply, confirmation_code
 
-    except Exception as e:
-        logger.exception("generate_nepq_response failed")
+        except Exception as e:
+            logger.exception("generate_nepq_response failed")
         return "Sorry — can you repeat that last part?", generate_confirmation_code()
               
 # ============================================================================
