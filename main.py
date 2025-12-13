@@ -61,8 +61,6 @@ from token_optimizer import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 # Startup env check
-
-logger.info("======================")
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.info("=== ENV VAR STATUS ===")
@@ -128,13 +126,14 @@ _client = None
 def get_client():
     global _client
     if _client is None:
-        api_key = os.environ.get("XAI_API_KEY")
-        logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
+    api_key = os.environ.get("XAI_API_KEY")
+    logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
         if not api_key:
             logger.error("XAI_API_KEY not found - cannot create client")
-            logger.ValueError("XAI_API_KEY environment variable is not set")
-            _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
-            logger.info("xAI client created successfully")
+            raise.ValueError("XAI_API_KEY environment variable is not set")
+    _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
+        
+        logger.info("xAI client created successfully")
     return _client
 
 def generate_confirmation_code():
@@ -298,6 +297,8 @@ def generate_nepq_response(
             logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
         logger.error(f"SMS send failed: {e}")
+
+    return reply, confirmation_code
         
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
