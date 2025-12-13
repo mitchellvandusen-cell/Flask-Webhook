@@ -279,13 +279,7 @@ def generate_nepq_response(
         # ------------------------------------------------------------------
         if not reply:
             reply = "Sorry — can you repeat that last part?"
-
-        return reply, confirmation_code
-
-        except Exception as e:
-            logger.exception("generate_nepq_response failed")
-        return "Sorry — can you repeat that last part?", generate_confirmation_code()
-              
+        return reply, confirmation_code              
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
