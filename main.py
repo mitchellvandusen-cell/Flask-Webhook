@@ -290,12 +290,11 @@ def generate_nepq_response(
             headers = {"Authorization": f"Bearer {ghl_key}", "Version": "2021-07-28", "Content-Type": "application/json"}
             payload = {"type": "SMS", "message": reply, "contactId": contact_id}
             r = requests.post(url, json=payload, headers=headers)
-        logger.info(f"SMS sent: {r.status_code} - {reply[:50]}...")
-    else:
-        logger.warning("Missing GHL credentials — SMS not sent")
+            logger.info(f"SMS sent: {r.status_code} - {reply[:50]}...")
+        else:
+            logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
         logger.error(f"SMS send failed: {e}")
-
     return reply, confirmation_code
         
 # ============================================================================
