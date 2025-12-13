@@ -280,6 +280,22 @@ def generate_nepq_response(
     if not reply or not reply.strip():
         reply = "Hey, got it. What else is on your mind?"
     return reply, confirmation_code or generate_confirmation_code()
+    # FORCE SEND THE SMS — this is what your old Replit code did
+    try:
+        ghl_key = os.environ.get("GHL_API_KEY")
+        location_id = os.environ.get("GHL_LOCATION_ID")
+        if ghl_key and location_id and contact_id:
+            url = f"https://services.leadconnectorhq.com/conversations/{contact_id}/messages"
+            headers = {"Authorization": f"Bearer {ghl_key}"}
+            payload = {"type": "SMS", "message": reply}
+            r = requests.post(url, json=payload, headers=headers)
+            logger.info(f"SMS sent: {r.status_code} - {reply[:50]}...")
+        else:
+            logger.warning("Missing GHL credentials — SMS not sent")
+    except Exception as e:
+        logger.error(f"SMS send failed: {e}")
+
+    return jsonify({"reply": reply}), 200
 
     if contact_id and api_key and location_id:
         sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
