@@ -274,12 +274,7 @@ def generate_nepq_response(
     except Exception as e:
             logger.error(f"Grok call failed: {e}")
             reply = "Hey, sorry — something went wrong on my end. Can you try again?"
-        
-    return reply, confirmation_code or generate_confirmation_code()
-        # Final safety (if reply is empty)
-    if not reply or not reply.strip():
-        reply = "Hey, got it. What else is on your mind?"
-    return reply, confirmation_code or generate_confirmation_code()
+
     # FORCE SEND THE SMS — this is what your old Replit code did
     try:
         ghl_key = os.environ.get("GHL_API_KEY")
