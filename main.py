@@ -399,7 +399,7 @@ def add_to_qualification_array(contact_id, field, value):
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
         cur = conn.cursor()
         # Add to array only if not already present (all validated fields are TEXT[]),
-        cur.execute(f"UPDATE contact_qualification SET {field} = CASE 
+        cur.execute(f"""UPDATE contact_qualification SET {field} = CASE 
                 WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[]))
                 THEN {field}
                 ELSE array_append(COALESCE({field}, ARRAY[]::TEXT[]), %s)
