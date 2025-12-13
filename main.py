@@ -1540,7 +1540,7 @@ def format_lead_profile_for_llm(profile, first_name):
     
     return "\n".join(sections)
 
-def get_ghl_credentials(calendar_id, api_key):
+def get_ghl_credentials(data=None):
     """
     Get GHL credentials with priority:
     1. Request body (ghl_api_key, ghl_location_id) - for multi-tenant via webhooks
