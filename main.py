@@ -410,12 +410,12 @@ def add_to_qualification_array(contact_id, field, value):
             SET {field} = CASE 
                 WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[])) THEN {field}
                 ELSE array_append(COALESCE({field}, ARRAY[]::TEXT[]), %s)
-            )
             END,
             updated_at = CURRENT_TIMESTAMP
             WHERE contact_id = %s
         """, (value, value, contact_id))
         conn.commit()
+        
         return True
         
     except Exception as e:
