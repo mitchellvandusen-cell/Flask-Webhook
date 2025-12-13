@@ -181,6 +181,7 @@ def generate_nepq_response(
     api_key=None,
     calendar_id=None,
     timezone="America/New_York",
+    extra_instruction=None,
     ):
     confirmation_code = generate_confirmation_code()
 
