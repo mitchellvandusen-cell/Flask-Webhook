@@ -267,19 +267,18 @@ def generate_nepq_response(
             )
         
         raw_reply = response.choices[0].message.content.strip()
-                  raw_reply = response.choices[0].message.content.strip()
-
+        
         # Extract only the <response> part
         if "<response>" in raw_reply and "</response>" in raw_reply:
             reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
         else:
             reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
-
-        reply = " ".join(reply.split())
+            reply = " ".join(reply.split())
 
         except Exception as e:
             logger.error(f"Grok call failed: {e}")
             reply = "Hey, sorry — something went wrong on my end. Can you try again?"
+            
         return reply, confirmation_code or generate_confirmation_code()
 
         # Final safety (if reply is empty)
