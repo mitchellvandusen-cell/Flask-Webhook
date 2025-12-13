@@ -4877,15 +4877,22 @@ def ghl_unified():
                 booking_error = "Calendar not configured"
         
         try:
+            logger.info("[/ghl] Starting response generation...")
             if appointment_created and appointment_details:
+            logger.info("[/ghl] Appointment path - generating confirmation")
                 confirmation_code = generate_confirmation_code()
                 reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
                 reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+                logger.info(f"[/ghl] Appointment reply set: {reply[:50]}...")
             else:
+                logger.info("[/ghl] Normal path - calling generate_nepq_response")
                 calendar_id_for_slots = data.get('calendar_id') or data.get('calendarid') or os.environ.get('GHL_CALENDAR_ID')
                 reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id_for_slots)
-            
+                logger.info(f"[/ghl] generate_nepq_response returned reply: {reply[:50] if reply else 'None'}...")
+                
+            logger.info(f"[/ghl] About to send SMS with reply defined: {reply is not None}")    
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+            logger.info(f"[/ghl] SMS result: {sms_result}")
             
             response_data = {
                 "success": True if not booking_error else False,
@@ -5365,7 +5372,7 @@ def index():
             # Final fallback (never reached, but safe)
             if not reply or reply.strip() == "":
                 name = contact.get("firstName", "").strip()
-                reply = f"Hey{name and ' ' + name + ',' or ''} got it. What's on your mind?"
+                reply = f"Hey{first_name and ' ' + first_name + ',' or ''} got it. What's on your mind?"
         
         if contact_id and api_key and location_id:
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
