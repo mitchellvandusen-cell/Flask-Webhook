@@ -275,7 +275,6 @@ def generate_nepq_response(
             reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
         # Clean up any leftover newlines
         reply = " ".join(reply.split())
-        reply = response.choices[0].message.content.strip()
 
         # ------------------------------------------------------------------
         # 9) FINAL SAFETY + RETURN
