@@ -335,8 +335,8 @@ def get_qualification_state(contact_id):
         conn.close()
         return result
     
-        except Exception as e:
-            logger.warning(f"Could not get qualification state: {e}")
+    except Exception as e:
+        logger.warning(f"Could not get qualification state: {e}")
     return None
 
 def update_qualification_state(contact_id, updates):
