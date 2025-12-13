@@ -218,7 +218,7 @@ def generate_nepq_response(
         # ------------------------------------------------------------------
         # 5) OUTCOME LEARNING (what worked before)
         # ------------------------------------------------------------------
-        learning_ctx = get_learning_context(contact_id)
+        learning_ctx = get_learning_context(contact_id, current_message=message)
         proven_patterns = find_similar_successful_patterns(message)
 
         proven_text = ""
