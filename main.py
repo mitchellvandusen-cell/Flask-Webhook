@@ -4093,7 +4093,7 @@ Remove negatives:
 """
 ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 ===
-
+"""
     }
     
     stage_directive = stage_directives.get(stage, "")
