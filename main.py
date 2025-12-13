@@ -285,12 +285,12 @@ def generate_nepq_response(
         ghl_key = os.environ.get("GHL_API_KEY")
         location_id = os.environ.get("GHL_LOCATION_ID")
         if ghl_key and location_id and contact_id:
-            logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
+            logger.info(f"About to send SMS - contact_id: {contact_id}...")
             url = f"https://services.leadconnectorhq.com/conversations/messages"
-            headers = {"Authorization": f"Bearer {ghl_key}"}
+            headers = {"Authorization": f"Bearer {ghl_key}", "Version": "2021-07-28", "Content-Type": "application/json"}
             payload = {"type": "SMS", "message": reply, "contactId": contact_id}
             r = requests.post(url, json=payload, headers=headers)
-            logger.info(f"SMS sent: {r.status_code} - {reply[:50]}...")
+        logger.info(f"SMS sent: {r.status_code} - {reply[:50]}...")
         else:
             logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
