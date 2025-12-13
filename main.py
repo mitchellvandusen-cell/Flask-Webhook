@@ -334,9 +334,9 @@ def get_qualification_state(contact_id):
         conn.commit()
         result = dict(row) if row else None
         conn.close()
-            return result
-        
-    except Exception as e:
+        return result
+    
+        except Exception as e:
         logger.warning(f"Could not get qualification state: {e}")
     return None
 
@@ -404,46 +404,6 @@ def add_to_qualification_array(contact_id, field, value):
         conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
         cur = conn.cursor()
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS contact_qualification (
-            contact_id TEXT PRIMARY KEY,
-
-            has_policy BOOLEAN,
-            has_living_benefits BOOLEAN,
-
-            is_personal_policy BOOLEAN,
-            is_employer_based BOOLEAN,
-
-            is_term BOOLEAN,
-            is_whole_life BOOLEAN,
-            is_iul BOOLEAN,
-            is_guaranteed_issue BOOLEAN,
-            term_length INTEGER,
-
-            face_amount TEXT,
-            carrier TEXT,
-
-            has_spouse BOOLEAN,
-            num_kids INTEGER,
-
-            tobacco_user BOOLEAN,
-            health_conditions TEXT[] DEFAULT ARRAY[]::TEXT[],
-            health_details TEXT[] DEFAULT ARRAY[]::TEXT[],
-
-            age INTEGER,
-            retiring_soon BOOLEAN,
-            motivating_goal TEXT,
-
-            topics_asked TEXT[] DEFAULT ARRAY[]::TEXT[],
-            topics_answered TEXT[] DEFAULT ARRAY[]::TEXT[],
-            key_quotes TEXT[] DEFAULT ARRAY[]::TEXT[],
-            blockers TEXT[] DEFAULT ARRAY[]::TEXT[],
-
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-             );
-        """)
-
-        
         # Add to array only if not already present (all validated fields are TEXT[])
         cur.execute(f"""
             UPDATE contact_qualification 
