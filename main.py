@@ -68,6 +68,15 @@ logger.info(f"GHL_API_KEY: {'SET' if os.environ.get('GHL_API_KEY') else 'MISSING
 logger.info(f"GHL_LOCATION_ID: {'SET' if os.environ.get('GHL_LOCATION_ID') else 'MISSING'}")
 logger.info(f"XAI_API_KEY: {'SET' if os.environ.get('XAI_API_KEY') else 'MISSING'}")
 logger.info(f"DATABASE_URL: {'SET' if os.environ.get('DATABASE_URL') else 'MISSING'}")
+# === STARTUP CREDENTIAL CHECK ===
+logger.info("=== CREDENTIAL CHECK ===")
+logger.info(f"GHL_API_KEY: {'SET (' + str(len(os.environ.get('GHL_API_KEY', ''))) + ' chars)' if os.environ.get('GHL_API_KEY') else 'MISSING'}")
+logger.info(f"GHL_LOCATION_ID: {'SET (' + os.environ.get('GHL_LOCATION_ID', '')[:10] + '...)' if os.environ.get('GHL_LOCATION_ID') else 'MISSING'}")
+logger.info(f"GHL_CALENDAR_ID: {'SET (' + os.environ.get('GHL_CALENDAR_ID', '')[:10] + '...)' if os.environ.get('GHL_CALENDAR_ID') else 'MISSING'}")
+logger.info(f"XAI_API_KEY: {'SET (' + str(len(os.environ.get('XAI_API_KEY', ''))) + ' chars)' if os.environ.get('XAI_API_KEY') else 'MISSING'}")
+logger.info(f"DATABASE_URL: {'SET' if os.environ.get('DATABASE_URL') else 'MISSING'}")
+logger.info(f"SESSION_SECRET: {'SET' if os.environ.get('SESSION_SECRET') else 'MISSING'}")
+logger.info("=== END CREDENTIAL CHECK ===")
 
 # Initialize outcome learning tables on startup
 try:
