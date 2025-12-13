@@ -102,8 +102,7 @@ try:
     print("DB fixed: ensured contact_qualification table + columns")
 except Exception as e:
     print("DB fix failed:", e)
-
-
+    
 # Initialize NLP memory tables on startup
 try:
     init_nlp_tables()
@@ -275,7 +274,7 @@ def generate_nepq_response(
             logger.error(f"Grok call failed: {e}")
             reply = "Hey, sorry — something went wrong on my end. Can you try again?"
 
-    # FORCE SEND THE SMS — this is what your old Replit code did
+    logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
     try:
         ghl_key = os.environ.get("GHL_API_KEY")
         location_id = os.environ.get("GHL_LOCATION_ID")
@@ -289,8 +288,6 @@ def generate_nepq_response(
             logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
         logger.error(f"SMS send failed: {e}")
-
-    return jsonify({"reply": reply}), 200
 
     if contact_id and api_key and location_id:
         sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
