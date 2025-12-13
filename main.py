@@ -169,7 +169,7 @@ def generate_nepq_response(
     ):
     confirmation_code = generate_confirmation_code()
 
-    try:
+    try:                
         # ------------------------------------------------------------------
         # 0) Normalize message (CRITICAL – prevents dict.lower() crashes)
         # ------------------------------------------------------------------
@@ -275,7 +275,7 @@ def generate_nepq_response(
             reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
             reply = " ".join(reply.split())
 
-        except Exception as e:
+    except Exception as e:
             logger.error(f"Grok call failed: {e}")
             reply = "Hey, sorry — something went wrong on my end. Can you try again?"
             
