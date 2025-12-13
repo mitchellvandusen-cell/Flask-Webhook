@@ -4185,7 +4185,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 
 
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
-    
+"""    
         questions_warning = """
         if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
@@ -4196,6 +4196,8 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
             if is_soft_dismissive and last_agent_msg:
                 last_question = last_agent_msg.replace("You: ", "")
                 deflection_warning = f"""
+"""
+
 === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
 You asked: "{last_question}"
 They said: "{message}" (this is a DEFLECTION - they don't want to answer)
