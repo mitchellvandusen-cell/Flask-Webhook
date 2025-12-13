@@ -4578,8 +4578,6 @@ Remember: Apply your knowledge, don't just pattern match.
             # Fallback: if no tags, try to get just the last sentence/response
             # Strip any thinking blocks first
             reply = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
-            if not reply:
-                reply = content.strip()
         
         # Parse self-reflection BEFORE stripping (so we can use scores for validation)
         reflection = parse_reflection(content)
