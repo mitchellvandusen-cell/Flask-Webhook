@@ -172,8 +172,7 @@ def generate_nepq_response(
     try:                
         if isinstance(message, dict):
             message = message.get("body") or message.get("message") or message.get("text") or ""
-        elif not 
-            isinstance(message, str):
+        elif not isinstance(message, str):
             message = "" if message is None else str(message)
             message = message.strip()
         if not message:
