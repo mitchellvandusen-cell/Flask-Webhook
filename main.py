@@ -286,7 +286,7 @@ def generate_nepq_response(
         location_id = os.environ.get("GHL_LOCATION_ID")
         if ghl_key and location_id and contact_id:
             logger.info(f"About to send SMS - contact_id: {contact_id}, reply length: {len(reply)}, has_api_key: {bool(api_key)}, has_location: {bool(location_id)}")
-            url = f"https://services.leadconnectorhq.com/conversations/{contact_id}/messages"
+            url = f"https://services.leadconnectorhq.com/conversations/messages"
             headers = {"Authorization": f"Bearer {ghl_key}"}
             payload = {"type": "SMS", "message": reply}
             r = requests.post(url, json=payload, headers=headers)
@@ -1574,7 +1574,7 @@ def send_sms_via_ghl(contact_id, message, api_key, location_id):
         "type": "SMS",
         "contactId": contact_id,
         "locationId": location_id,
-        "message": message
+        "message": reply
     }
     
     try:
