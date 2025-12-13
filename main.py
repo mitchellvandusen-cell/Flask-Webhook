@@ -5206,7 +5206,7 @@ def index():
     
     # GHL sends: firstName, first_name, contact.firstName, contact.first_name
     raw_name = (data.get('first_name') or data.get('firstname') or data.get('firstName') or
-                contact_obj.get('firstName') or contact_obj.get('first_name') or
+                contact_obj.get('first_name') or contact_obj.get('first_name') or
                 contact_obj.get('name') or data.get('name') or '')
     # Extract first name if full name provided
     first_name = str(raw_name).split()[0] if raw_name else 'there'
