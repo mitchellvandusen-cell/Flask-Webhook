@@ -5352,7 +5352,7 @@ def index():
                 # Casual/test message? → simple human reply
                 if any(x in message.lower() for x in ["test", "testing", "hey", "hi", "hello", "what's up", "you there"]):
                     name = contact.get("firstName", "").strip()
-                    reply = f"Hey{name and ' ' + name + ',' or ''} how can I help?"
+                    reply = f"Hey{first_name and ' ' + first_name + ',' or ''} how can I help?"
                     break
 
                 # Check duplicate
