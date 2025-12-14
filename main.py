@@ -328,8 +328,8 @@ def generate_nepq_response(
         if "<thinking>" in raw_reply:
             parts = raw_reply.split("<thinking>")
             reply = part[1].strip() if len(parts) > 1 else raw_reply
-        else:
-            reply = raw_reply
+            else:
+                reply = raw_reply
 
         # Safety fallback
         if not reply or len(reply) > 280:
