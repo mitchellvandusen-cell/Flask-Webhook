@@ -4110,8 +4110,8 @@ Remove negatives:
 - "just getting information"
 - "see if there's a better fit"
 ===ALWAYS end with two specific time options. DO NOT ask more discovery questions.
-}
-"""   
+"""
+    }
     stage_directive = stage_directives.get(stage, "")
     profile_text = format_lead_profile_for_llm(lead_profile, first_name)
     
