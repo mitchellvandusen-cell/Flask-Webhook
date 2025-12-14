@@ -318,19 +318,6 @@ response = client.chat.completions.create(
             temperature=0.6,
         )
 
-raw_reply = response.choices[0].message.content.strip()
-
-        # Extract only the <response> part — your existing logic
-if "<response>" in raw_reply and "</response>" in raw_reply:
-            reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
-else:
-            # Fallback: take everything after <thinking> or full text
-    if "<thinking>" in raw_reply:
-            reply = raw_reply.split("<thinking>")[1].strip()
-    else:
-            reply = raw_reply
-
-        # Safety fallback
 if not reply or len(reply) > 280:
         reply = "Could you send that again?"
             
