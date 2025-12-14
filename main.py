@@ -326,7 +326,8 @@ def generate_nepq_response(
         else:
             # Fallback: take everything after <thinking> or full text
         if "<thinking>" in raw_reply:
-            reply = raw_reply.split("<thinking>")[1].strip()
+            parts = raw_reply.split("<thinking>")
+            reply = part[1].strip() if len(parts) > 1 else raw_reply
         else:
             reply = raw_reply
 
