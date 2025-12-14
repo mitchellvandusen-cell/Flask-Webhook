@@ -2231,7 +2231,7 @@ while retry_count <= max_retries:
     }
 
     def get_question_theme(text):
-        """Return the theme(s) of a message."""
+        # Return the theme(s) of a message.
         text_lower = text.lower()
         themes = []
         for theme, keywords in QUESTION_THEMES.items():
@@ -2364,21 +2364,21 @@ return reply, confirmation_code
 
 @app.route('/ghl-webhook', methods=['POST'])
 def ghl_webhook():
-    """Legacy endpoint - redirects to unified /ghl endpoint with action=respond"""
+    # Legacy endpoint - redirects to unified /ghl endpoint with action=respond
     data = request.json or {}
     data['action'] = 'respond'
     return ghl_unified()
 
 @app.route('/ghl-appointment', methods=['POST'])
 def ghl_appointment():
-    """Legacy endpoint - redirects to unified /ghl endpoint with action=appointment"""
+    # Legacy endpoint - redirects to unified /ghl endpoint with action=appointment
     data = request.json or {}
     data['action'] = 'appointment'
     return ghl_unified()
 
 @app.route('/ghl-stage', methods=['POST'])
 def ghl_stage():
-    """Legacy endpoint - redirects to unified /ghl endpoint with action=stage"""
+    # Legacy endpoint - redirects to unified /ghl endpoint with action=stage
     data = request.json or {}
     data['action'] = 'stage'
     return ghl_unified()
