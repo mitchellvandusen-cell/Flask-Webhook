@@ -1692,15 +1692,17 @@ def extract_intent(data, message=""):
 # =========================================================================
     # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
     # =========================================================================
-    real_calendar_slots = 
-    	if api_key and calendar_id:
-        	try:
-            	slots = get_available_slots(calendar_id, api_key, timezone)
-            if slots:
-                real_calendar_slots = format_slot_options(slots, timezone)
-                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-       		except Exception as e:
-    			logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+real_calendar_slots = None
+
+if api_key and calendar_id:
+    try:
+        slots = get_available_slots(calendar_id, api_key, timezone)
+        if slots:
+            real_calendar_slots = format_slot_options(slots, timezone)
+            logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
+    except Exception as e:
+        logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+
 
 
     if not real_calendar_slots:
