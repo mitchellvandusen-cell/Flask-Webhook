@@ -224,8 +224,8 @@ def generate_nepq_response(
             first_name and first_name != "there" and first_name.strip()):
     
                 preferred_template = (
-                    f"Hey {first_name}, are you still with that other life insurance plan? "There's new living benefits that just came out and a lot of people have been asking about them. "Wanted to make sure yours wasn't just paying out on death."
-        )
+                    f"Hey {first_name}, are you still with that other life insurance plan? There's new living benefits that just came out and a lot of people have been asking about them. Wanted to make sure yours wasn't just paying out on death."
+                )
         else:
             preferred_template = None # bypass Grok
 
