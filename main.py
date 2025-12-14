@@ -4394,22 +4394,23 @@ Remove negatives:
             """
         
             history_text = f"""
-            === CONVERSATION HISTORY (read this carefully before responding) ===
-                {chr(10).join(conversation_history)}
-            === END OF HISTORY ===
-            """
-        {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
-        else:
-            # Even without history, include profile and intent from current message
-            intent_section = f"""
-            === CURRENT INTENT/OBJECTIVE ===
-                Intent: {intent}
-                Directive: {intent_directive}
-            ===
-            """
-        if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
-                lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
-            history_text = f"{qualification_context}{intent_section}{profile_text}"
+=== CONVERSATION HISTORY (read this carefully before responding) ===
+{chr(10).join(conversation_history)}
+=== END OF HISTORY ===
+{qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
+===
+"""
+    else:
+        # Even without history, include profile and intent from current message
+        intent_section = f"""
+=== CURRENT INTENT/OBJECTIVE ===
+Intent: {intent}
+Directive: {intent_directive}
+===
+"""
+    if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
+        lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
+        history_text = f"{qualification_context}{intent_section}{profile_text}"
         else:
             history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
     
@@ -4422,130 +4423,129 @@ Remove negatives:
         except Exception as e:
             logger.warning(f"Could not record lead response: {e}")
 
-            # Close stage templates (server-side enforcement for PolicyEngine fallback)
-            close_templates = [
-                "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
-                "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
-                "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
-                "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
-            ]
+    # Close stage templates (server-side enforcement for PolicyEngine fallback)
+    close_templates = [
+        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
+        "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
+        "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
+        "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
+    ]
     
-            client = get_client()
+client = get_client()
     
-            # =========================================================================
-            # UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
-            # No more template shortcuts - the bot must THINK using all its knowledge
-            # =========================================================================
+# =========================================================================
+# UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
+# No more template shortcuts - the bot must THINK using all its knowledge
+# =========================================================================
     
-            # Build context for the unified brain
-            unified_brain_knowledge = get_unified_brain()
+# Build context for the unified brain
+unified_brain_knowledge = get_unified_brain()
     
-            # Determine trigger suggestion for evaluation (not bypass)
-            trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
+# Determine trigger suggestion for evaluation (not bypass)
+trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
     
-            # Get proven patterns for comparison
-            proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
+# Get proven patterns for comparison
+proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
     
-            # Build the decision prompt with all context
-            decision_prompt = get_decision_prompt(
-                message=message,
-                context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
-                stage=stage,
-                trigger_suggestion=trigger_suggestion,
-                proven_patterns=proven_patterns_text,
-                triggers_found=triggers_found
-            )
+# Build the decision prompt with all context
+decision_prompt = get_decision_prompt(
+    message=message,
+    context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
+    stage=stage,
+    trigger_suggestion=trigger_suggestion,
+    proven_patterns=proven_patterns_text,
+    triggers_found=triggers_found
+)
     
-            # Build unified brain system prompt - COMBINE all knowledge sources
-            # Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
-            # Then add unified brain framework for decision-making
-            base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+# Build unified brain system prompt - COMBINE all knowledge sources
+# Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
+# Then add unified brain framework for decision-making
+base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
             unified_system_prompt = f"""
                 {base_knowledge}
 
                 {unified_brain_knowledge}
 
-            ===================================================================================
-                SITUATIONAL CONTEXT
-            ===================================================================================
-                Agent name: {agent_name}
-                Lead name: {first_name}
-                Current stage: {stage}
-                Exchange count: {exchange_count}
-                Dismissive count: {soft_dismissive_count}
-                Is soft dismissive: {is_soft_dismissive}
-                Is hard dismissive: {is_hard_dismissive}
+===================================================================================
+SITUATIONAL CONTEXT
+===================================================================================
+Agent name: {agent_name}
+Lead name: {first_name}
+Current stage: {stage}
+Exchange count: {exchange_count}
+Dismissive count: {soft_dismissive_count}
+Is soft dismissive: {is_soft_dismissive}
+Is hard dismissive: {is_hard_dismissive}
 
                 {state_instructions}
 
-                CONFIRMATION CODE (if booking): {confirmation_code}
+CONFIRMATION CODE (if booking): {confirmation_code}
 
-                === AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
-                {real_calendar_slots}
-                NEVER make up appointment times. ONLY offer the times listed above.
+=== AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
+{real_calendar_slots}
+NEVER make up appointment times. ONLY offer the times listed above.
 
-            ===================================================================================
-                CRITICAL RULES
-            ===================================================================================
-                1. No em dashes (--) in responses
-                2. Keep responses 15-35 words (SMS friendly)
-                3. Only use first name every 3-4 messages like normal texting
-                4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
-                5. After 3 exchanges, STOP asking questions and offer appointment times
-                6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
-                {decision_prompt}
-            """
-                # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
-                max_retries = 3  # Reduced from 2 for faster response
-                retry_count = 0
-                correction_prompt = ""
-                reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
+===================================================================================
+CRITICAL RULES
+===================================================================================
+1. No em dashes (--) in responses
+2. Keep responses 15-35 words (SMS friendly)
+3. Only use first name every 3-4 messages like normal texting
+4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
+5. After 3 exchanges, STOP asking questions and offer appointment times
+6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
+{decision_prompt}
+# === UNIFIED BRAIN: Policy Validation with Retry Loop ===
+max_retries = 3  # Reduced from 2 for faster response
+retry_count = 0
+correction_prompt = ""
+reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
     
-                # Use grok-4-1-fast-reasoning for everything (cheap and capable)
-                use_model = "grok-4-1-fast-reasoning"
-    
-            # === TOKEN STATS: Log cost estimate before API call ===
-                prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
-                stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
-                logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
-    
-            # Simplified user content for unified brain approach
-            # Include history_text which contains deflection warnings and questions already asked
+# Use grok-4-1-fast-reasoning for everything (cheap and capable)
+use_model = "grok-4-1-fast-reasoning"
+# === TOKEN STATS: Log cost estimate before API call ===
+prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
+stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
+logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
+"""    
+# Simplified user content for unified brain approach
+# Include history_text which contains deflection warnings and questions already asked
                 unified_user_content = f"""
-                    {history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
+===
+{history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
+===
+LEAD'S MESSAGE: "{message}"
+===
+Now THINK through your decision process and respond.
+Remember: Apply your knowledge, don't just pattern match.
+===  
+while retry_count <= max_retries:
+# Note: Grok model only supports temperature, top_p, max_tokens
+# frequency_penalty and presence_penalty are NOT supported
+response = client.chat.completions.create(
+    model=use_model,
+    messages=[
+        {"role": "system", "content": unified_system_prompt},
+        {"role": "user", "content": unified_user_content + correction_prompt}
+    ],
+    max_tokens=425,
+    temperature=0.7,
+    top_p=0.95
+    )
 
-                    LEAD'S MESSAGE: "{message}"
-
-                    Now THINK through your decision process and respond.
-                    Remember: Apply your knowledge, don't just pattern match.
-  
-                    while retry_count <= max_retries:
-                    # Note: Grok model only supports temperature, top_p, max_tokens
-                    # frequency_penalty and presence_penalty are NOT supported
-                    response = client.chat.completions.create(
-                    model=use_model,
-                    messages=[
-                        {"role": "system", "content": unified_system_prompt},
-                        {"role": "user", "content": unified_user_content + correction_prompt}
-                    ],
-                        max_tokens=425,
-                        temperature=0.7,
-                        top_p=0.95
-                )"""
-
-                content = response.choices[0].message.content or ""
+content = response.choices[0].message.content or ""
         
-                # Parse unified brain thinking for logging
-                thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
-        if thinking_match:
-            thinking = thinking_match.group(1).strip()
-            logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
+# Parse unified brain thinking for logging
+thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
+    if thinking_match:
+        thinking = thinking_match.group(1).strip()
+        logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
         
-            # Extract the actual response
-            response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
-        if response_match:
-            reply = response_match.group(1).strip()
+# Extract the actual response
+response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
+    if response_match:
+        reply = response_match.group(1).strip()
         else:
             # Fallback: if no tags, try to get just the last sentence/response
             # Strip any thinking blocks first
