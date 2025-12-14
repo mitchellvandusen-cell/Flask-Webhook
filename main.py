@@ -3750,15 +3750,14 @@ def extract_intent(data, message=""):
     # =========================================================================
     # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
     # =========================================================================
-    real_calendar_slots = None
-    if api_key and calendar_id:
-        try:
-            slots = get_available_slots(calendar_id, api_key, timezone)
-            if slots:
-                real_calendar_slots = format_slot_options(slots, timezone)
-                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-        except Exception as e:
-            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+real_calendar_slots = None
+if api_key and calendar_id:
+    try:
+        slots = get_available_slots(calendar_id, api_key, timezone)
+        if slots:
+            real_calendar_slots = format_slot_options(slots, timezone)
+            logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
+        except Exception as e: logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
 
     if not real_calendar_slots:
         real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
@@ -4791,44 +4790,39 @@ else:
 
     logger.info("[/ghl] Starting response generation...")
     if appointment_created and appointment_details:
-                logger.info("[/ghl] Appointment path - generating confirmation")
-                confirmation_code = generate_confirmation_code()
-                reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
-                reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
-                logger.info(f"[/ghl] Appointment reply set: {reply[:50]}...")
-            else:
-                logger.info("[/ghl] Normal path - calling generate_nepq_response")
-                calendar_id_for_slots = data.get('calendar_id') or data.get('calendarid') or os.environ.get('GHL_CALENDAR_ID')
-                reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id_for_slots)
-                logger.info(f"[/ghl] generate_nepq_response returned reply: {reply[:50] if reply else 'None'}...")
+        logger.info("[/ghl] Appointment path - generating confirmation")
+        confirmation_code = generate_confirmation_code()
+        reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
+        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+        logger.info(f"[/ghl] Appointment reply set: {reply[:50]}...")
+    else:
+        logger.info("[/ghl] Normal path - calling generate_nepq_response")
+        calendar_id_for_slots = data.get('calendar_id') or data.get('calendarid') or os.environ.get('GHL_CALENDAR_ID')
+        reply, confirmation_code = generate_nepq_response(first_name, message, agent_name, conversation_history, intent, contact_id, api_key, calendar_id_for_slots)
+        logger.info(f"[/ghl] generate_nepq_response returned reply: {reply[:50] if reply else 'None'}...")
                 
-            logger.info(f"[/ghl] About to send SMS with reply defined: {reply is not None}")    
-            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
-            logger.info(f"[/ghl] SMS result: {sms_result}")
+    logger.info(f"[/ghl] About to send SMS with reply defined: {reply is not None}")    
+    sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+    logger.info(f"[/ghl] SMS result: {sms_result}")
             
-            response_data = {
-                "success": True if not booking_error else False,
-                "reply": reply,
-                "contact_id": contact_id,
-                "sms_sent": sms_result.get("success", False),
-                "confirmation_code": confirmation_code,
-                "intent": intent,
-                "appointment_created": appointment_created,
-                "booking_attempted": bool(start_time_iso),
-                "booking_error": booking_error,
-                "time_detected": formatted_time
+    response_data = {
+        "success": True if not booking_error else False,
+        "reply": reply,
+        "contact_id": contact_id,
+        "sms_sent": sms_result.get("success", False),
+        "confirmation_code": confirmation_code,
+        "intent": intent,
+        "appointment_created": appointment_created,
+        "booking_attempted": bool(start_time_iso),
+        "booking_error": booking_error,
+        "time_detected": formatted_time
             }
-            if appointment_created:
-                response_data["appointment_time"] = formatted_time
+    if appointment_created:
+    response_data["appointment_time"] = formatted_time
             
-            if sms_result.get("success"):
-                return jsonify(response_data), 200 if not booking_error else 422
-            else:
-                response_data["sms_error"] = sms_result.get("error")
-                return jsonify(response_data), 500
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            return jsonify({"error": str(e)}), 500
+    if sms_result.get("success"):
+        
+    except Exception as e: logger.error(f"Error generating response: {e}")
     
     elif action == 'appointment':
         contact_id = data.get('contact_id') or data.get('contactId')
@@ -4838,8 +4832,7 @@ else:
         title = data.get('title', 'Life Insurance Consultation')
         
         if not contact_id or not calendar_id or not start_time:
-            return jsonify({"error": "contact_id, calendar_id, and start_time required"}), 400
-        
+            
         try:
             start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
             end_dt = start_dt + timedelta(minutes=duration_minutes)
@@ -4853,7 +4846,7 @@ else:
                 return jsonify({"success": False, "error": result.get("error", "Failed to create appointment")}), 422
         except Exception as e:
             logger.error(f"Error creating appointment: {e}")
-            return jsonify({"error": str(e)}), 500
+            
     
     elif action == 'stage':
         opportunity_id = data.get('opportunity_id') or data.get('opportunityId')
@@ -4862,17 +4855,12 @@ else:
         stage_id = data.get('stage_id') or data.get('stageId')
         name = data.get('name', 'Life Insurance Lead')
         
-        if not stage_id:
-            return jsonify({"error": "stage_id required"}), 400
-        
-        if opportunity_id:
-            result = update_contact_stage(opportunity_id, stage_id, api_key)
-            if result:
-                return jsonify({"success": True, "opportunity": result})
-            else:
-                return jsonify({"error": "Failed to update stage"}), 500
-        elif contact_id and pipeline_id:
-            result = create_opportunity(contact_id, pipeline_id, stage_id, api_key, location_id, name)
+    if opportunity_id:
+        result = update_contact_stage(opportunity_id, stage_id, api_key)
+        if result:
+                
+        else:    
+         result = create_opportunity(contact_id, pipeline_id, stage_id, api_key, location_id, name)
             if result:
                 return jsonify({"success": True, "opportunity": result, "created": True})
             else:
@@ -4901,11 +4889,7 @@ else:
             return jsonify({"success": True, "contacts": result})
         else:
             return jsonify({"error": "Failed to search contacts"}), 500
-    
-    else:
-        return jsonify({"error": f"Unknown action: {action}. Valid actions: respond, appointment, stage, contact, search"}), 400
-
-
+        
 @app.route('/grok', methods=['POST'])
 def grok_insurance():
     """Legacy endpoint - generates NEPQ response without GHL integration"""
