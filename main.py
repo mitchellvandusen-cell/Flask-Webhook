@@ -5371,17 +5371,17 @@ def index():
 
             # Final fallback (never reached, but safe)
             if not reply or reply.strip() == "":
-                name = contact.get("firstName", "").strip()
+                name = contact.get("first_name", "").strip()
                 reply = f"Hey{first_name and ' ' + first_name + ',' or ''} got it. What's on your mind?"
         
         if contact_id and api_key and location_id:
-            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+            sms_result = send_sms_via_ghl(contact_id, message, api_key, location_id)
             
             is_success = True if not booking_error else False
             
             response_data = {
                 "success": is_success,
-                "reply": message,
+                "message": message,
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
                 "confirmation_code": confirmation_code,
@@ -5400,7 +5400,7 @@ def index():
             is_success = True if not booking_error else False
             response_data = {
                 "success": is_success,
-                "reply": message,
+                "message": message,
                 "confirmation_code": confirmation_code,
                 "sms_sent": False,
                 "warning": "SMS not sent - missing contact_id or GHL credentials",
