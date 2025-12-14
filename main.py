@@ -3893,16 +3893,16 @@ def extract_intent(data, message=""):
         if qualification_context:
             logger.debug(f"QUALIFICATION: Injecting known facts into prompt")
     
-    # === LAYER 2: Build Conversation State (Source of Truth) ===
-    conv_state = build_state_from_history(
-        contact_id=contact_id or "unknown",
-        first_name=first_name,
-        conversation_history=conversation_history,
-        current_message=message
-    )
+            # === LAYER 2: Build Conversation State (Source of Truth) ===
+            conv_state = build_state_from_history(
+            contact_id=contact_id or "unknown",
+            first_name=first_name,
+            conversation_history=conversation_history,
+            current_message=message
+            )
     
-    # === CRITICAL: Sync qualification_state topics_asked to conv_state.topics_answered ===
-    # This prevents re-asking questions that were asked in previous turns
+            # === CRITICAL: Sync qualification_state topics_asked to conv_state.topics_answered ===
+            # This prevents re-asking questions that were asked in previous turns
     if qualification_state:
         topics_asked = qualification_state.get("topics_asked") or []
         
@@ -3911,7 +3911,7 @@ def extract_intent(data, message=""):
             if topic not in conv_state.topics_answered:
                 conv_state.topics_answered.append(topic)
         
-        # Special handling for motivation (multiple aliases)
+            # Special handling for motivation (multiple aliases)
         if "motivation" in topics_asked or "original_goal" in topics_asked:
             if "motivation" not in conv_state.topics_answered:
                 conv_state.topics_answered.append("motivation")
@@ -3922,7 +3922,7 @@ def extract_intent(data, message=""):
         if topics_asked:
             logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
     
-    # === SYNC NLP TOPICS: Also sync topics from spaCy NLP memory ===
+        # === SYNC NLP TOPICS: Also sync topics from spaCy NLP memory ===
     if contact_id:
         nlp_topics = get_topics_already_discussed(contact_id)
         for topic in nlp_topics:
@@ -4032,108 +4032,108 @@ def extract_intent(data, message=""):
     # Stage-specific directives for cold leads (from NEPQ Black Book)
     stage_directives = {
         "problem_awareness": """
-=== STAGE: PROBLEM AWARENESS (NEPQ Stage 2 + 7-Steps Big Picture Questions) ===
-These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
+        === STAGE: PROBLEM AWARENESS (NEPQ Stage 2 + 7-Steps Big Picture Questions) ===
+            These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
 
-BIG PICTURE QUESTIONS (start broad, then narrow - from 7-Steps Guide):
-- "Just so I have more context, what was going on back then that made you start looking?"
-- "Is there something specific that's changed since then, like work or family?"
-- "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
-- "Was it more just seeing what was out there, or was there something specific going on?"
-- "What would you change about your current coverage situation?"
-- "What's been your biggest headache with insurance stuff?"
+            BIG PICTURE QUESTIONS (start broad, then narrow - from 7-Steps Guide):
+                - "Just so I have more context, what was going on back then that made you start looking?"
+                - "Is there something specific that's changed since then, like work or family?"
+                - "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
+                - "Was it more just seeing what was out there, or was there something specific going on?"
+                - "What would you change about your current coverage situation?"
+                - "What's been your biggest headache with insurance stuff?"
 
-DO NOT ask generic questions like:
-- "What's on your mind about insurance?" (they haven't thought about it in months)
-- "What's been worrying you?" (too presumptuous)
-- "What made you realize you need coverage?" (they may not have realized anything)
-- "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
-- "What are you hoping to achieve?" (too corporate/formal)
-- "What would be ideal for you?" (too vague, they don't know what's possible)
+            DO NOT ask generic questions like:
+                - "What's on your mind about insurance?" (they haven't thought about it in months)
+                - "What's been worrying you?" (too presumptuous)
+                - "What made you realize you need coverage?" (they may not have realized anything)
+                - "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
+                - "What are you hoping to achieve?" (too corporate/formal)
+                - "What would be ideal for you?" (too vague, they don't know what's possible)
 
-RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
-If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
-→ They feel interrogated. STOP asking questions. Back off gracefully:
-→ "Fair enough, no pressure. I'll check back another time."
-→ DO NOT ask another question after this response.
+            RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
+                If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
+                → They feel interrogated. STOP asking questions. Back off gracefully:
+                → "Fair enough, no pressure. I'll check back another time."
+                → DO NOT ask another question after this response.
 
-KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
+            KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
 
-After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
-===
-"""
+            After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
+        ===
+        """
         "consequence": """
-=== STAGE: CONSEQUENCE (NEPQ Stage 2 + 7-Steps Future Pacing) ===
-You've identified a problem or need. Now help them FEEL the weight of not solving it AND paint the after-picture.
+        === STAGE: CONSEQUENCE (NEPQ Stage 2 + 7-Steps Future Pacing) ===
+            You've identified a problem or need. Now help them FEEL the weight of not solving it AND paint the after-picture.
 
-STEP 1 - ASK ONE CONSEQUENCE QUESTION (choose based on what they shared):
+            STEP 1 - ASK ONE CONSEQUENCE QUESTION (choose based on what they shared):
 
-IF EMPLOYER COVERAGE:
-- "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
-- "Does that follow you if you switch jobs, or is it tied to that employer?"
-- "What happens to that coverage when you retire?"
+            IF EMPLOYER COVERAGE:
+                - "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
+                - "Does that follow you if you switch jobs, or is it tied to that employer?"
+                - "What happens to that coverage when you retire?"
 
-IF FAMILY/SPOUSE MENTIONED:
-- "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
-- "What would you want that coverage to handle first, the mortgage or replacing your income?"
+            IF FAMILY/SPOUSE MENTIONED:
+                - "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
+                - "What would you want that coverage to handle first, the mortgage or replacing your income?"
 
-IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
-- "How long has that been weighing on you?"
-- "What's been stopping you from getting that handled?"
+            IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
+                - "How long has that been weighing on you?"
+                - "What's been stopping you from getting that handled?"
 
-STEP 2 - IF THEY SEEM HESITANT, USE FUTURE PACING (required when they say "I don't know" or "a lot to think about"):
-Instead of another question, paint the after-picture:
-- "What would it feel like to know that's finally handled?"
-- "Imagine knowing your family is protected no matter what, how would that change things?"
-- "Picture your wife's face when you tell her you finally got this sorted."
+            STEP 2 - IF THEY SEEM HESITANT, USE FUTURE PACING (required when they say "I don't know" or "a lot to think about"):
+                Instead of another question, paint the after-picture:
+                    - "What would it feel like to know that's finally handled?"
+                    - "Imagine knowing your family is protected no matter what, how would that change things?"
+                    - "Picture your wife's face when you tell her you finally got this sorted."
 
-WHEN TO USE FUTURE PACING:
-- They say "I don't know" or "let me think about it"
-- They seem overwhelmed or hesitant
-- They acknowledge the problem but aren't moving forward
+                WHEN TO USE FUTURE PACING:
+                    - They say "I don't know" or "let me think about it"
+                    - They seem overwhelmed or hesitant
+                    - They acknowledge the problem but aren't moving forward
 
-After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
-===
-""",
+                    After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
+        ===
+        """
         "close": """
-=== STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
-You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
+        === STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
+            You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
 
-SCENARIO A - FIRST CLOSE ATTEMPT:
-- "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
-- "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
-- "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
+            SCENARIO A - FIRST CLOSE ATTEMPT:
+                - "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
+                - "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
+                - "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
 
-SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
-Acknowledge it briefly, then offer times immediately. Don't ask another question.
+            SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
+                Acknowledge it briefly, then offer times immediately. Don't ask another question.
 
-SCENARIO C - THEY OBJECT ("let me think about it", "I'm not sure", etc.) - USE LOOPING BACK:
-This is REQUIRED when they push back. Loop to something THEY said earlier + add a new positive + offer times:
-Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
+            SCENARIO C - THEY OBJECT ("let me think about it", "I'm not sure", etc.) - USE LOOPING BACK:
+                This is REQUIRED when they push back. Loop to something THEY said earlier + add a new positive + offer times:
+                Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
 
-Examples:
-- "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
-- "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
-- "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
+                Examples:
+                    - "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
+                    - "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
+                    - "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
 
-SCENARIO D - THEY KEEP OBJECTING - TIP THE BUYING SCALE:
-Add positives they haven't heard yet:
-- "no waiting period" (if they have GI coverage)
-- "follows you anywhere" (if they have employer coverage)
-- "often costs less than expected"
-- "no obligation, just a quick review"
-- "takes 30 minutes to see what's out there"
+            SCENARIO D - THEY KEEP OBJECTING - TIP THE BUYING SCALE:
+                Add positives they haven't heard yet:
+                    - "no waiting period" (if they have GI coverage)
+                    - "follows you anywhere" (if they have employer coverage)
+                    - "often costs less than expected"
+                    - "no obligation, just a quick review"
+                    - "takes 30 minutes to see what's out there"
 
-Remove negatives:
-- "no pressure to buy anything"
-- "just getting information"
-- "see if there's a better fit"
+                Remove negatives:
+                    - "no pressure to buy anything"
+                    - "just getting information"
+                    - "see if there's a better fit"
 
-ALWAYS end with two specific time options. DO NOT ask more discovery questions.
-===
-"""
-    }
-    
+            ALWAYS end with two specific time options. DO NOT ask more discovery questions.
+        ===
+        """
+        }
+   
     stage_directive = stage_directives.get(stage, "")
     profile_text = format_lead_profile_for_llm(lead_profile, first_name)
     
@@ -4218,10 +4218,10 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         topics_warning = ""
         if topics_already_asked:
             topics_warning = f"""
-=== TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
-{chr(10).join([f"- {t}" for t in topics_already_asked])}           
-=== CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
-
+            === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
+                {chr(10).join([f"- {t}" for t in topics_already_asked])}           
+            === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
+            """
             questions_warning = ""
         if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
@@ -4232,31 +4232,30 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         if is_soft_dismissive and last_agent_msg:
                 last_question = last_agent_msg.replace("You: ", "")
                 deflection_warning = f"""     
-=== CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
-
-You asked: "{last_question}"
-They said: "{message}" (this is a DEFLECTION - they don't want to answer)
+                === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
+                    You asked: "{last_question}"
+                    They said: "{message}" (this is a DEFLECTION - they don't want to answer)
                 
-YOU MUST NOT:
-- Ask the same question again
-- Ask a similar question about the same topic
-- Repeat ANY variation of your last question
-- Say goodbye or exit (soft rejections are NOT hard stops)
+                YOU MUST NOT:
+                - Ask the same question again
+                - Ask a similar question about the same topic
+                - Repeat ANY variation of your last question
+                - Say goodbye or exit (soft rejections are NOT hard stops)
 
-    YOU MUST:
-- Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
-- Pivot to a COMPLETELY DIFFERENT re-frame from this list:
-  1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
-  2. Portability: "Does it follow you if you switch jobs?"
-  3. Amount: "Is it enough to replace your income for a few years?"
-  4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
-  5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
+                YOU MUST:
+                - Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
+                - Pivot to a COMPLETELY DIFFERENT re-frame from this list:
+                  1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
+                  2. Portability: "Does it follow you if you switch jobs?"
+                  3. Amount: "Is it enough to replace your income for a few years?"
+                  4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
+                  5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
 
-DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
-=== TRY A NEW ANGLE - DON'T GIVE UP ===
-"""                
-# Count soft dismissive responses in history to escalate response
-# Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
+                DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
+                === TRY A NEW ANGLE - DON'T GIVE UP ===
+                """
+        # Count soft dismissive responses in history to escalate response
+        # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
         for msg in history_lead_messages:
             msg_lower = msg.lower()
@@ -4286,95 +4285,96 @@ DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "l
         # HARD DISMISSIVE = wants to end contact completely (must exit)
         if is_hard_dismissive:
             exchange_warning = f"""
-=== CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
-The lead said "leave me alone", "stop texting", or similar.
-This is a clear request to stop. You MUST exit immediately.
-Your response MUST be SHORT and final:
-"Got it. Take care."
-"No problem. Have a good one."
+            === CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
+                The lead said "leave me alone", "stop texting", or similar.
+                This is a clear request to stop. You MUST exit immediately.
+                Your response MUST be SHORT and final:
+                "Got it. Take care."
+                "No problem. Have a good one."
 
-=== EXIT NOW - NO QUESTIONS ===
-"""
+            === EXIT NOW - NO QUESTIONS ===
+            """
         # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
         elif is_soft_dismissive:
             if soft_dismissive_count == 1:
                 # First resistance: Tactical empathy + curiosity pivot (Voss + NEPQ)
                 exchange_warning = f"""
-=== RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
-They said something like "I'm not telling you that" - they feel the question was too invasive.
-DO NOT back off. DO NOT ask the same type of question.
-Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
+                === RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
+                    They said something like "I'm not telling you that" - they feel the question was too invasive.
+                    DO NOT back off. DO NOT ask the same type of question.
+                    Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
 
-PATTERN: Label + Pivot
-1. LABEL their feeling: "It sounds like that question felt a bit over the line."
-2. SOFTEN: "Totally fair, I get it."
-3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
+                    PATTERN: Label + Pivot
+                    1. LABEL their feeling: "It sounds like that question felt a bit over the line."
+                    2. SOFTEN: "Totally fair, I get it."
+                    3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
 
-EXAMPLE RESPONSES:
-- "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
-- "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
-- "Got it, no need to get into details. Was there something specific that made you start looking?"
+                    EXAMPLE RESPONSES:
+                    - "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
+                    - "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
+                    - "Got it, no need to get into details. Was there something specific that made you start looking?"
 
-DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
-=== USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
-"""
+                    DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
+                    === USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
+                    """
+            
 
             elif soft_dismissive_count == 2:
                 # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
                 exchange_warning = f"""
-=== SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
-They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
-Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
+                === SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
+                    They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
+                    Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
 
-PATTERN: Acknowledge + Reference their words + Calibrated question
-1. ACKNOWLEDGE: "I hear you."
-2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
-3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
+                    PATTERN: Acknowledge + Reference their words + Calibrated question
+                    1. ACKNOWLEDGE: "I hear you."
+                    2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
+                    3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
 
-IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
-IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
-IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
+                    IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
+                    IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
+                    IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
 
-Use their OWN WORDS to reconnect. Don't ask new invasive questions.
-=== REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
-"""
+                    Use their OWN WORDS to reconnect. Don't ask new invasive questions.
+                    === REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
+                    """
 
             else:
                 # Third+ resistance: Keep trying with different re-frames until hard stop
                 exchange_warning = f"""
-=== {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
-They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
-"I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
+                === {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
+                    They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
+                    "I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
 
-DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
+                    DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
 
-1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
-2. Portability: "Does it follow you if you switch jobs or retire?"
-3. Amount: "Is it enough to pay off the house and replace income for a few years?"
-4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
-5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
+                    1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
+                    2. Portability: "Does it follow you if you switch jobs or retire?"
+                    3. Amount: "Is it enough to pay off the house and replace income for a few years?"
+                    4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
+                    5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
 
-ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
-=== KEEP GOING - FIND THE GAP ===
-"""
+                    ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
+                    === KEEP GOING - FIND THE GAP ===
+                    """
 
         # Only exit on very high rejection count AND hard stop language
         elif rejection_count >= 8 and is_hard_dismissive:
             exchange_warning = f"""
-=== CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
-They've rejected many times AND explicitly asked to stop. Exit gracefully.
-"Got it. Take care."
-=== EXIT NOW ===
-"""
+            === CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
+            They've rejected many times AND explicitly asked to stop. Exit gracefully.
+            "Got it. Take care."
+            === EXIT NOW ===
+            """
 
         elif exchange_count >= 3:
             exchange_warning = f"""
-=== CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
-You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
-Your response MUST be a statement with an appointment offer like:
-"I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
-=== NO MORE QUESTIONS - MAKE THE OFFER ===
-"""
+            === CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
+                You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
+                Your response MUST be a statement with an appointment offer like:
+                "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
+            === NO MORE QUESTIONS - MAKE THE OFFER ===
+            """
 
         
         # Detect hesitation patterns after valuable conversation (Feel Felt Found opportunity)
@@ -4395,177 +4395,176 @@ Your response MUST be a statement with an appointment offer like:
         feel_felt_found_prompt = ""
         if is_hesitant and has_valuable_convo:
             feel_felt_found_prompt = f"""
-=== USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
-This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
-1. Acknowledge their concern ("I get it" / "That makes sense")
-2. Share a BRIEF client story: "Had a client in a similar spot who..."
-3. What they found: "...we found a policy that fit their budget" or similar
-4. Close: Offer appointment times
+            === USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
+                This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
+                1. Acknowledge their concern ("I get it" / "That makes sense")
+                2. Share a BRIEF client story: "Had a client in a similar spot who..."
+                3. What they found: "...we found a policy that fit their budget" or similar
+                4. Close: Offer appointment times
 
-Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
-=== INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
-"""
+                Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
+            === INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
+            """
 
         
-        intent_section = f"""
-=== CURRENT INTENT/OBJECTIVE ===
-Intent: {intent}
-Directive: {intent_directive}
-===
-"""
+            intent_section = f"""
+            === CURRENT INTENT/OBJECTIVE ===
+                Intent: {intent}
+            Directive: {intent_directive}
+            ===
+            """
         
-        history_text = f"""
-=== CONVERSATION HISTORY (read this carefully before responding) ===
-{chr(10).join(conversation_history)}
-=== END OF HISTORY ===
-"""
-{qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
-
-    else:
-        # Even without history, include profile and intent from current message
-        intent_section = f"""
-=== CURRENT INTENT/OBJECTIVE ===
-Intent: {intent}
-Directive: {intent_directive}
-===
-"""
+            history_text = f"""
+            === CONVERSATION HISTORY (read this carefully before responding) ===
+                {chr(10).join(conversation_history)}
+            === END OF HISTORY ===
+            """
+            {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
+        else:
+            # Even without history, include profile and intent from current message
+            intent_section = f"""
+            === CURRENT INTENT/OBJECTIVE ===
+                Intent: {intent}
+                Directive: {intent_directive}
+            ===
+            """
         if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
                 lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
             history_text = f"{qualification_context}{intent_section}{profile_text}"
         else:
             history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
     
-    # Score the previous response based on this incoming message
-    outcome_score = None
-    vibe = None
-    try:
-        outcome_score, vibe = record_lead_response(contact_id, message)
-        logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
-    except Exception as e:
-        logger.warning(f"Could not record lead response: {e}")
+            # Score the previous response based on this incoming message
+            outcome_score = None
+            vibe = None
+        try:
+            outcome_score, vibe = record_lead_response(contact_id, message)
+            logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
+        except Exception as e:
+            logger.warning(f"Could not record lead response: {e}")
 
-    # Close stage templates (server-side enforcement for PolicyEngine fallback)
-    close_templates = [
-        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
-        "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
-        "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
-        "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
-    ]
+            # Close stage templates (server-side enforcement for PolicyEngine fallback)
+            close_templates = [
+                "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
+                "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
+                "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
+                "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
+            ]
     
-    client = get_client()
+            client = get_client()
     
-    # =========================================================================
-    # UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
-    # No more template shortcuts - the bot must THINK using all its knowledge
-    # =========================================================================
+            # =========================================================================
+            # UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
+            # No more template shortcuts - the bot must THINK using all its knowledge
+            # =========================================================================
     
-    # Build context for the unified brain
-    unified_brain_knowledge = get_unified_brain()
+            # Build context for the unified brain
+            unified_brain_knowledge = get_unified_brain()
     
-    # Determine trigger suggestion for evaluation (not bypass)
-    trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
+            # Determine trigger suggestion for evaluation (not bypass)
+            trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
     
-    # Get proven patterns for comparison
-    proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
+            # Get proven patterns for comparison
+            proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
     
-    # Build the decision prompt with all context
-    decision_prompt = get_decision_prompt(
-        message=message,
-        context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
-        stage=stage,
-        trigger_suggestion=trigger_suggestion,
-        proven_patterns=proven_patterns_text,
-        triggers_found=triggers_found
-    )
+            # Build the decision prompt with all context
+            decision_prompt = get_decision_prompt(
+                message=message,
+                context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
+                stage=stage,
+                trigger_suggestion=trigger_suggestion,
+                proven_patterns=proven_patterns_text,
+                triggers_found=triggers_found
+            )
     
-    # Build unified brain system prompt - COMBINE all knowledge sources
-    # Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
-    # Then add unified brain framework for decision-making
-    base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+            # Build unified brain system prompt - COMBINE all knowledge sources
+            # Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
+            # Then add unified brain framework for decision-making
+            base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
-    unified_system_prompt = f"""
-{base_knowledge}
+            unified_system_prompt = f"""
+                {base_knowledge}
 
-{unified_brain_knowledge}
+                {unified_brain_knowledge}
 
-===================================================================================
-SITUATIONAL CONTEXT
-===================================================================================
-Agent name: {agent_name}
-Lead name: {first_name}
-Current stage: {stage}
-Exchange count: {exchange_count}
-Dismissive count: {soft_dismissive_count}
-Is soft dismissive: {is_soft_dismissive}
-Is hard dismissive: {is_hard_dismissive}
+            ===================================================================================
+                SITUATIONAL CONTEXT
+            ===================================================================================
+                Agent name: {agent_name}
+                Lead name: {first_name}
+                Current stage: {stage}
+                Exchange count: {exchange_count}
+                Dismissive count: {soft_dismissive_count}
+                Is soft dismissive: {is_soft_dismissive}
+                Is hard dismissive: {is_hard_dismissive}
 
-{state_instructions}
+                {state_instructions}
 
-CONFIRMATION CODE (if booking): {confirmation_code}
+                CONFIRMATION CODE (if booking): {confirmation_code}
 
-=== AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
-{real_calendar_slots}
-NEVER make up appointment times. ONLY offer the times listed above.
+                === AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
+                {real_calendar_slots}
+                NEVER make up appointment times. ONLY offer the times listed above.
 
-===================================================================================
-CRITICAL RULES
-===================================================================================
-1. No em dashes (--) in responses
-2. Keep responses 15-35 words (SMS friendly)
-3. Only use first name every 3-4 messages like normal texting
-4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
-5. After 3 exchanges, STOP asking questions and offer appointment times
-6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
-{decision_prompt}
-"""
-    # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
-    max_retries = 3  # Reduced from 2 for faster response
-    retry_count = 0
-    correction_prompt = ""
-    reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
+            ===================================================================================
+                CRITICAL RULES
+            ===================================================================================
+                1. No em dashes (--) in responses
+                2. Keep responses 15-35 words (SMS friendly)
+                3. Only use first name every 3-4 messages like normal texting
+                4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
+                5. After 3 exchanges, STOP asking questions and offer appointment times
+                6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
+                {decision_prompt}
+            """
+                # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
+                max_retries = 3  # Reduced from 2 for faster response
+                retry_count = 0
+                correction_prompt = ""
+                reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
     
-    # Use grok-4-1-fast-reasoning for everything (cheap and capable)
-    use_model = "grok-4-1-fast-reasoning"
+                # Use grok-4-1-fast-reasoning for everything (cheap and capable)
+                use_model = "grok-4-1-fast-reasoning"
     
-    # === TOKEN STATS: Log cost estimate before API call ===
-    prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
-    stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
-    logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
+            # === TOKEN STATS: Log cost estimate before API call ===
+                prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
+                stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
+                logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
     
-    # Simplified user content for unified brain approach
-    # Include history_text which contains deflection warnings and questions already asked
-    unified_user_content = f"""
-{history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
+            # Simplified user content for unified brain approach
+            # Include history_text which contains deflection warnings and questions already asked
+                unified_user_content = f"""
+                    {history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
 
-LEAD'S MESSAGE: "{message}"
+                    LEAD'S MESSAGE: "{message}"
 
-Now THINK through your decision process and respond.
-Remember: Apply your knowledge, don't just pattern match.
+                    Now THINK through your decision process and respond.
+                    Remember: Apply your knowledge, don't just pattern match.
   
-    while retry_count <= max_retries:
-        # Note: Grok model only supports temperature, top_p, max_tokens
-        # frequency_penalty and presence_penalty are NOT supported
-        response = client.chat.completions.create(
-            model=use_model,
-            messages=[
-                {"role": "system", "content": unified_system_prompt},
-                {"role": "user", "content": unified_user_content + correction_prompt}
-            ],
-            max_tokens=425,
-            temperature=0.7,
-            top_p=0.95
-        )
+                    while retry_count <= max_retries:
+                    # Note: Grok model only supports temperature, top_p, max_tokens
+                    # frequency_penalty and presence_penalty are NOT supported
+                    response = client.chat.completions.create(
+                    model=use_model,
+                    messages=[
+                        {"role": "system", "content": unified_system_prompt},
+                        {"role": "user", "content": unified_user_content + correction_prompt}
+                    ],
+                        max_tokens=425,
+                        temperature=0.7,
+                        top_p=0.95
+                   """ )
 
-        content = response.choices[0].message.content or ""
+                content = response.choices[0].message.content or ""
         
-        # Parse unified brain thinking for logging
-        thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
+                # Parse unified brain thinking for logging
+                thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
         if thinking_match:
             thinking = thinking_match.group(1).strip()
             logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
         
-        # Extract the actual response
-        response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
+            # Extract the actual response
+            response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
         if response_match:
             reply = response_match.group(1).strip()
         else:
@@ -4573,24 +4572,26 @@ Remember: Apply your knowledge, don't just pattern match.
             # Strip any thinking blocks first
             reply = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
         
-        # Parse self-reflection BEFORE stripping (so we can use scores for validation)
-        reflection = parse_reflection(content)
-        reflection_scores = {}
+            # Parse self-reflection BEFORE stripping (so we can use scores for validation)
+            reflection = parse_reflection(content)
+            reflection_scores = {}
         if reflection:
             reflection_scores = reflection.get('scores', {})
             logger.debug(f"Self-reflection scores: {reflection_scores}")
             if reflection.get('improvement'):
                 logger.debug(f"Self-improvement note: {reflection['improvement']}")
         
-        # Remove quotation marks wrapping the response
-        if reply.startswith('"') and reply.endswith('"'):
+            # Remove quotation marks wrapping the response
+        if 
+            reply.startswith('"') and reply.endswith('"'):
             reply = reply[1:-1]
-        if reply.startswith("'") and reply.endswith("'"):
+        if 
+            reply.startswith("'") and reply.endswith("'"):
             reply = reply[1:-1]
-        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
+            reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
         
-        # Validate response using PolicyEngine (pass reflection scores for scoring-based rejection)
-        is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(reply, conv_state, reflection_scores)
+            # Validate response using PolicyEngine (pass reflection scores for scoring-based rejection)
+            is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(reply, conv_state, reflection_scores)
         
         if is_valid:
             logger.debug("Policy validation passed")
@@ -4630,51 +4631,51 @@ Remember: Apply your knowledge, don't just pattern match.
                 # Always break after max retries to avoid infinite loop
                 break
     
-    # Server-side semantic duplicate rejection (75% similarity check)
-    is_duplicate = False
-    duplicate_reason = None
+            # Server-side semantic duplicate rejection (75% similarity check)
+            is_duplicate = False
+            duplicate_reason = None
     
-    # Build question themes that are semantically equivalent
-    QUESTION_THEMES = {
-        "retirement_portability": [
-            "continue after retirement", "leave your job", "retire", "portable", 
-            "convert it", "goes with you", "when you leave", "portability",
-            "if you quit", "stop working", "leaving the company"
-        ],
-        "policy_type": [
-            "term or whole", "term or permanent", "what type", "kind of policy",
-            "is it term", "is it whole life", "iul", "universal life"
-        ],
-        "living_benefits": [
-            "living benefits", "accelerated death", "chronic illness", 
-            "critical illness", "terminal illness", "access while alive"
-        ],
-        "coverage_goal": [
-            "what made you", "why did you", "what's the goal", "what were you",
-            "originally looking", "why coverage", "what prompted", "got you looking",
-            "what got you"
-        ],
-        "other_policies": [
-            "other policies", "any other", "additional coverage", "also have",
-            "multiple policies", "work policy", "another plan"
-        ],
-        "motivation": [
-            "what's on your mind", "what's been on", "what specifically", 
-            "what are you thinking", "what concerns you"
-        ]
-    }
+            # Build question themes that are semantically equivalent
+            QUESTION_THEMES = {
+                "retirement_portability": [
+                "continue after retirement", "leave your job", "retire", "portable", 
+                "convert it", "goes with you", "when you leave", "portability",
+                "if you quit", "stop working", "leaving the company"
+                ],
+                "policy_type": [
+                "term or whole", "term or permanent", "what type", "kind of policy",
+                "is it term", "is it whole life", "iul", "universal life"
+                ],
+                "living_benefits": [
+                "living benefits", "accelerated death", "chronic illness", 
+                "critical illness", "terminal illness", "access while alive"
+                ],
+                "coverage_goal": [
+                "what made you", "why did you", "what's the goal", "what were you",
+                "originally looking", "why coverage", "what prompted", "got you looking",
+                "what got you"
+                ],
+                "other_policies": [
+                "other policies", "any other", "additional coverage", "also have",
+                "multiple policies", "work policy", "another plan"
+                ],
+                "motivation": [
+                "what's on your mind", "what's been on", "what specifically", 
+                "what are you thinking", "what concerns you"
+                ]
+            }
     
-    def get_question_theme(text):
-        """Return the theme(s) of a message."""
-        text_lower = text.lower()
-        themes = []
-        for theme, keywords in QUESTION_THEMES.items():
-            if any(kw in text_lower for kw in keywords):
-                themes.append(theme)
-        return themes
+def get_question_theme(text):
+    """Return the theme(s) of a message."""
+    text_lower = text.lower()
+    themes = []
+    for theme, keywords in QUESTION_THEMES.items():
+        if any(kw in text_lower for kw in keywords):
+            themes.append(theme)
+    return themes
     
-    # Get themes in this reply
-    reply_themes = get_question_theme(reply)
+        # Get themes in this reply
+reply_themes = get_question_theme(reply)
     
     # Check against recent agent messages
     if recent_agent_messages and reply_themes:
