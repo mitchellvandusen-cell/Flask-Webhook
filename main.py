@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 # NOTE: Do not download spaCy models at runtime in production.
-# Install the model at build time (Dockerfile/requirements) instead.
+# Install the model at build time (requirements) instead.
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
