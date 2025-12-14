@@ -1583,7 +1583,7 @@ def send_sms_via_ghl(contact_id, message, api_key, location_id):
         "type": "SMS",
         "contactId": contact_id,
         "locationId": location_id,
-        "message": reply
+        "message": message
     }
     
     try:
