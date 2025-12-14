@@ -4013,107 +4013,105 @@ def extract_intent(data, message=""):
     # Stage-specific directives for cold leads (from NEPQ Black Book)
     stage_directives = {
         "problem_awareness": """
-        === STAGE: PROBLEM AWARENESS (NEPQ Stage 2 + 7-Steps Big Picture Questions) ===
-            These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
+=== STAGE: PROBLEM AWARENESS (NEPQ Stage 2 + 7-Steps Big Picture Questions) ===
+These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
 
-            BIG PICTURE QUESTIONS (start broad, then narrow - from 7-Steps Guide):
-                - "Just so I have more context, what was going on back then that made you start looking?"
-                - "Is there something specific that's changed since then, like work or family?"
-                - "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
-                - "Was it more just seeing what was out there, or was there something specific going on?"
-                - "What would you change about your current coverage situation?"
-                - "What's been your biggest headache with insurance stuff?"
+BIG PICTURE QUESTIONS (start broad, then narrow - from 7-Steps Guide):
+- "Just so I have more context, what was going on back then that made you start looking?"
+- "Is there something specific that's changed since then, like work or family?"
+- "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
+- "Was it more just seeing what was out there, or was there something specific going on?"
+- "What would you change about your current coverage situation?"
+- "What's been your biggest headache with insurance stuff?"
 
-            DO NOT ask generic questions like:
-                - "What's on your mind about insurance?" (they haven't thought about it in months)
-                - "What's been worrying you?" (too presumptuous)
-                - "What made you realize you need coverage?" (they may not have realized anything)
-                - "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
-                - "What are you hoping to achieve?" (too corporate/formal)
-                - "What would be ideal for you?" (too vague, they don't know what's possible)
+DO NOT ask generic questions like:
+- "What's on your mind about insurance?" (they haven't thought about it in months)
+- "What's been worrying you?" (too presumptuous)
+- "What made you realize you need coverage?" (they may not have realized anything)
+- "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
+- "What are you hoping to achieve?" (too corporate/formal)
+- "What would be ideal for you?" (too vague, they don't know what's possible)
 
-            RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
-                If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
-                → They feel interrogated. STOP asking questions. Back off gracefully:
-                → "Fair enough, no pressure. I'll check back another time."
-                → DO NOT ask another question after this response.
+RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
+If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
+→ They feel interrogated. STOP asking questions. Back off gracefully:
+→ "Fair enough, no pressure. I'll check back another time."
+→ DO NOT ask another question after this response.
 
-            KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
-
-            After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
-        ===
-        """
+KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
+After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
+===
+""",
+        
         "consequence": """
-        === STAGE: CONSEQUENCE (NEPQ Stage 2 + 7-Steps Future Pacing) ===
-            You've identified a problem or need. Now help them FEEL the weight of not solving it AND paint the after-picture.
+=== STAGE: CONSEQUENCE (NEPQ Stage 2 + 7-Steps Future Pacing) ===
+You've identified a problem or need. Now help them FEEL the weight of not solving it AND paint the after-picture.
 
-            STEP 1 - ASK ONE CONSEQUENCE QUESTION (choose based on what they shared):
+STEP 1 - ASK ONE CONSEQUENCE QUESTION (choose based on what they shared):
 
-            IF EMPLOYER COVERAGE:
-                - "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
-                - "Does that follow you if you switch jobs, or is it tied to that employer?"
-                - "What happens to that coverage when you retire?"
+IF EMPLOYER COVERAGE:
+- "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
+- "Does that follow you if you switch jobs, or is it tied to that employer?"
+- "What happens to that coverage when you retire?"
 
-            IF FAMILY/SPOUSE MENTIONED:
-                - "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
-                - "What would you want that coverage to handle first, the mortgage or replacing your income?"
+IF FAMILY/SPOUSE MENTIONED:
+- "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
+- "What would you want that coverage to handle first, the mortgage or replacing your income?"
 
-            IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
-                - "How long has that been weighing on you?"
-                - "What's been stopping you from getting that handled?"
+IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
+- "How long has that been weighing on you?"
+- "What's been stopping you from getting that handled?"
 
-            STEP 2 - IF THEY SEEM HESITANT, USE FUTURE PACING (required when they say "I don't know" or "a lot to think about"):
-                Instead of another question, paint the after-picture:
-                    - "What would it feel like to know that's finally handled?"
-                    - "Imagine knowing your family is protected no matter what, how would that change things?"
-                    - "Picture your wife's face when you tell her you finally got this sorted."
+STEP 2 - IF THEY SEEM HESITANT, USE FUTURE PACING (required when they say "I don't know" or "a lot to think about"):
+Instead of another question, paint the after-picture:
+- "What would it feel like to know that's finally handled?"
+- "Imagine knowing your family is protected no matter what, how would that change things?"
+- "Picture your wife's face when you tell her you finally got this sorted."
 
-                WHEN TO USE FUTURE PACING:
-                    - They say "I don't know" or "let me think about it"
-                    - They seem overwhelmed or hesitant
-                    - They acknowledge the problem but aren't moving forward
+WHEN TO USE FUTURE PACING:
+- They say "I don't know" or "let me think about it"
+- They seem overwhelmed or hesitant
+- They acknowledge the problem but aren't moving forward
 
-                    After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
-        ===
-        """
+After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
+===
+""",
         "close": """
-        === STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
-            You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
+=== STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
+You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
 
-            SCENARIO A - FIRST CLOSE ATTEMPT:
-                - "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
-                - "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
-                - "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
+SCENARIO A - FIRST CLOSE ATTEMPT:
+- "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
+- "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
+- "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
 
-            SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
-                Acknowledge it briefly, then offer times immediately. Don't ask another question.
+SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
+Acknowledge it briefly, then offer times immediately. Don't ask another question.
 
-            SCENARIO C - THEY OBJECT ("let me think about it", "I'm not sure", etc.) - USE LOOPING BACK:
-                This is REQUIRED when they push back. Loop to something THEY said earlier + add a new positive + offer times:
-                Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
+SCENARIO C - THEY OBJECT ("let me think about it", "I'm not sure", etc.) - USE LOOPING BACK:
+This is REQUIRED when they push back. Loop to something THEY said earlier + add a new positive + offer times:
+Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
 
-                Examples:
-                    - "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
-                    - "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
-                    - "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
+Examples:
+- "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
+- "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
+- "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
 
-            SCENARIO D - THEY KEEP OBJECTING - TIP THE BUYING SCALE:
-                Add positives they haven't heard yet:
-                    - "no waiting period" (if they have GI coverage)
-                    - "follows you anywhere" (if they have employer coverage)
-                    - "often costs less than expected"
-                    - "no obligation, just a quick review"
-                    - "takes 30 minutes to see what's out there"
+SCENARIO D - THEY KEEP OBJECTING - TIP THE BUYING SCALE:
+Add positives they haven't heard yet:
+- "no waiting period" (if they have GI coverage)
+- "follows you anywhere" (if they have employer coverage)
+- "often costs less than expected"
+- "no obligation, just a quick review"
+- "takes 30 minutes to see what's out there"
 
-                Remove negatives:
-                    - "no pressure to buy anything"
-                    - "just getting information"
-                    - "see if there's a better fit"
-
-            ALWAYS end with two specific time options. DO NOT ask more discovery questions.
-        ===
-        """
-        }
+Remove negatives:
+- "no pressure to buy anything"
+- "just getting information"
+- "see if there's a better fit"
+===ALWAYS end with two specific time options. DO NOT ask more discovery questions.
+""",    
+    }
    
     stage_directive = stage_directives.get(stage, "")
     profile_text = format_lead_profile_for_llm(lead_profile, first_name)
@@ -4271,10 +4269,10 @@ def extract_intent(data, message=""):
                 This is a clear request to stop. You MUST exit immediately.
                 Your response MUST be SHORT and final:
                 "Got it. Take care."
-                "No problem. Have a good one."
+"No problem. Have a good one."
 
-            === EXIT NOW - NO QUESTIONS ===
-            """
+=== EXIT NOW - NO QUESTIONS ===
+"""
         # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
         elif is_soft_dismissive:
             if soft_dismissive_count == 1:
