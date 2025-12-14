@@ -1699,8 +1699,8 @@ def extract_intent(data, message=""):
             if slots:
                 real_calendar_slots = format_slot_options(slots, timezone)
                 logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-            except Exception as e:
-    			logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+        except Exception as e:
+    		logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
 
 
     if not real_calendar_slots:
