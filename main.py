@@ -5129,14 +5129,14 @@ def training_stats():
         booked = row['booked'] if row else 0
         
         # Top performers (contacts with highest scores)
-        cur.execute("""
-            SELECT contact_id, MAX(outcome_score) as best_score, COUNT(*) as turns
-            FROM outcome_tracker 
-            WHERE outcome_score IS NOT NULL
-            GROUP BY contact_id 
-            ORDER BY best_score DESC, turns DESC
-            LIMIT 5
-        """)
+        cur.execute(
+            # SELECT contact_id, MAX(outcome_score) as best_score, COUNT(*) as turns
+            # FROM outcome_tracker 
+            # WHERE outcome_score IS NOT NULL
+            # GROUP BY contact_id 
+            # ORDER BY best_score DESC, turns DESC
+            # LIMIT 5
+        )
         top_convos = []
         for row in cur.fetchall():
             top_convos.append({
