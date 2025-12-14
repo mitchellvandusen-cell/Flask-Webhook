@@ -5400,7 +5400,7 @@ def index():
             is_success = True if not booking_error else False
             response_data = {
                 "success": is_success,
-                "reply": reply,
+                "reply": message_text,
                 "confirmation_code": confirmation_code,
                 "sms_sent": False,
                 "warning": "SMS not sent - missing contact_id or GHL credentials",
