@@ -3563,9 +3563,6 @@ Remember: Apply your knowledge, don't just pattern match.
 
     return reply, confirmation_code
 
-    }
-    logger.info(f"STEP 5: Decision log: {decision_log}")
-
     # Track the agent's response for outcome learning
     try:
         tracker_id = record_agent_message(contact_id, reply)
