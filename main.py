@@ -281,61 +281,42 @@ def generate_nepq_response(
 
     # 8) GROK / xAI CALL - Now with full brain + knowledge review
         client = get_client()
-
-# === PULL FULL UNIFIED BRAIN (critical — this is your master expertise) ===
-        """First, REVIEW the pre-Grok context above (stage, topics asked, state, triggers, knowledge, proven patterns).
-            Then apply the unified knowledge to this specific lead."""
-        full_brain = get_unified_brain()  # from unified_brain.py — the 2025 Edition
-
-# === PULL RELEVANT MODULAR KNOWLEDGE (already triggered) ===
-        relevant_kb = get_relevant_knowledge(triggers_found)
-        kb_context = format_knowledge_for_prompt(relevant_kb)
-
-# === BUILD FINAL PROMPT WITH EVERYTHING ===
-        system_prompt = f"""
-        {full_brain}
-
-        {kb_context}
-
-        {get_decision_prompt(
-            message=message,
-            context=context,  # your existing conversation context
-            stage=stage,
-            trigger_suggestion=trigger_suggestion or "None",
-            proven_patterns=proven_patterns or "None",
-            triggers_found=triggers_found
-        )}
-        """
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"CLIENT SAID: {message}"},
-        ]
-
         response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
-            messages=messages,
-            temperature=0.6,
-        )
-
+                model="grok-4-1-fast-reasoning",
+                messages=[{"role": "system", "content": brain},
+                          {"role": "user", "content": decision_prompt}
+                    ],
+                temperature=0.6
+            )
+        
         raw_reply = response.choices[0].message.content.strip()
-
-        # Extract only the <response> part — your existing logic
+        
+        # Extract only the <response> part
         if "<response>" in raw_reply and "</response>" in raw_reply:
             reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
         else:
-            if "<thinking>" in raw_reply:
-            parts = raw_reply.split("<thinking>")
-            reply = parts[1].strip() if len(parts) > 1 else raw_reply
-            else:
-                reply = raw_reply
+            reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
+            reply = " ".join(reply.split())
 
-        # Safety fallback
-        if not reply or len(reply) > 280:
-            reply = "Could you send that again?"
+    except Exception as e:
+            logger.error(f"Grok call failed: {e}")
+            reply = "Hey, sorry — something went wrong on my end. Can you try again?"
 
-        return reply, confirmation_code
-        
+    try:
+        ghl_key = os.environ.get("GHL_API_KEY")
+        location_id = os.environ.get("GHL_LOCATION_ID")
+        if ghl_key and location_id and contact_id:
+            logger.info(f"About to send SMS - contact_id: {contact_id}...")
+            url = f"https://services.leadconnectorhq.com/conversations/messages"
+            headers = {"Authorization": f"Bearer {ghl_key}", "Version": "2021-07-28", "Content-Type": "application/json"}
+            payload = {"type": "SMS", "message": reply, "contactId": contact_id}
+            r = requests.post(url, json=payload, headers=headers)
+            logger.info(f"SMS sent: {r.status_code} - {reply[:50]}...")
+        else:
+            logger.warning("Missing GHL credentials — SMS not sent")
+    except Exception as e:
+        logger.error(f"SMS send failed: {e}")
+    return reply, confirmation_code
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
 # ============================================================================
