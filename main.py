@@ -279,32 +279,62 @@ def generate_nepq_response(
             triggers_found=triggers_found,
             )
 
-        # ------------------------------------------------------------------
-        # 8) GROK / xAI CALL
-        # ------------------------------------------------------------------
+    # 8) GROK / xAI CALL - Now with full brain + knowledge review
         client = get_client()
+
+# === PULL FULL UNIFIED BRAIN (critical — this is your master expertise) ===
+        """First, REVIEW the pre-Grok context above (stage, topics asked, state, triggers, knowledge, proven patterns).
+            Then apply the unified knowledge to this specific lead."""
+        full_brain = get_unified_brain()  # from unified_brain.py — the 2025 Edition
+
+# === PULL RELEVANT MODULAR KNOWLEDGE (already triggered) ===
+        relevant_kb = get_relevant_knowledge(triggers_found)
+        kb_context = format_knowledge_for_prompt(relevant_kb)
+
+# === BUILD FINAL PROMPT WITH EVERYTHING ===
+        system_prompt = f"""
+        {full_brain}
+
+        {kb_context}
+
+        {get_decision_prompt(
+            message=message,
+            context=context,  # your existing conversation context
+            stage=stage,
+            trigger_suggestion=trigger_suggestion or "None",
+            proven_patterns=proven_patterns or "None",
+            triggers_found=triggers_found
+        )}
+        """
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"CLIENT SAID: {message}"},
+        ]
+
         response = client.chat.completions.create(
-                model="grok-4-1-fast-reasoning",
-                messages=[{"role": "system", "content": brain},
-                          {"role": "user", "content": decision_prompt}
-                    ],
-                temperature=0.6
-            )
-        
+            model="grok-4-1-fast-reasoning",
+            messages=messages,
+            temperature=0.6,
+        )
+
         raw_reply = response.choices[0].message.content.strip()
-        
-        # Extract only the <response> part
+
+        # Extract only the <response> part — your existing logic
         if "<response>" in raw_reply and "</response>" in raw_reply:
             reply = raw_reply.split("<response>")[1].split("</response>")[0].strip()
         else:
-            reply = raw_reply.split("</thinking>")[-1].strip() if "</thinking>" in raw_reply else raw_reply
-            reply = " ".join(reply.split())
+            # Fallback: take everything after <thinking> or full text
+        if "<thinking>" in raw_reply:
+            reply = raw_reply.split("<thinking>")[1].strip()
+        else:
+            reply = raw_reply
 
-    except Exception as e:
-            logger.error(f"Grok call failed: {e}")
-            reply = "Hey, sorry can you explain more?"
+        # Safety fallback
+        if not reply or len(reply) > 280:
+            reply = "Could you send that again?"
 
-    return reply, confirmation_code
+        return reply, confirmation_code
         
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
