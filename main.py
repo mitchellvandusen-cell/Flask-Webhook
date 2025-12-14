@@ -4179,7 +4179,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
 
 
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
- """   
+ """,   
         questions_warning = ''
         if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
@@ -4212,7 +4212,7 @@ YOU MUST:
 
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
 === TRY A NEW ANGLE - DON'T GIVE UP ===
-"""
+""
         # Count soft dismissive responses in history to escalate response
         # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
@@ -4251,7 +4251,6 @@ Your response MUST be SHORT and final:
 "Got it. Take care."
 "No problem. Have a good one."
 === EXIT NOW - NO QUESTIONS ===
-
 """
         # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
         elif is_soft_dismissive:
