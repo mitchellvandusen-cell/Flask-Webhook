@@ -4218,13 +4218,13 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         if topics_already_asked:
             topics_warning = f"""
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
-{chr(10).join([f"- {t}" for t in topics_already_asked])}
+        {chr(10).join([f"- {t}" for t in topics_already_asked])}
 
 
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
- """,   
-        questions_warning = ""
-        if recent_questions:
+            """
+            questions_warning = ""
+            if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
             
             # Check if lead just deflected our last question
@@ -4232,7 +4232,7 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
             deflection_warning = ""
             if is_soft_dismissive and last_agent_msg:
                 last_question = last_agent_msg.replace("You: ", "")
-                deflection_warning = f""
+                deflection_warning = f"""
                 
 === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
 You asked: "{last_question}"
@@ -4244,7 +4244,7 @@ YOU MUST NOT:
 - Repeat ANY variation of your last question
 - Say goodbye or exit (soft rejections are NOT hard stops)
 
-YOU MUST:
+    YOU MUST:
 - Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
 - Pivot to a COMPLETELY DIFFERENT re-frame from this list:
   1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
@@ -4255,7 +4255,7 @@ YOU MUST:
 
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
 === TRY A NEW ANGLE - DON'T GIVE UP ===
-
+""",
         # Count soft dismissive responses in history to escalate response
         # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
@@ -4293,8 +4293,9 @@ This is a clear request to stop. You MUST exit immediately.
 Your response MUST be SHORT and final:
 "Got it. Take care."
 "No problem. Have a good one."
+""",
 === EXIT NOW - NO QUESTIONS ===
-"""
+
         # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
         elif is_soft_dismissive:
             if soft_dismissive_count == 1:
@@ -4318,7 +4319,7 @@ EXAMPLE RESPONSES:
 DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
 === USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
 
-"""
+""",
             elif soft_dismissive_count == 2:
                 # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
                 exchange_warning = f"""
@@ -4338,7 +4339,7 @@ IF you know their motivation: "Fair enough. You mentioned wanting to make sure t
 Use their OWN WORDS to reconnect. Don't ask new invasive questions.
 === REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
 
-"""
+""",
             else:
                 # Third+ resistance: Keep trying with different re-frames until hard stop
                 exchange_warning = f"""
@@ -4357,7 +4358,7 @@ DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used 
 ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
 === KEEP GOING - FIND THE GAP ===
 
-"""
+""",
         # Only exit on very high rejection count AND hard stop language
         elif rejection_count >= 8 and is_hard_dismissive:
             exchange_warning = f"""
@@ -4366,7 +4367,7 @@ They've rejected many times AND explicitly asked to stop. Exit gracefully.
 "Got it. Take care."
 === EXIT NOW ===
 
-"""
+""",
         elif exchange_count >= 3:
             exchange_warning = f"""
 === CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
@@ -4375,7 +4376,7 @@ Your response MUST be a statement with an appointment offer like:
 "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
 === NO MORE QUESTIONS - MAKE THE OFFER ===
 
-"""
+""",
         
         # Detect hesitation patterns after valuable conversation (Feel Felt Found opportunity)
         hesitation_phrases = [
@@ -4405,14 +4406,14 @@ This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique
 Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
 === INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
 
-"""
+""",
         
         intent_section = f"""
 === CURRENT INTENT/OBJECTIVE ===
 Intent: {intent}
 Directive: {intent_directive}
 ===
-"""
+""",
         
         history_text = f"""
 === CONVERSATION HISTORY (read this carefully before responding) ===
@@ -4420,7 +4421,7 @@ Directive: {intent_directive}
 === END OF HISTORY ===
 
 {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
-"""
+""",
     else:
         # Even without history, include profile and intent from current message
         intent_section = f"""
@@ -4428,7 +4429,7 @@ Directive: {intent_directive}
 Intent: {intent}
 Directive: {intent_directive}
 ===
-"""
+""",
         if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
                 lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
             history_text = f"{qualification_context}{intent_section}{profile_text}"
@@ -4516,9 +4517,8 @@ CRITICAL RULES
 4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
 5. After 3 exchanges, STOP asking questions and offer appointment times
 6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
-
-{decision_prompt}
 """
+{decision_prompt}
 
     # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
     max_retries = 3  # Reduced from 2 for faster response
@@ -4543,7 +4543,6 @@ LEAD'S MESSAGE: "{message}"
 
 Now THINK through your decision process and respond.
 Remember: Apply your knowledge, don't just pattern match.
-"""
     
     while retry_count <= max_retries:
         # Note: Grok model only supports temperature, top_p, max_tokens
@@ -4812,7 +4811,7 @@ def ghl_unified():
     
     5. "search" - Search contacts by phone
        Required: phone
-    """
+"""
     raw_data = request.json or {}
     data = normalize_keys(raw_data)
     custom = data.get("customdata", {})
