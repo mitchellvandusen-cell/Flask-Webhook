@@ -4462,10 +4462,10 @@ decision_prompt = get_decision_prompt(
 # Then add unified brain framework for decision-making
 base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
     
-            unified_system_prompt = f"""
-                {base_knowledge}
+unified_system_prompt = f"""
+{base_knowledge}
 
-                {unified_brain_knowledge}
+{unified_brain_knowledge}
 
 ===================================================================================
 SITUATIONAL CONTEXT
