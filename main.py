@@ -289,7 +289,7 @@ def generate_nepq_response(
 
     except Exception as e:
             logger.error(f"Grok call failed: {e}")
-            reply = "Hey, sorry — something went wrong on my end. Can you try again?"
+            reply = "Hey, sorry can you explain more?"
 
     return reply, confirmation_code
         
@@ -4212,7 +4212,7 @@ YOU MUST:
 
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
 === TRY A NEW ANGLE - DON'T GIVE UP ===
-"""
+
         # Count soft dismissive responses in history to escalate response
         # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
@@ -4479,7 +4479,7 @@ CRITICAL RULES
 """
 
     # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
-    max_retries = 1  # Reduced from 2 for faster response
+    max_retries = 3  # Reduced from 2 for faster response
     retry_count = 0
     correction_prompt = ""
     reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
