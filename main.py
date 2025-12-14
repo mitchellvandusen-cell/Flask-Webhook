@@ -4511,7 +4511,7 @@ logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response
 """    
 # Simplified user content for unified brain approach
 # Include history_text which contains deflection warnings and questions already asked
-                unified_user_content = f"""
+unified_user_content = f"""
 ===
 {history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
 ===
