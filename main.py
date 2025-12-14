@@ -4879,7 +4879,7 @@ def ghl_unified():
         try:
             logger.info("[/ghl] Starting response generation...")
             if appointment_created and appointment_details:
-            logger.info("[/ghl] Appointment path - generating confirmation")
+                logger.info("[/ghl] Appointment path - generating confirmation")
                 confirmation_code = generate_confirmation_code()
                 reply = f"You're all set for {appointment_details['formatted_time']}. Your confirmation code is {confirmation_code}. Reply {confirmation_code} to confirm and I'll send you the calendar invite."
                 reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
