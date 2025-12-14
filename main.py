@@ -4398,7 +4398,7 @@ Remove negatives:
                 {chr(10).join(conversation_history)}
             === END OF HISTORY ===
             """
-            {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
+        {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
         else:
             # Even without history, include profile and intent from current message
             intent_section = f"""
