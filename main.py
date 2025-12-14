@@ -300,7 +300,7 @@ def generate_nepq_response(
 
     except Exception as e:
             logger.error(f"Grok call failed: {e}")
-            reply = "Hey, sorry — something went wrong on my end. Can you try again?"
+            reply = "Sorry, could you send that again?"
 
     try:
         ghl_key = os.environ.get("GHL_API_KEY")
