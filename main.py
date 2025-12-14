@@ -4555,7 +4555,7 @@ response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
         
             # Parse self-reflection BEFORE stripping (so we can use scores for validation)
             reflection = parse_reflection(content)
-            reflection_scores = {}
+                reflection_scores = {}
         if reflection:
             reflection_scores = reflection.get('scores', {})
             logger.debug(f"Self-reflection scores: {reflection_scores}")
