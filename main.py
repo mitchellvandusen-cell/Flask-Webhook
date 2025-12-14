@@ -5239,7 +5239,7 @@ def index():
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             return jsonify({
                 "success": True,
-                "reply": reply,
+                "reply": raw_message,
                 "opener": "jeremy_miner_2025",
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False)
@@ -5247,7 +5247,7 @@ def index():
         else:
             return jsonify({
                 "success": True,
-                "reply": reply,
+                "reply": raw_message,
                 "opener": "jeremy_miner_2025",
                 "sms_sent": False,
                 "warning": "No GHL credentials - SMS not sent"
@@ -5345,7 +5345,7 @@ def index():
                     contact_id=contact_id,
                     api_key=api_key,
                     calendar_id=calendar_id_for_slots,
-                    extra_instruction=extra_instruction
+                    extra_instruction=None
                 )
 
                 # Clean formatting
@@ -5381,7 +5381,7 @@ def index():
             
             response_data = {
                 "success": is_success,
-                "reply": reply,
+                "reply": raw_message,
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
                 "confirmation_code": confirmation_code,
@@ -5400,7 +5400,7 @@ def index():
             is_success = True if not booking_error else False
             response_data = {
                 "success": is_success,
-                "reply": message_text,
+                "reply": raw_message,
                 "confirmation_code": confirmation_code,
                 "sms_sent": False,
                 "warning": "SMS not sent - missing contact_id or GHL credentials",
