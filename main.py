@@ -4212,7 +4212,7 @@ YOU MUST:
 
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
 === TRY A NEW ANGLE - DON'T GIVE UP ===
-
+"""
         # Count soft dismissive responses in history to escalate response
         # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
