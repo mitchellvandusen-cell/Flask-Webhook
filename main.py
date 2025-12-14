@@ -174,12 +174,12 @@ def normalize_keys(data):
 def generate_nepq_response(
     first_name=first_name,
     message=message,
-    agent_name=agent_name or "Mitch"
-    conversation_history=conversation_history
+    agent_name=agent_name or "Mitch",
+    conversation_history=conversation_history,
     intent=intent or "general",
     contact_id=contact_id,
     api_key=GHL_API_KEY,
-    calendar_id="S4knucFaXO769HDFlRtv"
+    calendar_id="S4knucFaXO769HDFlRtv",
     timezone="America/New_York",
     extra_instruction=extra_instruction,
     ):
