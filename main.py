@@ -207,10 +207,10 @@ def generate_nepq_response(
         # 2) CONVERSATION ENGINE (state + stage)
         # ------------------------------------------------------------------
         state = build_state_from_history(
-            contact_id=contact_id,
-            first_name=first_name,
-            conversation_history=conversation_history,
-            current_message=message
+        contact_id=contact_id,
+        first_name=first_name,
+        conversation_history=conversation_history,
+        current_message=message
         )
 
         stage = detect_stage(state, message, conversation_history)
