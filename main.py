@@ -172,16 +172,16 @@ def normalize_keys(data):
     return {k.lower(): v for k, v in data.items()}
 
 def generate_nepq_response(
-    first_name,
-    message,
-    agent_name="Mitchell",
-    conversation_history=None,
-    intent="general",
-    contact_id=None,
-    api_key=None,
-    calendar_id=None,
+    first_name=first_name,
+    message=message,
+    agent_name=agent_name or "Mitch"
+    conversation_history=conversation_history
+    intent=intent or "general",
+    contact_id=contact_id,
+    api_key=GHL_API_KEY,
+    calendar_id="S4knucFaXO769HDFlRtv"
     timezone="America/New_York",
-    extra_instruction=None,
+    extra_instruction=extra_instruction,
     ):
     confirmation_code = generate_confirmation_code()
 
@@ -215,6 +215,19 @@ def generate_nepq_response(
 
         stage = detect_stage(state, message, conversation_history)
         extract_facts_from_message(state, message)
+        
+        # Force Jeremy Miner re-engagement for cold/old leads
+        if (len(conversation_history) <= 2 and 
+            all(msg.get('direction') == 'outbound' for 
+        msg in conversation_history if 
+        msg.get('direction')) and
+            first_name and first_name != "there" and first_name.strip()):
+    
+                preferred_template = (
+                    f"Hey {first_name}, are you still with that other life insurance plan? "There's new living benefits that just came out and a lot of people have been asking about them. "Wanted to make sure yours wasn't just paying out on death."
+        )
+        else:
+            preferred_template = None # bypass Grok
 
         # ------------------------------------------------------------------
         # 3) TRIGGERS (string-safe now)
@@ -964,7 +977,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
     FLOW (3 steps to appointment):
     1. "Already covered" → "Who'd you go with?"
     2. [carrier] → "Did someone help you or find them yourself? They help higher risk, serious health issues?"
-    3. [no/healthy] → "Weird... they're good but higher risk = expensive for healthy. Time tonight/tomorrow?" 
+    3. [no/healthy] → "Weird  they're good but higher risk = expensive for healthy. Time tonight/tomorrow?" 
     
     Returns (response, should_continue) where should_continue=False means use this response.
     """
@@ -4801,10 +4814,10 @@ def ghl_unified():
 
     message_text = message_text.strip()
 
-    first_name = custom.get("first_name", payload.get("first_name", ""))
-    agent_name = custom.get("agent_name", payload.get("agent_name", ""))
-    contact_id = custom.get("contact_id", payload.get("contact_id", ""))
-    intent = custom.get("intent", payload.get("intent", ""))
+    first_name = data.get("first_name", payload.get("first_name", ""))
+    agent_name = data.get("agent_name", payload.get("agent_name", ""))
+    contact_id = data.get("contact_id", payload.get("contact_id", ""))
+    intent = data.get("intent", payload.get("intent", ""))
 
     api_key, location_id = get_ghl_credentials(data)
     
@@ -5175,7 +5188,7 @@ def ghl_stage():
 def index():
     """
     Main webhook - generates NEPQ response and sends SMS automatically.
-    Just set URL to https://insurancegrokbot.click/webhook with Custom Data.
+    Just set URL to https://insurancegrokbot.click/ghl with Custom Data.
     
     If no message is provided (like for tag/pipeline triggers), generates
     an initial outreach message to start the conversation.
@@ -5187,6 +5200,21 @@ def index():
     
     raw_data = request.json or {}
     data = normalize_keys(raw_data)
+        # Extract real data from GHL Custom Fields
+        first_name = (data.get('first_name', '').strip() or "there")
+        contact_id = data.get('contact_id') 
+        message = data.get('message') or extract_message_text(data)
+        agent_name = data.get('agent_name')
+        intent = data.get('intent')
+        
+        reply, confirmation_code =
+        generate_nepq_response(
+            first_name=first_name,
+            message=message,
+            agent_name=agent_name,
+            contact_id=contact_id,
+            intent=intent,
+        )
     
     api_key, location_id = get_ghl_credentials(data)
     
