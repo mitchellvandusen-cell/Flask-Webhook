@@ -5171,7 +5171,7 @@ def training_stats():
 
 @app.route('/ghl-webhook', methods=['POST'])
 def ghl_webhook():
-    """Legacy endpoint - redirects to unified /ghl endpoint with action=respond"""
+    # Legacy endpoint - redirects to unified /ghl endpoint with action=respond
     data = request.json or {}
     data['action'] = 'respond'
     return ghl_unified()
@@ -5179,7 +5179,7 @@ def ghl_webhook():
 
 @app.route('/ghl-appointment', methods=['POST'])
 def ghl_appointment():
-    """Legacy endpoint - redirects to unified /ghl endpoint with action=appointment"""
+    #  Legacy endpoint - redirects to unified /ghl endpoint with action=appointment
     data = request.json or {}
     data['action'] = 'appointment'
     return ghl_unified()
@@ -5187,7 +5187,7 @@ def ghl_appointment():
 
 @app.route('/ghl-stage', methods=['POST'])
 def ghl_stage():
-    """Legacy endpoint - redirects to unified /ghl endpoint with action=stage"""
+    # Legacy endpoint - redirects to unified /ghl endpoint with action=stage
     data = request.json or {}
     data['action'] = 'stage'
     return ghl_unified()
