@@ -4553,7 +4553,7 @@ def extract_intent(data, message=""):
                         max_tokens=425,
                         temperature=0.7,
                         top_p=0.95
-                   """ )
+                  """ )
 
                 content = response.choices[0].message.content or ""
         
