@@ -4094,7 +4094,7 @@ WHEN TO USE FUTURE PACING:
 
 After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
 ===
-"""
+""",
         "close": """
 === STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
 You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
@@ -4219,27 +4219,24 @@ ALWAYS end with two specific time options. DO NOT ask more discovery questions.
         if topics_already_asked:
             topics_warning = f"""
 === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
-        {chr(10).join([f"- {t}" for t in topics_already_asked])}
-            
-
-
+{chr(10).join([f"- {t}" for t in topics_already_asked])}           
 === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
 """
             questions_warning = ""
-            if recent_questions:
+        if recent_questions:
             questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
             
             # Check if lead just deflected our last question
             last_agent_msg = recent_agent_messages[-1] if recent_agent_messages else ""
             deflection_warning = ""
-            if is_soft_dismissive and last_agent_msg:
+        if is_soft_dismissive and last_agent_msg:
                 last_question = last_agent_msg.replace("You: ", "")
-                deflection_warning = f"""
-                
+                deflection_warning = f"""     
 === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
+"""
 You asked: "{last_question}"
 They said: "{message}" (this is a DEFLECTION - they don't want to answer)
-                """
+                
 YOU MUST NOT:
 - Ask the same question again
 - Ask a similar question about the same topic
@@ -4258,8 +4255,8 @@ YOU MUST NOT:
 DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
 === TRY A NEW ANGLE - DON'T GIVE UP ===
 """                
-        # Count soft dismissive responses in history to escalate response
-        # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
+# Count soft dismissive responses in history to escalate response
+# Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
         history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
         for msg in history_lead_messages:
             msg_lower = msg.lower()
@@ -4295,9 +4292,9 @@ This is a clear request to stop. You MUST exit immediately.
 Your response MUST be SHORT and final:
 "Got it. Take care."
 "No problem. Have a good one."
-            """
-=== EXIT NOW - NO QUESTIONS ===
 
+=== EXIT NOW - NO QUESTIONS ===
+"""
         # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
         elif is_soft_dismissive:
             if soft_dismissive_count == 1:
