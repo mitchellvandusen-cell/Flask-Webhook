@@ -4411,25 +4411,25 @@ Directive: {intent_directive}
     if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
         lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
         history_text = f"{qualification_context}{intent_section}{profile_text}"
-        else:
-            history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
+    else:
+        history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
     
-            # Score the previous response based on this incoming message
-            outcome_score = None
-            vibe = None
-        try:
-            outcome_score, vibe = record_lead_response(contact_id, message)
-            logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
-        except Exception as e:
-            logger.warning(f"Could not record lead response: {e}")
+        # Score the previous response based on this incoming message
+        outcome_score = None
+        vibe = None
+    try:
+        outcome_score, vibe = record_lead_response(contact_id, message)
+        logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
+    except Exception as e:
+        logger.warning(f"Could not record lead response: {e}")
 
-    # Close stage templates (server-side enforcement for PolicyEngine fallback)
-    close_templates = [
-        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
-        "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
-        "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
-        "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
-    ]
+# Close stage templates (server-side enforcement for PolicyEngine fallback)
+close_templates = [
+    "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
+    "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
+    "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
+    "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
+]
     
 client = get_client()
     
