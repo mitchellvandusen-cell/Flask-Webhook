@@ -5195,15 +5195,15 @@ def ghl_stage():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    """
-    Main webhook - generates NEPQ response and sends SMS automatically.
-    Just set URL to https://insurancegrokbot.click/ghl with Custom Data.
     
-    If no message is provided (like for tag/pipeline triggers), generates
-    an initial outreach message to start the conversation.
+   # Main webhook - generates NEPQ response and sends SMS automatically.
+   # Just set URL to https://insurancegrokbot.click/ghl with Custom Data.
     
-    GET requests return a simple health check (for GHL webhook verification).
-    """
+   # If no message is provided (like for tag/pipeline triggers), generates
+   # an initial outreach message to start the conversation.
+    
+   # GET requests return a simple health check (for GHL webhook verification).
+    
     if request.method == 'GET':
         return jsonify({"status": "ok", "service": "NEPQ Webhook API", "ready": True})
     
