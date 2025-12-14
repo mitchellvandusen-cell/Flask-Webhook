@@ -4494,6 +4494,7 @@ CRITICAL RULES
 4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
 5. After 3 exchanges, STOP asking questions and offer appointment times
 6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
+"""
 {decision_prompt}
 # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
 max_retries = 3  # Reduced from 2 for faster response
@@ -4507,7 +4508,7 @@ use_model = "grok-4-1-fast-reasoning"
 prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
 stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
 logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
-"""    
+    
 # Simplified user content for unified brain approach
 # Include history_text which contains deflection warnings and questions already asked
 unified_user_content = f"""
@@ -4518,7 +4519,9 @@ LEAD'S MESSAGE: "{message}"
 ===
 Now THINK through your decision process and respond.
 Remember: Apply your knowledge, don't just pattern match.
-===  
+=== 
+
+
 while retry_count <= max_retries:
 # Note: Grok model only supports temperature, top_p, max_tokens
 # frequency_penalty and presence_penalty are NOT supported
