@@ -3998,8 +3998,10 @@ elif action == "search":
         return jsonify({"error": "Failed to search contacts"}), 500
 
 else:
-    return jsonify({"error": f"Unknown action action"}."Valid actions: respond, appointment stage, contact, search" 
-    ), 400
+    return jsonify({
+        "error": f"Unknown action {action}",
+        "Valid actions: respond, appointment stage, contact, search" 
+    }), 400
 
 
 @app.route("/grok", methods=["POST"])
