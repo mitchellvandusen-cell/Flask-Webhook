@@ -164,8 +164,8 @@ finally:
         try:
             init_nlp_tables()
             logger.info("NLP memory system initialized")
-        except Exception as e:
-            logger.warning(f"Could not initialize NLP memory tables: {e}")
+    except Exception as e:
+        logger.warning(f"Could not initialize NLP memory tables: {e}")
 
 # Proper fix (add anywhere in main.py)
 def save_nlp_message_text(*args, **kwargs):
