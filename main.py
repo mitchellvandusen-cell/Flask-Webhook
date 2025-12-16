@@ -4000,7 +4000,7 @@ elif action == "search":
 else:
     return jsonify({
         "error": f"Unknown action {action}",
-        "Valid actions: respond, appointment stage, contact, search" 
+        "Valid_actions": respond, appointment stage, contact, search"
     }), 400
 
 
