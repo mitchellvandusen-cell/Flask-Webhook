@@ -174,12 +174,12 @@ def normalize_keys(data):
 def generate_nepq_response(
     first_name=first_name,
     message=message,
-    agent_name=agent_name or "Mitch"
-    conversation_history=conversation_history
+    agent_name=agent_name,
+    conversation_history=conversation_history,
     intent=intent or "general",
     contact_id=contact_id,
     api_key=GHL_API_KEY,
-    calendar_id="S4knucFaXO769HDFlRtv"
+    calendar_id="S4knucFaXO769HDFlRtv",
     timezone="America/New_York",
     extra_instruction=extra_instruction,
     ):
@@ -4395,7 +4395,8 @@ for msg in history_lead_messages:
         
         feel_felt_found_prompt = ""
         if is_hesitant and has_valuable_convo:
-            feel_felt_found_prompt = f"""
+            feel_felt_found_prompt = 
+            f"""
             === USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
             This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
             1. Acknowledge their concern ("I get it" / "That makes sense")
