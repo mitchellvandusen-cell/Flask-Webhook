@@ -366,7 +366,7 @@ def generate_nepq_response(
                 json=payload, 
                 headers=headers
             )
-            logger.info(f"SMS sent": {r.status_code} - [reply:50] "...")
+            logger.info(f"SMS sent: {r.status_code} - reply: {reply:[50]} ...")
         else:
             logger.warning("Missing GHL credentials — SMS not sent")
     except Exception as e:
