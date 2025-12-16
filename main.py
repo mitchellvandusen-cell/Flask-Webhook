@@ -96,7 +96,7 @@ try:
     conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
     cur = conn.cursor()
 
-# 1) Ensure table exists first
+    # 1) Ensure table exists first
     cur.execute("""
     CREATE TABLE IF NOT EXISTS contact_qualification (
         contact_id TEXT PRIMARY KEY,
@@ -155,15 +155,15 @@ finally:
     try:
         if cur:
             cur.close()
-            if conn:
-                conn.close()
+        if conn:
+            conn.close()
     except Exception:
         pass
 
 # Initialize NLP memory tables on startup
 try:
     init_nlp_tables()
-        logger.info("NLP memory system initialized")
+    logger.info("NLP memory system initialized")
 except Exception as e:
     logger.warning(f"Could not initialize NLP memory tables: {e}")
 
@@ -179,12 +179,12 @@ def get_client():
     global _client
     if _client is None:
         api_key = os.environ.get("XAI_API_KEY")
-            logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
+        logger.info(f"XAI_API_KEY status: {'SET (' + str(len(api_key)) + ' chars)' if api_key else 'MISSING'}")
     if not api_key:
         logger.error("XAI_API_KEY not found - cannot create client")
         raise ValueError("XAI_API_KEY environment variable is not set")
     _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
-        logger.info("xAI client created successfully")
+    logger.info("xAI client created successfully")
     return _client
 
 def generate_confirmation_code():
