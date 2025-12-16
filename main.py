@@ -155,7 +155,7 @@ finally:
     try:
         if cur:
             cur.close()
-        if conn:
+            if conn:
             conn.close()
     except Exception:
         pass
