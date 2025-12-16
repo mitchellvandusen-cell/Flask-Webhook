@@ -1557,53 +1557,53 @@ def format_slot_options(slots, timezone="America/New_York"):
 
 def get_conversation_history(contact_id, api_key, location_id, limit=10):
 """Get recent conversation messages for a contact from GoHighLevel"""
-if not api_key or not location_id or not contact_id:
-    logger.error("Missing credentials for conversation history")
-    return []
-
-url = f"{GHL_BASE_URL}/conversations/search"
-payload = {
-    "locationId": location_id,
-    "contactId": contact_id
-}
-
-try:
-    response = requests.post(url, headers=get_ghl_headers(api_key), json=payload)
-    response.raise_for_status()
-    data = response.json()
-    conversations = data.get('conversations', [])
-
-    if not conversations:
+    if not api_key or not location_id or not contact_id:
+        logger.error("Missing credentials for conversation history")
         return []
 
-    conversation_id = conversations[0].get('id')
-    if not conversation_id:
+    url = f"{GHL_BASE_URL}/conversations/search"
+    payload = {
+        "locationId": location_id,
+        "contactId": contact_id
+    }
+
+    try:
+        response = requests.post(url, headers=get_ghl_headers(api_key), json=payload)
+        response.raise_for_status()
+        data = response.json()
+        conversations = data.get('conversations', [])
+    
+        if not conversations:
+            return []
+    
+        conversation_id = conversations[0].get('id')
+        if not conversation_id:
+            return []
+    
+        msg_url = f"{GHL_BASE_URL}/conversations/{conversation_id}/messages"
+        msg_response = requests.get(msg_url, headers=get_ghl_headers(api_key))
+        msg_response.raise_for_status()
+        msg_data = msg_response.json()
+    
+        messages = msg_data.get('messages', [])
+    
+        # FIX: pull the LAST N messages, not the first N
+        recent_messages = messages[-limit:] if len(messages) > limit else messages
+
+        formatted = []
+        for msg in recent_messages:  # keep chronological order
+            normalized_msg = normalize_keys(msg)
+            direction = normalized_msg.get('direction', 'outbound')
+            body = normalized_msg.get('body', '')
+            if body:
+                role = "Lead" if str(direction).lower() == 'inbound' else "You"
+                formatted.append(f"{role}: {body}")
+    
+        return formatted
+
+    except requests.RequestException as e:
+        logger.error(f"Failed to get conversation history: {e}")
         return []
-
-    msg_url = f"{GHL_BASE_URL}/conversations/{conversation_id}/messages"
-    msg_response = requests.get(msg_url, headers=get_ghl_headers(api_key))
-    msg_response.raise_for_status()
-    msg_data = msg_response.json()
-
-    messages = msg_data.get('messages', [])
-
-    # FIX: pull the LAST N messages, not the first N
-    recent_messages = messages[-limit:] if len(messages) > limit else messages
-
-    formatted = []
-    for msg in recent_messages:  # keep chronological order
-        normalized_msg = normalize_keys(msg)
-        direction = normalized_msg.get('direction', 'outbound')
-        body = normalized_msg.get('body', '')
-        if body:
-            role = "Lead" if str(direction).lower() == 'inbound' else "You"
-            formatted.append(f"{role}: {body}")
-
-    return formatted
-
-except requests.RequestException as e:
-    logger.error(f"Failed to get conversation history: {e}")
-    return []
 
 
 
@@ -2288,14 +2288,16 @@ if conversation_history and len(conversation_history) > 0:
     
     # Build blocked topics warning
     topics_warning = ""
+    
     if topics_already_asked:
         topics_warning = f"""
-=== TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
-{chr(10).join([f"- {t}" for t in topics_already_asked])}
+    === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
+    {chr(10).join([f"- {t}" for t in topics_already_asked])}
 
 
-=== CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
-"""   
+    === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
+        """   
+        
     questions_warning = ''
     if recent_questions:
         questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
@@ -2305,30 +2307,29 @@ if conversation_history and len(conversation_history) > 0:
         deflection_warning = ""
         if is_soft_dismissive and last_agent_msg:
             last_question = last_agent_msg.replace("You: ", "")
-            deflection_warning = f"""
-            
-=== CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
-You asked: "{last_question}"
-They said: "{message}" (this is a DEFLECTION - they don't want to answer)
+            deflection_warning = f"""       
+        === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
+        You asked: "{last_question}"
+        They said: "{message}" (this is a DEFLECTION - they don't want to answer)
 
-YOU MUST NOT:
-- Ask the same question again
-- Ask a similar question about the same topic
-- Repeat ANY variation of your last question
-- Say goodbye or exit (soft rejections are NOT hard stops)
+        YOU MUST NOT:
+        - Ask the same question again
+        - Ask a similar question about the same topic
+        - Repeat ANY variation of your last question
+        - Say goodbye or exit (soft rejections are NOT hard stops)
 
-YOU MUST:
-- Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
-- Pivot to a COMPLETELY DIFFERENT re-frame from this list:
-1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
-2. Portability: "Does it follow you if you switch jobs?"
-3. Amount: "Is it enough to replace your income for a few years?"
-4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
-5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
+        YOU MUST:
+        - Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
+        - Pivot to a COMPLETELY DIFFERENT re-frame from this list:
+        1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
+        2. Portability: "Does it follow you if you switch jobs?"
+        3. Amount: "Is it enough to replace your income for a few years?"
+        4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
+        5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
 
-DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
-=== TRY A NEW ANGLE - DON'T GIVE UP ===
-"""
+        DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
+        === TRY A NEW ANGLE - DON'T GIVE UP ===
+        """
     # Count soft dismissive responses in history to escalate response
     # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
     history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
@@ -2360,96 +2361,95 @@ DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "l
     # HARD DISMISSIVE = wants to end contact completely (must exit)
     if is_hard_dismissive:
         exchange_warning = f"""
-=== CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
-The lead said "leave me alone", "stop texting", or similar.
-This is a clear request to stop. You MUST exit immediately.
-Your response MUST be SHORT and final:
-"Got it. Take care."
-"No problem. Have a good one."
-=== EXIT NOW - NO QUESTIONS ===
-
-"""
+    === CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
+    The lead said "leave me alone", "stop texting", or similar.
+    This is a clear request to stop. You MUST exit immediately.
+    Your response MUST be SHORT and final:
+    "Got it. Take care."
+    "No problem. Have a good one."
+    === EXIT NOW - NO QUESTIONS ===
+        """
+        
     # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
     elif is_soft_dismissive:
         if soft_dismissive_count == 1:
             # First resistance: Tactical empathy + curiosity pivot (Voss + NEPQ)
             exchange_warning = f"""
-=== RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
-They said something like "I'm not telling you that" - they feel the question was too invasive.
-DO NOT back off. DO NOT ask the same type of question.
-Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
+        === RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
+        They said something like "I'm not telling you that" - they feel the question was too invasive.
+        DO NOT back off. DO NOT ask the same type of question.
+        Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
 
-PATTERN: Label + Pivot
-1. LABEL their feeling: "It sounds like that question felt a bit over the line."
-2. SOFTEN: "Totally fair, I get it."
-3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
+        PATTERN: Label + Pivot
+        1. LABEL their feeling: "It sounds like that question felt a bit over the line."
+        2. SOFTEN: "Totally fair, I get it."
+        3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
 
-EXAMPLE RESPONSES:
-- "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
-- "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
-- "Got it, no need to get into details. Was there something specific that made you start looking?"
+        EXAMPLE RESPONSES:
+        - "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
+        - "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
+        - "Got it, no need to get into details. Was there something specific that made you start looking?"
 
-DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
-=== USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
-
-"""
-        elif soft_dismissive_count == 2:
-            # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
-            exchange_warning = f"""
-=== SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
-They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
-Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
-
-PATTERN: Acknowledge + Reference their words + Calibrated question
-1. ACKNOWLEDGE: "I hear you."
-2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
-3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
-
-IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
-IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
-IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
-
-Use their OWN WORDS to reconnect. Don't ask new invasive questions.
-=== REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
-
-"""
-        else:
-            # Third+ resistance: Keep trying with different re-frames until hard stop
-            exchange_warning = f"""
-=== {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
-They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
-"I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
-
-DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
-
-1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
-2. Portability: "Does it follow you if you switch jobs or retire?"
-3. Amount: "Is it enough to pay off the house and replace income for a few years?"
-4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
-5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
-
-ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
-=== KEEP GOING - FIND THE GAP ===
-
-"""
-    # Only exit on very high rejection count AND hard stop language
-    elif rejection_count >= 8 and is_hard_dismissive:
+        DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
+        === USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
+            """
+            
+    elif soft_dismissive_count == 2:
+        # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
         exchange_warning = f"""
-=== CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
-They've rejected many times AND explicitly asked to stop. Exit gracefully.
-"Got it. Take care."
-=== EXIT NOW ===
+        === SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
+        They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
+        Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
 
-"""
+        PATTERN: Acknowledge + Reference their words + Calibrated question
+        1. ACKNOWLEDGE: "I hear you."
+        2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
+        3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
+
+        IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
+        IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
+        IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
+
+        Use their OWN WORDS to reconnect. Don't ask new invasive questions.
+        === REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
+            """
+            
+    else:
+        # Third+ resistance: Keep trying with different re-frames until hard stop
+        exchange_warning = f"""
+        === {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
+        They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
+        "I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
+
+        DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
+
+        1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
+        2. Portability: "Does it follow you if you switch jobs or retire?"
+        3. Amount: "Is it enough to pay off the house and replace income for a few years?"
+        4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
+        5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
+
+        ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
+        === KEEP GOING - FIND THE GAP ===
+        """
+            
+    # Only exit on very high rejection count AND hard stop language
+    if rejection_count >= 8 and is_hard_dismissive:
+        exchange_warning = f"""
+        === CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
+        They've rejected many times AND explicitly asked to stop. Exit gracefully.
+        "Got it. Take care."
+        === EXIT NOW ===
+        """
+        
     elif exchange_count >= 3:
         exchange_warning = f"""
-=== CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
-You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
-Your response MUST be a statement with an appointment offer like:
-"I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
-=== NO MORE QUESTIONS - MAKE THE OFFER ===
-
-"""
+        === CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
+        You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
+        Your response MUST be a statement with an appointment offer like:
+        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
+        === NO MORE QUESTIONS - MAKE THE OFFER ===
+        """
     
     # Detect hesitation patterns after valuable conversation (Feel Felt Found opportunity)
     hesitation_phrases = [
@@ -2469,40 +2469,39 @@ Your response MUST be a statement with an appointment offer like:
     feel_felt_found_prompt = ""
     if is_hesitant and has_valuable_convo:
         feel_felt_found_prompt = f"""
-=== USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
-This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
-1. Acknowledge their concern ("I get it" / "That makes sense")
-2. Share a BRIEF client story: "Had a client in a similar spot who..."
-3. What they found: "...we found a policy that fit their budget" or similar
-4. Close: Offer appointment times
+        === USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
+        This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
+        1. Acknowledge their concern ("I get it" / "That makes sense")
+        2. Share a BRIEF client story: "Had a client in a similar spot who..."
+        3. What they found: "...we found a policy that fit their budget" or similar
+        4. Close: Offer appointment times
 
-Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
-=== INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
-
-"""
+        Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
+        === INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
+        """
     
     intent_section = f"""
-=== CURRENT INTENT/OBJECTIVE ===
-Intent: {intent}
-Directive: {intent_directive}
-===
-"""
+    === CURRENT INTENT/OBJECTIVE ===
+    Intent: {intent}
+    Directive: {intent_directive}
+    ===
+    """
     
     history_text = f"""
-=== CONVERSATION HISTORY (read this carefully before responding) ===
-{chr(10).join(conversation_history)}
-=== END OF HISTORY ===
-
-{qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
-"""
+    === CONVERSATION HISTORY (read this carefully before responding) ===
+    {chr(10).join(conversation_history)}
+    === END OF HISTORY ===
+    {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
+    """
 else:
     # Even without history, include profile and intent from current message
     intent_section = f"""
-=== CURRENT INTENT/OBJECTIVE ===
-Intent: {intent}
-Directive: {intent_directive}
-===
-"""
+    === CURRENT INTENT/OBJECTIVE ===
+    Intent: {intent}
+    Directive: {intent_directive}
+    ===
+    """
+    
     if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
             lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
         history_text = f"{qualification_context}{intent_section}{profile_text}"
@@ -2856,19 +2855,19 @@ except Exception as e:
 return reply, confirmation_code
 
 def generate_nepq_response(
-data,
-message="",
-conversation_history=None,
-contact_id=None,
-first_name="",
-agent_name="",
-api_key=None,
-calendar_id=None,
-timezone="America/Chicago",
+    data,
+    message="",
+    conversation_history=None,
+    contact_id=None,
+    first_name="",
+    agent_name="",
+    api_key=None,
+    calendar_id=None,
+    timezone="America/Chicago",
 ):
-"""
-This function contains your full STEP 0..STEP 5 logic, properly scoped.
-NOTE: This code references helper functions/classes you already have elsewhere:
+    """
+    This function contains your full STEP 0..STEP 5 logic, properly scoped.
+    NOTE: This code references helper functions/classes you already have elsewhere:
     - get_available_slots, format_slot_options
     - identify_triggers, force_response
     - get_learning_context, find_similar_successful_patterns
@@ -2886,7 +2885,7 @@ NOTE: This code references helper functions/classes you already have elsewhere:
     - validate_response_uniqueness, get_topics_already_discussed
     - get_backbone_probe_template
     - get_client
-"""
+    """
 
 import re
 import random
@@ -3722,54 +3721,54 @@ return reply, confirmation_code
 
 @app.route("/ghl", methods=["POST"])
 def ghl_unified():
-"""
-Unified GoHighLevel endpoint. Handles all GHL actions via a single URL.
+    """
+    Unified GoHighLevel endpoint. Handles all GHL actions via a single URL.
 
-Multi-tenant: Pass GHL credentials in the JSON body:
-- ghl_api_key: Your GHL Private Integration Token
-- ghl_location_id: Your GHL Location ID
+    Multi-tenant: Pass GHL credentials in the JSON body:
+    - ghl_api_key: Your GHL Private Integration Token
+    - ghl_location_id: Your GHL Location ID
 
-If not provided, falls back to environment variables (for your own setup).
+    If not provided, falls back to environment variables (for your own setup).
 
-Actions (specified via 'action' field in JSON body):
+    Actions (specified via 'action' field in JSON body):
 
-1. "respond" - Generate NEPQ response and send SMS
-    Required: contact_id, message
-    Optional: first_name
+    1. "respond" - Generate NEPQ response and send SMS
+        Required: contact_id, message
+        Optional: first_name
 
-2. "appointment" - Create calendar appointment
-    Required: contact_id, calendar_id, start_time
-    Optional: duration_minutes (default: 30), title
+    2. "appointment" - Create calendar appointment
+        Required: contact_id, calendar_id, start_time
+        Optional: duration_minutes (default: 30), title
 
-3. "stage" - Update or create opportunity
-    For update: opportunity_id, stage_id
-    For create: contact_id, pipeline_id, stage_id, name (optional)
+    3. "stage" - Update or create opportunity
+        For update: opportunity_id, stage_id
+        For create: contact_id, pipeline_id, stage_id, name (optional)
 
-4. "contact" - Get contact info
-    Required: contact_id
+    4. "contact" - Get contact info
+        Required: contact_id
 
-5. "search" - Search contacts by phone
-    Required: phone
-"""
+    5. "search" - Search contacts by phone
+        Required: phone
+    """
 raw_data = request.json or {}
 data = normalize_keys(raw_data)
 
 # Ultimate contact_id extraction — will NEVER be None if it's a real inbound message
 contact_id = (
-custom.get("contact_id") or                 # Custom Data (recommended)
-data.get("contact_id") or
-data.get("contactid") or
-data.get("contactId") or                    # Standard GHL field
-data.get("contact", {}).get("id") or        # Sometimes nested
-data.get("contact", {}).get("contactId") or
-data.get("personId") or                     # Rare alternate
-None
+    custom.get("contact_id") or                 # Custom Data (recommended)
+    data.get("contact_id") or
+    data.get("contactid") or
+    data.get("contactId") or                    # Standard GHL field
+    data.get("contact", {}).get("id") or        # Sometimes nested
+    data.get("contact", {}).get("contactId") or
+    data.get("personId") or                     # Rare alternate
+    None
 )
 
 
 if not contact_id:
-logger.error(f"CRITICAL: No contact_id found in payload! Full keys: {list(data.keys())}")
-return jsonify({"error": "missing contact_id"}), 400
+    logger.error(f"CRITICAL: No contact_id found in payload! Full keys: {list(data.keys())}")
+    return jsonify({"error": "missing contact_id"}), 400
 
 logger.info(f"Processed inbound from contact_id: {contact_id}")
 
@@ -4005,30 +4004,30 @@ else:
 
 @app.route("/grok", methods=["POST"])
 def grok_insurance():
-"""Legacy endpoint - generates NEPQ response without GHL integration"""
-data = request.json or {}
-name = data.get("firstName") or data.get("first_name", "there")
-lead_msg = data.get("message", "")
-agent_name = data.get("agent_name") or data.get("rep_name") or "Mitchell"
-contact_id = data.get("contact_id") or data.get("contactId")  # Support qualification memory
+    """Legacy endpoint - generates NEPQ response without GHL integration"""
+    data = request.json or {}
+    name = data.get("firstName") or data.get("first_name", "there")
+    lead_msg = data.get("message", "")
+    agent_name = data.get("agent_name") or data.get("rep_name") or "Mitchell"
+    contact_id = data.get("contact_id") or data.get("contactId")  # Support qualification memory
 
-if not lead_msg:
-    lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
+    if not lead_msg:
+        lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
 
-# Parse conversation history from request
-raw_history = data.get("conversationHistory", [])
-conversation_history = []
-if raw_history:
-    for msg in raw_history:
-        if isinstance(msg, dict):
-            direction = msg.get("message", "outbound")
-            body = msg.get("body", "")
-            if body:
-                role = "Lead" if direction.lower() == "inbound" else "You"
-                conversation_history.append(f"{role}: {body}")
-        elif isinstance(msg, str):
-            conversation_history.append(msg)
-    logger.debug(f"[/grok] Using {len(conversation_history)} messages from request body")
+        # Parse conversation history from request
+        raw_history = data.get("conversationHistory", [])
+        conversation_history = []
+    if raw_history:
+        for msg in raw_history:
+            if isinstance(msg, dict):
+                direction = msg.get("message", "outbound")
+                body = msg.get("body", "")
+                if body:
+                    role = "Lead" if direction.lower() == "inbound" else "You"
+                    conversation_history.append(f"{role}: {body}")
+            elif isinstance(msg, str):
+                conversation_history.append(msg)
+        logger.debug(f"[/grok] Using {len(conversation_history)} messages from request body")
 
 # Legacy endpoint - no GHL integration, use env vars if available
 api_key = os.environ.get("GHL_API_KEY")
@@ -4048,473 +4047,472 @@ return jsonify({"reply": reply})
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-return grok_insurance()
+    return grok_insurance()
 
 
 @app.route("/outreach", methods=["GET", "POST"])
 def outreach():
-if request.method == "POST":
-    return "OK", 200
-return "Up and running", 200
+    if request.method == "POST":
+        return "OK", 200
+    return "Up and running", 200
 
 
 @app.route("/health", methods=["GET", "POST"])
 def health_check():
-return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
+    return jsonify({"status": "healthy", "service": "NEPQ Webhook API"})
 
 
 @app.route("/nlp/<contact_id>", methods=["GET", "POST"])
 def nlp_contact_summary(contact_id):
-"""Get NLP topic breakdown and message history for a contact"""
-summary = get_contact_nlp_summary(contact_id)
-return jsonify(summary)
+    """Get NLP topic breakdown and message history for a contact"""
+    summary = get_contact_nlp_summary(contact_id)
+    return jsonify(summary)
 
 
 @app.route("/nlp-topics/<contact_id>", methods=["GET", "POST"])
 def nlp_topics_only(contact_id):
-"""Get just the topic breakdown for a contact"""
-topics = get_topic_breakdown(contact_id)
-return jsonify({"contact_id": contact_id, "topics": topics})
+    """Get just the topic breakdown for a contact"""
+    topics = get_topic_breakdown(contact_id)
+    return jsonify({"contact_id": contact_id, "topics": topics})
 
 
 @app.route("/stats", methods=["GET", "POST"])
 def training_stats():
-"""Live training dashboard stats"""
-try:
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
+    """Live training dashboard stats"""
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT COUNT(*) as total FROM outcome_tracker")
+        row = cur.fetchone()
+        tracked = row["total"] if row else 0
 
-    cur.execute("SELECT COUNT(*) as total FROM outcome_tracker")
-    row = cur.fetchone()
-    tracked = row["total"] if row else 0
+        cur.execute("SELECT COUNT(*) as total FROM response_patterns")
+        row = cur.fetchone()
+        patterns = row["total"] if row else 0
 
-    cur.execute("SELECT COUNT(*) as total FROM response_patterns")
-    row = cur.fetchone()
-    patterns = row["total"] if row else 0
+        cur.execute("SELECT COUNT(*) as total FROM contact_history")
+        row = cur.fetchone()
+        contacts = row["total"] if row else 0
 
-    cur.execute("SELECT COUNT(*) as total FROM contact_history")
-    row = cur.fetchone()
-    contacts = row["total"] if row else 0
-
-    vibes = {}
-    cur.execute(
-        """
-        SELECT vibe_classification, COUNT(*) as cnt
-        FROM outcome_tracker
-        WHERE vibe_classification IS NOT NULL
-        GROUP BY vibe_classification
-        """
-    )
-    for r in cur.fetchall():
-        vibes[r["vibe_classification"]] = r["cnt"]
-
-    top_patterns = []
-    cur.execute(
-        """
-        SELECT trigger_category, score, response_used
-        FROM response_patterns
-        ORDER BY score DESC
-        LIMIT 10
-        """
-    )
-    for r in cur.fetchall():
-        top_patterns.append(
-            f"{r['score']:.1f} | {r['trigger_category']}: {r['response_used'][:50]}..."
+        vibes = {}
+        cur.execute(
+            """
+            SELECT vibe_classification, COUNT(*) as cnt
+            FROM outcome_tracker
+            WHERE vibe_classification IS NOT NULL
+            GROUP BY vibe_classification
+            """
         )
+        for r in cur.fetchall():
+            vibes[r["vibe_classification"]] = r["cnt"]
 
-    # Per-contact stats
-    cur.execute(
-        """
-        SELECT contact_id, COUNT(*) as msg_count
-        FROM outcome_tracker
-        GROUP BY contact_id
-        ORDER BY msg_count DESC
-        LIMIT 10
-        """
-    )
-    contact_stats = []
-    for r in cur.fetchall():
-        contact_stats.append({"contact": r["contact_id"][:20], "messages": r["msg_count"]})
+        top_patterns = []
+        cur.execute(
+            """
+            SELECT trigger_category, score, response_used
+            FROM response_patterns
+            ORDER BY score DESC
+            LIMIT 10
+            """
+        )
+        for r in cur.fetchall():
+            top_patterns.append(
+                f"{r['score']:.1f} | {r['trigger_category']}: {r['response_used'][:50]}..."
+            )
 
-    # Conversation length stats (messages per contact)
-    cur.execute(
-        """
-        SELECT
-            MIN(cnt) as shortest,
-            MAX(cnt) as longest,
-            AVG(cnt) as average
-        FROM (
-            SELECT contact_id, COUNT(*) as cnt
+        # Per-contact stats
+        cur.execute(
+            """
+            SELECT contact_id, COUNT(*) as msg_count
             FROM outcome_tracker
             GROUP BY contact_id
-        ) sub
-        """
-    )
-    length_stats = cur.fetchone()
+            ORDER BY msg_count DESC
+            LIMIT 10
+            """
+        )
+        contact_stats = []
+        for r in cur.fetchall():
+            contact_stats.append({"contact": r["contact_id"][:20], "messages": r["msg_count"]})
 
-    # Booked appointments (direction vibes with high scores often mean bookings)
-    cur.execute(
-        """
-        SELECT COUNT(DISTINCT contact_id) as booked
-        FROM outcome_tracker
-        WHERE outcome_score >= 4.0
+        # Conversation length stats (messages per contact)
+        cur.execute(
+            """
+            SELECT
+                MIN(cnt) as shortest,
+                MAX(cnt) as longest,
+                AVG(cnt) as average
+            FROM (
+                SELECT contact_id, COUNT(*) as cnt
+                FROM outcome_tracker
+                GROUP BY contact_id
+            ) sub
+            """
+        )
+        length_stats = cur.fetchone()
+
+        # Booked appointments (direction vibes with high scores often mean bookings)
+        cur.execute(
+            """
+            SELECT COUNT(DISTINCT contact_id) as booked
+            FROM outcome_tracker
+            WHERE outcome_score >= 4.0
             AND vibe_classification IN ('direction', 'need')
-        """
-    )
-    row = cur.fetchone()
-    booked = row["booked"] if row else 0
+            """
+        )
+        row = cur.fetchone()
+        booked = row["booked"] if row else 0
 
-    # Top performers (contacts with highest scores)
-    cur.execute(
-        """
-        SELECT contact_id, MAX(outcome_score) as best_score, COUNT(*) as turns
-        FROM outcome_tracker
-        WHERE outcome_score IS NOT NULL
-        GROUP BY contact_id
-        ORDER BY best_score DESC, turns DESC
-        LIMIT 5
-        """
-    )
-    top_convos = []
-    for r in cur.fetchall():
-        top_convos.append(
+        # Top performers (contacts with highest scores)
+        cur.execute(
+            """
+            SELECT contact_id, MAX(outcome_score) as best_score, COUNT(*) as turns
+            FROM outcome_tracker
+            WHERE outcome_score IS NOT NULL
+            GROUP BY contact_id
+            ORDER BY best_score DESC, turns DESC
+            LIMIT 5
+            """
+        )
+        top_convos = []
+        for r in cur.fetchall():
+            top_convos.append(
+                {
+                    "contact": r["contact_id"][:15],
+                    "score": float(r["best_score"]) if r["best_score"] else 0,
+                    "turns": r["turns"],
+                }
+            )
+    
+        conn.close()
+    
+        return jsonify(
             {
-                "contact": r["contact_id"][:15],
-                "score": float(r["best_score"]) if r["best_score"] else 0,
-                "turns": r["turns"],
+                "tracked": tracked,
+                "patterns": patterns,
+                "contacts": contacts,
+                "booked": booked,
+                "need": vibes.get("need", 0),
+                "direction": vibes.get("direction", 0),
+                "neutral": vibes.get("neutral", 0),
+                "objection": vibes.get("objection", 0),
+                "dismissive": vibes.get("dismissive", 0),
+                "ghosted": vibes.get("ghosted", 0),
+                "shortest_convo": int(length_stats["shortest"])
+                if length_stats and length_stats.get("shortest")
+                else 0,
+                "longest_convo": int(length_stats["longest"])
+                if length_stats and length_stats.get("longest")
+                else 0,
+                "avg_convo": round(float(length_stats["average"]), 1)
+                if length_stats and length_stats.get("average")
+                else 0,
+                "top_patterns": top_patterns,
+                "contact_stats": contact_stats,
+                "top_convos": top_convos,
             }
         )
-
-    conn.close()
-
-    return jsonify(
-        {
-            "tracked": tracked,
-            "patterns": patterns,
-            "contacts": contacts,
-            "booked": booked,
-            "need": vibes.get("need", 0),
-            "direction": vibes.get("direction", 0),
-            "neutral": vibes.get("neutral", 0),
-            "objection": vibes.get("objection", 0),
-            "dismissive": vibes.get("dismissive", 0),
-            "ghosted": vibes.get("ghosted", 0),
-            "shortest_convo": int(length_stats["shortest"])
-            if length_stats and length_stats.get("shortest")
-            else 0,
-            "longest_convo": int(length_stats["longest"])
-            if length_stats and length_stats.get("longest")
-            else 0,
-            "avg_convo": round(float(length_stats["average"]), 1)
-            if length_stats and length_stats.get("average")
-            else 0,
-            "top_patterns": top_patterns,
-            "contact_stats": contact_stats,
-            "top_convos": top_convos,
-        }
-    )
-except Exception as e:
-    return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/ghl-webhook", methods=["POST"])
 def ghl_webhook():
-"""Legacy endpoint - redirects to unified /ghl endpoint with action=respond"""
-data = request.json or {}
-data["action"] = "respond"
-return ghl_unified()
+    """Legacy endpoint - redirects to unified /ghl endpoint with action=respond"""
+    data = request.json or {}
+    data["action"] = "respond"
+    return ghl_unified()
 
 
 @app.route("/ghl-appointment", methods=["POST"])
 def ghl_appointment():
-"""Legacy endpoint - redirects to unified /ghl endpoint with action=appointment"""
-data = request.json or {}
-data["action"] = "appointment"
-return ghl_unified()
+    """Legacy endpoint - redirects to unified /ghl endpoint with action=appointment"""
+    data = request.json or {}
+    data["action"] = "appointment"
+    return ghl_unified()
 
 
 @app.route("/ghl-stage", methods=["POST"])
 def ghl_stage():
-"""Legacy endpoint - redirects to unified /ghl endpoint with action=stage"""
-data = request.json or {}
-data["action"] = "stage"
-return ghl_unified()
+    """Legacy endpoint - redirects to unified /ghl endpoint with action=stage"""
+    data = request.json or {}
+    data["action"] = "stage"
+    return ghl_unified()
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-"""
-Main webhook - generates NEPQ response and sends SMS automatically.
-Just set URL to https://insurancegrokbot.click/ghl with Custom Data.
+    """
+    Main webhook - generates NEPQ response and sends SMS automatically.
+    Just set URL to https://insurancegrokbot.click/ghl with Custom Data.
 
-If no message is provided (like for tag/pipeline triggers), generates
-an initial outreach message to start the conversation.
+    If no message is provided (like for tag/pipeline triggers), generates
+    an initial outreach message to start the conversation.
 
-GET requests return a simple health check (for GHL webhook verification).
-"""
-if request.method == "GET":
-    return jsonify({"status": "ok", "service": "NEPQ Webhook API", "ready": True})
+    GET requests return a simple health check (for GHL webhook verification).
+    """
+    if request.method == "GET":
+        return jsonify({"status": "ok", "service": "NEPQ Webhook API", "ready": True})
 
-raw_data = request.json or {}
-data = normalize_keys(raw_data)
+    raw_data = request.json or {}
+    data = normalize_keys(raw_data)
 
-# Extract real data from GHL Custom Fields
-first_name = (data.get("first_name", "").strip() or "there")
-contact_id = data.get("contact_id")
-message = data.get("message") or extract_message_text(data)
-agent_name = data.get("agent_name")
-intent = data.get("intent")
+    # Extract real data from GHL Custom Fields
+    first_name = (data.get("first_name", "").strip() or "there")
+    contact_id = data.get("contact_id")
+    message = data.get("message") or extract_message_text(data)
+    agent_name = data.get("agent_name")
+    intent = data.get("intent")
 
-# (Optional) If you still use this early call anywhere, it’s now syntactically valid.
-# reply, confirmation_code = generate_nepq_response(
-#     first_name=first_name,
-#     message=message,
-#     agent_name=agent_name,
-#     contact_id=contact_id,
-#     intent=intent,
-# )
+    # (Optional) If you still use this early call anywhere, it’s now syntactically valid.
+    # reply, confirmation_code = generate_nepq_response(
+    #     first_name=first_name,
+    #     message=message,
+    #     agent_name=agent_name,
+    #     contact_id=contact_id,
+    #     intent=intent,
+    # )
 
-api_key, location_id = get_ghl_credentials(data)
+    api_key, location_id = get_ghl_credentials(data)
 
-# GHL field extraction - handles all common GHL webhook formats
-contact_obj = data.get("contact", {}) if isinstance(data.get("contact"), dict) else {}
-contact = contact_obj  # prevents NameError later if you reference `contact`
-
-contact_id = (
-    data.get("contact_id")
-    or data.get("contactid")
-    or data.get("contactId")
-    or contact_obj.get("id")
-    or data.get("id")
-)
-
-raw_name = (
-    data.get("first_name")
-    or data.get("firstname")
-    or data.get("firstName")
-    or contact_obj.get("first_name")
-    or contact_obj.get("first_name")
-    or contact_obj.get("name")
-    or data.get("name")
-    or ""
-)
-first_name = str(raw_name).split()[0] if raw_name else "there"
-
-raw_message = data.get("message") or data.get("body") or data.get("text", "")
-if isinstance(raw_message, dict):
-    message = raw_message.get("body", "") or raw_message.get("text", "") or str(raw_message)
-else:
-    message = str(raw_message) if raw_message else ""
-
-agent_name = data.get("agent_name") or data.get("agentname") or data.get("rep_name") or "Mitchell"
-
-safe_data = {k: v for k, v in data.items() if k not in ("ghl_api_key", "ghl_location_id")}
-logger.debug(f"Root webhook request: {safe_data}")
-
-# Initial outreach detection
-if not message.strip() or message.lower() in ["initial outreach", "first message", ""]:
-    reply = (
-        f"Hey {first_name}, are you still with that other life insurance plan? "
-        f"There's new living benefits that just came out and a lot of people have been asking about them."
+    # GHL field extraction - handles all common GHL webhook formats
+    contact_obj = data.get("contact", {}) if isinstance(data.get("contact"), dict) else {}
+    contact = contact_obj  # prevents NameError later if you reference `contact`
+    
+    contact_id = (
+        data.get("contact_id")
+        or data.get("contactid")
+        or data.get("contactId")
+        or contact_obj.get("id")
+        or data.get("id")
     )
-
-    if contact_id and api_key and location_id:
-        sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
-        return jsonify(
-            {
-                "success": True,
+    
+    raw_name = (
+        data.get("first_name")
+        or data.get("firstname")
+        or data.get("firstName")
+        or contact_obj.get("first_name")
+        or contact_obj.get("first_name")
+        or contact_obj.get("name")
+        or data.get("name")
+        or ""
+    )
+    first_name = str(raw_name).split()[0] if raw_name else "there"
+    
+    raw_message = data.get("message") or data.get("body") or data.get("text", "")
+    if isinstance(raw_message, dict):
+        message = raw_message.get("body", "") or raw_message.get("text", "") or str(raw_message)
+    else:
+        message = str(raw_message) if raw_message else ""
+    
+    agent_name = data.get("agent_name") or data.get("agentname") or data.get("rep_name") or "Mitchell"
+    
+    safe_data = {k: v for k, v in data.items() if k not in ("ghl_api_key", "ghl_location_id")}
+    logger.debug(f"Root webhook request: {safe_data}")
+    
+    # Initial outreach detection
+    if not message.strip() or message.lower() in ["initial outreach", "first message", ""]:
+        reply = (
+            f"Hey {first_name}, are you still with that other life insurance plan? "
+            f"There's new living benefits that just came out and a lot of people have been asking about them."
+        )
+    
+        if contact_id and api_key and location_id:
+            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+            return jsonify(
+                {
+                    "success": True,
+                    "reply": reply,
+                    "opener": "jeremy_miner_2025",
+                    "contact_id": contact_id,
+                    "sms_sent": sms_result.get("success", False),
+                }
+            )
+        else:
+            return jsonify(
+                {
+                    "success": True,
+                    "reply": reply,
+                    "opener": "jeremy_miner_2025",
+                    "sms_sent": False,
+                    "warning": "No GHL credentials - SMS not sent",
+                }
+            )
+    
+    intent = extract_intent(data, message)
+    logger.debug(f"Extracted intent: {intent}")
+    
+    # Support conversation_history from request body (for testing) or fetch from GHL
+    raw_history = data.get("conversation_history", [])
+    conversation_history = []
+    
+    if raw_history:
+        for msg in raw_history:
+            if isinstance(msg, dict):
+                normalized_msg = normalize_keys(msg)
+                direction = normalized_msg.get("direction", "outbound")
+                body = normalized_msg.get("body", "")
+                if body:
+                    role = "Lead" if direction.lower() == "inbound" else "You"
+                    conversation_history.append(f"{role}: {body}")
+            elif isinstance(msg, str):
+                conversation_history.append(msg)
+        logger.debug(f"Using {len(conversation_history)} messages from request body")
+    elif contact_id and api_key and location_id:
+        conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
+        logger.debug(f"Fetched {len(conversation_history)} messages from history")
+    
+    start_time_iso, formatted_time, original_time_text = parse_booking_time(message)
+    appointment_created = False
+    appointment_details = None
+    booking_error = None
+    
+    if start_time_iso and contact_id and api_key and location_id:
+        logger.info(f"Detected booking time: {formatted_time} from message: {message}")
+    
+        calendar_id = os.environ.get("GHL_CALENDAR_ID")
+        if not calendar_id:
+            logger.error("GHL_CALENDAR_ID not configured, cannot create appointment")
+            booking_error = "Calendar not configured"
+        else:
+            start_dt = datetime.fromisoformat(start_time_iso)
+            end_dt = start_dt + timedelta(minutes=30)
+            end_time_iso = end_dt.isoformat()
+    
+            appointment_result = create_ghl_appointment(
+                contact_id,
+                calendar_id,
+                start_time_iso,
+                end_time_iso,
+                api_key,
+                location_id,
+                "Life Insurance Consultation",
+            )
+    
+            if appointment_result.get("success"):
+                appointment_created = True
+                appointment_details = {
+                    "start_time": start_time_iso,
+                    "formatted_time": formatted_time,
+                    "appointment_id": appointment_result.get("data", {}).get("id"),
+                }
+                logger.info(f"Appointment created for {formatted_time}")
+            else:
+                logger.error(f"Failed to create appointment for {formatted_time}")
+                booking_error = appointment_result.get("error", "Appointment creation failed")
+    
+    try:
+        if appointment_created and appointment_details:
+            confirmation_code = generate_confirmation_code()
+            reply = (
+                f"You're all set for {appointment_details['formatted_time']}. "
+                f"Your confirmation code is {confirmation_code}. "
+                f"Reply {confirmation_code} to confirm and I'll send you the calendar invite."
+            )
+            reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+        else:
+            calendar_id_for_slots = os.environ.get("GHL_CALENDAR_ID")
+    
+            # === RETRY LOOP — NEVER DIE, ALWAYS HUMAN ===
+            MAX_RETRIES = 6
+            reply = None
+            confirmation_code = None
+    
+            for attempt in range(MAX_RETRIES):
+                extra_instruction = ""
+                if attempt > 0:
+                    nudges = [
+                        "Write a completely different reply. Do not repeat anything from before.",
+                        "Be casual and natural. No sales pressure.",
+                        "Change direction. Say something new.",
+                        "Respond like texting a friend — short and real.",
+                        "Just acknowledge what they said.",
+                        "Say one simple, helpful thing.",
+                    ]
+                    extra_instruction = nudges[min(attempt - 1, len(nudges) - 1)]
+    
+                reply, confirmation_code = generate_nepq_response(
+                    first_name,
+                    message,
+                    agent_name,
+                    conversation_history=conversation_history,
+                    intent=intent,
+                    contact_id=contact_id,
+                    api_key=api_key,
+                    calendar_id=calendar_id_for_slots,
+                    extra_instruction=extra_instruction,
+                )
+    
+                reply = reply.replace("—", "-").replace("–", "-").replace("—", "-")
+                reply = re.sub(r"[\U0001F600-\U0001F64F]", "", reply)
+    
+                if message.strip().endswith("?"):
+                    break
+    
+                if any(x in message.lower() for x in ["test", "testing", "hey", "hi", "hello", "what's up", "you there"]):
+                    reply = f"Hey{(' ' + first_name + ',') if first_name else ','} how can I help?"
+                    break
+    
+                is_duplicate, reason = validate_response_uniqueness(contact_id, reply)
+                if not is_duplicate:
+                    break
+    
+                logger.info(f"Attempt {attempt + 1} blocked ({reason}) — retrying...")
+    
+            if not reply or reply.strip() == "":
+                reply = f"Hey{(' ' + first_name + ',') if first_name else ','} got it. What's on your mind?"
+    
+        if contact_id and api_key and location_id:
+            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+    
+            is_success = True if not booking_error else False
+    
+            response_data = {
+                "success": is_success,
+                "message": message,
                 "reply": reply,
-                "opener": "jeremy_miner_2025",
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
+                "confirmation_code": confirmation_code,
+                "intent": intent,
+                "history_messages": len(conversation_history),
+                "appointment_created": appointment_created,
+                "booking_attempted": bool(start_time_iso),
+                "booking_error": booking_error,
+                "time_detected": formatted_time if formatted_time else None,
             }
-        )
-    else:
-        return jsonify(
-            {
-                "success": True,
-                "reply": reply,
-                "opener": "jeremy_miner_2025",
-                "sms_sent": False,
-                "warning": "No GHL credentials - SMS not sent",
-            }
-        )
-
-intent = extract_intent(data, message)
-logger.debug(f"Extracted intent: {intent}")
-
-# Support conversation_history from request body (for testing) or fetch from GHL
-raw_history = data.get("conversation_history", [])
-conversation_history = []
-
-if raw_history:
-    for msg in raw_history:
-        if isinstance(msg, dict):
-            normalized_msg = normalize_keys(msg)
-            direction = normalized_msg.get("direction", "outbound")
-            body = normalized_msg.get("body", "")
-            if body:
-                role = "Lead" if direction.lower() == "inbound" else "You"
-                conversation_history.append(f"{role}: {body}")
-        elif isinstance(msg, str):
-            conversation_history.append(msg)
-    logger.debug(f"Using {len(conversation_history)} messages from request body")
-elif contact_id and api_key and location_id:
-    conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
-    logger.debug(f"Fetched {len(conversation_history)} messages from history")
-
-start_time_iso, formatted_time, original_time_text = parse_booking_time(message)
-appointment_created = False
-appointment_details = None
-booking_error = None
-
-if start_time_iso and contact_id and api_key and location_id:
-    logger.info(f"Detected booking time: {formatted_time} from message: {message}")
-
-    calendar_id = os.environ.get("GHL_CALENDAR_ID")
-    if not calendar_id:
-        logger.error("GHL_CALENDAR_ID not configured, cannot create appointment")
-        booking_error = "Calendar not configured"
-    else:
-        start_dt = datetime.fromisoformat(start_time_iso)
-        end_dt = start_dt + timedelta(minutes=30)
-        end_time_iso = end_dt.isoformat()
-
-        appointment_result = create_ghl_appointment(
-            contact_id,
-            calendar_id,
-            start_time_iso,
-            end_time_iso,
-            api_key,
-            location_id,
-            "Life Insurance Consultation",
-        )
-
-        if appointment_result.get("success"):
-            appointment_created = True
-            appointment_details = {
-                "start_time": start_time_iso,
-                "formatted_time": formatted_time,
-                "appointment_id": appointment_result.get("data", {}).get("id"),
-            }
-            logger.info(f"Appointment created for {formatted_time}")
+            if appointment_created and appointment_details:
+                response_data["appointment_time"] = appointment_details["formatted_time"]
+    
+            return jsonify(response_data), (200 if is_success else 422)
         else:
-            logger.error(f"Failed to create appointment for {formatted_time}")
-            booking_error = appointment_result.get("error", "Appointment creation failed")
-
-try:
-    if appointment_created and appointment_details:
-        confirmation_code = generate_confirmation_code()
-        reply = (
-            f"You're all set for {appointment_details['formatted_time']}. "
-            f"Your confirmation code is {confirmation_code}. "
-            f"Reply {confirmation_code} to confirm and I'll send you the calendar invite."
-        )
-        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
-    else:
-        calendar_id_for_slots = os.environ.get("GHL_CALENDAR_ID")
-
-        # === RETRY LOOP — NEVER DIE, ALWAYS HUMAN ===
-        MAX_RETRIES = 6
-        reply = None
-        confirmation_code = None
-
-        for attempt in range(MAX_RETRIES):
-            extra_instruction = ""
-            if attempt > 0:
-                nudges = [
-                    "Write a completely different reply. Do not repeat anything from before.",
-                    "Be casual and natural. No sales pressure.",
-                    "Change direction. Say something new.",
-                    "Respond like texting a friend — short and real.",
-                    "Just acknowledge what they said.",
-                    "Say one simple, helpful thing.",
-                ]
-                extra_instruction = nudges[min(attempt - 1, len(nudges) - 1)]
-
-            reply, confirmation_code = generate_nepq_response(
-                first_name,
-                message,
-                agent_name,
-                conversation_history=conversation_history,
-                intent=intent,
-                contact_id=contact_id,
-                api_key=api_key,
-                calendar_id=calendar_id_for_slots,
-                extra_instruction=extra_instruction,
+            logger.warning(
+                f"Missing credentials - contact_id: {contact_id}, "
+                f"api_key: {'set' if api_key else 'missing'}, "
+                f"location_id: {'set' if location_id else 'missing'}"
             )
-
-            reply = reply.replace("—", "-").replace("–", "-").replace("—", "-")
-            reply = re.sub(r"[\U0001F600-\U0001F64F]", "", reply)
-
-            if message.strip().endswith("?"):
-                break
-
-            if any(x in message.lower() for x in ["test", "testing", "hey", "hi", "hello", "what's up", "you there"]):
-                reply = f"Hey{(' ' + first_name + ',') if first_name else ','} how can I help?"
-                break
-
-            is_duplicate, reason = validate_response_uniqueness(contact_id, reply)
-            if not is_duplicate:
-                break
-
-            logger.info(f"Attempt {attempt + 1} blocked ({reason}) — retrying...")
-
-        if not reply or reply.strip() == "":
-            reply = f"Hey{(' ' + first_name + ',') if first_name else ','} got it. What's on your mind?"
-
-    if contact_id and api_key and location_id:
-        sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
-
-        is_success = True if not booking_error else False
-
-        response_data = {
-            "success": is_success,
-            "message": message,
-            "reply": reply,
-            "contact_id": contact_id,
-            "sms_sent": sms_result.get("success", False),
-            "confirmation_code": confirmation_code,
-            "intent": intent,
-            "history_messages": len(conversation_history),
-            "appointment_created": appointment_created,
-            "booking_attempted": bool(start_time_iso),
-            "booking_error": booking_error,
-            "time_detected": formatted_time if formatted_time else None,
-        }
-        if appointment_created and appointment_details:
-            response_data["appointment_time"] = appointment_details["formatted_time"]
-
-        return jsonify(response_data), (200 if is_success else 422)
-    else:
-        logger.warning(
-            f"Missing credentials - contact_id: {contact_id}, "
-            f"api_key: {'set' if api_key else 'missing'}, "
-            f"location_id: {'set' if location_id else 'missing'}"
-        )
-
-        is_success = True if not booking_error else False
-        response_data = {
-            "success": is_success,
-            "message": message,
-            "reply": reply,
-            "confirmation_code": confirmation_code,
-            "sms_sent": False,
-            "warning": "SMS not sent - missing contact_id or GHL credentials",
-            "appointment_created": False,
-            "booking_attempted": bool(start_time_iso),
-            "booking_error": booking_error,
-            "time_detected": formatted_time if formatted_time else None,
-        }
-        return jsonify(response_data), (200 if is_success else 422)
-
-except Exception as e:
-    logger.error(f"Error: {e}")
-    return jsonify({"success": False, "error": str(e)}), 500
-
-
+    
+            is_success = True if not booking_error else False
+            response_data = {
+                "success": is_success,
+                "message": message,
+                "reply": reply,
+                "confirmation_code": confirmation_code,
+                "sms_sent": False,
+                "warning": "SMS not sent - missing contact_id or GHL credentials",
+                "appointment_created": False,
+                "booking_attempted": bool(start_time_iso),
+                "booking_error": booking_error,
+                "time_detected": formatted_time if formatted_time else None,
+            }
+            return jsonify(response_data), (200 if is_success else 422)
+    
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+    
 if __name__ == "__main__":
-app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000)
