@@ -1073,26 +1073,26 @@ def build_appointment_offer(prefix="I have some time"):
 # ========== STEP 5: They answered medication question ==========
 if state.get("waiting_for_medications"):
 
-if re.search(
-    r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', 
-    m
-) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
-    meds = "None reported"
-else:
-    meds = message.strip()
-
-    update_qualification_state(contact_id, {
-        "medications": meds,
-        "waiting_for_medications": False
-    })
-
-    appt_time = state.get("appointment_time", "our call")
-    if meds == "None reported":
-        return (f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}. "
-        "Calendar invite coming your way. Talk soon!"), False
-    else:
-        return (f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
-        "Calendar invite coming in a few minutes. Talk soon!"), False
+	if re.search(
+	    r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', 
+	    m
+	) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
+	    meds = "None reported"
+	else:
+	    meds = message.strip()
+	
+	    update_qualification_state(contact_id, {
+	        "medications": meds,
+	        "waiting_for_medications": False
+	    })
+	
+	    appt_time = state.get("appointment_time", "our call")
+	    if meds == "None reported":
+	        return (f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}. "
+	        "Calendar invite coming your way. Talk soon!"), False
+	    else:
+	        return (f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
+	        "Calendar invite coming in a few minutes. Talk soon!"), False
 
 # ========== STEP 4a: Check for REJECTION of appointment offer FIRST ==========
 # Must check BEFORE time agreement to avoid "No that's okay" matching "okay"
