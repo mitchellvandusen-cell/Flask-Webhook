@@ -155,17 +155,17 @@ finally:
     try:
         if cur:
             cur.close()
-        if conn:
-            conn.close()
-    except Exception:
-        pass
+            if conn:
+                conn.close()
+        except Exception:
+            pass
 
-    # Initialize NLP memory tables on startup
-    try:
-        init_nlp_tables()
-        logger.info("NLP memory system initialized")
-    except Exception as e:
-        logger.warning(f"Could not initialize NLP memory tables: {e}")
+        # Initialize NLP memory tables on startup
+        try:
+            init_nlp_tables()
+            logger.info("NLP memory system initialized")
+        except Exception as e:
+            logger.warning(f"Could not initialize NLP memory tables: {e}")
 
 # Proper fix (add anywhere in main.py)
 def save_nlp_message_text(*args, **kwargs):
