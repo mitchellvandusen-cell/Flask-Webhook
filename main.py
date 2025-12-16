@@ -1556,7 +1556,7 @@ def format_slot_options(slots, timezone="America/New_York"):
 
 
 def get_conversation_history(contact_id, api_key, location_id, limit=10):
-"""Get recent conversation messages for a contact from GoHighLevel"""
+    """Get recent conversation messages for a contact from GoHighLevel"""
     if not api_key or not location_id or not contact_id:
         logger.error("Missing credentials for conversation history")
         return []
