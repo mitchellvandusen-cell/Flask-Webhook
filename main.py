@@ -163,7 +163,7 @@ finally:
 # Initialize NLP memory tables on startup
 try:
     init_nlp_tables()
-    logger.info("NLP memory system initialized")
+        logger.info("NLP memory system initialized")
 except Exception as e:
     logger.warning(f"Could not initialize NLP memory tables: {e}")
 
@@ -184,7 +184,7 @@ def get_client():
         logger.error("XAI_API_KEY not found - cannot create client")
         raise ValueError("XAI_API_KEY environment variable is not set")
     _client = OpenAI(base_url="https://api.x.ai/v1", api_key=api_key)
-    logger.info("xAI client created successfully")
+        logger.info("xAI client created successfully")
     return _client
 
 def generate_confirmation_code():
