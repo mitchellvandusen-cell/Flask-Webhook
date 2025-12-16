@@ -20,7 +20,7 @@ from openai import OpenAI
 # Three-layer conversation architecture
 from conversation_engine import (
     ConversationState, ConversationStage,
-    build_state_from_history, format_state_for_prompt,
+	build_state_from_history, format_state_for_prompt,
     PolicyEngine, detect_dismissive, parse_reflection, strip_reflection,
     detect_stage, extract_facts_from_message
 )
@@ -155,7 +155,7 @@ finally:
     try:
         if cur:
             cur.close()
-            if conn:
+        if conn:
             conn.close()
     except Exception:
         pass
