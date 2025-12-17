@@ -297,19 +297,6 @@ def generate_nepq_response(
     first_name = str(first_name or "there").strip()
 
     # -------------------------------------------------------------------------
-    # STEP 0: CALENDAR SLOTS
-    # -------------------------------------------------------------------------
-    real_calendar_slots = "tonight or tomorrow morning"
-    if api_key and calendar_id:
-        try:
-            slots = get_available_slots(calendar_id, timezone)
-            if slots:
-                real_calendar_slots = format_slot_options(slots, timezone) or real_calendar_slots
-                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-        except Exception as e:
-            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
-
-    # -------------------------------------------------------------------------
     # Intent
     # -------------------------------------------------------------------------
     if intent == "general":
@@ -1358,10 +1345,8 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
     Returns (response, should_continue) where should_continue=False means use this response.
     """
     if not contact_id or not state:
+        m = message.lower().strip()
         return None, True
-
-    m = message.lower().strip()
-    return None, True
 
 # Helper to build appointment offer with real or fallback language
 def build_appointment_offer(prefix="I have some time"):
