@@ -253,7 +253,7 @@ def generate_nepq_response(
     import random
 
     confirmation_code = generate_confirmation_code()
-
+    handler_response, should_continue = None, True
     # -------------------------------------------------------------------------
     # Normalize inputs
     # -------------------------------------------------------------------------
@@ -1724,106 +1724,62 @@ def parse_booking_time(message, timezone_str="America/New_York"):
 
     return None, None, None
 
-def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_ahead=3):
-    """
-    Fetch real available appointment slots from GoHighLevel calendar.
-    Returns list of slot dicts with 'startTime', 'endTime', 'formatted'
-    """
+def get_available_slots(calendar_id, api_key, timezone="America/Chicago", days_ahead=3):
     if not calendar_id or not api_key:
-        logger.warning("Missing calendar_id or api_key for slot fetch")
+        logger.warning("Missing calendar_id or api_key")
         return []
 
-    # Calculate date range: today to N days ahead
     tz = ZoneInfo(timezone)
-    start_date = datetime.now(tz).date()
-    end_date = start_date + timedelta(days=days_ahead)
+    start_date = datetime.now(tz).strftime("%Y-%m-%d")
+    end_date = (datetime.now(tz) + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
-    url = f"https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv"
+    # Correct endpoint for your calendar type
+    url = f"https://api.leadconnectorhq.com/widget/booking/{calendar_id}/availability"
 
     params = {
-        "startDate": start_date.isoformat(),
-        "endDate": end_date.isoformat(),
+        "start_date": start_date,
+        "end_date": end_date,
         "timezone": timezone
     }
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
-        "Content-Type": "application/json"
+        "Version": "2021-07-28"
     }
 
     try:
         response = requests.get(url, headers=headers, params=params, timeout=10)
         if response.status_code != 200:
-            logger.warning(f"GHL slots API error {response.status_code}: {response.text}")
+            logger.warning(f"GHL widget API error {response.status_code}: {response.text}")
             return []
 
         data = response.json()
-        slots = data.get("slots", [])
+        slots = data.get("available_slots", [])[:6]
 
-        # Format for easy use
         formatted_slots = []
-        for slot in slots[:6]:  # limit to reasonable number
-            start_str = slot.get("startTime")
+        for slot in slots:
+            start_str = slot.get("start_time")
             if not start_str:
                 continue
             try:
                 dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
                 local_dt = dt.astimezone(tz)
-                formatted = local_dt.strftime("%I:%M %p on %A")
-                day_name = local_dt.strftime("%A")
-
                 formatted_slots.append({
                     "iso": start_str,
-                    "formatted": formatted,
-                    "day": day_name,
-                    "time": local_dt.strftime("%I:%M %p")
+                    "formatted": local_dt.strftime("%I:%M %p on %A").lstrip("0").replace(" 0", " "),
+                    "day": local_dt.strftime("%A"),
+                    "time": local_dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
                 })
             except Exception as e:
-                logger.debug(f"Failed to parse slot time: {e}")
+                logger.debug(f"Parse error: {e}")
                 continue
 
-        logger.info(f"Fetched {len(formatted_slots)} real calendar slots")
+        logger.info(f"Fetched {len(formatted_slots)} slots: {[s['time'] + ' on ' + s['day'] for s in formatted_slots]}")
         return formatted_slots
 
     except Exception as e:
-        logger.error(f"Exception fetching calendar slots: {e}")
+        logger.error(f"Calendar fetch failed: {e}")
         return []
-    
-def format_slot_options(slots, timezone="America/New_York"):
-    """Format real GHL slots into natural language like '6:30 PM tonight'"""
-    if not slots:
-        return "tonight or tomorrow morning"  # fallback
-
-    now = datetime.now(ZoneInfo(timezone))
-    today = now.strftime("%A")
-    tomorrow = (now + timedelta(days=1)).strftime("%A")
-
-    options = []
-    for slot in slots[:2]:  # only offer first 2
-        day = slot.get("day")
-        time_str = slot.get("time", "").lower()
-
-        if day == today:
-            if "pm" in time_str and int(time_str.split(":")[0]) >= 5:
-                options.append(f"{time_str} tonight")
-            elif "am" in time_str:
-                options.append(f"{time_str} this morning")
-            else:
-                options.append(f"{time_str} today")
-        elif day == tomorrow:
-            if "am" in time_str:
-                options.append(f"{time_str} tomorrow morning")
-            else:
-                options.append(f"{time_str} tomorrow")
-        else:
-            options.append(f"{time_str} on {day}")
-
-    if len(options) == 2:
-        return f"{options[0]} or {options[1]}"
-    elif len(options) == 1:
-        return options[0]
-    return "tonight or tomorrow morning"
 
 def extract_lead_profile(conversation_history, first_name, message):
     """Safe fallback until you add real extraction logic"""
@@ -2892,8 +2848,8 @@ def extract_intent(data, message=""):
 
     # Simplified user content for unified brain approach
     # Include history_text which contains deflection warnings and questions already asked
+    history_text = "\n".join(conversation_history) if conversation_history else "No previous messages"
     unified_user_content = f"""
-    {history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
 
     LEAD'S MESSAGE: "{message}"
 
