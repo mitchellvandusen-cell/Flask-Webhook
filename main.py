@@ -243,6 +243,7 @@ def generate_nepq_response(
     calendar_id=None,
     timezone="America/New_York",
 ):
+    conversation_history = conversation_history or []
     api_key = os.environ.get("GHL_API_KEY")
     calendar_id = os.environ.get("GHL_CALENDAR_ID")
     """
