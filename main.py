@@ -1363,7 +1363,6 @@ def process_message(state, contact_id, message, m):
     
     # If we get here, nothing in this step (or previous steps) matched
             
-    return None, True
 
 # ============================================================================
 # END CONTACT QUALIFICATION STATE
