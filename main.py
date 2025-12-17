@@ -2747,14 +2747,18 @@ def extract_intent(data, message=""):
         if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
                 lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
 
-    # Score the previous response based on this incoming message
-    outcome_score = None
-    vibe = None
-    try:
-        outcome_score, vibe = record_lead_response(contact_id, message)
-        logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
-    except Exception as e:
-        logger.warning(f"Could not record lead response: {e}")
+            # Score the previous response based on this incoming message
+            outcome_score = None
+            vibe = None
+            try:
+                outcome_score, vibe = record_lead_response(contact_id, message)
+                logger.debug(
+                    f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Could not record lead response: {e}"
+                )
 
     # Close stage templates (server-side enforcement for PolicyEngine fallback)
     close_templates = [
