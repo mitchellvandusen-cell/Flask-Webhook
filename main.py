@@ -3767,34 +3767,7 @@ def ghl_unified():
     5. "search" - Search contacts by phone
         Required: phone
     """
-    raw_data = request.json or {}
-    data = normalize_keys(raw_data)
-
-    # Ultimate contact_id extraction — will NEVER be None if it's a real inbound message
-    contact_id = (
-        data.get("contact_id") or                 # Custom Data (recommended)
-        data.get("contactid") or
-        data.get("contactId") or                    # Standard GHL field
-        data.get("contact", {}).get("id")
-        None
-    )
-
-
-    if not contact_id:
-        logger.error(f"CRITICAL: No contact_id found in payload! Full keys: {list(data.keys())}")
-        return jsonify({"error": "missing contact_id"}), 400
-    # Now use contact_id, plus your other custom fields:
-    first_name = data.get("first_name")
-    message_body = data.get("message")
-    agent_name = data.get("agent_name")  # "Mitchell"
-    intent = data.get("intent")          # "inbound_reply"
-
-    # ... rest of your logic here ...
-
-    
-    logger.info(f"Processed inbound from contact_id: {contact_id}")
-
-    # Extract message (string or {"body": "..."} object)
+     # Extract message (string or {"body": "..."} object)
     raw_message = custom.get("message", data.get("message", data.get("body", data.get("text", ""))))
     if isinstance(raw_message, dict):
         message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
