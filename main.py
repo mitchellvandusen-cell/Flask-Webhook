@@ -1081,12 +1081,12 @@ def process_message(state, contact_id, message, m):
     # ========== STEP 5: They answered medication question ==========
     if state.get("waiting_for_medications"):
     
-    	if re.search(
+        if re.search(
     		r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', 
     		m
     	) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
     		meds = "None reported"
-    	else:
+        else:
     		meds = message.strip()
     	
     	update_qualification_state(contact_id, {
@@ -1095,12 +1095,12 @@ def process_message(state, contact_id, message, m):
     	})
     
     	appt_time = state.get("appointment_time", "our call")
-    	if meds == "None reported":
+        if meds == "None reported":
     		return (
                 f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}."
                 "Calendar invite coming your way. Talk soon!"
             ), False
-    	else:
+        else:
     		return (
     			f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
     			"Calendar invite coming in a few minutes. Talk soon!"
@@ -1124,7 +1124,7 @@ def process_message(state, contact_id, message, m):
     	# But NOT if they also mention a specific time (mixed signal = accept)
     	has_specific_time = re.search(r"(tonight|tomorrow|morning|afternoon|evening|\d+:\d+|\d+\s*(am|pm))", m)
     		
-    	if is_rejection and not has_specific_time:
+        if is_rejection and not has_specific_time:
     		# They declined the appointment - try a different angle
     		update_qualification_state(contact_id, {
     			"carrier_gap_found": False,  # Reset so we can try again
@@ -1135,19 +1135,19 @@ def process_message(state, contact_id, message, m):
     		# Check how many times they've declined
     		decline_count = state.get("dismissive_count", 0) + 1
     		
-    		if decline_count >= 2:
+            if decline_count >= 2:
     			# Exit gracefully after 2 declines
     			return "Got it, no worries. If you ever have questions about coverage down the road, feel free to reach out. Take care!", False
-    		else:
+            else:
     			# First decline - try a softer angle, let LLM handle it
     			return None, True  # Continue to LLM for different approach
     # ========== STEP 4b: They agreed to appointment time ==========
     if state.get("carrier_gap_found") and any(t in m for t in TIME_AGREEMENT_TRIGGERS):
-    	if any(t in m for t in ["tonight", "today", "evening", "6", "7", "8"]):
+        if any(t in m for t in ["tonight", "today", "evening", "6", "7", "8"]):
     		booked_time = "tonight"
-    	elif any(t in m for t in ["10", "morning", "earlier", "first", "am"]):
+        elif any(t in m for t in ["10", "morning", "earlier", "first", "am"]):
     		booked_time = "tomorrow morning"
-    	else:
+        else:
     		booked_time = "tomorrow afternoon"
     	
     	update_qualification_state(contact_id, {
@@ -1166,7 +1166,7 @@ def process_message(state, contact_id, message, m):
     	has_other = re.search(r'\byes\b|yeah|work|employer|job|another|group|spouse', m)
     	no_other = re.search(r'\bno\b|nope|nah|just\s*(this|that|the\s*one)|only\s*(this|that|one)', m)
     	
-    	if has_other:
+        if has_other:
     		update_qualification_state(contact_id, {
     			"waiting_for_other_policies": False,
     			"has_other_policies": True,
@@ -1174,7 +1174,7 @@ def process_message(state, contact_id, message, m):
     		})
     		add_to_qualification_array(contact_id, "topics_asked", "other_policies")
     		# If through work, set employer based
-    		if re.search(r"work|employer|job|group", m):
+            if re.search(r"work|employer|job|group", m):
     			update_qualification_state(contact_id, {"is_employer_based": True})
     			return (
     				"Got it, so you have both. A lot of the workplace plans don't have living benefits. "
@@ -1183,7 +1183,7 @@ def process_message(state, contact_id, message, m):
     		
     		return ("Makes sense. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
     		), False
-    	elif no_other:
+        elif no_other:
     		update_qualification_state(contact_id, {
     			"waiting_for_other_policies": False,
     			"has_other_policies": False,
@@ -1215,22 +1215,22 @@ def process_message(state, contact_id, message, m):
     if state.get("waiting_for_goal"):
     	goal_match = None
     	
-    	if re.search(r"(add|more|additional|extra)\s*(coverage|protection)|on\s*top|supplement", m):
+        if re.search(r"(add|more|additional|extra)\s*(coverage|protection)|on\s*top|supplement", m):
     		goal_match = "add_coverage"
-    	elif re.search(r"mortgage|house|home", m):
+        elif re.search(r"mortgage|house|home", m):
     		goal_match = "cover_mortgage"
-    	elif re.search(r"final\s*expense|funeral|burial|cremation", m):
+        elif re.search(r"final\s*expense|funeral|burial|cremation", m):
     		goal_match = "final_expense"
-    	elif re.search(r"protect|family|kids|wife|husband", m):
+        elif re.search(r"protect|family|kids|wife|husband", m):
     		goal_match = "family_protection"
     	
-    	if goal_match:
+        if goal_match:
     		update_qualification_state(contact_id, {
     			"waiting_for_goal": False,
     			"motivating_goal": goal_match
     		})
     		add_to_qualification_array(contact_id, "topics_asked", "original_goal")
-    	else:
+        else:
     		update_qualification_state(contact_id, {"waiting_for_goal": False})
     
     	return None, True  # Let LLM continue with goal context
@@ -1248,18 +1248,18 @@ def process_message(state, contact_id, message, m):
     	found_myself = re.search(r'(myself|my own|online|google|website|found them|i did|on my own)', m)
     
     	# Track how they got the policy
-    	if someone_helped:
+        if someone_helped:
     		update_qualification_state(contact_id, {"is_personal_policy": True})
     		# Someone put them with it - "weird they put you with them"
-    		return (f"Weird they put you with them. I mean they're a good company, like I said they just take higher risk people "
+            return (f"Weird they put you with them. I mean they're a good company, like I said they just take higher risk people "
     				f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
     				"I can do a quick review and just make sure you're not overpaying. Which works best for you?"
     		), False
-    	else:
-    		if found_myself:
+        else:
+            if found_myself:
     			update_qualification_state(contact_id, {"is_personal_policy": False})
     			# They found it themselves or unclear - skip "weird" part
-    			return (f"I mean they're a good company, like I said they just take higher risk people "
+                return (f"I mean they're a good company, like I said they just take higher risk people "
     				f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
     				"I can do a quick review and just make sure you're not overpaying. Which works best for you?"
     			) , False
@@ -1270,11 +1270,11 @@ def process_message(state, contact_id, message, m):
     		"waiting_for_health": False,
     		"carrier_gap_found": True
     	})
-    	for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen", "stent", "diabetes", "kidney"]:
-    		if cond in m:
+        for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen", "stent", "diabetes", "kidney"]:
+            if cond in m:
     			add_to_qualification_array(contact_id, "health_conditions", cond)
     	
-    	return ("Makes sense then, they're actually really good for folks with health stuff going on. "
+        return ("Makes sense then, they're actually really good for folks with health stuff going on. "
     			f"{build_appointment_offer()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
     
     # ========== STEP 2: They answered with carrier name - combined question ==========
@@ -1284,7 +1284,7 @@ def process_message(state, contact_id, message, m):
     	# Check for personal/private policy FIRST (NOT through work) - ask about other policies
     	# Must check BEFORE employer detection to avoid matching "not through work"
     	# Expanded patterns: "not an employer policy", "not through work", "private", "personal", "my own"
-    	if re.search(r"(private|personal|not\s*(an?\s*)?(through|from|employer)\s*(policy|work|job)?|my\s*own\b|individual|isn'?t\s*from\s*work)", m):
+        if re.search(r"(private|personal|not\s*(an?\s*)?(through|from|employer)\s*(policy|work|job)?|my\s*own\b|individual|isn'?t\s*from\s*work)", m):
     		update_qualification_state(contact_id, {
     			"is_personal_policy": True,
     			"is_employer_based": False,
@@ -1292,34 +1292,34 @@ def process_message(state, contact_id, message, m):
     		})
     		add_to_qualification_array(contact_id, "topics_asked", "employer_portability")
     		add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
-    		if carrier:
+            if carrier:
     			update_qualification_state(contact_id, {"carrier": carrier})
-    		return ("Okay is that the only one you have or do you have one also with work?"), False
+            return ("Okay is that the only one you have or do you have one also with work?"), False
     	
     	# Check for employer-based coverage
-    	if re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m):
+        if re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m):
     		update_qualification_state(contact_id, {
     			"is_employer_based": True,
     			"carrier_gap_found": True
     		})
-    		return ("Nice! A lot of the workplace plans don't have living benefits built in. "
+            return ("Nice! A lot of the workplace plans don't have living benefits built in. "
     				f"{build_appointment_offer()}, takes 5 minutes to check. What works?"), False
     	
     	# Named a carrier without specifying source - combined source + health question
-    	if carrier:
+        if carrier:
     		update_qualification_state(contact_id, {
     			"carrier": carrier,
     			"waiting_for_health": True
     		})
-    		return ("Oh did someone help you get set up with them or did you find them yourself? "
+            return ("Oh did someone help you get set up with them or did you find them yourself? "
     				"They usually help people with higher risk, do you have serious health issues?"), False
     	
     	# Unknown carrier or vague answer
-    	if re.search(r"(forget|don'?t remember|not sure|idk|i don'?t know|can'?t recall)", m):
+        if re.search(r"(forget|don'?t remember|not sure|idk|i don'?t know|can'?t recall)", m):
     		update_qualification_state(contact_id, {
     			"carrier_gap_found": True
     		})
-    		return ("No worries. Most folks who thought they were covered had gaps they didn't know about. "
+            return ("No worries. Most folks who thought they were covered had gaps they didn't know about. "
     				f"{build_appointment_offer()}, takes 5 min to review. What works?"), False
     
     # ========== STEP 1: Initial "already covered" trigger ==========
@@ -1337,7 +1337,7 @@ def process_message(state, contact_id, message, m):
     	
     	response = None  # We'll set this based on conditions
     	
-    	if is_employer:
+        if is_employer:
     		update_qualification_state(contact_id, {
     			"is_employer_based": True,
     			"carrier_gap_found": True
@@ -1345,7 +1345,7 @@ def process_message(state, contact_id, message, m):
     		response = ("Nice! A lot of the workplace plans don't have living benefits built in. "
     					f"{build_appointment_offer()}, takes 5 minutes to check. What works?")
     	
-    	elif carrier:
+        elif carrier:
     		update_qualification_state(contact_id, {
     			"carrier": carrier,
     			"waiting_for_health": True
@@ -1353,12 +1353,13 @@ def process_message(state, contact_id, message, m):
     		response = ("Oh did someone help you get set up with them or did you find them yourself? "
     					"They usually help people with higher risk, do you have serious health issues?")
     	
-    	else:
+        else:
     		response = "Who'd you go with?"
     	
     	# If we matched this block, return the crafted response
-    	if response is not None:
+        if response is not None:
             return response, False
+            
         return None, True
     
     # If we get here, nothing in this step (or previous steps) matched
