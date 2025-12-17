@@ -20,7 +20,7 @@ from openai import OpenAI
 # Three-layer conversation architecture
 from conversation_engine import (
     ConversationState, ConversationStage,
-	build_state_from_history, format_state_for_prompt,
+    build_state_from_history, format_state_for_prompt,
     PolicyEngine, detect_dismissive, parse_reflection, strip_reflection,
     detect_stage, extract_facts_from_message
 )
@@ -1073,7 +1073,7 @@ def build_appointment_offer(prefix="I have some time"):
     if has_slots and slot_text:
         return f"{prefix} {slot_text}"
     else:
-    	return "When are you usually free for a quick call"
+        return "When are you usually free for a quick call"
         
 def process_message(state, contact_id, message, m):
     m = (message or "").lower()
@@ -1082,17 +1082,17 @@ def process_message(state, contact_id, message, m):
     if state.get("waiting_for_medications"):
     
         if re.search(
-    		r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', 
-    		m
+            r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', 
+            m
         ) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
             meds = "None reported"
         else:
-    		meds = message.strip()
-    	
-    	update_qualification_state(contact_id, {
-    		"medications": meds,
-    		"waiting_for_medications": False
-    	})
+            meds = message.strip()
+        
+            update_qualification_state(contact_id, {
+            "medications": meds,
+            "waiting_for_medications": False
+        })
     
         appt_time = state.get("appointment_time", "our call")
         if meds == "None reported":
@@ -1101,262 +1101,262 @@ def process_message(state, contact_id, message, m):
                 "Calendar invite coming your way. Talk soon!"
             ), False
         else:
-    		return (
-    			f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
-    			"Calendar invite coming in a few minutes. Talk soon!"
-    		), False
+            return (
+                f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
+                "Calendar invite coming in a few minutes. Talk soon!"
+            ), False
 
     # ========== STEP 4a: Check for REJECTION of appointment offer FIRST ==========
     # Must check BEFORE time agreement to avoid "No that's okay" matching "okay"
     if state.get("carrier_gap_found"):
-    	# Rejection patterns - "no" followed by polite decline
-    	rejection_patterns = [
-    		r"^no\b",  # Starts with "no"
-    		r"\bno\s*(that'?s|thats)?\s*(okay|ok|thanks|thank\s*you)\b",  # "no that's okay", "no thanks"
-    		r"\bno\s*i\s*(don'?t|dont)\s*(want|need)\b",  # "no I don't want"
-    		r"\bnot\s*(interested|right\s*now|for\s*me)\b",  # "not interested"
-    		r"\bi'?m\s*(good|okay|fine|all\s*set)\b",  # "I'm good"
-    		r"\bpass\b|\bno\s*way\b|\bforget\s*it\b",  # explicit decline
-    		r"\bdon'?t\s*(want|need)\s*(to|a|any)?\s*(talk|call|meet|appointment)\b",  # "don't want to talk"
-    	]
-    	
-    	is_rejection = any(re.search(p, m) for p in rejection_patterns)
-    	# But NOT if they also mention a specific time (mixed signal = accept)
-    	has_specific_time = re.search(r"(tonight|tomorrow|morning|afternoon|evening|\d+:\d+|\d+\s*(am|pm))", m)
-    		
+        # Rejection patterns - "no" followed by polite decline
+        rejection_patterns = [
+            r"^no\b",  # Starts with "no"
+            r"\bno\s*(that'?s|thats)?\s*(okay|ok|thanks|thank\s*you)\b",  # "no that's okay", "no thanks"
+            r"\bno\s*i\s*(don'?t|dont)\s*(want|need)\b",  # "no I don't want"
+            r"\bnot\s*(interested|right\s*now|for\s*me)\b",  # "not interested"
+            r"\bi'?m\s*(good|okay|fine|all\s*set)\b",  # "I'm good"
+            r"\bpass\b|\bno\s*way\b|\bforget\s*it\b",  # explicit decline
+            r"\bdon'?t\s*(want|need)\s*(to|a|any)?\s*(talk|call|meet|appointment)\b",  # "don't want to talk"
+        ]
+        
+        is_rejection = any(re.search(p, m) for p in rejection_patterns)
+        # But NOT if they also mention a specific time (mixed signal = accept)
+        has_specific_time = re.search(r"(tonight|tomorrow|morning|afternoon|evening|\d+:\d+|\d+\s*(am|pm))", m)
+            
         if is_rejection and not has_specific_time:
-    		# They declined the appointment - try a different angle
-    		update_qualification_state(contact_id, {
-    			"carrier_gap_found": False,  # Reset so we can try again
-    			"appointment_declined": True,
-    			"dismissive_count": state.get("dismissive_count", 0) + 1
-    		})
-    		
-    		# Check how many times they've declined
-    		decline_count = state.get("dismissive_count", 0) + 1
-    		
+            # They declined the appointment - try a different angle
+            update_qualification_state(contact_id, {
+                "carrier_gap_found": False,  # Reset so we can try again
+                "appointment_declined": True,
+                "dismissive_count": state.get("dismissive_count", 0) + 1
+            })
+            
+            # Check how many times they've declined
+            decline_count = state.get("dismissive_count", 0) + 1
+            
             if decline_count >= 2:
-    			# Exit gracefully after 2 declines
-    			return "Got it, no worries. If you ever have questions about coverage down the road, feel free to reach out. Take care!", False
+                # Exit gracefully after 2 declines
+                return "Got it, no worries. If you ever have questions about coverage down the road, feel free to reach out. Take care!", False
             else:
-    			# First decline - try a softer angle, let LLM handle it
-    			return None, True  # Continue to LLM for different approach
+                # First decline - try a softer angle, let LLM handle it
+                return None, True  # Continue to LLM for different approach
     # ========== STEP 4b: They agreed to appointment time ==========
     if state.get("carrier_gap_found") and any(t in m for t in TIME_AGREEMENT_TRIGGERS):
         if any(t in m for t in ["tonight", "today", "evening", "6", "7", "8"]):
-    		booked_time = "tonight"
+            booked_time = "tonight"
         elif any(t in m for t in ["10", "morning", "earlier", "first", "am"]):
-    		booked_time = "tomorrow morning"
+            booked_time = "tomorrow morning"
         else:
-    		booked_time = "tomorrow afternoon"
-    	
-    	update_qualification_state(contact_id, {
-    		"is_booked": True,
-    		"is_qualified": True,
-    		"appointment_time": booked_time,
-    		"waiting_for_medications": True
-    	})
+            booked_time = "tomorrow afternoon"
+        
+        update_qualification_state(contact_id, {
+            "is_booked": True,
+            "is_qualified": True,
+            "appointment_time": booked_time,
+            "waiting_for_medications": True
+        })
     
-    	return (f"Perfect, got you down for {booked_time}. "
-    		"Quick question so I can have the best options ready, are you taking any medications currently?"
-    	), False
+        return (f"Perfect, got you down for {booked_time}. "
+            "Quick question so I can have the best options ready, are you taking any medications currently?"
+        ), False
     
     # ========== STEP 3a: They answered "other policies" question ==========
     if state.get("waiting_for_other_policies"):
-    	has_other = re.search(r'\byes\b|yeah|work|employer|job|another|group|spouse', m)
-    	no_other = re.search(r'\bno\b|nope|nah|just\s*(this|that|the\s*one)|only\s*(this|that|one)', m)
-    	
+        has_other = re.search(r'\byes\b|yeah|work|employer|job|another|group|spouse', m)
+        no_other = re.search(r'\bno\b|nope|nah|just\s*(this|that|the\s*one)|only\s*(this|that|one)', m)
+        
         if has_other:
-    		update_qualification_state(contact_id, {
-    			"waiting_for_other_policies": False,
-    			"has_other_policies": True,
-    			"waiting_for_goal": True
-    		})
-    		add_to_qualification_array(contact_id, "topics_asked", "other_policies")
-    		# If through work, set employer based
+            update_qualification_state(contact_id, {
+                "waiting_for_other_policies": False,
+                "has_other_policies": True,
+                "waiting_for_goal": True
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "other_policies")
+            # If through work, set employer based
             if re.search(r"work|employer|job|group", m):
-    			update_qualification_state(contact_id, {"is_employer_based": True})
-    			return (
-    				"Got it, so you have both. A lot of the workplace plans don't have living benefits. "
-    				"What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
-    			), False
-    		
-    		return ("Makes sense. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
-    		), False
+                update_qualification_state(contact_id, {"is_employer_based": True})
+                return (
+                    "Got it, so you have both. A lot of the workplace plans don't have living benefits. "
+                    "What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
+                ), False
+            
+            return ("Makes sense. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
+            ), False
         elif no_other:
-    		update_qualification_state(contact_id, {
-    			"waiting_for_other_policies": False,
-    			"has_other_policies": False,
-    			"waiting_for_goal": True
-    		})
-    		add_to_qualification_array(contact_id, "topics_asked", "other_policies")
-    		return ("Got it. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
-    		), False
+            update_qualification_state(contact_id, {
+                "waiting_for_other_policies": False,
+                "has_other_policies": False,
+                "waiting_for_goal": True
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "other_policies")
+            return ("Got it. What made you want to look at coverage originally, was it to add more, cover a mortgage, or something else?"
+            ), False
     #===== Goal mentioned directly in this message====
     goal_match = None
     
     if re.search(r"(add|more|additional|extra)\s*(coverage|protection)|on\s*top", m):
-    	goal_match = "add_coverage"
+        goal_match = "add_coverage"
     elif re.search(r"mortgage|house|home", m):
-    	goal_match = "cover_mortgage"
+        goal_match = "cover_mortgage"
     elif re.search(r"final\s*expense|funeral|burial", m):
-    	goal_match = "final_expense"
+        goal_match = "final_expense"
     
     if goal_match:
-    	update_qualification_state(contact_id, {
-    		"waiting_for_other_policies": False,
-    		"motivating_goal": goal_match
-    	})
-    	add_to_qualification_array(contact_id, "topics_asked", "other_policies")
-    	add_to_qualification_array(contact_id, "topics_asked", "original_goal")
-    	return None, True  # Let LLM continue with this context
+        update_qualification_state(contact_id, {
+            "waiting_for_other_policies": False,
+            "motivating_goal": goal_match
+        })
+        add_to_qualification_array(contact_id, "topics_asked", "other_policies")
+        add_to_qualification_array(contact_id, "topics_asked", "original_goal")
+        return None, True  # Let LLM continue with this context
     
     # ========== STEP 3b: They answered goal question ==========
     if state.get("waiting_for_goal"):
-    	goal_match = None
-    	
+        goal_match = None
+        
         if re.search(r"(add|more|additional|extra)\s*(coverage|protection)|on\s*top|supplement", m):
-    		goal_match = "add_coverage"
+            goal_match = "add_coverage"
         elif re.search(r"mortgage|house|home", m):
-    		goal_match = "cover_mortgage"
+            goal_match = "cover_mortgage"
         elif re.search(r"final\s*expense|funeral|burial|cremation", m):
-    		goal_match = "final_expense"
+            goal_match = "final_expense"
         elif re.search(r"protect|family|kids|wife|husband", m):
-    		goal_match = "family_protection"
-    	
+            goal_match = "family_protection"
+        
         if goal_match:
-    		update_qualification_state(contact_id, {
-    			"waiting_for_goal": False,
-    			"motivating_goal": goal_match
-    		})
-    		add_to_qualification_array(contact_id, "topics_asked", "original_goal")
+            update_qualification_state(contact_id, {
+                "waiting_for_goal": False,
+                "motivating_goal": goal_match
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "original_goal")
         else:
-    		update_qualification_state(contact_id, {"waiting_for_goal": False})
+            update_qualification_state(contact_id, {"waiting_for_goal": False})
     
-    	return None, True  # Let LLM continue with goal context
+        return None, True  # Let LLM continue with goal context
     
     # ========== STEP 3c: They said NO they're not sick - doubt + book ==========
     if state.get("waiting_for_health") and re.search(r'\bno\b|not really|nah|healthy|i\'?m fine|feeling good|nothing serious|nope|im good', m):
-    	carrier = state.get("carrier", "them")
-    	update_qualification_state(contact_id, {
-    		"waiting_for_health": False,
-    		"carrier_gap_found": True
-    	})
+        carrier = state.get("carrier", "them")
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False,
+            "carrier_gap_found": True
+        })
     
-    	#=== Check if someone helped them or they found it themselves===
-    	someone_helped = re.search(r'(someone|agent|guy|friend|buddy|family|relative|coworker|rep|salesman|advisor)', m)
-    	found_myself = re.search(r'(myself|my own|online|google|website|found them|i did|on my own)', m)
+        #=== Check if someone helped them or they found it themselves===
+        someone_helped = re.search(r'(someone|agent|guy|friend|buddy|family|relative|coworker|rep|salesman|advisor)', m)
+        found_myself = re.search(r'(myself|my own|online|google|website|found them|i did|on my own)', m)
     
-    	# Track how they got the policy
+        # Track how they got the policy
         if someone_helped:
-    		update_qualification_state(contact_id, {"is_personal_policy": True})
-    		# Someone put them with it - "weird they put you with them"
+            update_qualification_state(contact_id, {"is_personal_policy": True})
+            # Someone put them with it - "weird they put you with them"
             return (f"Weird they put you with them. I mean they're a good company, like I said they just take higher risk people "
-    				f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
-    				"I can do a quick review and just make sure you're not overpaying. Which works best for you?"
-    		), False
+                    f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
+                    "I can do a quick review and just make sure you're not overpaying. Which works best for you?"
+            ), False
         else:
             if found_myself:
-    			update_qualification_state(contact_id, {"is_personal_policy": False})
-    			# They found it themselves or unclear - skip "weird" part
+                update_qualification_state(contact_id, {"is_personal_policy": False})
+                # They found it themselves or unclear - skip "weird" part
                 return (f"I mean they're a good company, like I said they just take higher risk people "
-    				f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
-    				"I can do a quick review and just make sure you're not overpaying. Which works best for you?"
-    			) , False
-    			
+                    f"so it's usually more expensive for healthier people like yourself. {build_appointment_offer()}, "
+                    "I can do a quick review and just make sure you're not overpaying. Which works best for you?"
+                ) , False
+                
     #========== STEP 3b: They said YES they are sick ==========
     if state.get("waiting_for_health") and re.search(r'\byes\b|yeah|cancer|stroke|copd|chemo|oxygen|heart attack|stent|diabetes|kidney', m):
-    	update_qualification_state(contact_id, {
-    		"waiting_for_health": False,
-    		"carrier_gap_found": True
-    	})
+        update_qualification_state(contact_id, {
+            "waiting_for_health": False,
+            "carrier_gap_found": True
+        })
         for cond in ["cancer", "stroke", "copd", "heart", "chemo", "oxygen", "stent", "diabetes", "kidney"]:
             if cond in m:
-    			add_to_qualification_array(contact_id, "health_conditions", cond)
-    	
+                add_to_qualification_array(contact_id, "health_conditions", cond)
+        
         return ("Makes sense then, they're actually really good for folks with health stuff going on. "
-    			f"{build_appointment_offer()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
+                f"{build_appointment_offer()} if you want, I can still take a look and see if there's anything better out there. What works?"), False
     
     # ========== STEP 2: They answered with carrier name - combined question ==========
     if state.get("objection_path") == "already_covered" and state.get("already_handled") and not state.get("carrier_gap_found") and not state.get("waiting_for_health") and not state.get("waiting_for_other_policies"):
-    	carrier = extract_carrier_name(m)
-    	
-    	# Check for personal/private policy FIRST (NOT through work) - ask about other policies
-    	# Must check BEFORE employer detection to avoid matching "not through work"
-    	# Expanded patterns: "not an employer policy", "not through work", "private", "personal", "my own"
+        carrier = extract_carrier_name(m)
+        
+        # Check for personal/private policy FIRST (NOT through work) - ask about other policies
+        # Must check BEFORE employer detection to avoid matching "not through work"
+        # Expanded patterns: "not an employer policy", "not through work", "private", "personal", "my own"
         if re.search(r"(private|personal|not\s*(an?\s*)?(through|from|employer)\s*(policy|work|job)?|my\s*own\b|individual|isn'?t\s*from\s*work)", m):
-    		update_qualification_state(contact_id, {
-    			"is_personal_policy": True,
-    			"is_employer_based": False,
-    			"waiting_for_other_policies": True
-    		})
-    		add_to_qualification_array(contact_id, "topics_asked", "employer_portability")
-    		add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
+            update_qualification_state(contact_id, {
+                "is_personal_policy": True,
+                "is_employer_based": False,
+                "waiting_for_other_policies": True
+            })
+            add_to_qualification_array(contact_id, "topics_asked", "employer_portability")
+            add_to_qualification_array(contact_id, "topics_asked", "job_coverage")
             if carrier:
-    			update_qualification_state(contact_id, {"carrier": carrier})
+                update_qualification_state(contact_id, {"carrier": carrier})
             return ("Okay is that the only one you have or do you have one also with work?"), False
-    	
-    	# Check for employer-based coverage
+        
+        # Check for employer-based coverage
         if re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m):
-    		update_qualification_state(contact_id, {
-    			"is_employer_based": True,
-    			"carrier_gap_found": True
-    		})
+            update_qualification_state(contact_id, {
+                "is_employer_based": True,
+                "carrier_gap_found": True
+            })
             return ("Nice! A lot of the workplace plans don't have living benefits built in. "
-    				f"{build_appointment_offer()}, takes 5 minutes to check. What works?"), False
-    	
-    	# Named a carrier without specifying source - combined source + health question
+                    f"{build_appointment_offer()}, takes 5 minutes to check. What works?"), False
+        
+        # Named a carrier without specifying source - combined source + health question
         if carrier:
-    		update_qualification_state(contact_id, {
-    			"carrier": carrier,
-    			"waiting_for_health": True
-    		})
+            update_qualification_state(contact_id, {
+                "carrier": carrier,
+                "waiting_for_health": True
+            })
             return ("Oh did someone help you get set up with them or did you find them yourself? "
-    				"They usually help people with higher risk, do you have serious health issues?"), False
-    	
-    	# Unknown carrier or vague answer
+                    "They usually help people with higher risk, do you have serious health issues?"), False
+        
+        # Unknown carrier or vague answer
         if re.search(r"(forget|don'?t remember|not sure|idk|i don'?t know|can'?t recall)", m):
-    		update_qualification_state(contact_id, {
-    			"carrier_gap_found": True
-    		})
+            update_qualification_state(contact_id, {
+                "carrier_gap_found": True
+            })
             return ("No worries. Most folks who thought they were covered had gaps they didn't know about. "
-    				f"{build_appointment_offer()}, takes 5 min to review. What works?"), False
+                    f"{build_appointment_offer()}, takes 5 min to review. What works?"), False
     
     # ========== STEP 1: Initial "already covered" trigger ==========
     if (any(trigger in m for trigger in ALREADY_HAVE_TRIGGERS) 
-    	and not state.get("already_handled")):
-    	
-    	carrier = extract_carrier_name(m)
-    	is_employer = re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m)
-    	
-    	update_qualification_state(contact_id, {
-    		"already_handled": True,
-    		"objection_path": "already_covered",
-    		"has_policy": True
-    	})
-    	
-    	response = None  # We'll set this based on conditions
-    	
+        and not state.get("already_handled")):
+        
+        carrier = extract_carrier_name(m)
+        is_employer = re.search(r"(through|from|at|via).*(work|job|employer|company|group)", m)
+        
+        update_qualification_state(contact_id, {
+            "already_handled": True,
+            "objection_path": "already_covered",
+            "has_policy": True
+        })
+        
+        response = None  # We'll set this based on conditions
+        
         if is_employer:
-    		update_qualification_state(contact_id, {
-    			"is_employer_based": True,
-    			"carrier_gap_found": True
-    		})
-    		response = ("Nice! A lot of the workplace plans don't have living benefits built in. "
-    					f"{build_appointment_offer()}, takes 5 minutes to check. What works?")
-    	
+            update_qualification_state(contact_id, {
+                "is_employer_based": True,
+                "carrier_gap_found": True
+            })
+            response = ("Nice! A lot of the workplace plans don't have living benefits built in. "
+                        f"{build_appointment_offer()}, takes 5 minutes to check. What works?")
+        
         elif carrier:
-    		update_qualification_state(contact_id, {
-    			"carrier": carrier,
-    			"waiting_for_health": True
-    		})
-    		response = ("Oh did someone help you get set up with them or did you find them yourself? "
-    					"They usually help people with higher risk, do you have serious health issues?")
-    	
+            update_qualification_state(contact_id, {
+                "carrier": carrier,
+                "waiting_for_health": True
+            })
+            response = ("Oh did someone help you get set up with them or did you find them yourself? "
+                        "They usually help people with higher risk, do you have serious health issues?")
+        
         else:
-    		response = "Who'd you go with?"
-    	
-    	# If we matched this block, return the crafted response
+            response = "Who'd you go with?"
+        
+        # If we matched this block, return the crafted response
         if response is not None:
             return response, False
             
@@ -1832,930 +1832,930 @@ def extract_intent(data, message=""):
         ):
             normalized = "initial_outreach"
 
-    return normalized
+        return normalized
 
 
-# =============================================================
-# STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
-# =============================================================
-real_calendar_slots = None
+    # =============================================================
+    # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
+    # =============================================================
+    real_calendar_slots = None
 
-if api_key and calendar_id:
+    if api_key and calendar_id:
+        try:
+            slots = get_available_slots(calendar_id, api_key, timezone)
+            if slots:
+                real_calendar_slots = format_slot_options(slots, timezone)
+                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
+        except Exception as e:
+            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+
+    if not real_calendar_slots:
+        real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
+        logger.info("STEP 0: Using vague time fallback (no specific times)")
+
+    # =========================================================================
+    # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
+    # =========================================================================
+    logger.info("STEP 1: Knowledge will be loaded via unified brain")
+
+    # =========================================================================
+    # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
+    # =========================================================================
+    # Ensure message is always a plain string before trigger logic / LLM routing
+        
+    if isinstance(message, dict):
+        message = message.get("body") or message.get("message") or message.get("text") or ""
+    elif not isinstance(message, str):
+        message = str(message) if message is not None else ""
+        
+    message = message.strip()
+
+    triggers_found = identify_triggers(message)
+    trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
+    logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
+    logger.info(f"STEP 2: message type after normalize: {type(message)}")
+
+    # =========================================================================
+    # STEP 3: CHECK OUTCOME PATTERNS (what worked before for similar messages)
+    # =========================================================================
+    outcome_patterns = []
+    outcome_context = ""
     try:
-        slots = get_available_slots(calendar_id, api_key, timezone)
-        if slots:
-            real_calendar_slots = format_slot_options(slots, timezone)
-            logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-    except Exception as e:
-        logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
-
-if not real_calendar_slots:
-    real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
-    logger.info("STEP 0: Using vague time fallback (no specific times)")
-
-# =========================================================================
-# STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
-# =========================================================================
-logger.info("STEP 1: Knowledge will be loaded via unified brain")
-
-# =========================================================================
-# STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
-# =========================================================================
-# Ensure message is always a plain string before trigger logic / LLM routing
-    
-if isinstance(message, dict):
-    message = message.get("body") or message.get("message") or message.get("text") or ""
-elif not isinstance(message, str):
-    message = str(message) if message is not None else ""
-    
-message = message.strip()
-
-triggers_found = identify_triggers(message)
-trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
-logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
-logger.info(f"STEP 2: message type after normalize: {type(message)}")
-
-# =========================================================================
-# STEP 3: CHECK OUTCOME PATTERNS (what worked before for similar messages)
-# =========================================================================
-outcome_patterns = []
-outcome_context = ""
-try:
-    learning_ctx = get_learning_context(contact_id or "unknown", message)
-    if learning_ctx and learning_ctx.get("proven_responses"):
-        outcome_patterns = learning_ctx.get("proven_responses", [])[:5]
-        outcome_context = "\n".join([f"- {p}" for p in outcome_patterns])
-        logger.info(f"STEP 3: Found {len(outcome_patterns)} proven outcome patterns")
-    else:
-        logger.info("STEP 3: No proven outcome patterns found")
-    
-    # === TRIGRAM SIMILARITY: Find patterns with similar trigger messages ===
-    similar_patterns = find_similar_successful_patterns(message, min_score=2.0, limit=3)
-    if similar_patterns:
-        for p in similar_patterns:
-            sim_text = f"Similar trigger (sim={p.get('sim_score', 0):.2f}): {p.get('response_used', '')[:100]}"
-            if sim_text not in outcome_context:
-                outcome_context += f"\n- {sim_text}"
-        logger.info(f"STEP 3: Found {len(similar_patterns)} trigram-similar patterns")
-except Exception as e:
-    logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
-
-# =========================================================================
-# STEP 4: EVALUATE - Check if triggers should bypass LLM
-# =========================================================================
-# For BUYING_SIGNAL and PRICE triggers, bypass LLM to ensure calendar times are used
-# This prevents the LLM from making up fake appointment times
-if trigger_code == "TRIG" and trigger_suggestion:
-    # Check if this is a trigger that should bypass LLM
-    triggers_str = str(triggers_found)
-    m_lower = message_text.lower().strip()
-    # Calendar-related triggers bypass to use real calendar times
-    if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
-        logger.info(f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}")
-        return trigger_suggestion, confirmation_code
-    # Frustrated/repeat triggers bypass to apologize and pivot immediately
-    frustrated_patterns = ["already asked", "move on", "stop asking", "enough questions"]
-    if any(p in m_lower for p in frustrated_patterns):
-        logger.info(f"STEP 4: Frustrated repeat trigger detected, using deterministic response: {trigger_suggestion}")
-        return trigger_suggestion, confirmation_code
-
-if trigger_code == "EXIT":
-    # Hard exit always bypasses LLM
-    logger.info(f"STEP 4: Exit trigger detected, returning: {trigger_suggestion}")
-    return trigger_suggestion, confirmation_code
-
-# Extract structured lead profile from conversation
-if conversation_history is None:
-    conversation_history = []
-
-# === TOKEN OPTIMIZATION: Compress history if too long ===
-if len(conversation_history) > 6:
-    original_count = len(conversation_history)
-    conversation_history = compress_conversation_history(conversation_history, max_tokens=1500)
-    logger.info(f"TOKEN_OPT: Compressed history from {original_count} to {len(conversation_history)} messages")
-
-lead_profile = extract_lead_profile(conversation_history, first_name, message)
-
-# === QUALIFICATION STATE: Persistent memory per contact ===
-qualification_state = None
-qualification_context = ""
-nlp_context = ""
-if contact_id:
-    # === STEP 0a: Save incoming message to NLP memory ===
-    # Store all messages for spaCy parsing and topic extraction
-    save_nlp_message(contact_id, message, "lead")
-    logger.debug(f"NLP: Saved lead message for contact {contact_id}")
-    
-    # === STEP 0b: Parse conversation history to backfill topics_asked ===
-    # This retroactively identifies topics already asked in previous messages
-    if conversation_history:
-        parse_history_for_topics_asked(contact_id, conversation_history)
-    
-    # Load existing qualification state from database (after backfill)
-    qualification_state = get_qualification_state(contact_id)
-    
-    # === STEP 0c: Get NLP topic breakdown for additional context ===
-    nlp_context = format_nlp_for_prompt(contact_id)
-    
-    # Extract and update qualification from this message
-    extracted_updates = extract_and_update_qualification(contact_id, message, conversation_history)
-    if extracted_updates:
-        logger.info(f"QUALIFICATION: Extracted updates: {extracted_updates}")
-        # Reload state after updates
-        qualification_state = get_qualification_state(contact_id)
-    
-    # Increment exchange counter
-    increment_exchanges(contact_id)
-    
-    # === ALREADY COVERED HANDLER: Deterministic state machine ===
-    # This runs BEFORE LLM to handle the common "already have coverage" pathway
-    handler_response, should_continue = already_covered_handler(
-        contact_id, message, qualification_state, 
-        api_key, calendar_id, timezone
-    )
-    if not should_continue and handler_response:
-        logger.info(f"ALREADY_COVERED_HANDLER: Returning deterministic response")
-        return handler_response, confirmation_code
-    
-    # Format qualification for prompt
-    qualification_context = format_qualification_for_prompt(qualification_state)
-    if qualification_context:
-        logger.debug(f"QUALIFICATION: Injecting known facts into prompt")
-
-# === LAYER 2: Build Conversation State (Source of Truth) ===
-conv_state = build_state_from_history(
-    contact_id=contact_id or "unknown",
-    first_name=first_name,
-    conversation_history=conversation_history,
-    current_message=message
-)
-
-# === CRITICAL: Sync qualification_state topics_asked to conv_state.topics_answered ===
-# This prevents re-asking questions that were asked in previous turns
-if qualification_state:
-    topics_asked = qualification_state.get("topics_asked") or []
-    
-    # Sync ALL topics from database to conv_state (prevents any topic repetition)
-    for topic in topics_asked:
-        if topic not in conv_state.topics_answered:
-            conv_state.topics_answered.append(topic)
-    
-    # Special handling for motivation (multiple aliases)
-    if "motivation" in topics_asked or "original_goal" in topics_asked:
-        if "motivation" not in conv_state.topics_answered:
-            conv_state.topics_answered.append("motivation")
-        if "motivating_goal" not in conv_state.topics_answered:
-            conv_state.topics_answered.append("motivating_goal")
-        logger.info("QUALIFICATION: Motivation question already asked - blocking repeats")
-    
-    if topics_asked:
-        logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
-
-# === SYNC NLP TOPICS: Also sync topics from spaCy NLP memory ===
-if contact_id:
-    nlp_topics = get_topics_already_discussed(contact_id)
-    for topic in nlp_topics:
-        # Extract simple topic name (remove category prefix if present)
-        simple_topic = topic.split(":")[-1] if ":" in topic else topic
-        if simple_topic not in conv_state.topics_answered:
-            conv_state.topics_answered.append(simple_topic)
-    if nlp_topics:
-        logger.debug(f"NLP: Synced {len(nlp_topics)} topics from NLP memory")
-
-state_instructions = format_state_for_prompt(conv_state)
-logger.debug(f"Conversation state: stage={conv_state.stage.value}, exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}")
-
-# === BUYING SIGNAL DETECTION - Override intent when lead shows readiness ===
-# Must be context-aware to avoid false positives from negations/sarcasm
-current_lower = message.lower()
-
-# Negation phrases that cancel buying signals (expanded for common variants)
-negation_phrases = [
-    "don't need", "dont need", "do not need", "dont really need", "don't really need",
-    "not interested", "no thanks", "no thank", "stop", "leave me alone", 
-    "not looking", "already have", "im good", "i'm good", "i am good",
-    "not right now", "maybe later", "no im good", "nope", "no i dont",
-    "no i don't", "no i'm not", "no im not", "not for me", "pass",
-    "unsubscribe", "remove me", "take me off"
-]
-has_negation = any(phrase in current_lower for phrase in negation_phrases)
-
-# Also check for negation patterns via regex
-import re
-negation_patterns = [
-    r"\bno\b.*\bneed\b", r"\bnot\b.*\binterested\b", r"\bdon'?t\b.*\bneed\b"
-]
-if not has_negation:
-    for pattern in negation_patterns:
-        if re.search(pattern, current_lower):
-            has_negation = True
-            break
-
-# Strong buying signals (unambiguous interest)
-strong_buying_signals = [
-    "i'd have to get", "id have to get", "would have to get",
-    "need to get new", "get new life insurance", "get new coverage",
-    "sign me up", "let's do it", "lets do it", "i'm in", "im in",
-    "what are my options", "how much would it cost", "what would it cost",
-    "sounds good", "that sounds good", "works for me", "yeah let's do it",
-    "sure", "okay when", "ok when", "yes when can we"
-]
-
-# Weaker signals that need context (only count if no negation)
-weak_buying_signals = [
-    "i need", "i'd need", "interested in looking", "looking into it",
-    "want to look", "can you look into", "want coverage"
-]
-
-detected_buying_signal = False
-if not has_negation:
-    if any(signal in current_lower for signal in strong_buying_signals):
-        detected_buying_signal = True
-    elif any(signal in current_lower for signal in weak_buying_signals):
-        # Only treat weak signals as buying signals if conversation has context
-        if lead_profile.get("motivating_goal") or lead_profile.get("family", {}).get("spouse"):
-            detected_buying_signal = True
-
-# Also detect if they've revealed a problem that we can close on
-problem_revealed = bool(
-    lead_profile.get("motivating_goal") or 
-    lead_profile.get("coverage", {}).get("coverage_gap") or
-    (lead_profile.get("coverage", {}).get("has_coverage") and 
-        lead_profile.get("coverage", {}).get("type") == "employer") or
-    lead_profile.get("coverage", {}).get("employer")
-)
-
-# Determine conversation stage
-if conversation_history:
-    recent_agent = [msg for msg in conversation_history if msg.startswith("You:")]
-    recent_lead = [msg for msg in conversation_history if msg.startswith("Lead:")]
-    exchange_count = min(len(recent_agent), len(recent_lead))
-else:
-    exchange_count = 0
-
-# Stage logic: problem_awareness -> consequence -> close
-# CRITICAL: Force close after 3 exchanges FIRST - this is the hard stop
-if exchange_count >= 3:
-    # Force close after 3 exchanges regardless of other signals
-    intent = "book_appointment"
-    stage = "close"
-elif detected_buying_signal:
-    # Buying signal detected - go straight to close
-    intent = "book_appointment"
-    stage = "close"
-elif exchange_count >= 2 and problem_revealed:
-    # Had enough conversation with problem revealed - close
-    intent = "book_appointment"
-    stage = "close"
-elif problem_revealed and exchange_count >= 1:
-    # Problem revealed but only 1 exchange - ask consequence question first
-    stage = "consequence"
-elif problem_revealed:
-    # Problem revealed in first exchange - still consequence
-    stage = "consequence"
-else:
-    stage = "problem_awareness"
-
-intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
-
-# Stage-specific directives for cold leads (from NEPQ Black Book)
-stage_directives = {
-    "problem_awareness": """
-=== STAGE: PROBLEM AWARENESS (NEPQ Stage 2 + 7-Steps Big Picture Questions) ===
-These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
-
-BIG PICTURE QUESTIONS (start broad, then narrow - from 7-Steps Guide):
-- "Just so I have more context, what was going on back then that made you start looking?"
-- "Is there something specific that's changed since then, like work or family?"
-- "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
-- "Was it more just seeing what was out there, or was there something specific going on?"
-- "What would you change about your current coverage situation?"
-- "What's been your biggest headache with insurance stuff?"
-
-DO NOT ask generic questions like:
-- "What's on your mind about insurance?" (they haven't thought about it in months)
-- "What's been worrying you?" (too presumptuous)
-- "What made you realize you need coverage?" (they may not have realized anything)
-- "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
-- "What are you hoping to achieve?" (too corporate/formal)
-- "What would be ideal for you?" (too vague, they don't know what's possible)
-
-RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
-If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
-→ They feel interrogated. STOP asking questions. Back off gracefully:
-→ "Fair enough, no pressure. I'll check back another time."
-→ DO NOT ask another question after this response.
-
-KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
-
-After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
-===
-""",
-    "consequence": """
-=== STAGE: CONSEQUENCE (NEPQ Stage 2 + 7-Steps Future Pacing) ===
-You've identified a problem or need. Now help them FEEL the weight of not solving it AND paint the after-picture.
-
-STEP 1 - ASK ONE CONSEQUENCE QUESTION (choose based on what they shared):
-
-IF EMPLOYER COVERAGE:
-- "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
-- "Does that follow you if you switch jobs, or is it tied to that employer?"
-- "What happens to that coverage when you retire?"
-
-IF FAMILY/SPOUSE MENTIONED:
-- "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
-- "What would you want that coverage to handle first, the mortgage or replacing your income?"
-
-IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
-- "How long has that been weighing on you?"
-- "What's been stopping you from getting that handled?"
-
-STEP 2 - IF THEY SEEM HESITANT, USE FUTURE PACING (required when they say "I don't know" or "a lot to think about"):
-Instead of another question, paint the after-picture:
-- "What would it feel like to know that's finally handled?"
-- "Imagine knowing your family is protected no matter what, how would that change things?"
-- "Picture your wife's face when you tell her you finally got this sorted."
-
-WHEN TO USE FUTURE PACING:
-- They say "I don't know" or "let me think about it"
-- They seem overwhelmed or hesitant
-- They acknowledge the problem but aren't moving forward
-
-After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
-===
-""",
-    "close": """
-=== STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
-You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
-
-SCENARIO A - FIRST CLOSE ATTEMPT:
-- "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
-- "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
-- "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
-
-SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
-Acknowledge it briefly, then offer times immediately. Don't ask another question.
-
-SCENARIO C - THEY OBJECT ("let me think about it", "I'm not sure", etc.) - USE LOOPING BACK:
-This is REQUIRED when they push back. Loop to something THEY said earlier + add a new positive + offer times:
-Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
-
-Examples:
-- "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
-- "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
-- "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
-
-SCENARIO D - THEY KEEP OBJECTING - TIP THE BUYING SCALE:
-Add positives they haven't heard yet:
-- "no waiting period" (if they have GI coverage)
-- "follows you anywhere" (if they have employer coverage)
-- "often costs less than expected"
-- "no obligation, just a quick review"
-- "takes 30 minutes to see what's out there"
-
-Remove negatives:
-- "no pressure to buy anything"
-- "just getting information"
-- "see if there's a better fit"
-
-ALWAYS end with two specific time options. DO NOT ask more discovery questions.
-===
-""",
-}
-
-stage_directive = stage_directives.get(stage, "")
-profile_text = format_lead_profile_for_llm(lead_profile, first_name)
-
-history_text = ""
-recent_agent_messages = []
-recent_lead_messages = []
-
-# Initialize dismissive detection variables (will be updated if conversation history exists)
-is_soft_dismissive = False
-is_hard_dismissive = False
-soft_dismissive_count = 0
-topics_warning = ""  # Initialize for topic-based repeat prevention
-
-# Check current message for dismissive phrases even without history
-soft_dismissive_phrases = [
-    "not telling you", "none of your business", "why do you need to know",
-    "thats personal", "that's personal", "private", "why does it matter",
-    "doesnt matter", "doesn't matter", "dont matter", "don't matter",
-    "not your concern", "why do you care", "im covered", "i'm covered",
-    "already told you", "i said im", "i said i'm", "already said",
-    "just leave it", "drop it", "not important", "thats not important"
-]
-hard_dismissive_phrases = [
-    "stop texting", "leave me alone", "f off", "fuck off", "go away",
-    "dont text me", "don't text me", "stop messaging", "stop contacting",
-    "remove me", "unsubscribe", "take me off", "do not contact",
-    "dont call", "don't call", "never contact"
-]
-current_lower = message.lower()
-is_soft_dismissive = any(phrase in current_lower for phrase in soft_dismissive_phrases)
-is_hard_dismissive = any(phrase in current_lower for phrase in hard_dismissive_phrases)
-if is_soft_dismissive:
-    soft_dismissive_count = 1
-
-if conversation_history and len(conversation_history) > 0:
-    # Extract recent agent questions to prevent repeats
-    recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
-    recent_lead_messages = [msg for msg in conversation_history if msg.startswith("Lead:")]
-    recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
-    
-    # TOPIC-BASED REPEAT DETECTION - Detect topics already asked (not just exact questions)
-    all_agent_text = " ".join([msg.lower() for msg in recent_agent_messages])
-    topics_already_asked = []
-    
-    # Living benefits detection (multiple phrasings)
-    if any(phrase in all_agent_text for phrase in [
-        "living benefits", "access funds", "access part of", "touch the money",
-        "seriously ill while alive", "sick while you", "while you're still alive",
-        "accelerated", "chronic illness", "terminal illness rider"
-    ]):
-        topics_already_asked.append("LIVING_BENEFITS")
-    
-    # Portability detection
-    if any(phrase in all_agent_text for phrase in [
-        "follow you if you", "switch jobs", "tied to your employer", "portable",
-        "retire", "leave the company", "change jobs"
-    ]):
-        topics_already_asked.append("PORTABILITY")
-    
-    # Amount/coverage detection
-    if any(phrase in all_agent_text for phrase in [
-        "how much", "coverage amount", "replace your income", "enough to cover",
-        "10x your income", "what amount"
-    ]):
-        topics_already_asked.append("AMOUNT")
-    
-    # Term length detection
-    if any(phrase in all_agent_text for phrase in [
-        "how many years", "when does it expire", "term length", "years left",
-        "renew", "rate lock"
-    ]):
-        topics_already_asked.append("TERM_LENGTH")
-    
-    # Company/who detection
-    if any(phrase in all_agent_text for phrase in [
-        "who'd you go with", "who did you go with", "which company", "what company",
-        "who are you with"
-    ]):
-        topics_already_asked.append("COMPANY")
-    
-    # Build blocked topics warning
-    topics_warning = ""
-    
-    if topics_already_asked:
-        topics_warning = f"""
-    === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
-    {chr(10).join([f"- {t}" for t in topics_already_asked])}
-
-
-    === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
-        """   
-        
-    questions_warning = ''
-    if recent_questions:
-        questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
-        
-        # Check if lead just deflected our last question
-        last_agent_msg = recent_agent_messages[-1] if recent_agent_messages else ""
-        deflection_warning = ""
-        if is_soft_dismissive and last_agent_msg:
-            last_question = last_agent_msg.replace("You: ", "")
-            deflection_warning = f"""       
-        === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
-        You asked: "{last_question}"
-        They said: "{message}" (this is a DEFLECTION - they don't want to answer)
-
-        YOU MUST NOT:
-        - Ask the same question again
-        - Ask a similar question about the same topic
-        - Repeat ANY variation of your last question
-        - Say goodbye or exit (soft rejections are NOT hard stops)
-
-        YOU MUST:
-        - Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
-        - Pivot to a COMPLETELY DIFFERENT re-frame from this list:
-        1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
-        2. Portability: "Does it follow you if you switch jobs?"
-        3. Amount: "Is it enough to replace your income for a few years?"
-        4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
-        5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
-
-        DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
-        === TRY A NEW ANGLE - DON'T GIVE UP ===
-        """
-    # Count soft dismissive responses in history to escalate response
-    # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
-    history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
-    for msg in history_lead_messages:
-        msg_lower = msg.lower()
-        if any(phrase in msg_lower for phrase in soft_dismissive_phrases):
-            soft_dismissive_count += 1
-    
-    # Detect rejection patterns in lead messages
-    rejection_phrases = [
-        "not interested", "no thanks", "no thank", "im good", "i'm good", 
-        "im covered", "i'm covered", "already have", "all set", "dont need",
-        "don't need", "not looking", "not right now", "no im good", "nah"
-    ]
-    
-    rejection_count = 0
-    for msg in recent_lead_messages:
-        msg_lower = msg.lower()
-        if any(phrase in msg_lower for phrase in rejection_phrases):
-            rejection_count += 1
-    
-    # Check if current message is also a rejection
-    if any(phrase in current_lower for phrase in rejection_phrases):
-        rejection_count += 1
-    
-    # Add explicit exchange count warning
-    exchange_warning = ""
-    
-    # HARD DISMISSIVE = wants to end contact completely (must exit)
-    if is_hard_dismissive:
-        exchange_warning = f"""
-    === CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
-    The lead said "leave me alone", "stop texting", or similar.
-    This is a clear request to stop. You MUST exit immediately.
-    Your response MUST be SHORT and final:
-    "Got it. Take care."
-    "No problem. Have a good one."
-    === EXIT NOW - NO QUESTIONS ===
-        """
-        
-    # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
-    elif is_soft_dismissive:
-        if soft_dismissive_count == 1:
-            # First resistance: Tactical empathy + curiosity pivot (Voss + NEPQ)
-            exchange_warning = f"""
-        === RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
-        They said something like "I'm not telling you that" - they feel the question was too invasive.
-        DO NOT back off. DO NOT ask the same type of question.
-        Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
-
-        PATTERN: Label + Pivot
-        1. LABEL their feeling: "It sounds like that question felt a bit over the line."
-        2. SOFTEN: "Totally fair, I get it."
-        3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
-
-        EXAMPLE RESPONSES:
-        - "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
-        - "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
-        - "Got it, no need to get into details. Was there something specific that made you start looking?"
-
-        DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
-        === USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
-            """
-            
-    elif soft_dismissive_count == 2:
-        # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
-        exchange_warning = f"""
-        === SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
-        They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
-        Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
-
-        PATTERN: Acknowledge + Reference their words + Calibrated question
-        1. ACKNOWLEDGE: "I hear you."
-        2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
-        3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
-
-        IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
-        IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
-        IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
-
-        Use their OWN WORDS to reconnect. Don't ask new invasive questions.
-        === REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
-            """
-            
-    else:
-        # Third+ resistance: Keep trying with different re-frames until hard stop
-        exchange_warning = f"""
-        === {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
-        They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
-        "I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
-
-        DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
-
-        1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
-        2. Portability: "Does it follow you if you switch jobs or retire?"
-        3. Amount: "Is it enough to pay off the house and replace income for a few years?"
-        4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
-        5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
-
-        ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
-        === KEEP GOING - FIND THE GAP ===
-        """
-            
-    # Only exit on very high rejection count AND hard stop language
-    if rejection_count >= 8 and is_hard_dismissive:
-        exchange_warning = f"""
-        === CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
-        They've rejected many times AND explicitly asked to stop. Exit gracefully.
-        "Got it. Take care."
-        === EXIT NOW ===
-        """
-        
-    elif exchange_count >= 3:
-        exchange_warning = f"""
-        === CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
-        You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
-        Your response MUST be a statement with an appointment offer like:
-        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
-        === NO MORE QUESTIONS - MAKE THE OFFER ===
-        """
-    
-    # Detect hesitation patterns after valuable conversation (Feel Felt Found opportunity)
-    hesitation_phrases = [
-        "can't afford", "cant afford", "money is tight", "budget", "expensive",
-        "not sure", "don't know", "dont know", "idk", "maybe later", 
-        "think about it", "need to think", "let me think"
-    ]
-    
-    current_lower = message.lower()
-    is_hesitant = any(phrase in current_lower for phrase in hesitation_phrases)
-    has_valuable_convo = exchange_count >= 2 and (
-        lead_profile.get("family", {}).get("spouse") or 
-        lead_profile.get("family", {}).get("kids") or 
-        lead_profile.get("motivating_goal")
-    )
-    
-    feel_felt_found_prompt = ""
-    if is_hesitant and has_valuable_convo:
-        feel_felt_found_prompt = f"""
-        === USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
-        This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
-        1. Acknowledge their concern ("I get it" / "That makes sense")
-        2. Share a BRIEF client story: "Had a client in a similar spot who..."
-        3. What they found: "...we found a policy that fit their budget" or similar
-        4. Close: Offer appointment times
-
-        Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
-        === INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
-        """
-    
-    intent_section = f"""
-    === CURRENT INTENT/OBJECTIVE ===
-    Intent: {intent}
-    Directive: {intent_directive}
-    ===
-    """
-    
-    history_text = f"""
-    === CONVERSATION HISTORY (read this carefully before responding) ===
-    {chr(10).join(conversation_history)}
-    === END OF HISTORY ===
-    {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
-    """
-else:
-    # Even without history, include profile and intent from current message
-    intent_section = f"""
-    === CURRENT INTENT/OBJECTIVE ===
-    Intent: {intent}
-    Directive: {intent_directive}
-    ===
-    """
-    
-    if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
-            lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
-        history_text = f"{qualification_context}{intent_section}{profile_text}"
-    else:
-        history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
-
-# Score the previous response based on this incoming message
-outcome_score = None
-vibe = None
-try:
-    outcome_score, vibe = record_lead_response(contact_id, message)
-    logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
-except Exception as e:
-    logger.warning(f"Could not record lead response: {e}")
-
-# Close stage templates (server-side enforcement for PolicyEngine fallback)
-close_templates = [
-    "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
-    "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
-    "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
-    "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
-]
-
-client = get_client()
-
-# =========================================================================
-# UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
-# No more template shortcuts - the bot must THINK using all its knowledge
-# =========================================================================
-
-# Build context for the unified brain
-unified_brain_knowledge = get_unified_brain()
-
-# Determine trigger suggestion for evaluation (not bypass)
-trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
-
-# Get proven patterns for comparison
-proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
-
-# Build the decision prompt with all context
-decision_prompt = get_decision_prompt(
-    message=message,
-    context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
-    stage=stage,
-    trigger_suggestion=trigger_suggestion,
-    proven_patterns=proven_patterns_text,
-    triggers_found=triggers_found
-)
-
-# Build unified brain system prompt - COMBINE all knowledge sources
-# Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
-# Then add unified brain framework for decision-making
-base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
-
-unified_system_prompt = f"""
-{base_knowledge}
-
-{unified_brain_knowledge}
-
-===================================================================================
-SITUATIONAL CONTEXT
-===================================================================================
-Agent name: {agent_name}
-Lead name: {first_name}
-Current stage: {stage}
-Exchange count: {exchange_count}
-Dismissive count: {soft_dismissive_count}
-Is soft dismissive: {is_soft_dismissive}
-Is hard dismissive: {is_hard_dismissive}
-
-{state_instructions}
-
-CONFIRMATION CODE (if booking): {confirmation_code}
-
-=== AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
-{real_calendar_slots}
-NEVER make up appointment times. ONLY offer the times listed above.
-
-===================================================================================
-CRITICAL RULES
-===================================================================================
-1. No em dashes (--) in responses
-2. Keep responses 15-35 words (SMS friendly)
-3. Only use first name every 3-4 messages like normal texting
-4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
-5. After 3 exchanges, STOP asking questions and offer appointment times
-6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
-
-{decision_prompt}
-"""
-
-# === UNIFIED BRAIN: Policy Validation with Retry Loop ===
-max_retries = 1  # Reduced from 2 for faster response
-retry_count = 0
-correction_prompt = ""
-reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
-
-# Use grok-4-1-fast-reasoning for everything (cheap and capable)
-use_model = "grok-4-1-fast-reasoning"
-
-# === TOKEN STATS: Log cost estimate before API call ===
-prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
-stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
-logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
-
-# Simplified user content for unified brain approach
-# Include history_text which contains deflection warnings and questions already asked
-unified_user_content = f"""
-{history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
-
-LEAD'S MESSAGE: "{message}"
-
-Now THINK through your decision process and respond.
-Remember: Apply your knowledge, don't just pattern match.
-"""
-
-while retry_count <= max_retries:
-    # Note: Grok model only supports temperature, top_p, max_tokens
-    # frequency_penalty and presence_penalty are NOT supported
-    response = client.chat.completions.create(
-        model=use_model,
-        messages=[
-            {"role": "system", "content": unified_system_prompt},
-            {"role": "user", "content": unified_user_content + correction_prompt}
-        ],
-        max_tokens=425,
-        temperature=0.7,
-        top_p=0.95
-    )
-
-    content = response.choices[0].message.content or ""
-    
-    # Parse unified brain thinking for logging
-    thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
-    if thinking_match:
-        thinking = thinking_match.group(1).strip()
-        logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
-    
-    # Extract the actual response
-    response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
-    if response_match:
-        reply = response_match.group(1).strip()
-    else:
-        # Fallback: if no tags, try to get just the last sentence/response
-        # Strip any thinking blocks first
-        reply = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
-    
-    # Parse self-reflection BEFORE stripping (so we can use scores for validation)
-    reflection = parse_reflection(content)
-    reflection_scores = {}
-    if reflection:
-        reflection_scores = reflection.get('scores', {})
-        logger.debug(f"Self-reflection scores: {reflection_scores}")
-        if reflection.get('improvement'):
-            logger.debug(f"Self-improvement note: {reflection['improvement']}")
-    
-    # Remove quotation marks wrapping the response
-    if reply.startswith('"') and reply.endswith('"'):
-        reply = reply[1:-1]
-    if reply.startswith("'") and reply.endswith("'"):
-        reply = reply[1:-1]
-    reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
-    
-    # Validate response using PolicyEngine (pass reflection scores for scoring-based rejection)
-    is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(reply, conv_state, reflection_scores)
-    
-    if is_valid:
-        logger.debug("Policy validation passed")
-        break
-    else:
-        # SPECIAL CASE: Motivation question repeat - use backbone probe immediately
-        if error_reason == "REPEAT_MOTIVATION_BLOCKED":
-            logger.info("Motivation question repeat blocked - using backbone probe template")
-            backbone_reply = get_backbone_probe_template()
-            if backbone_reply:
-                reply = backbone_reply
-                break
-            # Fallback if backbone template unavailable
-            reply = "Usually people don't look up insurance for fun. Something on your mind about it?"
-            break
-        
-        retry_count += 1
-        logger.warning(f"Policy validation failed (attempt {retry_count}): {error_reason}")
-        
-        if retry_count <= max_retries:
-            correction_prompt = PolicyEngine.get_regeneration_prompt(error_reason, correction_guidance)
+        learning_ctx = get_learning_context(contact_id or "unknown", message)
+        if learning_ctx and learning_ctx.get("proven_responses"):
+            outcome_patterns = learning_ctx.get("proven_responses", [])[:5]
+            outcome_context = "\n".join([f"- {p}" for p in outcome_patterns])
+            logger.info(f"STEP 3: Found {len(outcome_patterns)} proven outcome patterns")
         else:
-            # Fallback to template after max retries
-            logger.warning("Max retries exceeded, falling back to playbook template")
-            scenario = match_scenario(message)
-            if scenario:
-                template_reply = get_template_response(
-                    scenario["stage"], 
-                    scenario["response_key"],
-                    {"first_name": first_name}
-                )
-                if template_reply:
-                    reply = template_reply
-                    break
-            # Ultimate fallback: use real calendar slots
-            reply = f"I can help you find the right fit. How's {real_calendar_slots}?"
-            # Always break after max retries to avoid infinite loop
-            break
+            logger.info("STEP 3: No proven outcome patterns found")
+        
+        # === TRIGRAM SIMILARITY: Find patterns with similar trigger messages ===
+        similar_patterns = find_similar_successful_patterns(message, min_score=2.0, limit=3)
+        if similar_patterns:
+            for p in similar_patterns:
+                sim_text = f"Similar trigger (sim={p.get('sim_score', 0):.2f}): {p.get('response_used', '')[:100]}"
+                if sim_text not in outcome_context:
+                    outcome_context += f"\n- {sim_text}"
+            logger.info(f"STEP 3: Found {len(similar_patterns)} trigram-similar patterns")
+    except Exception as e:
+        logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
 
-# Server-side semantic duplicate rejection (75% similarity check)
-is_duplicate = False
-duplicate_reason = None
+    # =========================================================================
+    # STEP 4: EVALUATE - Check if triggers should bypass LLM
+    # =========================================================================
+    # For BUYING_SIGNAL and PRICE triggers, bypass LLM to ensure calendar times are used
+    # This prevents the LLM from making up fake appointment times
+    if trigger_code == "TRIG" and trigger_suggestion:
+        # Check if this is a trigger that should bypass LLM
+        triggers_str = str(triggers_found)
+        m_lower = message_text.lower().strip()
+        # Calendar-related triggers bypass to use real calendar times
+        if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
+            logger.info(f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}")
+            return trigger_suggestion, confirmation_code
+        # Frustrated/repeat triggers bypass to apologize and pivot immediately
+        frustrated_patterns = ["already asked", "move on", "stop asking", "enough questions"]
+        if any(p in m_lower for p in frustrated_patterns):
+            logger.info(f"STEP 4: Frustrated repeat trigger detected, using deterministic response: {trigger_suggestion}")
+            return trigger_suggestion, confirmation_code
 
-# Build question themes that are semantically equivalent
-QUESTION_THEMES = {
-    "retirement_portability": [
-        "continue after retirement", "leave your job", "retire", "portable", 
-        "convert it", "goes with you", "when you leave", "portability",
-        "if you quit", "stop working", "leaving the company"
-    ],
-    "policy_type": [
-        "term or whole", "term or permanent", "what type", "kind of policy",
-        "is it term", "is it whole life", "iul", "universal life"
-    ],
-    "living_benefits": [
-        "living benefits", "accelerated death", "chronic illness", 
-        "critical illness", "terminal illness", "access while alive"
-    ],
-    "coverage_goal": [
-        "what made you", "why did you", "what's the goal", "what were you",
-        "originally looking", "why coverage", "what prompted", "got you looking",
-        "what got you"
-    ],
-    "other_policies": [
-        "other policies", "any other", "additional coverage", "also have",
-        "multiple policies", "work policy", "another plan"
-    ],
-    "motivation": [
-        "what's on your mind", "what's been on", "what specifically", 
-        "what are you thinking", "what concerns you"
+    if trigger_code == "EXIT":
+        # Hard exit always bypasses LLM
+        logger.info(f"STEP 4: Exit trigger detected, returning: {trigger_suggestion}")
+        return trigger_suggestion, confirmation_code
+
+    # Extract structured lead profile from conversation
+    if conversation_history is None:
+        conversation_history = []
+
+    # === TOKEN OPTIMIZATION: Compress history if too long ===
+    if len(conversation_history) > 6:
+        original_count = len(conversation_history)
+        conversation_history = compress_conversation_history(conversation_history, max_tokens=1500)
+        logger.info(f"TOKEN_OPT: Compressed history from {original_count} to {len(conversation_history)} messages")
+
+    lead_profile = extract_lead_profile(conversation_history, first_name, message)
+
+    # === QUALIFICATION STATE: Persistent memory per contact ===
+    qualification_state = None
+    qualification_context = ""
+    nlp_context = ""
+    if contact_id:
+        # === STEP 0a: Save incoming message to NLP memory ===
+        # Store all messages for spaCy parsing and topic extraction
+        save_nlp_message(contact_id, message, "lead")
+        logger.debug(f"NLP: Saved lead message for contact {contact_id}")
+        
+        # === STEP 0b: Parse conversation history to backfill topics_asked ===
+        # This retroactively identifies topics already asked in previous messages
+        if conversation_history:
+            parse_history_for_topics_asked(contact_id, conversation_history)
+        
+        # Load existing qualification state from database (after backfill)
+        qualification_state = get_qualification_state(contact_id)
+        
+        # === STEP 0c: Get NLP topic breakdown for additional context ===
+        nlp_context = format_nlp_for_prompt(contact_id)
+        
+        # Extract and update qualification from this message
+        extracted_updates = extract_and_update_qualification(contact_id, message, conversation_history)
+        if extracted_updates:
+            logger.info(f"QUALIFICATION: Extracted updates: {extracted_updates}")
+            # Reload state after updates
+            qualification_state = get_qualification_state(contact_id)
+        
+        # Increment exchange counter
+        increment_exchanges(contact_id)
+        
+        # === ALREADY COVERED HANDLER: Deterministic state machine ===
+        # This runs BEFORE LLM to handle the common "already have coverage" pathway
+        handler_response, should_continue = already_covered_handler(
+            contact_id, message, qualification_state, 
+            api_key, calendar_id, timezone
+        )
+        if not should_continue and handler_response:
+            logger.info(f"ALREADY_COVERED_HANDLER: Returning deterministic response")
+            return handler_response, confirmation_code
+        
+        # Format qualification for prompt
+        qualification_context = format_qualification_for_prompt(qualification_state)
+        if qualification_context:
+            logger.debug(f"QUALIFICATION: Injecting known facts into prompt")
+
+    # === LAYER 2: Build Conversation State (Source of Truth) ===
+    conv_state = build_state_from_history(
+        contact_id=contact_id or "unknown",
+        first_name=first_name,
+        conversation_history=conversation_history,
+        current_message=message
+    )
+
+    # === CRITICAL: Sync qualification_state topics_asked to conv_state.topics_answered ===
+    # This prevents re-asking questions that were asked in previous turns
+    if qualification_state:
+        topics_asked = qualification_state.get("topics_asked") or []
+        
+        # Sync ALL topics from database to conv_state (prevents any topic repetition)
+        for topic in topics_asked:
+            if topic not in conv_state.topics_answered:
+                conv_state.topics_answered.append(topic)
+        
+        # Special handling for motivation (multiple aliases)
+        if "motivation" in topics_asked or "original_goal" in topics_asked:
+            if "motivation" not in conv_state.topics_answered:
+                conv_state.topics_answered.append("motivation")
+            if "motivating_goal" not in conv_state.topics_answered:
+                conv_state.topics_answered.append("motivating_goal")
+            logger.info("QUALIFICATION: Motivation question already asked - blocking repeats")
+        
+        if topics_asked:
+            logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
+
+    # === SYNC NLP TOPICS: Also sync topics from spaCy NLP memory ===
+    if contact_id:
+        nlp_topics = get_topics_already_discussed(contact_id)
+        for topic in nlp_topics:
+            # Extract simple topic name (remove category prefix if present)
+            simple_topic = topic.split(":")[-1] if ":" in topic else topic
+            if simple_topic not in conv_state.topics_answered:
+                conv_state.topics_answered.append(simple_topic)
+        if nlp_topics:
+            logger.debug(f"NLP: Synced {len(nlp_topics)} topics from NLP memory")
+
+    state_instructions = format_state_for_prompt(conv_state)
+    logger.debug(f"Conversation state: stage={conv_state.stage.value}, exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}")
+
+    # === BUYING SIGNAL DETECTION - Override intent when lead shows readiness ===
+    # Must be context-aware to avoid false positives from negations/sarcasm
+    current_lower = message.lower()
+
+    # Negation phrases that cancel buying signals (expanded for common variants)
+    negation_phrases = [
+        "don't need", "dont need", "do not need", "dont really need", "don't really need",
+        "not interested", "no thanks", "no thank", "stop", "leave me alone", 
+        "not looking", "already have", "im good", "i'm good", "i am good",
+        "not right now", "maybe later", "no im good", "nope", "no i dont",
+        "no i don't", "no i'm not", "no im not", "not for me", "pass",
+        "unsubscribe", "remove me", "take me off"
     ]
-}
+    has_negation = any(phrase in current_lower for phrase in negation_phrases)
+
+    # Also check for negation patterns via regex
+    import re
+    negation_patterns = [
+        r"\bno\b.*\bneed\b", r"\bnot\b.*\binterested\b", r"\bdon'?t\b.*\bneed\b"
+    ]
+    if not has_negation:
+        for pattern in negation_patterns:
+            if re.search(pattern, current_lower):
+                has_negation = True
+                break
+
+    # Strong buying signals (unambiguous interest)
+    strong_buying_signals = [
+        "i'd have to get", "id have to get", "would have to get",
+        "need to get new", "get new life insurance", "get new coverage",
+        "sign me up", "let's do it", "lets do it", "i'm in", "im in",
+        "what are my options", "how much would it cost", "what would it cost",
+        "sounds good", "that sounds good", "works for me", "yeah let's do it",
+        "sure", "okay when", "ok when", "yes when can we"
+    ]
+
+    # Weaker signals that need context (only count if no negation)
+    weak_buying_signals = [
+        "i need", "i'd need", "interested in looking", "looking into it",
+        "want to look", "can you look into", "want coverage"
+    ]
+
+    detected_buying_signal = False
+    if not has_negation:
+        if any(signal in current_lower for signal in strong_buying_signals):
+            detected_buying_signal = True
+        elif any(signal in current_lower for signal in weak_buying_signals):
+            # Only treat weak signals as buying signals if conversation has context
+            if lead_profile.get("motivating_goal") or lead_profile.get("family", {}).get("spouse"):
+                detected_buying_signal = True
+
+    # Also detect if they've revealed a problem that we can close on
+    problem_revealed = bool(
+        lead_profile.get("motivating_goal") or 
+        lead_profile.get("coverage", {}).get("coverage_gap") or
+        (lead_profile.get("coverage", {}).get("has_coverage") and 
+            lead_profile.get("coverage", {}).get("type") == "employer") or
+        lead_profile.get("coverage", {}).get("employer")
+    )
+
+    # Determine conversation stage
+    if conversation_history:
+        recent_agent = [msg for msg in conversation_history if msg.startswith("You:")]
+        recent_lead = [msg for msg in conversation_history if msg.startswith("Lead:")]
+        exchange_count = min(len(recent_agent), len(recent_lead))
+    else:
+        exchange_count = 0
+
+    # Stage logic: problem_awareness -> consequence -> close
+    # CRITICAL: Force close after 3 exchanges FIRST - this is the hard stop
+    if exchange_count >= 3:
+        # Force close after 3 exchanges regardless of other signals
+        intent = "book_appointment"
+        stage = "close"
+    elif detected_buying_signal:
+        # Buying signal detected - go straight to close
+        intent = "book_appointment"
+        stage = "close"
+    elif exchange_count >= 2 and problem_revealed:
+        # Had enough conversation with problem revealed - close
+        intent = "book_appointment"
+        stage = "close"
+    elif problem_revealed and exchange_count >= 1:
+        # Problem revealed but only 1 exchange - ask consequence question first
+        stage = "consequence"
+    elif problem_revealed:
+        # Problem revealed in first exchange - still consequence
+        stage = "consequence"
+    else:
+        stage = "problem_awareness"
+
+    intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES['general'])
+
+    # Stage-specific directives for cold leads (from NEPQ Black Book)
+    stage_directives = {
+        "problem_awareness": """
+    === STAGE: PROBLEM AWARENESS (NEPQ Stage 2 + 7-Steps Big Picture Questions) ===
+    These are COLD leads who haven't thought about insurance in MONTHS. They don't have anything "on their mind" about insurance.
+
+    BIG PICTURE QUESTIONS (start broad, then narrow - from 7-Steps Guide):
+    - "Just so I have more context, what was going on back then that made you start looking?"
+    - "Is there something specific that's changed since then, like work or family?"
+    - "Just curious, besides wanting to make sure everyone's covered, what was the main reason you were looking?"
+    - "Was it more just seeing what was out there, or was there something specific going on?"
+    - "What would you change about your current coverage situation?"
+    - "What's been your biggest headache with insurance stuff?"
+
+    DO NOT ask generic questions like:
+    - "What's on your mind about insurance?" (they haven't thought about it in months)
+    - "What's been worrying you?" (too presumptuous)
+    - "What made you realize you need coverage?" (they may not have realized anything)
+    - "What's the main thing you're hoping to get out of life insurance?" (sounds like a survey, not a conversation)
+    - "What are you hoping to achieve?" (too corporate/formal)
+    - "What would be ideal for you?" (too vague, they don't know what's possible)
+
+    RECOGNIZE WHEN THEY'RE SHUTTING YOU DOWN:
+    If they say things like "I'm not telling you that", "none of your business", "why do you need to know":
+    → They feel interrogated. STOP asking questions. Back off gracefully:
+    → "Fair enough, no pressure. I'll check back another time."
+    → DO NOT ask another question after this response.
+
+    KEEP YOUR POWDER DRY: Don't reveal coverage problems yet. Ask questions first, save your ammunition for later.
+
+    After ONE problem awareness question, if they reveal ANY need (family, job concerns, coverage gaps), move to CONSEQUENCE stage.
+    ===
+    """,
+        "consequence": """
+    === STAGE: CONSEQUENCE (NEPQ Stage 2 + 7-Steps Future Pacing) ===
+    You've identified a problem or need. Now help them FEEL the weight of not solving it AND paint the after-picture.
+
+    STEP 1 - ASK ONE CONSEQUENCE QUESTION (choose based on what they shared):
+
+    IF EMPLOYER COVERAGE:
+    - "Got it. So if you left your current job, what would be your plan for keeping that coverage in place?"
+    - "Does that follow you if you switch jobs, or is it tied to that employer?"
+    - "What happens to that coverage when you retire?"
+
+    IF FAMILY/SPOUSE MENTIONED:
+    - "If something happened to you tomorrow, would [spouse] be able to keep the house and stay home with the kids?"
+    - "What would you want that coverage to handle first, the mortgage or replacing your income?"
+
+    IF THEY MENTIONED A NEED BUT HAVEN'T ACTED:
+    - "How long has that been weighing on you?"
+    - "What's been stopping you from getting that handled?"
+
+    STEP 2 - IF THEY SEEM HESITANT, USE FUTURE PACING (required when they say "I don't know" or "a lot to think about"):
+    Instead of another question, paint the after-picture:
+    - "What would it feel like to know that's finally handled?"
+    - "Imagine knowing your family is protected no matter what, how would that change things?"
+    - "Picture your wife's face when you tell her you finally got this sorted."
+
+    WHEN TO USE FUTURE PACING:
+    - They say "I don't know" or "let me think about it"
+    - They seem overwhelmed or hesitant
+    - They acknowledge the problem but aren't moving forward
+
+    After consequence question OR future pacing, if they show ANY interest, move to CLOSE stage.
+    ===
+    """,
+        "close": """
+    === STAGE: CLOSE - BOOK THE APPOINTMENT (NEPQ Stage 5 + 7-Steps Looping Back) ===
+    You have enough information. STOP asking discovery questions. The PRIMARY GOAL is booking the appointment.
+
+    SCENARIO A - FIRST CLOSE ATTEMPT:
+    - "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
+    - "Let me see what we can do. Free at 2pm today or 11am tomorrow?"
+    - "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?"
+
+    SCENARIO B - THEY SHOWED A BUYING SIGNAL (said "I need", "I'd have to get", etc.):
+    Acknowledge it briefly, then offer times immediately. Don't ask another question.
+
+    SCENARIO C - THEY OBJECT ("let me think about it", "I'm not sure", etc.) - USE LOOPING BACK:
+    This is REQUIRED when they push back. Loop to something THEY said earlier + add a new positive + offer times:
+    Pattern: "I hear you. [Loop to their words]. [Add new positive]. [Offer times]"
+
+    Examples:
+    - "I get it. But you mentioned your wife has been worried about this. Good news is there's no obligation to buy anything, just a quick review. [USE CALENDAR TIMES FROM CONTEXT]?"
+    - "Makes sense. Earlier you said the work coverage might not follow you if you leave. Some policies actually cost less than what you'd expect. Morning or afternoon work better?"
+    - "Totally fair. But you did mention wanting to make sure the kids are covered. No pressure, just a conversation. 6:30 or 10:15?"
+
+    SCENARIO D - THEY KEEP OBJECTING - TIP THE BUYING SCALE:
+    Add positives they haven't heard yet:
+    - "no waiting period" (if they have GI coverage)
+    - "follows you anywhere" (if they have employer coverage)
+    - "often costs less than expected"
+    - "no obligation, just a quick review"
+    - "takes 30 minutes to see what's out there"
+
+    Remove negatives:
+    - "no pressure to buy anything"
+    - "just getting information"
+    - "see if there's a better fit"
+
+    ALWAYS end with two specific time options. DO NOT ask more discovery questions.
+    ===
+    """,
+    }
+
+    stage_directive = stage_directives.get(stage, "")
+    profile_text = format_lead_profile_for_llm(lead_profile, first_name)
+
+    history_text = ""
+    recent_agent_messages = []
+    recent_lead_messages = []
+
+    # Initialize dismissive detection variables (will be updated if conversation history exists)
+    is_soft_dismissive = False
+    is_hard_dismissive = False
+    soft_dismissive_count = 0
+    topics_warning = ""  # Initialize for topic-based repeat prevention
+
+    # Check current message for dismissive phrases even without history
+    soft_dismissive_phrases = [
+        "not telling you", "none of your business", "why do you need to know",
+        "thats personal", "that's personal", "private", "why does it matter",
+        "doesnt matter", "doesn't matter", "dont matter", "don't matter",
+        "not your concern", "why do you care", "im covered", "i'm covered",
+        "already told you", "i said im", "i said i'm", "already said",
+        "just leave it", "drop it", "not important", "thats not important"
+    ]
+    hard_dismissive_phrases = [
+        "stop texting", "leave me alone", "f off", "fuck off", "go away",
+        "dont text me", "don't text me", "stop messaging", "stop contacting",
+        "remove me", "unsubscribe", "take me off", "do not contact",
+        "dont call", "don't call", "never contact"
+    ]
+    current_lower = message.lower()
+    is_soft_dismissive = any(phrase in current_lower for phrase in soft_dismissive_phrases)
+    is_hard_dismissive = any(phrase in current_lower for phrase in hard_dismissive_phrases)
+    if is_soft_dismissive:
+        soft_dismissive_count = 1
+
+    if conversation_history and len(conversation_history) > 0:
+        # Extract recent agent questions to prevent repeats
+        recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")]
+        recent_lead_messages = [msg for msg in conversation_history if msg.startswith("Lead:")]
+        recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
+        
+        # TOPIC-BASED REPEAT DETECTION - Detect topics already asked (not just exact questions)
+        all_agent_text = " ".join([msg.lower() for msg in recent_agent_messages])
+        topics_already_asked = []
+        
+        # Living benefits detection (multiple phrasings)
+        if any(phrase in all_agent_text for phrase in [
+            "living benefits", "access funds", "access part of", "touch the money",
+            "seriously ill while alive", "sick while you", "while you're still alive",
+            "accelerated", "chronic illness", "terminal illness rider"
+        ]):
+            topics_already_asked.append("LIVING_BENEFITS")
+        
+        # Portability detection
+        if any(phrase in all_agent_text for phrase in [
+            "follow you if you", "switch jobs", "tied to your employer", "portable",
+            "retire", "leave the company", "change jobs"
+        ]):
+            topics_already_asked.append("PORTABILITY")
+        
+        # Amount/coverage detection
+        if any(phrase in all_agent_text for phrase in [
+            "how much", "coverage amount", "replace your income", "enough to cover",
+            "10x your income", "what amount"
+        ]):
+            topics_already_asked.append("AMOUNT")
+        
+        # Term length detection
+        if any(phrase in all_agent_text for phrase in [
+            "how many years", "when does it expire", "term length", "years left",
+            "renew", "rate lock"
+        ]):
+            topics_already_asked.append("TERM_LENGTH")
+        
+        # Company/who detection
+        if any(phrase in all_agent_text for phrase in [
+            "who'd you go with", "who did you go with", "which company", "what company",
+            "who are you with"
+        ]):
+            topics_already_asked.append("COMPANY")
+        
+        # Build blocked topics warning
+        topics_warning = ""
+        
+        if topics_already_asked:
+            topics_warning = f"""
+        === TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===
+        {chr(10).join([f"- {t}" for t in topics_already_asked])}
+
+
+        === CHOOSE A DIFFERENT ANGLE FROM: portability, amount, term length, beneficiaries, premium cost ===
+            """   
+            
+        questions_warning = ''
+        if recent_questions:
+            questions_list = chr(10).join([f"- {q.replace('You: ', '')}" for q in recent_questions])
+            
+            # Check if lead just deflected our last question
+            last_agent_msg = recent_agent_messages[-1] if recent_agent_messages else ""
+            deflection_warning = ""
+            if is_soft_dismissive and last_agent_msg:
+                last_question = last_agent_msg.replace("You: ", "")
+                deflection_warning = f"""       
+            === CRITICAL: THEY JUST DEFLECTED YOUR LAST QUESTION ===
+            You asked: "{last_question}"
+            They said: "{message}" (this is a DEFLECTION - they don't want to answer)
+
+            YOU MUST NOT:
+            - Ask the same question again
+            - Ask a similar question about the same topic
+            - Repeat ANY variation of your last question
+            - Say goodbye or exit (soft rejections are NOT hard stops)
+
+            YOU MUST:
+            - Acknowledge briefly: "Fair enough" / "Got it" / "No worries" / "Makes Sense"  
+            - Pivot to a COMPLETELY DIFFERENT re-frame from this list:
+            1. Living benefits: "Does yours let you touch the money while you're still alive if you get sick?"
+            2. Portability: "Does it follow you if you switch jobs?"
+            3. Amount: "Is it enough to replace your income for a few years?"
+            4. Future-pace: "If your situation changes, new baby, new job, would you want me to reach out?"
+            5. Most people: "Most folks realize their work coverage disappears when they retire. Yours portable?"
+
+            DO NOT EXIT. Keep trying different angles until they say "stop texting me" or "leave me alone".
+            === TRY A NEW ANGLE - DON'T GIVE UP ===
+            """
+        # Count soft dismissive responses in history to escalate response
+        # Note: Exclude the LAST lead message if it matches current message (avoid double-counting)
+        history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
+        for msg in history_lead_messages:
+            msg_lower = msg.lower()
+            if any(phrase in msg_lower for phrase in soft_dismissive_phrases):
+                soft_dismissive_count += 1
+        
+        # Detect rejection patterns in lead messages
+        rejection_phrases = [
+            "not interested", "no thanks", "no thank", "im good", "i'm good", 
+            "im covered", "i'm covered", "already have", "all set", "dont need",
+            "don't need", "not looking", "not right now", "no im good", "nah"
+        ]
+        
+        rejection_count = 0
+        for msg in recent_lead_messages:
+            msg_lower = msg.lower()
+            if any(phrase in msg_lower for phrase in rejection_phrases):
+                rejection_count += 1
+        
+        # Check if current message is also a rejection
+        if any(phrase in current_lower for phrase in rejection_phrases):
+            rejection_count += 1
+        
+        # Add explicit exchange count warning
+        exchange_warning = ""
+        
+        # HARD DISMISSIVE = wants to end contact completely (must exit)
+        if is_hard_dismissive:
+            exchange_warning = f"""
+        === CRITICAL: HARD STOP - THEY WANT NO CONTACT ===
+        The lead said "leave me alone", "stop texting", or similar.
+        This is a clear request to stop. You MUST exit immediately.
+        Your response MUST be SHORT and final:
+        "Got it. Take care."
+        "No problem. Have a good one."
+        === EXIT NOW - NO QUESTIONS ===
+            """
+            
+        # SOFT DISMISSIVE = resistance to specific question (use methodology to redirect)
+        elif is_soft_dismissive:
+            if soft_dismissive_count == 1:
+                # First resistance: Tactical empathy + curiosity pivot (Voss + NEPQ)
+                exchange_warning = f"""
+            === RESISTANCE DETECTED - USE TACTICAL EMPATHY + PIVOT (Chris Voss + NEPQ) ===
+            They said something like "I'm not telling you that" - they feel the question was too invasive.
+            DO NOT back off. DO NOT ask the same type of question.
+            Use tactical empathy to LABEL their emotion, then PIVOT to a different angle.
+
+            PATTERN: Label + Pivot
+            1. LABEL their feeling: "It sounds like that question felt a bit over the line."
+            2. SOFTEN: "Totally fair, I get it."
+            3. PIVOT to broader curiosity (different angle): "Just curious, what had you looking into coverage in the first place?"
+
+            EXAMPLE RESPONSES:
+            - "Sounds like that felt too nosy. My bad. Just curious, what got you thinking about coverage back then?"
+            - "Fair enough, didn't mean to pry. What was going on that had you looking in the first place?"
+            - "Got it, no need to get into details. Was there something specific that made you start looking?"
+
+            DO NOT ask about the same topic they refused. Pivot to motivation, timing, or situation.
+            === USE EMPATHY + PIVOT - STAY IN THE CONVERSATION ===
+                """
+                
+        elif soft_dismissive_count == 2:
+            # Second resistance: Calibrated question + reference what they already shared (Voss + Gap)
+            exchange_warning = f"""
+            === SECOND RESISTANCE - USE CALIBRATED QUESTION + GAP RECALL (Voss + Gap Selling) ===
+            They've resisted twice. Don't push the same angle. Use what you ALREADY KNOW about them.
+            Reference something they mentioned earlier and ask a calibrated "what" or "how" question.
+
+            PATTERN: Acknowledge + Reference their words + Calibrated question
+            1. ACKNOWLEDGE: "I hear you."
+            2. REFERENCE what they said before: "You mentioned [family/work/concern] earlier..."
+            3. CALIBRATED QUESTION: "How would you want that handled if something happened?"
+
+            IF you know they have family: "I hear you. You mentioned your wife earlier. How would you want her taken care of if something happened?"
+            IF you know they have work coverage: "Got it. You said you have something through work. What's your plan when you retire or switch jobs?"
+            IF you know their motivation: "Fair enough. You mentioned wanting to make sure the kids are covered. What would be enough to feel good about that?"
+
+            Use their OWN WORDS to reconnect. Don't ask new invasive questions.
+            === REFERENCE WHAT THEY TOLD YOU - CALIBRATED QUESTION ===
+                """
+                
+        else:
+            # Third+ resistance: Keep trying with different re-frames until hard stop
+            exchange_warning = f"""
+            === {soft_dismissive_count}+ SOFT REJECTIONS - KEEP TRYING DIFFERENT ANGLES ===
+            They've resisted {soft_dismissive_count} times BUT have NOT said "stop" or "leave me alone".
+            "I'm covered", "I'm good", "Not interested" are NOT hard stops. They are invitations to re-frame.
+
+            DO NOT EXIT. Use a different re-frame from this list (pick one you haven't used yet):
+
+            1. Living benefits: "Does your current one let you touch the money while you're still alive if you get really sick?"
+            2. Portability: "Does it follow you if you switch jobs or retire?"
+            3. Amount: "Is it enough to pay off the house and replace income for a few years?"
+            4. Future-pace: "If your situation ever changes, new baby, new house, job change, would you want me to reach out?"
+            5. Most people: "Most folks say the same thing until they realize work coverage disappears when they retire."
+
+            ONLY exit if they use hard stop language: "stop texting", "leave me alone", "remove me"
+            === KEEP GOING - FIND THE GAP ===
+            """
+                
+        # Only exit on very high rejection count AND hard stop language
+        if rejection_count >= 8 and is_hard_dismissive:
+            exchange_warning = f"""
+            === CRITICAL: HARD STOP AFTER MANY ATTEMPTS ===
+            They've rejected many times AND explicitly asked to stop. Exit gracefully.
+            "Got it. Take care."
+            === EXIT NOW ===
+            """
+            
+        elif exchange_count >= 3:
+            exchange_warning = f"""
+            === CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===
+            You have had {exchange_count} back-and-forth exchanges. DO NOT ask another question.
+            Your response MUST be a statement with an appointment offer like:
+            "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?"
+            === NO MORE QUESTIONS - MAKE THE OFFER ===
+            """
+        
+        # Detect hesitation patterns after valuable conversation (Feel Felt Found opportunity)
+        hesitation_phrases = [
+            "can't afford", "cant afford", "money is tight", "budget", "expensive",
+            "not sure", "don't know", "dont know", "idk", "maybe later", 
+            "think about it", "need to think", "let me think"
+        ]
+        
+        current_lower = message.lower()
+        is_hesitant = any(phrase in current_lower for phrase in hesitation_phrases)
+        has_valuable_convo = exchange_count >= 2 and (
+            lead_profile.get("family", {}).get("spouse") or 
+            lead_profile.get("family", {}).get("kids") or 
+            lead_profile.get("motivating_goal")
+        )
+        
+        feel_felt_found_prompt = ""
+        if is_hesitant and has_valuable_convo:
+            feel_felt_found_prompt = f"""
+            === USE FEEL-FELT-FOUND WITH A CLIENT STORY ===
+            This lead is HESITANT but has shown real need. Use the Feel-Felt-Found technique:
+            1. Acknowledge their concern ("I get it" / "That makes sense")
+            2. Share a BRIEF client story: "Had a client in a similar spot who..."
+            3. What they found: "...we found a policy that fit their budget" or similar
+            4. Close: Offer appointment times
+
+            Example: "I get it. Had a client last month, same situation, thought he couldn't swing it. We found something for about $35/month that covered everything. Want me to see what's possible for you?"
+            === INCLUDE THE CLIENT STORY - DON'T SKIP IT ===
+            """
+        
+        intent_section = f"""
+        === CURRENT INTENT/OBJECTIVE ===
+        Intent: {intent}
+        Directive: {intent_directive}
+        ===
+        """
+        
+        history_text = f"""
+        === CONVERSATION HISTORY (read this carefully before responding) ===
+        {chr(10).join(conversation_history)}
+        === END OF HISTORY ===
+        {qualification_context}{intent_section}{stage_directive}{feel_felt_found_prompt}{exchange_warning}{topics_warning}{questions_warning}{profile_text}
+        """
+    else:
+        # Even without history, include profile and intent from current message
+        intent_section = f"""
+        === CURRENT INTENT/OBJECTIVE ===
+        Intent: {intent}
+        Directive: {intent_directive}
+        ===
+        """
+        
+        if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
+                lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
+            history_text = f"{qualification_context}{intent_section}{profile_text}"
+        else:
+            history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
+
+    # Score the previous response based on this incoming message
+    outcome_score = None
+    vibe = None
+    try:
+        outcome_score, vibe = record_lead_response(contact_id, message)
+        logger.debug(f"Recorded lead response - Vibe: {vibe.value}, Score: {outcome_score}")
+    except Exception as e:
+        logger.warning(f"Could not record lead response: {e}")
+
+    # Close stage templates (server-side enforcement for PolicyEngine fallback)
+    close_templates = [
+        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
+        "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
+        "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
+        "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?"
+    ]
+
+    client = get_client()
+
+    # =========================================================================
+    # UNIFIED BRAIN APPROACH - Everything goes through deliberate reasoning
+    # No more template shortcuts - the bot must THINK using all its knowledge
+    # =========================================================================
+
+    # Build context for the unified brain
+    unified_brain_knowledge = get_unified_brain()
+
+    # Determine trigger suggestion for evaluation (not bypass)
+    trigger_suggestion = trigger_suggestion if trigger_suggestion else "No trigger matched"
+
+    # Get proven patterns for comparison
+    proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
+
+    # Build the decision prompt with all context
+    decision_prompt = get_decision_prompt(
+        message=message,
+        context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
+        stage=stage,
+        trigger_suggestion=trigger_suggestion,
+        proven_patterns=proven_patterns_text,
+        triggers_found=triggers_found
+    )
+
+    # Build unified brain system prompt - COMBINE all knowledge sources
+    # Start with full NEPQ_SYSTEM_PROMPT (contains all tactical knowledge)
+    # Then add unified brain framework for decision-making
+    base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+
+    unified_system_prompt = f"""
+    {base_knowledge}
+
+    {unified_brain_knowledge}
+
+    ===================================================================================
+    SITUATIONAL CONTEXT
+    ===================================================================================
+    Agent name: {agent_name}
+    Lead name: {first_name}
+    Current stage: {stage}
+    Exchange count: {exchange_count}
+    Dismissive count: {soft_dismissive_count}
+    Is soft dismissive: {is_soft_dismissive}
+    Is hard dismissive: {is_hard_dismissive}
+
+    {state_instructions}
+
+    CONFIRMATION CODE (if booking): {confirmation_code}
+
+    === AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
+    {real_calendar_slots}
+    NEVER make up appointment times. ONLY offer the times listed above.
+
+    ===================================================================================
+    CRITICAL RULES
+    ===================================================================================
+    1. No em dashes (--) in responses
+    2. Keep responses 15-35 words (SMS friendly)
+    3. Only use first name every 3-4 messages like normal texting
+    4. If they say "stop" or "leave me alone" - exit gracefully: "Got it. Take care."
+    5. After 3 exchanges, STOP asking questions and offer appointment times
+    6. When offering appointments, ONLY use times from AVAILABLE APPOINTMENT SLOTS above
+
+    {decision_prompt}
+    """
+
+    # === UNIFIED BRAIN: Policy Validation with Retry Loop ===
+    max_retries = 1  # Reduced from 2 for faster response
+    retry_count = 0
+    correction_prompt = ""
+    reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
+
+    # Use grok-4-1-fast-reasoning for everything (cheap and capable)
+    use_model = "grok-4-1-fast-reasoning"
+
+    # === TOKEN STATS: Log cost estimate before API call ===
+    prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
+    stats = get_token_stats(unified_system_prompt + (history_text or "") + message, max_response_tokens=425)
+    logger.info(f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = ${stats['estimated_cost_usd']:.5f}")
+
+    # Simplified user content for unified brain approach
+    # Include history_text which contains deflection warnings and questions already asked
+    unified_user_content = f"""
+    {history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
+
+    LEAD'S MESSAGE: "{message}"
+
+    Now THINK through your decision process and respond.
+    Remember: Apply your knowledge, don't just pattern match.
+    """
+
+    while retry_count <= max_retries:
+        # Note: Grok model only supports temperature, top_p, max_tokens
+        # frequency_penalty and presence_penalty are NOT supported
+        response = client.chat.completions.create(
+            model=use_model,
+            messages=[
+                {"role": "system", "content": unified_system_prompt},
+                {"role": "user", "content": unified_user_content + correction_prompt}
+            ],
+            max_tokens=425,
+            temperature=0.7,
+            top_p=0.95
+        )
+
+        content = response.choices[0].message.content or ""
+        
+        # Parse unified brain thinking for logging
+        thinking_match = re.search(r'<thinking>(.*?)</thinking>', content, re.DOTALL)
+        if thinking_match:
+            thinking = thinking_match.group(1).strip()
+            logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
+        
+        # Extract the actual response
+        response_match = re.search(r'<response>(.*?)</response>', content, re.DOTALL)
+        if response_match:
+            reply = response_match.group(1).strip()
+        else:
+            # Fallback: if no tags, try to get just the last sentence/response
+            # Strip any thinking blocks first
+            reply = re.sub(r'<thinking>.*?</thinking>', '', content, flags=re.DOTALL).strip()
+        
+        # Parse self-reflection BEFORE stripping (so we can use scores for validation)
+        reflection = parse_reflection(content)
+        reflection_scores = {}
+        if reflection:
+            reflection_scores = reflection.get('scores', {})
+            logger.debug(f"Self-reflection scores: {reflection_scores}")
+            if reflection.get('improvement'):
+                logger.debug(f"Self-improvement note: {reflection['improvement']}")
+        
+        # Remove quotation marks wrapping the response
+        if reply.startswith('"') and reply.endswith('"'):
+            reply = reply[1:-1]
+        if reply.startswith("'") and reply.endswith("'"):
+            reply = reply[1:-1]
+        reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ").replace(" -", ",").replace("- ", ", ")
+        
+        # Validate response using PolicyEngine (pass reflection scores for scoring-based rejection)
+        is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(reply, conv_state, reflection_scores)
+        
+        if is_valid:
+            logger.debug("Policy validation passed")
+            break
+        else:
+            # SPECIAL CASE: Motivation question repeat - use backbone probe immediately
+            if error_reason == "REPEAT_MOTIVATION_BLOCKED":
+                logger.info("Motivation question repeat blocked - using backbone probe template")
+                backbone_reply = get_backbone_probe_template()
+                if backbone_reply:
+                    reply = backbone_reply
+                    break
+                # Fallback if backbone template unavailable
+                reply = "Usually people don't look up insurance for fun. Something on your mind about it?"
+                break
+            
+            retry_count += 1
+            logger.warning(f"Policy validation failed (attempt {retry_count}): {error_reason}")
+            
+            if retry_count <= max_retries:
+                correction_prompt = PolicyEngine.get_regeneration_prompt(error_reason, correction_guidance)
+            else:
+                # Fallback to template after max retries
+                logger.warning("Max retries exceeded, falling back to playbook template")
+                scenario = match_scenario(message)
+                if scenario:
+                    template_reply = get_template_response(
+                        scenario["stage"], 
+                        scenario["response_key"],
+                        {"first_name": first_name}
+                    )
+                    if template_reply:
+                        reply = template_reply
+                        break
+                # Ultimate fallback: use real calendar slots
+                reply = f"I can help you find the right fit. How's {real_calendar_slots}?"
+                # Always break after max retries to avoid infinite loop
+                break
+
+    # Server-side semantic duplicate rejection (75% similarity check)
+    is_duplicate = False
+    duplicate_reason = None
+
+    # Build question themes that are semantically equivalent
+    QUESTION_THEMES = {
+        "retirement_portability": [
+            "continue after retirement", "leave your job", "retire", "portable", 
+            "convert it", "goes with you", "when you leave", "portability",
+            "if you quit", "stop working", "leaving the company"
+        ],
+        "policy_type": [
+            "term or whole", "term or permanent", "what type", "kind of policy",
+            "is it term", "is it whole life", "iul", "universal life"
+        ],
+        "living_benefits": [
+            "living benefits", "accelerated death", "chronic illness", 
+            "critical illness", "terminal illness", "access while alive"
+        ],
+        "coverage_goal": [
+            "what made you", "why did you", "what's the goal", "what were you",
+            "originally looking", "why coverage", "what prompted", "got you looking",
+            "what got you"
+        ],
+        "other_policies": [
+            "other policies", "any other", "additional coverage", "also have",
+            "multiple policies", "work policy", "another plan"
+        ],
+        "motivation": [
+            "what's on your mind", "what's been on", "what specifically", 
+            "what are you thinking", "what concerns you"
+        ]
+    }
 
 def get_question_theme(text):
     """Return the theme(s) of a message."""
@@ -2764,112 +2764,112 @@ def get_question_theme(text):
     for theme, keywords in QUESTION_THEMES.items():
         if any(kw in text_lower for kw in keywords):
             themes.append(theme)
-    return themes
+        return themes
 
-# Get themes in this reply
-reply_themes = get_question_theme(reply)
+    # Get themes in this reply
+    reply_themes = get_question_theme(reply)
 
-# Check against recent agent messages
-if recent_agent_messages and reply_themes:
-    for prev_msg in recent_agent_messages[-5:]:  # Check last 5 messages
-        prev_themes = get_question_theme(prev_msg)
-        # If any theme matches, it's a semantic duplicate
-        shared_themes = set(reply_themes) & set(prev_themes)
-        if shared_themes:
-            is_duplicate = True
-            duplicate_reason = f"Theme '{list(shared_themes)[0]}' already asked"
-            break
+    # Check against recent agent messages
+    if recent_agent_messages and reply_themes:
+        for prev_msg in recent_agent_messages[-5:]:  # Check last 5 messages
+            prev_themes = get_question_theme(prev_msg)
+            # If any theme matches, it's a semantic duplicate
+            shared_themes = set(reply_themes) & set(prev_themes)
+            if shared_themes:
+                is_duplicate = True
+                duplicate_reason = f"Theme '{list(shared_themes)[0]}' already asked"
+                break
 
-# === VECTOR SIMILARITY CHECK: spaCy-based semantic duplicate detection ===
-if contact_id and not is_duplicate:
+    # === VECTOR SIMILARITY CHECK: spaCy-based semantic duplicate detection ===
+    if contact_id and not is_duplicate:
+        try:
+            is_unique, uniqueness_reason = validate_response_uniqueness(contact_id, reply, threshold=0.85)
+            if not is_unique:
+                is_duplicate = True
+                duplicate_reason = f"Vector similarity blocked: {uniqueness_reason}"
+                logger.warning(f"VECTOR_SIMILARITY_BLOCKED: {uniqueness_reason}")
+        except Exception as e:
+            logger.debug(f"Vector similarity check skipped: {e}")
+
+    # Also check against qualification state for logically blocked questions
+    if contact_id and not is_duplicate:
+        qual_state = get_qualification_state(contact_id)
+        if qual_state:
+            reply_lower = reply.lower()
+            # Personal policy + asking about retirement = blocked
+            if qual_state.get("is_personal_policy") or qual_state.get("is_employer_based") == False:
+                if any(kw in reply_lower for kw in ["retirement", "retire", "leave your job", "portable", "convert"]):
+                    is_duplicate = True
+                    duplicate_reason = "Retirement question blocked - personal policy confirmed"
+            
+            # Already know living benefits status
+            if qual_state.get("has_living_benefits") is not None:
+                if "living benefits" in reply_lower:
+                    is_duplicate = True
+                    duplicate_reason = "Living benefits already known"
+            
+            # Already know other policies status
+            if qual_state.get("has_other_policies") is not None:
+                if any(kw in reply_lower for kw in ["other policies", "any other", "additional"]):
+                    is_duplicate = True
+                    duplicate_reason = "Other policies already asked"
+
+    # If duplicate detected, use progression-based fallback
+    if is_duplicate:
+        logger.warning(f"SEMANTIC DUPLICATE BLOCKED: {duplicate_reason}")
+        import random
+        # Use a natural progression question instead
+        progression_questions = [
+            "What would make a quick review worth your time?",
+            "I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
+            "Just want to make sure you're not overpaying. Quick 5-minute review, what time works?",
+        ]
+        reply = random.choice(progression_questions)
+
+    # =========================================================================
+    # STEP 5: LOG THE DECISION (so we can track what worked)
+    # =========================================================================
+    decision_log = {
+        "contact_id": contact_id,
+        "client_message": message[:100],
+        "triggers_found": triggers_found,
+        "trigger_suggestion": trigger_suggestion[:50] if trigger_suggestion else None,
+        "outcome_patterns_count": len(outcome_patterns),
+        "final_reply": reply[:100],
+        "used_trigger": reply == trigger_suggestion if trigger_suggestion else False,
+        "vibe": vibe.value if vibe else None,
+        "outcome_score": outcome_score
+    }
+    logger.info(f"STEP 5: Decision log: {decision_log}")
+
+    # Track the agent's response for outcome learning
     try:
-        is_unique, uniqueness_reason = validate_response_uniqueness(contact_id, reply, threshold=0.85)
-        if not is_unique:
-            is_duplicate = True
-            duplicate_reason = f"Vector similarity blocked: {uniqueness_reason}"
-            logger.warning(f"VECTOR_SIMILARITY_BLOCKED: {uniqueness_reason}")
-    except Exception as e:
-        logger.debug(f"Vector similarity check skipped: {e}")
-
-# Also check against qualification state for logically blocked questions
-if contact_id and not is_duplicate:
-    qual_state = get_qualification_state(contact_id)
-    if qual_state:
+        tracker_id = record_agent_message(contact_id, reply)
+        logger.info(f"STEP 5: Recorded agent message for tracking: {tracker_id}")
+        
+        # === CRITICAL: Record motivation questions to prevent repeats ===
         reply_lower = reply.lower()
-        # Personal policy + asking about retirement = blocked
-        if qual_state.get("is_personal_policy") or qual_state.get("is_employer_based") == False:
-            if any(kw in reply_lower for kw in ["retirement", "retire", "leave your job", "portable", "convert"]):
-                is_duplicate = True
-                duplicate_reason = "Retirement question blocked - personal policy confirmed"
+        motivation_patterns = [
+            "what got you", "what made you", "what originally", "why did you",
+            "what brought you", "what were you", "what was going on",
+            "what triggered", "what motivated", "reason you"
+        ]
+        if any(p in reply_lower for p in motivation_patterns) and "?" in reply:
+            add_to_qualification_array(contact_id, "topics_asked", "motivation")
+            logger.info("STEP 5: Recorded motivation question - will block future repeats")
         
-        # Already know living benefits status
-        if qual_state.get("has_living_benefits") is not None:
-            if "living benefits" in reply_lower:
-                is_duplicate = True
-                duplicate_reason = "Living benefits already known"
+        # === NLP MEMORY: Save agent message for topic extraction ===
+        save_nlp_message_text(contact_id, reply, "agent")
+        logger.debug(f"NLP: Saved agent message for contact {contact_id}")
         
-        # Already know other policies status
-        if qual_state.get("has_other_policies") is not None:
-            if any(kw in reply_lower for kw in ["other policies", "any other", "additional"]):
-                is_duplicate = True
-                duplicate_reason = "Other policies already asked"
+        # If this was a good outcome (lead engaged well), save the pattern
+        if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
+            save_new_pattern(message, reply, vibe, outcome_score)
+            logger.info(f"STEP 5: Saved new winning pattern (score: {outcome_score})")
+    except Exception as e:
+        logger.warning(f"STEP 5: Could not record agent message: {e}")
 
-# If duplicate detected, use progression-based fallback
-if is_duplicate:
-    logger.warning(f"SEMANTIC DUPLICATE BLOCKED: {duplicate_reason}")
-    import random
-    # Use a natural progression question instead
-    progression_questions = [
-        "What would make a quick review worth your time?",
-        "I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
-        "Just want to make sure you're not overpaying. Quick 5-minute review, what time works?",
-    ]
-    reply = random.choice(progression_questions)
-
-# =========================================================================
-# STEP 5: LOG THE DECISION (so we can track what worked)
-# =========================================================================
-decision_log = {
-    "contact_id": contact_id,
-    "client_message": message[:100],
-    "triggers_found": triggers_found,
-    "trigger_suggestion": trigger_suggestion[:50] if trigger_suggestion else None,
-    "outcome_patterns_count": len(outcome_patterns),
-    "final_reply": reply[:100],
-    "used_trigger": reply == trigger_suggestion if trigger_suggestion else False,
-    "vibe": vibe.value if vibe else None,
-    "outcome_score": outcome_score
-}
-logger.info(f"STEP 5: Decision log: {decision_log}")
-
-# Track the agent's response for outcome learning
-try:
-    tracker_id = record_agent_message(contact_id, reply)
-    logger.info(f"STEP 5: Recorded agent message for tracking: {tracker_id}")
-    
-    # === CRITICAL: Record motivation questions to prevent repeats ===
-    reply_lower = reply.lower()
-    motivation_patterns = [
-        "what got you", "what made you", "what originally", "why did you",
-        "what brought you", "what were you", "what was going on",
-        "what triggered", "what motivated", "reason you"
-    ]
-    if any(p in reply_lower for p in motivation_patterns) and "?" in reply:
-        add_to_qualification_array(contact_id, "topics_asked", "motivation")
-        logger.info("STEP 5: Recorded motivation question - will block future repeats")
-    
-    # === NLP MEMORY: Save agent message for topic extraction ===
-    save_nlp_message_text(contact_id, reply, "agent")
-    logger.debug(f"NLP: Saved agent message for contact {contact_id}")
-    
-    # If this was a good outcome (lead engaged well), save the pattern
-    if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
-        save_new_pattern(message, reply, vibe, outcome_score)
-        logger.info(f"STEP 5: Saved new winning pattern (score: {outcome_score})")
-except Exception as e:
-    logger.warning(f"STEP 5: Could not record agent message: {e}")
-
-return reply, confirmation_code
+    return reply, confirmation_code
 
 def generate_nepq_response(
     data,
@@ -2904,720 +2904,720 @@ def generate_nepq_response(
     - get_client
     """
     
-import re
-import random
+    import re
+    import random
 
-# -------------------------------------------------------------------------
-# Normalize inputs
-# -------------------------------------------------------------------------
-data = data or {}
-if conversation_history is None:
-    conversation_history = []
+    # -------------------------------------------------------------------------
+    # Normalize inputs
+    # -------------------------------------------------------------------------
+    data = data or {}
+    if conversation_history is None:
+        conversation_history = []
 
-if isinstance(message, dict):
-    message = message.get("body") or message.get("message") or message.get("text") or ""
-elif not isinstance(message, str):
-    message = str(message) if message is not None else ""
+    if isinstance(message, dict):
+        message = message.get("body") or message.get("message") or message.get("text") or ""
+    elif not isinstance(message, str):
+        message = str(message) if message is not None else ""
 
-message = message.strip()
-message_text = message  # FIX: your pasted code referenced message_text but never defined it
+    message = message.strip()
+    message_text = message  # FIX: your pasted code referenced message_text but never defined it
 
-# -------------------------------------------------------------------------
-# Intent (used later in prompts)
-# -------------------------------------------------------------------------
-intent = extract_intent(data, message)
+    # -------------------------------------------------------------------------
+    # Intent (used later in prompts)
+    # -------------------------------------------------------------------------
+    intent = extract_intent(data, message)
 
-# -------------------------------------------------------------------------
-# Confirmation code (must exist for booking flows)
-# -------------------------------------------------------------------------
-confirmation_code = generate_confirmation_code()
+    # -------------------------------------------------------------------------
+    # Confirmation code (must exist for booking flows)
+    # -------------------------------------------------------------------------
+    confirmation_code = generate_confirmation_code()
 
-# =========================================================================
-# STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
-# =========================================================================
-real_calendar_slots = None
-if api_key and calendar_id:
-    try:
-        slots = get_available_slots(calendar_id, api_key, timezone)
-        if slots:
-            real_calendar_slots = format_slot_options(slots, timezone)
-            logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-    except Exception as e:
-        logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
+    # =========================================================================
+    # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
+    # =========================================================================
+    real_calendar_slots = None
+    if api_key and calendar_id:
+        try:
+            slots = get_available_slots(calendar_id, api_key, timezone)
+            if slots:
+                real_calendar_slots = format_slot_options(slots, timezone)
+                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
+        except Exception as e:
+            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
 
-if not real_calendar_slots:
-    real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
-    logger.info("STEP 0: Using vague time fallback (no specific times)")
+    if not real_calendar_slots:
+        real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
+        logger.info("STEP 0: Using vague time fallback (no specific times)")
 
-# =========================================================================
-# STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
-# =========================================================================
-logger.info("STEP 1: Knowledge will be loaded via unified brain")
+    # =========================================================================
+    # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
+    # =========================================================================
+    logger.info("STEP 1: Knowledge will be loaded via unified brain")
 
-# =========================================================================
-# STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
-# =========================================================================
-triggers_found = identify_triggers(message)
-trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
-logger.info(
-    f"STEP 2: Triggers found: {triggers_found}, Suggestion: "
-    f"{trigger_suggestion[:50] if trigger_suggestion else 'None'}..."
-)
-logger.info(f"STEP 2: message type after normalize: {type(message)}")
-
-# =========================================================================
-# STEP 3: CHECK OUTCOME PATTERNS (what worked before for similar messages)
-# =========================================================================
-outcome_patterns = []
-outcome_context = ""
-try:
-    learning_ctx = get_learning_context(contact_id or "unknown", message)
-    if learning_ctx and learning_ctx.get("proven_responses"):
-        outcome_patterns = learning_ctx.get("proven_responses", [])[:5]
-        outcome_context = "\n".join([f"- {p}" for p in outcome_patterns])
-        logger.info(f"STEP 3: Found {len(outcome_patterns)} proven outcome patterns")
-    else:
-        logger.info("STEP 3: No proven outcome patterns found")
-
-    similar_patterns = find_similar_successful_patterns(message, min_score=2.0, limit=3)
-    if similar_patterns:
-        for p in similar_patterns:
-            sim_text = (
-                f"Similar trigger (sim={p.get('sim_score', 0):.2f}): "
-                f"{p.get('response_used', '')[:100]}"
-            )
-            if sim_text not in outcome_context:
-                outcome_context += f"\n- {sim_text}"
-        logger.info(f"STEP 3: Found {len(similar_patterns)} trigram-similar patterns")
-except Exception as e:
-    logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
-
-# =========================================================================
-# STEP 4: EVALUATE - Check if triggers should bypass LLM
-# =========================================================================
-if trigger_code == "TRIG" and trigger_suggestion:
-    triggers_str = str(triggers_found)
-    m_lower = message_text.lower().strip()
-
-    # Calendar-related triggers bypass to use real calendar times
-    if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
-        logger.info(
-            f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}"
-        )
-        return trigger_suggestion, confirmation_code
-
-    # Frustrated/repeat triggers bypass to apologize and pivot immediately
-    frustrated_patterns = ["already asked", "move on", "stop asking", "enough questions"]
-    if any(p in m_lower for p in frustrated_patterns):
-        logger.info(
-            f"STEP 4: Frustrated repeat trigger detected, using deterministic response: {trigger_suggestion}"
-        )
-        return trigger_suggestion, confirmation_code
-
-if trigger_code == "EXIT":
-    logger.info(f"STEP 4: Exit trigger detected, returning: {trigger_suggestion}")
-    return trigger_suggestion, confirmation_code
-
-# =========================================================================
-# Structured lead profile
-# =========================================================================
-# TOKEN OPTIMIZATION: Compress history if too long
-if len(conversation_history) > 6:
-    original_count = len(conversation_history)
-    conversation_history = compress_conversation_history(conversation_history, max_tokens=1500)
+    # =========================================================================
+    # STEP 2: IDENTIFY TRIGGERS + GET TRIGGER SUGGESTION
+    # =========================================================================
+    triggers_found = identify_triggers(message)
+    trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
     logger.info(
-        f"TOKEN_OPT: Compressed history from {original_count} to {len(conversation_history)} messages"
+        f"STEP 2: Triggers found: {triggers_found}, Suggestion: "
+        f"{trigger_suggestion[:50] if trigger_suggestion else 'None'}..."
     )
+    logger.info(f"STEP 2: message type after normalize: {type(message)}")
 
-lead_profile = extract_lead_profile(conversation_history, first_name, message)
-
-# =========================================================================
-# QUALIFICATION STATE + NLP MEMORY
-# =========================================================================
-qualification_state = None
-qualification_context = ""
-nlp_context = ""
-
-if contact_id:
+    # =========================================================================
+    # STEP 3: CHECK OUTCOME PATTERNS (what worked before for similar messages)
+    # =========================================================================
+    outcome_patterns = []
+    outcome_context = ""
     try:
-        save_nlp_message(contact_id, message, "lead")
-        logger.debug(f"NLP: Saved lead message for contact {contact_id}")
+        learning_ctx = get_learning_context(contact_id or "unknown", message)
+        if learning_ctx and learning_ctx.get("proven_responses"):
+            outcome_patterns = learning_ctx.get("proven_responses", [])[:5]
+            outcome_context = "\n".join([f"- {p}" for p in outcome_patterns])
+            logger.info(f"STEP 3: Found {len(outcome_patterns)} proven outcome patterns")
+        else:
+            logger.info("STEP 3: No proven outcome patterns found")
+
+        similar_patterns = find_similar_successful_patterns(message, min_score=2.0, limit=3)
+        if similar_patterns:
+            for p in similar_patterns:
+                sim_text = (
+                    f"Similar trigger (sim={p.get('sim_score', 0):.2f}): "
+                    f"{p.get('response_used', '')[:100]}"
+                )
+                if sim_text not in outcome_context:
+                    outcome_context += f"\n- {sim_text}"
+            logger.info(f"STEP 3: Found {len(similar_patterns)} trigram-similar patterns")
     except Exception as e:
-        logger.debug(f"NLP: save_nlp_message failed: {e}")
+        logger.warning(f"STEP 3: Could not load outcome patterns: {e}")
 
-    try:
-        if conversation_history:
-            parse_history_for_topics_asked(contact_id, conversation_history)
-    except Exception as e:
-        logger.debug(f"NLP: parse_history_for_topics_asked failed: {e}")
+    # =========================================================================
+    # STEP 4: EVALUATE - Check if triggers should bypass LLM
+    # =========================================================================
+    if trigger_code == "TRIG" and trigger_suggestion:
+        triggers_str = str(triggers_found)
+        m_lower = message_text.lower().strip()
 
-    try:
-        qualification_state = get_qualification_state(contact_id)
-    except Exception as e:
-        logger.debug(f"QUALIFICATION: get_qualification_state failed: {e}")
+        # Calendar-related triggers bypass to use real calendar times
+        if "BUYING_SIGNAL" in triggers_str or "PRICE" in triggers_str:
+            logger.info(
+                f"STEP 4: Calendar-related trigger detected, using deterministic response: {trigger_suggestion}"
+            )
+            return trigger_suggestion, confirmation_code
 
-    try:
-        nlp_context = format_nlp_for_prompt(contact_id)
-    except Exception as e:
-        logger.debug(f"NLP: format_nlp_for_prompt failed: {e}")
+        # Frustrated/repeat triggers bypass to apologize and pivot immediately
+        frustrated_patterns = ["already asked", "move on", "stop asking", "enough questions"]
+        if any(p in m_lower for p in frustrated_patterns):
+            logger.info(
+                f"STEP 4: Frustrated repeat trigger detected, using deterministic response: {trigger_suggestion}"
+            )
+            return trigger_suggestion, confirmation_code
 
-    try:
-        extracted_updates = extract_and_update_qualification(contact_id, message, conversation_history)
-        if extracted_updates:
-            logger.info(f"QUALIFICATION: Extracted updates: {extracted_updates}")
+    if trigger_code == "EXIT":
+        logger.info(f"STEP 4: Exit trigger detected, returning: {trigger_suggestion}")
+        return trigger_suggestion, confirmation_code
+
+    # =========================================================================
+    # Structured lead profile
+    # =========================================================================
+    # TOKEN OPTIMIZATION: Compress history if too long
+    if len(conversation_history) > 6:
+        original_count = len(conversation_history)
+        conversation_history = compress_conversation_history(conversation_history, max_tokens=1500)
+        logger.info(
+            f"TOKEN_OPT: Compressed history from {original_count} to {len(conversation_history)} messages"
+        )
+
+    lead_profile = extract_lead_profile(conversation_history, first_name, message)
+
+    # =========================================================================
+    # QUALIFICATION STATE + NLP MEMORY
+    # =========================================================================
+    qualification_state = None
+    qualification_context = ""
+    nlp_context = ""
+
+    if contact_id:
+        try:
+            save_nlp_message(contact_id, message, "lead")
+            logger.debug(f"NLP: Saved lead message for contact {contact_id}")
+        except Exception as e:
+            logger.debug(f"NLP: save_nlp_message failed: {e}")
+
+        try:
+            if conversation_history:
+                parse_history_for_topics_asked(contact_id, conversation_history)
+        except Exception as e:
+            logger.debug(f"NLP: parse_history_for_topics_asked failed: {e}")
+
+        try:
             qualification_state = get_qualification_state(contact_id)
-    except Exception as e:
-        logger.debug(f"QUALIFICATION: extract_and_update_qualification failed: {e}")
-
-    try:
-        increment_exchanges(contact_id)
-    except Exception as e:
-        logger.debug(f"QUALIFICATION: increment_exchanges failed: {e}")
-
-    # ALREADY COVERED HANDLER: Deterministic state machine (runs BEFORE LLM)
-    try:
-        handler_response, should_continue = already_covered_handler(
-            contact_id, message, qualification_state, api_key, calendar_id, timezone
-        )
-        if not should_continue and handler_response:
-            logger.info("ALREADY_COVERED_HANDLER: Returning deterministic response")
-            return handler_response, confirmation_code
-    except Exception as e:
-        logger.debug(f"ALREADY_COVERED_HANDLER failed: {e}")
-
-    try:
-        qualification_context = format_qualification_for_prompt(qualification_state)
-        if qualification_context:
-            logger.debug("QUALIFICATION: Injecting known facts into prompt")
-    except Exception as e:
-        logger.debug(f"QUALIFICATION: format_qualification_for_prompt failed: {e}")
-
-# =========================================================================
-# LAYER 2: Build Conversation State (Source of Truth)
-# =========================================================================
-conv_state = build_state_from_history(
-    contact_id=contact_id or "unknown",
-    first_name=first_name,
-    conversation_history=conversation_history,
-    current_message=message,
-)
-
-# Sync qualification_state topics_asked to conv_state.topics_answered
-if qualification_state:
-    topics_asked = qualification_state.get("topics_asked") or []
-    for topic in topics_asked:
-        if topic not in conv_state.topics_answered:
-            conv_state.topics_answered.append(topic)
-
-    if "motivation" in topics_asked or "original_goal" in topics_asked:
-        if "motivation" not in conv_state.topics_answered:
-            conv_state.topics_answered.append("motivation")
-        if "motivating_goal" not in conv_state.topics_answered:
-            conv_state.topics_answered.append("motivating_goal")
-        logger.info("QUALIFICATION: Motivation question already asked - blocking repeats")
-
-    if topics_asked:
-        logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
-
-# Sync NLP topics
-if contact_id:
-    try:
-        nlp_topics = get_topics_already_discussed(contact_id)
-        for topic in nlp_topics:
-            simple_topic = topic.split(":")[-1] if ":" in topic else topic
-            if simple_topic not in conv_state.topics_answered:
-                conv_state.topics_answered.append(simple_topic)
-        if nlp_topics:
-            logger.debug(f"NLP: Synced {len(nlp_topics)} topics from NLP memory")
-    except Exception as e:
-        logger.debug(f"NLP: get_topics_already_discussed failed: {e}")
-
-state_instructions = format_state_for_prompt(conv_state)
-logger.debug(
-    f"Conversation state: stage={conv_state.stage.value}, "
-    f"exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}"
-)
-
-# =========================================================================
-# BUYING SIGNAL DETECTION - Override intent when lead shows readiness
-# =========================================================================
-current_lower = message.lower()
-
-negation_phrases = [
-    "don't need", "dont need", "do not need", "dont really need", "don't really need",
-    "not interested", "no thanks", "no thank", "stop", "leave me alone",
-    "not looking", "already have", "im good", "i'm good", "i am good",
-    "not right now", "maybe later", "no im good", "nope", "no i dont",
-    "no i don't", "no i'm not", "no im not", "not for me", "pass",
-    "unsubscribe", "remove me", "take me off",
-]
-has_negation = any(phrase in current_lower for phrase in negation_phrases)
-
-negation_patterns = [
-    r"\bno\b.*\bneed\b",
-    r"\bnot\b.*\binterested\b",
-    r"\bdon'?t\b.*\bneed\b",
-]
-if not has_negation:
-    for pattern in negation_patterns:
-        if re.search(pattern, current_lower):
-            has_negation = True
-            break
-
-strong_buying_signals = [
-    "i'd have to get", "id have to get", "would have to get",
-    "need to get new", "get new life insurance", "get new coverage",
-    "sign me up", "let's do it", "lets do it", "i'm in", "im in",
-    "what are my options", "how much would it cost", "what would it cost",
-    "sounds good", "that sounds good", "works for me", "yeah let's do it",
-    "sure", "okay when", "ok when", "yes when can we",
-]
-weak_buying_signals = [
-    "i need", "i'd need", "interested in looking", "looking into it",
-    "want to look", "can you look into", "want coverage",
-]
-
-detected_buying_signal = False
-if not has_negation:
-    if any(signal in current_lower for signal in strong_buying_signals):
-        detected_buying_signal = True
-    elif any(signal in current_lower for signal in weak_buying_signals):
-        if lead_profile.get("motivating_goal") or lead_profile.get("family", {}).get("spouse"):
-            detected_buying_signal = True
-
-problem_revealed = bool(
-    lead_profile.get("motivating_goal")
-    or lead_profile.get("coverage", {}).get("coverage_gap")
-    or (
-        lead_profile.get("coverage", {}).get("has_coverage")
-        and lead_profile.get("coverage", {}).get("type") == "employer"
-    )
-    or lead_profile.get("coverage", {}).get("employer")
-)
-
-# Determine exchange count from history
-if conversation_history:
-    recent_agent = [msg for msg in conversation_history if msg.startswith("You:")]
-    recent_lead = [msg for msg in conversation_history if msg.startswith("Lead:")]
-    exchange_count = min(len(recent_agent), len(recent_lead))
-else:
-    recent_agent = []
-    recent_lead = []
-    exchange_count = 0
-
-# Stage logic
-if exchange_count >= 3:
-    intent = "book_appointment"
-    stage = "close"
-elif detected_buying_signal:
-    intent = "book_appointment"
-    stage = "close"
-elif exchange_count >= 2 and problem_revealed:
-    intent = "book_appointment"
-    stage = "close"
-elif problem_revealed and exchange_count >= 1:
-    stage = "consequence"
-elif problem_revealed:
-    stage = "consequence"
-else:
-    stage = "problem_awareness"
-
-intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES["general"])
-
-# =========================================================================
-# STAGE DIRECTIVES
-# =========================================================================
-stage_directives = {
-    "problem_awareness": """[... KEEP YOUR STAGE DIRECTIVE TEXT ...]""",
-    "consequence": """[... KEEP YOUR STAGE DIRECTIVE TEXT ...]""",
-    "close": """[... KEEP YOUR STAGE DIRECTIVE TEXT ...]""",
-}
-stage_directive = stage_directives.get(stage, "")
-
-profile_text = format_lead_profile_for_llm(lead_profile, first_name)
-
-# =========================================================================
-# Dismissive detection + topic repeat prevention
-# =========================================================================
-is_soft_dismissive = False
-is_hard_dismissive = False
-soft_dismissive_count = 0
-topics_warning = ""
-questions_warning = ""
-exchange_warning = ""
-
-soft_dismissive_phrases = [
-    "not telling you", "none of your business", "why do you need to know",
-    "thats personal", "that's personal", "private", "why does it matter",
-    "doesnt matter", "doesn't matter", "dont matter", "don't matter",
-    "not your concern", "why do you care", "im covered", "i'm covered",
-    "already told you", "i said im", "i said i'm", "already said",
-    "just leave it", "drop it", "not important", "thats not important",
-]
-hard_dismissive_phrases = [
-    "stop texting", "leave me alone", "f off", "fuck off", "go away",
-    "dont text me", "don't text me", "stop messaging", "stop contacting",
-    "remove me", "unsubscribe", "take me off", "do not contact",
-    "dont call", "don't call", "never contact",
-]
-
-is_soft_dismissive = any(phrase in current_lower for phrase in soft_dismissive_phrases)
-is_hard_dismissive = any(phrase in current_lower for phrase in hard_dismissive_phrases)
-if is_soft_dismissive:
-    soft_dismissive_count = 1
-
-recent_agent_messages = recent_agent
-recent_lead_messages = recent_lead
-
-if conversation_history and len(conversation_history) > 0:
-    recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
-
-    all_agent_text = " ".join([msg.lower() for msg in recent_agent_messages])
-    topics_already_asked = []
-
-    if any(
-        phrase in all_agent_text
-        for phrase in [
-            "living benefits", "access funds", "access part of", "touch the money",
-            "seriously ill while alive", "sick while you", "while you're still alive",
-            "accelerated", "chronic illness", "terminal illness rider",
-        ]
-    ):
-        topics_already_asked.append("LIVING_BENEFITS")
-
-    if any(
-        phrase in all_agent_text
-        for phrase in [
-            "follow you if you", "switch jobs", "tied to your employer", "portable",
-            "retire", "leave the company", "change jobs",
-        ]
-    ):
-        topics_already_asked.append("PORTABILITY")
-
-    if any(
-        phrase in all_agent_text
-        for phrase in [
-            "how much", "coverage amount", "replace your income", "enough to cover",
-            "10x your income", "what amount",
-        ]
-    ):
-        topics_already_asked.append("AMOUNT")
-
-    if any(
-        phrase in all_agent_text
-        for phrase in [
-            "how many years", "when does it expire", "term length", "years left",
-            "renew", "rate lock",
-        ]
-    ):
-        topics_already_asked.append("TERM_LENGTH")
-
-    if any(
-        phrase in all_agent_text
-        for phrase in [
-            "who'd you go with", "who did you go with", "which company", "what company",
-            "who are you with",
-        ]
-    ):
-        topics_already_asked.append("COMPANY")
-
-    if topics_already_asked:
-        topics_warning = (
-            "\n=== TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===\n"
-            + "\n".join([f"- {t}" for t in topics_already_asked])
-            + "\n"
-        )
-
-    if recent_questions:
-        questions_list = "\n".join([f"- {q.replace('You: ', '')}" for q in recent_questions])
-        questions_warning = (
-            "\n=== RECENT AGENT MESSAGES (DO NOT REPEAT THESE QUESTIONS) ===\n"
-            + questions_list
-            + "\n"
-        )
-
-    # Count soft dismissives in history (excluding last lead line to avoid double count)
-    history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
-    for msg in history_lead_messages:
-        msg_lower = msg.lower()
-        if any(phrase in msg_lower for phrase in soft_dismissive_phrases):
-            soft_dismissive_count += 1
-
-    rejection_phrases = [
-        "not interested", "no thanks", "no thank", "im good", "i'm good",
-        "im covered", "i'm covered", "already have", "all set", "dont need",
-        "don't need", "not looking", "not right now", "no im good", "nah",
-    ]
-    rejection_count = 0
-    for msg in recent_lead_messages:
-        msg_lower = msg.lower()
-        if any(phrase in msg_lower for phrase in rejection_phrases):
-            rejection_count += 1
-    if any(phrase in current_lower for phrase in rejection_phrases):
-        rejection_count += 1
-
-    if is_hard_dismissive:
-        exchange_warning = (
-            "\n=== CRITICAL: HARD STOP - THEY WANT NO CONTACT ===\n"
-            "Exit immediately: 'Got it. Take care.'\n"
-        )
-    elif exchange_count >= 3:
-        exchange_warning = (
-            f"\n=== CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===\n"
-            "Offer appointment times using the provided slots.\n"
-        )
-
-# =========================================================================
-# Prompt assembly (history_text)
-# =========================================================================
-intent_section = f"""
-=== CURRENT INTENT/OBJECTIVE ===
-Intent: {intent}
-Directive: {intent_directive}
-===
-"""
-
-if conversation_history:
-    history_text = f"""
-=== CONVERSATION HISTORY (read this carefully before responding) ===
-{chr(10).join(conversation_history)}
-=== END OF HISTORY ===
-
-{qualification_context}
-{intent_section}
-{stage_directive}
-{exchange_warning}
-{topics_warning}
-{questions_warning}
-{profile_text}
-"""
-else:
-    history_text = f"""
-{qualification_context}
-{intent_section}
-{profile_text}
-"""
-
-# =========================================================================
-# Score the previous response (optional)
-# =========================================================================
-outcome_score = None
-vibe = None
-try:
-    outcome_score, vibe = record_lead_response(contact_id, message)
-    logger.debug(f"Recorded lead response - Vibe: {vibe.value if vibe else None}, Score: {outcome_score}")
-except Exception as e:
-    logger.warning(f"Could not record lead response: {e}")
-
-# =========================================================================
-# UNIFIED BRAIN
-# =========================================================================
-close_templates = [
-    "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
-    "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
-    "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
-    "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?",
-]
-
-client = get_client()
-
-unified_brain_knowledge = get_unified_brain()
-trigger_suggestion_for_eval = trigger_suggestion if trigger_suggestion else "No trigger matched"
-proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
-
-decision_prompt = get_decision_prompt(
-    message=message,
-    context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
-    stage=stage,
-    trigger_suggestion=trigger_suggestion_for_eval,
-    proven_patterns=proven_patterns_text,
-    triggers_found=triggers_found,
-)
-
-base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
-
-unified_system_prompt = f"""
-{base_knowledge}
-
-{unified_brain_knowledge}
-
-===================================================================================
-SITUATIONAL CONTEXT
-===================================================================================
-Agent name: {agent_name}
-Lead name: {first_name}
-Current stage: {stage}
-Exchange count: {exchange_count}
-Dismissive count: {soft_dismissive_count}
-Is soft dismissive: {is_soft_dismissive}
-Is hard dismissive: {is_hard_dismissive}
-
-{state_instructions}
-
-CONFIRMATION CODE (if booking): {confirmation_code}
-
-=== AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
-{real_calendar_slots}
-NEVER make up appointment times. ONLY offer the times listed above.
-
-===================================================================================
-CRITICAL RULES
-===================================================================================
-1. No em dashes in responses
-2. Keep responses 15-35 words
-3. Only use first name every 3-4 messages
-4. If they say stop or leave me alone, exit: "Got it. Take care."
-5. After 3 exchanges, stop asking questions and offer appointment times
-6. When offering appointments, ONLY use the times listed above
-
-{decision_prompt}
-"""
-
-max_retries = 1
-retry_count = 0
-correction_prompt = ""
-reply = f"I have {real_calendar_slots}, which works better?"
-use_model = "grok-4-1-fast-reasoning"
-
-# Optional token stats
-try:
-    prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
-    stats = get_token_stats(
-        unified_system_prompt + (history_text or "") + message,
-        max_response_tokens=425,
-    )
-    logger.info(
-        f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = "
-        f"${stats['estimated_cost_usd']:.5f}"
-    )
-except Exception:
-    pass
-
-unified_user_content = f"""
-{history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
-
-LEAD'S MESSAGE: "{message}"
-
-Now THINK through your decision process and respond.
-Remember: Apply your knowledge, don't just pattern match.
-"""
-
-while retry_count <= max_retries:
-    response = client.chat.completions.create(
-        model=use_model,
-        messages=[
-            {"role": "system", "content": unified_system_prompt},
-            {"role": "user", "content": unified_user_content + correction_prompt},
-        ],
-        max_tokens=425,
-        temperature=0.7,
-        top_p=0.95,
-    )
-
-    content = response.choices[0].message.content or ""
-
-    thinking_match = re.search(r"<thinking>(.*?)</thinking>", content, re.DOTALL)
-    if thinking_match:
-        thinking = thinking_match.group(1).strip()
-        logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
-
-    response_match = re.search(r"<response>(.*?)</response>", content, re.DOTALL)
-    if response_match:
-        reply = response_match.group(1).strip()
-    else:
-        reply = re.sub(r"<thinking>.*?</thinking>", "", content, flags=re.DOTALL).strip()
-
-    reflection = parse_reflection(content)
-    reflection_scores = {}
-    if reflection:
-        reflection_scores = reflection.get("scores", {})
-        logger.debug(f"Self-reflection scores: {reflection_scores}")
-
-    # Remove wrapping quotes and normalize dash types
-    if reply.startswith('"') and reply.endswith('"'):
-        reply = reply[1:-1]
-    if reply.startswith("'") and reply.endswith("'"):
-        reply = reply[1:-1]
-    reply = (
-        reply.replace("—", ",")
-        .replace("--", ",")
-        .replace("–", ",")
-        .replace(" - ", ", ")
-        .replace(" -", ",")
-        .replace("- ", ", ")
-    )
-
-    is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(
-        reply, conv_state, reflection_scores
-    )
-
-    if is_valid:
-        logger.debug("Policy validation passed")
-        break
-
-    if error_reason == "REPEAT_MOTIVATION_BLOCKED":
-        logger.info("Motivation repeat blocked, using backbone probe template")
-        backbone_reply = get_backbone_probe_template()
-        if backbone_reply:
-            reply = backbone_reply
-            break
-        reply = "Usually people don't look up insurance for fun. Something on your mind about it?"
-        break
-
-    retry_count += 1
-    logger.warning(f"Policy validation failed (attempt {retry_count}): {error_reason}")
-
-    if retry_count <= max_retries:
-        correction_prompt = PolicyEngine.get_regeneration_prompt(error_reason, correction_guidance)
-    else:
-        logger.warning("Max retries exceeded, falling back to playbook template")
-        scenario = match_scenario(message)
-        if scenario:
-            template_reply = get_template_response(
-                scenario["stage"],
-                scenario["response_key"],
-                {"first_name": first_name},
+        except Exception as e:
+            logger.debug(f"QUALIFICATION: get_qualification_state failed: {e}")
+
+        try:
+            nlp_context = format_nlp_for_prompt(contact_id)
+        except Exception as e:
+            logger.debug(f"NLP: format_nlp_for_prompt failed: {e}")
+
+        try:
+            extracted_updates = extract_and_update_qualification(contact_id, message, conversation_history)
+            if extracted_updates:
+                logger.info(f"QUALIFICATION: Extracted updates: {extracted_updates}")
+                qualification_state = get_qualification_state(contact_id)
+        except Exception as e:
+            logger.debug(f"QUALIFICATION: extract_and_update_qualification failed: {e}")
+
+        try:
+            increment_exchanges(contact_id)
+        except Exception as e:
+            logger.debug(f"QUALIFICATION: increment_exchanges failed: {e}")
+
+        # ALREADY COVERED HANDLER: Deterministic state machine (runs BEFORE LLM)
+        try:
+            handler_response, should_continue = already_covered_handler(
+                contact_id, message, qualification_state, api_key, calendar_id, timezone
             )
-            if template_reply:
-                reply = template_reply
+            if not should_continue and handler_response:
+                logger.info("ALREADY_COVERED_HANDLER: Returning deterministic response")
+                return handler_response, confirmation_code
+        except Exception as e:
+            logger.debug(f"ALREADY_COVERED_HANDLER failed: {e}")
+
+        try:
+            qualification_context = format_qualification_for_prompt(qualification_state)
+            if qualification_context:
+                logger.debug("QUALIFICATION: Injecting known facts into prompt")
+        except Exception as e:
+            logger.debug(f"QUALIFICATION: format_qualification_for_prompt failed: {e}")
+
+    # =========================================================================
+    # LAYER 2: Build Conversation State (Source of Truth)
+    # =========================================================================
+    conv_state = build_state_from_history(
+        contact_id=contact_id or "unknown",
+        first_name=first_name,
+        conversation_history=conversation_history,
+        current_message=message,
+    )
+
+    # Sync qualification_state topics_asked to conv_state.topics_answered
+    if qualification_state:
+        topics_asked = qualification_state.get("topics_asked") or []
+        for topic in topics_asked:
+            if topic not in conv_state.topics_answered:
+                conv_state.topics_answered.append(topic)
+
+        if "motivation" in topics_asked or "original_goal" in topics_asked:
+            if "motivation" not in conv_state.topics_answered:
+                conv_state.topics_answered.append("motivation")
+            if "motivating_goal" not in conv_state.topics_answered:
+                conv_state.topics_answered.append("motivating_goal")
+            logger.info("QUALIFICATION: Motivation question already asked - blocking repeats")
+
+        if topics_asked:
+            logger.info(f"QUALIFICATION: Synced {len(topics_asked)} topics from database: {topics_asked}")
+
+    # Sync NLP topics
+    if contact_id:
+        try:
+            nlp_topics = get_topics_already_discussed(contact_id)
+            for topic in nlp_topics:
+                simple_topic = topic.split(":")[-1] if ":" in topic else topic
+                if simple_topic not in conv_state.topics_answered:
+                    conv_state.topics_answered.append(simple_topic)
+            if nlp_topics:
+                logger.debug(f"NLP: Synced {len(nlp_topics)} topics from NLP memory")
+        except Exception as e:
+            logger.debug(f"NLP: get_topics_already_discussed failed: {e}")
+
+    state_instructions = format_state_for_prompt(conv_state)
+    logger.debug(
+        f"Conversation state: stage={conv_state.stage.value}, "
+        f"exchanges={conv_state.exchange_count}, dismissive_count={conv_state.soft_dismissive_count}"
+    )
+
+    # =========================================================================
+    # BUYING SIGNAL DETECTION - Override intent when lead shows readiness
+    # =========================================================================
+    current_lower = message.lower()
+
+    negation_phrases = [
+        "don't need", "dont need", "do not need", "dont really need", "don't really need",
+        "not interested", "no thanks", "no thank", "stop", "leave me alone",
+        "not looking", "already have", "im good", "i'm good", "i am good",
+        "not right now", "maybe later", "no im good", "nope", "no i dont",
+        "no i don't", "no i'm not", "no im not", "not for me", "pass",
+        "unsubscribe", "remove me", "take me off",
+    ]
+    has_negation = any(phrase in current_lower for phrase in negation_phrases)
+
+    negation_patterns = [
+        r"\bno\b.*\bneed\b",
+        r"\bnot\b.*\binterested\b",
+        r"\bdon'?t\b.*\bneed\b",
+    ]
+    if not has_negation:
+        for pattern in negation_patterns:
+            if re.search(pattern, current_lower):
+                has_negation = True
                 break
-        reply = f"I can help you find the right fit. How's {real_calendar_slots}?"
-        break
 
-# =========================================================================
-# Server-side semantic duplicate rejection
-# =========================================================================
-is_duplicate = False
-duplicate_reason = None
+    strong_buying_signals = [
+        "i'd have to get", "id have to get", "would have to get",
+        "need to get new", "get new life insurance", "get new coverage",
+        "sign me up", "let's do it", "lets do it", "i'm in", "im in",
+        "what are my options", "how much would it cost", "what would it cost",
+        "sounds good", "that sounds good", "works for me", "yeah let's do it",
+        "sure", "okay when", "ok when", "yes when can we",
+    ]
+    weak_buying_signals = [
+        "i need", "i'd need", "interested in looking", "looking into it",
+        "want to look", "can you look into", "want coverage",
+    ]
 
-QUESTION_THEMES = {
-    "retirement_portability": [
-        "continue after retirement", "leave your job", "retire", "portable",
-        "convert it", "goes with you", "when you leave", "portability",
-        "if you quit", "stop working", "leaving the company",
-    ],
-    "policy_type": [
-        "term or whole", "term or permanent", "what type", "kind of policy",
-        "is it term", "is it whole life", "iul", "universal life",
-    ],
-    "living_benefits": [
-        "living benefits", "accelerated death", "chronic illness",
-        "critical illness", "terminal illness", "access while alive",
-    ],
-    "coverage_goal": [
-        "what made you", "why did you", "what's the goal", "what were you",
-        "originally looking", "why coverage", "what prompted", "got you looking",
-        "what got you",
-    ],
-    "other_policies": [
-        "other policies", "any other", "additional coverage", "also have",
-        "multiple policies", "work policy", "another plan",
-    ],
-    "motivation": [
-        "what's on your mind", "what's been on", "what specifically",
-        "what are you thinking", "what concerns you",
-    ],
-}
+    detected_buying_signal = False
+    if not has_negation:
+        if any(signal in current_lower for signal in strong_buying_signals):
+            detected_buying_signal = True
+        elif any(signal in current_lower for signal in weak_buying_signals):
+            if lead_profile.get("motivating_goal") or lead_profile.get("family", {}).get("spouse"):
+                detected_buying_signal = True
+
+    problem_revealed = bool(
+        lead_profile.get("motivating_goal")
+        or lead_profile.get("coverage", {}).get("coverage_gap")
+        or (
+            lead_profile.get("coverage", {}).get("has_coverage")
+            and lead_profile.get("coverage", {}).get("type") == "employer"
+        )
+        or lead_profile.get("coverage", {}).get("employer")
+    )
+
+    # Determine exchange count from history
+    if conversation_history:
+        recent_agent = [msg for msg in conversation_history if msg.startswith("You:")]
+        recent_lead = [msg for msg in conversation_history if msg.startswith("Lead:")]
+        exchange_count = min(len(recent_agent), len(recent_lead))
+    else:
+        recent_agent = []
+        recent_lead = []
+        exchange_count = 0
+
+    # Stage logic
+    if exchange_count >= 3:
+        intent = "book_appointment"
+        stage = "close"
+    elif detected_buying_signal:
+        intent = "book_appointment"
+        stage = "close"
+    elif exchange_count >= 2 and problem_revealed:
+        intent = "book_appointment"
+        stage = "close"
+    elif problem_revealed and exchange_count >= 1:
+        stage = "consequence"
+    elif problem_revealed:
+        stage = "consequence"
+    else:
+        stage = "problem_awareness"
+
+    intent_directive = INTENT_DIRECTIVES.get(intent, INTENT_DIRECTIVES["general"])
+
+    # =========================================================================
+    # STAGE DIRECTIVES
+    # =========================================================================
+    stage_directives = {
+        "problem_awareness": """[... KEEP YOUR STAGE DIRECTIVE TEXT ...]""",
+        "consequence": """[... KEEP YOUR STAGE DIRECTIVE TEXT ...]""",
+        "close": """[... KEEP YOUR STAGE DIRECTIVE TEXT ...]""",
+    }
+    stage_directive = stage_directives.get(stage, "")
+
+    profile_text = format_lead_profile_for_llm(lead_profile, first_name)
+
+    # =========================================================================
+    # Dismissive detection + topic repeat prevention
+    # =========================================================================
+    is_soft_dismissive = False
+    is_hard_dismissive = False
+    soft_dismissive_count = 0
+    topics_warning = ""
+    questions_warning = ""
+    exchange_warning = ""
+
+    soft_dismissive_phrases = [
+        "not telling you", "none of your business", "why do you need to know",
+        "thats personal", "that's personal", "private", "why does it matter",
+        "doesnt matter", "doesn't matter", "dont matter", "don't matter",
+        "not your concern", "why do you care", "im covered", "i'm covered",
+        "already told you", "i said im", "i said i'm", "already said",
+        "just leave it", "drop it", "not important", "thats not important",
+    ]
+    hard_dismissive_phrases = [
+        "stop texting", "leave me alone", "f off", "fuck off", "go away",
+        "dont text me", "don't text me", "stop messaging", "stop contacting",
+        "remove me", "unsubscribe", "take me off", "do not contact",
+        "dont call", "don't call", "never contact",
+    ]
+
+    is_soft_dismissive = any(phrase in current_lower for phrase in soft_dismissive_phrases)
+    is_hard_dismissive = any(phrase in current_lower for phrase in hard_dismissive_phrases)
+    if is_soft_dismissive:
+        soft_dismissive_count = 1
+
+    recent_agent_messages = recent_agent
+    recent_lead_messages = recent_lead
+
+    if conversation_history and len(conversation_history) > 0:
+        recent_questions = recent_agent_messages[-3:] if len(recent_agent_messages) > 3 else recent_agent_messages
+
+        all_agent_text = " ".join([msg.lower() for msg in recent_agent_messages])
+        topics_already_asked = []
+
+        if any(
+            phrase in all_agent_text
+            for phrase in [
+                "living benefits", "access funds", "access part of", "touch the money",
+                "seriously ill while alive", "sick while you", "while you're still alive",
+                "accelerated", "chronic illness", "terminal illness rider",
+            ]
+        ):
+            topics_already_asked.append("LIVING_BENEFITS")
+
+        if any(
+            phrase in all_agent_text
+            for phrase in [
+                "follow you if you", "switch jobs", "tied to your employer", "portable",
+                "retire", "leave the company", "change jobs",
+            ]
+        ):
+            topics_already_asked.append("PORTABILITY")
+
+        if any(
+            phrase in all_agent_text
+            for phrase in [
+                "how much", "coverage amount", "replace your income", "enough to cover",
+                "10x your income", "what amount",
+            ]
+        ):
+            topics_already_asked.append("AMOUNT")
+
+        if any(
+            phrase in all_agent_text
+            for phrase in [
+                "how many years", "when does it expire", "term length", "years left",
+                "renew", "rate lock",
+            ]
+        ):
+            topics_already_asked.append("TERM_LENGTH")
+
+        if any(
+            phrase in all_agent_text
+            for phrase in [
+                "who'd you go with", "who did you go with", "which company", "what company",
+                "who are you with",
+            ]
+        ):
+            topics_already_asked.append("COMPANY")
+
+        if topics_already_asked:
+            topics_warning = (
+                "\n=== TOPICS YOU ALREADY ASKED ABOUT (BLOCKED - DO NOT ASK AGAIN) ===\n"
+                + "\n".join([f"- {t}" for t in topics_already_asked])
+                + "\n"
+            )
+
+        if recent_questions:
+            questions_list = "\n".join([f"- {q.replace('You: ', '')}" for q in recent_questions])
+            questions_warning = (
+                "\n=== RECENT AGENT MESSAGES (DO NOT REPEAT THESE QUESTIONS) ===\n"
+                + questions_list
+                + "\n"
+            )
+
+        # Count soft dismissives in history (excluding last lead line to avoid double count)
+        history_lead_messages = recent_lead_messages[:-1] if recent_lead_messages else []
+        for msg in history_lead_messages:
+            msg_lower = msg.lower()
+            if any(phrase in msg_lower for phrase in soft_dismissive_phrases):
+                soft_dismissive_count += 1
+
+        rejection_phrases = [
+            "not interested", "no thanks", "no thank", "im good", "i'm good",
+            "im covered", "i'm covered", "already have", "all set", "dont need",
+            "don't need", "not looking", "not right now", "no im good", "nah",
+        ]
+        rejection_count = 0
+        for msg in recent_lead_messages:
+            msg_lower = msg.lower()
+            if any(phrase in msg_lower for phrase in rejection_phrases):
+                rejection_count += 1
+        if any(phrase in current_lower for phrase in rejection_phrases):
+            rejection_count += 1
+
+        if is_hard_dismissive:
+            exchange_warning = (
+                "\n=== CRITICAL: HARD STOP - THEY WANT NO CONTACT ===\n"
+                "Exit immediately: 'Got it. Take care.'\n"
+            )
+        elif exchange_count >= 3:
+            exchange_warning = (
+                f"\n=== CRITICAL: {exchange_count} EXCHANGES ALREADY - STOP ASKING QUESTIONS ===\n"
+                "Offer appointment times using the provided slots.\n"
+            )
+
+    # =========================================================================
+    # Prompt assembly (history_text)
+    # =========================================================================
+    intent_section = f"""
+    === CURRENT INTENT/OBJECTIVE ===
+    Intent: {intent}
+    Directive: {intent_directive}
+    ===
+    """
+
+    if conversation_history:
+        history_text = f"""
+    === CONVERSATION HISTORY (read this carefully before responding) ===
+    {chr(10).join(conversation_history)}
+    === END OF HISTORY ===
+
+    {qualification_context}
+    {intent_section}
+    {stage_directive}
+    {exchange_warning}
+    {topics_warning}
+    {questions_warning}
+    {profile_text}
+    """
+    else:
+        history_text = f"""
+    {qualification_context}
+    {intent_section}
+    {profile_text}
+    """
+
+    # =========================================================================
+    # Score the previous response (optional)
+    # =========================================================================
+    outcome_score = None
+    vibe = None
+    try:
+        outcome_score, vibe = record_lead_response(contact_id, message)
+        logger.debug(f"Recorded lead response - Vibe: {vibe.value if vibe else None}, Score: {outcome_score}")
+    except Exception as e:
+        logger.warning(f"Could not record lead response: {e}")
+
+    # =========================================================================
+    # UNIFIED BRAIN
+    # =========================================================================
+    close_templates = [
+        "I can take a look at options for you. I have [USE CALENDAR TIMES FROM CONTEXT], which works better?",
+        "Let me see what we can do. Free at 2pm today or 11am tomorrow?",
+        "Got it. I can help you find the right coverage. How's [USE CALENDAR TIMES FROM CONTEXT]?",
+        "Let me dig into this for you. What works better, 2pm today or 11am tomorrow?",
+    ]
+
+    client = get_client()
+
+    unified_brain_knowledge = get_unified_brain()
+    trigger_suggestion_for_eval = trigger_suggestion if trigger_suggestion else "No trigger matched"
+    proven_patterns_text = outcome_context if outcome_context else "No proven patterns yet"
+
+    decision_prompt = get_decision_prompt(
+        message=message,
+        context=chr(10).join(conversation_history) if conversation_history else "First message in conversation",
+        stage=stage,
+        trigger_suggestion=trigger_suggestion_for_eval,
+        proven_patterns=proven_patterns_text,
+        triggers_found=triggers_found,
+    )
+
+    base_knowledge = NEPQ_SYSTEM_PROMPT.replace("{CODE}", confirmation_code)
+
+    unified_system_prompt = f"""
+    {base_knowledge}
+
+    {unified_brain_knowledge}
+
+    ===================================================================================
+    SITUATIONAL CONTEXT
+    ===================================================================================
+    Agent name: {agent_name}
+    Lead name: {first_name}
+    Current stage: {stage}
+    Exchange count: {exchange_count}
+    Dismissive count: {soft_dismissive_count}
+    Is soft dismissive: {is_soft_dismissive}
+    Is hard dismissive: {is_hard_dismissive}
+
+    {state_instructions}
+
+    CONFIRMATION CODE (if booking): {confirmation_code}
+
+    === AVAILABLE APPOINTMENT SLOTS (USE THESE EXACT TIMES) ===
+    {real_calendar_slots}
+    NEVER make up appointment times. ONLY offer the times listed above.
+
+    ===================================================================================
+    CRITICAL RULES
+    ===================================================================================
+    1. No em dashes in responses
+    2. Keep responses 15-35 words
+    3. Only use first name every 3-4 messages
+    4. If they say stop or leave me alone, exit: "Got it. Take care."
+    5. After 3 exchanges, stop asking questions and offer appointment times
+    6. When offering appointments, ONLY use the times listed above
+
+    {decision_prompt}
+    """
+
+    max_retries = 1
+    retry_count = 0
+    correction_prompt = ""
+    reply = f"I have {real_calendar_slots}, which works better?"
+    use_model = "grok-4-1-fast-reasoning"
+
+    # Optional token stats
+    try:
+        prompt_tokens = count_tokens(unified_system_prompt) + count_tokens(history_text or "") + count_tokens(message)
+        stats = get_token_stats(
+            unified_system_prompt + (history_text or "") + message,
+            max_response_tokens=425,
+        )
+        logger.info(
+            f"TOKEN_STATS: {stats['prompt_tokens']} input + {stats['max_response_tokens']} output = "
+            f"${stats['estimated_cost_usd']:.5f}"
+        )
+    except Exception:
+        pass
+
+    unified_user_content = f"""
+    {history_text if history_text else "CONVERSATION HISTORY: First message - no history yet"}
+
+    LEAD'S MESSAGE: "{message}"
+
+    Now THINK through your decision process and respond.
+    Remember: Apply your knowledge, don't just pattern match.
+    """
+
+    while retry_count <= max_retries:
+        response = client.chat.completions.create(
+            model=use_model,
+            messages=[
+                {"role": "system", "content": unified_system_prompt},
+                {"role": "user", "content": unified_user_content + correction_prompt},
+            ],
+            max_tokens=425,
+            temperature=0.7,
+            top_p=0.95,
+        )
+
+        content = response.choices[0].message.content or ""
+
+        thinking_match = re.search(r"<thinking>(.*?)</thinking>", content, re.DOTALL)
+        if thinking_match:
+            thinking = thinking_match.group(1).strip()
+            logger.info(f"UNIFIED BRAIN REASONING:\n{thinking}")
+
+        response_match = re.search(r"<response>(.*?)</response>", content, re.DOTALL)
+        if response_match:
+            reply = response_match.group(1).strip()
+        else:
+            reply = re.sub(r"<thinking>.*?</thinking>", "", content, flags=re.DOTALL).strip()
+
+        reflection = parse_reflection(content)
+        reflection_scores = {}
+        if reflection:
+            reflection_scores = reflection.get("scores", {})
+            logger.debug(f"Self-reflection scores: {reflection_scores}")
+
+        # Remove wrapping quotes and normalize dash types
+        if reply.startswith('"') and reply.endswith('"'):
+            reply = reply[1:-1]
+        if reply.startswith("'") and reply.endswith("'"):
+            reply = reply[1:-1]
+        reply = (
+            reply.replace("—", ",")
+            .replace("--", ",")
+            .replace("–", ",")
+            .replace(" - ", ", ")
+            .replace(" -", ",")
+            .replace("- ", ", ")
+        )
+
+        is_valid, error_reason, correction_guidance = PolicyEngine.validate_response(
+            reply, conv_state, reflection_scores
+        )
+
+        if is_valid:
+            logger.debug("Policy validation passed")
+            break
+
+        if error_reason == "REPEAT_MOTIVATION_BLOCKED":
+            logger.info("Motivation repeat blocked, using backbone probe template")
+            backbone_reply = get_backbone_probe_template()
+            if backbone_reply:
+                reply = backbone_reply
+                break
+            reply = "Usually people don't look up insurance for fun. Something on your mind about it?"
+            break
+
+        retry_count += 1
+        logger.warning(f"Policy validation failed (attempt {retry_count}): {error_reason}")
+
+        if retry_count <= max_retries:
+            correction_prompt = PolicyEngine.get_regeneration_prompt(error_reason, correction_guidance)
+        else:
+            logger.warning("Max retries exceeded, falling back to playbook template")
+            scenario = match_scenario(message)
+            if scenario:
+                template_reply = get_template_response(
+                    scenario["stage"],
+                    scenario["response_key"],
+                    {"first_name": first_name},
+                )
+                if template_reply:
+                    reply = template_reply
+                    break
+            reply = f"I can help you find the right fit. How's {real_calendar_slots}?"
+            break
+
+    # =========================================================================
+    # Server-side semantic duplicate rejection
+    # =========================================================================
+    is_duplicate = False
+    duplicate_reason = None
+
+    QUESTION_THEMES = {
+        "retirement_portability": [
+            "continue after retirement", "leave your job", "retire", "portable",
+            "convert it", "goes with you", "when you leave", "portability",
+            "if you quit", "stop working", "leaving the company",
+        ],
+        "policy_type": [
+            "term or whole", "term or permanent", "what type", "kind of policy",
+            "is it term", "is it whole life", "iul", "universal life",
+        ],
+        "living_benefits": [
+            "living benefits", "accelerated death", "chronic illness",
+            "critical illness", "terminal illness", "access while alive",
+        ],
+        "coverage_goal": [
+            "what made you", "why did you", "what's the goal", "what were you",
+            "originally looking", "why coverage", "what prompted", "got you looking",
+            "what got you",
+        ],
+        "other_policies": [
+            "other policies", "any other", "additional coverage", "also have",
+            "multiple policies", "work policy", "another plan",
+        ],
+        "motivation": [
+            "what's on your mind", "what's been on", "what specifically",
+            "what are you thinking", "what concerns you",
+        ],
+    }
 
 def get_question_theme(text):
     text_lower = (text or "").lower()
@@ -3625,115 +3625,115 @@ def get_question_theme(text):
     for theme, keywords in QUESTION_THEMES.items():
         if any(kw in text_lower for kw in keywords):
             themes.append(theme)
-    return themes
+        return themes
 
-reply_themes = get_question_theme(reply)
+    reply_themes = get_question_theme(reply)
 
-# Theme duplicate check
-if recent_agent_messages and reply_themes:
-    for prev_msg in recent_agent_messages[-5:]:
-        prev_themes = get_question_theme(prev_msg)
-        shared = set(reply_themes) & set(prev_themes)
-        if shared:
-            is_duplicate = True
-            duplicate_reason = f"Theme '{list(shared)[0]}' already asked"
-            break
+    # Theme duplicate check
+    if recent_agent_messages and reply_themes:
+        for prev_msg in recent_agent_messages[-5:]:
+            prev_themes = get_question_theme(prev_msg)
+            shared = set(reply_themes) & set(prev_themes)
+            if shared:
+                is_duplicate = True
+                duplicate_reason = f"Theme '{list(shared)[0]}' already asked"
+                break
 
-# Vector similarity check
-if contact_id and not is_duplicate:
+    # Vector similarity check
+    if contact_id and not is_duplicate:
+        try:
+            is_unique, uniqueness_reason = validate_response_uniqueness(contact_id, reply, threshold=0.85)
+            if not is_unique:
+                is_duplicate = True
+                duplicate_reason = f"Vector similarity blocked: {uniqueness_reason}"
+                logger.warning(f"VECTOR_SIMILARITY_BLOCKED: {uniqueness_reason}")
+        except Exception as e:
+            logger.debug(f"Vector similarity check skipped: {e}")
+
+    # Qualification-based logical blocks
+    if contact_id and not is_duplicate:
+        try:
+            qual_state = get_qualification_state(contact_id)
+            if qual_state:
+                reply_lower = reply.lower()
+
+                if qual_state.get("is_personal_policy") or qual_state.get("is_employer_based") is False:
+                    if any(kw in reply_lower for kw in ["retirement", "retire", "leave your job", "portable", "convert"]):
+                        is_duplicate = True
+                        duplicate_reason = "Retirement question blocked - personal policy confirmed"
+
+                if qual_state.get("has_living_benefits") is not None:
+                    if "living benefits" in reply_lower:
+                        is_duplicate = True
+                        duplicate_reason = "Living benefits already known"
+
+                if qual_state.get("has_other_policies") is not None:
+                    if any(kw in reply_lower for kw in ["other policies", "any other", "additional"]):
+                        is_duplicate = True
+                        duplicate_reason = "Other policies already asked"
+        except Exception as e:
+            logger.debug(f"Qualification duplicate block check skipped: {e}")
+
+    if is_duplicate:
+        logger.warning(f"SEMANTIC DUPLICATE BLOCKED: {duplicate_reason}")
+        progression_questions = [
+            "What would make a quick review worth your time?",
+            f"I have {real_calendar_slots}, which works better?",
+            "Just want to make sure you're not overpaying. Quick 5-minute review, what time works?",
+
+        ]
+        reply = random.choice(progression_questions)
+
+    # =========================================================================
+    # STEP 5: LOG THE DECISION (CLOSE YOUR DICT PROPERLY)
+    # =========================================================================
+    decision_log = {
+        "contact_id": contact_id,
+        "client_message": (message or "")[:100],
+        "triggers_found": triggers_found,
+        "trigger_suggestion": (trigger_suggestion or "")[:50] if trigger_suggestion else None,
+        "outcome_patterns_count": len(outcome_patterns) if outcome_patterns else 0,
+        "final_reply": (reply or "")[:100],
+        "used_trigger": bool(reply == trigger_suggestion) if trigger_suggestion else False,
+        "vibe": vibe.value if vibe else None,
+        "outcome_score": outcome_score,
+    }
+
     try:
-        is_unique, uniqueness_reason = validate_response_uniqueness(contact_id, reply, threshold=0.85)
-        if not is_unique:
-            is_duplicate = True
-            duplicate_reason = f"Vector similarity blocked: {uniqueness_reason}"
-            logger.warning(f"VECTOR_SIMILARITY_BLOCKED: {uniqueness_reason}")
-    except Exception as e:
-        logger.debug(f"Vector similarity check skipped: {e}")
+        logger.info(f"DECISION_LOG: {decision_log}")
+    except Exception:
+        pass
 
-# Qualification-based logical blocks
-if contact_id and not is_duplicate:
+        return reply, confirmation_code
+
+    # Track the agent's response for outcome learning
     try:
-        qual_state = get_qualification_state(contact_id)
-        if qual_state:
-            reply_lower = reply.lower()
+        tracker_id = record_agent_message(contact_id, reply)
+        logger.info(f"STEP 5: Recorded agent message for tracking: {tracker_id}")
 
-            if qual_state.get("is_personal_policy") or qual_state.get("is_employer_based") is False:
-                if any(kw in reply_lower for kw in ["retirement", "retire", "leave your job", "portable", "convert"]):
-                    is_duplicate = True
-                    duplicate_reason = "Retirement question blocked - personal policy confirmed"
+        # === CRITICAL: Record motivation questions to prevent repeats ===
+        reply_lower = reply.lower()
+        motivation_patterns = [
+            "what got you", "what made you", "what originally", "why did you",
+            "what brought you", "what were you", "what was going on",
+            "what triggered", "what motivated", "reason you"
+        ]
+        if any(p in reply_lower for p in motivation_patterns) and "?" in reply:
+            add_to_qualification_array(contact_id, "topics_asked", "motivation")
+            logger.info("STEP 5: Recorded motivation question - will block future repeats")
 
-            if qual_state.get("has_living_benefits") is not None:
-                if "living benefits" in reply_lower:
-                    is_duplicate = True
-                    duplicate_reason = "Living benefits already known"
+        # === NLP MEMORY: Save agent message for topic extraction ===
+        save_nlp_message_text(contact_id, reply, "agent")
+        logger.debug(f"NLP: Saved agent message for contact {contact_id}")
 
-            if qual_state.get("has_other_policies") is not None:
-                if any(kw in reply_lower for kw in ["other policies", "any other", "additional"]):
-                    is_duplicate = True
-                    duplicate_reason = "Other policies already asked"
+        # If this was a good outcome (lead engaged well), save the pattern
+        if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
+            save_new_pattern(message, reply, vibe, outcome_score)
+            logger.info(f"STEP 5: Saved new winning pattern (score: {outcome_score})")
     except Exception as e:
-        logger.debug(f"Qualification duplicate block check skipped: {e}")
+        logger.warning(f"STEP 5: Could not record agent message: {e}")
 
-if is_duplicate:
-    logger.warning(f"SEMANTIC DUPLICATE BLOCKED: {duplicate_reason}")
-    progression_questions = [
-        "What would make a quick review worth your time?",
-        f"I have {real_calendar_slots}, which works better?",
-        "Just want to make sure you're not overpaying. Quick 5-minute review, what time works?",
-
-    ]
-    reply = random.choice(progression_questions)
-
-# =========================================================================
-# STEP 5: LOG THE DECISION (CLOSE YOUR DICT PROPERLY)
-# =========================================================================
-decision_log = {
-    "contact_id": contact_id,
-    "client_message": (message or "")[:100],
-    "triggers_found": triggers_found,
-    "trigger_suggestion": (trigger_suggestion or "")[:50] if trigger_suggestion else None,
-    "outcome_patterns_count": len(outcome_patterns) if outcome_patterns else 0,
-    "final_reply": (reply or "")[:100],
-    "used_trigger": bool(reply == trigger_suggestion) if trigger_suggestion else False,
-    "vibe": vibe.value if vibe else None,
-    "outcome_score": outcome_score,
-}
-
-try:
-    logger.info(f"DECISION_LOG: {decision_log}")
-except Exception:
-    pass
-
-return reply, confirmation_code
-
-# Track the agent's response for outcome learning
-try:
-    tracker_id = record_agent_message(contact_id, reply)
-    logger.info(f"STEP 5: Recorded agent message for tracking: {tracker_id}")
-
-    # === CRITICAL: Record motivation questions to prevent repeats ===
-    reply_lower = reply.lower()
-    motivation_patterns = [
-        "what got you", "what made you", "what originally", "why did you",
-        "what brought you", "what were you", "what was going on",
-        "what triggered", "what motivated", "reason you"
-    ]
-    if any(p in reply_lower for p in motivation_patterns) and "?" in reply:
-        add_to_qualification_array(contact_id, "topics_asked", "motivation")
-        logger.info("STEP 5: Recorded motivation question - will block future repeats")
-
-    # === NLP MEMORY: Save agent message for topic extraction ===
-    save_nlp_message_text(contact_id, reply, "agent")
-    logger.debug(f"NLP: Saved agent message for contact {contact_id}")
-
-    # If this was a good outcome (lead engaged well), save the pattern
-    if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
-        save_new_pattern(message, reply, vibe, outcome_score)
-        logger.info(f"STEP 5: Saved new winning pattern (score: {outcome_score})")
-except Exception as e:
-    logger.warning(f"STEP 5: Could not record agent message: {e}")
-
-return reply, confirmation_code
+    return reply, confirmation_code
 
 
 @app.route("/ghl", methods=["POST"])
@@ -3767,258 +3767,258 @@ def ghl_unified():
     5. "search" - Search contacts by phone
         Required: phone
     """
-raw_data = request.json or {}
-data = normalize_keys(raw_data)
+    raw_data = request.json or {}
+    data = normalize_keys(raw_data)
 
-# Ultimate contact_id extraction — will NEVER be None if it's a real inbound message
-contact_id = (
-    custom.get("contact_id") or                 # Custom Data (recommended)
-    data.get("contact_id") or
-    data.get("contactid") or
-    data.get("contactId") or                    # Standard GHL field
-    data.get("contact", {}).get("id") or        # Sometimes nested
-    data.get("contact", {}).get("contactId") or
-    data.get("personId") or                     # Rare alternate
-    None
-)
+    # Ultimate contact_id extraction — will NEVER be None if it's a real inbound message
+    contact_id = (
+        custom.get("contact_id") or                 # Custom Data (recommended)
+        data.get("contact_id") or
+        data.get("contactid") or
+        data.get("contactId") or                    # Standard GHL field
+        data.get("contact", {}).get("id") or        # Sometimes nested
+        data.get("contact", {}).get("contactId") or
+        data.get("personId") or                     # Rare alternate
+        None
+    )
 
-
-if not contact_id:
-    logger.error(f"CRITICAL: No contact_id found in payload! Full keys: {list(data.keys())}")
-    return jsonify({"error": "missing contact_id"}), 400
-
-logger.info(f"Processed inbound from contact_id: {contact_id}")
-
-# Extract message (string or {"body": "..."} object)
-raw_message = custom.get("message", data.get("message", data.get("body", data.get("text", ""))))
-if isinstance(raw_message, dict):
-    message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
-else:
-    message_text = raw_message
-
-message_text = str(message_text).strip()
-
-action = data.get("action", "respond")
-
-# Normalize payload as well (force=True is fine if you always get JSON)
-payload = normalize_keys(request.get_json(force=True) or {})
-custom_payload = payload.get("customdata", {}) or payload.get("customData", {}) or {}
-
-raw_message_2 = custom_payload.get("message", payload.get("message", ""))
-if isinstance(raw_message_2, dict):
-    message_text_2 = raw_message_2.get("body", "") or raw_message_2.get("text", "") or ""
-else:
-    message_text_2 = raw_message_2
-
-if not isinstance(message_text_2, str):
-    message_text_2 = ""
-
-message_text_2 = message_text_2.strip()
-
-# Prefer the payload-derived message if present, else fall back to earlier parse
-message_text = message_text_2 or message_text
-
-first_name = data.get("first_name", payload.get("first_name", ""))
-agent_name = data.get("agent_name", payload.get("agent_name", ""))
-contact_id = data.get("contact_id", payload.get("contact_id", ""))
-intent = data.get("intent", payload.get("intent", ""))
-
-api_key, location_id = get_ghl_credentials(data)
-
-safe_data = {k: v for k, v in data.items() if k not in ("ghl_api_key", "ghl_location_id")}
-logger.debug(f"GHL unified request - action: {action}, data: {safe_data}")
-
-if action == "respond":
-    contact_id = data.get("contact_id") or data.get("contactid")
-    first_name = data.get("first_name") or data.get("firstname") or data.get("name", "there")
-    agent_name = data.get("agent_name") or data.get("agentname") or data.get("rep_name") or "Mitchell"
-    message = message_text  # implicit - dont touch it
 
     if not contact_id:
-        return jsonify({"error": "contact_id required"}), 400
-    if not message:
-        message = "initial outreach - contact just entered pipeline, send first message to start conversation"
+        logger.error(f"CRITICAL: No contact_id found in payload! Full keys: {list(data.keys())}")
+        return jsonify({"error": "missing contact_id"}), 400
 
-    conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
-    logger.debug(f"Fetched {len(conversation_history)} messages from history")
+    logger.info(f"Processed inbound from contact_id: {contact_id}")
 
-    intent = extract_intent(data, message)
-    logger.debug(f"Extracted intent in /ghl respond: {intent}")
-    logger.info(f"DBUG message type: {type(message)} preview: {str(message)[:60]}")
+    # Extract message (string or {"body": "..."} object)
+    raw_message = custom.get("message", data.get("message", data.get("body", data.get("text", ""))))
+    if isinstance(raw_message, dict):
+        message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
+    else:
+        message_text = raw_message
 
-    start_time_iso, formatted_time, _ = parse_booking_time(message)
-    appointment_created = False
-    appointment_details = None
-    booking_error = None
+    message_text = str(message_text).strip()
 
-    if start_time_iso and contact_id and api_key and location_id:
-        logger.info(f"Detected booking time in /ghl respond: {formatted_time}")
-        calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
-        if calendar_id:
-            start_dt = datetime.fromisoformat(start_time_iso)
-            end_dt = start_dt + timedelta(minutes=30)
-            end_time_iso = end_dt.isoformat()
+    action = data.get("action", "respond")
 
-            appointment_result = create_ghl_appointment(
-                contact_id,
-                calendar_id,
-                start_time_iso,
-                end_time_iso,
-                api_key,
-                location_id,
-                "Life Insurance Consultation",
-            )
+    # Normalize payload as well (force=True is fine if you always get JSON)
+    payload = normalize_keys(request.get_json(force=True) or {})
+    custom_payload = payload.get("customdata", {}) or payload.get("customData", {}) or {}
 
-            if appointment_result.get("success"):
-                appointment_created = True
-                appointment_details = {"formatted_time": formatted_time}
-                # Mark appointment for outcome learning bonus
-                try:
-                    mark_appointment_booked(contact_id)
-                    logger.info(f"Marked appointment booked for outcome learning: {contact_id}")
-                except Exception as e:
-                    logger.warning(f"Could not mark appointment booked: {e}")
+    raw_message_2 = custom_payload.get("message", payload.get("message", ""))
+    if isinstance(raw_message_2, dict):
+        message_text_2 = raw_message_2.get("body", "") or raw_message_2.get("text", "") or ""
+    else:
+        message_text_2 = raw_message_2
+
+    if not isinstance(message_text_2, str):
+        message_text_2 = ""
+
+    message_text_2 = message_text_2.strip()
+
+    # Prefer the payload-derived message if present, else fall back to earlier parse
+    message_text = message_text_2 or message_text
+
+    first_name = data.get("first_name", payload.get("first_name", ""))
+    agent_name = data.get("agent_name", payload.get("agent_name", ""))
+    contact_id = data.get("contact_id", payload.get("contact_id", ""))
+    intent = data.get("intent", payload.get("intent", ""))
+
+    api_key, location_id = get_ghl_credentials(data)
+
+    safe_data = {k: v for k, v in data.items() if k not in ("ghl_api_key", "ghl_location_id")}
+    logger.debug(f"GHL unified request - action: {action}, data: {safe_data}")
+
+    if action == "respond":
+        contact_id = data.get("contact_id") or data.get("contactid")
+        first_name = data.get("first_name") or data.get("firstname") or data.get("name", "there")
+        agent_name = data.get("agent_name") or data.get("agentname") or data.get("rep_name") or "Mitchell"
+        message = message_text  # implicit - dont touch it
+
+        if not contact_id:
+            return jsonify({"error": "contact_id required"}), 400
+        if not message:
+            message = "initial outreach - contact just entered pipeline, send first message to start conversation"
+
+        conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
+        logger.debug(f"Fetched {len(conversation_history)} messages from history")
+
+        intent = extract_intent(data, message)
+        logger.debug(f"Extracted intent in /ghl respond: {intent}")
+        logger.info(f"DBUG message type: {type(message)} preview: {str(message)[:60]}")
+
+        start_time_iso, formatted_time, _ = parse_booking_time(message)
+        appointment_created = False
+        appointment_details = None
+        booking_error = None
+
+        if start_time_iso and contact_id and api_key and location_id:
+            logger.info(f"Detected booking time in /ghl respond: {formatted_time}")
+            calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
+            if calendar_id:
+                start_dt = datetime.fromisoformat(start_time_iso)
+                end_dt = start_dt + timedelta(minutes=30)
+                end_time_iso = end_dt.isoformat()
+
+                appointment_result = create_ghl_appointment(
+                    contact_id,
+                    calendar_id,
+                    start_time_iso,
+                    end_time_iso,
+                    api_key,
+                    location_id,
+                    "Life Insurance Consultation",
+                )
+
+                if appointment_result.get("success"):
+                    appointment_created = True
+                    appointment_details = {"formatted_time": formatted_time}
+                    # Mark appointment for outcome learning bonus
+                    try:
+                        mark_appointment_booked(contact_id)
+                        logger.info(f"Marked appointment booked for outcome learning: {contact_id}")
+                    except Exception as e:
+                        logger.warning(f"Could not mark appointment booked: {e}")
+                else:
+                    booking_error = appointment_result.get("error", "Appointment creation failed")
             else:
-                booking_error = appointment_result.get("error", "Appointment creation failed")
-        else:
-            booking_error = "Calendar not configured"
+                booking_error = "Calendar not configured"
 
-    try:
-        logger.info("[/ghl] Starting response generation...")
-        if appointment_created and appointment_details:
-            logger.info("[/ghl] Appointment path - generating confirmation")
-            confirmation_code = generate_confirmation_code()
-            reply = (
-                f"You're all set for {appointment_details['formatted_time']}. "
-                f"Your confirmation code is {confirmation_code}. "
-                f"Reply {confirmation_code} to confirm and I'll send you the calendar invite."
+        try:
+            logger.info("[/ghl] Starting response generation...")
+            if appointment_created and appointment_details:
+                logger.info("[/ghl] Appointment path - generating confirmation")
+                confirmation_code = generate_confirmation_code()
+                reply = (
+                    f"You're all set for {appointment_details['formatted_time']}. "
+                    f"Your confirmation code is {confirmation_code}. "
+                    f"Reply {confirmation_code} to confirm and I'll send you the calendar invite."
+                )
+                reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
+                logger.info(f"[/ghl] Appointment reply set: {reply[:50]}...")
+            else:
+                logger.info("[/ghl] Normal path - calling generate_nepq_response")
+                calendar_id_for_slots = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
+
+                # NOTE: This keeps YOUR call signature as-is; ensure your function matches it.
+                reply, confirmation_code = generate_nepq_response(
+                    first_name,
+                    message,
+                    agent_name,
+                    conversation_history,
+                    intent,
+                    contact_id,
+                    api_key,
+                    calendar_id_for_slots,
+                )
+                logger.info(f"[/ghl] generate_nepq_response returned reply: {reply[:50] if reply else 'None'}...")
+
+            logger.info(f"[/ghl] About to send SMS with reply defined: {reply is not None}")
+            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+            logger.info(f"[/ghl] SMS result: {sms_result}")
+
+            response_data = {
+                "success": True if not booking_error else False,
+                "reply": reply,
+                "contact_id": contact_id,
+                "sms_sent": sms_result.get("success", False),
+                "confirmation_code": confirmation_code,
+                "intent": intent,
+                "appointment_created": appointment_created,
+                "booking_attempted": bool(start_time_iso),
+                "booking_error": booking_error,
+                "time_detected": formatted_time,
+            }
+            if appointment_created:
+                response_data["appointment_time"] = formatted_time
+
+            if sms_result.get("success"):
+                return jsonify(response_data), (200 if not booking_error else 422)
+            else:
+                response_data["sms_error"] = sms_result.get("error")
+                return jsonify(response_data), 500
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    elif action == "appointment":
+        contact_id = data.get("contact_id") or data.get("contactId")
+        calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
+        start_time = data.get("start_time") or data.get("startTime")
+        duration_minutes = data.get("duration_minutes", 30)
+        title = data.get("title", "Life Insurance Consultation")
+
+        if not contact_id or not calendar_id or not start_time:
+            return jsonify({"error": "contact_id, calendar_id, and start_time required"}), 400
+
+        try:
+            start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            end_dt = start_dt + timedelta(minutes=duration_minutes)
+            end_time = end_dt.isoformat()
+
+            result = create_ghl_appointment(
+                contact_id, calendar_id, start_time, end_time, api_key, location_id, title
             )
-            reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
-            logger.info(f"[/ghl] Appointment reply set: {reply[:50]}...")
+
+            if result.get("success"):
+                return jsonify({"success": True, "appointment": result.get("data")})
+            else:
+                return jsonify({"success": False, "error": result.get("error", "Failed to create appointment")}), 422
+        except Exception as e:
+            logger.error(f"Error creating appointment: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    elif action == "stage":
+        opportunity_id = data.get("opportunity_id") or data.get("opportunityId")
+        contact_id = data.get("contact_id") or data.get("contactId")
+        pipeline_id = data.get("pipeline_id") or data.get("pipelineId")
+        stage_id = data.get("stage_id") or data.get("stageId")
+        name = data.get("name", "Life Insurance Lead")
+
+        if not stage_id:
+            return jsonify({"error": "stage_id required"}), 400
+
+        if opportunity_id:
+            result = update_contact_stage(opportunity_id, stage_id, api_key)
+            if result:
+                return jsonify({"success": True, "opportunity": result})
+            else:
+                return jsonify({"error": "Failed to update stage"}), 500
+        elif contact_id and pipeline_id:
+            result = create_opportunity(contact_id, pipeline_id, stage_id, api_key, location_id, name)
+            if result:
+                return jsonify({"success": True, "opportunity": result, "created": True})
+            else:
+                return jsonify({"error": "Failed to create opportunity"}), 500
         else:
-            logger.info("[/ghl] Normal path - calling generate_nepq_response")
-            calendar_id_for_slots = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
+            return jsonify({"error": "Either opportunity_id OR (contact_id and pipeline_id) required"}), 400
 
-            # NOTE: This keeps YOUR call signature as-is; ensure your function matches it.
-            reply, confirmation_code = generate_nepq_response(
-                first_name,
-                message,
-                agent_name,
-                conversation_history,
-                intent,
-                contact_id,
-                api_key,
-                calendar_id_for_slots,
-            )
-            logger.info(f"[/ghl] generate_nepq_response returned reply: {reply[:50] if reply else 'None'}...")
+    elif action == "contact":
+        contact_id = data.get("contact_id") or data.get("contactId")
+        if not contact_id:
+            return jsonify({"error": "contact_id required"}), 400
 
-        logger.info(f"[/ghl] About to send SMS with reply defined: {reply is not None}")
-        sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
-        logger.info(f"[/ghl] SMS result: {sms_result}")
-
-        response_data = {
-            "success": True if not booking_error else False,
-            "reply": reply,
-            "contact_id": contact_id,
-            "sms_sent": sms_result.get("success", False),
-            "confirmation_code": confirmation_code,
-            "intent": intent,
-            "appointment_created": appointment_created,
-            "booking_attempted": bool(start_time_iso),
-            "booking_error": booking_error,
-            "time_detected": formatted_time,
-        }
-        if appointment_created:
-            response_data["appointment_time"] = formatted_time
-
-        if sms_result.get("success"):
-            return jsonify(response_data), (200 if not booking_error else 422)
-        else:
-            response_data["sms_error"] = sms_result.get("error")
-            return jsonify(response_data), 500
-    except Exception as e:
-        logger.error(f"Error generating response: {e}")
-        return jsonify({"error": str(e)}), 500
-
-elif action == "appointment":
-    contact_id = data.get("contact_id") or data.get("contactId")
-    calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
-    start_time = data.get("start_time") or data.get("startTime")
-    duration_minutes = data.get("duration_minutes", 30)
-    title = data.get("title", "Life Insurance Consultation")
-
-    if not contact_id or not calendar_id or not start_time:
-        return jsonify({"error": "contact_id, calendar_id, and start_time required"}), 400
-
-    try:
-        start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-        end_dt = start_dt + timedelta(minutes=duration_minutes)
-        end_time = end_dt.isoformat()
-
-        result = create_ghl_appointment(
-            contact_id, calendar_id, start_time, end_time, api_key, location_id, title
-        )
-
-        if result.get("success"):
-            return jsonify({"success": True, "appointment": result.get("data")})
-        else:
-            return jsonify({"success": False, "error": result.get("error", "Failed to create appointment")}), 422
-    except Exception as e:
-        logger.error(f"Error creating appointment: {e}")
-        return jsonify({"error": str(e)}), 500
-
-elif action == "stage":
-    opportunity_id = data.get("opportunity_id") or data.get("opportunityId")
-    contact_id = data.get("contact_id") or data.get("contactId")
-    pipeline_id = data.get("pipeline_id") or data.get("pipelineId")
-    stage_id = data.get("stage_id") or data.get("stageId")
-    name = data.get("name", "Life Insurance Lead")
-
-    if not stage_id:
-        return jsonify({"error": "stage_id required"}), 400
-
-    if opportunity_id:
-        result = update_contact_stage(opportunity_id, stage_id, api_key)
+        result = get_contact_info(contact_id, api_key)
         if result:
-            return jsonify({"success": True, "opportunity": result})
+            return jsonify({"success": True, "contact": result})
         else:
-            return jsonify({"error": "Failed to update stage"}), 500
-    elif contact_id and pipeline_id:
-        result = create_opportunity(contact_id, pipeline_id, stage_id, api_key, location_id, name)
+            return jsonify({"error": "Failed to get contact"}), 500
+
+    elif action == "search":
+        phone = data.get("phone")
+        if not phone:
+            return jsonify({"error": "phone required"}), 400
+
+        result = search_contacts_by_phone(phone, api_key, location_id)
         if result:
-            return jsonify({"success": True, "opportunity": result, "created": True})
+            return jsonify({"success": True, "contacts": result})
         else:
-            return jsonify({"error": "Failed to create opportunity"}), 500
+            return jsonify({"error": "Failed to search contacts"}), 500
+
     else:
-        return jsonify({"error": "Either opportunity_id OR (contact_id and pipeline_id) required"}), 400
-
-elif action == "contact":
-    contact_id = data.get("contact_id") or data.get("contactId")
-    if not contact_id:
-        return jsonify({"error": "contact_id required"}), 400
-
-    result = get_contact_info(contact_id, api_key)
-    if result:
-        return jsonify({"success": True, "contact": result})
-    else:
-        return jsonify({"error": "Failed to get contact"}), 500
-
-elif action == "search":
-    phone = data.get("phone")
-    if not phone:
-        return jsonify({"error": "phone required"}), 400
-
-    result = search_contacts_by_phone(phone, api_key, location_id)
-    if result:
-        return jsonify({"success": True, "contacts": result})
-    else:
-        return jsonify({"error": "Failed to search contacts"}), 500
-
-else:
-    return jsonify({
-        "error": f"Unknown action {action}",
-        "Valid_actions": "respond, appointment stage, contact, search"
-    }), 400
+        return jsonify({
+            "error": f"Unknown action {action}",
+            "Valid_actions": "respond, appointment stage, contact, search"
+        }), 400
 
 
 @app.route("/grok", methods=["POST"])
@@ -4048,20 +4048,20 @@ def grok_insurance():
                 conversation_history.append(msg)
         logger.debug(f"[/grok] Using {len(conversation_history)} messages from request body")
 
-# Legacy endpoint - no GHL integration, use env vars if available
-api_key = os.environ.get("GHL_API_KEY")
-calendar_id = os.environ.get("GHL_CALENDAR_ID")
+    # Legacy endpoint - no GHL integration, use env vars if available
+    api_key = os.environ.get("GHL_API_KEY")
+    calendar_id = os.environ.get("GHL_CALENDAR_ID")
 
-reply, _ = generate_nepq_response(
-    name,
-    lead_msg,
-    agent_name,
-    conversation_history=conversation_history,
-    contact_id=contact_id,
-    api_key=api_key,
-    calendar_id=calendar_id,
-)
-return jsonify({"reply": reply})
+    reply, _ = generate_nepq_response(
+        name,
+        lead_msg,
+        agent_name,
+        conversation_history=conversation_history,
+        contact_id=contact_id,
+        api_key=api_key,
+        calendar_id=calendar_id,
+    )
+    return jsonify({"reply": reply})
 
 
 @app.route("/webhook", methods=["GET", "POST"])
