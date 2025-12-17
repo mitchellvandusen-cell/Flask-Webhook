@@ -3772,13 +3772,10 @@ def ghl_unified():
 
     # Ultimate contact_id extraction — will NEVER be None if it's a real inbound message
     contact_id = (
-        custom.get("contact_id") or                 # Custom Data (recommended)
-        data.get("contact_id") or
+        data.get("contact_id") or                 # Custom Data (recommended)
         data.get("contactid") or
         data.get("contactId") or                    # Standard GHL field
-        data.get("contact", {}).get("id") or        # Sometimes nested
-        data.get("contact", {}).get("contactId") or
-        data.get("personId") or                     # Rare alternate
+        data.get("contact", {}).get("id")
         None
     )
 
@@ -3786,7 +3783,15 @@ def ghl_unified():
     if not contact_id:
         logger.error(f"CRITICAL: No contact_id found in payload! Full keys: {list(data.keys())}")
         return jsonify({"error": "missing contact_id"}), 400
+    # Now use contact_id, plus your other custom fields:
+    first_name = data.get("first_name")
+    message_body = data.get("message")
+    agent_name = data.get("agent_name")  # "Mitchell"
+    intent = data.get("intent")          # "inbound_reply"
 
+    # ... rest of your logic here ...
+
+    
     logger.info(f"Processed inbound from contact_id: {contact_id}")
 
     # Extract message (string or {"body": "..."} object)
