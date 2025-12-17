@@ -295,6 +295,30 @@ def generate_nepq_response(
         conversation_history = []
 
     first_name = str(first_name or "there").strip()
+    # -------------------------------------------------------------------------
+    # EARLY DEFINITIONS — MUST BE BEFORE ANY USE
+    # -------------------------------------------------------------------------
+    # Safe fallback calendar slots
+    real_calendar_slots = "this week"
+
+    # Load unified brain early
+    try:
+        unified_brain_knowledge = get_unified_brain()
+    except Exception as e:
+        logger.warning(f"Failed to load unified brain knowledge: {e}")
+        unified_brain_knowledge = ""
+
+    # Optional: Only fetch real slots when ready to close
+    offer_times = False
+    if stage == "close" or detected_buying_signal:  # define after stage detection
+        offer_times = True
+        try:
+            slots = get_google_calendar_slots(timezone="America/Chicago")
+            if slots:
+                real_calendar_slots = format_slot_options(slots, timezone)
+                logger.info(f"Offering real calendar slots: {real_calendar_slots}")
+        except Exception as e:
+            logger.warning(f"Google Calendar fetch failed during close: {e}")
 
     # -------------------------------------------------------------------------
     # Intent
@@ -466,7 +490,7 @@ def generate_nepq_response(
     Agent: {agent_name}
     Lead: {first_name}
     Stage: {stage}
-    Slots: {real_calendar_slots if offer_times else "do not offer specific times yet"}
+    Slots: {real_calendar_slots if offer_times else "available this week, let me know when works"}
     {decision_prompt}
 
     CRITICAL: Only offer specific appointment times if the lead has shown clear interest (yeah, sure, let's do it, I'm in, tell me more, how much, etc.). 
