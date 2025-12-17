@@ -104,7 +104,7 @@ logger.info(f"GHL_CALENDAR_ID: {'SET (' + os.environ.get('GHL_CALENDAR_ID', '')[
 logger.info(f"XAI_API_KEY: {'SET (' + str(len(os.environ.get('XAI_API_KEY', ''))) + ' chars)' if os.environ.get('XAI_API_KEY') else 'MISSING'}")
 logger.info(f"DATABASE_URL: {'SET' if os.environ.get('DATABASE_URL') else 'MISSING'}")
 logger.info(f"SESSION_SECRET: {'SET' if os.environ.get('SESSION_SECRET') else 'MISSING'}")
-logger.info("GOOGLE_CREDENTIALS: {'SET (' + os.environ.get('GOOGLE_CREDENTIALS_JSON')[:10] + '...)' if os.environ.get('GOOGLE_CREDENTIALS_JSON') else 'MISSING'}")
+logger.info(f"GOOGLE_CREDENTIALS_JSON: {'SET (' + str(len(os.environ.get('GOOGLE_CREDENTIALS_JSON', ''))) + ' chars)' if os.environ.get('GOOGLE_CREDENTIALS_JSON') else 'MISSING'}")
 logger.info("=== END CREDENTIAL CHECK ===")
 
 # Initialize outcome learning tables on startup
