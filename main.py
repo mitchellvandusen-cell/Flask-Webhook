@@ -487,12 +487,12 @@ def generate_nepq_response(
         "motivation": ["what's on your mind", "what's been on", "what specifically", "what are you thinking", "what concerns you"],
     }
 
-    def get_question_theme(text):
-        text_lower = (text or "").lower()
-        themes = []
-        for theme, keywords in QUESTION_THEMES.items():
-            if any(kw in text_lower for kw in keywords):
-                themes.append(theme)
+def get_question_theme(text):
+    text_lower = (text or "").lower()
+    themes = []
+    for theme, keywords in QUESTION_THEMES.items():
+        if any(kw in text_lower for kw in keywords):
+            themes.append(theme)
         return themes
 
     reply_themes = get_question_theme(reply)
@@ -546,34 +546,22 @@ def generate_nepq_response(
         ]
         reply = random.choice(progression_questions)
 
-    # -------------------------------------------------------------------------
-    # OUTCOME LEARNING + RECORDING
-    # -------------------------------------------------------------------------
-    try:
-        record_agent_message(contact_id, reply)
-        reply_lower = reply.lower()
-        if re.search(r"what.*(got|made|originally|prompted|triggered|motivated)", reply_lower) and "?" in reply:
-            add_to_qualification_array(contact_id, "topics_asked", "motivation")
-        save_nlp_message_text(contact_id, reply, "agent")
+        # -------------------------------------------------------------------------
+        # OUTCOME LEARNING + RECORDING
+        # -------------------------------------------------------------------------
+        try:
+            record_agent_message(contact_id, reply)
+            reply_lower = reply.lower()
+            if re.search(r"what.*(got|made|originally|prompted|triggered|motivated)", reply_lower) and "?" in reply:
+                add_to_qualification_array(contact_id, "topics_asked", "motivation")
+            save_nlp_message_text(contact_id, reply, "agent")
 
-        outcome_score, vibe = record_lead_response(contact_id, message)
-        if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
-            save_new_pattern(message, reply, vibe, outcome_score)
-    except Exception as e:
-        logger.warning(f"Recording failed: {e}")
+            outcome_score, vibe = record_lead_response(contact_id, message)
+            if outcome_score is not None and vibe is not None and outcome_score >= 2.0:
+                save_new_pattern(message, reply, vibe, outcome_score)
+        except Exception as e:
+            logger.warning(f"Recording failed: {e}")
 
-    # -------------------------------------------------------------------------
-    # LEGACY SMS SEND (from short version)
-    # -------------------------------------------------------------------------
-    try:
-        ghl_key = os.environ.get("GHL_API_KEY")
-        location_id = os.environ.get("GHL_LOCATION_ID")
-        if ghl_key and location_id and contact_id:
-            send_sms_via_ghl(contact_id, reply, ghl_key, location_id)
-    except Exception as e:
-        logger.warning(f"Legacy SMS send failed: {e}")
-
-    return reply, confirmation_code
 
 # ============================================================================
 # CONTACT QUALIFICATION STATE - Persistent memory per contact_id
@@ -1233,7 +1221,7 @@ def extract_carrier_name(text):
     for name, keywords in carriers.items():
         if any(k in text for k in keywords):
             return name
-    return None
+    return None, True
 
 
 def already_covered_handler(contact_id, message, state, api_key=None, calendar_id=None, timezone="America/Chicago"):
