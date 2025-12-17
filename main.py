@@ -359,14 +359,20 @@ def generate_nepq_response(
         except Exception as e:
             logger.debug(f"Increment failed: {e}")
 
+# Only run already_covered_handler if message matches "already covered" patterns
+    m_lower = message.lower().strip()
+    if any(trigger in m_lower for trigger in ALREADY_HAVE_TRIGGERS):
         try:
             handler_response, should_continue = already_covered_handler(
                 contact_id, message, qualification_state, api_key, calendar_id, timezone
             )
-            if not should_continue and handler_response:
-                return handler_response, confirmation_code
+            if handler_response is not None:  # safe check
+                if not should_continue:
+                    return handler_response, confirmation_code
+                # if should_continue is True, fall through to LLM
         except Exception as e:
-            logger.debug(f"Already covered handler skipped: {e}")
+            logger.debug(f"Already covered handler error (continuing to LLM): {e}")
+    # If no "already covered" trigger, skip handler entirely — go straight to LLM
 
         try:
             qualification_context = format_qualification_for_prompt(qualification_state)
@@ -486,17 +492,17 @@ def generate_nepq_response(
     # -------------------------------------------------------------------------
     # FULL SERVER-SIDE DUPLICATE REJECTION (from long version)
     # -------------------------------------------------------------------------
-    is_duplicate = False
-    duplicate_reason = None
+is_duplicate = False
+duplicate_reason = None
 
-    QUESTION_THEMES = {
-        "retirement_portability": ["continue after retirement", "leave your job", "retire", "portable", "convert it", "goes with you", "when you leave", "portability", "if you quit", "stop working", "leaving the company"],
-        "policy_type": ["term or whole", "term or permanent", "what type", "kind of policy", "is it term", "is it whole life", "iul", "universal life"],
-        "living_benefits": ["living benefits", "accelerated death", "chronic illness", "critical illness", "terminal illness", "access while alive"],
-        "coverage_goal": ["what made you", "why did you", "what's the goal", "what were you", "originally looking", "why coverage", "what prompted", "got you looking", "what got you"],
-        "other_policies": ["other policies", "any other", "additional coverage", "also have", "multiple policies", "work policy", "another plan"],
-        "motivation": ["what's on your mind", "what's been on", "what specifically", "what are you thinking", "what concerns you"],
-    }
+QUESTION_THEMES = {
+    "retirement_portability": ["continue after retirement", "leave your job", "retire", "portable", "convert it", "goes with you", "when you leave", "portability", "if you quit", "stop working", "leaving the company"],
+    "policy_type": ["term or whole", "term or permanent", "what type", "kind of policy", "is it term", "is it whole life", "iul", "universal life"],
+    "living_benefits": ["living benefits", "accelerated death", "chronic illness", "critical illness", "terminal illness", "access while alive"],
+    "coverage_goal": ["what made you", "why did you", "what's the goal", "what were you", "originally looking", "why coverage", "what prompted", "got you looking", "what got you"],
+    "other_policies": ["other policies", "any other", "additional coverage", "also have", "multiple policies", "work policy", "another plan"],
+    "motivation": ["what's on your mind", "what's been on", "what specifically", "what are you thinking", "what concerns you"],
+}
 
 def get_question_theme(text):
     text_lower = (text or "").lower()
@@ -1622,7 +1628,7 @@ def process_message(state, contact_id, message, m):
             "has_policy": True
         })
         
-        response = None  # We'll set this based on conditions
+        response = None, True  # We'll set this based on conditions
         
         if is_employer:
             update_qualification_state(contact_id, {
