@@ -144,6 +144,7 @@ try:
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS carrier_gap_found BOOLEAN DEFAULT FALSE;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS appointment_declined BOOLEAN DEFAULT FALSE;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS waiting_for_medications BOOLEAN DEFAULT FALSE;")
+    cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS blockers TEXT[] DEFAULT ARRAY[]::TEXT[];")
 
     conn.commit()
     conn.close()
@@ -241,7 +242,7 @@ def generate_nepq_response(
     contact_id=None,
     api_key=None,
     calendar_id=None,
-    timezone="America/New_York",
+    timezone="America/Chicago",
 ):
     conversation_history = conversation_history or []
     api_key = os.environ.get("GHL_API_KEY")
@@ -1235,7 +1236,7 @@ def extract_carrier_name(text):
     return None
 
 
-def already_covered_handler(contact_id, message, state, api_key=None, calendar_id=None, timezone="America/New_York"):
+def already_covered_handler(contact_id, message, state, api_key=None, calendar_id=None, timezone="America/Chicago"):
     """
     Handle the "Already Have Coverage" objection pathway.
     This is a deterministic state machine that runs BEFORE the LLM.
@@ -1628,12 +1629,12 @@ def send_sms_via_ghl(contact_id, message, api_key, location_id):
         return {"success": False, "error": error_detail}
     
     
-def parse_booking_time(message, timezone_str="America/New_York"):
+def parse_booking_time(message, timezone_str="America/Chicago"):
     """
     Parse natural language time expressions into timezone-aware datetime.
     Returns (datetime_iso_string, formatted_time, original_text) or (None, None, None) if no time found.
 
-    timezone_str: IANA timezone name, defaults to America/New_York (Eastern Time) to match GHL behavior.
+    timezone_str: IANA timezone name, defaults to America/Chicago (Central Time) to match GHL behavior.
     """
     time_keywords = [
         'tomorrow', 'today', 'monday', 'tuesday', 'wednesday', 'thursday',
@@ -1658,7 +1659,7 @@ def parse_booking_time(message, timezone_str="America/New_York"):
     try:
         tz = ZoneInfo(timezone_str)
     except Exception:
-        tz = ZoneInfo("America/New_York")
+        tz = ZoneInfo("America/Chicago")
 
     now = datetime.now(tz)
 
