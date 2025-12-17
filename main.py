@@ -441,6 +441,39 @@ def generate_nepq_response(
         stage = "problem_awareness"
 
     # -------------------------------------------------------------------------
+    # CONDITIONAL CALENDAR SLOTS — ONLY WHEN READY TO CLOSE
+    # -------------------------------------------------------------------------
+    real_calendar_slots = "this week"  # super safe fallback — no specific times
+    offer_times = False
+
+    if stage == "close" or detected_buying_signal:
+        offer_times = True
+        try:
+            slots = get_google_calendar_slots(timezone="America/Chicago")
+            if slots:
+                real_calendar_slots = format_slot_options(slots, timezone)
+                logger.info(f"Offering real slots because ready to close: {real_calendar_slots}")
+            else:
+                real_calendar_slots = "tomorrow morning or afternoon"
+        except Exception as e:
+            logger.warning(f"Google Calendar fetch failed during close: {e}")
+            real_calendar_slots = "tomorrow"
+
+    # Pass to prompt — safe even if no slots
+    unified_system_prompt = f"""
+    {NEPQ_SYSTEM_PROMPT}
+    {unified_brain_knowledge}
+    Agent: {agent_name}
+    Lead: {first_name}
+    Stage: {stage}
+    Slots: {real_calendar_slots if offer_times else "do not offer specific times yet"}
+    {decision_prompt}
+
+    CRITICAL: Only offer specific appointment times if the lead has shown clear interest (yeah, sure, let's do it, I'm in, tell me more, how much, etc.). 
+    If they are just saying hi or asking what's going on, DO NOT offer times. Ask a discovery question instead.
+    """
+
+    # -------------------------------------------------------------------------
     # LLM CALL + RETRY + POLICY VALIDATION
     # -------------------------------------------------------------------------
     client = get_client()
@@ -2098,19 +2131,6 @@ def extract_intent(data, message=""):
 
         return normalized
 
-
-    # -------------------------------------------------------------------------
-    # STEP 0: CALENDAR SLOTS — FROM GOOGLE CALENDAR
-    # -------------------------------------------------------------------------
-    real_calendar_slots = "tonight or tomorrow morning"  # fallback
-    try:
-        slots = get_google_calendar_slots(timezone="America/Chicago")  # your new function
-        if slots:
-            real_calendar_slots = format_slot_options(slots, timezone)
-            logger.info(f"STEP 0: Fetched {len(slots)} real slots from Google Calendar: {real_calendar_slots}")
-    except Exception as e:
-        logger.warning(f"Google Calendar fetch failed: {e} — using fallback")
-
     # =========================================================================
     # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
     # =========================================================================
@@ -2873,7 +2893,7 @@ def extract_intent(data, message=""):
     max_retries = 1  # Reduced from 2 for faster response
     retry_count = 0
     correction_prompt = ""
-    reply = f"I have {real_calendar_slots}, which works better?"  # Default fallback with real times
+    reply = "how's everything going on your end?"  # safe default  # Default fallback with real times
 
     # Use grok-4-1-fast-reasoning for everything (cheap and capable)
     use_model = "grok-4-1-fast-reasoning"
