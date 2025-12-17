@@ -1088,8 +1088,10 @@ if state.get("waiting_for_medications"):
 
 	appt_time = state.get("appointment_time", "our call")
 	if meds == "None reported":
-		return (f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}."
-		"Calendar invite coming your way. Talk soon!"), False
+		return (
+            f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}."
+            "Calendar invite coming your way. Talk soon!"
+        ), False
 	else:
 		return (
 			f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
