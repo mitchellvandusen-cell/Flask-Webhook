@@ -243,6 +243,8 @@ def generate_nepq_response(
     calendar_id=None,
     timezone="America/New_York",
 ):
+    api_key = os.environ.get("GHL_API_KEY")
+    calendar_id = os.environ.get("GHL_CALENDAR_ID")
     """
     Best-of-both merged version:
     - Original signature (first_name first) → full backward compatibility
@@ -1737,10 +1739,11 @@ def get_available_slots(calendar_id, api_key, timezone="America/Chicago", days_a
     url = f"https://api.leadconnectorhq.com/widget/booking/{calendar_id}/availability"
 
     params = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "timezone": timezone
+        "startDate": start_date,
+        "endDate": end_date,
+        "timeZone": timezone
     }
+    
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -3363,49 +3366,6 @@ def ghl_unified():
             "error": f"Unknown action {action}",
             "Valid_actions": "respond, appointment stage, contact, search"
         }), 400
-
-
-@app.route("/grok", methods=["POST"])
-def grok_insurance():
-    """Legacy endpoint - generates NEPQ response without GHL integration"""
-    data = request.json or {}
-    name = data.get("firstName") or data.get("first_name", "there")
-    lead_msg = data.get("message", "")
-    agent_name = data.get("agent_name") or data.get("rep_name") or "Mitchell"
-    contact_id = data.get("contact_id") or data.get("contactId")  # Support qualification memory
-
-    if not lead_msg:
-        lead_msg = "initial outreach - contact just entered pipeline, send first message to start conversation"
-
-        # Parse conversation history from request
-        raw_history = data.get("conversationHistory", [])
-        conversation_history = []
-    if raw_history:
-        for msg in raw_history:
-            if isinstance(msg, dict):
-                direction = msg.get("message", "outbound")
-                body = msg.get("body", "")
-                if body:
-                    role = "Lead" if direction.lower() == "inbound" else "You"
-                    conversation_history.append(f"{role}: {body}")
-            elif isinstance(msg, str):
-                conversation_history.append(msg)
-        logger.debug(f"[/grok] Using {len(conversation_history)} messages from request body")
-
-    # Legacy endpoint - no GHL integration, use env vars if available
-    api_key = os.environ.get("GHL_API_KEY")
-    calendar_id = os.environ.get("GHL_CALENDAR_ID")
-
-    reply, _ = generate_nepq_response(
-        name,
-        lead_msg,
-        agent_name,
-        conversation_history=conversation_history,
-        contact_id=contact_id,
-        api_key=api_key,
-        calendar_id=calendar_id,
-    )
-    return jsonify({"reply": reply})
 
 @app.route("/health", methods=["GET", "POST"])
 def health_check():
