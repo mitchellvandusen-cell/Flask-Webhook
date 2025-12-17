@@ -1067,7 +1067,8 @@ def build_appointment_offer(prefix="I have some time"):
     slot_text, has_slots = get_slot_text()
     if has_slots and slot_text:
         return f"{prefix} {slot_text}"
-    return "When are you usually free for a quick call"
+	else:
+    	return "When are you usually free for a quick call"
 
 # ========== STEP 5: They answered medication question ==========
 if state.get("waiting_for_medications"):
@@ -1090,8 +1091,9 @@ if state.get("waiting_for_medications"):
 		return (f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}."
 		"Calendar invite coming your way. Talk soon!"), False
 	else:
-		return (f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
-		"Calendar invite coming in a few minutes. Talk soon!"
+		return (
+			f"Got it, thank you! I'll have everything pulled and priced out before {appt_time}. "
+			"Calendar invite coming in a few minutes. Talk soon!"
 		), False
 
 # ========== STEP 4a: Check for REJECTION of appointment offer FIRST ==========
