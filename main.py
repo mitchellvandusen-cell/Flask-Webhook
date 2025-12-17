@@ -17,6 +17,7 @@ import json
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from openai import OpenAI
+from googleapiclient.discovery import build
 
 # Three-layer conversation architecture
 from conversation_engine import (
