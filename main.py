@@ -1084,8 +1084,8 @@ def process_message(state, contact_id, message, m):
         if re.search(
     		r'^(none?|no|nada|nothing|nope|not taking any|clean bill)$', 
     		m
-    	) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
-    		meds = "None reported"
+        ) or re.search(r'\bno\s*(meds|medications?|pills)\b', m):
+            meds = "None reported"
         else:
     		meds = message.strip()
     	
@@ -1094,9 +1094,9 @@ def process_message(state, contact_id, message, m):
     		"waiting_for_medications": False
     	})
     
-    	appt_time = state.get("appointment_time", "our call")
+        appt_time = state.get("appointment_time", "our call")
         if meds == "None reported":
-    		return (
+            return (
                 f"Perfect, clean health means best rates. I'll have everything ready for {appt_time}."
                 "Calendar invite coming your way. Talk soon!"
             ), False
