@@ -245,7 +245,7 @@ def generate_nepq_response(
     timezone="America/Chicago",
 ):
     conversation_history = conversation_history or []
-    api_key = os.environ.get("GHL_API_KEY")
+    api_key = api_key if api_key is not None else os.environ.get("GHL_API_KEY") or ""
     calendar_id = os.environ.get("GHL_CALENDAR_ID")
     """
     Best-of-both merged version:
@@ -1252,8 +1252,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
         return None, True
 
     m = message.lower().strip()
-
-
+    return None, True
 
 # Helper for slot text - returns (slot_text, has_real_slots)
 def get_slot_text():
