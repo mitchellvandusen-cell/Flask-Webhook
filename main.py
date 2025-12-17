@@ -3768,7 +3768,7 @@ def ghl_unified():
         Required: phone
     """
      # Extract message (string or {"body": "..."} object)
-    raw_message = data.get("message", data.get("body", data.get("text", ""))))
+    raw_message = data.get("message", data.get("body", data.get("text", "")))
     if isinstance(raw_message, dict):
         message_text = raw_message.get("body", "") or raw_message.get("text", "") or ""
     else:
