@@ -1067,7 +1067,7 @@ def build_appointment_offer(prefix="I have some time"):
     slot_text, has_slots = get_slot_text()
     if has_slots and slot_text:
         return f"{prefix} {slot_text}"
-	else:
+    else:
     	return "When are you usually free for a quick call"
 
 # ========== STEP 5: They answered medication question ==========
