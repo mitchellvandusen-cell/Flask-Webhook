@@ -297,6 +297,18 @@ def generate_nepq_response(
     first_name = str(first_name or "there").strip()
 
     # -------------------------------------------------------------------------
+    # STEP 0: CALENDAR SLOTS — FROM GOOGLE CALENDAR
+    # -------------------------------------------------------------------------
+    real_calendar_slots = "tonight or tomorrow morning"  # fallback
+    try:
+        slots = get_google_calendar_slots(timezone="America/Chicago")
+        if slots:
+            real_calendar_slots = format_slot_options(slots, timezone)
+            logger.info(f"STEP 0: Fetched {len(slots)} real slots from Google Calendar: {real_calendar_slots}")
+    except Exception as e:
+        logger.warning(f"Google Calendar fetch failed: {e} — using fallback")
+
+    # -------------------------------------------------------------------------
     # Intent
     # -------------------------------------------------------------------------
     if intent == "general":
@@ -1346,7 +1358,7 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
     """
     if not contact_id or not state:
         m = message.lower().strip()
-        return None, True
+     
 
 # Helper to build appointment offer with real or fallback language
 def build_appointment_offer(prefix="I have some time"):
