@@ -307,7 +307,7 @@ def generate_nepq_response(
     # STEP 2-4: TRIGGERS & BYPASS
     # -------------------------------------------------------------------------
     triggers_found = identify_triggers(message)
-    trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
+    trigger_suggestion, trigger_code = force_response(message, ghl_api_key, calendar_id, timezone)
 
     if trigger_code == "TRIG" and trigger_suggestion:
         m_lower = message.lower().strip()
@@ -364,7 +364,7 @@ def generate_nepq_response(
     if any(trigger in m_lower for trigger in ALREADY_HAVE_TRIGGERS):
         try:
             handler_response, should_continue = already_covered_handler(
-                contact_id, message, qualification_state, api_key, calendar_id, timezone
+                contact_id, message, qualification_state, ghl_api_key, calendar_id, timezone
             )
             if handler_response is not None:  # safe check
                 if not should_continue:
@@ -1377,7 +1377,7 @@ def format_slot_options(slots, timezone):
     return ", ".join(times) + " — which works better?"
 
 
-def already_covered_handler(contact_id, message, state, api_key=None, calendar_id=None, timezone="America/Chicago"):
+def already_covered_handler(contact_id, message, state, ghl_api_key=None, calendar_id=None, timezone="America/Chicago"):
     """
     Handle the "Already Have Coverage" objection pathway.
     This is a deterministic state machine that runs BEFORE the LLM.
@@ -1706,25 +1706,25 @@ def get_ghl_credentials(data=None):
     if data is None:
         data = {}
 
-    api_key = data.get('ghl_api_key') or os.environ.get("GHL_API_KEY")
+    ghl_api_key = data.get('ghl_api_key') or os.environ.get("GHL_API_KEY")
     location_id = data.get('ghl_location_id') or os.environ.get("GHL_LOCATION_ID")
-    return api_key, location_id
+    return ghl_api_key, location_id
 
-def get_ghl_headers(api_key):
+def get_ghl_headers(ghl_api_key):
     return {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {ghl_api_key}",
         "Version": "2021-07-28",
         "Content-Type": "application/json"
 }
 
-def send_sms_via_ghl(contact_id, message, api_key, location_id):
+def send_sms_via_ghl(contact_id, message, ghl_api_key, location_id):
     if not contact_id:
         logger.error("Cannot send SMS: contact_id is missing")
         return False
 
     url = f"https://services.leadconnectorhq.com/conversations/messages"
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {ghl_api_key}",
         "Content-Type": "application/json",
         "Version": "2021-04-15"
     }
@@ -1874,9 +1874,9 @@ detected_buying_signal = False
 problem_revealed = False
 outcome_context = ""
 
-def get_conversation_history(contact_id, api_key, location_id, limit=10):
+def get_conversation_history(contact_id, ghl_api_key, location_id, limit=10):
     """Get recent conversation messages for a contact from GoHighLevel"""
-    if not api_key or not location_id or not contact_id:
+    if not ghl_api_key or not location_id or not contact_id:
         logger.error("Missing credentials for conversation history")
         return []
 
@@ -1887,7 +1887,7 @@ def get_conversation_history(contact_id, api_key, location_id, limit=10):
     }
 
     try:
-        response = requests.post(url, headers=get_ghl_headers(api_key), json=payload)
+        response = requests.post(url, headers=get_ghl_headers(ghl_api_key), json=payload)
         response.raise_for_status()
         data = response.json()
         conversations = data.get('conversations', [])
@@ -1900,7 +1900,7 @@ def get_conversation_history(contact_id, api_key, location_id, limit=10):
             return []
     
         msg_url = f"{GHL_BASE_URL}/conversations/{conversation_id}/messages"
-        msg_response = requests.get(msg_url, headers=get_ghl_headers(api_key))
+        msg_response = requests.get(msg_url, headers=get_ghl_headers(ghl_api_key))
         msg_response.raise_for_status()
         msg_data = msg_response.json()
     
@@ -2149,7 +2149,7 @@ def extract_intent(data, message=""):
     message = message.strip()
 
     triggers_found = identify_triggers(message)
-    trigger_suggestion, trigger_code = force_response(message, api_key, calendar_id, timezone)
+    trigger_suggestion, trigger_code = force_response(message, ghl_api_key, calendar_id, timezone)
     logger.info(f"STEP 2: Triggers found: {triggers_found}, Suggestion: {trigger_suggestion[:50] if trigger_suggestion else 'None'}...")
     logger.info(f"STEP 2: message type after normalize: {type(message)}")
 
@@ -2249,7 +2249,7 @@ def extract_intent(data, message=""):
         # This runs BEFORE LLM to handle the common "already have coverage" pathway
         handler_response, should_continue = already_covered_handler(
             contact_id, message, qualification_state, 
-            api_key, calendar_id, timezone
+            ghl_api_key, calendar_id, timezone
         )
         if not should_continue and handler_response:
             logger.info(f"ALREADY_COVERED_HANDLER: Returning deterministic response")
@@ -3223,7 +3223,7 @@ def ghl_unified():
     contact_id = data.get("contact_id", payload.get("contact_id", ""))
     intent = data.get("intent", payload.get("intent", ""))
 
-    api_key, location_id = get_ghl_credentials(data)
+    ghl_api_key, location_id = get_ghl_credentials(data)
 
     safe_data = {k: v for k, v in data.items() if k not in ("ghl_api_key", "ghl_location_id")}
     logger.debug(f"GHL unified request - action: {action}, data: {safe_data}")
@@ -3239,7 +3239,7 @@ def ghl_unified():
         if not message:
             message = "initial outreach - contact just entered pipeline, send first message to start conversation"
 
-        conversation_history = get_conversation_history(contact_id, api_key, location_id, limit=10)
+        conversation_history = get_conversation_history(contact_id, ghl_api_key, location_id, limit=10)
         logger.debug(f"Fetched {len(conversation_history)} messages from history")
 
         intent = extract_intent(data, message)
@@ -3262,7 +3262,7 @@ def ghl_unified():
                 conversation_history,
                 intent,
                 contact_id,
-                api_key,  # still needed for SMS
+                ghl_api_key,  # still needed for SMS
                 None,     # no calendar_id needed anymore
             )
 
@@ -3287,7 +3287,7 @@ def ghl_unified():
                     reply = "That time didn't work — let me find another option for you."
 
             logger.info(f"[/ghl] Final reply: {reply[:50]}...")
-            sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
+            sms_result = send_sms_via_ghl(contact_id, reply, ghl_api_key, location_id)
             logger.info(f"[/ghl] SMS result: {sms_result}")
 
             response_data = {
@@ -3308,21 +3308,20 @@ def ghl_unified():
 
     elif action == "appointment":
         contact_id = data.get("contact_id") or data.get("contactId")
-        calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
+        calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GOOGLE_CREDENTIALS_JSON")
         start_time = data.get("start_time") or data.get("startTime")
         duration_minutes = data.get("duration_minutes", 30)
         title = data.get("title", "Life Insurance Consultation")
-
-        if not contact_id or not calendar_id or not start_time:
-            return jsonify({"error": "contact_id, calendar_id, and start_time required"}), 400
-
         try:
-            start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            start_dt = datetime.fromisoformat(start_time_iso.replace("Z", "+00:00"))
             end_dt = start_dt + timedelta(minutes=duration_minutes)
-            end_time = end_dt.isoformat()
+            end_time_iso = end_dt.isoformat()
 
-            result = create_ghl_appointment(
-                contact_id, calendar_id, start_time, end_time, api_key, location_id, title
+            result = create_google_appointment(
+                contact_id=contact_id,
+                start_time_iso=start_time_iso,
+                duration_minutes=duration_minutes,
+                title=title
             )
 
             if result.get("success"):
@@ -3344,13 +3343,13 @@ def ghl_unified():
             return jsonify({"error": "stage_id required"}), 400
 
         if opportunity_id:
-            result = update_contact_stage(opportunity_id, stage_id, api_key)
+            result = update_contact_stage(opportunity_id, stage_id, ghl_api_key)
             if result:
                 return jsonify({"success": True, "opportunity": result})
             else:
                 return jsonify({"error": "Failed to update stage"}), 500
         elif contact_id and pipeline_id:
-            result = create_opportunity(contact_id, pipeline_id, stage_id, api_key, location_id, name)
+            result = create_opportunity(contact_id, pipeline_id, stage_id, ghl_api_key, location_id, name)
             if result:
                 return jsonify({"success": True, "opportunity": result, "created": True})
             else:
@@ -3363,7 +3362,7 @@ def ghl_unified():
         if not contact_id:
             return jsonify({"error": "contact_id required"}), 400
 
-        result = get_contact_info(contact_id, api_key)
+        result = get_contact_info(contact_id, ghl_api_key)
         if result:
             return jsonify({"success": True, "contact": result})
         else:
@@ -3374,7 +3373,7 @@ def ghl_unified():
         if not phone:
             return jsonify({"error": "phone required"}), 400
 
-        result = search_contacts_by_phone(phone, api_key, location_id)
+        result = search_contacts_by_phone(phone, ghl_api_key, location_id)
         if result:
             return jsonify({"success": True, "contacts": result})
         else:
