@@ -3616,50 +3616,15 @@ def training_stats():
 @app.route('/', defaults={'path': ''}, methods=["GET", "POST"])
 @app.route('/<path:path>', methods=["GET", "POST"])
 def catch_all(path):
-    """
-    Forward everything to /ghl
-    - Keeps old webhook URLs working
-    - Health checks on root
-    - All POSTs treated as GHL webhook with action=respond
-    """
     if request.method == "GET":
-        # Simple health check on root or any path
         return jsonify({
             "status": "healthy",
             "service": "Insurance Grok Bot",
-            "canonical_url": "https://insurancegrokbot.click/ghl",
-            "tip": "Use /ghl for webhooks"
+            "use": "POST to /ghl with action=respond"
         })
 
-    # For POST requests (actual webhooks)
-    try:
-        payload = request.get_json(force=True) or {}
-    except:
-        payload = {}
-
-    # Ensure it's treated as a respond action if not specified
-    if "action" not in payload:
-        payload["action"] = "respond"
-
-    # Forward to your unified handler
-    # We temporarily override request data so ghl_unified sees the payload
-    from flask import Request
-    class WrappedRequest(Request):
-        @property
-        def json(self):
-            return payload
-
-    old_request = request
-    request = WrappedRequest(request.environ)
-    request._cached_json = (payload, "application/json")
-
-    # Call your main handler
-    response = ghl_unified()
-
-    # Restore original request if needed (not strictly necessary)
-    request = old_request
-
-    return response
+    # All POSTs go to /ghl — just redirect internally
+    return ghl_unified()
     
     
 if __name__ == "__main__":
