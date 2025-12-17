@@ -264,12 +264,12 @@ def generate_nepq_response(
     conversation_history=None,
     intent="general",
     contact_id=None,
-    api_key=None,
+    ghl_api_key_param=None,
     calendar_id=None,
     timezone="America/Chicago",
 ):
     conversation_history = conversation_history or []
-    api_key = api_key if api_key is not None else os.environ.get("GHL_API_KEY") or ""
+    ghl_api_key = ghl_api_key_param or os.environ.get("GHL_API_KEY") or ""
     calendar_id = os.environ.get("GOOGLE_CREDENTIALS_JSON")
     """
     Best-of-both merged version:
