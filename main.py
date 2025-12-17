@@ -63,6 +63,27 @@ from token_optimizer import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET")
 
+from google.oauth2 import service_account
+
+# Load from env var
+credentials_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+
+if not credentials_json:
+    raise ValueError("GOOGLE_CREDENTIALS_JSON env var not set")
+
+# Parse the JSON string
+credentials_info = json.loads(credentials_json)
+
+# Fix private_key newlines (important!)
+if "private_key" in credentials_info:
+    credentials_info["private_key"] = credentials_info["private_key"].replace("\\n", "\n")
+
+credentials = service_account.Credentials.from_service_account_info(
+    credentials_info,
+    scopes=['https://www.googleapis.com/auth/calendar.readonly']
+)
+
+service = build('calendar', 'v3', credentials=credentials)
 # Startup env check
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -81,6 +102,7 @@ logger.info(f"GHL_CALENDAR_ID: {'SET (' + os.environ.get('GHL_CALENDAR_ID', '')[
 logger.info(f"XAI_API_KEY: {'SET (' + str(len(os.environ.get('XAI_API_KEY', ''))) + ' chars)' if os.environ.get('XAI_API_KEY') else 'MISSING'}")
 logger.info(f"DATABASE_URL: {'SET' if os.environ.get('DATABASE_URL') else 'MISSING'}")
 logger.info(f"SESSION_SECRET: {'SET' if os.environ.get('SESSION_SECRET') else 'MISSING'}")
+logger.info("GOOGLE_CREDENTIALS: {'SET (' + os.environ.get('GOOGLE_CREDENTIALS_JSON')[:10] + '...)' if os.environ.get('GOOGLE_CREDENTIALS_JSON') else 'MISSING'}")
 logger.info("=== END CREDENTIAL CHECK ===")
 
 # Initialize outcome learning tables on startup
@@ -246,7 +268,7 @@ def generate_nepq_response(
 ):
     conversation_history = conversation_history or []
     api_key = api_key if api_key is not None else os.environ.get("GHL_API_KEY") or ""
-    calendar_id = os.environ.get("GHL_CALENDAR_ID")
+    calendar_id = os.environ.get("GOOGLE_CREDENTIALS_JSON")
     """
     Best-of-both merged version:
     - Original signature (first_name first) → full backward compatibility
@@ -278,7 +300,7 @@ def generate_nepq_response(
     real_calendar_slots = "tonight or tomorrow morning"
     if api_key and calendar_id:
         try:
-            slots = get_available_slots(calendar_id, api_key, timezone)
+            slots = get_available_slots(calendar_id, timezone)
             if slots:
                 real_calendar_slots = format_slot_options(slots, timezone) or real_calendar_slots
                 logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
@@ -692,6 +714,103 @@ def add_to_qualification_array(contact_id, field, value):
     finally:
         if conn:
             conn.close()
+
+def get_google_calendar_slots(timezone="America/Chicago", days_ahead=3):
+    """Fetch real free slots from your Google Calendar."""
+    try:
+        credentials_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if not credentials_json:
+            logger.warning("GOOGLE_CREDENTIALS_JSON not set")
+            return []
+
+        credentials_info = json.loads(credentials_json)
+        if "private_key" in credentials_info:
+            credentials_info["private_key"] = credentials_info["private_key"].replace("\\n", "\n")
+
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_info,
+            scopes=['https://www.googleapis.com/auth/calendar.readonly']
+        )
+        service = build('calendar', 'v3', credentials=credentials)
+
+        # Use 'primary' or your specific calendar ID
+        calendar_id = 'primary'  # or 'your-email@gmail.com'
+
+        now = datetime.now(ZoneInfo(timezone))
+        time_min = now.isoformat()
+        time_max = (now + timedelta(days=days_ahead)).isoformat()
+
+        events_result = service.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        events = events_result.get('items', [])
+
+        # Simple free slot logic — find gaps between events
+        free_slots = []
+        current_time = now.replace(minute=0, second=0, microsecond=0)
+        end_of_day = (now + timedelta(days=days_ahead)).replace(hour=23, minute=59)
+
+        for event in events:
+            start = datetime.fromisoformat(event['start'].get('dateTime', event['start'].get('date')))
+            end = datetime.fromisoformat(event['end'].get('dateTime', event['end'].get('date')))
+            if start > current_time:
+                # Add free slot before event if >30 min
+                if (start - current_time).total_seconds() >= 1800:
+                    slot_time = current_time + timedelta(minutes=30)  # suggest 30 min into free block
+                    free_slots.append({
+                        "formatted": slot_time.strftime("%I:%M %p on %A").lstrip("0").replace(" 0", " "),
+                        "time": slot_time.strftime("%I:%M %p").lstrip("0").replace(" 0", " "),
+                        "day": slot_time.strftime("%A"),
+                        "iso": slot_time.isoformat()
+                    })
+            current_time = max(current_time, end)
+
+        logger.info(f"Fetched {len(free_slots)} free slots from Google Calendar")
+        return free_slots[:6]  # limit to 6 suggestions
+
+    except Exception as e:
+        logger.error(f"Google Calendar read failed: {e}")
+        return []
+
+def create_google_appointment(contact_id, start_time_iso, duration_minutes=30, title="Life Insurance Consultation"):
+    try:
+        credentials_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if not credentials_json:
+            return {"success": False, "error": "Credentials missing"}
+
+        credentials_info = json.loads(credentials_json)
+        if "private_key" in credentials_info:
+            credentials_info["private_key"] = credentials_info["private_key"].replace("\\n", "\n")
+
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_info,
+            scopes=['https://www.googleapis.com/auth/calendar']
+        )
+        service = build('calendar', 'v3', credentials=credentials)
+
+        calendar_id = 'primary'  # or your email
+
+        start_dt = datetime.fromisoformat(start_time_iso.replace("Z", "+00:00"))
+        end_dt = start_dt + timedelta(minutes=duration_minutes)
+
+        event = {
+            'summary': title,
+            'description': f"SMS appointment with contact {contact_id}",
+            'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'America/Chicago'},
+            'end': {'dateTime': end_dt.isoformat(), 'timeZone': 'America/Chicago'},
+        }
+
+        created = service.events().insert(calendarId=calendar_id, body=event).execute()
+        logger.info(f"Booked in Google Calendar: {created.get('htmlLink')}")
+        return {"success": True, "data": created}
+
+    except Exception as e:
+        logger.error(f"Google booking failed: {e}")
+        return {"success": False, "error": str(e)}
 
 def extract_and_update_qualification(contact_id, message, conversation_history=None):
     """
@@ -1242,16 +1361,6 @@ def already_covered_handler(contact_id, message, state, api_key=None, calendar_i
     m = message.lower().strip()
     return None, True
 
-# Helper for slot text - returns (slot_text, has_real_slots)
-def get_slot_text():
-    if api_key and calendar_id:
-        slots = get_available_slots(calendar_id, api_key, timezone)
-        if slots:
-            formatted = format_slot_options(slots, timezone)
-            if formatted:
-                return formatted, True
-    return None, False
-
 # Helper to build appointment offer with real or fallback language
 def build_appointment_offer(prefix="I have some time"):
     slot_text, has_slots = get_slot_text()
@@ -1715,64 +1824,6 @@ def parse_booking_time(message, timezone_str="America/Chicago"):
 
     return None, None, None
 
-def get_available_slots(calendar_id, api_key, timezone="America/Chicago", days_ahead=3):
-    if not calendar_id or not api_key:
-        logger.warning("Missing calendar_id or api_key")
-        return []
-
-    tz = ZoneInfo(timezone)
-    start_date = datetime.now(tz).strftime("%Y-%m-%d")
-    end_date = (datetime.now(tz) + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-
-    # Correct endpoint for your calendar type
-    url = f"https://api.leadconnectorhq.com/widget/booking/{calendar_id}/availability"
-
-    params = {
-        "startDate": start_date,
-        "endDate": end_date,
-        "timeZone": timezone
-    }
-    
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28"
-    }
-
-    try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code != 200:
-            logger.warning(f"GHL widget API error {response.status_code}: {response.text}")
-            return []
-
-        data = response.json()
-        slots = data.get("available_slots", [])[:6]
-
-        formatted_slots = []
-        for slot in slots:
-            start_str = slot.get("start_time")
-            if not start_str:
-                continue
-            try:
-                dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                local_dt = dt.astimezone(tz)
-                formatted_slots.append({
-                    "iso": start_str,
-                    "formatted": local_dt.strftime("%I:%M %p on %A").lstrip("0").replace(" 0", " "),
-                    "day": local_dt.strftime("%A"),
-                    "time": local_dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-                })
-            except Exception as e:
-                logger.debug(f"Parse error: {e}")
-                continue
-
-        logger.info(f"Fetched {len(formatted_slots)} slots: {[s['time'] + ' on ' + s['day'] for s in formatted_slots]}")
-        return formatted_slots
-
-    except Exception as e:
-        logger.error(f"Calendar fetch failed: {e}")
-        return []
-
 def extract_lead_profile(conversation_history, first_name, message):
     """Safe fallback until you add real extraction logic"""
     return {
@@ -2049,23 +2100,17 @@ def extract_intent(data, message=""):
         return normalized
 
 
-    # =============================================================
-    # STEP 0: FETCH REAL CALENDAR SLOTS (always available for closing)
-    # =============================================================
-    real_calendar_slots = None
-
-    if api_key and calendar_id:
-        try:
-            slots = get_available_slots(calendar_id, api_key, timezone)
-            if slots:
-                real_calendar_slots = format_slot_options(slots, timezone)
-                logger.info(f"STEP 0: Fetched real calendar slots: {real_calendar_slots}")
-        except Exception as e:
-            logger.warning(f"STEP 0: Could not fetch calendar slots: {e}")
-
-    if not real_calendar_slots:
-        real_calendar_slots = "tonight or tomorrow morning"  # Vague fallback, not fake specific times
-        logger.info("STEP 0: Using vague time fallback (no specific times)")
+    # -------------------------------------------------------------------------
+    # STEP 0: CALENDAR SLOTS — FROM GOOGLE CALENDAR
+    # -------------------------------------------------------------------------
+    real_calendar_slots = "tonight or tomorrow morning"  # fallback
+    try:
+        slots = get_google_calendar_slots(timezone="America/Chicago")  # your new function
+        if slots:
+            real_calendar_slots = format_slot_options(slots, timezone)
+            logger.info(f"STEP 0: Fetched {len(slots)} real slots from Google Calendar: {real_calendar_slots}")
+    except Exception as e:
+        logger.warning(f"Google Calendar fetch failed: {e} — using fallback")
 
     # =========================================================================
     # STEP 1: KNOWLEDGE IS IN UNIFIED BRAIN (loaded via get_unified_brain)
@@ -3187,91 +3232,57 @@ def ghl_unified():
         appointment_details = None
         booking_error = None
 
-        if start_time_iso and contact_id and api_key and location_id:
-            logger.info(f"Detected booking time in /ghl respond: {formatted_time}")
-            calendar_id = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
-            if calendar_id:
-                start_dt = datetime.fromisoformat(start_time_iso)
-                end_dt = start_dt + timedelta(minutes=30)
-                end_time_iso = end_dt.isoformat()
-
-                appointment_result = create_ghl_appointment(
-                    contact_id,
-                    calendar_id,
-                    start_time_iso,
-                    end_time_iso,
-                    api_key,
-                    location_id,
-                    "Life Insurance Consultation",
-                )
-
-                if appointment_result.get("success"):
-                    appointment_created = True
-                    appointment_details = {"formatted_time": formatted_time}
-                    # Mark appointment for outcome learning bonus
-                    try:
-                        mark_appointment_booked(contact_id)
-                        logger.info(f"Marked appointment booked for outcome learning: {contact_id}")
-                    except Exception as e:
-                        logger.warning(f"Could not mark appointment booked: {e}")
-                else:
-                    booking_error = appointment_result.get("error", "Appointment creation failed")
-            else:
-                booking_error = "Calendar not configured"
-
         try:
             logger.info("[/ghl] Starting response generation...")
-            if appointment_created and appointment_details:
-                logger.info("[/ghl] Appointment path - generating confirmation")
-                confirmation_code = generate_confirmation_code()
-                reply = (
-                    f"You're all set for {appointment_details['formatted_time']}. "
-                    f"Your confirmation code is {confirmation_code}. "
-                    f"Reply {confirmation_code} to confirm and I'll send you the calendar invite."
-                )
-                reply = reply.replace("—", ",").replace("--", ",").replace("–", ",").replace(" - ", ", ")
-                logger.info(f"[/ghl] Appointment reply set: {reply[:50]}...")
-            else:
-                logger.info("[/ghl] Normal path - calling generate_nepq_response")
-                calendar_id_for_slots = data.get("calendar_id") or data.get("calendarid") or os.environ.get("GHL_CALENDAR_ID")
 
-                # NOTE: This keeps YOUR call signature as-is; ensure your function matches it.
-                reply, confirmation_code = generate_nepq_response(
-                    first_name,
-                    message,
-                    agent_name,
-                    conversation_history,
-                    intent,
-                    contact_id,
-                    api_key,
-                    calendar_id_for_slots,
-                )
-                logger.info(f"[/ghl] generate_nepq_response returned reply: {reply[:50] if reply else 'None'}...")
+            # Normal path: generate reply using Google slots
+            reply, confirmation_code = generate_nepq_response(
+                first_name,
+                message,
+                agent_name,
+                conversation_history,
+                intent,
+                contact_id,
+                api_key,  # still needed for SMS
+                None,     # no calendar_id needed anymore
+            )
 
-            logger.info(f"[/ghl] About to send SMS with reply defined: {reply is not None}")
+            # Check if reply indicates a booked time (your parse_booking_time already handles this)
+            start_time_iso, formatted_time, _ = parse_booking_time(reply)
+            appointment_created = False
+            booking_error = None
+
+            if start_time_iso:
+                logger.info(f"Detected booking intent in reply: {formatted_time}")
+                appointment_result = create_google_appointment(
+                    contact_id=contact_id,
+                    start_time_iso=start_time_iso,
+                    duration_minutes=30,
+                    title="Life Insurance Consultation"
+                )
+                if appointment_result["success"]:
+                    appointment_created = True
+                    reply = f"Perfect — you're all set for {formatted_time}! Calendar invite coming your way shortly."
+                else:
+                    booking_error = appointment_result.get("error")
+                    reply = "That time didn't work — let me find another option for you."
+
+            logger.info(f"[/ghl] Final reply: {reply[:50]}...")
             sms_result = send_sms_via_ghl(contact_id, reply, api_key, location_id)
             logger.info(f"[/ghl] SMS result: {sms_result}")
 
             response_data = {
-                "success": True if not booking_error else False,
+                "success": sms_result.get("success", False),
                 "reply": reply,
                 "contact_id": contact_id,
                 "sms_sent": sms_result.get("success", False),
                 "confirmation_code": confirmation_code,
-                "intent": intent,
                 "appointment_created": appointment_created,
-                "booking_attempted": bool(start_time_iso),
                 "booking_error": booking_error,
-                "time_detected": formatted_time,
             }
-            if appointment_created:
-                response_data["appointment_time"] = formatted_time
 
-            if sms_result.get("success"):
-                return jsonify(response_data), (200 if not booking_error else 422)
-            else:
-                response_data["sms_error"] = sms_result.get("error")
-                return jsonify(response_data), 500
+            return jsonify(response_data), 200
+
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return jsonify({"error": str(e)}), 500
