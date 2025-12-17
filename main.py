@@ -371,7 +371,7 @@ def generate_nepq_response(
     )
 
     lead_profile = extract_lead_profile(conversation_history, first_name, message)
-
+    history_text = "\n".join(conversation_history) if conversation_history else "No previous messages"
     # Sync topics from qualification and NLP
     if qualification_state:
         for topic in (qualification_state.get("topics_asked") or []):
@@ -2746,9 +2746,6 @@ def extract_intent(data, message=""):
         
         if any([lead_profile["family"]["spouse"], lead_profile["family"]["kids"], 
                 lead_profile["coverage"]["has_coverage"], lead_profile["motivating_goal"]]):
-            history_text = f"{qualification_context}{intent_section}{profile_text}"
-        else:
-            history_text = f"{qualification_context}{intent_section}" if qualification_context else intent_section
 
     # Score the previous response based on this incoming message
     outcome_score = None
@@ -2851,7 +2848,6 @@ def extract_intent(data, message=""):
 
     # Simplified user content for unified brain approach
     # Include history_text which contains deflection warnings and questions already asked
-    history_text = "\n".join(conversation_history) if conversation_history else "No previous messages"
     unified_user_content = f"""
 
     LEAD'S MESSAGE: "{message}"
