@@ -1738,7 +1738,7 @@ def get_available_slots(calendar_id, api_key, timezone="America/New_York", days_
     start_date = datetime.now(tz).date()
     end_date = start_date + timedelta(days=days_ahead)
 
-    url = f"https://services.leadconnectorhq.com/calendars/{calendar_id}/appointments/slots"
+    url = f"https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv"
 
     params = {
         "startDate": start_date.isoformat(),
@@ -1824,6 +1824,14 @@ def format_slot_options(slots, timezone="America/New_York"):
     elif len(options) == 1:
         return options[0]
     return "tonight or tomorrow morning"
+
+def extract_lead_profile(conversation_history, first_name, message):
+    """Safe fallback until you add real extraction logic"""
+    return {
+        "motivating_goal": None,
+        "coverage": {"has_coverage": None, "type": None, "employer": False, "coverage_gap": False},
+        "family": {"spouse": False, "kids": 0}
+    }
 
 # === SAFE DEFAULTS FOR MISSING VARIABLES/FUNCTIONS ===
 def force_response(*args, **kwargs):
