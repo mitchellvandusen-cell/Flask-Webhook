@@ -9,6 +9,7 @@ import re
 import spacy
 import subprocess
 import sys
+import json
 
 # NOTE: Do not download spaCy models at runtime in production.
 # Install the model at build time (requirements) instead.
