@@ -297,18 +297,6 @@ def generate_nepq_response(
     first_name = str(first_name or "there").strip()
 
     # -------------------------------------------------------------------------
-    # STEP 0: CALENDAR SLOTS — FROM GOOGLE CALENDAR
-    # -------------------------------------------------------------------------
-    real_calendar_slots = "tonight or tomorrow morning"  # fallback
-    try:
-        slots = get_google_calendar_slots(timezone="America/Chicago")
-        if slots:
-            real_calendar_slots = format_slot_options(slots, timezone)
-            logger.info(f"STEP 0: Fetched {len(slots)} real slots from Google Calendar: {real_calendar_slots}")
-    except Exception as e:
-        logger.warning(f"Google Calendar fetch failed: {e} — using fallback")
-
-    # -------------------------------------------------------------------------
     # Intent
     # -------------------------------------------------------------------------
     if intent == "general":
@@ -378,7 +366,7 @@ def generate_nepq_response(
             if not should_continue and handler_response:
                 return handler_response, confirmation_code
         except Exception as e:
-            logger.debug(f"Handler failed: {e}")
+            logger.debug(f"Already covered handler skipped: {e}")
 
         try:
             qualification_context = format_qualification_for_prompt(qualification_state)
@@ -1342,6 +1330,12 @@ def extract_carrier_name(text):
         if any(k in text for k in keywords):
             return name
     return None, True
+
+def format_slot_options(slots, timezone):
+    if not slots:
+        return "tonight or tomorrow morning"
+    times = [s["time"] + " on " + s["day"] for s in slots[:3]]
+    return ", ".join(times) + " — which works better?"
 
 
 def already_covered_handler(contact_id, message, state, api_key=None, calendar_id=None, timezone="America/Chicago"):
