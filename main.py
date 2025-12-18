@@ -114,45 +114,34 @@ def get_available_slots():
     return "2pm or 4pm today, or 11am tomorrow"
 
 def send_sms_via_ghl(contact_id: str, message: str):
-    location_id = os.environ.get("GHL_LOCATION_ID", GHL_LOCATION_ID)
-    GHL_API_KEY = os.environ.get("GHL_API_KEY", GHL_API_KEY)
-        # === GHL CUSTOM DATA PAYLOAD (your exact setup) ===
-    data_lower = {k.lower(): v for k, v in data.items()}
-    data = request.json or {}   
-    
-    # Root-level custom fields from your GHL screenshot
-    contact_id = data_lower.get("contact_id", "unknown")
-    first_name = data_lower.get("first_name", "there")
-    message = data_lower.get("message", "").strip()
+    if not contact_id or contact_id == "unknown":
+        logger.warning("Invalid contact_id — cannot send SMS")
+        return False
 
-    # Fallback for standard GHL payload (in case)
-    if contact_id == "unknown":
-        nested_contact = data_lower.get("contact", {})
-        if isinstance(nested_contact, dict):
-            contact_id = nested_contact.get("id") or "unknown"
+    api_key = os.environ.get("GHL_API_KEY")
+    location_id = os.environ.get("GHL_LOCATION_ID")
 
-    # CRITICAL LOGS — keep these until SMS sends
-    logger.info(f"Raw payload keys: {list(data.keys())}")
-    logger.info(f"Root 'contact_id' value: {data.get('contact_id')}")
-    logger.info(f"Final contact_id used: '{contact_id}'")
-    logger.info(f"First name: '{first_name}'")
-    logger.info(f"Message: '{message}'")
+    if not api_key or not location_id:
+        logger.warning("GHL_API_KEY or GHL_LOCATION_ID missing — cannot send SMS")
+        return False
 
-    url = "{GHL_BASE_URL}/conversations/messages"
+    url = "https://services.leadconnectorhq.com/conversations/messages"
 
     headers = {
-        "Authorization": f"Bearer {GHL_API_KEY}",
-        "Content-Type": "application/json",
-        "Version": "2021-07-28"
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json"
     }
+
     payload = {
         "type": "SMS",
         "contactId": contact_id,
         "message": message,
         "locationId": location_id
     }
+
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
         if response.status_code in [200, 201]:
             logger.info(f"SMS sent successfully to {contact_id}")
             return True
@@ -160,7 +149,7 @@ def send_sms_via_ghl(contact_id: str, message: str):
             logger.error(f"GHL SMS failed: {response.status_code} {response.text}")
             return False
     except Exception as e:
-        logger.error(f"GHL send exception: {e}")
+        logger.error(f"SMS send exception: {e}")
         return False
 
 def build_system_prompt(state: ConversationState, nlp_context: str, proven_patterns: str, underwriting_context: str):
@@ -230,59 +219,58 @@ def webhook():
     data_lower = {k.lower(): v for k, v in data.items()}
 
     # Root-level custom fields from your GHL screenshot
-    contact = data_lower.get("contact", {}) if isinstance(data_lower.get("contact"), dict) else {}
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
     message = data_lower.get("message", "").strip() or ""
 
-    # Fallback if contact_id missing (rare)
+    # Fallback for nested contact.id (standard GHL payloads)
     if contact_id == "unknown":
-        # Try nested contact object
         nested_contact = data_lower.get("contact", {})
-        contact_id = nested_contact.get("id") or nested_contact.get("contactid") or "unknown"
+        if isinstance(nested_contact, dict):
+            contact_id = nested_contact.get("id") or nested_contact.get("contactid") or "unknown"
 
-    # === DEBUG LOGS (keep until SMS sends) ===
-    logger.info(f"Full payload keys: {list(data.keys())}")
-    logger.info(f"Root contact_id value: {data.get('contact_id')}")
+    # === DEBUG LOGS (keep until you confirm SMS sends) ===
+    logger.info(f"Raw payload keys: {list(data.keys())}")
+    logger.info(f"Root 'contact_id' value: {data.get('contact_id')}")
     logger.info(f"Extracted contact_id: '{contact_id}'")
     logger.info(f"First name: '{first_name}'")
     logger.info(f"Message: '{message}'")
 
-    # === EARLY SAFE STATE DEFINITION (THIS WAS THE CRASH) ===
+    # === SAFE STATE CREATION ===
     state = ConversationState(contact_id=contact_id, first_name=first_name)
-    state.facts = state.facts or {}  # ensure facts exists
+    state.facts = state.facts or {}
 
-    # === EXTRACT AGE FROM DATE_OF_BIRTH ===
+    # === EXTRACT AGE FROM NESTED DATE_OF_BIRTH ===
     age = "unknown"
-    date_of_birth = contact.get("date_of_birth", "")
+    nested_contact = data_lower.get("contact", {})
+    date_of_birth = nested_contact.get("date_of_birth", "") if isinstance(nested_contact, dict) else ""
     if date_of_birth:
         try:
-            dob_parts = date_of_birth.split("-")  # Expected format: YYYY-MM-DD
-            if len(dob_parts) >= 3:
-                birth_year = int(dob_parts[0])
-                birth_month = int(dob_parts[1])
-                birth_day = int(dob_parts[2])
+            from datetime import date
+            parts = date_of_birth.split("-")
+            if len(parts) == 3:
+                year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
                 today = date.today()
-                age_calc = today.year - birth_year
-                if (today.month, today.day) < (birth_month, birth_day):
+                age_calc = today.year - year
+                if (today.month, today.day) < (month, day):
                     age_calc -= 1
                 age = str(age_calc)
         except Exception as e:
-            logger.warning(f"Could not parse DOB {date_of_birth}: {e}")
-            age = "unknown"
+            logger.warning(f"DOB parse failed: {e}")
 
-    # Save age to facts — now safe because state is defined
     state.facts["age"] = age
 
     # === HARD A2P OPT-OUT ===
     if message and any(phrase in message.lower() for phrase in ["stop", "unsubscribe", "do not contact", "remove me", "opt out"]):
         reply = "Got it — you've been removed. Take care."
+        reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
         send_sms_via_ghl(contact_id, reply)
         return jsonify({"status": "success", "reply": reply})
 
     # === INITIAL OUTREACH (NO INBOUND MESSAGE) ===
     if not message:
         initial_reply = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out if you're dead."
+        initial_reply = initial_reply.replace("—", "-").replace("–", "-").replace("―", "-")
         send_sms_via_ghl(contact_id, initial_reply)
         return jsonify({"status": "success", "reply": initial_reply})
 
@@ -290,13 +278,14 @@ def webhook():
     save_nlp_message(contact_id, message, "lead")
 
     extract_facts_from_message(state, message)
-    state.stage = detect_stage(state, message, [])  # Load full history in production
+    state.stage = detect_stage(state, message, [])  # In prod: load history
 
     # Build context
     similar_patterns = find_similar_successful_patterns(message)
     proven_patterns = format_patterns_for_prompt(similar_patterns)
     nlp_context = format_nlp_for_prompt(contact_id)
 
+    # Underwriting context
     underwriting_context = "No health conditions mentioned."
     health_keywords = ["medication", "pill", "health", "condition", "diabetes", "cancer", "heart", "stroke", "copd", "blood pressure", "cholesterol"]
     if any(kw in message.lower() for kw in health_keywords):
@@ -320,6 +309,7 @@ def webhook():
 
     if not client:
         fallback = "Mind sharing — when was the last time you did a policy review to make sure everything still fits?"
+        fallback = fallback.replace("—", "-").replace("–", "-").replace("―", "-")
         send_sms_via_ghl(contact_id, fallback)
         return jsonify({"status": "error", "reply": fallback}), 500
 
@@ -338,21 +328,20 @@ def webhook():
     if not reply or len(reply) < 5:
         reply = "I hear you. Most people haven't reviewed their policy in years — mind if I ask when you last checked yours?"
 
+    # NO EM DASHES — absolute rule
+    reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
+
     # Auto-append time slots when closing
     if any(word in reply.lower() for word in ["call", "appointment", "review", "look", "check", "compare", "talk", "schedule"]):
         reply += f" Which works better — {get_available_slots()}?"
 
-    # === SEND REPLY VIA GHL ===
+    # SEND REPLY
     send_sms_via_ghl(contact_id, reply)
 
     return jsonify({
         "status": "success",
         "reply": reply,
-        "metadata": {
-            "processed_at": datetime.utcnow().isoformat(),
-            "recipient": first_name,
-            "contact_id": contact_id
-        }
+        "metadata": {"recipient": first_name, "contact_id": contact_id}
     })
 
 if __name__ == "__main__":
