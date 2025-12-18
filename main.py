@@ -114,6 +114,8 @@ def get_available_slots():
     return "2pm or 4pm today, or 11am tomorrow"
 
 def send_sms_via_ghl(contact_id: str, message: str):
+    location_id = os.environ.get("GHL_LOCATION_ID", GHL_LOCATION_ID)
+    GHL_API_KEY = os.environ.get("GHL_API_KEY", GHL_API_KEY)
         # === GHL CUSTOM DATA PAYLOAD (your exact setup) ===
     data_lower = {k.lower(): v for k, v in data.items()}
 
@@ -134,7 +136,9 @@ def send_sms_via_ghl(contact_id: str, message: str):
     logger.info(f"Final contact_id used: '{contact_id}'")
     logger.info(f"First name: '{first_name}'")
     logger.info(f"Message: '{message}'")
+
     url = "{GHL_BASE_URL}/conversations/messages"
+
     headers = {
         "Authorization": f"Bearer {GHL_API_KEY}",
         "Content-Type": "application/json",
