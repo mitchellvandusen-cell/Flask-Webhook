@@ -5,6 +5,7 @@ import json
 import requests
 import csv
 import io
+import re
 from datetime import datetime, date  # added 'date' here
 from openai import OpenAI
 from google.oauth2 import service_account
@@ -66,7 +67,7 @@ try:
     conn.close()
     print("DB fixed: ensured contact_qualification table + required columns")
 except Exception as e:
-    logger.warning(f"DB INIT WARNING: {e}")
+    logging.warning(f"DB INIT WARNING: {e}")
 finally:
     try:
         if 'cur' in locals():
@@ -178,6 +179,47 @@ def search_underwriting(condition, product_hint=""):
 def get_available_slots():
     return "2pm or 4pm today, or 11am tomorrow"
 
+def parse_history_for_topics_asked(contact_id, conversation_history):
+    if not contact_id or not conversation_history:
+        return set()
+
+    # Load current topics_asked from DB
+    current_state = get_qualification_state(contact_id)  # from your original code
+    existing_topics = set(current_state.get("topics_asked", [])) if current_state else set()
+
+    AGENT_QUESTION_PATTERNS = {
+        "motivation": [r"what (got|made|brought) you", r"why did you", r"what originally", r"what made you want"],
+        "living_benefits": [r"living benefits", r"access.*while.*alive", r"accelerated.*benefit"],
+        "portability": [r"(continue|keep).*after.*retire", r"portable", r"when you leave"],
+        "employer_coverage": [r"through work", r"employer.*policy", r"job.*coverage"],
+        "policy_type": [r"term or (whole|permanent)", r"what (kind|type) of policy"],
+        "family": [r"(married|spouse)", r"(kids|children)"],
+        "coverage_amount": [r"how much coverage", r"face amount"],
+        "carrier": [r"who.*with", r"which (company|carrier)"],
+        "health": [r"health conditions", r"taking.*medications"],
+        "other_policies": [r"any other (policies|coverage)"],
+    }
+
+    topics_found = set()
+
+    for msg in conversation_history:
+        msg_lower = msg.lower() if isinstance(msg, str) else ""
+        is_agent = "you:" in msg_lower or not msg_lower.startswith("lead:")
+        if is_agent:
+            for topic, patterns in AGENT_QUESTION_PATTERNS.items():
+                if topic in existing_topics or topic in topics_found:
+                    continue
+                for pattern in patterns:
+                    if re.search(pattern, msg_lower):
+                        topics_found.add(topic)
+                        break
+
+    # Save new topics
+    for topic in topics_found - existing_topics:
+        mark_topic_asked(contact_id, topic)  # your original function
+
+    return topics_found
+
 def remove_dashes(text: str) -> str:
     """Remove all types of dashes from text and clean up spacing."""
     if not text:
@@ -187,6 +229,260 @@ def remove_dashes(text: str) -> str:
     # Collapse multiple spaces into one
     text = " ".join(text.split())
     return text
+
+def add_to_qualification_array(contact_id, field, value):
+    """
+    Add a value to an array field in contact_qualification (topics_asked, blockers, etc.)
+    Avoids duplicates. Safe for TEXT[] columns.
+    """
+    if not contact_id or not field or not value:
+        return False
+
+    allowed_fields = {
+        'topics_asked', 'topics_answered', 'key_quotes',
+        'blockers', 'health_conditions', 'health_details'
+    }
+    if field not in allowed_fields:
+        logger.warning(f"Invalid array field '{field}' for add_to_qualification_array")
+        return False
+
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute(f"""
+            UPDATE contact_qualification
+            SET {field} = CASE
+                WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[]))
+                THEN {field}
+                ELSE array_append(COALESCE({field}, ARRAY[]::TEXT[]), %s)
+            END,
+            updated_at = CURRENT_TIMESTAMP
+            WHERE contact_id = %s
+        """, (value, value, contact_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to add to {field}: {e}")
+        return False
+    
+def get_qualification_state(contact_id):
+    """Fetch the full qualification row for a contact (or create if missing)."""
+    if not contact_id:
+        return None
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+        row = cur.fetchone()
+        if row:
+            result = dict(row)
+        else:
+            # Create new record
+            cur.execute("""
+                INSERT INTO contact_qualification (contact_id)
+                VALUES (%s)
+                RETURNING *
+            """, (contact_id,))
+            row = cur.fetchone()
+            result = dict(row) if row else {}
+            conn.commit()
+        conn.close()
+        return result
+    except Exception as e:
+        logger.warning(f"Could not get qualification state: {e}")
+        return {}
+
+def update_qualification_state(contact_id, updates):
+    """Update scalar fields (boolean, text, integer) for a contact."""
+    if not contact_id or not updates:
+        return False
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        # Ensure row exists
+        cur.execute("""
+            INSERT INTO contact_qualification (contact_id)
+            VALUES (%s)
+            ON CONFLICT (contact_id) DO NOTHING
+        """, (contact_id,))
+        # Build SET clause
+        set_parts = [f"{k} = %s" for k in updates.keys()]
+        set_parts.append("updated_at = CURRENT_TIMESTAMP")
+        values = list(updates.values())
+        values.append(contact_id)
+        query = f"UPDATE contact_qualification SET {', '.join(set_parts)} WHERE contact_id = %s"
+        cur.execute(query, values)
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.warning(f"Could not update qualification state: {e}")
+        return False
+
+def extract_and_update_qualification(contact_id, message, conversation_history=None):
+    """
+    Extract key facts from the current message (and optionally history)
+    and update the contact_qualification table permanently.
+    This is what makes the bot remember answers forever.
+    """
+    if not contact_id or not message:
+        return {}
+
+    updates = {}
+    all_text = message.lower()
+    if conversation_history:
+        all_text = " ".join([m.lower().replace("lead:", "").replace("you:", "") for m in conversation_history]) + " " + all_text
+
+    # === COVERAGE STATUS ===
+    if re.search(r"\b(have|got|already|yes)\b.*\b(coverage|policy|insurance|protected)\b", all_text):
+        updates["has_policy"] = True
+    if re.search(r"\b(no|don't|dont|never|not)\b.*\b(coverage|policy|insurance)\b", all_text):
+        updates["has_policy"] = False
+
+    # === POLICY SOURCE (employer vs personal) ===
+    if re.search(r"\b(my own|personal|private|individual|not through work|not from work)\b", all_text):
+        updates["is_personal_policy"] = True
+        updates["is_employer_based"] = False
+        add_to_qualification_array(contact_id, "topics_asked", "employer_coverage")
+        add_to_qualification_array(contact_id, "topics_answered", "employer_coverage")
+
+    if re.search(r"\b(through|from|at|via)\b.*\b(work|job|employer|company|group)\b", all_text):
+        updates["is_employer_based"] = True
+        updates["is_personal_policy"] = False
+        add_to_qualification_array(contact_id, "topics_asked", "employer_coverage")
+        add_to_qualification_array(contact_id, "topics_answered", "employer_coverage")
+
+    # === POLICY TYPE ===
+    if re.search(r"\bterm\b", all_text):
+        updates["is_term"] = True
+        add_to_qualification_array(contact_id, "topics_asked", "policy_type")
+        add_to_qualification_array(contact_id, "topics_answered", "policy_type")
+
+    if re.search(r"\bwhole life\b", all_text):
+        updates["is_whole_life"] = True
+        add_to_qualification_array(contact_id, "topics_asked", "policy_type")
+        add_to_qualification_array(contact_id, "topics_answered", "policy_type")
+
+    if re.search(r"\biul\b|indexed universal", all_text):
+        updates["is_iul"] = True
+        add_to_qualification_array(contact_id, "topics_asked", "policy_type")
+        add_to_qualification_array(contact_id, "topics_answered", "policy_type")
+
+    # === GUARANTEED ISSUE / FINAL EXPENSE ===
+    if re.search(r"\b(guaranteed|no exam|colonial penn|globe life|gerber|aarp)\b", all_text):
+        updates["is_guaranteed_issue"] = True
+
+    # === FACE AMOUNT ===
+    amount_match = re.search(r"\b(\$?(\d{1,3}(,\d{3})*|\d+)k?)\b", all_text)
+    if amount_match:
+        amount = amount_match.group(1).replace(",", "").replace("$", "")
+        if "k" not in amount.lower():
+            amount = str(int(int(amount) / 1000)) + "k" if int(amount) >= 1000 else amount
+        updates["face_amount"] = amount.upper()
+
+    # === CARRIER ===
+    carrier = find_company_in_message(message)
+    if carrier:
+        updates["carrier"] = carrier
+
+    # === FAMILY ===
+    if re.search(r"\b(wife|husband|spouse|married)\b", all_text):
+        updates["has_spouse"] = True
+    if re.search(r"\b(single|divorced|widowed)\b", all_text):
+        updates["has_spouse"] = False
+
+    kids_match = re.search(r"\b(\d+)\b.*\b(kids|children|child)\b", all_text)
+    if kids_match:
+        updates["num_kids"] = int(kids_match.group(1))
+
+    # === HEALTH CONDITIONS (add to array) ===
+    health_found = []
+    health_map = {
+        "diabetes": r"diabetes|diabetic",
+        "heart": r"heart|stent|bypass|cardiac",
+        "cancer": r"cancer|tumor|chemo",
+        "copd": r"copd|oxygen|breathing|emphysema",
+        "stroke": r"stroke",
+        "blood_pressure": r"blood pressure|hypertension",
+        "sleep_apnea": r"sleep apnea|cpap",
+    }
+    for key, pattern in health_map.items():
+        if re.search(pattern, all_text):
+            health_found.append(key)
+            add_to_qualification_array(contact_id, "health_conditions", key)
+
+    # === TOBACCO ===
+    if re.search(r"\b(smoke|tobacco|cigarette|vape|nicotine)\b", all_text):
+        updates["tobacco_user"] = True
+    if re.search(r"\b(don't|dont|never|quit|stopped)\b.*\b(smoke)\b", all_text):
+        updates["tobacco_user"] = False
+
+    # === MOTIVATING GOAL ===
+    goal_map = {
+        "add_coverage": r"add|more|additional|extra|supplement|on top",
+        "cover_mortgage": r"mortgage|house|home.*(paid|cover)",
+        "final_expense": r"final expense|funeral|burial|cremation",
+        "family_protection": r"protect.*(family|wife|husband|kids)",
+        "income_replacement": r"replace.*income|salary",
+        "leave_legacy": r"leave.*(legacy|inheritance|something behind)"
+    }
+    for goal, pattern in goal_map.items():
+        if re.search(pattern, all_text):
+            updates["motivating_goal"] = goal
+            break
+
+    # === BLOCKERS ===
+    if re.search(r"\b(too busy|swamped|no time)\b", all_text):
+        add_to_qualification_array(contact_id, "blockers", "too_busy")
+    if re.search(r"\b(too expensive|can't afford|cost)\b", all_text):
+        add_to_qualification_array(contact_id, "blockers", "cost_concern")
+    if re.search(r"\b(not interested|no thanks|already covered)\b", all_text):
+        add_to_qualification_array(contact_id, "blockers", "not_interested")
+
+    # Apply all scalar updates
+    if updates:
+        update_qualification_state(contact_id, updates)
+
+    return updates
+
+def mark_topic_asked(contact_id: str, topic: str):
+    """Mark a topic as asked to prevent repeat questions in future replies."""
+    if not contact_id or not topic:
+        return
+
+    try:
+        import psycopg2
+        from psycopg2.extras import Json
+
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+
+        # Use UPSERT to add topic to topics_asked array if not already present
+        cur.execute("""
+            INSERT INTO contact_qualification (contact_id, topics_asked)
+            VALUES (%s, %s::jsonb)
+            ON CONFLICT (contact_id) 
+            DO UPDATE SET 
+                topics_asked = (
+                    SELECT jsonb_agg(DISTINCT value)
+                    FROM jsonb_array_elements(
+                        COALESCE(contact_qualification.topics_asked, '[]'::jsonb) || %s::jsonb
+                    )
+                ),
+                updated_at = CURRENT_TIMESTAMP
+        """, (contact_id, Json([topic]), Json([topic])))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"Marked topic '{topic}' as asked for contact {contact_id}")
+    except Exception as e:
+        logger.error(f"Failed to mark topic asked: {e}")
 
 def send_sms_via_ghl(contact_id: str, message: str):
     if not contact_id or contact_id == "unknown":
@@ -226,161 +522,159 @@ def send_sms_via_ghl(contact_id: str, message: str):
     except Exception as e:
         logger.error(f"SMS send exception: {e}")
         return False
-
 def build_system_prompt(state: ConversationState, nlp_context: str, proven_patterns: str, underwriting_context: str):
+    age = state.facts.get("age", "unknown")
+    
+    # Build blocked questions list (Python logic — outside f-string)
+    blocked_questions = []
+    topics_asked = state.topics_asked or set()
+    
+    if "employer_coverage" in topics_asked and state.facts.get("is_personal_policy"):
+        blocked_questions.append("Employer/portability questions — this is a personal policy")
+    if state.facts.get("has_living_benefits") is not None:
+        blocked_questions.append("Living benefits status already known")
+    if state.facts.get("carrier"):
+        blocked_questions.append("Carrier already known")
+    if state.facts.get("is_term") or state.facts.get("is_whole_life"):
+        blocked_questions.append("Policy type already known")
+
+    blocked_section = ""
+    if blocked_questions:
+        blocked_section = f"""
+=== DO NOT ASK THESE (already known or irrelevant) ===
+{chr(10).join('- ' + q for q in blocked_questions)}
+=== ASKING THEM MAKES YOU SOUND ROBOTIC ===
+"""
+
     return f"""
 You are Mitchell — master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
-These leads are NOT actively shopping. They opted in before but went cold. Expect high resistance.
+These leads opted in before but went cold. Expect high resistance.
 
 CRITICAL RULES:
-- NEVER say "free" or "free policy review" — everyone says no
+- NEVER say "free" or "free policy review"
 - NEVER accept "no thank you", "I'm covered", "not interested" as final — these are objections
-- ONLY stop and reply "Got it — you've been removed. Take care." if they say: "STOP", "stop", "unsubscribe", "do not contact me", "remove me", "opt out"
-- Goal: Systematically uncover full policy details → expose gaps → book appointment
-- Always check if a question has alrady been asked and answered before sending a new question
-- NEVER use em dashes, en dashes, or hyphens in your replies — ALWAYS replace with spaces
-- If someone asks price immediately, respond with "Great question! Lets hop on a quick call and go over some options. Which works better — {get_available_slots()}?"
-- Establish a current baseline, then expose gaps between current state and ideal future state.
-- Never duplicate questions already asked/answered.
+- ONLY stop if they say: "STOP", "stop", "unsubscribe", "do not contact me", "remove me", "opt out"
+- NEVER repeat a question that's already been asked or answered
+- NEVER use em dashes (—), en dashes (–), or fancy punctuation — use standard hyphen - only
+- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better — {get_available_slots()}?"
 
-Response style:
-- Casual, friendly Texas vibe
-- Short sentences
-- No dashes, no em-dashes, no hyphens in punctuation
-- Use "you've" instead of "you have", "I'm" instead of "I am"
-- Use contractions naturally
-- Use first names sparingly, only for emphasis
-- exploratory, consultative, assumptive, helpful tone
+LEAD AGE: {age} ← USE THIS HEAVILY
+- Personalize: "Most people your age...", "At {age}, rates are still good if we act now"
+- Urgency: "Rates only go up with age"
+- Product focus: under 50 → term/IUL; 50-64 → whole life; 65+ → final expense + living benefits
 
-DISCOVERY QUESTIONS (ask one at a time, naturally, never repeat):
-- How did you originally get your policy? (online yourself, through an agent, captive like State Farm, bundled with auto?)
-- Did you shop around or take the first quote you got?
-- Do you know if your policy has living benefits (access money while alive) or only pays out on death?
-- Have you received and reviewed the full policy packet that came in the mail?
-- How much coverage do you have? Would that fully replace your income/protect your family?
-- Have you ever thought about increasing your coverage since you got it?
-- Is it term, whole life, or IUL? If term — how long have you had it and when does it expire?
-- What medications do you currently take and why?
+Known Facts:
+{json.dumps(state.facts, indent=2)}
+
+TOPICS ALREADY COVERED (NEVER RE-ASK):
+{', '.join(topics_asked) if topics_asked else "None yet"}
+
+{blocked_section}
+
+Response Style:
+- Casual, friendly Texas vibe ("Hey", "Gotcha", "Mind if I ask")
+- Short, natural SMS (1-3 sentences max)
+- Use contractions: "you've", "I'm", "it's"
+- First names sparingly, only for emphasis
+
+Goal: Uncover gaps → expose consequences → book call naturally
+
+SALES METHODOLOGIES — Blend the best for this lead:
+- NEPQ: Connect → Situation → Problem → Consequence → Qualify → Transition → Present → Commit
+- Gap Selling: Current vs desired future — make inaction painful
+- Straight Line Persuasion: Control flow, smooth objections
+- Brian Tracy: Benefits, stories, assumptive close
+- Never Split the Difference: Mirror, label, calibrated questions, "that's right"
 
 POLICY REVIEW TRIGGER:
-Use this phrase when appropriate: "When was the last time you did a policy review to make sure you're not leaving money on the table?"
-- If "never" or vague/old → logically move to booking
-- If "recently" → ask who with, what they checked, dig deeper
-
-SALES METHODOLOGIES — Choose or blend the best for this lead's vibe:
-- NEPQ: Connect → Situation → Problem → Consequence → Qualify → Transition → Present → Commit
-- Gap Selling (Keenan): Expose current state vs desired future — make inaction painful
-- Straight Line Persuasion (Jordan Belfort): Control conversation, smooth objection loops, ethical close
-- Brian Tracy Psychology of Selling: Benefits-focused, stories, assumptive tone
-- Never Split the Difference (Chris Voss): Mirror, label emotions, calibrated questions, get "that's right"
-
-Known Facts About Lead:
-{json.dumps(state.facts, indent=2)}
-LEAD AGE: {state.facts.get("age", "unknown")} — Use this for personalization, urgency, and underwriting
-Topics Already Covered (NEVER RE-ASK):
-{', '.join(state.topics_answered or [])}
-
-NLP Memory Summary:
-{nlp_context}
+"When was the last time you did a policy review to make sure you're not leaving money on the table?"
 
 Proven Responses That Worked:
 {proven_patterns}
 
-Underwriting Guidance (when health mentioned):
+Underwriting Guidance:
 {underwriting_context}
 
-Full Knowledge Base (survivorship, pensions, group rates, living benefits, etc.):
+Full Knowledge Base:
 {get_all_knowledge()}
 
-Response Rules:
-- Short, natural SMS (1-3 sentences max)
-- Always advance discovery, handle resistance, or close
-- When ready to book: end with "Which works better — {get_available_slots()}?"
+Final Rule: Always advance the sale. Short. Natural. Helpful.
+When ready to book: "Which works better — {get_available_slots()}?"
 """
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json or {}
     if not data:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    # === GHL CUSTOM DATA PAYLOAD PARSING (your exact setup) ===
     data_lower = {k.lower(): v for k, v in data.items()}
+    contact = data_lower.get("contact", {})
 
-    # Root-level custom fields
-    contact_id = data_lower.get("contact_id", "unknown")
-    first_name = data_lower.get("first_name", "there")
+    first_name = contact.get("first_name", data_lower.get("first_name", "there"))
+    message_body = data_lower.get("message", {}).get("body", data_lower.get("message", "") or "")
+    message = message_body.strip() if message_body else ""
+    contact_id = contact.get("id", "unknown")
 
-    # Safe message extraction — handles string or dict
-    raw_message = data_lower.get("message", "")
-    if isinstance(raw_message, dict):
-        message = raw_message.get("body", "").strip()
-    else:
-        message = str(raw_message).strip()
-
-    # Fallback for nested contact.id
-    if contact_id == "unknown":
-        nested_contact = data_lower.get("contact", {})
-        if isinstance(nested_contact, dict):
-            contact_id = nested_contact.get("id") or "unknown"
-
-    # DEBUG LOGS
-    logger.info(f"Raw payload keys: {list(data.keys())}")
-    logger.info(f"Raw message value: {raw_message}")
-    logger.info(f"Extracted message: '{message}'")
-    logger.info(f"contact_id: '{contact_id}'")
-    logger.info(f"first_name: '{first_name}'")
-
-    # === SAFE STATE CREATION ===
-    state = ConversationState(contact_id=contact_id, first_name=first_name)
-    state.facts = state.facts or {}
-
-    # === EXTRACT AGE FROM NESTED DATE_OF_BIRTH ===
+    # === EXTRACT AGE FROM DATE_OF_BIRTH ===
     age = "unknown"
-    nested_contact = data_lower.get("contact", {})
-    date_of_birth = nested_contact.get("date_of_birth", "") if isinstance(nested_contact, dict) else ""
+    date_of_birth = contact.get("date_of_birth", "")
     if date_of_birth:
         try:
             from datetime import date
-            parts = date_of_birth.split("-")
-            if len(parts) == 3:
-                year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+            dob_parts = date_of_birth.split("-")
+            if len(dob_parts) >= 3:
+                birth_year = int(dob_parts[0])
+                birth_month = int(dob_parts[1])
+                birth_day = int(dob_parts[2])
                 today = date.today()
-                age_calc = today.year - year
-                if (today.month, today.day) < (month, day):
+                age_calc = today.year - birth_year
+                if (today.month, today.day) < (birth_month, birth_day):
                     age_calc -= 1
                 age = str(age_calc)
         except Exception as e:
-            logger.warning(f"DOB parse failed: {e}")
-
-    state.facts["age"] = age
+            logger.warning(f"Could not parse DOB {date_of_birth}: {e}")
 
     # === HARD A2P OPT-OUT ===
     if message and any(phrase in message.lower() for phrase in ["stop", "unsubscribe", "do not contact", "remove me", "opt out"]):
         reply = "Got it — you've been removed. Take care."
-        reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
         send_sms_via_ghl(contact_id, reply)
         return jsonify({"status": "success", "reply": reply})
 
     # === INITIAL OUTREACH (NO INBOUND MESSAGE) ===
     if not message:
         initial_reply = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out if you're dead."
-        initial_reply = initial_reply.replace("—", "-").replace("–", "-").replace("―", "-")
         send_sms_via_ghl(contact_id, initial_reply)
         return jsonify({"status": "success", "reply": initial_reply})
 
     # === INBOUND MESSAGE PROCESSING ===
     save_nlp_message(contact_id, message, "lead")
 
-    extract_facts_from_message(state, message)
-    state.stage = detect_stage(state, message, [])  # In prod: load history
+    # Load or create qualification state
+    qualification_state = get_qualification_state(contact_id)
+    # In production: load conversation_history from DB
+    conversation_history = []  # ← replace with real history load
 
+    # Parse history to backfill topics_asked
+    parse_history_for_topics_asked(contact_id, conversation_history)
+    # Extract facts and update DB
+    extract_and_update_qualification(contact_id, message)  # your existing function
+
+    # Reload fresh state after updates
+    qualification_state = get_qualification_state(contact_id)
+
+    # Create conversation state for prompt
+    state = ConversationState(contact_id=contact_id, first_name=first_name)
+    state.facts = qualification_state or {}
+    extract_facts_from_message(state, message)
+    state.stage = detect_stage(state, message, [])
+    state = ConversationState(contact_id=contact_id, first_name=first_name)
+    state.facts = state.facts or {}
+    state.topics_asked = state.topics_asked or set()  # ← Add this
     # Build context
     similar_patterns = find_similar_successful_patterns(message)
     proven_patterns = format_patterns_for_prompt(similar_patterns)
     nlp_context = format_nlp_for_prompt(contact_id)
 
-    # Underwriting context
     underwriting_context = "No health conditions mentioned."
     health_keywords = ["medication", "pill", "health", "condition", "diabetes", "cancer", "heart", "stroke", "copd", "blood pressure", "cholesterol"]
     if any(kw in message.lower() for kw in health_keywords):
@@ -404,7 +698,6 @@ def webhook():
 
     if not client:
         fallback = "Mind sharing — when was the last time you did a policy review to make sure everything still fits?"
-        fallback = fallback.replace("—", "-").replace("–", "-").replace("―", "-")
         send_sms_via_ghl(contact_id, fallback)
         return jsonify({"status": "error", "reply": fallback}), 500
 
@@ -423,24 +716,21 @@ def webhook():
     if not reply or len(reply) < 5:
         reply = "I hear you. Most people haven't reviewed their policy in years — mind if I ask when you last checked yours?"
 
-    # NO EM DASHES — absolute rule
-    reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
-
     # Auto-append time slots when closing
     if any(word in reply.lower() for word in ["call", "appointment", "review", "look", "check", "compare", "talk", "schedule"]):
         reply += f" Which works better — {get_available_slots()}?"
 
-    # === REMOVE ALL DASHES ===
-    reply = remove_dashes(reply)
-
-    # SEND REPLY
+    # === SEND REPLY VIA GHL ===
     send_sms_via_ghl(contact_id, reply)
 
     return jsonify({
         "status": "success",
         "reply": reply,
-        "metadata": {"recipient": first_name, "contact_id": contact_id}
+        "metadata": {
+            "processed_at": datetime.utcnow().isoformat(),
+            "recipient": first_name,
+            "contact_id": contact_id
+        }
     })
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
