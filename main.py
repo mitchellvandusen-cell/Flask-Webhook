@@ -5,7 +5,7 @@ import json
 import requests
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, date  # added 'date' here
 from openai import OpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -72,10 +72,9 @@ except Exception as e:
     logger.warning(f"Database initialization failed (safe in dev): {e}")
 
 # === LIVE UNDERWRITING GUIDES FROM GOOGLE SHEETS ===
-# REPLACE THESE WITH YOUR ACTUAL PUBLISHED CSV LINKS
 WHOLE_LIFE_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1599052257&single=true&output=csv"
 TERM_IUL_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1023819925&single=true&output=csv"
-UHL_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1225036935&single=true&output=csv"  # Optional
+UHL_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1225036935&single=true&output=csv"
 
 def fetch_underwriting_data(url):
     try:
@@ -89,9 +88,9 @@ def fetch_underwriting_data(url):
 logger.info("Fetching live underwriting guides...")
 WHOLE_LIFE_DATA = fetch_underwriting_data(WHOLE_LIFE_SHEET_URL)
 TERM_IUL_DATA = fetch_underwriting_data(TERM_IUL_SHEET_URL)
-UHL_DATA = fetch_underwriting_data(UHL_SHEET_URL)  # Remove or comment if no writing number
+UHL_DATA = fetch_underwriting_data(UHL_SHEET_URL)
 
-UNDERWRITING_DATA = WHOLE_LIFE_DATA + TERM_IUL_DATA  # + UHL_DATA when ready
+UNDERWRITING_DATA = WHOLE_LIFE_DATA + TERM_IUL_DATA
 
 def search_underwriting(condition, product_hint=""):
     if not UNDERWRITING_DATA:
@@ -206,18 +205,22 @@ def webhook():
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
     data_lower = {k.lower(): v for k, v in data.items()}
-    first_name = data_lower.get("contact", {}).get("first_name", data_lower.get("first_name", "there"))
+    contact = data_lower.get("contact", {})
+
+    first_name = contact.get("first_name", data_lower.get("first_name", "there"))
     message_body = data_lower.get("message", {}).get("body", data_lower.get("message", "") or "")
     message = message_body.strip() if message_body else ""
-    contact = data_lower.get("contact", {})
-    contact_id = data_lower.get("contact", {}).get("id", "unknown")
-        # Add age extraction
-   # === EXTRACT AGE FROM DATE_OF_BIRTH ===
+    contact_id = contact.get("id", "unknown")
+
+    # === EARLY SAFE STATE DEFINITION (THIS WAS THE CRASH) ===
+    state = ConversationState(contact_id=contact_id, first_name=first_name)
+    state.facts = state.facts or {}  # ensure facts exists
+
+    # === EXTRACT AGE FROM DATE_OF_BIRTH ===
     age = "unknown"
     date_of_birth = contact.get("date_of_birth", "")
     if date_of_birth:
         try:
-            from datetime import date
             dob_parts = date_of_birth.split("-")  # Expected format: YYYY-MM-DD
             if len(dob_parts) >= 3:
                 birth_year = int(dob_parts[0])
@@ -228,11 +231,13 @@ def webhook():
                 if (today.month, today.day) < (birth_month, birth_day):
                     age_calc -= 1
                 age = str(age_calc)
-        except:
+        except Exception as e:
+            logger.warning(f"Could not parse DOB {date_of_birth}: {e}")
             age = "unknown"
 
-    # Save to facts
+    # Save age to facts — now safe because state is defined
     state.facts["age"] = age
+
     # === HARD A2P OPT-OUT ===
     if message and any(phrase in message.lower() for phrase in ["stop", "unsubscribe", "do not contact", "remove me", "opt out"]):
         reply = "Got it — you've been removed. Take care."
@@ -248,7 +253,6 @@ def webhook():
     # === INBOUND MESSAGE PROCESSING ===
     save_nlp_message(contact_id, message, "lead")
 
-    state = ConversationState(contact_id=contact_id, first_name=first_name)
     extract_facts_from_message(state, message)
     state.stage = detect_stage(state, message, [])  # Load full history in production
 
@@ -276,7 +280,6 @@ def webhook():
     system_prompt = build_system_prompt(state, nlp_context, proven_patterns, underwriting_context)
 
     messages = [{"role": "system", "content": system_prompt}]
-    # In production: load full conversation history from DB and append here
     messages.append({"role": "user", "content": message})
 
     if not client:
