@@ -70,7 +70,6 @@ class ConversationState:
     has_shown_interest: bool = False   # They've indicated interest in learning more
     ready_to_close: bool = False       # They've asked about next steps or shown buying signals
 
-
 def detect_stage(state: ConversationState, current_message: str, conversation_history: List[str]) -> ConversationStage:
     """
     Deterministic stage detection based on conversation signals.
@@ -153,14 +152,18 @@ def detect_stage(state: ConversationState, current_message: str, conversation_hi
     # Default to DISCOVERY
     return ConversationStage.DISCOVERY
 
-
 def extract_facts_from_message(state: ConversationState, message: str) -> Dict[str, Any]:
-    """
-    Extract structured facts from a lead message.
-    Updates the state with new facts.
-    Returns dict of newly extracted facts.
-    """
+    # SOLUTION: Safe nested dict initialization — once and done
+    state.facts = state.facts or {}
+    state.facts.setdefault("coverage", {"has_any": None, "type": None, "amount": None, "employer": None, "guaranteed_issue": None, "carrier": None})
+    state.facts.setdefault("family", {"spouse": None, "kids": None, "dependents": None})
+    state.facts.setdefault("health", {"conditions": [], "details": []})
+    state.facts.setdefault("policy_type", {})
+    # Add any other nested keys you use
+
+    # Now all your existing extraction code runs safely
     msg_lower = message.lower()
+    # ... rest of your function unchanged ...
     new_facts = {}
     
     # Family detection
