@@ -209,6 +209,7 @@ def webhook():
     first_name = data_lower.get("contact", {}).get("first_name", data_lower.get("first_name", "there"))
     message_body = data_lower.get("message", {}).get("body", data_lower.get("message", "") or "")
     message = message_body.strip() if message_body else ""
+    contact = data_lower.get("contact", {})
     contact_id = data_lower.get("contact", {}).get("id", "unknown")
         # Add age extraction
    # === EXTRACT AGE FROM DATE_OF_BIRTH ===
