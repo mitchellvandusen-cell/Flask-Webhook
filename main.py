@@ -113,6 +113,16 @@ def search_underwriting(condition, product_hint=""):
 def get_available_slots():
     return "2pm or 4pm today, or 11am tomorrow"
 
+def remove_dashes(text: str) -> str:
+    """Remove all types of dashes from text and clean up spacing."""
+    if not text:
+        return text
+    # Replace em dash, en dash, and hyphen with space
+    text = text.replace("—", " ").replace("–", " ").replace("-", " ")
+    # Collapse multiple spaces into one
+    text = " ".join(text.split())
+    return text
+
 def send_sms_via_ghl(contact_id: str, message: str):
     if not contact_id or contact_id == "unknown":
         logger.warning("Invalid contact_id — cannot send SMS")
@@ -162,6 +172,15 @@ CRITICAL RULES:
 - NEVER accept "no thank you", "I'm covered", "not interested" as final — these are objections
 - ONLY stop and reply "Got it — you've been removed. Take care." if they say: "STOP", "stop", "unsubscribe", "do not contact me", "remove me", "opt out"
 - Goal: Systematically uncover full policy details → expose gaps → book appointment
+
+Response style:
+- Casual, friendly Texas vibe
+- Short sentences
+- No dashes, no em-dashes, no hyphens in punctuation
+- Use "you've" instead of "you have", "I'm" instead of "I am"
+- Use contractions naturally
+- Use first names sparingly, only for emphasis
+- exploratory, consultative, assumptive, helpful tone
 
 DISCOVERY QUESTIONS (ask one at a time, naturally, never repeat):
 - How did you originally get your policy? (online yourself, through an agent, captive like State Farm, bundled with auto?)
@@ -340,6 +359,9 @@ def webhook():
     # Auto-append time slots when closing
     if any(word in reply.lower() for word in ["call", "appointment", "review", "look", "check", "compare", "talk", "schedule"]):
         reply += f" Which works better — {get_available_slots()}?"
+
+    # === REMOVE ALL DASHES ===
+    reply = remove_dashes(reply)
 
     # SEND REPLY
     send_sms_via_ghl(contact_id, reply)
