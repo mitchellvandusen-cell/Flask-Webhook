@@ -295,6 +295,23 @@ def generate_nepq_response(
         conversation_history = []
 
     first_name = str(first_name or "there").strip()
+
+    # -------------------------------------------------------------------------
+# SAFE DEFAULTS — define early to avoid scope errors
+# -------------------------------------------------------------------------
+    stage = "problem_awareness"  # safe default for first messages
+    detected_buying_signal = False
+    problem_revealed = False
+    exchange_count = 0
+    offer_times = False
+    real_calendar_slots = "this week"  # safe fallback
+    unified_brain_knowledge = ""
+
+    try:
+        unified_brain_knowledge = get_unified_brain()
+    except Exception as e:
+        logger.warning(f"Failed to load unified brain: {e}")
+        unified_brain_knowledge = ""
     # -------------------------------------------------------------------------
     # EARLY DEFINITIONS — MUST BE BEFORE ANY USE
     # -------------------------------------------------------------------------
