@@ -177,7 +177,7 @@ SALES METHODOLOGIES — Choose or blend the best for this lead's vibe:
 
 Known Facts About Lead:
 {json.dumps(state.facts, indent=2)}
-
+LEAD AGE: {state.facts.get("age", "unknown")} — Use this for personalization, urgency, and underwriting
 Topics Already Covered (NEVER RE-ASK):
 {', '.join(state.topics_answered or [])}
 
@@ -210,7 +210,28 @@ def webhook():
     message_body = data_lower.get("message", {}).get("body", data_lower.get("message", "") or "")
     message = message_body.strip() if message_body else ""
     contact_id = data_lower.get("contact", {}).get("id", "unknown")
+        # Add age extraction
+   # === EXTRACT AGE FROM DATE_OF_BIRTH ===
+    age = "unknown"
+    date_of_birth = contact.get("date_of_birth", "")
+    if date_of_birth:
+        try:
+            from datetime import date
+            dob_parts = date_of_birth.split("-")  # Expected format: YYYY-MM-DD
+            if len(dob_parts) >= 3:
+                birth_year = int(dob_parts[0])
+                birth_month = int(dob_parts[1])
+                birth_day = int(dob_parts[2])
+                today = date.today()
+                age_calc = today.year - birth_year
+                if (today.month, today.day) < (birth_month, birth_day):
+                    age_calc -= 1
+                age = str(age_calc)
+        except:
+            age = "unknown"
 
+    # Save to facts
+    state.facts["age"] = age
     # === HARD A2P OPT-OUT ===
     if message and any(phrase in message.lower() for phrase in ["stop", "unsubscribe", "do not contact", "remove me", "opt out"]):
         reply = "Got it — you've been removed. Take care."
