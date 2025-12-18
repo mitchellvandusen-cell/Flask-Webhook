@@ -218,23 +218,29 @@ def webhook():
     # === GHL CUSTOM DATA PAYLOAD PARSING (your exact setup) ===
     data_lower = {k.lower(): v for k, v in data.items()}
 
-    # Root-level custom fields from your GHL screenshot
+    # Root-level custom fields
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
-    message = data_lower.get("message", "").strip() or ""
 
-    # Fallback for nested contact.id (standard GHL payloads)
+    # Safe message extraction — handles string or dict
+    raw_message = data_lower.get("message", "")
+    if isinstance(raw_message, dict):
+        message = raw_message.get("body", "").strip()
+    else:
+        message = str(raw_message).strip()
+
+    # Fallback for nested contact.id
     if contact_id == "unknown":
         nested_contact = data_lower.get("contact", {})
         if isinstance(nested_contact, dict):
-            contact_id = nested_contact.get("id") or nested_contact.get("contactid") or "unknown"
+            contact_id = nested_contact.get("id") or "unknown"
 
-    # === DEBUG LOGS (keep until you confirm SMS sends) ===
+    # DEBUG LOGS
     logger.info(f"Raw payload keys: {list(data.keys())}")
-    logger.info(f"Root 'contact_id' value: {data.get('contact_id')}")
-    logger.info(f"Extracted contact_id: '{contact_id}'")
-    logger.info(f"First name: '{first_name}'")
-    logger.info(f"Message: '{message}'")
+    logger.info(f"Raw message value: {raw_message}")
+    logger.info(f"Extracted message: '{message}'")
+    logger.info(f"contact_id: '{contact_id}'")
+    logger.info(f"first_name: '{first_name}'")
 
     # === SAFE STATE CREATION ===
     state = ConversationState(contact_id=contact_id, first_name=first_name)
