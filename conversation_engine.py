@@ -12,7 +12,7 @@ This module implements Layer 2: The conversation state machine and policy engine
 import re
 import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Any
+from typing import Optional, List, Dict, Any  # ← Fixed: Optional and Dict imported
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class ConversationState:
     })
     
     questions_asked: List[str] = field(default_factory=list)
-    topics_asked: List[str] = field(default_factory=list)  # ← ONLY THIS — no topics_answered
+    topics_asked: List[str] = field(default_factory=list)  # ← ONLY THIS
     
     soft_dismissive_count: int = 0
     hard_dismissive: bool = False
@@ -174,35 +174,113 @@ def extract_facts_from_message(state: ConversationState, message: str) -> Dict[s
     
     return new_facts
 
-def detect_dismissive(message: str) -> tuple:
+def detect_dismissive(message: str) -> tuple[bool, bool]:
     msg_lower = message.lower()
     soft = any(p in msg_lower for p in ["not telling", "personal", "why do you need", "none of your business"])
     hard = any(p in msg_lower for p in ["stop", "unsubscribe", "remove me", "do not contact"])
     return soft, hard
 
 def get_stage_objectives(stage: ConversationStage) -> Dict[str, Any]:
-    # (your original get_stage_objectives — unchanged)
-    # ... (keep your full function)
-
+    objectives = {
+        ConversationStage.INITIAL_OUTREACH: {
+            "goal": "Get them talking. Find out what originally got them looking.",
+            "do": [
+                "Ask open-ended curiosity question about what got them looking",
+                "Reference they looked at insurance before",
+                "Keep it casual, friendly"
+            ],
+            "dont": [
+                "Ask about income or health",
+                "Push for appointment",
+                "Ask multiple questions"
+            ],
+            "success_signal": "They share any reason they were looking"
+        },
+        ConversationStage.DISCOVERY: {
+            "goal": "Uncover pain points and coverage gaps.",
+            "do": [
+                "Ask about family if unknown",
+                "Probe current coverage source",
+                "Identify gaps",
+                "Use consequence questions"
+            ],
+            "dont": [
+                "Re-ask known topics",
+                "Jump to closing early",
+                "Be pushy"
+            ],
+            "success_signal": "They share a problem"
+        },
+        ConversationStage.OBJECTION_HANDLING: {
+            "goal": "Address concerns with empathy.",
+            "do": [
+                "Acknowledge concern",
+                "Use calibrated questions",
+                "Reference previous info"
+            ],
+            "dont": [
+                "Argue",
+                "Push harder",
+                "Ignore objection"
+            ],
+            "success_signal": "They soften"
+        },
+        ConversationStage.QUALIFICATION: {
+            "goal": "Determine fit for better products.",
+            "do": [
+                "Ask health questions conversationally",
+                "Cross-reference underwriting",
+                "Be honest about qualification"
+            ],
+            "dont": [
+                "Promise qualification",
+                "Make medical claims",
+                "Rush health questions"
+            ],
+            "success_signal": "Enough info to match carriers"
+        },
+        ConversationStage.CLOSING: {
+            "goal": "Book the appointment.",
+            "do": [
+                "Offer two specific times",
+                "Make it easy to say yes",
+                "Confirm clearly"
+            ],
+            "dont": [
+                "Open-ended 'when works'",
+                "Keep discovering",
+                "Let them off the hook"
+            ],
+            "success_signal": "They agree to a time"
+        }
+    }
     return objectives.get(stage, objectives[ConversationStage.DISCOVERY])
-
-# (keep build_state_from_history, format_state_for_prompt, PolicyEngine, parse_reflection, strip_reflection unchanged)
-
-# Only change in PolicyEngine.validate_response — use topics_asked
 
 class PolicyEngine:
     @staticmethod
-    def validate_response(response: str, state: ConversationState, reflection_scores: Optional[Dict[str, int]] = None) -> tuple:
+    def validate_response(response: str, state: ConversationState, reflection_scores: Optional[Dict[str, int]] = None) -> tuple[bool, Optional[str], Optional[str]]:
         response_lower = response.lower()
         
-        # Universal rules (length, em dashes, etc.) — unchanged
+        # Universal rules
+        if "—" in response or "–" in response:
+            return False, "Contains em dashes", "Use standard hyphen - instead"
+        
+        word_count = len(response.split())
+        if word_count > 50:
+            return False, "Too long", "Shorten to 15-40 words"
+        if word_count < 5:
+            return False, "Too short", "Add more substance"
+        
+        question_count = response.count("?")
+        if question_count > 1:
+            return False, "Too many questions", "Ask only one per message"
         
         # Re-asking check using topics_asked
         topic_patterns = {
-            "marital_status": ["are you married", "do you have a spouse"],
-            "kids": ["do you have kids", "how many kids"],
-            "coverage": ["do you have coverage", "are you currently covered"],
-            "coverage_source": ["through work", "through your employer"],
+            "marital_status": ["married", "spouse", "wife", "husband"],
+            "kids": ["kids", "children"],
+            "coverage": ["coverage", "insurance", "policy"],
+            "coverage_source": ["through work", "employer", "job"],
             "motivation": ["what got you", "why did you", "what made you look"]
         }
         
@@ -210,8 +288,21 @@ class PolicyEngine:
             if topic in topic_patterns:
                 for pattern in topic_patterns[topic]:
                     if pattern in response_lower:
-                        return False, f"Re-asked about {topic}", "You already know this — reference it instead"
+                        return False, f"Re-asked about {topic}", "Reference what they told you instead"
         
-        # (rest of validation unchanged)
-
+        # Stage-specific rules (your original ones)
+        # ... keep your full validation logic here ...
+        
         return True, None, None
+
+    @staticmethod
+    def get_regeneration_prompt(error_reason: str, correction_guidance: str) -> str:
+        return f"""
+=== RESPONSE REJECTED ===
+Reason: {error_reason}
+Fix: {correction_guidance}
+
+Generate a new response that fixes this.
+"""
+
+# (keep parse_reflection and strip_reflection unchanged)
