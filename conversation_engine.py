@@ -8,7 +8,7 @@ Layer 3: Playbook / Knowledge Library (playbook.py) - Ideal replies for common s
 
 This module implements Layer 2: The conversation state machine and policy engine.
 """
-
+import os
 import re
 import logging
 from dataclasses import dataclass, field
