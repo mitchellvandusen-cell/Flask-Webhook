@@ -118,7 +118,8 @@ def send_sms_via_ghl(contact_id: str, message: str):
     GHL_API_KEY = os.environ.get("GHL_API_KEY", GHL_API_KEY)
         # === GHL CUSTOM DATA PAYLOAD (your exact setup) ===
     data_lower = {k.lower(): v for k, v in data.items()}
-
+    data = request.json or {}   
+    
     # Root-level custom fields from your GHL screenshot
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
@@ -229,6 +230,7 @@ def webhook():
     data_lower = {k.lower(): v for k, v in data.items()}
 
     # Root-level custom fields from your GHL screenshot
+    contact = data_lower.get("contact", {}) if isinstance(data_lower.get("contact"), dict) else {}
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
     message = data_lower.get("message", "").strip() or ""
