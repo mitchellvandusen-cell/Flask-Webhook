@@ -20,11 +20,41 @@ try:
     CREATE TABLE IF NOT EXISTS contact_qualification (
         contact_id TEXT PRIMARY KEY,
         topics_asked TEXT[] DEFAULT ARRAY[]::TEXT[],
-        topics_answered TEXT[] DEFAULT ARRAY[]::TEXT[],
         key_quotes TEXT[] DEFAULT ARRAY[]::TEXT[],
         blockers TEXT[] DEFAULT ARRAY[]::TEXT[],
         health_conditions TEXT[] DEFAULT ARRAY[]::TEXT[],
         health_details TEXT[] DEFAULT ARRAY[]::TEXT[],
+        total_exchanges INTEGER DEFAULT 0,
+        dismissive_count INTEGER DEFAULT 0,
+        has_policy BOOLEAN,
+        is_personal_policy BOOLEAN,
+        is_employer_based BOOLEAN,
+        is_term BOOLEAN,
+        is_whole_life BOOLEAN,
+        is_iul BOOLEAN,
+        is_guaranteed_issue BOOLEAN,
+        term_length INTEGER,
+        face_amount TEXT,
+        carrier TEXT,
+        has_spouse BOOLEAN,
+        num_kids INTEGER,
+        tobacco_user BOOLEAN,
+        age INTEGER,
+        retiring_soon BOOLEAN,
+        motivating_goal TEXT,
+        has_other_policies BOOLEAN,
+        medications TEXT,
+        is_booked BOOLEAN DEFAULT FALSE,
+        is_qualified BOOLEAN DEFAULT FALSE,
+        appointment_time TEXT,
+        already_handled BOOLEAN DEFAULT FALSE,
+        objection_path TEXT,
+        waiting_for_health BOOLEAN DEFAULT FALSE,
+        waiting_for_other_policies BOOLEAN DEFAULT FALSE,
+        waiting_for_goal BOOLEAN DEFAULT FALSE,
+        carrier_gap_found BOOLEAN DEFAULT FALSE,
+        appointment_declined BOOLEAN DEFAULT FALSE,
+        waiting_for_medications BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -239,7 +269,7 @@ def add_to_qualification_array(contact_id, field, value):
         return False
 
     allowed_fields = {
-        'topics_asked', 'topics_answered', 'key_quotes',
+        'topics_asked', 'key_quotes',
         'blockers', 'health_conditions', 'health_details'
     }
     if field not in allowed_fields:
@@ -349,29 +379,25 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
         updates["is_personal_policy"] = True
         updates["is_employer_based"] = False
         add_to_qualification_array(contact_id, "topics_asked", "employer_coverage")
-        add_to_qualification_array(contact_id, "topics_answered", "employer_coverage")
-
+        
     if re.search(r"\b(through|from|at|via)\b.*\b(work|job|employer|company|group)\b", all_text):
         updates["is_employer_based"] = True
         updates["is_personal_policy"] = False
         add_to_qualification_array(contact_id, "topics_asked", "employer_coverage")
-        add_to_qualification_array(contact_id, "topics_answered", "employer_coverage")
-
+        
     # === POLICY TYPE ===
     if re.search(r"\bterm\b", all_text):
         updates["is_term"] = True
         add_to_qualification_array(contact_id, "topics_asked", "policy_type")
-        add_to_qualification_array(contact_id, "topics_answered", "policy_type")
-
+        
     if re.search(r"\bwhole life\b", all_text):
         updates["is_whole_life"] = True
         add_to_qualification_array(contact_id, "topics_asked", "policy_type")
-        add_to_qualification_array(contact_id, "topics_answered", "policy_type")
-
+        
     if re.search(r"\biul\b|indexed universal", all_text):
         updates["is_iul"] = True
         add_to_qualification_array(contact_id, "topics_asked", "policy_type")
-        add_to_qualification_array(contact_id, "topics_answered", "policy_type")
+        
 
     # === GUARANTEED ISSUE / FINAL EXPENSE ===
     if re.search(r"\b(guaranteed|no exam|colonial penn|globe life|gerber|aarp)\b", all_text):
@@ -608,15 +634,27 @@ def webhook():
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
     data_lower = {k.lower(): v for k, v in data.items()}
-    contact = data_lower.get("contact", {})
+    # GHL CUSTOM DATA — root-level fields from your screenshot
+    contact_id = data_lower.get("contact_id", "unknown")
+    first_name = data_lower.get("first_name", "there")
+    message = data_lower.get("message", "").strip()
 
-    first_name = contact.get("first_name", data_lower.get("first_name", "there"))
-    message_body = data_lower.get("message", {}).get("body", data_lower.get("message", "") or "")
-    message = message_body.strip() if message_body else ""
-    contact_id = contact.get("id", "unknown")
+    # Safety fallback for other GHL formats
+    if contact_id == "unknown":
+        contact_id = data_lower.get("contactid", "unknown")
+    if contact_id == "unknown":
+        nested = data_lower.get("contact", {})
+        contact_id = nested.get("id") or "unknown"
 
+    # DEBUG LOGS — keep until SMS sends
+    logger.info(f"Raw payload keys: {list(data.keys())}")
+    logger.info(f"Raw 'contact_id' value: {data.get('contact_id')}")
+    logger.info(f"Final contact_id: '{contact_id}'")
+    logger.info(f"First name: '{first_name}'")
+    logger.info(f"Message: '{message}'")
     # === EXTRACT AGE FROM DATE_OF_BIRTH ===
     age = "unknown"
+    contact = data_lower.get("contact", {})
     date_of_birth = contact.get("date_of_birth", "")
     if date_of_birth:
         try:
