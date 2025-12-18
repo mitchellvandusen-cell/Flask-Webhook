@@ -574,7 +574,7 @@ def build_system_prompt(state: ConversationState, nlp_context: str, proven_patte
 
     return f"""
 You are Mitchell — master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
-These leads opted in before but went cold. Expect high resistance.
+These leads opted in before but went cold. Expect high resistance. Alot of objections. 
 
 CRITICAL RULES:
 - NEVER say "free" or "free policy review"
@@ -583,6 +583,10 @@ CRITICAL RULES:
 - NEVER repeat a question that's already been asked or answered
 - NEVER use em dashes (—), en dashes (–), or fancy punctuation — use standard hyphen - only
 - If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better — {get_available_slots()}?"
+- DO NOT LET THEM GET OFF EASY — use NEPQ + Gap Selling to uncover gaps, expose consequences, and book calls
+- Use the CONTEXT sections heavily to sound informed and human
+- OVERCOME OBJECTIONS naturally — never say "I understand" or "I get it"
+- BE READY FOR QUICK NO'S AND OBJECTIONS — have responses ready
 
 LEAD AGE: {age} ← USE THIS HEAVILY
 - Personalize: "Most people your age...", "At {age}, rates are still good if we act now"
@@ -594,6 +598,8 @@ Known Facts:
 
 TOPICS ALREADY COVERED (NEVER RE-ASK):
 {', '.join(topics_asked) if topics_asked else "None yet"}
+GAP IDENTIFIED: {state.facts.get("gap_identified", False)}
+VERBAL AGREEMENT: {state.facts.get("verbal_agreement", False)}
 
 {blocked_section}
 
@@ -605,6 +611,12 @@ Response Style:
 - Not to use sales tactics; "rates are still solid if we lock something in soon." until a gap is found. OR they explicitely say they are "not covered" and "looking for coverage"
 
 Goal: Uncover gaps → expose consequences → book call naturally
+GAP SELLING FOCUS:
+- A gap is ANY difference between current reality and desired outcome
+- Valid gaps include: missing living benefits, employer policy ending at retirement, inadequate coverage for family, term expiring, overpaying, no cash value growth
+- Make inaction painful — ask consequence questions ("What happens if you retire and that coverage goes away?")
+- The lead's perception is reality — if they feel the gap, it's real
+NEPQ FRAMEWORK:
 
 SALES METHODOLOGIES — Blend the best for this lead:
 - NEPQ: Connect → Situation → Problem → Consequence → Qualify → Transition → Present → Commit
@@ -612,6 +624,19 @@ SALES METHODOLOGIES — Blend the best for this lead:
 - Straight Line Persuasion: Control flow, smooth objections
 - Brian Tracy: Benefits, stories, assumptive close
 - Never Split the Difference: Mirror, label, calibrated questions, "that's right"
+
+CLOSING RULES — ONLY OFFER TIMES IF ALL 3 CONDITIONS MET:
+1. You have identified a VALID GAP (e.g., missing living benefits, employer policy ends at retirement, inadequate coverage, overpriced carrier, health changes since policy issued)
+2. The lead has shown VERBAL AGREEMENT ("yes", "sounds good", "interested", "let's do it", "tell me more", "I'm in")
+3. You have asked for permission ("Mind if I share some times that work?" or "Would you be open to hopping on a quick call?")
+
+If these 3 are not met — DO NOT OFFER TIMES. Continue discovery or objection handling.
+
+When all 3 are met — offer exactly two specific times:
+"Which works better — 2pm today or 11am tomorrow?"
+
+Never ask open-ended "when works for you?"
+Never offer times without a gap and agreement.
 
 POLICY REVIEW TRIGGER:
 "When was the last time you did a policy review to make sure you're not leaving money on the table?"
@@ -678,12 +703,6 @@ def webhook():
         except Exception as e:
             logger.warning(f"Could not parse DOB {date_of_birth}: {e}")
 
-    # === HARD A2P OPT-OUT ===
-    if message and any(phrase in message.lower() for phrase in ["stop", "unsubscribe", "do not contact", "remove me", "opt out"]):
-        reply = "Got it — you've been removed. Take care."
-        send_sms_via_ghl(contact_id, reply)
-        return jsonify({"status": "success", "reply": reply})
-
     # === INITIAL OUTREACH (NO INBOUND MESSAGE) ===
     if not message:
         initial_reply = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out if you're dead."
@@ -713,7 +732,19 @@ def webhook():
     state.stage = detect_stage(state, message, [])
     state = ConversationState(contact_id=contact_id, first_name=first_name)
     state.facts = state.facts or {}
-    state.topics_asked = state.topics_asked or set()  # ← Add this
+    state.topics_asked = state.topics_asked or set()
+    # Track if a gap has been identified
+    state.facts["gap_identified"] = state.facts.get("gap_identified", False)
+
+    # Simple gap detection (expand as needed)
+    gap_keywords = ["not enough", "expires", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover"]
+    if any(kw in message.lower() for kw in gap_keywords):
+        state.facts["gap_identified"] = True
+
+    # Track verbal agreement
+    agreement_keywords = ["yes", "sounds good", "interested", "let's do it", "tell me more", "i'm in", "sure", "okay"]
+    if any(kw in message.lower() for kw in agreement_keywords):
+        state.facts["verbal_agreement"] = True  # ← Add this
     # Build context
     similar_patterns = find_similar_successful_patterns(message)
     proven_patterns = format_patterns_for_prompt(similar_patterns)
@@ -759,10 +790,6 @@ def webhook():
 
     if not reply or len(reply) < 5:
         reply = "I hear you. Most people haven't reviewed their policy in years — mind if I ask when you last checked yours?"
-
-    # Auto-append time slots when closing
-    if any(word in reply.lower() for word in ["call", "appointment", "review", "look", "check", "compare", "talk", "schedule"]):
-        reply += f" Which works better — {get_available_slots()}?"
 
     # === SEND REPLY VIA GHL ===
     send_sms_via_ghl(contact_id, reply)
