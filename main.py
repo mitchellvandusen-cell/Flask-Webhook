@@ -114,10 +114,20 @@ def get_available_slots():
     return "2pm or 4pm today, or 11am tomorrow"
 
 def send_sms_via_ghl(contact_id: str, message: str):
+    if not contact_id or contact_id == "unknown":
+        logger.warning("Invalid contact_id — cannot send SMS")
+        return False
+    
+    ghl_key = os.environ.get("GHL_API_KEY")
+    location_id = os.environ.get("GHL_LOCATION_ID")
+
+    if not ghl_key or not location_id:
+        logger.warning("GHL_API_KEY or GHL_LOCATION_ID missing — cannot send SMS")
+        return False
     if not GHL_API_KEY or not GHL_LOCATION_ID or contact_id == "unknown":
         logger.warning("GHL credentials missing or invalid contact_id — cannot send SMS")
         return False
-    url = "https://services.leadconnectorhq.com/conversations/messages"
+    url = "{GHL_BASE_URL}/conversations/messages"
     headers = {
         "Authorization": f"Bearer {GHL_API_KEY}",
         "Content-Type": "application/json",
@@ -127,7 +137,7 @@ def send_sms_via_ghl(contact_id: str, message: str):
         "type": "SMS",
         "contactId": contact_id,
         "message": message,
-        "locationId": GHL_LOCATION_ID
+        "locationId": location_id
     }
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
