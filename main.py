@@ -638,7 +638,12 @@ def webhook():
     # GHL CUSTOM DATA — root-level fields from your screenshot
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
-    message = data_lower.get("message", "").strip()
+    # Safe message extraction — handles string or dict
+    raw_message = data_lower.get("message", "")
+    if isinstance(raw_message, dict):
+        message = raw_message.get("body", "").strip()
+    else:
+        message = str(raw_message).strip()
 
     # Safety fallback for other GHL formats
     if contact_id == "unknown":
