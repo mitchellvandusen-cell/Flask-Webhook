@@ -215,12 +215,37 @@ def webhook():
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
     data_lower = {k.lower(): v for k, v in data.items()}
-    contact = data_lower.get("contact", {})
+    
+    # Robust contact_id — GHL uses different formats
+    contact_id = "unknown"
+    if "contactid" in data_lower:
+        contact_id = data_lower["contactid"]
+    elif "contact" in data_lower and isinstance(data_lower["contact"], dict):
+        contact = data_lower["contact"]
+        contact_id = contact.get("id") or contact.get("contactid") or contact.get("contact_id") or "unknown"
 
-    first_name = contact.get("first_name", data_lower.get("first_name", "there"))
-    message_body = data_lower.get("message", {}).get("body", data_lower.get("message", "") or "")
-    message = message_body.strip() if message_body else ""
-    contact_id = contact.get("id", "unknown")
+    # First name
+    first_name = "there"
+    if "contact" in data_lower and isinstance(data_lower["contact"], dict):
+        first_name = data_lower["contact"].get("first_name", "there")
+    elif "first_name" in data_lower:
+        first_name = data_lower["first_name"]
+
+    # Message
+    message = ""
+    if "message" in data_lower:
+        msg_obj = data_lower["message"]
+        if isinstance(msg_obj, dict):
+            message = msg_obj.get("body", "")
+        else:
+            message = str(msg_obj)
+    message = message.strip()
+
+    # === DEBUG LOGGING (remove once working) ===
+    logger.info(f"GHL Payload keys: {list(data.keys())}")
+    logger.info(f"Extracted contact_id: '{contact_id}'")
+    logger.info(f"Extracted first_name: '{first_name}'")
+    logger.info(f"Message: '{message}'")
 
     # === EARLY SAFE STATE DEFINITION (THIS WAS THE CRASH) ===
     state = ConversationState(contact_id=contact_id, first_name=first_name)
