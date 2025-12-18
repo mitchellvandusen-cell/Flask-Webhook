@@ -192,6 +192,41 @@ try:
 except Exception as e:
     logger.warning(f"Could not initialize NLP memory tables: {e}")
 
+
+# -------------------------------------------------------------------------
+# GLOBAL SHARED STATE — accessible to all functions
+# -------------------------------------------------------------------------
+conversation_history = []
+real_calendar_slots = "this week"
+unified_brain_knowledge = get.unified_brain()
+decision_prompt = "Respond naturally."
+trigger_suggestion = "None"
+trigger_code = "NONE"
+triggers_found = []
+outcome_context = ""
+stage = "problem_awareness"
+detected_buying_signal = False
+problem_revealed = False
+exchange_count = 0
+offer_times = False
+confirmation_code = ""
+qualification_state = None
+qualification_context = ""
+handler_response = None
+should_continue = True
+contact_id = None
+first_name = ""
+agent_name = ""
+message = ""
+intent = ""
+ghl_api_key = os.environ.get("GHL_API_KEY", "")
+location_id = os.environ.get("GHL_LOCATION_ID", "")
+get_slot_text = "" 
+calender_id = os.environ.get("GOOGLE_CALENDAR_ID", "")
+timezone = "America/Chicago"
+recent_agent_message = ""
+confirmation_code = generate_confirmation_code()  # safe to call early
+
 # Proper fix (add anywhere in main.py)
 def save_nlp_message_text(*args, **kwargs):
     pass  # silent — removes the warning, doesn't break anything
@@ -258,6 +293,7 @@ def extract_message_from_payload(data):
     return final_msg
 
 def generate_nepq_response(
+    
     first_name,
     message,
     agent_name="Mitchell",
@@ -268,9 +304,11 @@ def generate_nepq_response(
     calendar_id=None,
     timezone="America/Chicago",
 ):
+    
     conversation_history = conversation_history or []
     ghl_api_key = ghl_api_key_param or os.environ.get("GHL_API_KEY") or ""
     calendar_id = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+ 
     """
     Best-of-both merged version:
     - Original signature (first_name first) → full backward compatibility
@@ -585,7 +623,7 @@ def get_question_theme(text):
         if any(kw in text_lower for kw in keywords):
             themes.append(theme)
         return themes
-
+    
     reply_themes = get_question_theme(reply)
     recent_agent_messages = [msg for msg in conversation_history if msg.startswith("You:")] if conversation_history else []
 
@@ -2543,7 +2581,7 @@ def extract_intent(data, message=""):
     }
 
     stage_directive = stage_directives.get(stage, "")
-    profile_text = format_lead_profile_for_llm(lead_profile, first_name)
+    profile_text = format_lead_profile_for_llm(lead_profile, first_name) or ''
 
     history_text = ""
     recent_agent_messages = []
