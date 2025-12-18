@@ -114,19 +114,26 @@ def get_available_slots():
     return "2pm or 4pm today, or 11am tomorrow"
 
 def send_sms_via_ghl(contact_id: str, message: str):
-    if not contact_id or contact_id == "unknown":
-        logger.warning("Invalid contact_id — cannot send SMS")
-        return False
-    
-    ghl_key = os.environ.get("GHL_API_KEY")
-    location_id = os.environ.get("GHL_LOCATION_ID")
+        # === GHL CUSTOM DATA PAYLOAD (your exact setup) ===
+    data_lower = {k.lower(): v for k, v in data.items()}
 
-    if not ghl_key or not location_id:
-        logger.warning("GHL_API_KEY or GHL_LOCATION_ID missing — cannot send SMS")
-        return False
-    if not GHL_API_KEY or not GHL_LOCATION_ID or contact_id == "unknown":
-        logger.warning("GHL credentials missing or invalid contact_id — cannot send SMS")
-        return False
+    # Root-level custom fields from your GHL screenshot
+    contact_id = data_lower.get("contact_id", "unknown")
+    first_name = data_lower.get("first_name", "there")
+    message = data_lower.get("message", "").strip()
+
+    # Fallback for standard GHL payload (in case)
+    if contact_id == "unknown":
+        nested_contact = data_lower.get("contact", {})
+        if isinstance(nested_contact, dict):
+            contact_id = nested_contact.get("id") or "unknown"
+
+    # CRITICAL LOGS — keep these until SMS sends
+    logger.info(f"Raw payload keys: {list(data.keys())}")
+    logger.info(f"Root 'contact_id' value: {data.get('contact_id')}")
+    logger.info(f"Final contact_id used: '{contact_id}'")
+    logger.info(f"First name: '{first_name}'")
+    logger.info(f"Message: '{message}'")
     url = "{GHL_BASE_URL}/conversations/messages"
     headers = {
         "Authorization": f"Bearer {GHL_API_KEY}",
@@ -214,37 +221,25 @@ def webhook():
     if not data:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
+    # === GHL CUSTOM DATA PAYLOAD PARSING (your exact setup) ===
     data_lower = {k.lower(): v for k, v in data.items()}
-    
-    # Robust contact_id — GHL uses different formats
-    contact_id = "unknown"
-    if "contactid" in data_lower:
-        contact_id = data_lower["contactid"]
-    elif "contact" in data_lower and isinstance(data_lower["contact"], dict):
-        contact = data_lower["contact"]
-        contact_id = contact.get("id") or contact.get("contactid") or contact.get("contact_id") or "unknown"
 
-    # First name
-    first_name = "there"
-    if "contact" in data_lower and isinstance(data_lower["contact"], dict):
-        first_name = data_lower["contact"].get("first_name", "there")
-    elif "first_name" in data_lower:
-        first_name = data_lower["first_name"]
+    # Root-level custom fields from your GHL screenshot
+    contact_id = data_lower.get("contact_id", "unknown")
+    first_name = data_lower.get("first_name", "there")
+    message = data_lower.get("message", "").strip() or ""
 
-    # Message
-    message = ""
-    if "message" in data_lower:
-        msg_obj = data_lower["message"]
-        if isinstance(msg_obj, dict):
-            message = msg_obj.get("body", "")
-        else:
-            message = str(msg_obj)
-    message = message.strip()
+    # Fallback if contact_id missing (rare)
+    if contact_id == "unknown":
+        # Try nested contact object
+        nested_contact = data_lower.get("contact", {})
+        contact_id = nested_contact.get("id") or nested_contact.get("contactid") or "unknown"
 
-    # === DEBUG LOGGING (remove once working) ===
-    logger.info(f"GHL Payload keys: {list(data.keys())}")
+    # === DEBUG LOGS (keep until SMS sends) ===
+    logger.info(f"Full payload keys: {list(data.keys())}")
+    logger.info(f"Root contact_id value: {data.get('contact_id')}")
     logger.info(f"Extracted contact_id: '{contact_id}'")
-    logger.info(f"Extracted first_name: '{first_name}'")
+    logger.info(f"First name: '{first_name}'")
     logger.info(f"Message: '{message}'")
 
     # === EARLY SAFE STATE DEFINITION (THIS WAS THE CRASH) ===
