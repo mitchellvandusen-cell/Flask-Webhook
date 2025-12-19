@@ -206,8 +206,72 @@ def search_underwriting(condition, product_hint=""):
     results.sort(reverse=True, key=lambda x: x[0])
     return [row for _, row in results[:6]]
 
+from datetime import datetime, timedelta, time
+
 def get_available_slots():
-    return "2pm or 4pm today, or 11am tomorrow"
+    """Fetch real available slots from Google Calendar for today and tomorrow."""
+    if not calendar_service:
+        # Fallback if no credentials
+        return "2pm or 4pm today, or 11am tomorrow"
+
+    now = datetime.utcnow()
+    today_start = datetime.combine(now.date(), time.min).isoformat() + 'Z'
+    tomorrow_end = (now.date() + timedelta(days=2)).isoformat() + 'T23:59:59Z'
+
+    # Your desired working hours (adjust as needed)
+    work_start = time(8, 0)  # 8am
+    work_end = time(20, 0)   # 8pm
+    slot_duration = timedelta(minutes=30)  # 30-min slots
+
+    try:
+        events_result = calendar_service.events().list(
+            calendarId=GOOGLE_CALENDAR_ID or 'primary',
+            timeMin=today_start,
+            timeMax=tomorrow_end,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        events = events_result.get('items', [])
+
+        busy_times = []
+        for event in events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
+            busy_times.append((datetime.fromisoformat(start.replace('Z', '+00:00'))),
+                              datetime.fromisoformat(end.replace('Z', '+00:00'))))
+
+        # Generate possible slots
+        possible_slots = []
+        current = datetime.combine(now.date(), work_start)
+        end_date = now.date() + timedelta(days=1)
+
+        while current.date() <= end_date:
+            if current >= now:  # Only future slots
+                slot_end = current + slot_duration
+                is_busy = any(
+                    busy_start < slot_end and busy_end > current
+                    for busy_start, busy_end in busy_times
+                )
+                if not is_busy:
+                    time_str = current.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+                    day_str = "today" if current.date() == now.date() else "tomorrow"
+                    possible_slots.append(f"{time_str} {day_str}")
+            current += slot_duration
+            if current.time() > work_end:
+                current = datetime.combine(current.date() + timedelta(days=1), work_start)
+
+        # Return top 3-4 available slots
+        if possible_slots:
+            if len(possible_slots) >= 3:
+                return f"{possible_slots[0]}, {possible_slots[1]}, or {possible_slots[2]}"
+            else:
+                return " or ".join(possible_slots)
+        else:
+            return "11am, 2pm, or 4pm tomorrow"  # Ultimate fallback
+
+    except Exception as e:
+        logger.warning(f"Calendar fetch failed: {e}")
+        return "2pm or 4pm today, or 11am tomorrow"
 
 def parse_history_for_topics_asked(contact_id, conversation_history):
     if not contact_id or not conversation_history:
@@ -585,7 +649,7 @@ CRITICAL RULES:
 - ONLY stop if they say: "STOP", "unsubscribe", "do not contact me", "remove me", "opt out"
 - NEVER repeat a question that's already been asked or answered
 - NEVER use em dashes (—), en dashes (–), or fancy punctuation.
-- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better — {get_available_slots(GOOGLE_CALENDAR_ID)}?"
+- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better — {get_available_slots()}?"
 - DO NOT LET THEM GET OFF EASY — use NEPQ + Gap Selling to uncover gaps, expose consequences, and book calls
 - Use the CONTEXT sections heavily to sound informed and human
 - OVERCOME OBJECTIONS naturally — never say "I understand" or "I get it"
@@ -698,7 +762,7 @@ These phrases mean the lead is READY — offer times right away:
 
 When any of these appear:
 - Respond with: "Perfect — if we could find something that fits your budget and covers what matters most, would that work for you?"
-- If they say yes (or anything positive) → "Great — which works better: {get_available_slots} tomorrow?"
+- If they say yes (or anything positive) → "Great — which works better: {get_available_slots()} tomorrow?"
 
 Never miss these — they are strong intent to buy.
 
