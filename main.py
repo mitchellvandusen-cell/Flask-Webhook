@@ -238,7 +238,7 @@ def get_available_slots():
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))
             busy_times.append((datetime.fromisoformat(start.replace('Z', '+00:00'))),
-                              datetime.fromisoformat(end.replace('Z', '+00:00'))))
+                              datetime.fromisoformat(end.replace('Z', '+00:00')))
 
         # Generate possible slots
         possible_slots = []
