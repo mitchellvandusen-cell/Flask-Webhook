@@ -658,7 +658,61 @@ def mark_topic_asked(contact_id: str, topic: str):
         logger.info(f"Marked topic '{topic}' as asked for contact {contact_id}")
     except Exception as e:
         logger.error(f"Failed to mark topic asked: {e}")
+        
+def book_appointment(contact_id: str, first_name: str, selected_time: str):
+    """Create a calendar event when lead agrees to a time"""
+    if not calendar_service:
+        logger.warning("No calendar_service — can't book")
+        return False
 
+    # Parse selected_time (e.g., "3pm tomorrow")
+    try:
+        from datetime import datetime, timedelta, time
+        now = datetime.utcnow()
+        time_str = selected_time.lower()
+        if "tomorrow" in time_str:
+            date = now.date() + timedelta(days=1)
+        else:
+            date = now.date()
+
+        hour_map = {
+            "11am": 11, "2pm": 14, "3pm": 15, "4pm": 16
+        }
+        hour = next((h for k, h in hour_map.items() if k in time_str), 15)  # default 3pm
+
+        start_time = datetime.combine(date, time(hour, 0))
+        end_time = start_time + timedelta(minutes=30)
+
+        event = {
+            'summary': f"Life Insurance Review - {first_name}",
+            'description': f"Appointment with {first_name} (contact_id: {contact_id})",
+            'start': {
+                'dateTime': start_time.isoformat() + 'Z',
+                'timeZone': 'America/Chicago',  # Change to your timezone
+            },
+            'end': {
+                'dateTime': end_time.isoformat() + 'Z',
+                'timeZone': 'America/Chicago',
+            },
+            'attendees': [
+                {'email': 'mitchvandusenlife@gmail.com'},  # Your email
+            ],
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'email', 'minutes': 60},
+                    {'method': 'popup', 'minutes': 10},
+                ],
+            },
+        }
+
+        event = calendar_service.events().insert(calendarId='primary', body=event).execute()
+        logger.info(f"Appointment booked: {event.get('htmlLink')}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to book appointment: {e}")
+        return False
+    
 def send_sms_via_ghl(contact_id: str, message: str):
     if not contact_id or contact_id == "unknown":
         logger.warning("Invalid contact_id — cannot send SMS")
