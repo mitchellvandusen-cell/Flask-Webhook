@@ -93,6 +93,7 @@ try:
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS appointment_declined BOOLEAN DEFAULT FALSE;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS waiting_for_medications BOOLEAN DEFAULT FALSE;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS blockers TEXT[] DEFAULT ARRAY[]::TEXT[];")
+    cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS notes TEXT;")
     conn.commit()
     conn.close()
     print("DB fixed: ensured contact_qualification table + required columns")
@@ -323,6 +324,90 @@ def remove_dashes(text: str) -> str:
     # Collapse multiple spaces into one
     text = " ".join(text.split())
     return text
+def fetch_ghl_contact_notes(contact_id: str) -> str:
+    """Fetch contact notes from GHL contact details API"""
+    if not contact_id or contact_id == "unknown":
+        return ""
+
+    api_key = os.environ.get("GHL_API_KEY")
+    location_id = os.environ.get("GHL_LOCATION_ID")
+    if not api_key or not location_id:
+        logger.warning("Missing GHL API key or location ID for notes fetch")
+        return ""
+
+    url = f"https://services.leadconnectorhq.com/location/{location_id}/contact/details/{contact_id}/"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            notes = data.get("notes", "") or ""
+            return notes.strip()[:400]  # Keep it short for SMS context
+        else:
+            logger.warning(f"GHL notes fetch failed: {response.status_code} {response.text}")
+    except Exception as e:
+        logger.warning(f"GHL notes exception: {e}")
+
+    return ""
+
+def handle_missed_appointment(contact_id: str, first_name: str, message: str = ""):
+    """
+    Focused re-engagement for missed appointments.
+    - Empathy + reminder of value
+    - Pulls notes from DB if available
+    - Offers real available times from calendar
+    - Assumes interest (they booked once)
+    - Quick re-book
+    """
+    # Hard opt-out protection
+    msg_lower = message.lower().strip()
+    opt_out_phrases = ["stop", "unsubscribe", "remove me", "do not contact", "opt out", "cancel"]
+    if any(phrase in msg_lower for phrase in opt_out_phrases) and len(msg_lower.split()) <= 3:
+        reply = "Got it — you've been removed. Take care."
+        reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
+        send_sms_via_ghl(contact_id, reply)
+        return reply
+
+    # Pull notes from DB (if you have contact_qualification or notes field)
+    notes = ""
+    try:
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute("SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            notes = row[0].strip()
+        if row and row[1]:
+            notes = f" (you mentioned {row[1]})" if not notes else notes + f" — you mentioned {row[1]}"
+        conn.close()
+    except:
+        notes = ""
+
+    # First message — empathy + reminder + real times
+    if not message:
+        reply = f"Hey {first_name}, it's Mitchell — we had a call scheduled but looks like we missed each other. No worries, life happens!{notes} Still want to go over those options? Which works better — {get_available_slots()}?"
+    else:
+        # They replied — check for time preference or agreement
+        if any(time_word in msg_lower for time_word in ["today", "tomorrow", "morning", "afternoon", "evening", "pm", "am"]):
+            reply = f"Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
+        elif any(agree in msg_lower for agree in ["yes", "sure", "sounds good", "interested", "let's do it", "okay"]):
+            reply = f"Awesome — which works better: {get_available_slots()}?"
+        elif any(no in msg_lower for no in ["no", "not", "busy", "can't"]):
+            reply = "No problem at all — when's a better week for you? I can work around your schedule."
+        else:
+            reply = f"Got it — just want to make sure we're still good to find something that fits{notes}. Which works better — {get_available_slots()}?"
+
+    # Clean reply (no em dashes)
+    reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
+
+    send_sms_via_ghl(contact_id, reply)
+    return reply
 
 def add_to_qualification_array(contact_id, field, value):
     """
@@ -939,5 +1024,90 @@ def webhook():
             "contact_id": contact_id
         }
     })
+from datetime import datetime
+
+@app.route("/missed", methods=["POST"])
+def missed_appointment_webhook():
+    data = request.json or {}
+    if not data:
+        return jsonify({"status": "error", "error": "No JSON payload"}), 400
+
+    data_lower = {k.lower(): v for k, v in data.items()}
+
+    # Root-level custom fields from your GHL screenshot
+    contact_id = data_lower.get("contact_id", "unknown")
+    first_name = data_lower.get("first_name", "there")
+    message = data_lower.get("message", "").strip()
+    # After contact_id and first_name extraction
+    notes = fetch_ghl_contact_notes(contact_id)
+
+    # Fallback to motivating_goal from DB
+    if not notes:
+        try:
+            conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+            cur = conn.cursor()
+            cur.execute("SELECT motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+            row = cur.fetchone()
+            if row and row[0]:
+                notes = f"You mentioned {row[0].replace('_', ' ').title()}"
+            conn.close()
+        except:
+            pass
+
+    reminder = f" {notes}" if notes else ""
+
+    if not message:
+        reply = f"Hey {first_name}, it's Mitchell — we had a call scheduled but looks like we missed each other. No worries!{reminder} Still want to go over those options? Which works better — {get_available_slots()}?"
+    # === PULL NOTES + MOTIVATING GOAL FROM DB ===
+    notes = ""
+    try:
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT notes, motivating_goal 
+            FROM contact_qualification 
+            WHERE contact_id = %s
+        """, (contact_id,))
+        row = cur.fetchone()
+        if row:
+            if row[0]:  # notes
+                notes = row[0].strip()
+            if row[1]:  # motivating_goal
+                goal = row[1].replace("_", " ").title()
+                notes = f"{notes} — you mentioned {goal}" if notes else f"you mentioned {goal}"
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Failed to pull notes for missed appointment: {e}")
+
+    # Normalize message for responses
+    msg_lower = message.lower()
+
+    # === HARD OPT-OUT (safe for "stop sending times") ===
+    opt_out_phrases = ["stop", "unsubscribe", "remove me", "do not contact me", "opt out"]
+    if any(phrase in msg_lower for phrase in opt_out_phrases) and len(msg_lower.split()) <= 3:
+        reply = "Got it — you've been removed. Take care."
+        send_sms_via_ghl(contact_id, reply.replace("—", "-"))
+        return jsonify({"status": "success", "reply": reply})
+
+    # === FIRST MESSAGE — empathy + reminder + real times ===
+    if not message:
+        reply = f"Hey {first_name}, it's Mitchell — we had a call scheduled but looks like we missed each other. No worries at all, life happens!{notes} Still want to go over those options? Which works better — {get_available_slots()}?"
+    else:
+        # === RESPONSE HANDLING ===
+        if any(time_word in msg_lower for time_word in ["today", "tomorrow", "morning", "afternoon", "evening", "pm", "am", "o'clock"]):
+            reply = "Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
+        elif any(agree in msg_lower for agree in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "i'm in"]):
+            reply = f"Awesome — which works better: {get_available_slots()}?"
+        elif any(no in msg_lower for no in ["no", "not", "busy", "can't", "later"]):
+            reply = "No problem — when's a better week for you? I can work around your schedule."
+        else:
+            reply = f"Got it — just want to make sure we're still good to find something that fits{notes}. Which works better — {get_available_slots()}?"
+
+    # Clean reply
+    reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
+
+    send_sms_via_ghl(contact_id, reply)
+
+    return jsonify({"status": "success", "reply": reply})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
