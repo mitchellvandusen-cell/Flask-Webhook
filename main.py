@@ -809,7 +809,7 @@ def webhook():
     state.facts["gap_identified"] = state.facts.get("gap_identified", False)
 
     # Simple gap detection (expand as needed)
-    gap_keywords = ["not enough", "expires", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover"]
+    gap_keywords = ["not enough", "expires", "don't have", "I need", "lost in the divorce", "Ive been looking", "I want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover"]
     if any(kw in message.lower() for kw in gap_keywords):
         state.facts["gap_identified"] = True
 
