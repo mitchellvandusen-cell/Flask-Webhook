@@ -658,7 +658,7 @@ def mark_topic_asked(contact_id: str, topic: str):
         logger.info(f"Marked topic '{topic}' as asked for contact {contact_id}")
     except Exception as e:
         logger.error(f"Failed to mark topic asked: {e}")
-        
+
 def book_appointment(contact_id: str, first_name: str, selected_time: str):
     """Create a calendar event when lead agrees to a time"""
     if not calendar_service:
@@ -751,6 +751,7 @@ def send_sms_via_ghl(contact_id: str, message: str):
     except Exception as e:
         logger.error(f"SMS send exception: {e}")
         return False
+    
 def build_system_prompt(state: ConversationState, nlp_context: str, proven_patterns: str, underwriting_context: str):
     age = state.facts.get("age", "unknown")
     
@@ -833,6 +834,14 @@ Response Style:
 - Use assumptive closes: "When we hop on the call...", "Once we get you reviewed..." <- if they show interest
 - Use consequesnce questions to find gaps: "What happens if...", "How would that impact...", "What would you do if..."
 - If someone responds "I need insurance.", "im interested", "I want to see options", "show me what you got", "lets look at options", "how much would it cost" Book the call, do NOT act, sound, react excitingly: this is normal, expected, and exactly what you're trying to get them to say.
+
+LIVING BENEFITS PROBE — ALWAYS ASK AFTER "YES" TO OPENER:
+- If lead confirms they have a policy ("yes", "still have it", "have one", "got one")
+- Your NEXT message MUST probe living benefits:
+  - "Okay — are you certain yours has living benefits where you can access the money if you become terminally, chronically, or critically ill?"
+  - Or "Got it — you wouldn't want to pay for something that only pays when you die, right? Are you sure yours has living benefits?"
+- This is the #1 gap — do not skip it
+- Do not move to other questions until living benefits status is known
 
 DIVORCE / EX-SPOUSE RULES:
 - Never assume current spouse or children with ex
