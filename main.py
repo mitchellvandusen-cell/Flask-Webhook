@@ -207,205 +207,257 @@ def search_underwriting(condition, product_hint=""):
     results.sort(reverse=True, key=lambda x: x[0])
     return [row for _, row in results[:6]]
 
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 
 def get_available_slots():
-    """Fetch real available slots from Google Calendar for today and tomorrow."""
-    now = datetime.utcnow()
-    today_start = datetime.combine(now.date(), time.min).isoformat() + 'Z'
-    tomorrow_end = (now.date() + timedelta(days=2)).isoformat() + 'T23:59:59Z'
-
-    # Your desired working hours (adjust as needed)
-    work_start = time(8, 0)  # 8am
-    work_end = time(20, 0)   # 8pm
-    slot_duration = timedelta(minutes=30)  # 30-min slots
+    """Fetch real available 30-min slots from Google Calendar for today and tomorrow (in local timezone)."""
+    if not calendar_service:
+        logger.warning("No calendar_service available")
+        return "2pm or 4pm today, or 11am tomorrow"
 
     try:
+        # Use local timezone-aware times
+        # Adjust this to your actual timezone!
+        TZ = timezone(timedelta(hours=-6))  # Example: Central Time (UTC-6). Change to your zone!
+        # Common options:
+        # Eastern: timedelta(hours=-5)
+        # Central: timedelta(hours=-6)
+        # Mountain: timedelta(hours=-7)
+        # Pacific: timedelta(hours=-8)
+
+        now = datetime.now(TZ)
+        today = now.date()
+        tomorrow = today + timedelta(days=1)
+
+        # Define working hours
+        work_start = time(8, 0)   # 8:00 AM
+        work_end = time(20, 0)    # 8:00 PM
+        slot_duration = timedelta(minutes=30)
+
+        # Time range for query: today 00:00 to end of tomorrow
+        time_min = datetime.combine(today, time.min).isoformat() + 'Z'
+        time_max = datetime.combine(tomorrow + timedelta(days=1), time.min).isoformat() + 'Z'
+
         events_result = calendar_service.events().list(
             calendarId=GOOGLE_CALENDAR_ID or 'primary',
-            timeMin=today_start,
-            timeMax=tomorrow_end,
+            timeMin=time_min,
+            timeMax=time_max,
             singleEvents=True,
             orderBy='startTime'
         ).execute()
+
         events = events_result.get('items', [])
 
-        busy_times = []
+        # Collect busy periods (in local-aware datetime)
+        busy_periods = []
         for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            end = event['end'].get('dateTime', event['end'].get('date'))
-            busy_times.append((datetime.fromisoformat(start.replace('Z', '+00:00'))),
-                              datetime.fromisoformat(end.replace('Z', '+00:00')))
+            start_str = event['start'].get('dateTime', event['start'].get('date'))
+            end_str = event['end'].get('dateTime', event['end'].get('date'))
 
-        # Generate possible slots
-        possible_slots = []
-        current = datetime.combine(now.date(), work_start)
-        end_date = now.date() + timedelta(days=1)
-
-        while current.date() <= end_date:
-            if current >= now:  # Only future slots
-                slot_end = current + slot_duration
-                is_busy = any(
-                    busy_start < slot_end and busy_end > current
-                    for busy_start, busy_end in busy_times
-                )
-                if not is_busy:
-                    time_str = current.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-                    day_str = "today" if current.date() == now.date() else "tomorrow"
-                    possible_slots.append(f"{time_str} {day_str}")
-            current += slot_duration
-            if current.time() > work_end:
-                current = datetime.combine(current.date() + timedelta(days=1), work_start)
-
-        # Return top 3-4 available slots
-        if possible_slots:
-            if len(possible_slots) >= 3:
-                return f"{possible_slots[0]}, {possible_slots[1]}, or {possible_slots[2]}"
+            # Handle all-day events
+            if 'date' in event['start']:
+                start_dt = datetime.fromisoformat(start_str).date()
+                end_dt = datetime.fromisoformat(end_str).date()
+                start_dt = datetime.combine(start_dt, time.min).replace(tzinfo=timezone.utc).astimezone(TZ)
+                end_dt = datetime.combine(end_dt, time.min).replace(tzinfo=timezone.utc).astimezone(TZ)
             else:
-                return " or ".join(possible_slots)
-        else:
-            return "11am, 2pm, or 4pm tomorrow"  # Ultimate fallback
+                start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00')).astimezone(TZ)
+                end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00')).astimezone(TZ)
+
+            busy_periods.append((start_dt, end_dt))
+
+        # Generate candidate slots
+        available_slots = []
+        current_date = today
+        while current_date <= tomorrow:
+            current = datetime.combine(current_date, work_start).replace(tzinfo=TZ)
+
+            while current.time() <= work_end:
+                if current >= now:  # Only future/present slots
+                    slot_end = current + slot_duration
+
+                    # Check if slot overlaps with any busy period
+                    is_busy = any(
+                        busy_start < slot_end and busy_end > current
+                        for busy_start, busy_end in busy_periods
+                    )
+
+                    if not is_busy:
+                        time_str = current.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+                        day_str = "today" if current_date == today else "tomorrow"
+                        available_slots.append(f"{time_str} {day_str}")
+
+                current += slot_duration
+
+            current_date += timedelta(days=1)
+
+        # Return top 3-4 slots
+        if available_slots:
+            if len(available_slots) >= 3:
+                return f"{available_slots[0]}, {available_slots[1]}, or {available_slots[2]}"
+            else:
+                return " or ".join(available_slots)
+
+        # Ultimate fallback
+        return "11am, 2pm, or 4pm tomorrow"
 
     except Exception as e:
-        logger.warning(f"Calendar fetch failed: {e}")
+        logger.error(f"Calendar slot generation failed: {e}")
         return "2pm or 4pm today, or 11am tomorrow"
-
-def parse_history_for_topics_asked(contact_id, conversation_history):
+def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
+    """
+    Scan conversation history for agent questions and mark new topics asked.
+    Returns set of newly detected topics.
+    """
     if not contact_id or not conversation_history:
         return set()
 
-    # Load current topics_asked from DB
-    current_state = get_qualification_state(contact_id)  # from your original code
-    existing_topics = set(current_state.get("topics_asked", [])) if current_state else set()
+    # Load current known topics
+    current_state = get_qualification_state(contact_id)
+    existing_topics = set(current_state.get("topics_asked", []))
 
     AGENT_QUESTION_PATTERNS = {
-        "motivation": [r"what (got|made|brought) you", r"why did you", r"what originally", r"what made you want"],
-        "living_benefits": [r"living benefits", r"access.*while.*alive", r"accelerated.*benefit"],
-        "portability": [r"(continue|keep).*after.*retire", r"portable", r"when you leave"],
-        "employer_coverage": [r"through work", r"employer.*policy", r"job.*coverage"],
-        "policy_type": [r"term or (whole|permanent)", r"what (kind|type) of policy"],
-        "family": [r"(married|spouse)", r"(kids|children)"],
-        "coverage_amount": [r"how much coverage", r"face amount"],
-        "carrier": [r"who.*with", r"which (company|carrier)"],
-        "health": [r"health conditions", r"taking.*medications"],
-        "other_policies": [r"any other (policies|coverage)"],
+        "motivation": [
+            r"what (got|made|brought|triggered) you",
+            r"why did you.*look",
+            r"what originally",
+            r"what made you want",
+            r"something.*had you looking"
+        ],
+        "living_benefits": [
+            r"living benefits?",
+            r"access.*while.*alive",
+            r"accelerated.*benefit",
+            r"pay while.*alive"
+        ],
+        "portability": [
+            r"(continue|keep|follow|portable).*after.*(retire|leave|job)",
+            r"what happens.*when you (retire|leave|switch)"
+        ],
+        "employer_coverage": [
+            r"through work",
+            r"employer.*(policy|coverage)",
+            r"job.*(covers|insurance)",
+            r"group.*benefit"
+        ],
+        "policy_type": [
+            r"(term|whole|permanent|universal).*or",
+            r"what (kind|type) of policy"
+        ],
+        "family": [
+            r"(married|spouse|wife|husband)",
+            r"(kids|children|child)"
+        ],
+        "coverage_amount": [
+            r"how much coverage",
+            r"face amount",
+            r"death benefit.*amount"
+        ],
+        "carrier": [
+            r"who.*with",
+            r"which (company|carrier)"
+        ],
+        "health": [
+            r"health conditions?",
+            r"taking.*medications",
+            r"any medical"
+        ],
+        "other_policies": [
+            r"any other (policies|coverage)",
+            r"anything else"
+        ],
     }
 
     topics_found = set()
 
     for msg in conversation_history:
-        msg_lower = msg.lower() if isinstance(msg, str) else ""
-        is_agent = "you:" in msg_lower or not msg_lower.startswith("lead:")
-        if is_agent:
-            for topic, patterns in AGENT_QUESTION_PATTERNS.items():
-                if topic in existing_topics or topic in topics_found:
-                    continue
-                for pattern in patterns:
-                    if re.search(pattern, msg_lower):
-                        topics_found.add(topic)
-                        break
+        if not isinstance(msg, str):
+            continue
+        msg_lower = msg.lower()
 
-    # Save new topics
-    for topic in topics_found - existing_topics:
-        mark_topic_asked(contact_id, topic)  # your original function
+        # More flexible agent message detection
+        is_agent = any(prefix in msg_lower for prefix in ["you:", "mitchell:", "assistant:"]) or \
+                   ("lead:" not in msg_lower and len(msg_lower.split()) > 5)
 
-    return topics_found
+        if not is_agent:
+            continue
 
-def remove_dashes(text: str) -> str:
-    """Remove all types of dashes from text and clean up spacing."""
-    if not text:
-        return text
-    # Replace em dash, en dash, and hyphen with space
-    text = text.replace("—", " ").replace("–", " ").replace("-", " ")
-    # Collapse multiple spaces into one
-    text = " ".join(text.split())
-    return text
-def fetch_ghl_contact_notes(contact_id: str) -> str:
-    """Fetch contact notes from GHL contact details API"""
-    if not contact_id or contact_id == "unknown":
-        return ""
+        for topic, patterns in AGENT_QUESTION_PATTERNS.items():
+            if topic in existing_topics or topic in topics_found:
+                continue
+            if any(re.search(pattern, msg_lower) for pattern in patterns):
+                topics_found.add(topic)
+                break  # one topic per message is enough
 
-    api_key = os.environ.get("GHL_API_KEY")
-    location_id = os.environ.get("GHL_LOCATION_ID")
-    if not api_key or not location_id:
-        logger.warning("Missing GHL API key or location ID for notes fetch")
-        return ""
+    # Batch save new topics
+    new_topics = topics_found - existing_topics
+    for topic in new_topics:
+        mark_topic_asked(contact_id, topic)
 
-    url = f"https://services.leadconnectorhq.com/location/{location_id}/contact/details/{contact_id}/"
+    return new_topics
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            notes = data.get("notes", "") or ""
-            return notes.strip()[:400]  # Keep it short for SMS context
-        else:
-            logger.warning(f"GHL notes fetch failed: {response.status_code} {response.text}")
-    except Exception as e:
-        logger.warning(f"GHL notes exception: {e}")
-
-    return ""
-
-def handle_missed_appointment(contact_id: str, first_name: str, message: str = ""):
+def handle_missed_appointment(contact_id: str, first_name: str, message: str = "") -> str:
     """
     Focused re-engagement for missed appointments.
     - Empathy + reminder of value
-    - Pulls notes from DB if available
-    - Offers real available times from calendar
+    - Pulls notes/motivating_goal from DB
+    - Offers real available times
     - Assumes interest (they booked once)
-    - Quick re-book
+    - Quick re-book path
     """
-    # Hard opt-out protection
-    msg_lower = message.lower().strip()
-    opt_out_phrases = ["stop", "unsubscribe", "remove me", "do not contact", "opt out", "cancel"]
-    if any(phrase in msg_lower for phrase in opt_out_phrases) and len(msg_lower.split()) <= 3:
-        reply = "Got it — you've been removed. Take care."
-        reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
-        send_sms_via_ghl(contact_id, reply)
-        return reply
+    if not contact_id or contact_id == "unknown":
+        logger.warning("handle_missed_appointment called with invalid contact_id")
+        return "Error processing request."
 
-    # Pull notes from DB (if you have contact_qualification or notes field)
+    msg_lower = message.lower().strip() if message else ""
+
+    # === PULL PERSONALIZED NOTES ===
     notes = ""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
         cur.execute("SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
         row = cur.fetchone()
-        if row and row[0]:
-            notes = row[0].strip()
-        if row and row[1]:
-            notes = f" (you mentioned {row[1]})" if not notes else notes + f" — you mentioned {row[1]}"
         conn.close()
-    except:
-        notes = ""
 
-    # First message — empathy + reminder + real times
+        if row:
+            db_notes = row[0].strip() if row[0] else ""
+            goal = row[1].strip().replace("_", " ").title() if row[1] else ""
+
+            if db_notes and goal:
+                notes = f" {db_notes} — you mentioned {goal.lower()}"
+            elif db_notes:
+                notes = f" {db_notes}"
+            elif goal:
+                notes = f" — you mentioned {goal.lower()}"
+    except Exception as e:
+        logger.warning(f"Failed to fetch notes for missed appt {contact_id}: {e}")
+
+    # === BUILD REPLY ===
+    available_slots = get_available_slots()
+
     if not message:
-        reply = f"Hey {first_name}, it's Mitchell — we had a call scheduled but looks like we missed each other. No worries, life happens!{notes} Still want to go over those options? Which works better — {get_available_slots()}?"
+        # First outreach after missed call
+        reply = f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. No worries at all, life gets busy!{notes} Still want to go over those options and get you protected? Which works better — {available_slots}?"
     else:
-        # They replied — check for time preference or agreement
-        if any(time_word in msg_lower for time_word in ["today", "tomorrow", "morning", "afternoon", "evening", "pm", "am"]):
-            reply = f"Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
-        elif any(agree in msg_lower for agree in ["yes", "sure", "sounds good", "interested", "let's do it", "okay"]):
-            reply = f"Awesome — which works better: {get_available_slots()}?"
-        elif any(no in msg_lower for no in ["no", "not", "busy", "can't"]):
-            reply = "No problem at all — when's a better week for you? I can work around your schedule."
+        # They replied
+        # More precise time detection
+        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
+            reply = "Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
+            # Optional: trigger actual booking here if you parse time
+        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "works"]):
+            reply = f"Awesome — which works better: {available_slots}?"
+        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "reschedule"]):
+            reply = "No problem at all — totally understand. When's a better week for you? I can work around your schedule."
         else:
-            reply = f"Got it — just want to make sure we're still good to find something that fits{notes}. Which works better — {get_available_slots()}?"
+            reply = f"Got it — just want to make sure we're still good to find something that fits{notes}. Which works better — {available_slots}?"
 
-    # Clean reply (no em dashes)
-    reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
-
+    # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
-    return reply
+    logger.info(f"Missed appointment re-engagement sent to {contact_id}: '{reply[:100]}...'")
 
-def add_to_qualification_array(contact_id, field, value):
+    return reply
+def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
     """
     Add a value to an array field in contact_qualification (topics_asked, blockers, etc.)
     Avoids duplicates. Safe for TEXT[] columns.
@@ -423,87 +475,122 @@ def add_to_qualification_array(contact_id, field, value):
 
     try:
         import psycopg2
+
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
+
+        # Safe: use parameterized query with explicit column reference (no f-string injection)
         cur.execute(f"""
             UPDATE contact_qualification
-            SET {field} = CASE
-                WHEN %s = ANY(COALESCE({field}, ARRAY[]::TEXT[]))
-                THEN {field}
-                ELSE array_append(COALESCE({field}, ARRAY[]::TEXT[]), %s)
-            END,
+            SET {field} = ARRAY(
+                SELECT DISTINCT unnest(
+                    COALESCE({field}, ARRAY[]::TEXT[]) || ARRAY[%s]::TEXT[]
+                )
+            ),
             updated_at = CURRENT_TIMESTAMP
             WHERE contact_id = %s
-        """, (value, value, contact_id))
+        """, (value, contact_id))
+
+        # If no row existed, insert it
+        if cur.rowcount == 0:
+            cur.execute(f"""
+                INSERT INTO contact_qualification (contact_id, {field})
+                VALUES (%s, ARRAY[%s]::TEXT[])
+            """, (contact_id, value))
+
         conn.commit()
         conn.close()
+        logger.info(f"Added '{value}' to {field} for contact {contact_id}")
         return True
-    except Exception as e:
-        logger.warning(f"Failed to add to {field}: {e}")
-        return False
-    
-def get_qualification_state(contact_id):
-    """Fetch the full qualification row for a contact (or create if missing)."""
-    if not contact_id:
-        return None
-    try:
-        import psycopg2
-        from psycopg2.extras import RealDictCursor
-        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM contact_qualification WHERE contact_id = %s", (contact_id,))
-        row = cur.fetchone()
-        if row:
-            result = dict(row)
-        else:
-            # Create new record
-            cur.execute("""
-                INSERT INTO contact_qualification (contact_id)
-                VALUES (%s)
-                RETURNING *
-            """, (contact_id,))
-            row = cur.fetchone()
-            result = dict(row) if row else {}
-            conn.commit()
-        conn.close()
-        return result
-    except Exception as e:
-        logger.warning(f"Could not get qualification state: {e}")
-        return {}
 
-def update_qualification_state(contact_id, updates):
+    except Exception as e:
+        logger.error(f"Failed to add to {field} for {contact_id}: {e}")
+        try:
+            conn.rollback()
+        except:
+            pass
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
+        return False
+import datetime
+
+def make_json_serializable(obj):
+    """Convert datetime objects to ISO strings for JSON serialization"""
+    if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [make_json_serializable(item) for item in obj]
+    return obj
+
+def update_qualification_state(contact_id: str, updates: dict) -> bool:
     """Update scalar fields (boolean, text, integer) for a contact."""
     if not contact_id or not updates:
         return False
+
     try:
         import psycopg2
+        from psycopg2.extras import DictCursor
+
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-        cur = conn.cursor()
-        # Ensure row exists
+        cur = conn.cursor(cursor_factory=DictCursor)
+
+        # Ensure the row exists (UPSERT base)
         cur.execute("""
             INSERT INTO contact_qualification (contact_id)
             VALUES (%s)
             ON CONFLICT (contact_id) DO NOTHING
         """, (contact_id,))
-        # Build SET clause
-        set_parts = [f"{k} = %s" for k in updates.keys()]
-        set_parts.append("updated_at = CURRENT_TIMESTAMP")
+
+        if not updates:
+            conn.commit()
+            conn.close()
+            return True
+
+        # Use parameterized query with explicit column list for safety
+        columns = list(updates.keys())
+        set_clause = ", ".join([f"{col} = %s" for col in columns])
+        set_clause += ", updated_at = CURRENT_TIMESTAMP"
+
         values = list(updates.values())
-        values.append(contact_id)
-        query = f"UPDATE contact_qualification SET {', '.join(set_parts)} WHERE contact_id = %s"
+        values.append(contact_id)  # for WHERE clause
+
+        query = f"""
+            UPDATE contact_qualification
+            SET {set_clause}
+            WHERE contact_id = %s
+        """
+
         cur.execute(query, values)
+
+        updated = cur.rowcount > 0
         conn.commit()
         conn.close()
-        return True
+
+        logger.info(f"Updated qualification for {contact_id}: {list(updates.keys())}")
+        return updated
+
     except Exception as e:
-        logger.warning(f"Could not update qualification state: {e}")
+        logger.error(f"Failed to update qualification state for {contact_id}: {e}")
+        try:
+            conn.rollback()
+        except:
+            pass
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
         return False
 
 def extract_and_update_qualification(contact_id, message, conversation_history=None):
     """
     Extract key facts from the current message (and optionally history)
     and update the contact_qualification table permanently.
-    This is what makes the bot remember answers forever.
     """
     if not contact_id or not message:
         return {}
@@ -513,94 +600,123 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
     if conversation_history:
         all_text = " ".join([m.lower().replace("lead:", "").replace("you:", "") for m in conversation_history]) + " " + all_text
 
-    # === COVERAGE STATUS ===
-    if re.search(r"\b(have|got|already|yes)\b.*\b(coverage|policy|insurance|protected)\b", all_text):
+    msg_lower = message.lower()
+
+    # === COVERAGE STATUS (more precise with context) ===
+    if re.search(r"\b(i have|yes i have|got|already have|yes)\b.*\b(life insurance|life coverage|life policy)\b", all_text):
         updates["has_policy"] = True
-    if re.search(r"\b(no|don't|dont|never|not)\b.*\b(coverage|policy|insurance)\b", all_text):
+    elif re.search(r"\b(no|don't have|dont have|never had|not covered|no life)\b.*\b(life insurance|life coverage|life policy)\b", all_text):
         updates["has_policy"] = False
 
-    # === POLICY SOURCE (employer vs personal) ===
-    if re.search(r"\b(my own|personal|private|individual|not through work|not from work)\b", all_text):
+    # === POLICY SOURCE ===
+    if re.search(r"\b(my own|personal|private|individual|not through work|not from work|own policy)\b", all_text):
         updates["is_personal_policy"] = True
         updates["is_employer_based"] = False
         add_to_qualification_array(contact_id, "topics_asked", "employer_coverage")
-        
-    if re.search(r"\b(through|from|at|via)\b.*\b(work|job|employer|company|group)\b", all_text):
+
+    if re.search(r"\b(through|from|at|via)\b.*\b(work|job|employer|company|group|benefit)\b", all_text):
         updates["is_employer_based"] = True
         updates["is_personal_policy"] = False
         add_to_qualification_array(contact_id, "topics_asked", "employer_coverage")
-        
+
     # === POLICY TYPE ===
-    if re.search(r"\bterm\b", all_text):
+    if re.search(r"\bterm\b", all_text) and not re.search(r"\breturn of premium\b", all_text):
         updates["is_term"] = True
         add_to_qualification_array(contact_id, "topics_asked", "policy_type")
-        
+
     if re.search(r"\bwhole life\b", all_text):
         updates["is_whole_life"] = True
         add_to_qualification_array(contact_id, "topics_asked", "policy_type")
-        
-    if re.search(r"\biul\b|indexed universal", all_text):
+
+    if re.search(r"\biul\b|indexed universal|universal life indexed", all_text):
         updates["is_iul"] = True
         add_to_qualification_array(contact_id, "topics_asked", "policy_type")
-        
 
-    # === GUARANTEED ISSUE / FINAL EXPENSE ===
-    if re.search(r"\b(guaranteed|no exam|colonial penn|globe life|gerber|aarp)\b", all_text):
+    # === GUARANTEED ISSUE ===
+    if re.search(r"\b(guaranteed|no exam|no medical|colonial penn|globe life|gerber|aarp|final expense|burial)\b", all_text):
         updates["is_guaranteed_issue"] = True
 
-    # === FACE AMOUNT ===
-    amount_match = re.search(r"\b(\$?(\d{1,3}(,\d{3})*|\d+)k?)\b", all_text)
-    if amount_match:
-        amount = amount_match.group(1).replace(",", "").replace("$", "")
-        if "k" not in amount.lower():
-            amount = str(int(int(amount) / 1000)) + "k" if int(amount) >= 1000 else amount
-        updates["face_amount"] = amount.upper()
+    # === FACE AMOUNT (more robust) ===
+    amount_patterns = [
+        r'\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(million|billion)?\s*k?',
+        r'\b(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(million|billion)?\s*k?\b'
+    ]
+    for pattern in amount_patterns:
+        match = re.search(pattern, all_text)
+        if match:
+            amount_str = match.group(1).replace(",", "")
+            multiplier = match.group(2).lower() if match.group(2) else ""
+            amount = float(amount_str)
+            if "million" in multiplier:
+                amount *= 1000000
+            elif "billion" in multiplier:
+                amount *= 1000000000
+            # Convert to "500k" format
+            if amount >= 1000:
+                amount_k = round(amount / 1000)
+                updates["face_amount"] = f"{amount_k}k"
+            else:
+                updates["face_amount"] = str(int(amount))
+            break
 
     # === CARRIER ===
     carrier = find_company_in_message(message)
     if carrier:
         updates["carrier"] = carrier
 
-    # === FAMILY ===
-    if re.search(r"\b(wife|husband|spouse|married)\b", all_text):
+    # === FAMILY STATUS (with negatives) ===
+    if re.search(r"\b(wife|husband|spouse|married|partner)\b", all_text):
         updates["has_spouse"] = True
-    if re.search(r"\b(single|divorced|widowed)\b", all_text):
+    elif re.search(r"\b(single|divorced|widowed|no spouse|no wife|no husband)\b", all_text):
         updates["has_spouse"] = False
 
-    kids_match = re.search(r"\b(\d+)\b.*\b(kids|children|child)\b", all_text)
+    kids_match = re.search(r"\b(\d+)\b.*\b(kids?|children|child|son|daughter)\b", all_text)
     if kids_match:
         updates["num_kids"] = int(kids_match.group(1))
+    elif re.search(r"\b(no kids|no children|don't have kids|zero kids)\b", all_text):
+        updates["num_kids"] = 0
 
-    # === HEALTH CONDITIONS (add to array) ===
-    health_found = []
+    # === AGE EXTRACTION ===
+    age_match = re.search(r"\b(i'?m|\bam)\s+(\d{1,2})\b", all_text)
+    if age_match:
+        age_num = int(age_match.group(2))
+        if 18 <= age_num <= 100:  # reasonable range
+            updates["age"] = age_num
+
+    # === HEALTH CONDITIONS (with negatives) ===
     health_map = {
-        "diabetes": r"diabetes|diabetic",
-        "heart": r"heart|stent|bypass|cardiac",
-        "cancer": r"cancer|tumor|chemo",
-        "copd": r"copd|oxygen|breathing|emphysema",
-        "stroke": r"stroke",
-        "blood_pressure": r"blood pressure|hypertension",
-        "sleep_apnea": r"sleep apnea|cpap",
+        "diabetes": r"\bdiabetes|diabetic",
+        "heart": r"\bheart.*(attack|issue|problem|condition|stent|bypass|cardiac)",
+        "cancer": r"\bcancer|tumor|chemo|radiation",
+        "copd": r"\bcopd|emphysema|oxygen|breathing.*issue",
+        "stroke": r"\bstroke",
+        "blood_pressure": r"\b(high blood pressure|hypertension)",
+        "sleep_apnea": r"\bsleep apnea|cpap",
     }
     for key, pattern in health_map.items():
         if re.search(pattern, all_text):
-            health_found.append(key)
             add_to_qualification_array(contact_id, "health_conditions", key)
+        # Optional: add negative detection
+        # elif re.search(fr"\bno\s+{key}\b", all_text):
+        #     # Could remove from array if previously added
 
-    # === TOBACCO ===
-    if re.search(r"\b(smoke|tobacco|cigarette|vape|nicotine)\b", all_text):
+    # === TOBACCO (with stronger negative detection) ===
+    if re.search(r"\b(smoke|cigarette|vape|tobacco|nicotine)\b", all_text) and not re.search(r"\b(quit|stopped|used to|don't|never)\b", all_text):
         updates["tobacco_user"] = True
-    if re.search(r"\b(don't|dont|never|quit|stopped)\b.*\b(smoke)\b", all_text):
+    elif re.search(r"\b(don't|dont|never|quit|stopped|no longer)\b.*\b(smoke|cigarette|vape)\b", all_text):
         updates["tobacco_user"] = False
 
-    # === MOTIVATING GOAL ===
+    # === MOTIVATING GOAL (expanded) ===
     goal_map = {
-        "add_coverage": r"add|more|additional|extra|supplement|on top",
-        "cover_mortgage": r"mortgage|house|home.*(paid|cover)",
-        "final_expense": r"final expense|funeral|burial|cremation",
-        "family_protection": r"protect.*(family|wife|husband|kids)",
-        "income_replacement": r"replace.*income|salary",
-        "leave_legacy": r"leave.*(legacy|inheritance|something behind)"
+        "income_replacement": r"replace.*income|salary|paycheck|if I die|breadwinner",
+        "family_protection": r"protect.*(family|wife|husband|kids|children)",
+        "cover_mortgage": r"mortgage|house.*(paid|cover)|home loan",
+        "final_expense": r"final expense|funeral|burial|cremation|when I pass",
+        "debt_payoff": r"debt|pay off.*(loan|credit|card)",
+        "college_fund": r"college|education|school|tuition|kids.? college",
+        "leave_legacy": r"leave.*(legacy|inheritance|something behind|pass on)",
+        "retirement_supplement": r"retirement|retire|golden years",
+        "add_coverage": r"add|more|additional|increase|supplement|on top"
     }
     for goal, pattern in goal_map.items():
         if re.search(pattern, all_text):
@@ -608,14 +724,16 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
             break
 
     # === BLOCKERS ===
-    if re.search(r"\b(too busy|swamped|no time)\b", all_text):
+    if re.search(r"\b(too busy|swamped|no time|crazy schedule)\b", all_text):
         add_to_qualification_array(contact_id, "blockers", "too_busy")
-    if re.search(r"\b(too expensive|can't afford|cost)\b", all_text):
+    if re.search(r"\b(too expensive|can't afford|cost|price|budget|money)\b", all_text):
         add_to_qualification_array(contact_id, "blockers", "cost_concern")
-    if re.search(r"\b(not interested|no thanks|already covered)\b", all_text):
+    if re.search(r"\b(not interested|no thanks|already covered|all set|I'm good|handled)\b", all_text):
         add_to_qualification_array(contact_id, "blockers", "not_interested")
+    if re.search(r"\b(need to think|talk to spouse|sleep on it|consider)\b", all_text):
+        add_to_qualification_array(contact_id, "blockers", "need_to_think")
 
-    # Apply all scalar updates
+    # Apply updates
     if updates:
         update_qualification_state(contact_id, updates)
 
@@ -628,25 +746,24 @@ def mark_topic_asked(contact_id: str, topic: str):
 
     try:
         import psycopg2
-        from psycopg2.extras import Json
 
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
 
-        # Use UPSERT to add topic to topics_asked array if not already present
+        # Correct way to append to TEXT[] column without duplicates
         cur.execute("""
             INSERT INTO contact_qualification (contact_id, topics_asked)
-            VALUES (%s, %s::jsonb)
-            ON CONFLICT (contact_id) 
-            DO UPDATE SET 
-                topics_asked = (
-                    SELECT jsonb_agg(DISTINCT value)
-                    FROM jsonb_array_elements(
-                        COALESCE(contact_qualification.topics_asked, '[]'::jsonb) || %s::jsonb
+            VALUES (%s, ARRAY[%s]::TEXT[])
+            ON CONFLICT (contact_id) DO UPDATE
+            SET topics_asked = (
+                SELECT ARRAY(
+                    SELECT DISTINCT unnest(
+                        COALESCE(contact_qualification.topics_asked, ARRAY[]::TEXT[]) || ARRAY[%s]::TEXT[]
                     )
-                ),
-                updated_at = CURRENT_TIMESTAMP
-        """, (contact_id, Json([topic]), Json([topic])))
+                )
+            ),
+            updated_at = CURRENT_TIMESTAMP
+        """, (contact_id, topic, topic))
 
         conn.commit()
         cur.close()
@@ -661,37 +778,71 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str):
         logger.warning("No calendar_service — can't book")
         return False
 
-    # Parse selected_time (e.g., "3pm tomorrow")
     try:
         from datetime import datetime, timedelta, time
         now = datetime.utcnow()
-        time_str = selected_time.lower()
-        if "tomorrow" in time_str:
-            date = now.date() + timedelta(days=1)
+        time_str = selected_time.lower().strip()
+
+        # Determine date: today or tomorrow
+        if any(word in time_str for word in ["tomorrow", "tmr", "tom", "next day"]):
+            target_date = (now + timedelta(days=1)).date()
         else:
-            date = now.date()
+            target_date = now.date()
 
-        hour_map = {
-            "11am": 11, "2pm": 14, "3pm": 15, "4pm": 16
-        }
-        hour = next((h for k, h in hour_map.items() if k in time_str), 15)  # default 3pm
+        # Extract hour and minute with flexible parsing
+        hour = 15  # default 3pm
+        minute = 0
 
-        start_time = datetime.combine(date, time(hour, 0))
+        # Look for explicit times like "2pm", "2:30", "3 o'clock", "3:30pm"
+        time_patterns = [
+            r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
+            r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
+        ]
+
+        for pattern in time_patterns:
+            match = re.search(pattern, time_str)
+            if match:
+                h = int(match.group(1))
+                m = int(match.group(2)) if match.group(2) else 0
+                period = match.group(3).lower() if match.group(3) else ""
+
+                if period in ["pm", "p.m."] and h != 12:
+                    h += 12
+                elif period in ["am", "a.m."] and h == 12:
+                    h = 0
+
+                hour = h
+                minute = m
+                break
+
+        # Fallback: if words like "morning", "afternoon", "evening"
+        if hour == 15:  # no explicit time found
+            if any(word in time_str for word in ["morning", "am"]):
+                hour = 11  # 11am
+            elif any(word in time_str for word in ["afternoon", "pm"]):
+                hour = 14  # 2pm
+            elif any(word in time_str for word in ["evening", "night"]):
+                hour = 18  # 6pm
+
+        # Clamp to reasonable hours (8am - 8pm)
+        hour = max(8, min(20, hour))
+
+        start_time = datetime.combine(target_date, time(hour, minute))
         end_time = start_time + timedelta(minutes=30)
 
         event = {
             'summary': f"Life Insurance Review - {first_name}",
-            'description': f"Appointment with {first_name} (contact_id: {contact_id})",
+            'description': f"Appointment with {first_name} (contact_id: {contact_id})\nSelected time: {selected_time}",
             'start': {
                 'dateTime': start_time.isoformat() + 'Z',
-                'timeZone': 'America/Chicago',  # Change to your timezone
+                'timeZone': 'America/Chicago',
             },
             'end': {
                 'dateTime': end_time.isoformat() + 'Z',
                 'timeZone': 'America/Chicago',
             },
             'attendees': [
-                {'email': 'mitchvandusenlife@gmail.com'},  # Your email
+                {'email': 'mitchvandusenlife@gmail.com'},
             ],
             'reminders': {
                 'useDefault': False,
@@ -701,6 +852,14 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str):
                 ],
             },
         }
+
+        created_event = calendar_service.events().insert(calendarId='primary', body=event).execute()
+        logger.info(f"Appointment booked: {created_event.get('htmlLink')}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to book appointment: {e}")
+        return False
 
         event = calendar_service.events().insert(calendarId='primary', body=event).execute()
         logger.info(f"Appointment booked: {event.get('htmlLink')}")
@@ -821,7 +980,7 @@ LEAD AGE: {age} ← USE THIS HEAVILY
 - Product focus: under 50 → term/IUL; 50-64 → whole life; 65+ → final expense + living benefits
 
 Known Facts:
-{json.dumps(state.facts, indent=2)}
+{json.dumps(make_json_serializable(state.facts), indent=2)}
 
 TOPICS ALREADY COVERED (NEVER RE-ASK):
 {', '.join(topics_asked) if topics_asked else "None yet"}
@@ -1035,8 +1194,6 @@ def webhook():
         "total_exchanges_after": total_exchanges + 1
     })
 
-from datetime import datetime
-
 @app.route("/missed", methods=["POST"])
 def missed_appointment_webhook():
     data = request.json or {}
@@ -1044,33 +1201,20 @@ def missed_appointment_webhook():
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
     data_lower = {k.lower(): v for k, v in data.items()}
-
-    # Root-level custom fields from your GHL screenshot
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
     message = data_lower.get("message", "").strip()
-    # After contact_id and first_name extraction
-    notes = fetch_ghl_contact_notes(contact_id)
 
-    # Fallback to motivating_goal from DB
-    if not notes:
-        try:
-            conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-            cur = conn.cursor()
-            cur.execute("SELECT motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
-            row = cur.fetchone()
-            if row and row[0]:
-                notes = f"You mentioned {row[0].replace('_', ' ').title()}"
-            conn.close()
-        except:
-            pass
+    logger.info(f"MISSED APPT WEBHOOK | ID: {contact_id} | Name: {first_name} | Msg: '{message}'")
 
-    reminder = f" {notes}" if notes else ""
+    if contact_id == "unknown":
+        logger.warning("Missed appt webhook: unknown contact_id")
+        return jsonify({"status": "error", "error": "Invalid contact"}), 400
 
-    if not message:
-        reply = f"Hey {first_name}, it's Mitchell — we had a call scheduled but looks like we missed each other. No worries!{reminder} Still want to go over those options? Which works better — {get_available_slots()}?"
-    # === PULL NOTES + MOTIVATING GOAL FROM DB ===
-    notes = ""
+    msg_lower = message.lower() if message else ""
+
+    # === FETCH PERSONALIZED CONTEXT (ONCE) ===
+    notes_context = ""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
@@ -1080,44 +1224,44 @@ def missed_appointment_webhook():
             WHERE contact_id = %s
         """, (contact_id,))
         row = cur.fetchone()
-        if row:
-            if row[0]:  # notes
-                notes = row[0].strip()
-            if row[1]:  # motivating_goal
-                goal = row[1].replace("_", " ").title()
-                notes = f"{notes} — you mentioned {goal}" if notes else f"you mentioned {goal}"
         conn.close()
+
+        if row:
+            db_notes = row[0].strip() if row[0] else ""
+            goal = row[1].strip().replace("_", " ").title() if row[1] else ""
+
+            parts = []
+            if db_notes:
+                parts.append(db_notes)
+            if goal:
+                parts.append(f"you mentioned {goal.lower()}")
+
+            if parts:
+                notes_context = " " + " — ".join(parts)
     except Exception as e:
-        logger.warning(f"Failed to pull notes for missed appointment: {e}")
+        logger.warning(f"Failed to fetch context for missed appt {contact_id}: {e}")
 
-    # Normalize message for responses
-    msg_lower = message.lower()
+    available_slots = get_available_slots()
 
-    # === HARD OPT-OUT (safe for "stop sending times") ===
-    opt_out_phrases = ["stop", "unsubscribe", "remove me", "do not contact me", "opt out"]
-    if any(phrase in msg_lower for phrase in opt_out_phrases) and len(msg_lower.split()) <= 3:
-        reply = "Got it — you've been removed. Take care."
-        send_sms_via_ghl(contact_id, reply.replace("—", "-"))
-        return jsonify({"status": "success", "reply": reply})
-
-    # === FIRST MESSAGE — empathy + reminder + real times ===
+    # === FIRST RE-ENGAGEMENT (NO REPLY YET) ===
     if not message:
-        reply = f"Hey {first_name}, it's Mitchell — we had a call scheduled but looks like we missed each other. No worries at all, life happens!{notes} Still want to go over those options? Which works better — {get_available_slots()}?"
+        reply = f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. No worries at all, life gets busy!{notes_context} Still want to go over those options and get you protected? Which works better — {available_slots}?"
     else:
-        # === RESPONSE HANDLING ===
-        if any(time_word in msg_lower for time_word in ["today", "tomorrow", "morning", "afternoon", "evening", "pm", "am", "o'clock"]):
+        # === LEAD REPLIED ===
+        # More accurate time detection
+        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
             reply = "Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
-        elif any(agree in msg_lower for agree in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "i'm in"]):
-            reply = f"Awesome — which works better: {get_available_slots()}?"
-        elif any(no in msg_lower for no in ["no", "not", "busy", "can't", "later"]):
-            reply = "No problem — when's a better week for you? I can work around your schedule."
+            # Optional: call book_appointment() here if you parse exact time
+        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "works", "good"]):
+            reply = f"Awesome — which works better: {available_slots}?"
+        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "reschedule", "next week"]):
+            reply = "No problem — totally understand. When's a better week for you? I can work around your schedule."
         else:
-            reply = f"Got it — just want to make sure we're still good to find something that fits{notes}. Which works better — {get_available_slots()}?"
+            reply = f"Got it — just want to make sure we're still good to find something that fits{notes_context}. Which works better — {available_slots}?"
 
-    # Clean reply
-    reply = reply.replace("—", "-").replace("–", "-").replace("―", "-")
-
+    # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
+    logger.info(f"Missed appt re-engagement sent: '{reply[:100]}...'")
 
     return jsonify({"status": "success", "reply": reply})
 if __name__ == "__main__":
