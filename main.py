@@ -211,10 +211,6 @@ from datetime import datetime, timedelta, time
 
 def get_available_slots():
     """Fetch real available slots from Google Calendar for today and tomorrow."""
-    if not calendar_service:
-        # Fallback if no credentials
-        return "2pm or 4pm today, or 11am tomorrow"
-
     now = datetime.utcnow()
     today_start = datetime.combine(now.date(), time.min).isoformat() + 'Z'
     tomorrow_end = (now.date() + timedelta(days=2)).isoformat() + 'T23:59:59Z'
@@ -956,30 +952,14 @@ def webhook():
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
     data_lower = {k.lower(): v for k, v in data.items()}
-    # GHL CUSTOM DATA — root-level fields from your screenshot
-    contact_id = data_lower.get("contact_id", "unknown")
+    contact_id = data_lower.get("contact_id") or data_lower.get("contactid") or data_lower.get("contact", {}).get("id") or "unknown"
     first_name = data_lower.get("first_name", "there")
-    # Safe message extraction — handles string or dict
     raw_message = data_lower.get("message", "")
-    if isinstance(raw_message, dict):
-        message = raw_message.get("body", "").strip()
-    else:
-        message = str(raw_message).strip()
+    message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
 
-    # Safety fallback for other GHL formats
-    if contact_id == "unknown":
-        contact_id = data_lower.get("contactid", "unknown")
-    if contact_id == "unknown":
-        nested = data_lower.get("contact", {})
-        contact_id = nested.get("id") or "unknown"
+    logger.info(f"WEBHOOK | ID: {contact_id} | Name: {first_name} | Msg: '{message}'")
 
-    # DEBUG LOGS — keep until SMS sends
-    logger.info(f"Raw payload keys: {list(data.keys())}")
-    logger.info(f"Raw 'contact_id' value: {data.get('contact_id')}")
-    logger.info(f"Final contact_id: '{contact_id}'")
-    logger.info(f"First name: '{first_name}'")
-    logger.info(f"Message: '{message}'")
-    # === EXTRACT AGE FROM DATE_OF_BIRTH ===
+    # === EXTRACT AGE ===
     age = "unknown"
     contact = data_lower.get("contact", {})
     date_of_birth = contact.get("date_of_birth", "")
@@ -997,90 +977,48 @@ def webhook():
                     age_calc -= 1
                 age = str(age_calc)
         except Exception as e:
-            logger.warning(f"Could not parse DOB {date_of_birth}: {e}")
+            logger.warning(f"Could not parse DOB: {e}")
 
-    # === INITIAL OUTREACH (NO INBOUND MESSAGE) ===
-       # === OUTBOUND / FOLLOW-UP (NO INBOUND MESSAGE FROM LEAD) ===
+    # Load qualification state early
+    qualification_state = get_qualification_state(contact_id)
+    total_exchanges = qualification_state.get('total_exchanges', 0)
+
+    # === OUTBOUND / FIRST CONTACT / FOLLOW-UP HANDLING ===
     if not message:
-        # Load current qualification state to check how many messages we've already sent
-        qualification_state = get_qualification_state(contact_id)
-        total_exchanges = qualification_state.get('total_exchanges', 0) if qualification_state else 0
+        logger.info(f"OUTBOUND | total_exchanges: {total_exchanges}")
 
         if total_exchanges == 0:
-            # VERY FIRST outreach ever — send your exact verbatim desired initial message
-            reply_text = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out only if you're dead."
-            # (You can edit the wording above to be 100% exactly what you want — keep it verbatim here)
-        
-        else:
-            # This is a FOLLOW-UP (1-day, 3-day, 5-day, etc.) — let Grok create a fresh, unique message
-            # Reuse the main Grok generation path below (skip directly to prompt building)
-            # We'll jump to the Grok section by setting a flag and continuing
-            message = ""  # Treat as empty so stage detection works
-            # Force stage to something Grok handles well for follow-ups
-            # Continue to the rest of the code — it will go through full Grok generation
-
-            # Build state early for follow-up context
-            state = ConversationState(contact_id=contact_id, first_name=first_name)
-            state.facts = qualification_state or {}
-            state.stage = ConversationStage.DISCOVERY  # Or OBJECTION_HANDLING — Grok will adapt
-            state.exchange_count = total_exchanges
-
-            # Add strong follow-up instruction to the system prompt later (see step 2)
-            # For now, proceed to Grok generation
-            # (The rest of the code after this block will run Grok)
-
-        if total_exchanges == 0:
-            # Send the verbatim initial and increment counter
+            # FIRST MESSAGE EVER — YOUR EXACT VERBATIM TEXT
+            reply_text = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out if you're dead."
+            
             send_sms_via_ghl(contact_id, reply_text)
-            update_qualification_state(contact_id, {'total_exchanges':1})
-            return jsonify({"status": "success", "reply": reply_text})
-        else:
-            # FOLLOW UP - LET GROK GENERATE A FRESH MESSAGE
-            # If follow-up, fall through to full Grok processing below
-            pass
+            update_qualification_state(contact_id, {'total_exchanges': 1})
+            logger.info("First message sent — total_exchanges = 1")
+            return jsonify({"status": "success", "reply": reply_text, "first_send": True})
 
-    # === INBOUND MESSAGE PROCESSING ===
-    if message:
+        # FOLLOW-UP — continue to Grok generation below
+        is_follow_up = True
+        follow_up_num = total_exchanges
+    else:
+        # INBOUND MESSAGE
         save_nlp_message(contact_id, message, "lead")
+        extract_and_update_qualification(contact_id, message)
+        is_follow_up = False
+        follow_up_num = 0
 
-    # Load or create qualification state
+    # === RELOAD STATE AFTER ANY UPDATES ===
     qualification_state = get_qualification_state(contact_id)
-    # In production: load conversation_history from DB
-    conversation_history = []  # ← replace with real history load
+    total_exchanges = qualification_state.get('total_exchanges', 0)
 
-    # Parse history to backfill topics_asked
-    parse_history_for_topics_asked(contact_id, conversation_history)
-    if message:
-        # Extract facts and update DB
-        extract_and_update_qualification(contact_id, message)  # your existing function
-
-    # Reload fresh state after updates
-    qualification_state = get_qualification_state(contact_id)
-
-    # Create conversation state for prompt
+    # === BUILD CONVERSATION STATE ===
     state = ConversationState(contact_id=contact_id, first_name=first_name)
     state.facts = qualification_state or {}
-    if message:
-        extract_facts_from_message(state, message)
-    state.stage = detect_stage(state, message, [])
-    state = ConversationState(contact_id=contact_id, first_name=first_name)
-    state.facts = state.facts or {}
-    state.topics_asked = state.topics_asked or set()
-    # Track if a gap has been identified
-    state.facts["gap_identified"] = state.facts.get("gap_identified", False)
+    state.topics_asked = qualification_state.get('topics_asked', [])
+    state.stage = detect_stage(state, message or "", [])
+    state.exchange_count = total_exchanges
 
-    # Simple gap detection (expand as needed)
-    if message:
-        gap_keywords = ["not enough", "expires", "don't have", "I need", "lost in the divorce", "Ive been looking", "I want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover"]
-        if any(kw in message.lower() for kw in gap_keywords):
-            state.facts["gap_identified"] = True
-
-    # Track verbal agreement
-    agreement_keywords = ["yes", "sounds good", "interested", "let's do it", "tell me more", "i'm in", "sure", "okay"]
-    if any(kw in message.lower() for kw in agreement_keywords):
-        state.facts["verbal_agreement"] = True  # ← Add this
-    # Build context
-    similar_patterns = find_similar_successful_patterns(message)
+    # === BUILD CONTEXT ===
+    similar_patterns = find_similar_successful_patterns(message or "")
     proven_patterns = format_patterns_for_prompt(similar_patterns)
     nlp_context = format_nlp_for_prompt(contact_id)
 
@@ -1090,7 +1028,7 @@ def webhook():
         if any(kw in message.lower() for kw in health_keywords):
             condition_word = next((w for w in message.lower().split() if w in health_keywords), "health")
             product_hint = ""
-            full_context = message.lower() + " " + " ".join(str(v).lower() for v in state.facts.values())
+            full_context = message.lower() + " " + " ".join(str(v).lower() for v in state.facts.values() if v)
             if any(term in full_context for term in ["whole", "permanent", "cash value", "final expense"]):
                 product_hint = "whole life"
             elif any(term in full_context for term in ["term", "iul", "indexed", "universal"]):
@@ -1101,51 +1039,60 @@ def webhook():
                     f"- {' | '.join([str(c).strip() for c in row[:6] if c])}" for row in matches
                 ])
 
-    # Determine if this is a follow up message or not
-    is_follow_up = (not message) and (qualification_state.get('total_exchanges', 0) > 0)
-    follow_up_num = qualification_state.get('total_exchanges', 0)
+    # === GAP & AGREEMENT DETECTION ===
+    if message:
+        gap_keywords = ["not enough", "expires", "don't have", "I need", "lost in the divorce", "Ive been looking", "I want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover", "canceled", "what life insurance?", "got too expensive"]
+        if any(kw in message.lower() for kw in gap_keywords):
+            state.facts["gap_identified"] = True
 
-    system_prompt = build_system_prompt(state, nlp_context, proven_patterns, underwriting_context, is_follow_up=is_follow_up, follow_up_num=follow_up_num)
+        agreement_keywords = ["yes", "sounds good", "interested", "let's do it", "tell me more", "i'm in", "sure", "okay"]
+        if any(kw in message.lower() for kw in agreement_keywords):
+            state.facts["verbal_agreement"] = True
 
+    # === BUILD SYSTEM PROMPT WITH FOLLOW-UP PROTECTION ===
+    system_prompt = build_system_prompt(
+        state, nlp_context, proven_patterns, underwriting_context,
+        is_follow_up=is_follow_up, follow_up_num=follow_up_num
+    )
+
+    # === GROK MESSAGES ===
     messages = [{"role": "system", "content": system_prompt}]
     if message:
         messages.append({"role": "user", "content": message})
 
+    # === GROK GENERATION ===
     if not client:
-        fallback = "Mind sharing — when was the last time you did a policy review to make sure everything still fits?"
-        send_sms_via_ghl(contact_id, fallback)
-        return jsonify({"status": "error", "reply": fallback}), 500
-
-    try:
-        response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=400
-        )
-        reply = response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"Grok API error: {e}")
-        reply = "Got it. Quick question — when was the last time you did a policy review to make sure you're not leaving money on the table?"
+        reply = "Mind sharing, when was the last time you reviewed your coverage?"
+    else:
+        try:
+            response = client.chat.completions.create(
+                model="grok-4-1-fast-reasoning",
+                messages=messages,
+                temperature=0.7,
+                max_tokens=400
+            )
+            reply = response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Grok API error: {e}")
+            reply = "Got it, quick question, when was the last time you checked your policy?"
 
     if not reply or len(reply) < 5:
-        reply = "I hear you. Most people haven't reviewed their policy in years — mind if I ask when you last checked yours?"
+        reply = "I hear you, most people haven't reviewed in years. Mind if I ask when you last looked?"
 
-    # === SEND REPLY VIA GHL ===
+    # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
 
-    current_exchanges = qualification_state.get('total_exchanges', 0)
-    update_qualification_state(contact_id, {'total_exchanges': current_exchanges + 1})
+    # === INCREMENT COUNTER ===
+    update_qualification_state(contact_id, {'total_exchanges': total_exchanges + 1})
+    logger.info(f"Message sent — total_exchanges now: {total_exchanges + 1}")
 
     return jsonify({
         "status": "success",
         "reply": reply,
-        "metadata": {
-            "processed_at": datetime.utcnow().isoformat(),
-            "recipient": first_name,
-            "contact_id": contact_id
-        }
+        "is_follow_up": is_follow_up,
+        "total_exchanges_after": total_exchanges + 1
     })
+
 from datetime import datetime
 
 @app.route("/missed", methods=["POST"])
