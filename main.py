@@ -527,6 +527,45 @@ def make_json_serializable(obj):
         return [make_json_serializable(item) for item in obj]
     return obj
 
+def get_qualification_state(contact_id: str) -> dict:
+    """Fetch the full qualification row for a contact (or create if missing)."""
+    if not contact_id or contact_id == "unknown":
+        return {}
+
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("SELECT * FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+        row = cur.fetchone()
+
+        if row:
+            result = dict(row)
+        else:
+            # Create new record if doesn't exist
+            cur.execute("""
+                INSERT INTO contact_qualification (contact_id, total_exchanges)
+                VALUES (%s, 0)
+                RETURNING *
+            """, (contact_id,))
+            row = cur.fetchone()
+            result = dict(row)
+            conn.commit()
+
+        conn.close()
+        return result
+
+    except Exception as e:
+        logger.warning(f"Could not get qualification state for {contact_id}: {e}")
+        try:
+            conn.close()
+        except:
+            pass
+        return {}
+
 def update_qualification_state(contact_id: str, updates: dict) -> bool:
     """Update scalar fields (boolean, text, integer) for a contact."""
     if not contact_id or not updates:
