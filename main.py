@@ -6,7 +6,7 @@ import requests
 import csv
 import io
 import re
-from datetime import datetime, date  # added 'date' here
+from datetime import datetime, timedelta, time, timezone
 from openai import OpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -224,8 +224,7 @@ def get_available_slots():
         # Central: timedelta(hours=-6)
         # Mountain: timedelta(hours=-7)
         # Pacific: timedelta(hours=-8)
-
-        now = datetime.now(TZ)
+        now = datetime.now(timezone.utc)
         today = now.date()
         tomorrow = today + timedelta(days=1)
 
@@ -819,7 +818,7 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str):
 
     try:
         from datetime import datetime, timedelta, time
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         time_str = selected_time.lower().strip()
 
         # Determine date: today or tomorrow
