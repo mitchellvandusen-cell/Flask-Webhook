@@ -809,6 +809,18 @@ LEAD AGE: {age} ← USE THIS HEAVILY
 - Urgency: "Rates only go up with age"
 - Product focus: under 50 → term/IUL; 50-64 → whole life; 65+ → final expense + living benefits
 
+    # Add follow-up specific guidance when total_exchanges > 0
+    if 'total_exchanges' in locals() and total_exchanges > 0:
+        follow_up_instruction = f""
+=== THIS IS FOLLOW-UP AFTER NO RESPONSE ===
+- DO NOT repeat or closely paraphrase the initial outreach message.
+- The first message asked if they still have their old policy and mentioned new living benefits.
+- Create a COMPLETELY fresh angle: e.g., rates being favorable, quick question about family protection, living benefits value, no-exam options.
+- Vary the opening every time. Be natural and conversational.
+- Goal: Re-engage politely, add new value, end with a soft question.
+
+        system_prompt += follow_up_instruction
+
 Known Facts:
 {json.dumps(state.facts, indent=2)}
 
@@ -988,13 +1000,48 @@ def webhook():
             logger.warning(f"Could not parse DOB {date_of_birth}: {e}")
 
     # === INITIAL OUTREACH (NO INBOUND MESSAGE) ===
+       # === OUTBOUND / FOLLOW-UP (NO INBOUND MESSAGE FROM LEAD) ===
     if not message:
-        initial_reply = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out if you're dead."
-        send_sms_via_ghl(contact_id, initial_reply)
-        return jsonify({"status": "success", "reply": initial_reply})
+        # Load current qualification state to check how many messages we've already sent
+        qualification_state = get_qualification_state(contact_id)
+        total_exchanges = qualification_state.get('total_exchanges', 0) if qualification_state else 0
+
+        if total_exchanges == 0:
+            # VERY FIRST outreach ever — send your exact verbatim desired initial message
+            reply_text = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out only if you're dead."
+            # (You can edit the wording above to be 100% exactly what you want — keep it verbatim here)
+        
+        else:
+            # This is a FOLLOW-UP (1-day, 3-day, 5-day, etc.) — let Grok create a fresh, unique message
+            # Reuse the main Grok generation path below (skip directly to prompt building)
+            # We'll jump to the Grok section by setting a flag and continuing
+            message = ""  # Treat as empty so stage detection works
+            # Force stage to something Grok handles well for follow-ups
+            # Continue to the rest of the code — it will go through full Grok generation
+
+            # Build state early for follow-up context
+            state = ConversationState(contact_id=contact_id, first_name=first_name)
+            state.facts = qualification_state or {}
+            state.stage = ConversationStage.DISCOVERY  # Or OBJECTION_HANDLING — Grok will adapt
+            state.exchange_count = total_exchanges
+
+            # Add strong follow-up instruction to the system prompt later (see step 2)
+            # For now, proceed to Grok generation
+            # (The rest of the code after this block will run Grok)
+
+        if total_exchanges == 0:
+            # Send the verbatim initial and increment counter
+            send_sms_via_ghl(contact_id, reply_text)
+            update_qualification_state(contact_id, {'total_exchanges':1})
+            return jsonify({"status": "success", "reply": reply_text})
+        else:
+            # FOLLOW UP - LET GROK GENERATE A FRESH MESSAGE
+            # If follow-up, fall through to full Grok processing below
+            pass
 
     # === INBOUND MESSAGE PROCESSING ===
-    save_nlp_message(contact_id, message, "lead")
+    if message:
+        save_nlp_message(contact_id, message, "lead")
 
     # Load or create qualification state
     qualification_state = get_qualification_state(contact_id)
@@ -1003,8 +1050,9 @@ def webhook():
 
     # Parse history to backfill topics_asked
     parse_history_for_topics_asked(contact_id, conversation_history)
-    # Extract facts and update DB
-    extract_and_update_qualification(contact_id, message)  # your existing function
+    if message:
+        # Extract facts and update DB
+        extract_and_update_qualification(contact_id, message)  # your existing function
 
     # Reload fresh state after updates
     qualification_state = get_qualification_state(contact_id)
@@ -1012,7 +1060,8 @@ def webhook():
     # Create conversation state for prompt
     state = ConversationState(contact_id=contact_id, first_name=first_name)
     state.facts = qualification_state or {}
-    extract_facts_from_message(state, message)
+    if message:
+        extract_facts_from_message(state, message)
     state.stage = detect_stage(state, message, [])
     state = ConversationState(contact_id=contact_id, first_name=first_name)
     state.facts = state.facts or {}
@@ -1021,9 +1070,10 @@ def webhook():
     state.facts["gap_identified"] = state.facts.get("gap_identified", False)
 
     # Simple gap detection (expand as needed)
-    gap_keywords = ["not enough", "expires", "don't have", "I need", "lost in the divorce", "Ive been looking", "I want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover"]
-    if any(kw in message.lower() for kw in gap_keywords):
-        state.facts["gap_identified"] = True
+    if message:
+        gap_keywords = ["not enough", "expires", "don't have", "I need", "lost in the divorce", "Ive been looking", "I want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover"]
+        if any(kw in message.lower() for kw in gap_keywords):
+            state.facts["gap_identified"] = True
 
     # Track verbal agreement
     agreement_keywords = ["yes", "sounds good", "interested", "let's do it", "tell me more", "i'm in", "sure", "okay"]
@@ -1035,25 +1085,31 @@ def webhook():
     nlp_context = format_nlp_for_prompt(contact_id)
 
     underwriting_context = "No health conditions mentioned."
-    health_keywords = ["medication", "pill", "health", "condition", "diabetes", "cancer", "heart", "stroke", "copd", "blood pressure", "cholesterol"]
-    if any(kw in message.lower() for kw in health_keywords):
-        condition_word = next((w for w in message.lower().split() if w in health_keywords), "health")
-        product_hint = ""
-        full_context = message.lower() + " " + " ".join(str(v).lower() for v in state.facts.values())
-        if any(term in full_context for term in ["whole", "permanent", "cash value", "final expense"]):
-            product_hint = "whole life"
-        elif any(term in full_context for term in ["term", "iul", "indexed", "universal"]):
-            product_hint = "term iul"
-        matches = search_underwriting(condition_word, product_hint)
-        if matches:
-            underwriting_context = "Top Matching Carriers/Options:\n" + "\n".join([
-                f"- {' | '.join([str(c).strip() for c in row[:6] if c])}" for row in matches
-            ])
+    if message:
+        health_keywords = ["medication", "pill", "health", "condition", "diabetes", "cancer", "heart", "stroke", "copd", "blood pressure", "cholesterol"]
+        if any(kw in message.lower() for kw in health_keywords):
+            condition_word = next((w for w in message.lower().split() if w in health_keywords), "health")
+            product_hint = ""
+            full_context = message.lower() + " " + " ".join(str(v).lower() for v in state.facts.values())
+            if any(term in full_context for term in ["whole", "permanent", "cash value", "final expense"]):
+                product_hint = "whole life"
+            elif any(term in full_context for term in ["term", "iul", "indexed", "universal"]):
+                product_hint = "term iul"
+            matches = search_underwriting(condition_word, product_hint)
+            if matches:
+                underwriting_context = "Top Matching Carriers/Options:\n" + "\n".join([
+                    f"- {' | '.join([str(c).strip() for c in row[:6] if c])}" for row in matches
+                ])
 
-    system_prompt = build_system_prompt(state, nlp_context, proven_patterns, underwriting_context)
+    # Determine if this is a follow up message or not
+    is_follow_up = (not message) and (qualification_state.get('total_exchanges', 0) > 0)
+    follow_up_num = qualification_state.get('total_exchanges', 0)
+
+    system_prompt = build_system_prompt(state, nlp_context, proven_patterns, underwriting_context, is_follow_up=is_follow_up, follow_up_num=follow_up_num)
 
     messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "user", "content": message})
+    if message:
+        messages.append({"role": "user", "content": message})
 
     if not client:
         fallback = "Mind sharing — when was the last time you did a policy review to make sure everything still fits?"
@@ -1077,6 +1133,9 @@ def webhook():
 
     # === SEND REPLY VIA GHL ===
     send_sms_via_ghl(contact_id, reply)
+
+    current_exchanges = qualification_state.get('total_exchanges', 0)
+    update_qualification_state(contact_id, {'total_exchanges': current_exchanges + 1})
 
     return jsonify({
         "status": "success",
