@@ -209,87 +209,87 @@ def search_underwriting(condition, product_hint=""):
 
 from datetime import datetime, timedelta, time, timezone
 
+from datetime import datetime, timedelta, time, timezone
+
 def get_available_slots():
-    """Fetch real available 30-min slots from Google Calendar for today and tomorrow (in local timezone)."""
+    """Fetch real available 30-min slots from Google Calendar for today and tomorrow."""
     if not calendar_service:
-        logger.warning("No calendar_service available")
-        return "2pm or 4pm today, or 11am tomorrow"
+        logger.warning("No calendar_service — using fallback")
+        return "11am, 2pm, or 4pm tomorrow"
 
     try:
-        # Use local timezone-aware times
-        # Adjust this to your actual timezone!
-        TZ = timezone(timedelta(hours=-6))  # Example: Central Time (UTC-6). Change to your zone!
-        # Common options:
-        # Eastern: timedelta(hours=-5)
-        # Central: timedelta(hours=-6)
-        # Mountain: timedelta(hours=-7)
-        # Pacific: timedelta(hours=-8)
-        now = datetime.now(timezone.utc)
-        today = now.date()
-        tomorrow = today + timedelta(days=1)
-
-        # Define working hours
-        work_start = time(8, 0)   # 8:00 AM
-        work_end = time(20, 0)    # 8:00 PM
-        slot_duration = timedelta(minutes=30)
-
-        # Time range for query: today 00:00 to end of tomorrow
-        time_min = datetime.combine(today, time.min).isoformat() + 'Z'
-        time_max = datetime.combine(tomorrow + timedelta(days=1), time.min).isoformat() + 'Z'
+        # Use consistent UTC for everything
+        now_utc = datetime.now(timezone.utc)
+        today_utc = datetime.combine(now_utc.date(), time.min, tzinfo=timezone.utc)
+        tomorrow_end_utc = today_utc + timedelta(days=2)
 
         events_result = calendar_service.events().list(
-            calendarId=GOOGLE_CALENDAR_ID or 'primary',
-            timeMin=time_min,
-            timeMax=time_max,
+            calendarId='primary',
+            timeMin=today_utc.isoformat(),
+            timeMax=tomorrow_end_utc.isoformat(),
             singleEvents=True,
             orderBy='startTime'
         ).execute()
 
         events = events_result.get('items', [])
 
-        # Collect busy periods (in local-aware datetime)
         busy_periods = []
         for event in events:
-            start_str = event['start'].get('dateTime', event['start'].get('date'))
-            end_str = event['end'].get('dateTime', event['end'].get('date'))
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
 
-            # Handle all-day events
-            if 'date' in event['start']:
-                start_dt = datetime.fromisoformat(start_str).date()
-                end_dt = datetime.fromisoformat(end_str).date()
-                start_dt = datetime.combine(start_dt, time.min).replace(tzinfo=timezone.utc).astimezone(TZ)
-                end_dt = datetime.combine(end_dt, time.min).replace(tzinfo=timezone.utc).astimezone(TZ)
+            # Parse as UTC
+            if 'dateTime' in event['start']:
+                start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
             else:
-                start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00')).astimezone(TZ)
-                end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00')).astimezone(TZ)
+                # All-day event
+                start_dt = datetime.fromisoformat(start + 'T00:00:00+00:00')
+                end_dt = datetime.fromisoformat(end + 'T00:00:00+00:00')
 
             busy_periods.append((start_dt, end_dt))
 
-        # Generate candidate slots
+        # Generate slots in 30-min increments (8am–8pm local, but using UTC math)
+        # Convert working hours to UTC equivalent based on your timezone
+        # Example: Central Time (UTC-6)
+        local_offset = timedelta(hours=-6)  # CHANGE THIS TO YOUR TIMEZONE OFFSET
+        work_start_local = time(8, 0)
+        work_end_local = time(20, 0)
+
         available_slots = []
-        current_date = today
-        while current_date <= tomorrow:
-            current = datetime.combine(current_date, work_start).replace(tzinfo=TZ)
+        current_date_local = now_utc.astimezone(timezone(local_offset)).date()
 
-            while current.time() <= work_end:
-                if current >= now:  # Only future/present slots
-                    slot_end = current + slot_duration
+        for day_offset in [0, 1]:
+            target_date_local = current_date_local + timedelta(days=day_offset)
+            current_local = datetime.combine(target_date_local, work_start_local)
+            current_utc = current_local.astimezone(timezone.utc)
 
-                    # Check if slot overlaps with any busy period
+            while current_local.time() <= work_end_local:
+                slot_end_local = current_local + timedelta(minutes=30)
+                slot_end_utc = slot_end_local.astimezone(timezone.utc)
+
+                if current_utc >= now_utc:  # Future slot
                     is_busy = any(
-                        busy_start < slot_end and busy_end > current
+                        busy_start < slot_end_utc and busy_end > current_utc
                         for busy_start, busy_end in busy_periods
                     )
-
                     if not is_busy:
-                        time_str = current.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-                        day_str = "today" if current_date == today else "tomorrow"
+                        time_str = current_local.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+                        day_str = "today" if day_offset == 0 else "tomorrow"
                         available_slots.append(f"{time_str} {day_str}")
 
-                current += slot_duration
+                current_local += timedelta(minutes=30)
+                current_utc = current_local.astimezone(timezone.utc)
 
-            current_date += timedelta(days=1)
+        if available_slots:
+            top_3 = available_slots[:3]
+            return ", ".join(top_3[:-1]) + f", or {top_3[-1]}"
 
+        return "11am, 2pm, or 4pm tomorrow"
+
+    except Exception as e:
+        logger.error(f"Calendar failed: {e}")
+        return "11am, 2pm, or 4pm tomorrow"
         # Return top 3-4 slots
         if available_slots:
             if len(available_slots) >= 3:
@@ -1283,7 +1283,7 @@ def missed_appointment_webhook():
 
     # === FIRST RE-ENGAGEMENT (NO REPLY YET) ===
     if not message:
-        reply = f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. No worries at all, life gets busy!{notes_context} Still want to go over those options and get you protected? Which works better — {available_slots}?"
+        reply = f"Hey {first_name}, it's Mitchell, looks like we missed each other on that call. No worries at all, life gets busy!{notes_context} Still want to go over those options and get you protected? Which works better — {available_slots}?"
     else:
         # === LEAD REPLIED ===
         # More accurate time detection
@@ -1291,9 +1291,9 @@ def missed_appointment_webhook():
             reply = "Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
             # Optional: call book_appointment() here if you parse exact time
         elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "works", "good"]):
-            reply = f"Awesome — which works better: {available_slots}?"
+            reply = f"okay, which works better: {available_slots}?"
         elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "reschedule", "next week"]):
-            reply = "No problem — totally understand. When's a better week for you? I can work around your schedule."
+            reply = "No problem, totally understand. When's a better week for you? I can work around your schedule."
         else:
             reply = f"Got it — just want to make sure we're still good to find something that fits{notes_context}. Which works better — {available_slots}?"
 
