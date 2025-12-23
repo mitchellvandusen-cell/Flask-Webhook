@@ -8,8 +8,24 @@ import io
 import re
 from datetime import datetime, date, time, timedelta, timezone
 from openai import OpenAI
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+
+creds = Credentials.from_authorized_user_info(
+    {
+        "client_id": os.environ["GOOGLE_CLIENT_ID"],
+        "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
+        "refresh_token": os.environ["GOOGLE_REFRESH_TOKEN"],
+    },
+    scopes=["https://www.googleapis.com/auth/calendar"]
+)
+
+if creds.expired or not creds.valid:
+    creds.refresh(Request())
+
+calendar_service = build("calendar", "v3", credentials=creds)
+logging.info("Google Calendar connected via OAuth2 refresh token")
 
 try:
     import psycopg2
@@ -142,21 +158,29 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "fallback_secret")
 
 app.secret_key = SESSION_SECRET
 
-# === GOOGLE CALENDAR SETUP ===
-if GOOGLE_CREDENTIALS_JSON:
-    try:
-        creds_info = json.loads(GOOGLE_CREDENTIALS_JSON)
-        creds_info["private_key"] = creds_info["private_key"].replace("\\n", "\n")
-        credentials = service_account.Credentials.from_service_account_info(
-            creds_info, scopes=["https://www.googleapis.com/auth/calendar"]
-        )
-        calendar_service = build("calendar", "v3", credentials=credentials)
-    except Exception as e:
-        logger.error(f"Google Calendar setup failed: {e}")
-        calendar_service = None
-else:
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+
+# === GOOGLE CALENDAR VIA OAUTH2 REFRESH TOKEN ===
+try:
+    creds = Credentials.from_authorized_user_info(
+        {
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
+            "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN"),
+        },
+        scopes=["https://www.googleapis.com/auth/calendar"]
+    )
+
+    if creds.expired or not creds.valid:
+        creds.refresh(Request())
+
+    calendar_service = build("calendar", "v3", credentials=creds)
+    logger.info("Google Calendar connected via OAuth2 refresh token")
+except Exception as e:
+    logger.error(f"Google Calendar OAuth2 failed: {e}")
     calendar_service = None
-    logger.warning("Google Calendar credentials not provided")
 
 # === xAI GROK CLIENT ===
 client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
