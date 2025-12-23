@@ -230,7 +230,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
     start_time = datetime.combine(date, datetime.strptime(time_str, "%H:%M").time())
     end_time = start_time + timedelta(minutes=30)
 
-    url = f"https://services.leadconnectorhq.com/calendars/{calendar_id}/appointments"
+    url = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -264,22 +264,13 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo  # Python 3.9+
 
 def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str:
-    """
-    Fetch ALL available time slots from your GoHighLevel calendar for the next N days.
-    Uses the correct GHL API endpoint: /calendars/{calendarId}/free-slots
-    Returns a clean, natural-language string like:
-        "11:00 AM today, 2:00 PM tomorrow, 4:00 PM tomorrow, or 11:00 AM Wednesday"
-    Falls back to safe defaults if API fails.
-    """
     api_key = os.environ.get("GHL_API_KEY")
-    location_id = os.environ.get("GHL_LOCATION_ID")
-    cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")  # e.g., S4knucFaXO769HDFlRtv
+    cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")
 
-    if not api_key or not location_id or not cal_id:
-        logger.warning("Missing GHL_API_KEY, GHL_LOCATION_ID, or GHL_CALENDAR_ID")
+    if not api_key or not cal_id:
+        logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
         return "11am, 2pm, or 4pm tomorrow"
 
-    # Correct GHL endpoint for free/available slots
     url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
 
     headers = {
@@ -288,16 +279,17 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         "Content-Type": "application/json"
     }
 
-    # Date range: today through X days ahead
-    today = datetime.now(timezone.utc).date()
-    params = {
-        "locationId": location_id,
-        "startDate": today.isoformat(),
-        "endDate": (today + timedelta(days=days_ahead)).isoformat(),
-        # Optional: helps accuracy
-        "timezone": "America/Chicago",  # Change if you're in a different zone
-    }
+    # FIXED: Unix ms timestamps + no locationId
+    now = datetime.now(timezone.utc)
+    start_ts = int(now.timestamp() * 1000)
+    end_ts = int((now + timedelta(days=days_ahead)).timestamp() * 1000)
 
+    params = {
+        "startDate": start_ts,
+        "endDate": end_ts,
+        "timezone": "America/Chicago"
+    }
+    
     try:
         response = requests.get(url, headers=headers, params=params, timeout=20)
         response.raise_for_status()
@@ -308,7 +300,7 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
 
         if not slots:
             logger.info("GHL returned no available slots in the next 7 days")
-            return "11am, 2pm, or 4pm next week"
+            return "Let me look at my calendar"
 
         # Convert to local time and format nicely
         local_tz = ZoneInfo("America/Chicago")  # Update to your actual timezone
@@ -358,7 +350,7 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         logger.error(f"Unexpected error in get_ghl_available_slots: {e}")
 
     # Final fallback
-    return "11am, 2pm, or 4pm tomorrow"
+    return "let me look at my calendar"
     
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
