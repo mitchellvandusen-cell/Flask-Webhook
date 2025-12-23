@@ -1241,65 +1241,58 @@ def missed_appointment_webhook():
     data_lower = {k.lower(): v for k, v in data.items()}
     contact_id = data_lower.get("contact_id", "unknown")
     first_name = data_lower.get("first_name", "there")
-    message = data_lower.get("message", "").strip()
+
+    # Safe message extraction
+    raw_message = data_lower.get("message", "")
+    if isinstance(raw_message, dict):
+        message = raw_message.get("body", "").strip()
+    else:
+        message = str(raw_message).strip()
 
     logger.info(f"MISSED APPT WEBHOOK | ID: {contact_id} | Name: {first_name} | Msg: '{message}'")
 
     if contact_id == "unknown":
-        logger.warning("Missed appt webhook: unknown contact_id")
         return jsonify({"status": "error", "error": "Invalid contact"}), 400
 
     msg_lower = message.lower() if message else ""
 
-    # === FETCH PERSONALIZED CONTEXT (ONCE) ===
+    # === PERSONALIZED CONTEXT ===
     notes_context = ""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
-        cur.execute("""
-            SELECT notes, motivating_goal 
-            FROM contact_qualification 
-            WHERE contact_id = %s
-        """, (contact_id,))
+        cur.execute("SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
         row = cur.fetchone()
         conn.close()
 
         if row:
             db_notes = row[0].strip() if row[0] else ""
             goal = row[1].strip().replace("_", " ").title() if row[1] else ""
-
-            parts = []
-            if db_notes:
-                parts.append(db_notes)
-            if goal:
-                parts.append(f"you mentioned {goal.lower()}")
-
+            parts = [p for p in [db_notes, f"you mentioned {goal.lower()}"] if p]
             if parts:
                 notes_context = " " + " — ".join(parts)
     except Exception as e:
-        logger.warning(f"Failed to fetch context for missed appt {contact_id}: {e}")
+        logger.warning(f"Failed to fetch notes for missed appt {contact_id}: {e}")
 
     available_slots = get_available_slots()
 
-    # === FIRST RE-ENGAGEMENT (NO REPLY YET) ===
+    # === FIRST RE-ENGAGEMENT ===
     if not message:
-        reply = f"Hey {first_name}, it's Mitchell, looks like we missed each other on that call. No worries at all, life gets busy!{notes_context} Still want to go over those options and get you protected? Which works better — {available_slots}?"
+        reply = f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. No worries, life gets busy!{notes_context} Still want to review your options? Which works better — {available_slots}?"
     else:
-        # === LEAD REPLIED ===
         # More accurate time detection
-        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
-            reply = "Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
-            # Optional: call book_appointment() here if you parse exact time
-        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "works", "good"]):
-            reply = f"okay, which works better: {available_slots}?"
-        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "reschedule", "next week"]):
-            reply = "No problem, totally understand. When's a better week for you? I can work around your schedule."
+        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm))\b", msg_lower):
+            reply = "Perfect, let's lock that in. Talk soon!"
+            # Future: parse exact time and call book_appointment()
+        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good"]):
+            reply = f"Awesome, which works better: {available_slots}?"
+        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "next week"]):
+            reply = "No problem, totally understand. When's a better week for you?"
         else:
-            reply = f"Got it — just want to make sure we're still good to find something that fits{notes_context}. Which works better — {available_slots}?"
+            reply = f"Got it — just checking we're still good to find something that fits{notes_context}. Which works better — {available_slots}?"
 
-    # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
-    logger.info(f"Missed appt re-engagement sent: '{reply[:100]}...'")
+    logger.info(f"Missed appt reply sent: '{reply[:100]}...'")
 
     return jsonify({"status": "success", "reply": reply})
 if __name__ == "__main__":
