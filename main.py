@@ -157,6 +157,7 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_REFRESH_TOKEN = os.environ.get("GOOGLE_REFRESH_TOKEN")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fallback_secret")
+GHL_CALENDAR_ID = os.environ.get("GHL_CALENDAR_ID")
 
 app.secret_key = SESSION_SECRET
 
@@ -258,6 +259,73 @@ def search_underwriting(condition, product_hint=""):
     return [row for _, row in results[:6]]
 
 from datetime import datetime, date, time, timedelta, timezone
+
+def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
+    """Create an appointment in GoHighLevel when lead agrees to a time"""
+    api_key = os.environ.get("GHL_API_KEY")
+    location_id = os.environ.get("GHL_LOCATION_ID")
+    if not api_key or not location_id:
+        logger.error("Missing GHL credentials for appointment creation")
+        return False
+
+    # You need to set this to your GHL calendar ID (find in GHL → Calendars → your calendar → URL has calendarId=...)
+    calendar_id = os.environ.get("GHL_CALENDAR_ID")  # e.g., "abc123xyz"
+
+    if not calendar_id:
+        logger.error("GHL_CALENDAR_ID not set — can't create appointment")
+        return False
+
+    # Parse selected_time into start time (you can make this smarter later)
+    # For now, assume format like "2pm tomorrow" or "11am today"
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now()
+    if "tomorrow" in selected_time.lower():
+        date = (now + timedelta(days=1)).date()
+    else:
+        date = now.date()
+
+    time_map = {
+        "11am": "11:00", "2pm": "14:00", "4pm": "16:00",
+        "10:30": "10:30", "3pm": "15:00", "6pm": "18:00"
+    }
+    time_str = "14:00"  # default 2pm
+    for key, val in time_map.items():
+        if key in selected_time.lower():
+            time_str = val
+            break
+
+    start_time = datetime.combine(date, datetime.strptime(time_str, "%H:%M").time())
+    end_time = start_time + timedelta(minutes=30)
+
+    url = "https://services.leadconnectorhq.com/appointments"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "locationId": location_id,
+        "calendarId": calendar_id,
+        "contactId": contact_id,
+        "startTime": start_time.isoformat(),
+        "endTime": end_time.isoformat(),
+        "title": f"Life Insurance Review - {first_name}",
+        "appointmentStatus": "confirmed"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            logger.info(f"GHL appointment created for {contact_id} at {start_time}")
+            return True
+        else:
+            logger.error(f"GHL appointment failed: {response.status_code} {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"GHL appointment exception: {e}")
+        return False
 
 def get_available_slots():
     if not calendar_service:
@@ -1319,7 +1387,10 @@ def missed_appointment_webhook():
     else:
         # More accurate time detection
         if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm))\b", msg_lower):
-            reply = "Perfect, let's lock that in. Talk soon!"
+            if create_ghl_appointment(contact_id, first_name, message):
+                reply = "Perfect — appointment booked! I'll send the details shortly."
+            else:
+                reply = "That time looks busy — how about another slot?"
             # Future: parse exact time and call book_appointment()
         elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good"]):
             reply = f"Awesome, which works better: {available_slots}?"
@@ -1332,5 +1403,29 @@ def missed_appointment_webhook():
     logger.info(f"Missed appt reply sent: '{reply[:100]}...'")
 
     return jsonify({"status": "success", "reply": reply})
+
+@app.route("/debug_calendar")
+def debug_calendar():
+    if not calendar_service:
+        return {"error": "calendar_service is None — OAuth2 failed"}
+
+    try:
+        events_result = calendar_service.events().list(
+            calendarId='primary',
+            timeMin=datetime.now(timezone.utc).isoformat() + 'Z',
+            timeMax=(datetime.now(timezone.utc) + timedelta(days=2)).isoformat() + 'Z',
+            singleEvents=True,
+            maxResults=5
+        ).execute()
+
+        events = events_result.get('items', [])
+        return {
+            "status": "success",
+            "events_count": len(events),
+            "events": [{"summary": e.get('summary'), "start": e.get('start')} for e in events]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
