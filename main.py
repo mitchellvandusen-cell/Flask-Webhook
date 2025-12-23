@@ -504,8 +504,8 @@ def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
 from datetime import datetime, timedelta, time, timezone
 def make_json_serializable(obj):
     """Convert datetime objects to ISO strings for JSON serialization"""
-    if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
-        return obj.isoformat()
+    if isinstance(obj, (datetime, date, time)):
+        return obj.isoformat() if obj else None
     if isinstance(obj, dict):
         return {k: make_json_serializable(v) for k, v in obj.items()}
     if isinstance(obj, list):
