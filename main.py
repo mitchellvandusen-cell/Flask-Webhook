@@ -11,6 +11,7 @@ from openai import OpenAI
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from zoneinfo import ZoneInfo  # Python 3.9+
 from dotenv import load_dotenv
 load_dotenv()  # Loads variables from .env file
 
@@ -878,10 +879,6 @@ def mark_topic_asked(contact_id: str, topic: str):
         logger.info(f"Marked topic '{topic}' as asked for contact {contact_id}")
     except Exception as e:
         logger.error(f"Failed to mark topic asked: {e}")
-
-import re
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo  # Python 3.9+
 
 def book_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
     """
