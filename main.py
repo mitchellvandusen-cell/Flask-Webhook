@@ -11,6 +11,8 @@ from openai import OpenAI
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from dotenv import load_dotenv
+load_dotenv()  # Loads variables from .env file
 
 try:
     import psycopg2
