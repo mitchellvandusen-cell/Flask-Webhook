@@ -280,7 +280,7 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         return "11am, 2pm, or 4pm tomorrow"
 
     # Correct GHL endpoint for free/available slots
-    url = f"https://services.leadconnectorhq.com/calendars/{calendar_id}/free-slots"
+    url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
