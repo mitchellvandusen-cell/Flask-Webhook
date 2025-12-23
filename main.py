@@ -153,7 +153,9 @@ XAI_API_KEY = os.environ.get("XAI_API_KEY")
 GHL_API_KEY = os.environ.get("GHL_API_KEY")
 GHL_LOCATION_ID = os.environ.get("GHL_LOCATION_ID")
 GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID")
-GOOGLE_CREDENTIALS_JSON = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_REFRESH_TOKEN = os.environ.get("GOOGLE_REFRESH_TOKEN")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fallback_secret")
 
 app.secret_key = SESSION_SECRET
@@ -161,7 +163,6 @@ app.secret_key = SESSION_SECRET
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-
 # === GOOGLE CALENDAR VIA OAUTH2 REFRESH TOKEN ===
 try:
     creds = Credentials.from_authorized_user_info(
@@ -177,10 +178,34 @@ try:
         creds.refresh(Request())
 
     calendar_service = build("calendar", "v3", credentials=creds)
-    logger.info("Google Calendar connected via OAuth2 refresh token")
+    logger.info("Google Calendar connected via OAuth2 refresh token — SUCCESS")
 except Exception as e:
     logger.error(f"Google Calendar OAuth2 failed: {e}")
+    # === GOOGLE CALENDAR VIA OAUTH2 REFRESH TOKEN ===
     calendar_service = None
+    try:
+        if not os.environ.get("GOOGLE_CLIENT_ID") or not os.environ.get("GOOGLE_CLIENT_SECRET") or not os.environ.get("GOOGLE_REFRESH_TOKEN"):
+            logger.error("Missing Google OAuth2 env vars (CLIENT_ID, CLIENT_SECRET, or REFRESH_TOKEN)")
+        else:
+            creds = Credentials.from_authorized_user_info(
+                {
+                    "client_id": os.environ["GOOGLE_CLIENT_ID"],
+                    "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
+                    "refresh_token": os.environ["GOOGLE_REFRESH_TOKEN"],
+                },
+                scopes=["https://www.googleapis.com/auth/calendar"]
+            )
+
+            if creds.expired or not creds.valid:
+                logger.info("Google OAuth2 token expired — refreshing")
+                creds.refresh(Request())
+
+            calendar_service = build("calendar", "v3", credentials=creds)
+            logger.info("Google Calendar connected via OAuth2 — SUCCESS")
+    except Exception as e:
+        logger.error(f"Google Calendar OAuth2 setup failed: {e}")
+        calendar_service = None
+    
 
 # === xAI GROK CLIENT ===
 client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
@@ -234,10 +259,11 @@ def search_underwriting(condition, product_hint=""):
 from datetime import datetime, date, time, timedelta, timezone
 
 def get_available_slots():
-    """Fetch real available 30-min slots from Google Calendar for today and tomorrow."""
     if not calendar_service:
-        logger.warning("No calendar_service — using fallback")
+        logger.warning("No calendar_service — using fallback slots")
         return "11am, 2pm, or 4pm tomorrow"
+    
+    logger.info("Calendar service available — fetching real slots")
 
     try:
         # Use consistent UTC for everything
