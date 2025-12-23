@@ -1288,7 +1288,7 @@ def missed_appointment_webhook():
 
     # === FIRST RE-ENGAGEMENT ===
     if not message:
-        reply = f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. No worries, life gets busy!{notes_context} Still want to review your options? Which works better — {available_slots}?"
+        reply = f"Hey {first_name}, it's Mitch, looks like we missed each other on that call. No worries, life gets busy!{notes_context} Still want to review your options? Which works better — {available_slots}?"
     else:
         # More accurate time detection
         if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm))\b", msg_lower):
