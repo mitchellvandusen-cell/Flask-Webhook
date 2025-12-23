@@ -500,8 +500,8 @@ def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
             except:
                 pass
         return False
-import datetime
-
+    
+from datetime import datetime, timedelta, time, timezone
 def make_json_serializable(obj):
     """Convert datetime objects to ISO strings for JSON serialization"""
     if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
