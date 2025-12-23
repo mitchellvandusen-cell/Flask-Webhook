@@ -251,71 +251,86 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         logger.error(f"GHL appointment exception: {e}")
         return False
 
-def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str:
+def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
     api_key = os.environ.get("GHL_API_KEY")
-    cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")
+    location_id = os.environ.get("GHL_LOCATION_ID")
+    calendar_id = os.environ.get("GHL_CALENDAR_ID")
 
-    if not api_key or not cal_id:
-        logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
-        return "let me look at my calendar"
+    if not all([api_key, location_id, calendar_id]):
+        logger.error("Missing GHL credentials")
+        return False
 
-    url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+    # Parse time
+    time_lower = selected_time.lower()
+    now = datetime.now()
+    target_date = (now + timedelta(days=1)).date() if "tomorrow" in time_lower else now.date()
 
+    time_map = {
+        "10:30am": "10:30", "10:30": "10:30", "11am": "11:00",
+        "2pm": "14:00", "3pm": "15:00", "4pm": "16:00", "6pm": "18:00"
+    }
+    time_str = "14:00"
+    for key, val in time_map.items():
+        if key in time_lower:
+            time_str = val
+            break
+
+    start_time = datetime.combine(target_date, datetime.strptime(time_str, "%H:%M").time())
+    end_time = start_time + timedelta(minutes=30)
+
+    # Step 1: Fetch existing events to check for conflicts
+    events_url = f"https://services.leadconnectorhq.com/calendars/{calendar_id}/events"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Version": "2021-04-15",  # ← ONLY THIS WORKS FOR free-slots
+        "Version": "2021-07-28",
         "Content-Type": "application/json"
     }
-
-    now = datetime.now(timezone.utc)
-    start_ts = int(now.timestamp() * 1000)
-    end_ts = int((now + timedelta(days=min(days_ahead, 30))).timestamp() * 1000)  # Max 31 days
-
     params = {
-        "startDate": start_ts,
-        "endDate": end_ts,
-        "timezone": "America/Chicago"
+        "startDate": int(start_time.timestamp() * 1000 - 86400000),  # Day before in ms
+        "endDate": int(end_time.timestamp() * 1000 + 86400000)  # Day after
     }
 
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=20)
-        if response.status_code != 200:
-            logger.error(f"GHL free-slots failed: {response.status_code} {response.text}")
-            return "let me look at my calendar"
-
-        data = response.json()
-        slots = data.get("slots") or data.get("freeSlots") or []
-
-        if not slots:
-            logger.info("GHL returned no available slots")
-            return "let me look at my calendar"
-
-        local_tz = ZoneInfo("America/Chicago")
-        formatted_slots = []
-
-        for slot in slots[:12]:
-            try:
-                start_str = slot["startTime"].replace("Z", "+00:00")
-                dt = datetime.fromisoformat(start_str).astimezone(local_tz)
-                time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-                day = "today" if dt.date() == datetime.now().date() else \
-                      "tomorrow" if dt.date() == datetime.now().date() + timedelta(days=1) else \
-                      dt.strftime("%A")
-                formatted_slots.append(f"{time_str} {day}")
-            except Exception as e:
-                logger.warning(f"Slot parse error: {e}")
-                continue
-
-        if not formatted_slots:
-            return "let me look at my calendar"
-
-        if len(formatted_slots) >= 4:
-            return f"{formatted_slots[0]}, {formatted_slots[1]}, {formatted_slots[2]}, or {formatted_slots[3]}"
-        return ", ".join(formatted_slots[:-1]) + f", or {formatted_slots[-1]}"
-
+        response = requests.get(events_url, headers=headers, params=params)
+        if response.status_code == 200:
+            events = response.json().get("events", [])
+            # Check for overlap
+            for event in events:
+                event_start = datetime.fromisoformat(event["startTime"].replace("Z", "+00:00"))
+                event_end = datetime.fromisoformat(event["endTime"].replace("Z", "+00:00"))
+                if (start_time < event_end) and (end_time > event_start):
+                    logger.warning(f"Time overlap detected with existing event: {event['id']}")
+                    return False  # Slot taken, don't book
+        else:
+            logger.error(f"Failed to fetch events: {response.status_code} {response.text}")
     except Exception as e:
-        logger.error(f"GHL free-slots exception: {e}")
-        return "let me look at my calendar"
+        logger.error(f"Events fetch exception: {e}")
+
+    # Step 2: If no overlap, book it
+    url = "https://services.leadconnectorhq.com/calendars/events/appointments"
+
+    payload = {
+        "locationId": location_id,
+        "calendarId": calendar_id,
+        "contactId": contact_id,
+        "startTime": start_time.isoformat() + "-06:00",
+        "endTime": end_time.isoformat() + "-06:00",
+        "title": f"Life Insurance Review - {first_name}",
+        "appointmentStatus": "confirmed",
+        "ignoreFreeSlotValidation": True
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        if response.status_code in [200, 201]:
+            logger.info(f"GHL appointment created for {contact_id} at {start_time}")
+            return True
+        else:
+            logger.error(f"GHL appointment failed: {response.status_code} {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"GHL appointment exception: {e}")
+        return False
     
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
