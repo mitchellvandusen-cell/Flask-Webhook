@@ -209,8 +209,6 @@ def search_underwriting(condition, product_hint=""):
 
 from datetime import datetime, timedelta, time, timezone
 
-from datetime import datetime, timedelta, time, timezone
-
 def get_available_slots():
     """Fetch real available 30-min slots from Google Calendar for today and tomorrow."""
     if not calendar_service:
@@ -238,7 +236,6 @@ def get_available_slots():
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))
 
-            # Parse as UTC
             if 'dateTime' in event['start']:
                 start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
                 end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
@@ -249,10 +246,8 @@ def get_available_slots():
 
             busy_periods.append((start_dt, end_dt))
 
-        # Generate slots in 30-min increments (8am–8pm local, but using UTC math)
-        # Convert working hours to UTC equivalent based on your timezone
-        # Example: Central Time (UTC-6)
-        local_offset = timedelta(hours=-6)  # CHANGE THIS TO YOUR TIMEZONE OFFSET
+        # Generate slots...
+        local_offset = timedelta(hours=-6)  # Your timezone
         work_start_local = time(8, 0)
         work_end_local = time(20, 0)
 
@@ -268,7 +263,7 @@ def get_available_slots():
                 slot_end_local = current_local + timedelta(minutes=30)
                 slot_end_utc = slot_end_local.astimezone(timezone.utc)
 
-                if current_utc >= now_utc:  # Future slot
+                if current_utc >= now_utc:
                     is_busy = any(
                         busy_start < slot_end_utc and busy_end > current_utc
                         for busy_start, busy_end in busy_periods
@@ -279,30 +274,21 @@ def get_available_slots():
                         available_slots.append(f"{time_str} {day_str}")
 
                 current_local += timedelta(minutes=30)
-                current_utc = current_local.astimezone(timezone.utc)
 
+        # === RETURN SLOTS (MUST BE HERE, NOT IN EXCEPT) ===
         if available_slots:
             top_3 = available_slots[:3]
-            return ", ".join(top_3[:-1]) + f", or {top_3[-1]}"
+            if len(top_3) >= 3:
+                return f"{top_3[0]}, {top_3[1]}, or {top_3[2]}"
+            else:
+                return " or ".join(top_3)
 
         return "11am, 2pm, or 4pm tomorrow"
 
     except Exception as e:
         logger.error(f"Calendar failed: {e}")
         return "11am, 2pm, or 4pm tomorrow"
-        # Return top 3-4 slots
-        if available_slots:
-            if len(available_slots) >= 3:
-                return f"{available_slots[0]}, {available_slots[1]}, or {available_slots[2]}"
-            else:
-                return " or ".join(available_slots)
-
-        # Ultimate fallback
-        return "11am, 2pm, or 4pm tomorrow"
-
-    except Exception as e:
-        logger.error(f"Calendar slot generation failed: {e}")
-        return "2pm or 4pm today, or 11am tomorrow"
+    
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
     Scan conversation history for agent questions and mark new topics asked.
