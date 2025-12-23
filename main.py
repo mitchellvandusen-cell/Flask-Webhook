@@ -164,6 +164,7 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 # === GOOGLE CALENDAR VIA OAUTH2 REFRESH TOKEN ===
+calendar_service = None
 try:
     creds = Credentials.from_authorized_user_info(
         {
