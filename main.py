@@ -141,7 +141,7 @@ GHL_API_KEY = os.environ.get("GHL_API_KEY")
 GHL_LOCATION_ID = os.environ.get("GHL_LOCATION_ID")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fallback_secret")
 GHL_CALENDAR_ID = os.environ.get("GHL_CALENDAR_ID")
-
+GHL_USER_ID = os.environ.get("GHL_USER_ID")
 app.secret_key = SESSION_SECRET
 
 # === xAI GROK CLIENT ===
@@ -193,63 +193,70 @@ def search_underwriting(condition, product_hint=""):
     results.sort(reverse=True, key=lambda x: x[0])
     return [row for _, row in results[:6]]
 
-def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
+def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str:
     api_key = os.environ.get("GHL_API_KEY")
-    location_id = os.environ.get("GHL_LOCATION_ID")
-    calendar_id = os.environ.get("GHL_CALENDAR_ID")
+    cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")
 
-    if not api_key or not location_id or not calendar_id:
-        logger.error("Missing GHL credentials for appointment creation")
-        return False
+    if not api_key or not cal_id:
+        logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
+        return "let me look at my calendar"
 
-    # Parse selected_time
-    time_lower = selected_time.lower()
-    now = datetime.now()
-    date = (now + timedelta(days=1)).date() if "tomorrow" in time_lower else now.date()
-
-    time_map = {
-        "11am": "11:00", "2pm": "14:00", "4pm": "16:00",
-        "10:30": "10:30", "3pm": "15:00", "6pm": "18:00"
-    }
-    time_str = "14:00"
-    for key, val in time_map.items():
-        if key in time_lower:
-            time_str = val
-            break
-
-    start_time = datetime.combine(date, datetime.strptime(time_str, "%H:%M").time())
-    end_time = start_time + timedelta(minutes=30)
-
-    url = "https://services.leadconnectorhq.com/calendars/events/appointments"
+    url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
+        "Version": "2021-04-15",
         "Content-Type": "application/json"
     }
 
-    payload = {
-        "locationId": location_id,
-        "calendarId": calendar_id,
-        "contactId": contact_id,
-        "startTime": start_time.isoformat() + "-06:00",  # Add offset for Central Time
-        "endTime": end_time.isoformat() + "-06:00",
-        "title": f"Life Insurance Review - {first_name}",
-        "appointmentStatus": "confirmed",
-        "ignoreFreeSlotValidation": True  # Bypass "slot not available" error
+    now = datetime.now(timezone.utc)
+    start_ts = int(now.timestamp() * 1000)
+    end_ts = int((now + timedelta(days=min(days_ahead, 30))).timestamp() * 1000)
+
+    params = {
+        "startDate": start_ts,
+        "endDate": end_ts,
+        "timezone": "America/Chicago"
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers)
-        if response.status_code in [200, 201]:
-            logger.info(f"GHL appointment created for {contact_id} at {start_time}")
-            return True
-        else:
-            logger.error(f"GHL appointment failed: {response.status_code} {response.text}")
-            return False
+        response = requests.get(url, headers=headers, params=params, timeout=20)
+        if response.status_code != 200:
+            logger.error(f"GHL free-slots failed: {response.status_code} {response.text}")
+            return "let me look at my calendar"
+
+        data = response.json()
+        slots = data.get("slots") or data.get("freeSlots") or []
+
+        if not slots:
+            logger.info("GHL returned no available slots")
+            return "let me look at my calendar"
+
+        local_tz = ZoneInfo("America/Chicago")
+        formatted_slots = []
+
+        for slot in slots[:12]:
+            try:
+                start_str = slot["startTime"].replace("Z", "+00:00")
+                dt = datetime.fromisoformat(start_str).astimezone(local_tz)
+                time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+                day = "today" if dt.date() == datetime.now().date() else \
+                      "tomorrow" if dt.date() == datetime.now().date() + timedelta(days=1) else \
+                      dt.strftime("%A")
+                formatted_slots.append(f"{time_str} {day}")
+            except Exception:
+                continue
+
+        if not formatted_slots:
+            return "let me look at my calendar"
+
+        if len(formatted_slots) >= 4:
+            return f"{formatted_slots[0]}, {formatted_slots[1]}, {formatted_slots[2]}, or {formatted_slots[3]}"
+        return ", ".join(formatted_slots[:-1]) + f", or {formatted_slots[-1]}"
+
     except Exception as e:
-        logger.error(f"GHL appointment exception: {e}")
-        return False
+        logger.error(f"GHL free-slots exception: {e}")
+        return "let me look at my calendar"
 
 def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
     api_key = os.environ.get("GHL_API_KEY")
@@ -317,7 +324,8 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         "endTime": end_time.isoformat() + "-06:00",
         "title": f"Life Insurance Review - {first_name}",
         "appointmentStatus": "confirmed",
-        "ignoreFreeSlotValidation": True
+        "ignoreFreeSlotValidation": True,
+        "assignedUserId": os.environ.get("GHL_USER_ID")
     }
 
     try:
