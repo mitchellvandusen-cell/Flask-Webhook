@@ -191,39 +191,27 @@ def search_underwriting(condition, product_hint=""):
     results.sort(reverse=True, key=lambda x: x[0])
     return [row for _, row in results[:6]]
 
-from datetime import datetime, date, time, timedelta, timezone
-
 def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
-    """Create an appointment in GoHighLevel when lead agrees to a time"""
     api_key = os.environ.get("GHL_API_KEY")
     location_id = os.environ.get("GHL_LOCATION_ID")
-    if not api_key or not location_id:
+    calendar_id = os.environ.get("GHL_CALENDAR_ID")
+
+    if not api_key or not location_id or not calendar_id:
         logger.error("Missing GHL credentials for appointment creation")
         return False
 
-    # You need to set this to your GHL calendar ID (find in GHL → Calendars → your calendar → URL has calendarId=...)
-    calendar_id = os.environ.get("GHL_CALENDAR_ID")  # e.g., "abc123xyz"
-
-    if not calendar_id:
-        logger.error("GHL_CALENDAR_ID not set — can't create appointment")
-        return False
-
-    # Parse selected_time into start time (you can make this smarter later)
-    # For now, assume format like "2pm tomorrow" or "11am today"
-    from datetime import datetime, timedelta, timezone
+    # Parse selected_time
+    time_lower = selected_time.lower()
     now = datetime.now()
-    if "tomorrow" in selected_time.lower():
-        date = (now + timedelta(days=1)).date()
-    else:
-        date = now.date()
+    date = (now + timedelta(days=1)).date() if "tomorrow" in time_lower else now.date()
 
     time_map = {
         "11am": "11:00", "2pm": "14:00", "4pm": "16:00",
         "10:30": "10:30", "3pm": "15:00", "6pm": "18:00"
     }
-    time_str = "14:00"  # default 2pm
+    time_str = "14:00"
     for key, val in time_map.items():
-        if key in selected_time.lower():
+        if key in time_lower:
             time_str = val
             break
 
@@ -242,10 +230,11 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         "locationId": location_id,
         "calendarId": calendar_id,
         "contactId": contact_id,
-        "startTime": start_time.isoformat(),
-        "endTime": end_time.isoformat(),
+        "startTime": start_time.isoformat() + "-06:00",  # Add offset for Central Time
+        "endTime": end_time.isoformat() + "-06:00",
         "title": f"Life Insurance Review - {first_name}",
-        "appointmentStatus": "confirmed"
+        "appointmentStatus": "confirmed",
+        "ignoreFreeSlotValidation": True  # Bypass "slot not available" error
     }
 
     try:
@@ -260,97 +249,71 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         logger.error(f"GHL appointment exception: {e}")
         return False
 
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo  # Python 3.9+
-
 def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str:
     api_key = os.environ.get("GHL_API_KEY")
     cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")
 
     if not api_key or not cal_id:
         logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
-        return "11am, 2pm, or 4pm tomorrow"
+        return "let me look at my calendar"
 
     url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
+        "Version": "2021-04-15",  # ← ONLY THIS WORKS FOR free-slots
         "Content-Type": "application/json"
     }
 
-    # FIXED: Unix ms timestamps + no locationId
     now = datetime.now(timezone.utc)
     start_ts = int(now.timestamp() * 1000)
-    end_ts = int((now + timedelta(days=days_ahead)).timestamp() * 1000)
+    end_ts = int((now + timedelta(days=min(days_ahead, 30))).timestamp() * 1000)  # Max 31 days
 
     params = {
         "startDate": start_ts,
         "endDate": end_ts,
         "timezone": "America/Chicago"
     }
-    
+
     try:
         response = requests.get(url, headers=headers, params=params, timeout=20)
-        response.raise_for_status()
-        data = response.json()
+        if response.status_code != 200:
+            logger.error(f"GHL free-slots failed: {response.status_code} {response.text}")
+            return "let me look at my calendar"
 
-        # GHL sometimes uses "slots", sometimes "freeSlots" — handle both
+        data = response.json()
         slots = data.get("slots") or data.get("freeSlots") or []
 
         if not slots:
-            logger.info("GHL returned no available slots in the next 7 days")
-            return "Let me look at my calendar"
+            logger.info("GHL returned no available slots")
+            return "let me look at my calendar"
 
-        # Convert to local time and format nicely
-        local_tz = ZoneInfo("America/Chicago")  # Update to your actual timezone
+        local_tz = ZoneInfo("America/Chicago")
         formatted_slots = []
 
-        for slot in slots[:15]:  # Limit to 15 to avoid overly long SMS
+        for slot in slots[:12]:
             try:
-                start_str = slot.get("startTime") or slot.get("start")
-                if not start_str:
-                    continue
-                # Handle both with/without Z
-                start_str = start_str.replace("Z", "+00:00")
-                start_dt = datetime.fromisoformat(start_str)
-                local_dt = start_dt.astimezone(local_tz)
-
-                time_str = local_dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-                date_today = datetime.now(local_tz).date()
-                date_tomorrow = date_today + timedelta(days=1)
-
-                if local_dt.date() == date_today:
-                    day_str = "today"
-                elif local_dt.date() == date_tomorrow:
-                    day_str = "tomorrow"
-                else:
-                    day_str = local_dt.strftime("%A")  # e.g., Wednesday
-
-                formatted_slots.append(f"{time_str} {day_str}")
+                start_str = slot["startTime"].replace("Z", "+00:00")
+                dt = datetime.fromisoformat(start_str).astimezone(local_tz)
+                time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+                day = "today" if dt.date() == datetime.now().date() else \
+                      "tomorrow" if dt.date() == datetime.now().date() + timedelta(days=1) else \
+                      dt.strftime("%A")
+                formatted_slots.append(f"{time_str} {day}")
             except Exception as e:
-                logger.warning(f"Failed to parse slot: {slot} | {e}")
+                logger.warning(f"Slot parse error: {e}")
                 continue
 
         if not formatted_slots:
-            return "11am, 2pm, or 4pm tomorrow"
+            return "let me look at my calendar"
 
-        # Return top 3–4 options naturally
         if len(formatted_slots) >= 4:
-            options = formatted_slots[:4]
-            return f"{options[0]}, {options[1]}, {options[2]}, or {options[3]}"
-        else:
-            return ", ".join(formatted_slots[:-1]) + f", or {formatted_slots[-1]}"
+            return f"{formatted_slots[0]}, {formatted_slots[1]}, {formatted_slots[2]}, or {formatted_slots[3]}"
+        return ", ".join(formatted_slots[:-1]) + f", or {formatted_slots[-1]}"
 
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"GHL free-slots HTTP error: {http_err} | Response: {response.text}")
-    except requests.exceptions.RequestException as req_err:
-        logger.error(f"GHL free-slots request failed: {req_err}")
     except Exception as e:
-        logger.error(f"Unexpected error in get_ghl_available_slots: {e}")
-
-    # Final fallback
-    return "let me look at my calendar"
+        logger.error(f"GHL free-slots exception: {e}")
+        return "let me look at my calendar"
     
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
