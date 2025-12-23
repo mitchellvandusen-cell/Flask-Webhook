@@ -12,21 +12,6 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
-creds = Credentials.from_authorized_user_info(
-    {
-        "client_id": os.environ["GOOGLE_CLIENT_ID"],
-        "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
-        "refresh_token": os.environ["GOOGLE_REFRESH_TOKEN"],
-    },
-    scopes=["https://www.googleapis.com/auth/calendar"]
-)
-
-if creds.expired or not creds.valid:
-    creds.refresh(Request())
-
-calendar_service = build("calendar", "v3", credentials=creds)
-logging.info("Google Calendar connected via OAuth2 refresh token")
-
 try:
     import psycopg2
     conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
@@ -152,62 +137,10 @@ logger = logging.getLogger(__name__)
 XAI_API_KEY = os.environ.get("XAI_API_KEY")
 GHL_API_KEY = os.environ.get("GHL_API_KEY")
 GHL_LOCATION_ID = os.environ.get("GHL_LOCATION_ID")
-GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID")
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
-GOOGLE_REFRESH_TOKEN = os.environ.get("GOOGLE_REFRESH_TOKEN")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "fallback_secret")
 GHL_CALENDAR_ID = os.environ.get("GHL_CALENDAR_ID")
 
 app.secret_key = SESSION_SECRET
-
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-# === GOOGLE CALENDAR VIA OAUTH2 REFRESH TOKEN ===
-calendar_service = None
-try:
-    creds = Credentials.from_authorized_user_info(
-        {
-            "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
-            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
-            "refresh_token": os.environ.get("GOOGLE_REFRESH_TOKEN"),
-        },
-        scopes=["https://www.googleapis.com/auth/calendar"]
-    )
-
-    if creds.expired or not creds.valid:
-        creds.refresh(Request())
-
-    calendar_service = build("calendar", "v3", credentials=creds)
-    logger.info("Google Calendar connected via OAuth2 refresh token — SUCCESS")
-except Exception as e:
-    logger.error(f"Google Calendar OAuth2 failed: {e}")
-    # === GOOGLE CALENDAR VIA OAUTH2 REFRESH TOKEN ===
-    calendar_service = None
-    try:
-        if not os.environ.get("GOOGLE_CLIENT_ID") or not os.environ.get("GOOGLE_CLIENT_SECRET") or not os.environ.get("GOOGLE_REFRESH_TOKEN"):
-            logger.error("Missing Google OAuth2 env vars (CLIENT_ID, CLIENT_SECRET, or REFRESH_TOKEN)")
-        else:
-            creds = Credentials.from_authorized_user_info(
-                {
-                    "client_id": os.environ["GOOGLE_CLIENT_ID"],
-                    "client_secret": os.environ["GOOGLE_CLIENT_SECRET"],
-                    "refresh_token": os.environ["GOOGLE_REFRESH_TOKEN"],
-                },
-                scopes=["https://www.googleapis.com/auth/calendar"]
-            )
-
-            if creds.expired or not creds.valid:
-                logger.info("Google OAuth2 token expired — refreshing")
-                creds.refresh(Request())
-
-            calendar_service = build("calendar", "v3", credentials=creds)
-            logger.info("Google Calendar connected via OAuth2 — SUCCESS")
-    except Exception as e:
-        logger.error(f"Google Calendar OAuth2 setup failed: {e}")
-        calendar_service = None
-    
 
 # === xAI GROK CLIENT ===
 client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
@@ -327,86 +260,105 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         logger.error(f"GHL appointment exception: {e}")
         return False
 
-def get_available_slots():
-    if not calendar_service:
-        logger.warning("No calendar_service — using fallback slots")
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo  # Python 3.9+
+
+def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str:
+    """
+    Fetch ALL available time slots from your GoHighLevel calendar for the next N days.
+    Uses the correct GHL API endpoint: /calendars/{calendarId}/free-slots
+    Returns a clean, natural-language string like:
+        "11:00 AM today, 2:00 PM tomorrow, 4:00 PM tomorrow, or 11:00 AM Wednesday"
+    Falls back to safe defaults if API fails.
+    """
+    api_key = os.environ.get("GHL_API_KEY")
+    location_id = os.environ.get("GHL_LOCATION_ID")
+    cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")  # e.g., S4knucFaXO769HDFlRtv
+
+    if not api_key or not location_id or not cal_id:
+        logger.warning("Missing GHL_API_KEY, GHL_LOCATION_ID, or GHL_CALENDAR_ID")
         return "11am, 2pm, or 4pm tomorrow"
-    
-    logger.info("Calendar service available — fetching real slots")
+
+    # Correct GHL endpoint for free/available slots
+    url = f"https://services.leadconnectorhq.com/calendars/{calendar_id}/free-slots"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Version": "2021-07-28",
+        "Content-Type": "application/json"
+    }
+
+    # Date range: today through X days ahead
+    today = datetime.now(timezone.utc).date()
+    params = {
+        "locationId": location_id,
+        "startDate": today.isoformat(),
+        "endDate": (today + timedelta(days=days_ahead)).isoformat(),
+        # Optional: helps accuracy
+        "timezone": "America/Chicago",  # Change if you're in a different zone
+    }
 
     try:
-        # Use consistent UTC for everything
-        now_utc = datetime.now(timezone.utc)
-        today_utc = datetime.combine(now_utc.date(), time.min, tzinfo=timezone.utc)
-        tomorrow_end_utc = today_utc + timedelta(days=2)
+        response = requests.get(url, headers=headers, params=params, timeout=20)
+        response.raise_for_status()
+        data = response.json()
 
-        events_result = calendar_service.events().list(
-            calendarId='primary',
-            timeMin=today_utc.isoformat(),
-            timeMax=tomorrow_end_utc.isoformat(),
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
+        # GHL sometimes uses "slots", sometimes "freeSlots" — handle both
+        slots = data.get("slots") or data.get("freeSlots") or []
 
-        events = events_result.get('items', [])
+        if not slots:
+            logger.info("GHL returned no available slots in the next 7 days")
+            return "11am, 2pm, or 4pm next week"
 
-        busy_periods = []
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            end = event['end'].get('dateTime', event['end'].get('date'))
+        # Convert to local time and format nicely
+        local_tz = ZoneInfo("America/Chicago")  # Update to your actual timezone
+        formatted_slots = []
 
-            if 'dateTime' in event['start']:
-                start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
-                end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-            else:
-                # All-day event
-                start_dt = datetime.fromisoformat(start + 'T00:00:00+00:00')
-                end_dt = datetime.fromisoformat(end + 'T00:00:00+00:00')
+        for slot in slots[:15]:  # Limit to 15 to avoid overly long SMS
+            try:
+                start_str = slot.get("startTime") or slot.get("start")
+                if not start_str:
+                    continue
+                # Handle both with/without Z
+                start_str = start_str.replace("Z", "+00:00")
+                start_dt = datetime.fromisoformat(start_str)
+                local_dt = start_dt.astimezone(local_tz)
 
-            busy_periods.append((start_dt, end_dt))
+                time_str = local_dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+                date_today = datetime.now(local_tz).date()
+                date_tomorrow = date_today + timedelta(days=1)
 
-        # Generate slots...
-        local_offset = timedelta(hours=-6)  # Your timezone
-        work_start_local = time(8, 0)
-        work_end_local = time(20, 0)
+                if local_dt.date() == date_today:
+                    day_str = "today"
+                elif local_dt.date() == date_tomorrow:
+                    day_str = "tomorrow"
+                else:
+                    day_str = local_dt.strftime("%A")  # e.g., Wednesday
 
-        available_slots = []
-        current_date_local = now_utc.astimezone(timezone(local_offset)).date()
+                formatted_slots.append(f"{time_str} {day_str}")
+            except Exception as e:
+                logger.warning(f"Failed to parse slot: {slot} | {e}")
+                continue
 
-        for day_offset in [0, 1]:
-            target_date_local = current_date_local + timedelta(days=day_offset)
-            current_local = datetime.combine(target_date_local, work_start_local)
-            current_utc = current_local.astimezone(timezone.utc)
+        if not formatted_slots:
+            return "11am, 2pm, or 4pm tomorrow"
 
-            while current_local.time() <= work_end_local:
-                slot_end_local = current_local + timedelta(minutes=30)
-                slot_end_utc = slot_end_local.astimezone(timezone.utc)
+        # Return top 3–4 options naturally
+        if len(formatted_slots) >= 4:
+            options = formatted_slots[:4]
+            return f"{options[0]}, {options[1]}, {options[2]}, or {options[3]}"
+        else:
+            return ", ".join(formatted_slots[:-1]) + f", or {formatted_slots[-1]}"
 
-                if current_utc >= now_utc:
-                    is_busy = any(
-                        busy_start < slot_end_utc and busy_end > current_utc
-                        for busy_start, busy_end in busy_periods
-                    )
-                    if not is_busy:
-                        time_str = current_local.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-                        day_str = "today" if day_offset == 0 else "tomorrow"
-                        available_slots.append(f"{time_str} {day_str}")
-
-                current_local += timedelta(minutes=30)
-
-        # === RETURN SLOTS (MUST BE HERE, NOT IN EXCEPT) ===
-        if available_slots:
-            top_3 = available_slots[:3]
-            if len(top_3) >= 3:
-                return f"{top_3[0]}, {top_3[1]}, or {top_3[2]}"
-            else:
-                return " or ".join(top_3)
-
-        return "11am, 2pm, or 4pm tomorrow"
-
+    except requests.exceptions.HTTPError as http_err:
+        logger.error(f"GHL free-slots HTTP error: {http_err} | Response: {response.text}")
+    except requests.exceptions.RequestException as req_err:
+        logger.error(f"GHL free-slots request failed: {req_err}")
     except Exception as e:
-        logger.error(f"Calendar failed: {e}")
-        return "11am, 2pm, or 4pm tomorrow"
+        logger.error(f"Unexpected error in get_ghl_available_slots: {e}")
+
+    # Final fallback
+    return "11am, 2pm, or 4pm tomorrow"
     
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
@@ -502,12 +454,12 @@ def parse_history_for_topics_asked(contact_id: str, conversation_history: list) 
 
 def handle_missed_appointment(contact_id: str, first_name: str, message: str = "") -> str:
     """
-    Focused re-engagement for missed appointments.
-    - Empathy + reminder of value
-    - Pulls notes/motivating_goal from DB
-    - Offers real available times
-    - Assumes interest (they booked once)
-    - Quick re-book path
+    Complete re-engagement handler for missed appointments.
+    - Shows empathy and reminds them of value
+    - Pulls personalized notes + motivating goal from DB
+    - Uses REAL GHL calendar availability
+    - Automatically BOOKS the appointment in GHL when they pick a time
+    - Quick, natural re-booking path
     """
     if not contact_id or contact_id == "unknown":
         logger.warning("handle_missed_appointment called with invalid contact_id")
@@ -515,12 +467,15 @@ def handle_missed_appointment(contact_id: str, first_name: str, message: str = "
 
     msg_lower = message.lower().strip() if message else ""
 
-    # === PULL PERSONALIZED NOTES ===
-    notes = ""
+    # === PULL PERSONALIZED NOTES FROM DB ===
+    notes_context = ""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
-        cur.execute("SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+        cur.execute(
+            "SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s",
+            (contact_id,)
+        )
         row = cur.fetchone()
         conn.close()
 
@@ -528,39 +483,68 @@ def handle_missed_appointment(contact_id: str, first_name: str, message: str = "
             db_notes = row[0].strip() if row[0] else ""
             goal = row[1].strip().replace("_", " ").title() if row[1] else ""
 
-            if db_notes and goal:
-                notes = f" {db_notes} — you mentioned {goal.lower()}"
-            elif db_notes:
-                notes = f" {db_notes}"
-            elif goal:
-                notes = f" — you mentioned {goal.lower()}"
+            parts = []
+            if db_notes:
+                parts.append(db_notes)
+            if goal:
+                parts.append(f"you mentioned {goal.lower()}")
+
+            if parts:
+                notes_context = " — " + " — ".join(parts)
     except Exception as e:
-        logger.warning(f"Failed to fetch notes for missed appt {contact_id}: {e}")
+        logger.warning(f"Failed to fetch notes/goal for missed appt {contact_id}: {e}")
 
-    # === BUILD REPLY ===
-    available_slots = get_available_slots()
+    # === GET REAL AVAILABLE SLOTS FROM GHL ===
+    available_slots = get_ghl_available_slots()  # Uses your correct function from earlier
 
+    # === FIRST OUTREACH (NO REPLY YET) ===
     if not message:
-        # First outreach after missed call
-        reply = f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. No worries at all, life gets busy!{notes} Still want to go over those options and get you protected? Which works better — {available_slots}?"
-    else:
-        # They replied
-        # More precise time detection
-        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
-            reply = "Perfect — let's lock that in. I'll send a calendar invite right over. Talk soon!"
-            # Optional: trigger actual booking here if you parse time
-        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "works"]):
-            reply = f"Awesome — which works better: {available_slots}?"
-        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "reschedule"]):
-            reply = "No problem at all — totally understand. When's a better week for you? I can work around your schedule."
-        else:
-            reply = f"Got it — just want to make sure we're still good to find something that fits{notes}. Which works better — {available_slots}?"
+        reply = (
+            f"Hey {first_name}, it's Mitchell — looks like we missed each other on that call. "
+            f"No worries at all, life gets busy!{notes_context} "
+            f"Still want to go over those options and get you protected? "
+            f"Which works better — {available_slots}?"
+        )
+        send_sms_via_ghl(contact_id, reply)
+        logger.info(f"Missed appt initial re-engagement sent to {contact_id}")
+        return reply
 
-    # === SEND REPLY ===
+    # === LEAD REPLIED — HANDLE THEIR RESPONSE ===
+    
+    # 1. They picked a time → BOOK IT IN GHL
+    if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
+        if create_ghl_appointment(contact_id, first_name, message):
+            reply = "Perfect — your appointment is now booked and confirmed! I'll send you the details shortly. Talk soon!"
+            # Update DB
+            update_qualification_state(contact_id, {
+                "is_booked": True,
+                "appointment_time": message,
+                "appointment_declined": False
+            })
+        else:
+            reply = f"That time might be taken now — how about one of these instead: {available_slots}?"
+
+    # 2. Positive intent but no time picked
+    elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good", "works"]):
+        reply = f"Awesome — which works better for you: {available_slots}?"
+
+    # 3. Negative / busy / reschedule
+    elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "next week", "reschedule"]):
+        reply = "No problem at all — totally understand. When's a better week for you? I can work around your schedule."
+
+    # 4. Neutral / unclear response → gently push forward
+    else:
+        reply = (
+            f"Got it — just want to make sure we're still good to find something that fits{notes_context}. "
+            f"Which works better — {available_slots}?"
+        )
+
+    # === SEND THE REPLY ===
     send_sms_via_ghl(contact_id, reply)
-    logger.info(f"Missed appointment re-engagement sent to {contact_id}: '{reply[:100]}...'")
+    logger.info(f"Missed appt reply sent to {contact_id}: '{reply[:100]}...'")
 
     return reply
+
 def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
     """
     Add a value to an array field in contact_qualification (topics_asked, blockers, etc.)
@@ -915,100 +899,102 @@ def mark_topic_asked(contact_id: str, topic: str):
     except Exception as e:
         logger.error(f"Failed to mark topic asked: {e}")
 
-def book_appointment(contact_id: str, first_name: str, selected_time: str):
-    """Create a calendar event when lead agrees to a time"""
-    if not calendar_service:
-        logger.warning("No calendar_service — can't book")
+import re
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo  # Python 3.9+
+
+def book_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
+    """
+    Parse the lead's selected time (e.g., '2pm tomorrow') and book it in GoHighLevel.
+    Uses smart natural language parsing + your existing create_ghl_appointment() function.
+    Returns True if booked successfully.
+    """
+    if not contact_id or contact_id == "unknown":
+        logger.warning("book_appointment called with invalid contact_id")
         return False
 
-    try:
-        from datetime import datetime, date, time, timedelta, timezone
-        now = datetime.now(timezone.utc)
-        time_str = selected_time.lower().strip()
-
-        # Determine date: today or tomorrow
-        if any(word in time_str for word in ["tomorrow", "tmr", "tom", "next day"]):
-            target_date = (now + timedelta(days=1)).date()
-        else:
-            target_date = now.date()
-
-        # Extract hour and minute with flexible parsing
-        hour = 15  # default 3pm
-        minute = 0
-
-        # Look for explicit times like "2pm", "2:30", "3 o'clock", "3:30pm"
-        time_patterns = [
-            r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
-            r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
-        ]
-
-        for pattern in time_patterns:
-            match = re.search(pattern, time_str)
-            if match:
-                h = int(match.group(1))
-                m = int(match.group(2)) if match.group(2) else 0
-                period = match.group(3).lower() if match.group(3) else ""
-
-                if period in ["pm", "p.m."] and h != 12:
-                    h += 12
-                elif period in ["am", "a.m."] and h == 12:
-                    h = 0
-
-                hour = h
-                minute = m
-                break
-
-        # Fallback: if words like "morning", "afternoon", "evening"
-        if hour == 15:  # no explicit time found
-            if any(word in time_str for word in ["morning", "am"]):
-                hour = 11  # 11am
-            elif any(word in time_str for word in ["afternoon", "pm"]):
-                hour = 14  # 2pm
-            elif any(word in time_str for word in ["evening", "night"]):
-                hour = 18  # 6pm
-
-        # Clamp to reasonable hours (8am - 8pm)
-        hour = max(8, min(20, hour))
-
-        start_time = datetime.combine(target_date, time(hour, minute))
-        end_time = start_time + timedelta(minutes=30)
-
-        event = {
-            'summary': f"Life Insurance Review - {first_name}",
-            'description': f"Appointment with {first_name} (contact_id: {contact_id})\nSelected time: {selected_time}",
-            'start': {
-                'dateTime': start_time.isoformat() + 'Z',
-                'timeZone': 'America/Chicago',
-            },
-            'end': {
-                'dateTime': end_time.isoformat() + 'Z',
-                'timeZone': 'America/Chicago',
-            },
-            'attendees': [
-                {'email': 'mitchvandusenlife@gmail.com'},
-            ],
-            'reminders': {
-                'useDefault': False,
-                'overrides': [
-                    {'method': 'email', 'minutes': 60},
-                    {'method': 'popup', 'minutes': 10},
-                ],
-            },
-        }
-
-        created_event = calendar_service.events().insert(calendarId='primary', body=event).execute()
-        logger.info(f"Appointment booked: {created_event.get('htmlLink')}")
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to book appointment: {e}")
+    if not selected_time:
+        logger.warning("No selected_time provided")
         return False
 
-        event = calendar_service.events().insert(calendarId='primary', body=event).execute()
-        logger.info(f"Appointment booked: {event.get('htmlLink')}")
+    time_str = selected_time.lower().strip()
+    logger.info(f"Attempting to book appointment for {first_name} ({contact_id}): '{selected_time}'")
+
+    # === PARSE DATE: today or tomorrow (expandable later) ===
+    now = datetime.now(timezone.utc)
+    if any(word in time_str for word in ["tomorrow", "tmr", "tom", "next day"]):
+        target_date = (now + timedelta(days=1)).date()
+    else:
+        target_date = now.date()  # default to today
+
+    # === PARSE TIME ===
+    hour = 14  # default fallback: 2pm
+    minute = 0
+
+    # Patterns for "2pm", "2:30", "11 am", "3 o'clock", etc.
+    time_patterns = [
+        r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
+        r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
+    ]
+
+    match_found = False
+    for pattern in time_patterns:
+        match = re.search(pattern, time_str)
+        if match:
+            h = int(match.group(1))
+            m = int(match.group(2)) if match.group(2) else 0
+            period = (match.group(3) or "").lower()
+
+            if period in ["pm", "p.m."] and h != 12:
+                h += 12
+            elif period in ["am", "a.m."] and h == 12:
+                h = 0
+
+            hour = h
+            minute = m
+            match_found = True
+            break
+
+    # Fallback keywords if no number found
+    if not match_found:
+        if any(word in time_str for word in ["morning", "am"]):
+            hour = 11
+        elif any(word in time_str for word in ["afternoon"]):
+            hour = 14
+        elif any(word in time_str for word in ["evening", "night"]):
+            hour = 18
+
+    # Clamp to business hours (8am - 8pm)
+    hour = max(8, min(20, hour))
+
+    # === BUILD FINAL DATETIME (in UTC for GHL) ===
+    local_start = datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour, minutes=minute)
+    # Convert to UTC for GHL API (assumes you're in Central Time)
+    chicago_tz = ZoneInfo("America/Chicago")
+    local_start = local_start.replace(tzinfo=chicago_tz)
+    utc_start = local_start.astimezone(timezone.utc)
+    utc_end = utc_start + timedelta(minutes=30)
+
+    logger.info(f"Parsed time: {local_start.strftime('%I:%M %p %Z on %A, %B %d')} → Booking {utc_start.isoformat()}Z")
+
+    # === USE YOUR EXISTING GHL BOOKING FUNCTION ===
+    # We'll build a clean payload — but easiest: reuse create_ghl_appointment logic
+    # Since your create_ghl_appointment() already does good parsing, we can call it directly
+    # with the original message — it's safe and simpler!
+
+    success = create_ghl_appointment(contact_id, first_name, selected_time)
+
+    if success:
+        logger.info(f"Successfully booked GHL appointment for {contact_id} at ~{hour}:{minute:02d}")
+        # Optional: update DB
+        update_qualification_state(contact_id, {
+            "is_booked": True,
+            "appointment_time": selected_time,
+            "appointment_declined": False
+        })
         return True
-    except Exception as e:
-        logger.error(f"Failed to book appointment: {e}")
+    else:
+        logger.error(f"Failed to book GHL appointment for {contact_id}")
         return False
     
 def send_sms_via_ghl(contact_id: str, message: str):
@@ -1050,7 +1036,14 @@ def send_sms_via_ghl(contact_id: str, message: str):
         logger.error(f"SMS send exception: {e}")
         return False
     
-def build_system_prompt(state: ConversationState, nlp_context: str, proven_patterns: str, underwriting_context: str, is_follow_up: bool = False, follow_up_num: int = 0):
+def build_system_prompt(
+    state: ConversationState,
+    nlp_context: str,
+    proven_patterns: str,
+    underwriting_context: str,
+    is_follow_up: bool = False,
+    follow_up_num: int = 0
+):
     age = state.facts.get("age", "unknown")
     
     # Build blocked questions list
@@ -1058,7 +1051,7 @@ def build_system_prompt(state: ConversationState, nlp_context: str, proven_patte
     topics_asked = set(state.topics_asked) if hasattr(state, 'topics_asked') and state.topics_asked else set()
     
     if "employer_coverage" in topics_asked and state.facts.get("is_personal_policy"):
-        blocked_questions.append("Employer/portability questions — this is a personal policy")
+        blocked_questions.append("Employer/portability questions, this is a personal policy")
     if state.facts.get("has_living_benefits") is not None:
         blocked_questions.append("Living benefits status already known")
     if state.facts.get("carrier"):
@@ -1074,7 +1067,7 @@ def build_system_prompt(state: ConversationState, nlp_context: str, proven_patte
 === ASKING THEM MAKES YOU SOUND ROBOTIC ===
 """
 
-    # === STRONG FOLLOW-UP PROTECTION ===
+    # Strong follow-up protection
     follow_up_section = ""
     if is_follow_up and follow_up_num > 0:
         follow_up_section = f"""
@@ -1089,38 +1082,38 @@ def build_system_prompt(state: ConversationState, nlp_context: str, proven_patte
 """
 
     return f"""
-You are Mitchell — master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
+You are Mitchell, master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
 These leads opted in before but went cold. Expect high resistance. Lots of objections. 
-"Mitchells" job = State underwriter for insurance, I do not work for one single company, I work with over 90 companies to help get people the best coverage for their needs at the best price. My goal = uncover gaps in coverage → expose consequences of inaction → book call to review options.
+"Mitchells" job = State underwriter for insurance, I do not work for one single company, I work with over 90 companies to help get people the best coverage for their needs at the best price. My goal = uncover gaps in coverage, expose consequences of inaction, book call to review options.
 if someone asks "who do you work for?" or "which company are you with?" always say "I am an underwriter with the state, I dont work with any one company or product I work with every carrier to make sure youre not leaving money on the table."
 
 {follow_up_section}
 
 CRITICAL RULES:
 - NEVER say "free" or "free policy review"
-- NEVER accept "no thank you", "I'm covered", "not interested" as final — these are objections
+- NEVER accept "no thank you", "I'm covered", "not interested" as final, these are objections
 - ONLY stop if they say: "STOP", "unsubscribe", "do not contact me", "remove me", "opt out"
 - NEVER repeat a question that's already been asked or answered
-- NEVER use em dashes (—), en dashes (–), or fancy punctuation.
-- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better — {get_available_slots()}?"
-- DO NOT LET THEM GET OFF EASY — use NEPQ + Gap Selling to uncover gaps, expose consequences, and book calls
+- NEVER use em dashes, en dashes, or fancy punctuation.
+- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better, {get_ghl_available_slots()}?"
+- DO NOT LET THEM GET OFF EASY, use NEPQ + Gap Selling to uncover gaps, expose consequences, and book calls
 - Use the CONTEXT sections heavily to sound informed and human
-- OVERCOME OBJECTIONS naturally — never say "I understand" or "I get it"
-- BE READY FOR QUICK NO'S AND OBJECTIONS — have responses ready
-- NEVER NEVER NEVER USE THE WORDS "following up" OR "checking in" — sounds robotic and salesy
+- OVERCOME OBJECTIONS naturally, never say "I understand" or "I get it"
+- BE READY FOR QUICK NO'S AND OBJECTIONS, have responses ready
+- NEVER NEVER NEVER USE THE WORDS "following up" OR "checking in", sounds robotic and salesy
 - ALWAYS address objections with empathy and understanding, but keep steering back to booking a call
-- Provide value in every message — new info, questions, insights
+- Provide value in every message, new info, questions, insights
 - Every message should have a valid reason for them to reply. Never send a closed statement.
 - If client says they are "not covered" and "looking for coverage", you can be more direct about booking a call.
-- NEVER ASK "SAY NO" QUESTIONS — e.g., "Are you still interested?" or "Do you want to move forward?" "Are you still looking?" "Do you want life insurance?" — these lead to dead ends.NEVER NEVER NEVER!
+- NEVER ASK "SAY NO" QUESTIONS, e.g., "Are you still interested?" or "Do you want to move forward?" "Are you still looking?" "Do you want life insurance?", these lead to dead ends. NEVER NEVER NEVER!
 - Use the underwriting context to address health objections and tie back to why they need to review now.
 - Use the proven patterns to mimic successful responses.
 - Use the NLP context to remember past answers and avoid repeating questions.
 
-LEAD AGE: {age} ← USE THIS HEAVILY
+LEAD AGE: {age}, USE THIS HEAVILY
 - Personalize: "Most people your age...", "At {age}, rates are still good if we act now"
 - Urgency: "Rates only go up with age"
-- Product focus: under 50 → term/IUL; 50-64 → whole life; 65+ → final expense + living benefits
+- Product focus: under 50, term/IUL; 50-64, whole life; 65+, final expense + living benefits
 
 Known Facts:
 {json.dumps(make_json_serializable(state.facts), indent=2)}
@@ -1137,45 +1130,42 @@ Response Style:
 - Short, natural SMS (1-3 sentences max)
 - Use contractions: "you've", "I'm", "it's"
 - First names sparingly, only for emphasis
-- Not to use sales tactics; "rates are still solid if we lock something in soon." until a gap is found. OR they explicitly say they are "not covered" and "looking for coverage" or "what coverage?" or "I dont have any"
-- every message should provide a valuable justification for you reaching out; new living benefits, cons of employment coverage ie retirement, layoffs, benefit changes, no ownership and more. 
+- Do not use aggressive sales tactics; only say things like "rates are still solid if we lock something in soon" after a gap is found OR they explicitly say they are "not covered" and "looking for coverage" or "what coverage?" or "I dont have any"
+- Every message should provide a valuable justification for reaching out: new living benefits, cons of employer coverage (retirement, layoffs, benefit changes, no ownership), etc.
 - Find their specific need and tie it back to why they need to review their coverage now.
-- ask what their goal was/is for life insurance and if they got/found/havent found what they're looking for? follow up with why?
-- ask questions when it makes sense to ask questions, answer questions and finish with a question. 
+- Ask questions when it makes sense; answer questions and finish with a question.
 - When asking for something, use "never split the difference" technique: "Mind if I ask...", "Would it be a ridiculous idea to...", "You're going to hate me for asking, but..."
 - Use stories and examples to illustrate points (Brian Tracy style)
-- Use assumptive closes: "When we hop on the call...", "Once we get you reviewed..." <- if they show interest
+- Use assumptive closes: "When we hop on the call...", "Once we get you reviewed...", only if they show interest
 - Use consequence questions to find gaps: "What happens if...", "How would that impact...", "What would you do if..."
-- If someone responds "I need insurance.", "im interested", "I want to see options", "show me what you got", "lets look at options", "how much would it cost" Book the call, do NOT act, sound, react excitedly: this is normal, expected, and exactly what you're trying to get them to say.
-- If previous message was "are you still with that other life insurance policy? Theres some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you die?" Create a new engaging question that has a high likelihood of response.
+- If someone responds "I need insurance.", "im interested", "I want to see options", "show me what you got", "lets look at options", "how much would it cost", Book the call calmly. Do NOT act excited, this is normal and expected.
+- If previous message was "are you still with that other life insurance policy? Theres some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you die?", Create a new engaging question with high response likelihood.
 
-LIVING BENEFITS PROBE — ALWAYS ASK AFTER "YES" TO OPENER:
+LIVING BENEFITS PROBE, ALWAYS ASK AFTER "YES" TO OPENER:
 - If lead confirms they have a policy ("yes", "still have it", "have one", "got one")
 - Your NEXT message MUST probe living benefits:
-  - "Okay — are you certain yours has living benefits where you can access the money if you become terminally, chronically, or critically ill?"
-  - Or "Got it — you wouldn't want to pay for something that only pays when you die, right? Are you sure yours has living benefits?"
-- This is the #1 gap — do not skip it
+  - "Okay, are you certain yours has living benefits where you can access the money if you become terminally, chronically, or critically ill?"
+  - Or "Got it, you wouldn't want to pay for something that only pays when you die, right? Are you sure yours has living benefits?"
+- This is the #1 gap, do not skip it
 - Do not move to other questions until living benefits status is known
 
 DIVORCE / EX-SPOUSE RULES:
 - Never assume current spouse or children with ex
-- If lead mentions ex as beneficiary — clarify: "Got it — you want to make sure your ex is taken care of too?"
-- If divorce mentioned — "Life changes like that often mean coverage needs updating. Who are you wanting to protect now?"
-- Never use weird phrases like "lay an egg" — keep it natural
+- If lead mentions ex as beneficiary, clarify: "Got it, you want to make sure your ex is taken care of too?"
+- If divorce mentioned, "Life changes like that often mean coverage needs updating. Who are you wanting to protect now?"
+- Never use weird phrases like "lay an egg", keep it natural
 
 ASSUMPTION RULE:
-- In sales, clarify — do not assume
-- If family status unclear — ask: "Who are you looking to protect these days?"
-- If beneficiaries unclear — ask: "Who would you want the coverage to go to?"
+- In sales, clarify, do not assume
+- If family status unclear, ask: "Who are you looking to protect these days?"
+- If beneficiaries unclear, ask: "Who would you want the coverage to go to?"
 
-Goal: Uncover gaps → expose consequences → book call naturally
+Goal: Uncover gaps, expose consequences, book call naturally
 GAP SELLING FOCUS:
 - A gap is ANY difference between current reality and desired outcome
-- Valid gaps include: missing living benefits, loss of coverage from divorce, or previous financial hardship (no longer in that hardship), employer policy ending at retirement, inadequate coverage for family, term expiring, overpaying, no cash value growth
-- Make inaction painful — ask consequence questions ("What happens if you retire and that coverage goes away?")
-- The lead's perception is reality — if they feel the gap, it's real
-
-[All the rest of your excellent prompt remains exactly as written — no changes needed below]
+- Valid gaps include: missing living benefits, loss of coverage from divorce, employer policy ending at retirement, inadequate coverage for family, term expiring, overpaying, no cash value growth
+- Make inaction painful, ask consequence questions ("What happens if you retire and that coverage goes away?")
+- The lead's perception is reality, if they feel the gap, it's real
 
 Proven Responses That Worked:
 {proven_patterns}
@@ -1187,7 +1177,7 @@ Full Knowledge Base:
 {get_all_knowledge()}
 
 Final Rule: Always advance the sale. Short. Natural. Helpful.
-When ready to book: "Which works better — {get_available_slots()}?"
+When ready to book: "Which works better, {get_ghl_available_slots()}?"
 """
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -1197,60 +1187,62 @@ def webhook():
 
     data_lower = {k.lower(): v for k, v in data.items()}
     contact_id = data_lower.get("contact_id") or data_lower.get("contactid") or data_lower.get("contact", {}).get("id") or "unknown"
-    first_name = data_lower.get("first_name", "there")
+    first_name = data_lower.get("first_name", "there").capitalize()
+
     raw_message = data_lower.get("message", "")
     message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
 
     logger.info(f"WEBHOOK | ID: {contact_id} | Name: {first_name} | Msg: '{message}'")
 
-    # === EXTRACT AGE ===
+    if contact_id == "unknown":
+        return jsonify({"status": "error", "error": "Invalid contact_id"}), 400
+
+    # === EXTRACT AGE FROM DOB ===
     age = "unknown"
     contact = data_lower.get("contact", {})
     date_of_birth = contact.get("date_of_birth", "")
     if date_of_birth:
         try:
-            from datetime import datetime, date, time, timedelta, timezone
+            from datetime import date
             dob_parts = date_of_birth.split("-")
             if len(dob_parts) >= 3:
-                birth_year = int(dob_parts[0])
-                birth_month = int(dob_parts[1])
-                birth_day = int(dob_parts[2])
+                birth_year, birth_month, birth_day = int(dob_parts[0]), int(dob_parts[1]), int(dob_parts[2])
                 today = date.today()
                 age_calc = today.year - birth_year
                 if (today.month, today.day) < (birth_month, birth_day):
                     age_calc -= 1
                 age = str(age_calc)
         except Exception as e:
-            logger.warning(f"Could not parse DOB: {e}")
+            logger.warning(f"Could not parse DOB for {contact_id}: {e}")
 
-    # Load qualification state early
+    # Load current qualification state
     qualification_state = get_qualification_state(contact_id)
     total_exchanges = qualification_state.get('total_exchanges', 0)
 
-    # === OUTBOUND / FIRST CONTACT / FOLLOW-UP HANDLING ===
+    # === OUTBOUND / FIRST CONTACT / FOLLOW-UP ===
     if not message:
         logger.info(f"OUTBOUND | total_exchanges: {total_exchanges}")
 
         if total_exchanges == 0:
-            # FIRST MESSAGE EVER — YOUR EXACT VERBATIM TEXT
+            # First-ever message — exact verbatim opener
             reply_text = f"{first_name}, do you still have the other life insurance policy? there's some new living benefits that people have been asking about and I wanted to make sure yours didn't only pay out if you're dead."
             
             send_sms_via_ghl(contact_id, reply_text)
             update_qualification_state(contact_id, {'total_exchanges': 1})
-            logger.info("First message sent — total_exchanges = 1")
+            logger.info("First outbound message sent")
             return jsonify({"status": "success", "reply": reply_text, "first_send": True})
 
-        # FOLLOW-UP — continue to Grok generation below
+        # Follow-up after no response
         is_follow_up = True
         follow_up_num = total_exchanges
     else:
-        # INBOUND MESSAGE
+        # Inbound message from lead
         save_nlp_message(contact_id, message, "lead")
         extract_and_update_qualification(contact_id, message)
         is_follow_up = False
         follow_up_num = 0
 
-    # === RELOAD STATE AFTER ANY UPDATES ===
+    # Reload state after potential updates
     qualification_state = get_qualification_state(contact_id)
     total_exchanges = qualification_state.get('total_exchanges', 0)
 
@@ -1261,7 +1253,7 @@ def webhook():
     state.stage = detect_stage(state, message or "", [])
     state.exchange_count = total_exchanges
 
-    # === BUILD CONTEXT ===
+    # === BUILD CONTEXT FOR GROK ===
     similar_patterns = find_similar_successful_patterns(message or "")
     proven_patterns = format_patterns_for_prompt(similar_patterns)
     nlp_context = format_nlp_for_prompt(contact_id)
@@ -1283,9 +1275,9 @@ def webhook():
                     f"- {' | '.join([str(c).strip() for c in row[:6] if c])}" for row in matches
                 ])
 
-    # === GAP & AGREEMENT DETECTION ===
+    # Gap & verbal agreement detection
     if message:
-        gap_keywords = ["not enough", "expires", "don't have", "I need", "lost in the divorce", "Ive been looking", "I want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover", "canceled", "what life insurance?", "got too expensive"]
+        gap_keywords = ["not enough", "expires", "don't have", "i need", "lost in the divorce", "ive been looking", "i want to get it", "more coverage", "no living benefits", "through work", "retire", "overpay", "too expensive", "doesn't cover", "canceled", "what life insurance?", "got too expensive"]
         if any(kw in message.lower() for kw in gap_keywords):
             state.facts["gap_identified"] = True
 
@@ -1293,18 +1285,18 @@ def webhook():
         if any(kw in message.lower() for kw in agreement_keywords):
             state.facts["verbal_agreement"] = True
 
-    # === BUILD SYSTEM PROMPT WITH FOLLOW-UP PROTECTION ===
+    # === BUILD SYSTEM PROMPT ===
     system_prompt = build_system_prompt(
         state, nlp_context, proven_patterns, underwriting_context,
         is_follow_up=is_follow_up, follow_up_num=follow_up_num
     )
 
-    # === GROK MESSAGES ===
+    # === GROK MESSAGE HISTORY ===
     messages = [{"role": "system", "content": system_prompt}]
     if message:
         messages.append({"role": "user", "content": message})
 
-    # === GROK GENERATION ===
+    # === GENERATE REPLY WITH GROK ===
     if not client:
         reply = "Mind sharing, when was the last time you reviewed your coverage?"
     else:
@@ -1323,18 +1315,36 @@ def webhook():
     if not reply or len(reply) < 5:
         reply = "I hear you, most people haven't reviewed in years. Mind if I ask when you last looked?"
 
+    # === AUTO-BOOK IF LEAD MENTIONS A TIME ===
+    msg_lower = message.lower() if message else ""
+    time_pattern = r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b"
+    
+    if message and re.search(time_pattern, msg_lower):
+        if create_ghl_appointment(contact_id, first_name, message):
+            reply = "Perfect, your appointment is booked and confirmed! I'll send the details shortly. Talk soon!"
+            update_qualification_state(contact_id, {
+                "is_booked": True,
+                "appointment_time": message,
+                "appointment_declined": False
+            })
+            logger.info(f"Auto-booked appointment for {contact_id} based on time mention")
+        else:
+            available_slots = get_ghl_available_slots()
+            reply = f"That time might be taken now, how about one of these instead: {available_slots}?"
+
     # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
 
-    # === INCREMENT COUNTER ===
-    update_qualification_state(contact_id, {'total_exchanges': total_exchanges + 1})
-    logger.info(f"Message sent — total_exchanges now: {total_exchanges + 1}")
+    # === INCREMENT EXCHANGE COUNTER ===
+    new_total = total_exchanges + 1
+    update_qualification_state(contact_id, {'total_exchanges': new_total})
+    logger.info(f"Reply sent — total_exchanges now: {new_total}")
 
     return jsonify({
         "status": "success",
         "reply": reply,
         "is_follow_up": is_follow_up,
-        "total_exchanges_after": total_exchanges + 1
+        "total_exchanges_after": new_total
     })
 
 @app.route("/missed", methods=["POST"])
@@ -1345,7 +1355,7 @@ def missed_appointment_webhook():
 
     data_lower = {k.lower(): v for k, v in data.items()}
     contact_id = data_lower.get("contact_id", "unknown")
-    first_name = data_lower.get("first_name", "there")
+    first_name = data_lower.get("first_name", "there").capitalize()  # Nicer capitalization
 
     # Safe message extraction
     raw_message = data_lower.get("message", "")
@@ -1359,73 +1369,81 @@ def missed_appointment_webhook():
     if contact_id == "unknown":
         return jsonify({"status": "error", "error": "Invalid contact"}), 400
 
-    msg_lower = message.lower() if message else ""
+    msg_lower = message.lower().strip() if message else ""
 
-    # === PERSONALIZED CONTEXT ===
+    # === PULL PERSONALIZED NOTES & GOAL ===
     notes_context = ""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
-        cur.execute("SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s", (contact_id,))
+        cur.execute(
+            "SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s",
+            (contact_id,)
+        )
         row = cur.fetchone()
         conn.close()
 
         if row:
             db_notes = row[0].strip() if row[0] else ""
             goal = row[1].strip().replace("_", " ").title() if row[1] else ""
-            parts = [p for p in [db_notes, f"you mentioned {goal.lower()}"] if p]
+
+            parts = []
+            if db_notes:
+                parts.append(db_notes)
+            if goal:
+                parts.append(f"you mentioned {goal.lower()}")
+
             if parts:
-                notes_context = " " + " — ".join(parts)
+                notes_context = ", " + ", ".join(parts)
     except Exception as e:
-        logger.warning(f"Failed to fetch notes for missed appt {contact_id}: {e}")
+        logger.warning(f"Failed to fetch notes/goal for missed appt {contact_id}: {e}")
 
-    available_slots = get_available_slots()
+    # === GET REAL GHL AVAILABILITY ===
+    available_slots = get_ghl_available_slots()
 
-    # === FIRST RE-ENGAGEMENT ===
+    # === FIRST OUTREACH (NO REPLY YET) ===
     if not message:
-        reply = f"Hey {first_name}, it's Mitch, looks like we missed each other on that call. No worries, life gets busy!{notes_context} Still want to review your options? Which works better — {available_slots}?"
-    else:
-        # More accurate time detection
-        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm))\b", msg_lower):
-            if create_ghl_appointment(contact_id, first_name, message):
-                reply = "Perfect — appointment booked! I'll send the details shortly."
-            else:
-                reply = "That time looks busy — how about another slot?"
-            # Future: parse exact time and call book_appointment()
-        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good"]):
-            reply = f"Awesome, which works better: {available_slots}?"
-        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "next week"]):
-            reply = "No problem, totally understand. When's a better week for you?"
-        else:
-            reply = f"Got it — just checking we're still good to find something that fits{notes_context}. Which works better — {available_slots}?"
+        reply = (
+            f"Hey {first_name}, it's Mitch, looks like we missed each other on that call. "
+            f"No worries at all, life gets busy!{notes_context} "
+            f"Still want to review your options and get you protected? "
+            f"Which works better, {available_slots}?"
+        )
 
+    # === LEAD REPLIED ===
+    else:
+        # 1. They mentioned a time → TRY TO BOOK IT
+        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
+            if create_ghl_appointment(contact_id, first_name, message):
+                reply = "Perfect, your appointment is booked and confirmed! I'll send the details shortly. Talk soon!"
+                # Update DB
+                update_qualification_state(contact_id, {
+                    "is_booked": True,
+                    "appointment_time": message,
+                    "appointment_declined": False
+                })
+            else:
+                reply = f"That time might be taken now, how about one of these instead: {available_slots}?"
+
+        # 2. Positive response, no time yet
+        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good", "works"]):
+            reply = f"Awesome, which works better: {available_slots}?"
+
+        # 3. Negative / busy
+        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "next week", "reschedule"]):
+            reply = "No problem at all, totally understand. When's a better week for you? I can work around your schedule."
+
+        # 4. Neutral / fallback
+        else:
+            reply = (
+                f"Got it, just want to make sure we're still good to find something that fits{notes_context}. "
+                f"Which works better, {available_slots}?"
+            )
+
+    # === SEND REPLY VIA GHL ===
     send_sms_via_ghl(contact_id, reply)
-    logger.info(f"Missed appt reply sent: '{reply[:100]}...'")
+    logger.info(f"Missed appt reply sent to {contact_id}: '{reply[:100]}...'")
 
     return jsonify({"status": "success", "reply": reply})
-
-@app.route("/debug_calendar")
-def debug_calendar():
-    if not calendar_service:
-        return {"error": "calendar_service is None — OAuth2 failed"}
-
-    try:
-        events_result = calendar_service.events().list(
-            calendarId='primary',
-            timeMin=datetime.now(timezone.utc).isoformat() + 'Z',
-            timeMax=(datetime.now(timezone.utc) + timedelta(days=2)).isoformat() + 'Z',
-            singleEvents=True,
-            maxResults=5
-        ).execute()
-
-        events = events_result.get('items', [])
-        return {
-            "status": "success",
-            "events_count": len(events),
-            "events": [{"summary": e.get('summary'), "start": e.get('start')} for e in events]
-        }
-    except Exception as e:
-        return {"error": str(e)}
-    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
