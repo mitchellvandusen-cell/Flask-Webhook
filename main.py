@@ -8,15 +8,12 @@ import io
 import re
 from datetime import datetime, date, time, timedelta, timezone
 from openai import OpenAI
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
+import psycopg2
 load_dotenv()  # Loads variables from .env file
 
 try:
-    import psycopg2
     conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
     cur = conn.cursor()
     # 1) Ensure table exists first
@@ -98,6 +95,13 @@ try:
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS waiting_for_medications BOOLEAN DEFAULT FALSE;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS blockers TEXT[] DEFAULT ARRAY[]::TEXT[];")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS notes TEXT;")
+    # Add processed_webhooks table
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS processed_webhooks (
+      webhook_id TEXT PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
     conn.commit()
     conn.close()
     print("DB fixed: ensured contact_qualification table + required columns")
@@ -174,7 +178,7 @@ WHOLE_LIFE_DATA = fetch_underwriting_data(WHOLE_LIFE_SHEET_URL)
 TERM_IUL_DATA = fetch_underwriting_data(TERM_IUL_SHEET_URL)
 UHL_DATA = fetch_underwriting_data(UHL_SHEET_URL)
 
-UNDERWRITING_DATA = WHOLE_LIFE_DATA + TERM_IUL_DATA
+UNDERWRITING_DATA = WHOLE_LIFE_DATA + TERM_IUL_DATA + UHL_DATA
 
 def search_underwriting(condition, product_hint=""):
     if not UNDERWRITING_DATA:
@@ -232,9 +236,14 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         if "slots" in data:
             slots = data["slots"]
         elif "freeSlots" in data:
-            slots = data["freeSlots"]
+            free = data["freeSlots"]
+            if isinstance(free, dict):
+                for v in free.values():
+                    if isinstance(v, list):
+                        slots.extend(v)
+            elif isinstance(free, list):
+                slots = free
         elif isinstance(data, dict):
-            # Handle potential nested by date
             for date_slots in data.values():
                 if isinstance(date_slots, list):
                     slots.extend(date_slots)
@@ -248,11 +257,22 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
 
         for slot in slots:
             try:
-                start_str = slot["startTime"].replace("Z", "+00:00")
+                if isinstance(slot, str):
+                    start_str = slot
+                elif isinstance(slot, dict):
+                    start_str = slot.get("startTime") or slot.get("start") or ""
+                else:
+                    continue
+
+                if not start_str:
+                    continue
+
+                start_str = start_str.replace("Z", "+00:00")
                 dt = datetime.fromisoformat(start_str).astimezone(local_tz)
-                if 8 <= dt.hour <= 20:  # Business hours only
+                if 8 <= dt.hour <= 20:
                     all_slots.append(dt)
-            except Exception:
+            except Exception as e:
+                logger.info(f"Slot parse skipped: {slot} err={e}")
                 continue
 
         if not all_slots:
@@ -284,15 +304,16 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         selected_evening = select_spaced_slots(evening_slots)
 
         formatted_morning = []
+        now_local = datetime.now(ZoneInfo("America/Chicago"))
         for dt in selected_morning:
             time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-            day = "tomorrow" if dt.date() == (now + timedelta(days=1)).date() else dt.strftime("%A")
+            day = "tomorrow" if dt.date() == (now_local + timedelta(days=1)).date() else dt.strftime("%A")
             formatted_morning.append(f"{time_str} {day} morning")
 
         formatted_evening = []
         for dt in selected_evening:
             time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-            day = "tomorrow" if dt.date() == (now + timedelta(days=1)).date() else dt.strftime("%A")
+            day = "tomorrow" if dt.date() == (now_local + timedelta(days=1)).date() else dt.strftime("%A")
             formatted_evening.append(f"{time_str} {day} evening")
 
         if not formatted_morning and not formatted_evening:
@@ -323,23 +344,52 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         logger.error("Missing GHL credentials")
         return False
 
-    # Parse time
-    time_lower = selected_time.lower()
-    now = datetime.now()
-    target_date = (now + timedelta(days=1)).date() if "tomorrow" in time_lower else now.date()
+    # Use robust parsing from book_appointment
+    time_str = selected_time.lower().strip()
+    now = datetime.now(timezone.utc)
+    if any(word in time_str for word in ["tomorrow", "tmr", "tom", "next day"]):
+        target_date = (now + timedelta(days=1)).date()
+    else:
+        target_date = now.date()  # default to today
 
-    time_map = {
-        "10:30am": "10:30", "10:30": "10:30", "11am": "11:00",
-        "2pm": "14:00", "3pm": "15:00", "4pm": "16:00", "6pm": "18:00"
-    }
-    time_str = "14:00"
-    for key, val in time_map.items():
-        if key in time_lower:
-            time_str = val
+    hour = 14  # default fallback: 2pm
+    minute = 0
+
+    time_patterns = [
+        r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
+        r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
+    ]
+
+    match_found = False
+    for pattern in time_patterns:
+        match = re.search(pattern, time_str)
+        if match:
+            h = int(match.group(1))
+            m = int(match.group(2)) if match.group(2) else 0
+            period = (match.group(3) or "").lower()
+
+            if period in ["pm", "p.m."] and h != 12:
+                h += 12
+            elif period in ["am", "a.m."] and h == 12:
+                h = 0
+
+            hour = h
+            minute = m
+            match_found = True
             break
 
+    if not match_found:
+        if any(word in time_str for word in ["morning", "am"]):
+            hour = 11
+        elif any(word in time_str for word in ["afternoon"]):
+            hour = 14
+        elif any(word in time_str for word in ["evening", "night"]):
+            hour = 18
+
+    hour = max(8, min(20, hour))
+
     chicago_tz = ZoneInfo("America/Chicago")
-    start_time = datetime.combine(target_date, datetime.strptime(time_str, "%H:%M").time(), tzinfo=chicago_tz)
+    start_time = datetime.combine(target_date, time(hour, minute), tzinfo=chicago_tz)
     end_time = start_time + timedelta(minutes=30)
 
     # Step 1: Fetch existing events to check for conflicts
@@ -362,12 +412,14 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
             events = response.json().get("events", [])
             # Check for overlap
             for event in events:
-                event_start_str = event["startTime"].replace("Z", "+00:00")
-                event_end_str = event["endTime"].replace("Z", "+00:00")
+                event_start_str = event.get("startTime", "").replace("Z", "+00:00")
+                event_end_str = event.get("endTime", "").replace("Z", "+00:00")
+                if not event_start_str or not event_end_str:
+                    continue
                 event_start = datetime.fromisoformat(event_start_str).replace(tzinfo=timezone.utc)
                 event_end = datetime.fromisoformat(event_end_str).replace(tzinfo=timezone.utc)
                 if (start_time.astimezone(timezone.utc) < event_end) and (end_time.astimezone(timezone.utc) > event_start):
-                    logger.warning(f"Time overlap detected with existing event: {event['id']}")
+                    logger.warning(f"Time overlap detected with existing event: {event.get('id')}")
                     return False  # Slot taken, don't book
         else:
             logger.error(f"Failed to fetch events: {response.status_code} {response.text}")
@@ -668,8 +720,6 @@ def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
         return False
 
     try:
-        import psycopg2
-
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
 
@@ -699,15 +749,6 @@ def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
 
     except Exception as e:
         logger.error(f"Failed to add to {field} for {contact_id}: {e}")
-        try:
-            conn.rollback()
-        except:
-            pass
-        finally:
-            try:
-                conn.close()
-            except:
-                pass
         return False
     
 def make_json_serializable(obj):
@@ -726,7 +767,6 @@ def get_qualification_state(contact_id: str) -> dict:
         return {}
 
     try:
-        import psycopg2
         from psycopg2.extras import RealDictCursor
 
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
@@ -753,10 +793,6 @@ def get_qualification_state(contact_id: str) -> dict:
 
     except Exception as e:
         logger.warning(f"Could not get qualification state for {contact_id}: {e}")
-        try:
-            conn.close()
-        except:
-            pass
         return {}
 
 def update_qualification_state(contact_id: str, updates: dict) -> bool:
@@ -765,7 +801,6 @@ def update_qualification_state(contact_id: str, updates: dict) -> bool:
         return False
 
     try:
-        import psycopg2
         from psycopg2.extras import DictCursor
 
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
@@ -808,15 +843,6 @@ def update_qualification_state(contact_id: str, updates: dict) -> bool:
 
     except Exception as e:
         logger.error(f"Failed to update qualification state for {contact_id}: {e}")
-        try:
-            conn.rollback()
-        except:
-            pass
-        finally:
-            try:
-                conn.close()
-            except:
-                pass
         return False
 
 def extract_and_update_qualification(contact_id, message, conversation_history=None):
@@ -965,8 +991,9 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
     if re.search(r"\b(need to think|talk to spouse|sleep on it|consider)\b", all_text):
         add_to_qualification_array(contact_id, "blockers", "need_to_think")
 
-    # Apply updates
-    if updates:
+    # Apply updates only if message has relevant keywords (simplify for simple convos)
+    relevant_keywords = ["insurance", "policy", "coverage", "health", "condition", "family", "spouse", "kids", "age", "tobacco", "motivation", "goal", "blocker"]
+    if updates and any(kw in msg_lower for kw in relevant_keywords):
         update_qualification_state(contact_id, updates)
 
     return updates
@@ -977,8 +1004,6 @@ def mark_topic_asked(contact_id: str, topic: str):
         return
 
     try:
-        import psycopg2
-
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         cur = conn.cursor()
 
@@ -998,7 +1023,6 @@ def mark_topic_asked(contact_id: str, topic: str):
         """, (contact_id, topic, topic))
 
         conn.commit()
-        cur.close()
         conn.close()
         logger.info(f"Marked topic '{topic}' as asked for contact {contact_id}")
     except Exception as e:
@@ -1056,7 +1080,6 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str) -> bo
             match_found = True
             break
 
-    # Fallback keywords if no number found
     if not match_found:
         if any(word in time_str for word in ["morning", "am"]):
             hour = 11
@@ -1069,8 +1092,7 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str) -> bo
     hour = max(8, min(20, hour))
 
     # === BUILD FINAL DATETIME (in UTC for GHL) ===
-    local_start = datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour, minutes=minute)
-    # Convert to UTC for GHL API (assumes you're in Central Time)
+    local_start = datetime.combine(target_date, time(hour, minute))
     chicago_tz = ZoneInfo("America/Chicago")
     local_start = local_start.replace(tzinfo=chicago_tz)
     utc_start = local_start.astimezone(timezone.utc)
@@ -1079,10 +1101,6 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str) -> bo
     logger.info(f"Parsed time: {local_start.strftime('%I:%M %p %Z on %A, %B %d')} → Booking {utc_start.isoformat()}Z")
 
     # === USE YOUR EXISTING GHL BOOKING FUNCTION ===
-    # We'll build a clean payload — but easiest: reuse create_ghl_appointment logic
-    # Since your create_ghl_appointment() already does good parsing, we can call it directly
-    # with the original message — it's safe and simpler!
-
     success = create_ghl_appointment(contact_id, first_name, selected_time)
 
     if success:
@@ -1320,7 +1338,6 @@ def webhook():
     date_of_birth = contact.get("date_of_birth", "")
     if date_of_birth:
         try:
-            from datetime import date
             dob_parts = date_of_birth.split("-")
             if len(dob_parts) >= 3:
                 birth_year, birth_month, birth_day = int(dob_parts[0]), int(dob_parts[1]), int(dob_parts[2])
@@ -1336,12 +1353,12 @@ def webhook():
     qualification_state = get_qualification_state(contact_id)
     total_exchanges = qualification_state.get('total_exchanges', 0)
 
-    # Fetch last 12 messages for history
+    # Fetch last 20 messages for history (increased for better recall)
     conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
     cur = conn.cursor()
     cur.execute("""
         SELECT message, role FROM nlp_memory 
-        WHERE contact_id = %s ORDER BY created_at DESC LIMIT 12
+        WHERE contact_id = %s ORDER BY created_at DESC LIMIT 20
     """, (contact_id,))
     history_rows = cur.fetchall()
     conn.close()
@@ -1450,7 +1467,7 @@ def webhook():
     time_pattern = r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b"
     
     if message and re.search(time_pattern, msg_lower):
-        if create_ghl_appointment(contact_id, first_name, message):
+        if book_appointment(contact_id, first_name, message):
             reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
             update_qualification_state(contact_id, {
                 "is_booked": True,
@@ -1559,7 +1576,7 @@ def missed_appointment_webhook():
     else:
         # 1. They mentioned a time → TRY TO BOOK IT
         if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
-            if create_ghl_appointment(contact_id, first_name, message):
+            if book_appointment(contact_id, first_name, message):
                 reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
                 # Update DB
                 update_qualification_state(contact_id, {
