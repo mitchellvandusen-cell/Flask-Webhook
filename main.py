@@ -230,7 +230,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
     start_time = datetime.combine(date, datetime.strptime(time_str, "%H:%M").time())
     end_time = start_time + timedelta(minutes=30)
 
-    url = "https://services.leadconnectorhq.com/conversations/appointments"
+    url = f"https://services.leadconnectorhq.com/calendars/{calendar_id}/appointments"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
