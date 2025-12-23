@@ -65,7 +65,7 @@ try:
         id SERIAL PRIMARY KEY,
         contact_id TEXT NOT NULL,
         message TEXT NOT NULL,
-        role TEXT NOT NULL,  # 'lead' or 'assistant'
+        role TEXT NOT NULL, -- 'lead' or 'assistant'
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
