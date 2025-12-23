@@ -6,7 +6,7 @@ import requests
 import csv
 import io
 import re
-from datetime import datetime, timedelta, time, timezone
+from datetime import datetime, date, time, timedelta, timezone
 from openai import OpenAI
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -207,7 +207,7 @@ def search_underwriting(condition, product_hint=""):
     results.sort(reverse=True, key=lambda x: x[0])
     return [row for _, row in results[:6]]
 
-from datetime import datetime, timedelta, time, timezone
+from datetime import datetime, date, time, timedelta, timezone
 
 def get_available_slots():
     """Fetch real available 30-min slots from Google Calendar for today and tomorrow."""
@@ -501,7 +501,7 @@ def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
                 pass
         return False
     
-from datetime import datetime, timedelta, time, timezone
+from datetime import datetime, date, time, timedelta, timezone
 def make_json_serializable(obj):
     """Convert datetime objects to ISO strings for JSON serialization"""
     if isinstance(obj, (datetime, date, time)):
@@ -803,7 +803,7 @@ def book_appointment(contact_id: str, first_name: str, selected_time: str):
         return False
 
     try:
-        from datetime import datetime, timedelta, time
+        from datetime import datetime, date, time, timedelta, timezone
         now = datetime.now(timezone.utc)
         time_str = selected_time.lower().strip()
 
@@ -1090,7 +1090,7 @@ def webhook():
     date_of_birth = contact.get("date_of_birth", "")
     if date_of_birth:
         try:
-            from datetime import date
+            from datetime import datetime, date, time, timedelta, timezone
             dob_parts = date_of_birth.split("-")
             if len(dob_parts) >= 3:
                 birth_year = int(dob_parts[0])
