@@ -60,6 +60,15 @@ try:
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS nlp_memory (
+        id SERIAL PRIMARY KEY,
+        contact_id TEXT NOT NULL,
+        message TEXT NOT NULL,
+        role TEXT NOT NULL,  # 'lead' or 'assistant'
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
     # 2) Then ensure columns exist (safe even after table exists)
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS total_exchanges INTEGER DEFAULT 0;")
     cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS dismissive_count INTEGER DEFAULT 0;")
