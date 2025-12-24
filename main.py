@@ -207,15 +207,28 @@ def search_underwriting(condition, product_hint=""):
     results.sort(reverse=True, key=lambda x: x[0])
     return [row for _, row in results[:6]]
 
-def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str:
+cache = {}
+CACHE_TTL = 300  # 5 min
+
+def get_cached_data(key):
+    if key in cache and (datetime.now(timezone.utc) - cache[key]['time']) < timedelta(seconds=CACHE_TTL):
+        return cache[key]['data']
+    return None
+
+def set_cache(key, data):
+    cache[key] = {'data': data, 'time': datetime.now(timezone.utc)}
+
+# Consolidated function
+def consolidated_calendar_op(operation, contact_id=None, first_name=None, selected_time=None, appointment_id=None, reason=None, calendar_id=None):
     api_key = os.environ.get("GHL_API_KEY")
+    location_id = os.environ.get("GHL_LOCATION_ID")
     cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")
 
-    if not api_key or not cal_id:
-        logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
-        return "let me look at my calendar"
-
-    url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+    if not all([api_key, location_id, cal_id]):
+        logger.error("Missing GHL credentials")
+        if operation == "fetch_slots":
+            return "let me look at my calendar"
+        return False
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -225,43 +238,165 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
 
     now = datetime.now(timezone.utc)
     start_ts = int(now.timestamp() * 1000)
-    end_ts = int((now + timedelta(days=min(days_ahead, 30))).timestamp() * 1000)
+    end_ts = int((now + timedelta(days=7)).timestamp() * 1000)
 
-    params = {
-        "startDate": start_ts,
-        "endDate": end_ts,
-        "timezone": "America/Chicago"
-    }
+    # Fetch/cache slots
+    slots_key = f"slots_{cal_id}"
+    slots = get_cached_data(slots_key)
+    if not slots:
+        url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+        params = {"startDate": start_ts, "endDate": end_ts, "timezone": "America/Chicago"}
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=20)
+            if response.status_code != 200:
+                return "let me look at my calendar" if operation == "fetch_slots" else False
+            data = response.json()
+            slots = []
+            if isinstance(data, dict):
+                for date_key, date_data in data.items():
+                    if isinstance(date_data, dict) and "slots" in date_data:
+                        slots.extend(date_data["slots"])
+                    elif isinstance(date_data, list):
+                        slots.extend(date_data)
+            set_cache(slots_key, slots)
+        except Exception as e:
+            logger.error(f"Free slots error: {e}")
+            return "let me look at my calendar" if operation == "fetch_slots" else False
 
-    try:
-        response = requests.get(url, headers=headers, params=params, timeout=20)
-        logger.info(f"free-slots status={response.status_code} body={response.text[:1000]}") if response.status_code != 200 else logger.info(f"free-slots json={json.dumps(response.json())[:2000]}")
-        if response.status_code != 200:
-            logger.error(f"GHL free-slots failed: {response.status_code} {response.text}")
-            return "let me look at my calendar"
+    # Fetch/cache events
+    events_key = f"events_{cal_id}"
+    events = get_cached_data(events_key)
+    if not events and operation in ["book", "reschedule", "block"]:
+        events_url = "https://services.leadconnectorhq.com/calendars/events"
+        events_params = {
+            "locationId": location_id,
+            "calendarId": cal_id,
+            "startTime": start_ts - 86400000,
+            "endTime": end_ts + 86400000
+        }
+        try:
+            response = requests.get(events_url, headers=headers, params=events_params, timeout=20)
+            if response.status_code != 200:
+                return False
+            events = response.json().get("events", [])
+            set_cache(events_key, events)
+        except Exception as e:
+            logger.error(f"Events fetch error: {e}")
+            return False
 
-        data = response.json()
-        slots = []
-        if isinstance(data, dict):
-            for date_key, date_data in data.items():
-                if isinstance(date_data, dict) and "slots" in date_data:
-                    slots.extend(date_data["slots"])
-                elif isinstance(date_data, list):
-                    slots.extend(date_data)
-        if "slots" in data:
-            slots = data["slots"]
-        elif "freeSlots" in data:
-            free = data["freeSlots"]
-            if isinstance(free, dict):
-                for v in free.values():
-                    if isinstance(v, dict) and "slots" in v:
-                        slots.extend(v["slots"])
-                    elif isinstance(v, list):
-                        slots.extend(v)
-            elif isinstance(free, list):
-                slots = free
+    # Parse time if needed
+    if selected_time:
+        time_str = selected_time.lower().strip()
+        now_local = datetime.now(ZoneInfo("America/Chicago"))
+        target_date = (now_local + timedelta(days=1)).date() if "tomorrow" in time_str else now_local.date()
+
+        hour = 14
+        minute = 0
+
+        time_patterns = [
+            r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
+            r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
+        ]
+
+        for pattern in time_patterns:
+            match = re.search(pattern, time_str)
+            if match:
+                h = int(match.group(1))
+                m = int(match.group(2)) if match.group(2) else 0
+                period = (match.group(3) or "").lower()
+                if period in ["pm", "p.m."] and h != 12:
+                    h += 12
+                elif period in ["am", "a.m."] and h == 12:
+                    h = 0
+                hour = h
+                minute = m
+                break
+
+        hour = max(8, min(20, hour))
+
+        start_time_dt = datetime.combine(target_date, time(hour, minute), tzinfo=ZoneInfo("America/Chicago"))
+        start_time = start_time_dt.isoformat()
+        end_time = (start_time_dt + timedelta(minutes=30)).isoformat()
+
+        # Local conflict check
+        proposed_start = datetime.fromisoformat(start_time)
+        proposed_end = datetime.fromisoformat(end_time)
+        for event in events:
+            e_start = datetime.fromisoformat(event.get('startTime', ''))
+            e_end = datetime.fromisoformat(event.get('endTime', ''))
+            if proposed_start < e_end and proposed_end > e_start:
+                logger.warning("Local conflict detected")
+                return False
+
+    # Operations
+    if operation == "book":
+        payload = {
+            "locationId": location_id,
+            "calendarId": cal_id,
+            "contactId": contact_id,
+            "startTime": start_time,
+            "endTime": end_time,
+            "title": f"Life Insurance Review, {first_name}",
+            "appointmentStatus": "confirmed",
+            "ignoreFreeSlotValidation": True,
+            "assignedUserId": os.environ.get("GHL_USER_ID")
+        }
+        url = "https://services.leadconnectorhq.com/calendars/events/appointments"
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            if response.status_code in [200, 201]:
+                logger.info(f"GHL appointment created for {contact_id} at {start_time}")
+                return True
+            else:
+                logger.error(f"GHL appointment failed: {response.status_code} {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"GHL appointment exception: {e}")
+            return False
+
+    elif operation == "reschedule":
+        payload = {
+            "startTime": start_time,
+            "endTime": end_time,
+            "appointmentStatus": "confirmed",
+            "ignoreFreeSlotValidation": True
+        }
+        url = f"https://services.leadconnectorhq.com/calendars/events/appointments/{appointment_id}"
+        try:
+            response = requests.put(url, json=payload, headers=headers, timeout=15)
+            if response.status_code in [200, 204]:
+                logger.info(f"GHL appointment {appointment_id} rescheduled to {start_time}")
+                return True
+            else:
+                logger.error(f"GHL reschedule failed: {response.status_code} {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"GHL reschedule exception: {e}")
+            return False
+
+    elif operation == "block":
+        payload = {
+            "calendarId": cal_id,
+            "startTime": start_time,
+            "endTime": end_time,
+            "title": reason,
+            "ignoreFreeSlotValidation": True
+        }
+        url = "https://services.leadconnectorhq.com/calendars/events/block-slots"
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            if response.status_code in [200, 201]:
+                logger.info(f"GHL time blocked from {start_time} to {end_time}")
+                return True
+            else:
+                logger.error(f"GHL block failed: {response.status_code} {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"GHL block exception: {e}")
+            return False
+
+    elif operation == "fetch_slots":
         if not slots:
-            logger.info("GHL returned no available slots")
             return "let me look at my calendar"
 
         local_tz = ZoneInfo("America/Chicago")
@@ -343,195 +478,99 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
 
         return "I've got " + parts[0]
 
-    except Exception as e:
-        logger.error(f"GHL free-slots exception: {e}")
-        return "let me look at my calendar"
-
-def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
-    api_key = os.environ.get("GHL_API_KEY")
-    location_id = os.environ.get("GHL_LOCATION_ID")
-    calendar_id = os.environ.get("GHL_CALENDAR_ID")
-
-    if not all([api_key, location_id, calendar_id]):
-        logger.error("Missing GHL credentials")
-        return False
-
-    # Use robust parsing from book_appointment
-    time_str = selected_time.lower().strip()
-    now = datetime.now(timezone.utc)
-    if any(word in time_str for word in ["tomorrow", "tmr", "tom", "next day"]):
-        target_date = (now + timedelta(days=1)).date()
-    else:
-        target_date = now.date()  # default to today
-
-    hour = 14  # default fallback: 2pm
-    minute = 0
-
-    time_patterns = [
-        r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
-        r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
-    ]
-
-    match_found = False
-    for pattern in time_patterns:
-        match = re.search(pattern, time_str)
-        if match:
-            h = int(match.group(1))
-            m = int(match.group(2)) if match.group(2) else 0
-            period = (match.group(3) or "").lower()
-
-            if period in ["pm", "p.m."] and h != 12:
-                h += 12
-            elif period in ["am", "a.m."] and h == 12:
-                h = 0
-
-            hour = h
-            minute = m
-            match_found = True
-            break
-
-    if not match_found:
-        if any(word in time_str for word in ["morning", "am"]):
-            hour = 11
-        elif any(word in time_str for word in ["afternoon"]):
-            hour = 14
-        elif any(word in time_str for word in ["evening", "night"]):
-            hour = 18
-
-    hour = max(8, min(20, hour))
-
-    chicago_tz = ZoneInfo("America/Chicago")
-    start_time = datetime.combine(target_date, time(hour, minute), tzinfo=chicago_tz)
-    end_time = start_time + timedelta(minutes=30)
-
-    # Step 1: Fetch existing events to check for conflicts
-    events_url = "https://services.leadconnectorhq.com/calendars/events"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
-        "Content-Type": "application/json"
-    }
-    params = {
-        "locationId": location_id,
-        "calendarId": calendar_id,
-        "startTime": int(start_time.timestamp() * 1000 - 86400000),  # Day before in ms
-        "endTime": int(end_time.timestamp() * 1000 + 86400000)  # Day after
-    }
-
-    try:
-        response = requests.get(events_url, headers=headers, params=params)
-        if response.status_code == 200:
-            events = response.json().get("events", [])
-            # Check for overlap
-            for event in events:
-                event_start_str = event.get("startTime", "").replace("Z", "+00:00")
-                event_end_str = event.get("endTime", "").replace("Z", "+00:00")
-                if not event_start_str or not event_end_str:
-                    continue
-                event_start = datetime.fromisoformat(event_start_str).replace(tzinfo=timezone.utc)
-                event_end = datetime.fromisoformat(event_end_str).replace(tzinfo=timezone.utc)
-                if (start_time.astimezone(timezone.utc) < event_end) and (end_time.astimezone(timezone.utc) > event_start):
-                    logger.warning(f"Time overlap detected with existing event: {event.get('id')}")
-                    return False  # Slot taken, don't book
-        else:
-            logger.error(f"Failed to fetch events: {response.status_code} {response.text}")
-    except Exception as e:
-        logger.error(f"Events fetch exception: {e}")
-
-    # Step 2: If no overlap, book it
-    url = "https://services.leadconnectorhq.com/calendars/events/appointments"
-
-    payload = {
-        "locationId": location_id,
-        "calendarId": calendar_id,
-        "contactId": contact_id,
-        "startTime": start_time.isoformat(),
-        "endTime": end_time.isoformat(),
-        "title": f"Life Insurance Review, {first_name}",
-        "appointmentStatus": "confirmed",
-        "ignoreFreeSlotValidation": True,
-        "assignedUserId": os.environ.get("GHL_USER_ID")
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        if response.status_code in [200, 201]:
-            logger.info(f"GHL appointment created for {contact_id} at {start_time}")
-            return True
-        else:
-            logger.error(f"GHL appointment failed: {response.status_code} {response.text}")
-            return False
-    except Exception as e:
-        logger.error(f"GHL appointment exception: {e}")
-        return False
-    
+# Update reschedule_ghl_appointment
 def reschedule_ghl_appointment(appointment_id: str, new_start_time: str, new_end_time: str) -> bool:
-    api_key = os.environ.get("GHL_API_KEY")
-    if not api_key:
-        logger.error("Missing GHL_API_KEY")
-        return False
+    return consolidated_calendar_op("reschedule", selected_time=new_start_time, appointment_id=appointment_id)
 
-    url = f"https://services.leadconnectorhq.com/calendars/events/appointments/{appointment_id}"
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "startTime": new_start_time,  # ISO with offset
-        "endTime": new_end_time,
-        "appointmentStatus": "confirmed",
-        "ignoreFreeSlotValidation": True
-    }
-
-    try:
-        response = requests.put(url, json=payload, headers=headers, timeout=15)
-        if response.status_code in [200, 204]:
-            logger.info(f"GHL appointment {appointment_id} rescheduled to {new_start_time}")
-            return True
-        else:
-            logger.error(f"GHL reschedule failed: {response.status_code} {response.text}")
-            return False
-    except Exception as e:
-        logger.error(f"GHL reschedule exception: {e}")
-        return False
-
+# Update block_off_ghl_time
 def block_off_ghl_time(calendar_id: str, start_time: str, end_time: str, reason: str = "Blocked") -> bool:
-    api_key = os.environ.get("GHL_API_KEY")
-    if not api_key or not calendar_id:
-        logger.error("Missing GHL credentials")
-        return False
+    return consolidated_calendar_op("block", selected_time=start_time, reason=reason, calendar_id=calendar_id)
 
-    url = "https://services.leadconnectorhq.com/calendars/events/block-slots"
+# Update handle_missed_appointment
+def handle_missed_appointment(contact_id: str, first_name: str, message: str = "") -> str:
+    msg_lower = message.lower().strip() if message else ""
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "calendarId": calendar_id,
-        "startTime": start_time,  # ISO with offset
-        "endTime": end_time,
-        "title": reason,
-        "ignoreFreeSlotValidation": True
-    }
-
+    # === PULL PERSONALIZED NOTES FROM DB ===
+    notes_context: str = ""
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        if response.status_code in [200, 201]:
-            logger.info(f"GHL time blocked from {start_time} to {end_time}")
-            return True
-        else:
-            logger.error(f"GHL block failed: {response.status_code} {response.text}")
-            return False
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s",
+            (contact_id,)
+        )
+        row = cur.fetchone()
+        conn.close()
+
+        if row:
+            db_notes = row[0].strip() if row[0] else ""
+            goal = row[1].strip().replace("_", " ").title() if row[1] else ""
+
+            parts = []
+            if db_notes:
+                parts.append(db_notes)
+            if goal:
+                parts.append(f"you mentioned {goal.lower()}")
+
+            if parts:
+                notes_context = ", " + ", ".join(parts)
     except Exception as e:
-        logger.error(f"GHL block exception: {e}")
-        return False
-    
+        logger.warning(f"Failed to fetch notes/goal for missed appt {contact_id}: {e}")
+
+    # === GET REAL AVAILABLE SLOTS FROM GHL ===
+    available_slots = consolidated_calendar_op("fetch_slots")
+
+    # === FIRST OUTREACH (NO REPLY YET) ===
+    if not message:
+        reply = (
+            f"Hey {first_name}, it's Mitchell, looks like we missed each other on that call. "
+            f"No worries at all, life gets busy!{notes_context} "
+            f"Still want to go over those options and get you protected? "
+            f"Which works better, {available_slots}?"
+        )
+        send_sms_via_ghl(contact_id, reply)
+        save_nlp_message(contact_id, reply, "assistant")
+        logger.info(f"Missed appt initial re-engagement sent to {contact_id}")
+        return reply
+
+    # === LEAD REPLIED ===
+    else:
+        # 1. They mentioned a time → TRY TO BOOK IT
+        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
+            success = consolidated_calendar_op("book", contact_id, first_name, msg_lower)
+            if success:
+                reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
+                # Update DB
+                update_qualification_state(contact_id, {
+                    "is_booked": True,
+                    "appointment_time": msg_lower,
+                    "appointment_declined": False
+                })
+            else:
+                reply = f"That time might be taken now, how about {available_slots}?"
+
+        # 2. Positive response, no time yet
+        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good", "works"]):
+            reply = f"Awesome, which works better: {available_slots}?"
+
+        # 3. Negative / busy
+        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "next week", "reschedule"]):
+            reply = "No problem at all, totally understand. When's a better week for you? I can work around your schedule."
+
+        # 4. Neutral / fallback
+        else:
+            reply = (
+                f"Got it, just want to make sure we're still good to find something that fits{notes_context}. "
+                f"Which works better, {available_slots}?"
+            )
+
+    # === SEND THE REPLY ===
+    send_sms_via_ghl(contact_id, reply)
+    save_nlp_message(contact_id, reply, "assistant")
+    logger.info(f"Missed appt reply sent to {contact_id}: '{reply[:100]}...'")
+
+    return reply
+
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
     Scan conversation history for agent questions and mark new topics asked.
@@ -623,97 +662,6 @@ def parse_history_for_topics_asked(contact_id: str, conversation_history: list) 
         mark_topic_asked(contact_id, topic)
 
     return new_topics
-
-def handle_missed_appointment(contact_id: str, first_name: str, message: str = "") -> str:
-    """
-    Complete re-engagement handler for missed appointments.
-    Shows empathy and reminds them of value, pulls personalized notes + motivating goal from DB, uses REAL GHL calendar availability, automatically BOOKS the appointment in GHL when they pick a time, quick, natural re-booking path.
-    """
-    if not contact_id or contact_id == "unknown":
-        logger.warning("handle_missed_appointment called with invalid contact_id")
-        return "Error processing request."
-
-    msg_lower = message.lower().strip() if message else ""
-
-    # === PULL PERSONALIZED NOTES FROM DB ===
-    notes_context = ""
-    try:
-        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT notes, motivating_goal FROM contact_qualification WHERE contact_id = %s",
-            (contact_id,)
-        )
-        row = cur.fetchone()
-        conn.close()
-
-        if row:
-            db_notes = row[0].strip() if row[0] else ""
-            goal = row[1].strip().replace("_", " ").title() if row[1] else ""
-
-            parts = []
-            if db_notes:
-                parts.append(db_notes)
-            if goal:
-                parts.append(f"you mentioned {goal.lower()}")
-
-            if parts:
-                notes_context = ", " + ", ".join(parts)
-    except Exception as e:
-        logger.warning(f"Failed to fetch notes/goal for missed appt {contact_id}: {e}")
-
-    # === GET REAL AVAILABLE SLOTS FROM GHL ===
-    available_slots = get_ghl_available_slots()
-
-    # === FIRST OUTREACH (NO REPLY YET) ===
-    if not message:
-        reply = (
-            f"Hey {first_name}, it's Mitchell, looks like we missed each other on that call. "
-            f"No worries at all, life gets busy!{notes_context} "
-            f"Still want to go over those options and get you protected? "
-            f"Which works better, {available_slots}?"
-        )
-        send_sms_via_ghl(contact_id, reply)
-        save_nlp_message(contact_id, reply, "assistant")
-        logger.info(f"Missed appt initial re-engagement sent to {contact_id}")
-        return reply
-
-    # === LEAD REPLIED ===
-    else:
-        # 1. They mentioned a time → TRY TO BOOK IT
-        if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
-            if create_ghl_appointment(contact_id, first_name, message):
-                reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
-                # Update DB
-                update_qualification_state(contact_id, {
-                    "is_booked": True,
-                    "appointment_time": message,
-                    "appointment_declined": False
-                })
-            else:
-                reply = f"That time might be taken now, how about one of these instead: {available_slots}?"
-
-        # 2. Positive response, no time yet
-        elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good", "works"]):
-            reply = f"Awesome, which works better: {available_slots}?"
-
-        # 3. Negative / busy
-        elif any(word in msg_lower for word in ["no", "not", "busy", "can't", "later", "next week", "reschedule"]):
-            reply = "No problem at all, totally understand. When's a better week for you? I can work around your schedule."
-
-        # 4. Neutral / fallback
-        else:
-            reply = (
-                f"Got it, just want to make sure we're still good to find something that fits{notes_context}. "
-                f"Which works better, {available_slots}?"
-            )
-
-    # === SEND THE REPLY ===
-    send_sms_via_ghl(contact_id, reply)
-    save_nlp_message(contact_id, reply, "assistant")
-    logger.info(f"Missed appt reply sent to {contact_id}: '{reply[:100]}...'")
-
-    return reply
 
 def add_to_qualification_array(contact_id: str, field: str, value: str) -> bool:
     """
@@ -1005,7 +953,7 @@ def extract_and_update_qualification(contact_id, message, conversation_history=N
 
     # Apply updates only if message has relevant keywords (simplify for simple convos)
     relevant_keywords = ["insurance", "policy", "coverage", "health", "condition", "family", "spouse", "kids", "age", "tobacco", "motivation", "goal", "blocker"]
-    if updates and any(kw in msg_lower for kw in relevant_keywords):
+    if updates and any(k in msg_lower for k in relevant_keywords):
         update_qualification_state(contact_id, updates)
 
     return updates
@@ -1040,94 +988,6 @@ def mark_topic_asked(contact_id: str, topic: str):
     except Exception as e:
         logger.error(f"Failed to mark topic asked: {e}")
 
-def book_appointment(contact_id: str, first_name: str, selected_time: str) -> bool:
-    """
-    Parse the lead's selected time (e.g., '2pm tomorrow') and book it in GoHighLevel.
-    Uses smart natural language parsing + your existing create_ghl_appointment() function.
-    Returns True if booked successfully.
-    """
-    if not contact_id or contact_id == "unknown":
-        logger.warning("book_appointment called with invalid contact_id")
-        return False
-
-    if not selected_time:
-        logger.warning("No selected_time provided")
-        return False
-
-    time_str = selected_time.lower().strip()
-    logger.info(f"Attempting to book appointment for {first_name} ({contact_id}): '{selected_time}'")
-
-    # === PARSE DATE: today or tomorrow (expandable later) ===
-    now = datetime.now(timezone.utc)
-    if any(word in time_str for word in ["tomorrow", "tmr", "tom", "next day"]):
-        target_date = (now + timedelta(days=1)).date()
-    else:
-        target_date = now.date()  # default to today
-
-    # === PARSE TIME ===
-    hour = 14  # default fallback: 2pm
-    minute = 0
-
-    # Patterns for "2pm", "2:30", "11 am", "3 o'clock", etc.
-    time_patterns = [
-        r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)?',
-        r'(\d{1,2})\s*(pm|p\.m\.|am|a\.m\.|o\'?clock)'
-    ]
-
-    match_found = False
-    for pattern in time_patterns:
-        match = re.search(pattern, time_str)
-        if match:
-            h = int(match.group(1))
-            m = int(match.group(2)) if match.group(2) else 0
-            period = (match.group(3) or "").lower()
-
-            if period in ["pm", "p.m."] and h != 12:
-                h += 12
-            elif period in ["am", "a.m."] and h == 12:
-                h = 0
-
-            hour = h
-            minute = m
-            match_found = True
-            break
-
-    if not match_found:
-        if any(word in time_str for word in ["morning", "am"]):
-            hour = 11
-        elif any(word in time_str for word in ["afternoon"]):
-            hour = 14
-        elif any(word in time_str for word in ["evening", "night"]):
-            hour = 18
-
-    # Clamp to business hours (8am - 8pm)
-    hour = max(8, min(20, hour))
-
-    # === BUILD FINAL DATETIME (in UTC for GHL) ===
-    local_start = datetime.combine(target_date, time(hour, minute))
-    chicago_tz = ZoneInfo("America/Chicago")
-    local_start = local_start.replace(tzinfo=chicago_tz)
-    utc_start = local_start.astimezone(timezone.utc)
-    utc_end = utc_start + timedelta(minutes=30)
-
-    logger.info(f"Parsed time: {local_start.strftime('%I:%M %p %Z on %A, %B %d')} → Booking {utc_start.isoformat()}Z")
-
-    # === USE YOUR EXISTING GHL BOOKING FUNCTION ===
-    success = create_ghl_appointment(contact_id, first_name, selected_time)
-
-    if success:
-        logger.info(f"Successfully booked GHL appointment for {contact_id} at ~{hour}:{minute:02d}")
-        # Optional: update DB
-        update_qualification_state(contact_id, {
-            "is_booked": True,
-            "appointment_time": selected_time,
-            "appointment_declined": False
-        })
-        return True
-    else:
-        logger.error(f"Failed to book GHL appointment for {contact_id}")
-        return False
-    
 def send_sms_via_ghl(contact_id: str, message: str):
     if not contact_id or contact_id == "unknown":
         logger.warning("Invalid contact_id, cannot send SMS")
@@ -1228,7 +1088,7 @@ CRITICAL RULES:
 - ONLY stop if they say: "STOP", "unsubscribe", "do not contact me", "remove me", "opt out"
 - NEVER repeat a question that's already been asked or answered
 - NEVER use em dashes, en dashes, or fancy punctuation.
-- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better, {get_ghl_available_slots()}?"
+- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better, {consolidated_calendar_op('fetch_slots')}?"
 - DO NOT LET THEM GET OFF EASY, use NEPQ + Gap Selling to uncover gaps, expose consequences, and book calls
 - Use the CONTEXT sections heavily to sound informed and human
 - OVERCOME OBJECTIONS naturally, never say "I understand" or "I get it"
@@ -1272,7 +1132,7 @@ Response Style:
 - Use assumptive closes: "When we hop on the call...", "Once we get you reviewed...", only if they show interest
 - Use consequence questions to find gaps: "What happens if...", "How would that impact...", "What would you do if..."
 - If someone responds "I need insurance.", "im interested", "I want to see options", "show me what you got", "lets look at options", "how much would it cost", Book the call calmly. Do NOT act excited, this is normal and expected.
-- If previous message was "are you still with that other life insurance policy? Theres some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you die?", Create a new engaging question with high response likelihood.
+- If previous message was "are you still with that other life insurance policy? Theres some new living benefits people have been asking about and I wanted to make sure yours doesnt just pay out when you die?", Create a new engaging question with high response likelihood.
 
 LIVING BENEFITS PROBE, ALWAYS ASK AFTER "YES" TO OPENER:
 - If lead confirms they have a policy ("yes", "still have it", "have one", "got one")
@@ -1310,7 +1170,7 @@ Full Knowledge Base:
 {knowledge_section}
 
 Final Rule: Always advance the sale. Short. Natural. Helpful.
-When ready to book: "Which works better, {get_ghl_available_slots()}?"
+When ready to book: "Which works better, {consolidated_calendar_op('fetch_slots')}?"
 """
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -1474,12 +1334,14 @@ def webhook():
     if not reply or len(reply) < 5:
         reply = "I hear you, most people haven't reviewed in years. Mind if I ask when you last looked?"
 
-    # === AUTO-BOOK IF LEAD MENTIONS A TIME ===
-    msg_lower = message.lower() if message else ""
+    # Update calls in webhook/handle_missed (e.g., for book)
+    raw_message = data_lower.get("message", "")
+    message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
+    msg_lower = message.lower()
     time_pattern = r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b"
-    
     if message and re.search(time_pattern, msg_lower):
-        if book_appointment(contact_id, first_name, message):
+        success = consolidated_calendar_op("book", contact_id=contact_id, first_name=first_name, selected_time=message)
+        if success:
             reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
             update_qualification_state(contact_id, {
                 "is_booked": True,
@@ -1488,8 +1350,8 @@ def webhook():
             })
             logger.info(f"Auto-booked appointment for {contact_id} based on time mention")
         else:
-            available_slots = get_ghl_available_slots()
-            reply = f"That time might be taken now, how about one of these instead: {available_slots}?"
+            available_slots = consolidated_calendar_op("fetch_slots")
+            reply = f"That time might be taken now, how about {available_slots}?"
 
     # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
@@ -1573,7 +1435,7 @@ def missed_appointment_webhook():
         logger.warning(f"Failed to fetch notes/goal for missed appt {contact_id}: {e}")
 
     # === GET REAL GHL AVAILABILITY ===
-    available_slots = get_ghl_available_slots()
+    available_slots = consolidated_calendar_op("fetch_slots")
 
     # === FIRST OUTREACH (NO REPLY YET) ===
     if not message:
@@ -1588,7 +1450,8 @@ def missed_appointment_webhook():
     else:
         # 1. They mentioned a time → TRY TO BOOK IT
         if re.search(r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b", msg_lower):
-            if book_appointment(contact_id, first_name, message):
+            success = consolidated_calendar_op("book", contact_id, first_name, message)
+            if success:
                 reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
                 # Update DB
                 update_qualification_state(contact_id, {
@@ -1597,7 +1460,7 @@ def missed_appointment_webhook():
                     "appointment_declined": False
                 })
             else:
-                reply = f"That time might be taken now, how about one of these instead: {available_slots}?"
+                reply = f"That time might be taken now, how about {available_slots}?"
 
         # 2. Positive response, no time yet
         elif any(word in msg_lower for word in ["yes", "sure", "sounds good", "interested", "let's do it", "okay", "yeah", "good", "works"]):
@@ -1614,7 +1477,7 @@ def missed_appointment_webhook():
                 f"Which works better, {available_slots}?"
             )
 
-    # === SEND REPLY VIA GHL ===
+    # === SEND THE REPLY ===
     send_sms_via_ghl(contact_id, reply)
     save_nlp_message(contact_id, reply, "assistant")
     logger.info(f"Missed appt reply sent to {contact_id}: '{reply[:100]}...'")
