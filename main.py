@@ -158,6 +158,22 @@ GHL_CALENDAR_ID = os.environ.get("GHL_CALENDAR_ID")
 GHL_USER_ID = os.environ.get("GHL_USER_ID")
 app.secret_key = SESSION_SECRET
 
+# === GHL CONNECTION STATUS LOGGING ===
+if GHL_API_KEY and GHL_LOCATION_ID and GHL_CALENDAR_ID:
+    logger.info("GHL Logger connected: API Key, Location ID, and Calendar ID present")
+else:
+    logger.warning("GHL Logger NOT fully connected:")
+    if not GHL_API_KEY:
+        logger.warning("   → Missing GHL_API_KEY")
+    if not GHL_LOCATION_ID:
+        logger.warning("   → Missing GHL_LOCATION_ID")
+    if not GHL_CALENDAR_ID:
+        logger.warning("   → Missing GHL_CALENDAR_ID")
+
+if GHL_USER_ID:
+    logger.info(f"GHL User ID loaded: {GHL_USER_ID}")
+else:
+    logger.warning("GHL_USER_ID not set — booking may fail with 422 'user not part of calendar team'")
 # === xAI GROK CLIENT ===
 client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
 
