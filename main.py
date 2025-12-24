@@ -245,7 +245,11 @@ def consolidated_calendar_op(operation, contact_id=None, first_name=None, select
         if operation == "fetch_slots":
             return "let me look at my calendar"
         return False
-
+    logger.info(f"GHL Calendar operation '{operation}' started for Calendar ID: {cal_id}")
+    if operation == "book":
+        logger.info(f"   → Booking attempt for {first_name} ({contact_id}) at requested time")
+    elif operation == "fetch_slots":
+        logger.info("   → Fetching available slots")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Version": "2021-07-28",
@@ -355,7 +359,6 @@ def consolidated_calendar_op(operation, contact_id=None, first_name=None, select
             "title": f"Life Insurance Review, {first_name}",
             "appointmentStatus": "confirmed",
             "ignoreFreeSlotValidation": True,
-            "assignedUserId": os.environ.get("GHL_USER_ID")
         }
         url = "https://services.leadconnectorhq.com/calendars/events/appointments"
         try:
