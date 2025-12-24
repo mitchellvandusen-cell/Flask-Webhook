@@ -215,7 +215,8 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
         return "let me look at my calendar"
 
-    url = f"https://services.leadconnectorhq.com/calendars/S4knucFaXO769HDFlRtv/free-slots"
+    url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Version": "2021-07-28",
@@ -241,21 +242,24 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
 
         data = response.json()
         slots = []
+        if isinstance(data, dict):
+            for date_key, date_data in data.items():
+                if isinstance(date_data, dict) and "slots" in date_data:
+                    slots.extend(date_data["slots"])
+                elif isinstance(date_data, list):
+                    slots.extend(date_data)
         if "slots" in data:
             slots = data["slots"]
         elif "freeSlots" in data:
             free = data["freeSlots"]
             if isinstance(free, dict):
                 for v in free.values():
-                    if isinstance(v, list):
+                    if isinstance(v, dict) and "slots" in v:
+                        slots.extend(v["slots"])
+                    elif isinstance(v, list):
                         slots.extend(v)
             elif isinstance(free, list):
                 slots = free
-        elif isinstance(data, dict):
-            for date_slots in data.values():
-                if isinstance(date_slots, list):
-                    slots.extend(date_slots)
-
         if not slots:
             logger.info("GHL returned no available slots")
             return "let me look at my calendar"
@@ -401,7 +405,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
     end_time = start_time + timedelta(minutes=30)
 
     # Step 1: Fetch existing events to check for conflicts
-    events_url = "https://services.leadconnectorhq.com/calendars/S4knucFaXO769HDFlRtv/free-slots"
+    events_url = "https://services.leadconnectorhq.com/calendars/events"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Version": "2021-07-28",
@@ -435,7 +439,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         logger.error(f"Events fetch exception: {e}")
 
     # Step 2: If no overlap, book it
-    url = "https://services.leadconnectorhq.com/calendars/S4knucFaXO769HDFlRtv"
+    url = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
     payload = {
         "locationId": location_id,
@@ -446,7 +450,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         "title": f"Life Insurance Review, {first_name}",
         "appointmentStatus": "confirmed",
         "ignoreFreeSlotValidation": True,
-        "UserId": os.environ.get("GHL_USER_ID")
+        "assignedUserId": os.environ.get("GHL_USER_ID")
     }
 
     try:
