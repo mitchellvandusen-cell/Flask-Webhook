@@ -215,8 +215,7 @@ def get_ghl_available_slots(calendar_id: str = None, days_ahead: int = 7) -> str
         logger.warning("Missing GHL_API_KEY or GHL_CALENDAR_ID")
         return "let me look at my calendar"
 
-    url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-
+    url = f"https://services.leadconnectorhq.com/calendars/S4knucFaXO769HDFlRtv/free-slots"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Version": "2021-07-28",
@@ -402,7 +401,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
     end_time = start_time + timedelta(minutes=30)
 
     # Step 1: Fetch existing events to check for conflicts
-    events_url = "https://services.leadconnectorhq.com/calendars/events"
+    events_url = "https://services.leadconnectorhq.com/calendars/S4knucFaXO769HDFlRtv/free-slots"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Version": "2021-07-28",
@@ -436,7 +435,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         logger.error(f"Events fetch exception: {e}")
 
     # Step 2: If no overlap, book it
-    url = "https://services.leadconnectorhq.com/calendars/events/appointments"
+    url = "https://services.leadconnectorhq.com/calendars/S4knucFaXO769HDFlRtv"
 
     payload = {
         "locationId": location_id,
@@ -447,7 +446,7 @@ def create_ghl_appointment(contact_id: str, first_name: str, selected_time: str)
         "title": f"Life Insurance Review, {first_name}",
         "appointmentStatus": "confirmed",
         "ignoreFreeSlotValidation": True,
-        "assignedUserId": os.environ.get("GHL_USER_ID")
+        "UserId": os.environ.get("GHL_USER_ID")
     }
 
     try:
