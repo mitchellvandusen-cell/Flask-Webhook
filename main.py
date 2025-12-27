@@ -346,9 +346,9 @@ def consolidated_calendar_op(
 
     # === BOOK ===
         if operation == "book":
-        if not (contact_id and start_time_iso):
-            logger.warning("Booking failed: missing contact_id or time")
-            return False
+            if not (contact_id and start_time_iso):
+                logger.warning("Booking failed: missing contact_id or time")
+                return False
 
         payload = {
             "calendarId": cal_id,
