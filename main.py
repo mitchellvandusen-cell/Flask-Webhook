@@ -385,7 +385,7 @@ def consolidated_calendar_op(
 
         # Just return the formatted string as before
 
-        return False
+    return False
 
 def parse_history_for_topics_asked(contact_id: str, conversation_history: list) -> set:
     """
