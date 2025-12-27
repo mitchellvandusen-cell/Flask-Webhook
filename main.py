@@ -226,12 +226,6 @@ def search_underwriting(condition, product_hint=""):
 cache = {}
 CACHE_TTL = 300  # 5 min
 
-import os
-import re
-import requests
-import logging
-from datetime import datetime, timedelta, time, timezone
-from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -351,8 +345,9 @@ def consolidated_calendar_op(
         end_time_iso = end_dt.isoformat()
 
     # === BOOK ===
-    if operation == "book":
+        if operation == "book":
         if not (contact_id and start_time_iso):
+            logger.warning("Booking failed: missing contact_id or time")
             return False
 
         payload = {
@@ -362,28 +357,133 @@ def consolidated_calendar_op(
             "endTime": end_time_iso,
             "title": f"Life Insurance Review with {first_name or 'Contact'}",
             "appointmentStatus": "confirmed",
-            "assignedUserId": GHL_USER_ID,           # Keeps 422 away
-            "selectedTimezone": CALENDAR_TIMEZONE
+            "assignedUserId": GHL_USER_ID,           # Remove this line if you disable the assignment setting
+            "selectedTimezone": CALENDAR_TIMEZONE,
         }
 
         url = "https://services.leadconnectorhq.com/calendars/events/appointments"
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=30)
             if response.status_code in [200, 201]:
-                logger.info(f"BOOKED {contact_id} at {start_time_iso}")
+                logger.info(f"SUCCESS: Appointment booked for {contact_id} at {start_time_iso}")
                 return True
             else:
-                logger.error(f"Book failed: {response.status_code} {response.text}")
+                logger.error(f"Booking failed {response.status_code}: {response.text}")
                 return False
         except Exception as e:
-            logger.error(f"Book error: {e}")
+            logger.error(f"Booking exception: {e}")
             return False
 
-    # === FETCH_SLOTS (your natural response) ===
-    elif operation == "fetch_slots":
-        # ... (keep your existing beautiful morning/afternoon formatting - it's perfect)
+    elif operation == "reschedule":
+        if not (appointment_id and start_time_iso):
+            return False
 
-        # Just return the formatted string as before
+        payload = {
+            "startTime": start_time_iso,
+            "endTime": end_time_iso,
+            "appointmentStatus": "confirmed",
+            "assignedUserId": GHL_USER_ID,
+        }
+
+        url = f"https://services.leadconnectorhq.com/calendars/events/appointments/{appointment_id}"
+        try:
+            response = requests.put(url, json=payload, headers=headers, timeout=30)
+            if response.status_code in [200, 204]:
+                logger.info(f"Rescheduled appointment {appointment_id}")
+                return True
+            else:
+                logger.error(f"Reschedule failed: {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Reschedule exception: {e}")
+            return False
+
+    elif operation == "block":
+        if not start_time_iso:
+            return False
+
+        payload = {
+            "calendarId": cal_id,
+            "startTime": start_time_iso,
+            "endTime": end_time_iso,
+            "title": reason or "Personal / Blocked Time",
+        }
+
+        url = "https://services.leadconnectorhq.com/calendars/events/block-slots"
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code in [200, 201]:
+                logger.info(f"Time blocked: {start_time_iso}")
+                return True
+            else:
+                logger.error(f"Block failed: {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Block exception: {e}")
+            return False
+
+    elif operation == "fetch_slots":
+        if not slots:
+            return "let me look at my calendar"
+
+        parsed_slots = []
+        for slot in slots:
+            try:
+                start_str = (
+                    slot.get("startTime") or
+                    slot.get("start") or
+                    (slot if isinstance(slot, str) else None)
+                )
+                if not start_str:
+                    continue
+                if start_str.endswith("Z"):
+                    start_str = start_str.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(start_str).astimezone(local_tz)
+                if 8 <= dt.hour < 17:  # Your open hours: 8am to 5pm
+                    parsed_slots.append(dt)
+            except Exception:
+                continue
+
+        if not parsed_slots:
+            return "let me look at my calendar"
+
+        parsed_slots.sort()
+        now_local = datetime.now(local_tz)
+
+        # Morning: 8:00–11:59, Afternoon: 1:00–4:59
+        morning_slots = [s for s in parsed_slots if 8 <= s.hour < 12]
+        afternoon_slots = [s for s in parsed_slots if 13 <= s.hour < 17]
+
+        def pick_best(slots_list, max_picks=2):
+            if not slots_list:
+                return []
+            picked = [slots_list[0]]
+            for s in slots_list[1:]:
+                if len(picked) >= max_picks:
+                    break
+                if (s - picked[-1]).total_seconds() >= 3600:  # At least 1 hour apart
+                    picked.append(s)
+            return picked
+
+        morning_picks = pick_best(morning_slots)
+        afternoon_picks = pick_best(afternoon_slots)
+
+        def format_slot(dt):
+            time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+            day = "tomorrow" if dt.date() == (now_local + timedelta(days=1)).date() else dt.strftime("%A")
+            return f"{time_str} {day}"
+
+        formatted = []
+        if morning_picks:
+            formatted.append(" or ".join(format_slot(s) for s in morning_picks) + " morning")
+        if afternoon_picks:
+            formatted.append(" or ".join(format_slot(s) for s in afternoon_picks) + " afternoon")
+
+        if not formatted:
+            return "let me look at my calendar"
+
+        response_text = "I've got " + (", or ".join(formatted) if len(formatted) > 1 else formatted[0])
+        return response_text
 
     return False
 
