@@ -916,6 +916,25 @@ def send_sms_via_ghl(contact_id: str, message: str):
         logger.warning("GHL_API_KEY or GHL_LOCATION_ID missing, cannot send SMS")
         return False
 
+    # Check for duplicate send (last 5 min)
+    try:
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT 1 FROM nlp_memory
+            WHERE contact_id = %s
+            AND role = 'assistant'
+            AND created_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes'
+            LIMIT 1
+        """, (contact_id,))
+        if cur.fetchone():
+            logger.info(f"Duplicate send prevented for {contact_id} — recent message sent")
+            conn.close()
+            return True  # Treat as success to avoid retry
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Duplicate check failed: {e}")
+
     url = "https://services.leadconnectorhq.com/conversations/messages"
 
     headers = {
@@ -931,17 +950,24 @@ def send_sms_via_ghl(contact_id: str, message: str):
         "locationId": location_id
     }
 
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
-        if response.status_code in [200, 201]:
-            logger.info(f"SMS sent successfully to {contact_id}")
-            return True
-        else:
-            logger.error(f"GHL SMS failed: {response.status_code} {response.text}")
-            return False
-    except Exception as e:
-        logger.error(f"SMS send exception: {e}")
-        return False
+    max_retries = 3
+    retry_delay = 5  # seconds
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            if response.status_code in [200, 201]:
+                logger.info(f"SMS sent successfully to {contact_id} on attempt {attempt + 1}")
+                return True
+            else:
+                logger.error(f"GHL SMS failed on attempt {attempt + 1}: {response.status_code} {response.text}")
+        except Exception as e:
+            logger.error(f"SMS send exception on attempt {attempt + 1}: {e}")
+
+        if attempt < max_retries - 1:
+            time.sleep(retry_delay)
+
+    logger.error(f"Failed to send SMS to {contact_id} after {max_retries} attempts")
+    return False
     
 def build_system_prompt(
     state: ConversationState,
@@ -979,6 +1005,10 @@ def build_system_prompt(
     if is_follow_up and follow_up_num > 0:
         follow_up_section = f"""
 === THIS IS FOLLOW-UP #{follow_up_num} AFTER NO RESPONSE ===
+- ALWAYS read full history from NLP context first.
+- Do not send opener again if history shows it was sent — create fresh angle.
+- If total_exchanges > 1, use different opener than first message.
+- Vary completely, no paraphrasing.
 - DO NOT repeat or closely paraphrase the initial outreach message.
 - The first message asked: "do you still have the other life insurance policy?" and mentioned new living benefits.
 - You MUST create a completely fresh, different opener and angle.
@@ -1050,13 +1080,15 @@ Response Style:
 - If someone responds "I need insurance.", "im interested", "I want to see options", "show me what you got", "lets look at options", "how much would it cost", Book the call calmly. Do NOT act excited, this is normal and expected.
 - If previous message was "are you still with that other life insurance policy? Theres some new living benefits people have been asking about and I wanted to make sure yours doesnt just pay out when you die?", Create a new engaging question with high response likelihood.
 - If you say "still looking for coverage...." and someone responds with "yes", "what do you have", or any agreement, and then "what you got?" take it as interest and book the call. DO NOT GO INTO LIVING BENEFITS
-LIVING BENEFITS PROBE, ALWAYS ASK AFTER "YES" TO OPENER:
-- If lead confirms they have a policy ("yes", "still have it", "have one", "got one")
-- Your NEXT message MUST probe living benefits:
-  - "Okay, are you certain yours has living benefits where you can access the money if you become terminally, chronically, or critically ill?"
-  - Or "Got it, you wouldn't want to pay for something that only pays when you die, right? Are you sure yours has living benefits?"
-- This is the #1 gap, do not skip it
-- Do not move to other questions until living benefits status is known
+
+LIVING BENEFITS PROBE — ONLY WHEN POLICY IS CONFIRMED
+- Ask about living benefits ONLY if the lead has CLEARLY confirmed they currently have a policy.
+- Trigger examples: "yes I have one", "still have it", "got one from work", "have a term policy", "yes through my job"
+- DO NOT trigger on ambiguous "yes", "yeah", "sure", "ok" alone — these usually mean "yes I'm interested" not "yes I have coverage"
+- If the lead shows buying intent ("interested", "show me what you got", "tell me more", "how much", "send options", "sounds good"):
+  - SKIP all policy questions
+  - Go straight to booking: "Sounds good, which works better, {consolidated_calendar_op(operation='fetch_slots')}?"
+- Always use full conversation context to understand what "yes" refers to
 
 DIVORCE / EX-SPOUSE RULES:
 - Never assume current spouse or children with ex
@@ -1151,7 +1183,16 @@ def webhook():
     history_rows = cur.fetchall()
     conn.close()
     conversation_history = [row[0] for row in reversed(history_rows)]  # Re-reverse to chronological
-
+    messages = []
+    for row in reversed(history_rows): # Chronological Order
+        content = row[0].strip()
+        role = "user" if row[1] == "lead" else "assistant"
+        messages.append({"role": role, "content": content})
+    
+    messages.append({"role": "system", "content": system_prompt})
+    
+    if message:
+        messages.append({"role": "user", "content": message})
     # === OUTBOUND / FIRST CONTACT / FOLLOW-UP ===
     if not message:
         logger.info(f"OUTBOUND | total_exchanges: {total_exchanges}")
@@ -1162,7 +1203,8 @@ def webhook():
             
             send_sms_via_ghl(contact_id, reply_text)
             save_nlp_message(contact_id, reply_text, "assistant")
-            update_qualification_state(contact_id, {'total_exchanges': 1})
+            new_total = total_exchanges + 1  # Increment here
+            update_qualification_state(contact_id, {'total_exchanges': new_total})
             logger.info("First outbound message sent")
             return jsonify({"status": "success", "reply": reply_text, "first_send": True})
 
@@ -1170,12 +1212,11 @@ def webhook():
         is_follow_up = True
         follow_up_num = total_exchanges
     else:
-        # Inbound message from lead
-        save_nlp_message(contact_id, message, "lead")
-        extract_and_update_qualification(contact_id, message, conversation_history)
-        parse_history_for_topics_asked(contact_id, conversation_history)
-        is_follow_up = False
-        follow_up_num = 0
+        # After inbound reply generation
+        send_sms_via_ghl(contact_id, reply)
+        save_nlp_message(contact_id, reply, "assistant")
+        new_total = total_exchanges + 1  # Increment here
+        update_qualification_state(contact_id, {'total_exchanges': new_total})
 
     # Reload state after potential updates
     qualification_state = get_qualification_state(contact_id)
@@ -1225,6 +1266,13 @@ def webhook():
         state, nlp_context, proven_patterns, underwriting_context,
         is_follow_up=is_follow_up, follow_up_num=follow_up_num
     )
+    # Add history to Grok messages
+    for msg in conversation_history:
+        role = "user" if "lead" in msg.lower() else "assistant"
+        content = msg.replace("lead:",
+        "").replace("you:", "").strip()
+        messages.append({"role": role,
+        "content": content})
 
     # === GROK MESSAGE HISTORY ===
     messages = [{"role": "system", "content": system_prompt}]
