@@ -350,29 +350,29 @@ def consolidated_calendar_op(
                 logger.warning("Booking failed: missing contact_id or time")
                 return False
 
-        payload = {
-            "calendarId": cal_id,
-            "contactId": contact_id,
-            "startTime": start_time_iso,
-            "endTime": end_time_iso,
-            "title": f"Life Insurance Review with {first_name or 'Contact'}",
-            "appointmentStatus": "confirmed",
-            "assignedUserId": GHL_USER_ID,           # Remove this line if you disable the assignment setting
-            "selectedTimezone": CALENDAR_TIMEZONE,
-        }
+            payload = {
+                "calendarId": cal_id,
+                "contactId": contact_id,
+                "startTime": start_time_iso,
+                "endTime": end_time_iso,
+                "title": f"Life Insurance Review with {first_name or 'Contact'}",
+                "appointmentStatus": "confirmed",
+                "assignedUserId": GHL_USER_ID,           # Remove this line if you disable the assignment setting
+                "selectedTimezone": CALENDAR_TIMEZONE,
+            }
 
-        url = "https://services.leadconnectorhq.com/calendars/events/appointments"
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            if response.status_code in [200, 201]:
-                logger.info(f"SUCCESS: Appointment booked for {contact_id} at {start_time_iso}")
-                return True
-            else:
-                logger.error(f"Booking failed {response.status_code}: {response.text}")
+            url = "https://services.leadconnectorhq.com/calendars/events/appointments"
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=30)
+                if response.status_code in [200, 201]:
+                    logger.info(f"SUCCESS: Appointment booked for {contact_id} at {start_time_iso}")
+                    return True
+                else:
+                    logger.error(f"Booking failed {response.status_code}: {response.text}")
+                    return False
+            except Exception as e:
+                logger.error(f"Booking exception: {e}")
                 return False
-        except Exception as e:
-            logger.error(f"Booking exception: {e}")
-            return False
 
     elif operation == "reschedule":
         if not (appointment_id and start_time_iso):
@@ -720,7 +720,30 @@ def update_qualification_state(contact_id: str, updates: dict) -> bool:
     except Exception as e:
         logger.error(f"Failed to update qualification state for {contact_id}: {e}")
         return False
-
+    
+def save_nlp_message(contact_id: str, message: str, role: str):
+    """
+    Save a message to the nlp_memory tavle for conversation history.
+    role: 'lead' (user) or 'assistant' (bot)
+    """
+    if not contact_id or contact_id == "unknown" or not message:
+        return False
+    
+    try:
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        cur.execute("""
+                INSERT INTO nlp_memory (contact_id, message, role)
+                VALUES (%s, %s, %s,)
+        """, (contact_id, message.strip(), role))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save NLP message for {contact_id}: {e}")
+        return False
+                    
+    
 def extract_and_update_qualification(contact_id, message, conversation_history=None):
     """
     Extract key facts from the current message (and optionally history)
@@ -1298,24 +1321,25 @@ def webhook():
     if not reply or len(reply) < 5:
         reply = "I hear you, most people haven't reviewed in years. Mind if I ask when you last looked?"
 
-    # Update calls in webhook/handle_missed (e.g., for book)
-    raw_message = data_lower.get("message", "")
-    message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
-    msg_lower = message.lower()
-    time_pattern = r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b"
-    if message and re.search(time_pattern, msg_lower):
-        success = consolidated_calendar_op("book", contact_id=contact_id, first_name=first_name, selected_time=message)
-        if success:
-            reply = "Perfect, your appointment is booked and confirmed! I'll send you the details shortly. Talk soon!"
-            update_qualification_state(contact_id, {
-                "is_booked": True,
-                "appointment_time": message,
-                "appointment_declined": False
-            })
-            logger.info(f"Auto-booked appointment for {contact_id} based on time mention")
-        else:
-            available_slots = consolidated_calendar_op("fetch_slots")
-            reply = f"That time might be taken now, how about {available_slots}?"
+        # Update calls in webhook/handle_missed (e.g., for book)
+        raw_message = data_lower.get("message", "")
+        message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
+        if message: # Only Check inbound messages
+            msg_lower = message.lower()
+            time_pattern = r"\b(tomorrow|today|morning|afternoon|evening|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b"
+            if re.search(time_pattern, msg_lower):
+                success = consolidated_calendar_op("book", contact_id=contact_id, first_name=first_name, selected_time=message)
+                if success:
+                    reply = "Perfect, your consultation is booked and confirmed. I'll talk to you then."
+                    update_qualification_state(contact_id, {
+                        "is_booked": True,
+                        "appointment_time": message,
+                        "appointment_declined": False
+                    })
+                    logger.info(f"Auto-booked appointment for {contact_id} based on time mention")
+                else:
+                    available_slots = consolidated_calendar_op("fetch_slots")
+                    reply = f"That time looks to be taken now, how about {available_slots}?"
 
     # === SEND REPLY ===
     send_sms_via_ghl(contact_id, reply)
