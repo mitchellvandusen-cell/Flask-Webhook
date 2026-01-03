@@ -6,6 +6,11 @@ import logging
 import requests
 
 logger = logging.getLogger(__name__)
+
+api_key = os.getenv("GHL_API_KEY")
+location_id = os.getenv("GHL_LOCATION_ID")
+cal_id = os.getenv("GHL_CALENDAR_ID")
+
 def make_json_serializable(obj):
     """Convert datetime objects to ISO strings for JSON serialization"""
     if isinstance(obj, (datetime, date, time)):
