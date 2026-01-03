@@ -29,44 +29,46 @@ HEADERS = {
 
 # === FETCH ALL CONTACT IDs FROM GHL ===
 def fetch_all_contact_ids():
-    """Fetch every contact ID in your location using pagination"""
     url = "https://services.leadconnectorhq.com/contacts/"
     params = {
         "locationId": GHL_LOCATION_ID,
-        "limit": 100  # Max per page in GHL
+        "limit": 500
     }
-    all_contact_ids = []
-    page_count = 0
+    all_ids = []
+    page = 1
 
-    logger.info("Starting to fetch all contact IDs from GoHighLevel...")
+    logger.info("Fetching all contact IDs from GoHighLevel...")
 
     while True:
-        page_count += 1
         response = requests.get(url, headers=HEADERS, params=params)
-        
         if response.status_code != 200:
-            logger.error(f"Failed to fetch contacts (page {page_count}): {response.status_code} {response.text}")
+            logger.error(f"Failed to fetch contacts (page {page}): {response.status_code} {response.text}")
             break
-        
+
         data = response.json()
         contacts = data.get("contacts", [])
-        
         if not contacts:
-            logger.info("No more contacts returned — done.")
+            logger.info("No more contacts — finished.")
             break
-        
+
         batch_ids = [c["id"] for c in contacts if c.get("id")]
-        all_contact_ids.extend(batch_ids)
-        
-        logger.info(f"Fetched page {page_count}: {len(contacts)} contacts (total so far: {len(all_contact_ids)})")
+        all_ids.extend(batch_ids)
+        logger.info(f"Page {page}: {len(contacts)} contacts (total: {len(all_ids)})")
 
-        # Pagination: GHL uses startAfter = last contact ID from previous page
-        if len(contacts) < params["limit"]:
-            break  # Last page
-        params["startAfter"] = contacts[-1]["id"]
+        # GHL uses numeric startAfter for contacts endpoint
+        # Try to get the last numeric ID
+        last_contact = contacts[-1]
+        try:
+            numeric_id = int(last_contact.get("id"))
+            params["startAfter"] = numeric_id
+        except (ValueError, TypeError):
+            logger.info("No numeric startAfter available — ending pagination")
+            break
 
-    logger.info(f"Finished fetching. Total unique contact IDs: {len(set(all_contact_ids))}")
-    return list(set(all_contact_ids))  # dedupe just in case
+        page += 1
+
+    logger.info(f"Finished fetching. Total unique contact IDs: {len(set(all_ids))}")
+    return list(set(all_ids))
 
 
 # === FETCH MESSAGES FOR ONE CONTACT ===
