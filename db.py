@@ -1,5 +1,5 @@
 import os
-import logger
+import logging
 import psycopg2
 
 def get_db_connection():
@@ -9,6 +9,7 @@ def get_db_connection():
     except Exception as e:
         logger.error(f"Database connection error: {e}")
         return None
+logger = logging.getLogger(__name__)
 
 def init_nlp_tables():
     """Initialize NLP memory tables"""

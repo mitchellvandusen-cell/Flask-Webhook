@@ -3,7 +3,7 @@ NLP Memory System using spaCy
 Stores all messages per contact_id, parses with NLP, and extracts topics/entities.
 """
 import os
-import logger
+import logging
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
@@ -17,6 +17,7 @@ import sys
 import os
 
 from db import get_db_connection
+logger = logging.getLogger(__name__)
 # Auto-install + download the good spaCy model (with vectors)
 try:
     import spacy

@@ -1,9 +1,9 @@
-import logger
+import logging
 import os
 import requests
 from datetime import datetime, date, time, timedelta, timezone
 import psycopg2
-
+logger = logging.getLogger(__name__)
 def send_sms_via_ghl(contact_id: str, message: str):
     if not contact_id or contact_id == "unknown":
         logger.warning("Invalid contact_id, cannot send SMS")

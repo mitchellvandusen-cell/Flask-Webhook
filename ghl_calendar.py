@@ -2,7 +2,7 @@ from datetime import datetime, date, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 import re
 import os
-import logger
+import logging
 import requests
 
 from main import (GHL_API_KEY,
@@ -10,6 +10,7 @@ from main import (GHL_API_KEY,
             GHL_CALENDAR_ID,
             GHL_USER_ID,
             )
+logger = logging.getLogger(__name__)
 def make_json_serializable(obj):
     """Convert datetime objects to ISO strings for JSON serialization"""
     if isinstance(obj, (datetime, date, time)):
