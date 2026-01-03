@@ -14,6 +14,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from enum import Enum
+from memory import add_to_qualification_array
 
 logger = logging.getLogger(__name__)
 
@@ -304,49 +305,4 @@ Fix: {correction_guidance}
 
 Generate a new response that fixes this.
 """
-
-# add_to_qualification_array function — defined here so it's available
-def add_to_qualification_array(contact_id: str, field: str, value: str):
-    """Add a value to an array field in contact_qualification (topics_asked, blockers, etc.)"""
-    if not contact_id or not field or not value:
-        return False
-    
-    allowed_fields = [
-        "topics_asked", "key_quotes", "blockers",
-        "health_conditions", "health_details"
-    ]
-    
-    if field not in allowed_fields:
-        logger.warning(f"Invalid array field '{field}' for add_to_qualification_array")
-        return False
-    
-    try:
-        import psycopg2
-        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-        cur = conn.cursor()
-        
-        # UPSERT: add value to array if not present
-        cur.execute(f"""
-            INSERT INTO contact_qualification (contact_id, {field})
-            VALUES (%s, ARRAY[%s]::TEXT[])
-            ON CONFLICT (contact_id) 
-            DO UPDATE SET 
-                {field} = (
-                    SELECT ARRAY(
-                        SELECT DISTINCT unnest({field} || EXCLUDED.{field})
-                    )
-                ),
-                updated_at = CURRENT_TIMESTAMP
-        """, (contact_id, value))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        logger.info(f"Added '{value}' to {field} for contact {contact_id}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to add to {field}: {e}")
-        return False
-
-# (keep parse_reflection and strip_reflection if you use them)
 
