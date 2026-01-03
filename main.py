@@ -20,14 +20,14 @@ from conversation_engine import (
     detect_dismissive,
 )
 
-from message import send_sms_via_ghl
+from ghl_message import send_sms_via_ghl
 
 from unified_brain import (get_unified_brain,
     get_decision_prompt,
 )
 from prompt import build_system_prompt
 
-from calendar import consolidated_calendar_op
+from ghl_calendar import consolidated_calendar_op
 
 from outcome_learning import (
     classify_vibe,
