@@ -27,48 +27,48 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# === FETCH ALL CONTACT IDs FROM GHL ===
-def fetch_all_contact_ids():
-    url = "https://services.leadconnectorhq.com/contacts/"
+def fetch_all_conversation_contact_ids():
+    """Fetch contact IDs from active conversations (these are the ones with messages)"""
+    url = "https://services.leadconnectorhq.com/conversations/"
     params = {
         "locationId": GHL_LOCATION_ID,
-        "limit": 100
+        "limit": 100,
+        "type": "sms"  # Only SMS conversations
     }
-    all_ids = []
+    all_contact_ids = []
     page = 1
 
-    logger.info("Fetching all contact IDs from GoHighLevel...")
+    logger.info("Fetching contact IDs from SMS conversations...")
 
     while True:
         response = requests.get(url, headers=HEADERS, params=params)
         if response.status_code != 200:
-            logger.error(f"Failed to fetch contacts (page {page}): {response.status_code} {response.text}")
+            logger.error(f"Failed to fetch conversations (page {page}): {response.text}")
             break
 
         data = response.json()
-        contacts = data.get("contacts", [])
-        if not contacts:
-            logger.info("No more contacts — finished.")
+        conversations = data.get("conversations", [])
+        if not conversations:
             break
 
-        batch_ids = [c["id"] for c in contacts if c.get("id")]
-        all_ids.extend(batch_ids)
-        logger.info(f"Page {page}: {len(contacts)} contacts (total: {len(all_ids)})")
+        for conv in conversations:
+            contact_id = conv.get("contactId")
+            if contact_id:
+                all_contact_ids.append(contact_id)
 
-        # GHL uses numeric startAfter for contacts endpoint
-        # Try to get the last numeric ID
-        last_contact = contacts[-1]
-        try:
-            numeric_id = int(last_contact.get("id"))
-            params["startAfter"] = numeric_id
-        except (ValueError, TypeError):
-            logger.info("No numeric startAfter available — ending pagination")
+        logger.info(f"Page {page}: {len(conversations)} conversations (total contacts: {len(set(all_contact_ids))})")
+
+        # Pagination
+        meta = data.get("meta", {})
+        if not meta.get("hasMore"):
             break
+        params["startAfterId"] = meta.get("lastId")
 
         page += 1
 
-    logger.info(f"Finished fetching. Total unique contact IDs: {len(set(all_ids))}")
-    return list(set(all_ids))
+    unique_ids = list(set(all_contact_ids))
+    logger.info(f"Found {len(unique_ids)} unique contacts with SMS conversations")
+    return unique_ids
 
 
 # === FETCH MESSAGES FOR ONE CONTACT ===
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     else:
         logger.warning("=== LIVE MODE === Messages WILL be saved to your database!")
 
-    contact_ids = fetch_all_contact_ids()
+    contact_ids = fetch_all_conversation_contact_ids()
 
     # Optional: limit to first N for testing
     # contact_ids = contact_ids[:10]
