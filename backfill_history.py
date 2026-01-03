@@ -32,7 +32,7 @@ def fetch_all_contact_ids():
     url = "https://services.leadconnectorhq.com/contacts/"
     params = {
         "locationId": GHL_LOCATION_ID,
-        "limit": 500
+        "limit": 100
     }
     all_ids = []
     page = 1
