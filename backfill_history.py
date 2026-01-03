@@ -28,48 +28,49 @@ HEADERS = {
 }
 
 def fetch_all_conversation_contact_ids():
-    """Fetch contact IDs from active conversations (these are the ones with messages)"""
-    url = "https://services.leadconnectorhq.com/conversations/"
+    """Fetch contact IDs from active SMS conversations using the correct endpoint"""
+    url = "https://services.leadconnectorhq.com/conversations/search"
     params = {
         "locationId": GHL_LOCATION_ID,
         "limit": 100,
-        "type": "sms"  # Only SMS conversations
+        "type": "INBOX",  # or "SMS" — try both
+        "channelType": "SMS"
     }
     all_contact_ids = []
     page = 1
 
-    logger.info("Fetching contact IDs from SMS conversations...")
+    logger.info("Fetching contact IDs from SMS conversations (correct endpoint)...")
 
     while True:
         response = requests.get(url, headers=HEADERS, params=params)
         if response.status_code != 200:
-            logger.error(f"Failed to fetch conversations (page {page}): {response.text}")
+            logger.error(f"Failed to fetch conversations (page {page}): {response.status_code} {response.text}")
             break
 
         data = response.json()
         conversations = data.get("conversations", [])
         if not conversations:
+            logger.info("No more conversations — finished.")
             break
 
         for conv in conversations:
-            contact_id = conv.get("contactId")
+            contact_id = conv.get("contactId") or conv.get("participantId")
             if contact_id:
                 all_contact_ids.append(contact_id)
 
-        logger.info(f"Page {page}: {len(conversations)} conversations (total contacts: {len(set(all_contact_ids))})")
+        logger.info(f"Page {page}: {len(conversations)} conversations (total unique contacts: {len(set(all_contact_ids))})")
 
         # Pagination
         meta = data.get("meta", {})
-        if not meta.get("hasMore"):
+        if not meta.get("hasMore", False):
             break
-        params["startAfterId"] = meta.get("lastId")
+        params["startAfter"] = meta.get("cursor") or meta.get("lastId")
 
         page += 1
 
     unique_ids = list(set(all_contact_ids))
     logger.info(f"Found {len(unique_ids)} unique contacts with SMS conversations")
     return unique_ids
-
 
 # === FETCH MESSAGES FOR ONE CONTACT ===
 def fetch_ghl_messages(contact_id: str):
