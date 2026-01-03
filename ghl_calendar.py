@@ -4,22 +4,12 @@ import re
 import os
 import logging
 import requests
-
 logger = logging.getLogger(__name__)
 
 api_key = os.getenv("GHL_API_KEY")
 location_id = os.getenv("GHL_LOCATION_ID")
 cal_id = os.getenv("GHL_CALENDAR_ID")
 
-def make_json_serializable(obj):
-    """Convert datetime objects to ISO strings for JSON serialization"""
-    if isinstance(obj, (datetime, date, time)):
-        return obj.isoformat() if obj else None
-    if isinstance(obj, dict):
-        return {k: make_json_serializable(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [make_json_serializable(item) for item in obj]
-    return obj
 # === YOUR FIXED CONSTANTS ===
 CALENDAR_ID = "S4knucFaXO769HDFlRtv"
 GHL_USER_ID = "BhWQCdIwX0Ci0OiRAewU"          # Your userId - never changes
