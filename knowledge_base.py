@@ -1,3 +1,5 @@
+import re 
+import random
 """
 NEPQ Knowledge Base - Everything the bot knows, organized by topic.
 The bot reads this FIRST before responding, then uses trigger words
@@ -292,9 +294,6 @@ def get_relevant_knowledge(triggers_found):
                         relevant[f"objection_{key}"] = OBJECTION_HANDLERS[key]
                 elif parts[0] == 'buying_signals':
                     relevant['buying_signals'] = BUYING_SIGNALS
-                if any(re.search(pattern, lead_msg.lower()) for pattern in PENSION_SURVIVORSHIP["triggers"]):
-                    reply = random.choice(PENSION_SURVIVORSHIP["responses"])
-                    reply += " " + random.choice(PENSION_SURVIVORSHIP["follow_up"])
     
     return relevant
 

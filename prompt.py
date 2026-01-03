@@ -2,10 +2,10 @@ import json
 from unified_brain import get_unified_brain
 from conversation_engine import ConversationState
 from outcome_learning import classify_vibe
-from calendar import consolidated_calendar_op
+from ghl_calendar import consolidated_calendar_op
 from main import make_json_serializable 
 from memory import format_nlp_for_prompt
-
+from insurance_companies import get_company_context
 def build_system_prompt(
     state: ConversationState,
     contact_id: str,
@@ -13,6 +13,8 @@ def build_system_prompt(
     nlp_context: str,
     proven_patterns: str,
     underwriting_context: str,
+    decision_prompt: str = "",
+    company_context: str = "",
     lead_vibe: str = "neutral",
     is_follow_up: bool = False,
     follow_up_num: int = 0
@@ -143,6 +145,11 @@ Lead Vibe:
 - Adjust tone accordingly: empathetic if negative, even-keel positive if positive
 
 {nlp_context}
+
+Known Carrier:
+{company_context}
+
+{decision_prompt}
 
 Final Rule: Always advance the sale. Short. Natural. Helpful.
 When ready to book: "Which works better, {consolidated_calendar_op('fetch_slots')}?"

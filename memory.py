@@ -3,7 +3,7 @@ NLP Memory System using spaCy
 Stores all messages per contact_id, parses with NLP, and extracts topics/entities.
 """
 import os
-import logging
+import logger
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
@@ -16,6 +16,7 @@ import subprocess
 import sys
 import os
 
+from db import get_db_connection
 # Auto-install + download the good spaCy model (with vectors)
 try:
     import spacy
@@ -27,19 +28,6 @@ try:
 except Exception as e:
     print("spaCy fallback:", e)
     nlp = spacy.load("en_core_web_sm")
-
-# One-time DB fix — run every startup (harmless if already exists)
-try:
-    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
-    cur = conn.cursor()
-    cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
-    cur.execute("ALTER TABLE contact_qualification ADD COLUMN IF NOT EXISTS topics_asked TEXT[] DEFAULT '{}';")
-    conn.commit()
-    conn.close()
-    print("DB fixed: pg_trgm + topics_asked ready")
-except Exception as e:
-    print("DB already good or error:", e)
-logger = logging.getLogger(__name__)
 
 nlp = None
 
@@ -63,91 +51,6 @@ def get_nlp():
             logger.error(f"Failed to load spaCy model: {e}")
             return None
     return nlp
-
-def get_db_connection():
-    """Get database connection"""
-    try:
-        return psycopg2.connect(os.environ.get("DATABASE_URL"))
-    except Exception as e:
-        logger.error(f"Database connection error: {e}")
-        return None
-
-def init_nlp_tables():
-    """Initialize NLP memory tables"""
-    conn = get_db_connection()
-    if not conn:
-        return False
-    
-    try:
-        cur = conn.cursor()
-        
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS contact_messages (
-                id SERIAL PRIMARY KEY,
-                contact_id TEXT NOT NULL,
-                message_type TEXT NOT NULL,
-                message_text TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                parsed_at TIMESTAMP,
-                UNIQUE(contact_id, message_text, message_type, created_at)
-            )
-        """)
-        
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_contact_messages_contact_id 
-            ON contact_messages(contact_id)
-        """)
-        
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS parsed_entities (
-                id SERIAL PRIMARY KEY,
-                contact_id TEXT NOT NULL,
-                message_id INTEGER REFERENCES contact_messages(id) ON DELETE CASCADE,
-                entity_type TEXT NOT NULL,
-                entity_text TEXT NOT NULL,
-                entity_label TEXT,
-                confidence FLOAT DEFAULT 1.0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_parsed_entities_contact_id 
-            ON parsed_entities(contact_id)
-        """)
-        
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS topic_breakdown (
-                id SERIAL PRIMARY KEY,
-                contact_id TEXT NOT NULL,
-                topic_name TEXT NOT NULL,
-                topic_value TEXT,
-                source_message_id INTEGER REFERENCES contact_messages(id) ON DELETE CASCADE,
-                confidence FLOAT DEFAULT 1.0,
-                times_mentioned INTEGER DEFAULT 1,
-                first_mentioned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_mentioned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(contact_id, topic_name)
-            )
-        """)
-        
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_topic_breakdown_contact_id 
-            ON topic_breakdown(contact_id)
-        """)
-        
-        conn.commit()
-        logger.info("NLP memory tables initialized")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error initializing NLP tables: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
 
 
 TOPIC_PATTERNS = {
@@ -563,3 +466,48 @@ def validate_response_uniqueness(contact_id: str, proposed_response: str, thresh
         return (False, f"Too similar to recent message (similarity={sim_score:.2f}): {similar_msg[:50]}...")
     
     return (True, f"OK - unique enough (max similarity={sim_score:.2f})")
+
+# add_to_qualification_array function — defined here so it's available
+def add_to_qualification_array(contact_id: str, field: str, value: str):
+    """Add a value to an array field in contact_qualification (topics_asked, blockers, etc.)"""
+    if not contact_id or not field or not value:
+        return False
+    
+    allowed_fields = [
+        "topics_asked", "key_quotes", "blockers",
+        "health_conditions", "health_details"
+    ]
+    
+    if field not in allowed_fields:
+        logger.warning(f"Invalid array field '{field}' for add_to_qualification_array")
+        return False
+    
+    try:
+        import psycopg2
+        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+        cur = conn.cursor()
+        
+        # UPSERT: add value to array if not present
+        cur.execute(f"""
+            INSERT INTO contact_qualification (contact_id, {field})
+            VALUES (%s, ARRAY[%s]::TEXT[])
+            ON CONFLICT (contact_id) 
+            DO UPDATE SET 
+                {field} = (
+                    SELECT ARRAY(
+                        SELECT DISTINCT unnest({field} || EXCLUDED.{field})
+                    )
+                ),
+                updated_at = CURRENT_TIMESTAMP
+        """, (contact_id, value))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        logger.info(f"Added '{value}' to {field} for contact {contact_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to add to {field}: {e}")
+        return False
+
+# (keep parse_reflection and strip_reflection if you use them)
