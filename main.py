@@ -139,12 +139,14 @@ def webhook():
             return jsonify({"status": "error", "error": "No JSON payload"})
     # Normalize keys to lowercase for easier access
     data = {k.lower(): v for k, v in payload.items()}
-    contact_id = (
-        data.get("contact_id") or
-        data.get("contactid") or
-        data.get("contact", {}).get("id") if isinstance(data.get("contact"), dict) else None or
-        "unknown"
-    )
+    contact_id = data.get("contact_id") or data.get("contactid")
+    if not contact_id and isinstance(data.get("contact"), dict):
+        contact_id = data.get("contact", {}).get("id")
+    contact_id = contact_id or "unknown"
+    if contact_id == "unknown":
+        logger.warning("Webhook rejected: unknown contact_id")
+        return jsonify({"status": "error", "error": "Invalid or missing contact_id"}), 400
+    
     first_name = data.get("first_name", "there").capitalize()
     # Extract message body safely
     raw_message = data.get("message", {})
@@ -155,22 +157,16 @@ def webhook():
 
     logger.info(f"WEBHOOK RECIEVED | CONTACT ID: {contact_id} | Name: {first_name} | Message: '{message}'")
 
-    if contact_id == "unknown":
-        logger.warning("Webhook rejected: unknown contact_id")
-        return jsonify({"status": "error", "error": "Invalid or missing contact_id"}), 400
-
     # === DUPLICATE WEBHOOK CHECK (idempotency) ===
     message_id = data.get("message_id") or data.get("id")  # use normalized 'data'
     if message_id:
         conn = get_db_connection()
         if conn:
+            cur = None 
             try:
                 cur = conn.cursor()
                 cur.execute("SELECT 1 FROM processed_webhooks WHERE webhook_id = %s", (message_id,))
                 if cur.fetchone():
-                    cur.close()
-                    conn.close()
-                    logger.info(f"Duplicate webhook detected: {message_id} for contact {contact_id} — skipping")
                     return jsonify({"status": "success", "message": "Already processed"}), 200
                 
                 cur.execute("INSERT INTO processed_webhooks (webhook_id) VALUES (%s)", (message_id,))
@@ -178,14 +174,10 @@ def webhook():
                 logger.debug(f"Webhook {message_id} marked as processed")
             except Exception as e:
                 logger.error(f"Error checking/inserting processed webhook {message_id}: {e}")
-                conn.rollback()
+                if conn: conn.rollback()
             finally:
                 cur.close()
                 conn.close()
-        else:
-            logger.warning("Could not connect to DB for duplicate check — proceeding anyway")
-    else:
-        logger.debug("No message_id in webhook — cannot check for duplicates")
 
     # Extract Age from DOB
     date_of_birth = data.get("contact", {}).get("date_of_birth", "")
@@ -286,12 +278,13 @@ def webhook():
     # === DECISION/THINKING PROMPT (structured reasoning) ===
     decision_prompt = get_decision_prompt(
         message=message or "",
-        context=nlp_context + "\n" + knowledge_section + "\n" + company_context + "\n" + underwriting_context,
+        context= f"{nlp_context}\n{knowledge_section}\n{company_context}\n{underwriting_context or ""}",
         stage=state.stage.value if state.stage else "initial_outreach",
         trigger_suggestion="",
         proven_patterns=proven_patterns,
-        triggers_found=triggers
+        triggers_found=triggers,
     )
+        
     # === BUILD SYSTEM PROMPT ===
     system_prompt = build_system_prompt(
         state=state,
