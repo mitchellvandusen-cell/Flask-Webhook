@@ -11,24 +11,11 @@ from typing import Dict, List, Optional, Any, Tuple
 import spacy
 import psycopg2
 from psycopg2.extras import RealDictCursor
-# EMERGENCY FIX — auto-download medium model + create missing DB stuff
-import subprocess
-import sys
 import os
 
 from db import get_db_connection
 logger = logging.getLogger(__name__)
-# Auto-install + download the good spaCy model (with vectors)
-try:
-    import spacy
-    if not spacy.util.is_package("en_core_web_md"):
-        print("Downloading en_core_web_md (with vectors)...")
-        subprocess.check_call([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
-    nlp = spacy.load("en_core_web_md")
-    print("spaCy medium model loaded — perfect similarity checks")
-except Exception as e:
-    print("spaCy fallback:", e)
-    nlp = spacy.load("en_core_web_sm")
+
 
 nlp = None
 
