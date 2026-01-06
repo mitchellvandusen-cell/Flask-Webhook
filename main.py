@@ -283,12 +283,18 @@ def home():
                 }
                 
                 #chat-column {
-                    height: 500px;         /* Give the chat a fixed height on mobile */
+                    height: 65vh;          /* Set to 65% of the screen height */
+                    flex: 1 0 auto;        /* Let it take the remaining space */
                 }
 
+                 /* 1. Make the Fact Box (Memory) smaller on mobile */
                 #fact-column {
-                    order: -1;             /* Moves Fact Memory to the TOP on mobile */
+                    order: -1; 
                     margin-bottom: 10px;
+                    flex: 0 0 auto;        /* Don't let it grow */
+                    max-height: 150px;     /* Limit height so it doesn't hog the screen */
+                    overflow-y: auto;      /* Scroll inside if there are many facts */
+                    padding: 10px;         /* Tighten padding */
                 }
                 /* Inside your existing @media block */
                 .input-group {
@@ -298,7 +304,8 @@ def home():
                 #user-input {
                     width: 100% !important; 
                     margin-bottom: 10px;
-                    border-radius: 5px !important; /* Makes it a full-width bar */
+                    border-radius: 5px !important; 
+                    font-size: 16px !important; /* Prevents iPhone zoom */
                 }
 
                 #send-btn, .btn-outline-danger {
