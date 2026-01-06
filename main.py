@@ -401,8 +401,8 @@ def home():
                         </div>
                         <div class="input-group">
                             <input type="text" id="user-input" class="form-control bg-transparent text-white border-secondary" placeholder="Type an objection...">
-                            <button onclick="sendMessage()" class="btn btn-light" id="send-btn">SEND</button>
                             <button onclick="resetDemo()" class="btn btn-outline-danger btn-sm ms-2">RESET</button>
+                            <button onclick="sendMessage()" class="btn btn-light" id="send-btn">SEND</button>
                         </div>
                     </div>
                 </div>
