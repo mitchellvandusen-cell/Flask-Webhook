@@ -50,8 +50,8 @@ from insurance_companies import (
     get_company_context,
 )
 from underwriting import (
-    fetch_underwriting_data,
     get_underwriting_context,
+    UNDERWRITING_DATA,
 )
 from knowledge_base import (
     get_relevant_knowledge,
@@ -67,13 +67,6 @@ from age import calculate_age_from_dob
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Load underwriting guide once at startup
-try:
-    fetch_underwriting_data()
-    logger.info("Underwriting guide loaded and cached")
-except Exception as e:
-    logger.warning(f"Could not load underwriting guide: {e} — proceeding without")
 
 # === ENVIRONMENT VARIABLES ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
@@ -130,6 +123,13 @@ except Exception as e:
     logger.warning(f"Outcome learning tables init failed (continuing anyway): {e}")
 
 logger.info("Database initialization complete (failures are non-fatal in dev)")
+
+# Confirm underwriting guide is ready
+if UNDERWRITING_DATA:
+    logger.info(f"Underwriting guide ready with {len(UNDERWRITING_DATA)} rows from all sheets")
+else:
+    logger.warning("Underwriting guide failed to load — check Google Sheet URLs in underwriting.py")
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -298,6 +298,11 @@ def webhook():
         unified_brain=unified_brain,
         lead_vibe=lead_vibe,
         decision_prompt=decision_prompt,  # structured thinking
+        age=age,
+        recent_agent_messages=recent_agent_messages,
+        nlp_summary=nlp_summary,
+        topic_breakdown=topic_breakdown,
+        topics_discussed=topics_discussed,
         is_follow_up=False,  # you can compute this if needed later
         follow_up_num=0       # you can compute this if needed later
     )

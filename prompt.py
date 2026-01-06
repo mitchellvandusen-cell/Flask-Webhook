@@ -10,39 +10,89 @@ def build_system_prompt(
     state: ConversationState,
     contact_id: str,
     message: str,
-    nlp_context: str,
-    proven_patterns: str,
-    underwriting_context: str,
+    nlp_context: str = "",
+    proven_patterns: str = "",
+    underwriting_context: str = "",
     decision_prompt: str = "",
     company_context: str = "",
+    unified_brain: str = "",
     lead_vibe: str = "neutral",
+    age: int | None = None,
+    recent_agent_messages: list | None = None,
+    topics_discussed: list | None = None,
+    calendar_slots: str = "",
     is_follow_up: bool = False,
-    follow_up_num: int = 0
-):
-    unified_brain = get_unified_brain()
-    age = state.facts.get("age", "unknown")
-    actual_vibe = classify_vibe(message)
-    lead_vibe = actual_vibe.value
-    real_nlp_memory = format_nlp_for_prompt(contact_id)
-
-    # Strong follow-up protection
+    follow_up_num: int = 0,
+) -> str:
+    # Follow-up protection
     follow_up_section = ""
     if is_follow_up and follow_up_num > 0:
         follow_up_section = f"""
 === THIS IS FOLLOW-UP #{follow_up_num} AFTER NO RESPONSE ===
 - ALWAYS read full history from NLP context first.
-- Do not send opener again if history shows it was sent — create fresh angle.
-- If total_exchanges > 1, use different opener than first message.
-- Vary completely, no paraphrasing.
-- DO NOT repeat or closely paraphrase the initial outreach message.
-- The first message asked: "do you still have the other life insurance policy?" and mentioned new living benefits.
-- You MUST create a completely fresh, different opener and angle.
-- Good new angles: current favorable rates, family protection needs, no-exam options, quick 15-min review, living benefits value, policy review urgency.
-- Vary the structure and opening every single time.
-- Be natural, conversational, and curious.
-- Always end with a soft question or value hook to encourage a reply.
+- Create a completely fresh angle — never repeat or paraphrase opener.
+- Good angles: rates, family protection, no-exam, quick review, employer coverage risks.
+- Be natural and end with a hook.
 """
-    current_stage_name = state.stage.value if hasattr(state, 'stage') and state.stage else "initial_outreach"
+
+    # Stage — safe
+    if hasattr(state, "stage") and state.stage and hasattr(state.stage, "value"):
+        stage_section = f"CURRENT STAGE: {state.stage.value}\n"
+    else:
+        stage_section = "CONVERSATION IN PROGRESS — DO NOT SEND INITIAL OPENER\n"
+
+    exchange_section = f"MESSAGES EXCHANGED SO FAR: {state.exchange_count}\n"
+
+    # Dynamic context — no duplicates
+    context_parts = []
+
+    if age is not None:
+        context_parts.append(f"LEAD AGE: {age} — personalize heavily (rates rise with age, product fit changes)")
+
+    if recent_agent_messages:
+        recent = "\n- ".join([m.get("message_text", "") for m in recent_agent_messages[-5:] if m.get("message_text")])
+        if recent.strip():
+            context_parts.append(f"""
+DO NOT REPEAT THESE RECENT MESSAGES:
+- {recent}
+""")
+
+    if topics_discussed:
+        topics = ", ".join([t for t in topics_discussed if t])
+        if topics:
+            context_parts.append(f"Topics already discussed — do not re-ask: {topics}")
+
+    if calendar_slots.strip():
+        context_parts.append(f"""
+AVAILABLE APPOINTMENT SLOTS (use exactly):
+{calendar_slots.strip()}
+Suggest 1-2 options. Example: "Which works better — Tuesday at 2pm or Thursday at 10am?"
+""")
+
+    if underwriting_context.strip():
+        context_parts.append(f"Underwriting Guidance:\n{underwriting_context.strip()}")  # ← Fixed!
+
+    if company_context.strip():
+        context_parts.append(f"Known Carrier:\n{company_context.strip()}")
+
+    if proven_patterns.strip():
+        context_parts.append(f"Proven Responses That Worked:\n{proven_patterns.strip()}")  # ← Fixed label!
+
+    if nlp_context.strip():
+        context_parts.append(f"Long-term Memory (NLP Summary):\n{nlp_context.strip()}")
+
+    context_parts.append(f"Full Unified Brain:\n{unified_brain}")
+    context_parts.append(decision_prompt)
+
+    full_context = "\n\n".join(context_parts)
+
+    #Lead vibe context 
+    context_parts.append(f"""
+====LEAD CURRENT VIBE: {lead_vibe.capitalize()}
+- If negative/frustrated: be empathetic, patient, acknowledge feelings
+- If positive/excited: match energy, be warm and upbeat
+- If neutral: stay curious and professional
+""")
 
     return f"""
 You are Mitchell, master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
@@ -56,7 +106,7 @@ CRITICAL RULES:
 - ONLY stop if they say: "STOP", "unsubscribe", "do not contact me", "remove me", "opt out"
 - NEVER repeat a question that's already been asked or answered
 - NEVER use em dashes, en dashes, or fancy punctuation.
-- If they ask about price early: "Great question! Let's hop on a quick call and go over options. Which works better, {consolidated_calendar_op('fetch_slots')}?"
+- If they ask about price early: "Great question! Let's hop on a quick call and go over options."
 - DO NOT LET THEM GET OFF EASY, use NEPQ + Gap Selling to uncover gaps, expose consequences, and book calls
 - Use the CONTEXT sections heavily to sound informed and human
 - OVERCOME OBJECTIONS naturally, never say "I understand" or "I get it"
@@ -94,7 +144,7 @@ LIVING BENEFITS PROBE — ONLY WHEN POLICY IS CONFIRMED
 - DO NOT trigger on ambiguous "yes", "yeah", "sure", "ok" alone — these usually mean "yes I'm interested" not "yes I have coverage"
 - If the lead shows buying intent ("interested", "show me what you got", "tell me more", "how much", "send options", "sounds good"):
   - SKIP all policy questions
-  - Go straight to booking: "Sounds good, which works better, {consolidated_calendar_op(operation='fetch_slots')}?"
+  - Go straight to booking: "Sounds good, which works better"
 - Always use full conversation context to understand what "yes" refers to
 
 DIVORCE / EX-SPOUSE RULES:
@@ -116,12 +166,8 @@ GAP SELLING FOCUS:
 - The lead's perception is reality, if they feel the gap, it's real
 
 {follow_up_section}
-
-CURRENT STAGE: {current_stage_name}
-LEAD AGE: {age}, USE THIS HEAVILY
-- Personalize: "Most people your age...", "At {age}, rates are still good if we act now"
-- Urgency: "Rates only go up with age"
-- Product focus: under 50, term/IUL; 50-64, whole life; 65+, final expense + living benefits
+{stage_section}
+{exchange_section}
 
 Known Facts:
 {json.dumps(make_json_serializable(state.facts), indent=2)}
@@ -129,28 +175,9 @@ Known Facts:
 GAP IDENTIFIED: {state.facts.get("gap_identified", False)}
 VERBAL AGREEMENT: {state.facts.get("verbal_agreement", False)}
 
-{real_nlp_memory}
+{full_context}
 
-Proven Responses That Worked:
-{proven_patterns}
+Current message: "{message}"
 
-Underwriting Guidance:
-{underwriting_context}
-
-Full Unified Brain (Always Apply This Knowledge):
-{unified_brain}
-
-Lead Vibe:
- {lead_vibe}
-- Adjust tone accordingly: empathetic if negative, even-keel positive if positive
-
-{nlp_context}
-
-Known Carrier:
-{company_context}
-
-{decision_prompt}
-
-Final Rule: Always advance the sale. Short. Natural. Helpful.
-When ready to book: "Which works better, {consolidated_calendar_op('fetch_slots')}?"
-"""
+Respond naturally, concisely, and empathetically.
+""".strip()
