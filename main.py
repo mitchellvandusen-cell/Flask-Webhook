@@ -231,7 +231,7 @@ def webhook():
         reply = response.choices[0].message.content.strip()
     except Exception as e:
         logger.error(f"Grok Error: {e}")
-        reply = "Gotcha. Quick question—when was the last time you actually had someone look over those policy details with you?"
+        reply = "Gotcha. Quick question, when was the last time you actually had someone look over those policy details with you?"
 
     if ghl_api_key != 'DEMO':
         send_sms_via_ghl(contact_id, reply, api_key=ghl_api_key, location_id=location_id)
