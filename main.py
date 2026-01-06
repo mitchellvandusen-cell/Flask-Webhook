@@ -224,7 +224,7 @@ def webhook():
 
     try:
         response = client.chat.completions.create(
-            model="grok-beta",
+            model="grok-4-1-fast-reasoning",
             messages=grok_messages,
             temperature=0.7
         )
