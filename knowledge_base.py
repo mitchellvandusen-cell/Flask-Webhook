@@ -3,7 +3,7 @@ import random
 """
 NEPQ Knowledge Base - Everything the bot knows, organized by topic.
 The bot reads this FIRST before responding, then uses trigger words
-to pull relevant sections into its response context.
+to pull relevant sections into its response context. USE AS A GUIDE NOT A BIBLE.
 """
 
 # =============================================================================
@@ -118,16 +118,15 @@ OBJECTION_HANDLERS = {
         "meaning": "Usually means 'I don't see the value' or 'bad timing'",
         "responses": [
             "Fair enough. Was it more the price or just couldn't find the right fit last time?",
-            "No problem. Quick question though - do you have something in place already?",
+            "No problem. do you have something in place already?",
             "Got it. Just curious, what made you look into it before?"
         ]
     },
     "already_covered": {
         "meaning": "Could be real coverage, could be employer coverage, could be trying to end convo",
         "responses": [
-            "Nice. Where'd you end up going?",
+            "Nice. Which of our companies did you end up going with?",
             "Cool, who'd you go with?",
-            "Good to hear. What kind of policy did you land on?",
             "Oh nice, through who?"
         ],
         "follow_up": "Probe to understand WHAT they have, then identify gaps",
@@ -147,7 +146,6 @@ OBJECTION_HANDLERS = {
         "meaning": "Usually means unresolved objection or not enough urgency",
         "responses": [
             "Totally get it. What's the main thing you're weighing?",
-            "Of course. What would help you decide?",
             "Makes sense. Is it the coverage or the cost you're thinking about?"
         ]
     },
