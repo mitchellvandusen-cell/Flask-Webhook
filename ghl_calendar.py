@@ -29,6 +29,8 @@ def set_cache(key, data):
 
 def consolidated_calendar_op(
     operation: str,
+    subscriber_data: str,
+    timezone_str: str,
     contact_id: str = None,
     first_name: str = None,
     selected_time: str = None,
@@ -36,13 +38,15 @@ def consolidated_calendar_op(
     reason: str = None,
     calendar_id: str = None
 ) -> any:
-    api_key = os.environ.get("GHL_API_KEY")
-    location_id = os.environ.get("GHL_LOCATION_ID")
-    cal_id = calendar_id or os.environ.get("GHL_CALENDAR_ID")
-    CALENDAR_TIMEZONE = "America/Chicago"  # Hardcoded - matches your calendar
+# 1. Extract dynamic credentials from the subscriber dictionary
+    api_key = subscriber_data.get("ghl_api_key")
+    location_id = subscriber_data.get("ghl_location_id")
+    cal_id = subscriber_data.get("ghl_calendar_id")
+    ghl_user_id = subscriber_data.get("ghl_user_id")
+    local_tz_str = subscriber_data.get("timezone", "America/Chicago")
 
-    if not all([api_key, location_id, cal_id]):
-        logger.error("Missing credentials")
+    if not all([api_key, cal_id]):
+        logger.error(f"Missing calendar credentials for location {location_id}")
         return "let me look at my calendar" if operation == "fetch_slots" else False
 
     headers = {
@@ -51,7 +55,7 @@ def consolidated_calendar_op(
         "Content-Type": "application/json"
     }
 
-    local_tz = ZoneInfo(CALENDAR_TIMEZONE)
+    local_tz = ZoneInfo(local_tz_str)
 
     # === FETCH FREE SLOTS ===
     slots_key = f"ghl_slots_{cal_id}"
@@ -67,7 +71,7 @@ def consolidated_calendar_op(
         params = {
             "startDate": start_ts,
             "endDate": end_ts,
-            "timezone": CALENDAR_TIMEZONE
+            "timezone": str
         }
 
         try:
@@ -125,12 +129,8 @@ def consolidated_calendar_op(
         start_time_iso = start_dt.isoformat()
         end_time_iso = end_dt.isoformat()
 
-    # === BOOK ===
-        if operation == "book":
-            if not (contact_id and start_time_iso):
-                logger.warning("Booking failed: missing contact_id or time")
-                return False
-
+#    2. Update the Booking Payload to use the Dynamic User ID
+    if operation == "book":
         payload = {
             "calendarId": cal_id,
             "contactId": contact_id,
@@ -138,8 +138,8 @@ def consolidated_calendar_op(
             "endTime": end_time_iso,
             "title": f"Life Insurance Review with {first_name or 'Contact'}",
             "appointmentStatus": "confirmed",
-            "assignedUserId": GHL_USER_ID,           # Remove this line if you disable the assignment setting
-            "selectedTimezone": CALENDAR_TIMEZONE,
+            "assignedUserId": ghl_user_id, # <--- Now dynamic!
+            "selectedTimezone": local_tz_str, # <--- Now dynamic!
         }
 
         url = "https://services.leadconnectorhq.com/calendars/events/appointments"

@@ -1,14 +1,12 @@
 import json
-from unified_brain import get_unified_brain
+import logging
 from conversation_engine import ConversationState
-from outcome_learning import classify_vibe
-from ghl_calendar import consolidated_calendar_op
-from memory import format_nlp_for_prompt
 from utils import make_json_serializable
-from insurance_companies import get_company_context
+
+logger = logging.getLogger(__name__)
+
 def build_system_prompt(
     state: ConversationState,
-    contact_id: str,
     message: str,
     nlp_context: str = "",
     proven_patterns: str = "",
@@ -16,6 +14,8 @@ def build_system_prompt(
     decision_prompt: str = "",
     company_context: str = "",
     unified_brain: str = "",
+    bot_first_name: str = "",
+    timezone: str = "America/Chicago",
     lead_vibe: str = "neutral",
     age: int | None = None,
     recent_agent_messages: list | None = None,
@@ -23,8 +23,22 @@ def build_system_prompt(
     calendar_slots: str = "",
     is_follow_up: bool = False,
     follow_up_num: int = 0,
+    **kwargs
 ) -> str:
-    # Follow-up protection
+    """
+    Constructs the full system prompt for the AI agent.
+    Multi-tenant aware: Uses bot_first_name and timezone from database.
+    """
+
+    # 1. Identity Enforcement
+    identity_enforcement = f"""   
+IMPORTANT REMINDERS:
+1. Your name is {bot_first_name}. Never refer to yourself as an AI or a bot.
+2. If the lead asks who this is, respond: "It's {bot_first_name}, We had spoken about the life insurance coverage"
+3. Always check the timezone ({timezone}) before suggesting times.
+"""
+
+    # 2. Follow-up Logic
     follow_up_section = ""
     if is_follow_up and follow_up_num > 0:
         follow_up_section = f"""
@@ -35,7 +49,7 @@ def build_system_prompt(
 - Be natural and end with a hook.
 """
 
-    # Stage — safe
+    # 3. Conversation State / Stage
     if hasattr(state, "stage") and state.stage and hasattr(state.stage, "value"):
         stage_section = f"CURRENT STAGE: {state.stage.value}\n"
     else:
@@ -43,7 +57,7 @@ def build_system_prompt(
 
     exchange_section = f"MESSAGES EXCHANGED SO FAR: {state.exchange_count}\n"
 
-    # Dynamic context — no duplicates
+    # 4. Dynamic Context Construction
     context_parts = []
 
     if age is not None:
@@ -52,52 +66,54 @@ def build_system_prompt(
     if recent_agent_messages:
         recent = "\n- ".join([m.get("message_text", "") for m in recent_agent_messages[-5:] if m.get("message_text")])
         if recent.strip():
-            context_parts.append(f"""
-DO NOT REPEAT THESE RECENT MESSAGES:
-- {recent}
-""")
+            context_parts.append(f"DO NOT REPEAT THESE RECENT MESSAGES:\n- {recent}")
 
     if topics_discussed:
         topics = ", ".join([t for t in topics_discussed if t])
         if topics:
             context_parts.append(f"Topics already discussed — do not re-ask: {topics}")
 
-    if calendar_slots.strip():
+    if calendar_slots and calendar_slots.strip():
         context_parts.append(f"""
 AVAILABLE APPOINTMENT SLOTS (use exactly):
 {calendar_slots.strip()}
 Suggest 1-2 options. Example: "Which works better — Tuesday at 2pm or Thursday at 10am?"
 """)
 
-    if underwriting_context.strip():
-        context_parts.append(f"Underwriting Guidance:\n{underwriting_context.strip()}")  # ← Fixed!
+    if underwriting_context and underwriting_context.strip():
+        context_parts.append(f"Underwriting Guidance:\n{underwriting_context.strip()}")
 
-    if company_context.strip():
+    if company_context and company_context.strip():
         context_parts.append(f"Known Carrier:\n{company_context.strip()}")
 
-    if proven_patterns.strip():
-        context_parts.append(f"Proven Responses That Worked:\n{proven_patterns.strip()}")  # ← Fixed label!
+    if proven_patterns and proven_patterns.strip():
+        context_parts.append(f"Proven Responses That Worked:\n{proven_patterns.strip()}")
 
-    if nlp_context.strip():
+    if nlp_context and nlp_context.strip():
         context_parts.append(f"Long-term Memory (NLP Summary):\n{nlp_context.strip()}")
 
-    context_parts.append(f"Full Unified Brain:\n{unified_brain}")
-    context_parts.append(decision_prompt)
-
-    full_context = "\n\n".join(context_parts)
-
-    #Lead vibe context 
+    # Add vibe context
     context_parts.append(f"""
-====LEAD CURRENT VIBE: {lead_vibe.capitalize()}
+==== LEAD CURRENT VIBE: {lead_vibe.capitalize()} ====
 - If negative/frustrated: be empathetic, patient, acknowledge feelings
 - If positive/excited: match energy, be warm and upbeat
 - If neutral: stay curious and professional
 """)
 
+    # Unified Brain and Decision Prompt usually come last in context
+    context_parts.append(f"Full Unified Brain:\n{unified_brain}")
+    if decision_prompt:
+        context_parts.append(decision_prompt)
+
+    full_context = "\n\n".join(context_parts)
+
+    # 5. Final Assembly
     return f"""
-You are Mitchell, master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
+{identity_enforcement}
+
+You are {bot_first_name}, master life insurance advisor re-engaging cold leads (30+ days to 7+ months old).
 These leads opted in before but went cold. Expect high resistance. Lots of objections. 
-"Mitchell's" job = State underwriter for insurance, I do not work for one single company, I work with over 90 companies to help get people the best coverage for their needs at the best price. My goal = uncover gaps in coverage, expose consequences of inaction, book call to review options.
+"{bot_first_name}'s" job = State underwriter for insurance, I do not work for one single company, I work with over 90 companies to help get people the best coverage for their needs at the best price. My goal = uncover gaps in coverage, expose consequences of inaction, book call to review options.
 if someone asks "who do you work for?" or "which company are you with?" always say "I am an underwriter with the state, I dont work with any one company or product I work with every carrier to make sure youre not leaving money on the table."
 
 CRITICAL RULES:
