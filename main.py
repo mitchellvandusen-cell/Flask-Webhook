@@ -214,7 +214,7 @@ def webhook():
         calendar_slots=calendar_slots,
         timezone=timezone
     )
-
+    print(f"DEBUG: Found {len(recent_messages)} past messages for {contact_id}")
     grok_messages = [{"role": "system", "content": system_prompt}]
     for msg in recent_messages[-10:]: # Last 10 messages for context
         role = "user" if msg["message_type"] == "lead" else "assistant"
