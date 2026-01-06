@@ -151,12 +151,13 @@ def webhook():
             finally:
                 conn.close()
 
+    save_message(contact_id, message, "lead")
     # 4. Context Gathering
     date_of_birth = data.get("contact", {}).get("date_of_birth", "")
     age = calculate_age_from_dob(date_of_birth)
     
     recent_messages = get_contact_messages(contact_id, limit=20)
-    recent_agent_messages = get_recent_agent_messages(contact_id, limit=5)
+    recent_agent_messages = get_recent_agent_messages(contact_id, limit=20)
     topics_discussed = get_topics_already_discussed(contact_id)
     nlp_context = format_nlp_for_prompt(contact_id)
     
