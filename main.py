@@ -243,7 +243,7 @@ def webhook():
         return jsonify({
             "status": "success", 
             "reply": reply,
-            "facts": extract_facts_from_message(message)
+            "facts": extract_facts_from_message(contact_id, message)
         })
     
     return jsonify({"status": "success", "reply": reply})
