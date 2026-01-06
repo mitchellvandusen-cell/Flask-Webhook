@@ -162,7 +162,6 @@ def webhook():
     recent_agent_messages = get_recent_agent_messages(contact_id, limit=20)
     topics_discussed = get_topics_already_discussed(contact_id)
     nlp_context = format_nlp_for_prompt(contact_id)
-    
     triggers = identify_triggers(message)
     knowledge_section = format_knowledge_for_prompt(get_relevant_knowledge(triggers))
     learning_context = get_learning_context(contact_id, message)
@@ -171,11 +170,6 @@ def webhook():
     state.exchange_count = len([m for m in recent_messages if m["message_type"] == "assistant"])
     state.stage = detect_stage(state, message, recent_messages)
     
-    # Dismissive Check
-    soft, hard = detect_dismissive(message)
-    if hard:
-        return jsonify({"status": "stopped", "reason": "opt_out"}), 200
-
     # Underwriting & Company Detect
     underwriting_context = get_underwriting_context(message)
     company_context = ""
