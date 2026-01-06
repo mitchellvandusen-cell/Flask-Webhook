@@ -275,7 +275,37 @@ def home():
                 background-color: #ff4444;
                 color: #fff;
             }
-            
+            /* Mobile Responsive Tweak */
+            @media (max-width: 768px) {
+                #demo-container {
+                    flex-direction: column; /* Stacks columns vertically */
+                    height: auto;           /* Let it grow as long as needed */
+                }
+                
+                #chat-column {
+                    height: 500px;         /* Give the chat a fixed height on mobile */
+                }
+
+                #fact-column {
+                    order: -1;             /* Moves Fact Memory to the TOP on mobile */
+                    margin-bottom: 10px;
+                }
+                /* Inside your existing @media block */
+                .input-group {
+                    flex-wrap: wrap; /* Allows buttons to drop to a second line if needed */
+                }
+
+                #user-input {
+                    width: 100% !important; 
+                    margin-bottom: 10px;
+                    border-radius: 5px !important; /* Makes it a full-width bar */
+                }
+
+                #send-btn, .btn-outline-danger {
+                    flex-grow: 1; /* Makes buttons wider and easier to tap */
+                    padding: 12px;
+                }
+            }
             /* Sections */
             .hero-section { padding: 100px 0; background: radial-gradient(circle at center, #111 0%, #000 100%); }
             .btn-primary { background-color: #fff; color: #000; border: none; font-weight: bold; padding: 12px 30px; border-radius: 5px; }
@@ -287,12 +317,12 @@ def home():
             #fact-column { flex: 1; background: #080808; border: 1px solid #333; border-radius: 12px; padding: 20px; }
             
             #chat-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-            .msg { max-width: 85%; padding: 12px 18px; border-radius: 18px; font-size: 0.95rem; }
+            .msg { max-width: 85%; padding: 12px 18px; border-radius: 18px; font-size: 1rem; }
             .bot-msg { background: #1a1a1a; align-self: flex-start; border: 1px solid #333; }
             .user-msg { background: #fff; color: #000; align-self: flex-end; font-weight: 500; }
             
-            .fact-pill { background: #111; border-left: 3px solid var(--accent); padding: 10px; margin-bottom: 10px; font-size: 0.85rem; }
-            .objection-btn { background: transparent; border: 1px solid #333; color: #888; font-size: 0.75rem; border-radius: 20px; padding: 5px 12px; margin: 3px; }
+            .fact-pill { background: #111; border-left: 3px solid var(--accent); padding: 10px; margin-bottom: 10px; font-size: 0.9rem; }
+            .objection-btn { background: transparent; border: 1px solid #333; color: #888; font-size: 0.85rem; border-radius: 20px; padding: 8px 12px; margin: 3px; }
             .objection-btn:hover { border-color: var(--accent); color: #fff; }
 
             /* Modal */
