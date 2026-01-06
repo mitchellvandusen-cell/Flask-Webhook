@@ -193,7 +193,8 @@ def webhook():
         context=f"{nlp_context}\n{knowledge_section}",
         stage=state.stage.value,
         proven_patterns=learning_context,
-        triggers_found=triggers
+        triggers_found=triggers,
+        trigger_suggestions=triggers,
     )
 
     system_prompt = build_system_prompt(
