@@ -483,7 +483,7 @@ def add_to_qualification_array(contact_id: str, field: str, value: str):
             DO UPDATE SET 
                 {field} = (
                     SELECT ARRAY(
-                        SELECT DISTINCT unnest({field} || EXCLUDED.{field})
+                        SELECT DISTINCT unnest(contact_qualification.{field} || EXCLUDED.{field})
                     )
                 ),
                 updated_at = CURRENT_TIMESTAMP
