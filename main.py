@@ -228,7 +228,17 @@ def webhook():
             messages=grok_messages,
             temperature=0.7
         )
-        reply = response.choices[0].message.content.strip()
+        raw_reply = response.choices[0].message.content.strip()
+
+        # --- NEW CLEANUP LOGIC ---
+        # If the AI included its "Thinking Block", we strip it out
+        if "</thinking>" in raw_reply:
+            reply = raw_reply.split("</thinking>")[-1].strip()
+        elif "<reply>" in raw_reply:
+            reply = raw_reply.split("<reply>")[-1].split("</reply>")[0].strip()
+        else:
+            reply = raw_reply
+        # -------------------------
     except Exception as e:
         logger.error(f"Grok Error: {e}")
         reply = "Gotcha. Quick question, when was the last time you actually had someone look over those policy details with you?"
