@@ -194,7 +194,7 @@ def webhook():
         stage=state.stage.value,
         proven_patterns=learning_context,
         triggers_found=triggers,
-        trigger_suggestions=triggers,
+        trigger_suggestion=triggers,
     )
 
     system_prompt = build_system_prompt(
