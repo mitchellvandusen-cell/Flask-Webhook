@@ -155,7 +155,9 @@ def webhook():
     # 4. Context Gathering
     date_of_birth = data.get("contact", {}).get("date_of_birth", "")
     age = calculate_age_from_dob(date_of_birth)
-    
+    current_facts = extract_facts_from_message(state, message)
+    if "mortgage" in str(current_facts).lower() and "paid" in message.lower():
+        state.update_fact("mortgage_status", "Paid Off")
     recent_messages = get_contact_messages(contact_id, limit=20)
     recent_agent_messages = get_recent_agent_messages(contact_id, limit=20)
     topics_discussed = get_topics_already_discussed(contact_id)
@@ -164,7 +166,6 @@ def webhook():
     triggers = identify_triggers(message)
     knowledge_section = format_knowledge_for_prompt(get_relevant_knowledge(triggers))
     learning_context = get_learning_context(contact_id, message)
-    
     # 5. Conversation Logic
     state = ConversationState(contact_id=contact_id, first_name=first_name)
     state.exchange_count = len([m for m in recent_messages if m["message_type"] == "assistant"])
@@ -189,13 +190,14 @@ def webhook():
         calendar_slots = consolidated_calendar_op('fetch_slots')
 
     # 6. AI Generation
+    filtered_triggers = [t for t in triggers if t not in topics_discussed]
     decision_prompt = get_decision_prompt(
         message=message,
         context=f"{nlp_context}\n{knowledge_section}",
         stage=state.stage.value,
         proven_patterns=learning_context,
         triggers_found=triggers,
-        trigger_suggestion=triggers,
+        trigger_suggestion=filtered_triggers,
     )
 
     system_prompt = build_system_prompt(
