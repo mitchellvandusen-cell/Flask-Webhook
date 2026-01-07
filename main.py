@@ -378,19 +378,119 @@ def demo_chat():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chat with GrokBot</title>
     <style>
-        html, body { height: 100%; margin: 0; padding: 0; background: #f5f5f7; display: flex; justify-content: center; align-items: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .iphone-frame { width: 375px; height: 812px; background: #000; border-radius: 60px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); padding: 60px 15px 100px; position: relative; overflow: hidden; }
-        .iphone-frame::before { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 160px; height: 30px; background: #000; border-radius: 20px; }
-        .chat-screen { height: calc(100% - 120px); overflow-y: auto; padding: 20px 10px; background: #fff; display: flex; flex-direction: column; }
-        .msg { max-width: 80%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; word-wrap: break-word; }
-        .bot-msg { background: #e5e5ea; color: #000; align-self: flex-start; border-bottom-left-radius: 5px; }
-        .user-msg { background: #007aff; color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
-        .input-area { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; background: #fff; border-radius: 25px; padding: 8px 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        #user-input { flex: 1; border: none; outline: none; font-size: 16px; }
-        #send-btn { background: #007aff; color: white; border: none; border-radius: 50%; width: 36px; height: 36px; margin-left: 10px; font-size: 18px; }
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        .iphone-frame {
+            width: 375px;
+            max-width: 100%;
+            height: 100vh;
+            max-height: 812px;
+            background: #000;
+            border-radius: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            padding: 40px 12px 80px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Notch */
+        .iphone-frame::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px;
+            height: 30px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 10;
+        }
+
+        .chat-screen {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 10px 10px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .msg {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            word-wrap: break-word;
+            align-self: flex-start;
+        }
+
+        .bot-msg {
+            background: #e5e5ea;
+            color: #000;
+            border-bottom-left-radius: 5px;
+        }
+
+        .user-msg {
+            background: #007aff;
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .input-area {
+            position: relative;
+            margin: 10px 10px 20px;
+            display: flex;
+            background: #fff;
+            border-radius: 25px;
+            padding: 8px 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #user-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background: transparent;
+        }
+
+        #send-btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            margin-left: 10px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Smooth scrolling on iOS */
+        .chat-screen::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -444,6 +544,9 @@ def demo_chat():
         });
 
         sendBtn.addEventListener('click', sendMessage);
+
+        // Auto-focus input on load
+        input.focus();
     </script>
 </body>
 </html>
