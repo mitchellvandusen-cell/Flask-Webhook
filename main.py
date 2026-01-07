@@ -86,6 +86,15 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        return User.get(user_id)
+    except Exception as e:
+        logger.error(f"Failed to load user {user_id}: {e}")
+        return None  # Return None on error — prevents crash
+
+
 class User(UserMixin):
     def __init__(self, id, email, stripe_customer_id=None):
         self.id = id
@@ -332,17 +341,12 @@ def home():
 <body>
 <nav class="navbar navbar-expand-lg sticky-top">
     <div class="container">
-        <nav class="navbar navbar-expand-lg sticky-top">
-            <div class="container">
-                <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <!-- paste the updated ul from above here -->
-                </div>
-            </div>
-        </nav>
+        <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+        </button>
+        
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
                 <li class="nav-item"><a href="#abilities" class="nav-link">Abilities</a></li>
@@ -352,12 +356,16 @@ def home():
                 <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
                 <li class="nav-item"><a href="/demo-chat" class="nav-link">Demo</a></li>
                 
-                <!-- Login / Sign Up Buttons -->
-                <li class="nav-item ms-3">
-                    <a href="/login" class="btn btn-outline-light me-2">Log In</a>
-                </li>
-                <li class="nav-item">
-                    <a href="/register" class="btn btn-primary" style="background: #00ff88; border: none; color: #000; font-weight: bold;">Sign Up</a>
+                <!-- Dynamic Login / Logout -->
+                <li class="nav-item ms-4">
+                    {% if current_user.is_authenticated %}
+                        <span class="navbar-text me-3 text-light">Hello, {{ current_user.email }}</span>
+                        <a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a>
+                        <a href="/logout" class="btn btn-outline-danger">Logout</a>
+                    {% else %}
+                        <a href="/login" class="btn btn-outline-light me-2">Log In</a>
+                        <a href="/register" class="btn btn-primary" style="background: #00ff88; border: none; color: #000; font-weight: bold;">Sign Up</a>
+                    {% endif %}
                 </li>
             </ul>
         </div>
