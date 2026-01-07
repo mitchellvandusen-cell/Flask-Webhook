@@ -237,7 +237,6 @@ app = Flask(__name__)
 
 @app.route("/") # Website 
 def home():
-    # Variable assignment starts at indentation level 1 (4 spaces)
     home_html = """
 <!DOCTYPE html>
 <html lang="en">
@@ -255,6 +254,10 @@ def home():
         .navbar { background-color: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
         .navbar-brand { font-weight: 700; color: #fff !important; text-shadow: 0 0 5px var(--neon-glow); }
         .highlight { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
+        
+        /* Fixed Titles to use the Neon Green color */
+        .card h3, .card h4 { color: var(--accent) !important; text-shadow: 0 0 5px var(--neon-glow); }
+        
         .btn-outline-danger {
             border-color: #ff4444;
             color: #ff4444;
@@ -272,9 +275,9 @@ def home():
         .btn-primary { background-color: var(--accent); color: #000; border: none; font-weight: bold; padding: 12px 30px; border-radius: 5px; box-shadow: 0 0 15px var(--neon-glow); transition: 0.3s; }
         .btn-primary:hover { box-shadow: 0 0 25px var(--neon-glow); transform: translateY(-2px); }
         
-        /* Demo Button */
-        .demo-button { background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; border: none; padding: 15px 40px; border-radius: 50px; box-shadow: 0 5px 20px var(--neon-glow); transition: 0.3s; }
-        .demo-button:hover { transform: scale(1.05); box-shadow: 0 10px 30px var(--neon-glow); }
+        /* Demo Button with working URL */
+        .demo-button { display: inline-block; text-decoration: none; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; border: none; padding: 15px 40px; border-radius: 50px; box-shadow: 0 5px 20px var(--neon-glow); transition: 0.3s; }
+        .demo-button:hover { transform: scale(1.05); box-shadow: 0 10px 30px var(--neon-glow); color: #000; }
 
         /* Comparison Section */
         #comparison-section { background: #0a0a0a; padding: 60px 0; }
@@ -288,7 +291,6 @@ def home():
         /* Abilities Cards */
         .card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
         .card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
-        .card h3 { color: var(--accent); }
 
         /* General */
         h2, h4 { letter-spacing: 1px; text-transform: uppercase; }
@@ -317,7 +319,7 @@ def home():
     <div class="container">
         <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
         <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
-        <a href="#demo-chat" class="demo-button">Try the Assistant - Click Here</a>
+        <a href="/demo-chat" class="demo-button">Try the Assistant - Click Here</a>
     </div>
 </header>
 
@@ -432,7 +434,6 @@ def home():
 </body>
 </html>
 """
-    # Return MUST be aligned with home_html above
     return render_template_string(home_html)
 
 @app.route("/demo-chat")
