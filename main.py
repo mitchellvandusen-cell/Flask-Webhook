@@ -27,7 +27,7 @@ load_dotenv()
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app.secret_key = os.get.environ("SESSION_SECRET")
+app.secret_key = os.getenv("SESSION_SECRET")
 if not app.secret_key:
     logger.warning("SESSION_SECRET not set — sessions will not work properly!")
     app.secret_key = "fallback-insecure-key"
