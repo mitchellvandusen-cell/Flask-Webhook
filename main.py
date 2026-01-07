@@ -1179,5 +1179,24 @@ def refresh_subscribers():
     except Exception as e:
         return f"<h1>Sync Failed</h1><p>{str(e)}</p>", 500
     
+@app.route("/oauth/callback")
+def oauth_callback():
+    # GHL will append ?locationId=... & other params
+    location_id = request.args.get("locationId")
+    success_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><title>Install Complete</title></head>
+    <body style="background:#000;color:#fff;text-align:center;padding:100px;font-family:Arial;">
+        <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
+        <p>Location ID: {location_id or 'Not provided'}</p>
+        <p>Your bot is now active please create a workflow in CRM with webhook for response.</p>
+        <p><a href="/dashboard" style="color:#00ff88;font-size:20px;">Go to Dashboard → Configure Bot</a></p>
+        <p><a href="/" style="color:#888;">← Back to Home</a></p>
+    </body>
+    </html>
+    """
+    return render_template_string(success_html)
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
