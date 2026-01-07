@@ -59,21 +59,27 @@ client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "http://localhost:8080")
 
-# Google Sheets Setup
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+# Google Sheets Setup for writing from dashboard
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
-if not creds_dict:
-    logger.error("GOOGLE_CREDENTIALS not set!")
-else:
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    gc = gspread.authorize(creds)
-    sheet_url = os.getenv("SUBSCRIBER_SHEET_URL")
-    if sheet_url:
-        sh = gc.open_by_url(sheet_url)
-        worksheet = sh.sheet1
-    else:
+
+worksheet = None
+if creds_dict:
+    try:
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        gc = gspread.authorize(creds)
+        sheet_url = os.getenv("SUBSCRIBER_SHEET_EDIT_URL")
+        if sheet_url:
+            sh = gc.open_by_url(sheet_url)
+            worksheet = sh.sheet1
+            logger.info("Google Sheet connected for dashboard writes")
+        else:
+            logger.warning("SUBSCRIBER_SHEET_URL not set — dashboard writes disabled")
+    except Exception as e:
+        logger.error(f"Google Sheet connection failed: {e}")
         worksheet = None
-        logger.warning("SUBSCRIBER_SHEET_URL not set - sheet writes disabled")
+else:
+    logger.error("GOOGLE_CREDENTIALS not set — dashboard writes disabled")
 
 # Flask-Login Setup
 login_manager = LoginManager()
@@ -557,8 +563,7 @@ def logout():
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
-    if not worksheet:
-        return "Google Sheet not configured – check SUBSCRIBER_SHEET_URL and GOOGLE_CREDENTIALS", 500
+    global worksheet
 
     form = ConfigForm()
 
@@ -1197,6 +1202,54 @@ def oauth_callback():
     </html>
     """
     return render_template_string(success_html)
-    
+
+@app.route("/getting-started")
+def getting_started():
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Getting Started - InsuranceGrokBot</title>
+        <style>
+            body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:60px; }
+            h1 { font-size:48px; color:#00ff88; }
+            .step { margin:40px auto; max-width:600px; font-size:20px; }
+            .btn { display:inline-block; padding:15px 40px; background:#00ff88; color:#000; font-weight:bold; text-decoration:none; border-radius:12px; font-size:22px; margin:20px; }
+            .btn:hover { background:#00cc70; }
+        </style>
+    </head>
+    <body>
+        <h1>Welcome to InsuranceGrokBot</h1>
+        <p style="font-size:24px;">Get set up in 3 simple steps</p>
+
+        <div class="step">
+            <h2>1. Create Your Account</h2>
+            <p>Sign up with your email — takes 10 seconds</p>
+            <a href="/register" class="btn">Sign Up Now</a>
+        </div>
+
+        <div class="step">
+            <h2>2. Subscribe</h2>
+            <p>$100/month — cancel anytime</p>
+            <a href="/checkout" class="btn">Subscribe ($100/mo)</a>
+        </div>
+
+        <div class="step">
+            <h2>3. Configure Your Bot</h2>
+            <p>Log in and paste your GoHighLevel Location ID + API Key</p>
+            <a href="/login" class="btn">Log In → Dashboard</a>
+        </div>
+
+        <p style="margin-top:80px;">
+            <a href="/demo-chat" style="color:#00ff88;">Try the demo chat</a> | 
+            <a href="/" style="color:#888;">← Back</a>
+        </p>
+    </body>
+    </html>
+    """
+    return render_template_string(html)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
