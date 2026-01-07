@@ -231,10 +231,6 @@ def webhook():
 
     return jsonify({"status": "success", "reply": reply})
 
-from flask import Flask, render_template_string, request, jsonify
-
-app = Flask(__name__)
-
 @app.route("/") # Website 
 def home():
     home_html = """
@@ -319,8 +315,7 @@ def home():
     <div class="container">
         <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
         <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
-        <form action="/demo-chat" method="get">
-            <button type="submit" class="demo-button">Try the Assistant Here</button>
+        <a href="/demo-chat" class="demo-button">Try the Assistant Here</a>
     </div>
 </header>
 
