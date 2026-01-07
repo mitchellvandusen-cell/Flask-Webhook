@@ -267,7 +267,7 @@ def home():
         }
         /* Sections */
         .hero-section { padding: 120px 0; background: radial-gradient(circle at center, #111 0%, #000 100%); position: relative; overflow: hidden; }
-        .hero-section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,255,136,0.1) 0%, transparent 100%); opacity: 0.5; }
+        .hero-section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,255,136,0.1) 0%, transparent 100%); opacity: 0.5; pointer-events: none; }
         .btn-primary { background-color: var(--accent); color: #000; border: none; font-weight: bold; padding: 12px 30px; border-radius: 5px; box-shadow: 0 0 15px var(--neon-glow); transition: 0.3s; }
         .btn-primary:hover { box-shadow: 0 0 25px var(--neon-glow); transform: translateY(-2px); }
         
