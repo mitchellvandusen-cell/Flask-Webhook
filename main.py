@@ -231,9 +231,14 @@ def webhook():
 
     return jsonify({"status": "success", "reply": reply})
 
+from flask import Flask, render_template_string, request, jsonify
+
+app = Flask(__name__)
+
 @app.route("/") # Website 
 def home():
-   home_html = """
+    # Variable assignment starts at indentation level 1 (4 spaces)
+    home_html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -427,6 +432,8 @@ def home():
 </body>
 </html>
 """
+    # Return MUST be aligned with home_html above
+    return render_template_string(home_html)
 
 @app.route("/demo-chat")
 def demo_chat():
@@ -486,7 +493,7 @@ def demo_chat():
                     const data = await res.json();
                     chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
                     if (data.facts && data.facts.length > 0) {
-                        // Optional: Add facts to a sidebar if you want, but since it's iMessage style, perhaps log or ignore for this view
+                        // Optional: Log facts
                     }
                 } catch(e) {
                     console.error("Error:", e);
