@@ -372,15 +372,13 @@ DEMO_CONTACT_ID = "demo_web_visitor"
 
 @app.route("/demo-chat")
 def demo_chat():
-    # Clear any old demo facts on load (fresh start every time)
-    # Optional: delete from contact_facts where contact_id = DEMO_CONTACT_ID
-    # Or just ignore — since we'll force known_facts = []
-    # Generate or get unique session ID
+    # Generate unique session ID for this visitor
     if 'demo_session_id' not in session:
-        session['demo_session_id'] = str(uuid.uuid4())  # Unique per browser session
-    
+        session['demo_session_id'] = str(uuid.uuid4())
+
     demo_session_id = session['demo_session_id']
-    demo_html = """
+
+    demo_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -388,8 +386,8 @@ def demo_chat():
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chat with GrokBot</title>
     <style>
-        * { box-sizing: border-box; }
-        html, body {
+        * {{ box-sizing: border-box; }}
+        html, body {{
             height: 100%;
             margin: 0;
             padding: 0;
@@ -399,9 +397,9 @@ def demo_chat():
             align-items: center;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
-        }
+        }}
 
-        .iphone-frame {
+        .iphone-frame {{
             width: 375px;
             max-width: 100%;
             height: 100vh;
@@ -414,10 +412,9 @@ def demo_chat():
             overflow: hidden;
             display: flex;
             flex-direction: column;
-        }
+        }}
 
-        /* Notch */
-        .iphone-frame::before {
+        .iphone-frame::before {{
             content: '';
             position: absolute;
             top: 10px;
@@ -428,9 +425,9 @@ def demo_chat():
             background: #000;
             border-radius: 20px;
             z-index: 10;
-        }
+        }}
 
-        .chat-screen {
+        .chat-screen {{
             flex: 1;
             overflow-y: auto;
             padding: 20px 10px 10px;
@@ -438,31 +435,31 @@ def demo_chat():
             display: flex;
             flex-direction: column;
             -webkit-overflow-scrolling: touch;
-        }
+        }}
 
-        .msg {
+        .msg {{
             max-width: 80%;
             padding: 10px 15px;
             border-radius: 20px;
             margin-bottom: 12px;
             word-wrap: break-word;
             align-self: flex-start;
-        }
+        }}
 
-        .bot-msg {
+        .bot-msg {{
             background: #e5e5ea;
             color: #000;
             border-bottom-left-radius: 5px;
-        }
+        }}
 
-        .user-msg {
+        .user-msg {{
             background: #007aff;
             color: #fff;
             align-self: flex-end;
             border-bottom-right-radius: 5px;
-        }
+        }}
 
-        .input-area {
+        .input-area {{
             position: relative;
             margin: 10px 10px 20px;
             display: flex;
@@ -470,17 +467,17 @@ def demo_chat():
             border-radius: 25px;
             padding: 8px 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+        }}
 
-        #user-input {
+        #user-input {{
             flex: 1;
             border: none;
             outline: none;
             font-size: 16px;
             background: transparent;
-        }
+        }}
 
-        #send-btn {
+        #send-btn {{
             background: #007aff;
             color: white;
             border: none;
@@ -492,12 +489,9 @@ def demo_chat():
             display: flex;
             align-items: center;
             justify-content: center;
-        }
+        }}
 
-        /* Smooth scrolling on iOS */
-        .chat-screen::-webkit-scrollbar {
-            display: none;
-        }
+        .chat-screen::-webkit-scrollbar {{ display: none; }}
     </style>
 </head>
 <body>
@@ -512,61 +506,53 @@ def demo_chat():
     </div>
 
     <script>
+        const SESSION_ID = "{demo_session_id}";
+
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
         const chat = document.getElementById('chat-screen');
 
-        async function sendMessage() {
-                const input = document.getElementById('user-input');
-                const chat = document.getElementById('chat-screen');
-                const msg = input.value.trim();
-                if (!msg) return;
+        async function sendMessage() {{
+            const msg = input.value.trim();
+            if (!msg) return;
 
-                chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
-                input.value = '';
-                chat.scrollTop = chat.scrollHeight;
-
-                try {
-                    const res = await fetch('/webhook', {
-                        method: 'POST',
-                        headers: {{'Content-Type': 'application/json'}},
-                        body: JSON.stringify({{
-                            locationId: 'DEMO_ACCOUNT_SALES_ONLY',
-                            contact_id: SESSION_ID,
-                            first_name: 'Visitor',
-                            message: {{body: msg}}
-                        }})
-                    });
-                    const data = await res.json();
-                    chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
-                } catch(e) {
-                    chat.innerHTML += `<div class="msg bot-msg">Sorry — connection issue. Try again?</div>`;
-                }
-                chat.scrollTop = chat.scrollHeight;
-            };
-                const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
-            } catch(e) {
-                chat.innerHTML += `<div class="msg bot-msg">Sorry — connection issue. Try again?</div>`;
-            }
+            chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
+            input.value = '';
             chat.scrollTop = chat.scrollHeight;
-        }
 
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
+            try {{
+                const res = await fetch('/webhook', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{
+                        locationId: 'DEMO_ACCOUNT_SALES_ONLY',
+                        contact_id: SESSION_ID,
+                        first_name: 'Visitor',
+                        message: {{body: msg}}
+                    }})
+                }});
+                const data = await res.json();
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
+            }} catch(e) {{
+                chat.innerHTML += `<div class="msg bot-msg">Sorry — connection issue. Try again?</div>`;
+            }}
+            chat.scrollTop = chat.scrollHeight;
+        }}
+
+        input.addEventListener('keydown', e => {{
+            if (e.key === 'Enter') {{
                 e.preventDefault();
                 sendMessage();
-            }
-        });
+            }}
+        }});
 
         sendBtn.addEventListener('click', sendMessage);
 
-        // Auto-focus input on load
         input.focus();
     </script>
 </body>
 </html>
-"""
+    """
     return render_template_string(demo_html)
 
 @app.route("/refresh")
