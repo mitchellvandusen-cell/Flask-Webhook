@@ -63,6 +63,42 @@ def sync_subscribers():
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
+        # === FIX OLD COLUMN NAMES (run once, safe to leave in) ===
+        try:
+            # Rename ghl_location_id → location_id
+            cur.execute("""
+                ALTER TABLE subscribers 
+                RENAME COLUMN IF EXISTS ghl_location_id TO location_id;
+            """)
+            
+            # Rename ghl_user_id → crm_user_id
+            cur.execute("""
+                ALTER TABLE subscribers 
+                RENAME COLUMN IF EXISTS ghl_user_id TO crm_user_id;
+            """)
+            
+            # Rename ghl_api_key → crm_api_key
+            cur.execute("""
+                ALTER TABLE subscribers 
+                RENAME COLUMN IF EXISTS ghl_api_key TO crm_api_key;
+            """)
+            
+            # If primary key is still on old name, fix it
+            cur.execute("""
+                ALTER TABLE subscribers 
+                DROP CONSTRAINT IF EXISTS subscribers_pkey;
+            """)
+            cur.execute("""
+                ALTER TABLE subscribers 
+                ADD PRIMARY KEY (location_id);
+            """)
+            
+            conn.commit()
+            logger.info("Column names updated successfully")
+        except Exception as e:
+            logger.warning(f"Column rename failed (may already be fixed): {e}")
+            conn.rollback()
+
         # Create table (consistent column names)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
@@ -84,7 +120,7 @@ def sync_subscribers():
             ADD COLUMN IF NOT EXISTS calendar_id TEXT,
             ADD COLUMN IF NOT EXISTS initial_message TEXT;
         """)
-
+        
         # UPSERT — consistent column order
         upsert_query = """
             INSERT INTO subscribers (
