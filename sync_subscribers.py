@@ -84,6 +84,8 @@ def sync_subscribers():
         conn.commit()
         logger.info(f"Successfully synced {len(subscribers_to_sync)} subscribers from Google Sheets.")
 
+        return True
+    
     except Exception as e:
         logger.error(f"Sync failed: {e}")
     finally:
