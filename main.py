@@ -170,7 +170,7 @@ def webhook():
             pass
 
     # Clean AI tells
-    reply = reply.replace("—", "-").replace("–", "-").replace("…", "...")
+    reply = reply.replace("—", ",").replace("–", ",").replace("…", "...")
     reply = reply.replace(""", '"').replace(""", '"')
     reply = reply.strip()
 
