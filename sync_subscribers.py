@@ -39,7 +39,7 @@ def sync_subscribers():
                 row.get('timezone', 'America/Chicago').strip(),
                 row.get('crm_user_id').strip(),
                 row.get('calendar_id').strip(),
-                row.get('initial_message').strip()
+                row.get(('initial_message') or '').strip()
             ))
 
         if not subscribers_to_sync:
