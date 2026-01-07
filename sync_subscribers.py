@@ -22,16 +22,15 @@ def sync_subscribers():
 
     conn = None
     try:
-        # Fetch CSV
-        response = requests.get(SHEET_CSV_URL)
+        # Fetch published CSV
+        response = requests.get(SHEET_CSV_URL, timeout=10)
         response.raise_for_status()
 
         f = io.StringIO(response.text)
         reader = csv.DictReader(f)
 
         subscribers_to_sync = []
-        for row in reader:
-            # Safely extract and strip — default to empty string if missing
+        for row_num, row in enumerate(reader, start=2):
             location_id = (row.get('location_id') or '').strip()
             bot_name = (row.get('bot_first_name') or 'Mitchell').strip()
             crm_api_key = (row.get('crm_api_key') or '').strip()
@@ -40,9 +39,8 @@ def sync_subscribers():
             calendar_id = (row.get('calendar_id') or '').strip()
             initial_message = (row.get('initial_message') or '').strip()
 
-            # Skip if required fields missing
             if not location_id or not crm_api_key:
-                logger.warning(f"Skipping row (missing location_id or crm_api_key): {row}")
+                logger.warning(f"Row {row_num} skipped: missing location_id or crm_api_key")
                 continue
 
             subscribers_to_sync.append((
@@ -59,47 +57,33 @@ def sync_subscribers():
             logger.info("No valid subscribers to sync")
             return True
 
-        # Connect to DB
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
-        # === FIX OLD COLUMN NAMES (run once, safe to leave in) ===
+        # === FIX OLD COLUMN NAMES (PostgreSQL-safe) ===
         try:
-            # Rename ghl_location_id → location_id
-            cur.execute("""
-                ALTER TABLE subscribers 
-                RENAME COLUMN IF EXISTS ghl_location_id TO location_id;
-            """)
-            
-            # Rename ghl_user_id → crm_user_id
-            cur.execute("""
-                ALTER TABLE subscribers 
-                RENAME COLUMN IF EXISTS ghl_user_id TO crm_user_id;
-            """)
-            
-            # Rename ghl_api_key → crm_api_key
-            cur.execute("""
-                ALTER TABLE subscribers 
-                RENAME COLUMN IF EXISTS ghl_api_key TO crm_api_key;
-            """)
-            
-            # If primary key is still on old name, fix it
-            cur.execute("""
-                ALTER TABLE subscribers 
-                DROP CONSTRAINT IF EXISTS subscribers_pkey;
-            """)
-            cur.execute("""
-                ALTER TABLE subscribers 
-                ADD PRIMARY KEY (location_id);
-            """)
-            
+            cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name = 'subscribers' AND column_name = 'ghl_location_id' LIMIT 1;")
+            if cur.fetchone():
+                cur.execute("ALTER TABLE subscribers RENAME COLUMN ghl_location_id TO location_id;")
+
+            cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name = 'subscribers' AND column_name = 'ghl_user_id' LIMIT 1;")
+            if cur.fetchone():
+                cur.execute("ALTER TABLE subscribers RENAME COLUMN ghl_user_id TO crm_user_id;")
+
+            cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name = 'subscribers' AND column_name = 'ghl_api_key' LIMIT 1;")
+            if cur.fetchone():
+                cur.execute("ALTER TABLE subscribers RENAME COLUMN ghl_api_key TO crm_api_key;")
+
+            cur.execute("ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_pkey;")
+            cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (location_id);")
+
             conn.commit()
-            logger.info("Column names updated successfully")
+            logger.info("Old column names and primary key fixed")
         except Exception as e:
-            logger.warning(f"Column rename failed (may already be fixed): {e}")
+            logger.warning(f"Column rename skipped (likely already done): {e}")
             conn.rollback()
 
-        # Create table (consistent column names)
+        # Create table with current schema
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
                 location_id TEXT PRIMARY KEY,
@@ -113,15 +97,15 @@ def sync_subscribers():
             );
         """)
 
-        # Add missing columns if needed
+        # Add any missing columns
         cur.execute("""
             ALTER TABLE subscribers
             ADD COLUMN IF NOT EXISTS crm_user_id TEXT,
             ADD COLUMN IF NOT EXISTS calendar_id TEXT,
             ADD COLUMN IF NOT EXISTS initial_message TEXT;
         """)
-        
-        # UPSERT — consistent column order
+
+        # UPSERT
         upsert_query = """
             INSERT INTO subscribers (
                 location_id, bot_first_name, crm_api_key, timezone,
