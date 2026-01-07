@@ -3,6 +3,9 @@
 from flask import Flask, request, jsonify, render_template_string
 import os
 import logging
+import re
+import uuid
+from flask import session
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -372,7 +375,11 @@ def demo_chat():
     # Clear any old demo facts on load (fresh start every time)
     # Optional: delete from contact_facts where contact_id = DEMO_CONTACT_ID
     # Or just ignore — since we'll force known_facts = []
-
+    # Generate or get unique session ID
+    if 'demo_session_id' not in session:
+        session['demo_session_id'] = str(uuid.uuid4())  # Unique per browser session
+    
+    demo_session_id = session['demo_session_id']
     demo_html = """
 <!DOCTYPE html>
 <html lang="en">
