@@ -9,85 +9,108 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# URL of your Google Sheet published as CSV
-# Ensure your sheet is: File -> Share -> Publish to Web -> Link -> CSV
 SHEET_CSV_URL = os.getenv("SUBSCRIBER_SHEET_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def sync_subscribers():
-    if not SHEET_CSV_URL or not DATABASE_URL:
-        logger.error("Missing SHEET_CSV_URL or DATABASE_URL environment variables.")
-        return
+    if not SHEET_CSV_URL:
+        logger.error("SUBSCRIBER_SHEET_URL not set")
+        return False
+    if not DATABASE_URL:
+        logger.error("DATABASE_URL not set")
+        return False
 
+    conn = None
     try:
-        # 1. Fetch the data from Google Sheets
+        # Fetch CSV
         response = requests.get(SHEET_CSV_URL)
         response.raise_for_status()
-        
-        # 2. Parse CSV
+
         f = io.StringIO(response.text)
         reader = csv.DictReader(f)
-        
-        # Normalize headers to lowercase to match our logic
+
         subscribers_to_sync = []
         for row in reader:
-            # Expected columns in Sheet: location_id, bot_first_name, ghl_api_key, timezone
+            # Safely extract and strip — default to empty string if missing
+            location_id = (row.get('location_id') or '').strip()
+            bot_name = (row.get('bot_first_name') or 'Mitchell').strip()
+            crm_api_key = (row.get('crm_api_key') or '').strip()
+            timezone = (row.get('timezone') or 'America/Chicago').strip()
+            crm_user_id = (row.get('crm_user_id') or '').strip()
+            calendar_id = (row.get('calendar_id') or '').strip()
+            initial_message = (row.get('initial_message') or '').strip()
+
+            # Skip if required fields missing
+            if not location_id or not crm_api_key:
+                logger.warning(f"Skipping row (missing location_id or crm_api_key): {row}")
+                continue
+
             subscribers_to_sync.append((
-                row.get('location_id').strip(),
-                row.get('bot_first_name', 'Mitchell').strip(),
-                row.get('api_key').strip(),
-                row.get('timezone', 'America/Chicago').strip(),
-                row.get('crm_user_id').strip(),
-                row.get('calendar_id').strip(),
-                row.get(('initial_message') or '').strip()
+                location_id,
+                bot_name,
+                crm_api_key,
+                timezone,
+                crm_user_id,
+                calendar_id,
+                initial_message
             ))
 
         if not subscribers_to_sync:
-            logger.warning("No subscribers found in the sheet.")
-            return
+            logger.info("No valid subscribers to sync")
+            return True
 
-        # 3. Connect to Database and Upsert
+        # Connect to DB
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
-        # Create table if it doesn't exist
+        # Create table (consistent column names)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
-                crm_location_id TEXT PRIMARY KEY,
+                location_id TEXT PRIMARY KEY,
                 bot_first_name TEXT,
+                crm_api_key TEXT,
+                timezone TEXT,
                 crm_user_id TEXT,
                 calendar_id TEXT,
                 initial_message TEXT,
-                crm_api_key TEXT,
-                timezone TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
 
-        # Perform the UPSERT (Update on conflict)
+        # Add missing columns if needed
+        cur.execute("""
+            ALTER TABLE subscribers
+            ADD COLUMN IF NOT EXISTS crm_user_id TEXT,
+            ADD COLUMN IF NOT EXISTS calendar_id TEXT,
+            ADD COLUMN IF NOT EXISTS initial_message TEXT;
+        """)
+
+        # UPSERT — consistent column order
         upsert_query = """
-            INSERT INTO subscribers (crm_location_id, bot_first_name, crm_api_key, timezone, initial_message, crm_user_id, calendar_id)
-            VALUES %s
-            ON CONFLICT (ghl_location_id) 
-            DO UPDATE SET 
+            INSERT INTO subscribers (
+                location_id, bot_first_name, crm_api_key, timezone,
+                crm_user_id, calendar_id, initial_message
+            ) VALUES %s
+            ON CONFLICT (location_id) DO UPDATE SET
                 bot_first_name = EXCLUDED.bot_first_name,
                 crm_api_key = EXCLUDED.crm_api_key,
                 timezone = EXCLUDED.timezone,
                 crm_user_id = EXCLUDED.crm_user_id,
-                initial_message = EXCLUDED.initial_message,
                 calendar_id = EXCLUDED.calendar_id,
+                initial_message = EXCLUDED.initial_message,
                 updated_at = CURRENT_TIMESTAMP;
         """
 
-        execute_values(cur, upsert_query, subscribers_to_sync)    
+        execute_values(cur, upsert_query, subscribers_to_sync)
         conn.commit()
-        logger.info(f"Successfully synced {len(subscribers_to_sync)} subscribers from Google Sheets.")
+        logger.info(f"Synced {len(subscribers_to_sync)} subscribers successfully")
 
         return True
-    
+
     except Exception as e:
         logger.error(f"Sync failed: {e}")
         return False
+
     finally:
         if conn:
             try:
