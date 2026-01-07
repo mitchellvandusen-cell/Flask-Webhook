@@ -377,15 +377,19 @@ def home():
         <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
         <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
         
-        <!-- Main CTA: Buy Now -->
-        <a href="/checkout" class="demo-button" style="font-size: 32px; padding: 20px 60px;">
-            Buy Now early special $100/mo
+        <!-- Primary CTA: Buy Now (Stripe) -->
+        <a href="/checkout" class="demo-button" style="font-size: 36px; padding: 25px 70px;">
+            Buy Now – $100/mo
         </a>
 
         <p class="mt-5">
-            <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:18px;">
+            <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:20px;">
                 Or try the demo first →
             </a>
+        </p>
+
+        <p class="mt-4 text-secondary">
+            <small>No contract • Cancel anytime • Instant activation</small>
         </p>
     </div>
 </header>
@@ -1053,65 +1057,45 @@ Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><bdt clas
 @app.route("/checkout")
 def checkout():
     checkout_html = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Subscribe to InsuranceGrokBot</title>
-  <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      background: #000; 
-      color: #fff; 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      height: 100vh; 
-      margin: 0; 
-    }
-    section { text-align: center; }
-    .product { margin-bottom: 30px; }
-    h1 { font-size: 36px; }
-    h2 { font-size: 48px; margin: 20px 0; }
-    button { 
-      padding: 15px 40px; 
-      font-size: 20px; 
-      background: #00ff88; 
-      color: #000; 
-      border: none; 
-      border-radius: 8px; 
-      cursor: pointer; 
-    }
-    button:hover { background: #00cc70; }
-  </style>
-  <script src="https://js.stripe.com/v3/"></script>
-</head>
-<body>
-  <section>
-    <div class="product">
-      <h1>InsuranceGrokBot</h1>
-      <h3>The AI that re-engages your cold leads 24/7</h3>
-      <h2>$100 / month</h2>
-    </div>
-    <button id="checkout-button">Subscribe Now</button>
-  </section>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Subscribe - InsuranceGrokBot</title>
+        <style>
+            body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+            h1 { font-size:48px; color:#00ff88; }
+            h2 { font-size:60px; margin:30px 0; }
+            button { padding:20px 60px; font-size:28px; background:#00ff88; color:#000; border:none; border-radius:12px; cursor:pointer; }
+            button:hover { background:#00cc70; }
+        </style>
+        <script src="https://js.stripe.com/v3/"></script>
+    </head>
+    <body>
+        <h1>InsuranceGrokBot</h1>
+        <p style="font-size:24px;">The AI that re-engages your cold leads 24/7</p>
+        <h2>$100 / month</h2>
+        <button id="checkout-button">Buy Now</button>
 
-  <script>
-    const stripe = Stripe(os.getenv("STRIPE_PUBLISHABLE_KEY")); //
+        <script>
+            const stripe = Stripe('pk_live_51Sn2B3CcnqOm4PhLCrorp8AmVvz6yOOL8JCgDMIO7teIhS1RPjFoMIcuzTIFR71IXTo4IMyScSVzJjwn5mgoRvvQ00Rg3BHYNQ');  // ← Replace with your real pk_live_ or pk_test_
 
-    document.getElementById('checkout-button').addEventListener('click', async () => {
-      const response = await fetch('/create-checkout-session', {
-        method: 'POST',
-      });
-      const { sessionId } = await response.json();
-      const { error } = await stripe.redirectToCheckout({ sessionId });
-      if (error) console.error(error);
-    });
-  </script>
-</body>
-</html>
-"""
+            document.getElementById('checkout-button').addEventListener('click', () => {
+                fetch('/create-checkout-session', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        stripe.redirectToCheckout({ sessionId: data.sessionId });
+                    })
+                    .catch(err => {
+                        console.error('Error:', err);
+                        alert('Something went wrong — try again');
+                    });
+            });
+        </script>
+    </body>
+    </html>
+    """
     return render_template_string(checkout_html)
 
 @app.route("/create-checkout-session", methods=["POST"])
