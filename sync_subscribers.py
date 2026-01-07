@@ -79,8 +79,7 @@ def sync_subscribers():
                 updated_at = CURRENT_TIMESTAMP;
         """
 
-        execute_values(cur, upsert_query, subscribers_to_sync)
-        
+        execute_values(cur, upsert_query, subscribers_to_sync)    
         conn.commit()
         logger.info(f"Successfully synced {len(subscribers_to_sync)} subscribers from Google Sheets.")
 
@@ -88,9 +87,13 @@ def sync_subscribers():
     
     except Exception as e:
         logger.error(f"Sync failed: {e}")
+        return False
     finally:
         if conn:
-            cur.close()
+            try:
+                cur.close()
+            except:
+                pass
             conn.close()
 
 if __name__ == "__main__":
