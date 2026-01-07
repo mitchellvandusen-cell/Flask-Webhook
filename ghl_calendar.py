@@ -4,15 +4,13 @@ import re
 import os
 import logging
 import requests
+import pytz
 logger = logging.getLogger(__name__)
 
-api_key = os.getenv("GHL_API_KEY")
-location_id = os.getenv("GHL_LOCATION_ID")
-cal_id = os.getenv("GHL_CALENDAR_ID")
+from sync_subscribers import sync_subscribers
+
 
 # === YOUR FIXED CONSTANTS ===
-CALENDAR_ID = "S4knucFaXO769HDFlRtv"
-GHL_USER_ID = "BhWQCdIwX0Ci0OiRAewU"          # Your userId - never changes
 CACHE_TTL = 1800  # 30 minutes
 
 cache = {}  # Simple in-memory cache
@@ -39,13 +37,13 @@ def consolidated_calendar_op(
     calendar_id: str = None
 ) -> any:
 # 1. Extract dynamic credentials from the subscriber dictionary
-    api_key = subscriber_data.get("ghl_api_key")
-    location_id = subscriber_data.get("ghl_location_id")
-    cal_id = subscriber_data.get("ghl_calendar_id")
-    ghl_user_id = subscriber_data.get("ghl_user_id")
+    api_key = subscriber_data.get("crm_api_key")
+    location_id = subscriber_data.get("location_id")
+    cal_id = subscriber_data.get("calendar_id")
+    crm_user_id = subscriber_data.get("crm_user_id")
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
 
-    if not all([api_key, cal_id]):
+    if not api_key or not cal_id or not location_id:
         logger.error(f"Missing calendar credentials for location {location_id}")
         return "let me look at my calendar" if operation == "fetch_slots" else False
 
@@ -73,6 +71,9 @@ def consolidated_calendar_op(
             "endDate": end_ts,
             "timezone": str
         }
+        # Only add userId if provided — GHL accepts it optionally
+        if crm_user_id:
+            params["userId"] = crm_user_id
 
         try:
             response = requests.get(url, headers=headers, params=params, timeout=20)
@@ -138,7 +139,7 @@ def consolidated_calendar_op(
             "endTime": end_time_iso,
             "title": f"Life Insurance Review with {first_name or 'Contact'}",
             "appointmentStatus": "confirmed",
-            "assignedUserId": ghl_user_id, # <--- Now dynamic!
+            "assignedUserId": crm_user_id, # <--- Now dynamic!
             "selectedTimezone": local_tz_str, # <--- Now dynamic!
         }
 
@@ -163,7 +164,7 @@ def consolidated_calendar_op(
             "startTime": start_time_iso,
             "endTime": end_time_iso,
             "appointmentStatus": "confirmed",
-            "assignedUserId": GHL_USER_ID,
+            "assignedUserId": crm_user_id,
         }
 
         url = f"https://services.leadconnectorhq.com/calendars/events/appointments/{appointment_id}"
@@ -266,4 +267,4 @@ def consolidated_calendar_op(
         response_text = "I've got " + (", or ".join(formatted) if len(formatted) > 1 else formatted[0])
         return response_text
 
-    return False
+    return "Calendar operation not supported yet."

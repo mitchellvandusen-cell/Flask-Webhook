@@ -2,6 +2,8 @@ import os
 import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
+import sqlite3
+from flask_login import UserMixin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,6 +23,59 @@ def get_db_connection():
 # ===================================
 # INITIALIZATION
 # ===================================
+DATABASE = 'users.db'
+
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            email TEXT PRIMARY KEY,
+            password_hash TEXT NOT NULL,
+            stripe_customer_id TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+class User(UserMixin):
+    def __init__(self, email, password_hash=None, stripe_customer_id=None):
+        self.id = email
+        self.email = email
+        self.password_hash = password_hash
+        self.stripe_customer_id = stripe_customer_id
+
+    @staticmethod
+    def get(email):
+        conn = get_db_connection()
+        user = conn.execute(
+            'SELECT email, password_hash, stripe_customer_id FROM users WHERE email = ?',
+            (email,)
+        ).fetchone()
+        conn.close()
+        if user:
+            return User(user['email'], user['password_hash'], user['stripe_customer_id'])
+        return None
+
+    @staticmethod
+    def create(email, password_hash, stripe_customer_id=None):
+        conn = get_db_connection()
+        try:
+            conn.execute(
+                'INSERT INTO users (email, password_hash, stripe_customer_id) VALUES (?, ?, ?)',
+                (email, password_hash, stripe_customer_id)
+            )
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False  # Email already exists
+        finally:
+            conn.close()
 
 def init_db():
     """Initialize all required tables"""

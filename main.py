@@ -1,13 +1,23 @@
 # main.py - Clean Final Version (2026)
-
-from flask import Flask, request, jsonify, render_template_string
-import os
 import logging
 import re
 import uuid
-from flask import session
+import stripe
 from openai import OpenAI
+from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify, session
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, Email, EqualTo
+import stripe
+import os
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import json
 from dotenv import load_dotenv
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 # === NEW MINIMAL IMPORTS ===
 from prompt import build_system_prompt
@@ -18,7 +28,7 @@ from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
 from underwriting import get_underwriting_context
 from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
-from db import get_subscriber_info, get_db_connection
+from db import get_subscriber_info, get_db_connection, init_db, User
 from age import calculate_age_from_dob
 from sync_subscribers import sync_subscribers
 
@@ -27,16 +37,103 @@ load_dotenv()
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app.secret_key = os.getenv("SESSION_SECRET")
+
+# === INITIALIZATION ===
+sync_subscribers()  # Run on startup
+init_db() 
+
+subscribers_cache = {}
+cache_last_updated = None
+
+# == SECRET SESSION ==
+app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
 if not app.secret_key:
     logger.warning("SESSION_SECRET not set — sessions will not work properly!")
     app.secret_key = "fallback-insecure-key"
+
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
 
-# === INITIALIZATION ===
-sync_subscribers()  # Run on startup
+# == STRIPE & DOMAIN ==
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "http://localhost:8080")
+
+# Google Sheets Setup
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
+if not creds_dict:
+    logger.error("GOOGLE_CREDENTIALS not set!")
+else:
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    gc = gspread.authorize(creds)
+    sheet_url = os.getenv("SUBSCRIBER_SHEET_URL")
+    if sheet_url:
+        sh = gc.open_by_url(sheet_url)
+        worksheet = sh.sheet1
+    else:
+        worksheet = None
+        logger.warning("SUBSCRIBER_SHEET_URL not set - sheet writes disabled")
+
+# Flask-Login Setup
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+class User(UserMixin):
+    def __init__(self, id, email, stripe_customer_id=None):
+        self.id = id
+        self.email = email
+        self.stripe_customer_id = stripe_customer_id
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        email = form.email.data
+        if User.get(email):
+            flash("Email already registered")
+            return redirect("/register")
+        
+        password_hash = generate_password_hash(form.password.data)
+        if User.create(email, password_hash):
+            flash("Account created! Please log in.")
+            return redirect("/login")
+        else:
+            flash("Registration failed. Try again.")
+    return render_template_string("""
+    <h1>Register</h1>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        {{ form.email.label }} {{ form.email }}<br><br>
+        {{ form.password.label }} {{ form.password }}<br><br>
+        {{ form.confirm.label }} {{ form.confirm }}<br><br>
+        {{ form.submit }}
+    </form>
+    <p><a href="/login">Already have an account? Log in</a></p>
+    """, form=form)
+
+# Forms
+class RegisterForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    confirm = PasswordField("Confirm Password", validators=[DataRequired(), EqualTo("password")])
+    submit = SubmitField("Create Account")
+
+class LoginForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Login")
+
+class ConfigForm(FlaskForm):
+    location_id = StringField("Location ID", validators=[DataRequired()])
+    crm_api_key = StringField("CRM API Key", validators=[DataRequired()])
+    crm_user_id = StringField("CRM USER ID", validators=[DataRequired()])
+    calendar_id = StringField("Calendar ID", validators=[DataRequired()])
+    timezone = StringField("Timezone (e.g. America/Chicago)", validators=[DataRequired()])
+    bot_name = StringField("Bot First Name", validators=[DataRequired()])
+    initial_message = StringField("Optional Initial Message")
+    submit = SubmitField("Save Settings")
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -54,7 +151,7 @@ def webhook():
     if is_demo:
         subscriber = {
             'bot_first_name': 'Grok',
-            'ghl_api_key': 'DEMO',
+            'crm_api_key': 'DEMO',
             'timezone': 'America/Chicago'
         }
         contact_id = payload.get("contact_id")
@@ -71,8 +168,11 @@ def webhook():
             return jsonify({"status": "error", "error": "Missing contact_id"}), 400
 
     bot_first_name = subscriber['bot_first_name']
-    ghl_api_key = subscriber['ghl_api_key']
+    crm_api_key = subscriber['crm_api_key']
     timezone = subscriber.get('timezone', 'America/Chicago')
+    crm_user_id = subscriber['crm_user_id']
+    calendar_id = subscriber['calendar_id']
+
 
     # 2. Extract Message
     raw_message = payload.get("message", {})
@@ -104,9 +204,24 @@ def webhook():
     save_message(contact_id, message, "lead")
 
     # 4. Context Gathering
+    initial_message = subscriber.get('initial_message', '').strip()
     known_facts = [] if is_demo else get_known_facts(contact_id)
     vibe = classify_vibe(message).value
     recent_exchanges = get_recent_messages(contact_id, limit=8)
+    assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
+
+    if len(assistant_messages) == 0 and initial_message:
+        reply = initial_message
+
+        save_message(contact_id, reply, "assistant")
+        if not is_demo and crm_api_key != 'DEMO':
+            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
+
+        return jsonify({
+            "status": "success",
+            "reply": reply
+        })
+    
 
     context_nudge = ""
     msg_lower = message.lower()
@@ -187,8 +302,8 @@ def webhook():
     if not is_demo:
         if new_facts_extracted:
             save_new_facts(contact_id, new_facts_extracted)
-        if ghl_api_key != 'DEMO':
-            send_sms_via_ghl(contact_id, reply, ghl_api_key, location_id)
+        if crm_api_key != 'DEMO':
+            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
 
     save_message(contact_id, reply, "assistant")
 
@@ -238,15 +353,33 @@ def home():
 <body>
 <nav class="navbar navbar-expand-lg sticky-top">
     <div class="container">
-        <a class="navbar-brand" href="#">INSURANCE<span class="highlight">GROK</span>BOT</a>
-        <div class="collapse navbar-collapse">
-            <ul class="navbar-nav ms-auto">
+        <nav class="navbar navbar-expand-lg sticky-top">
+            <div class="container">
+                <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <!-- paste the updated ul from above here -->
+                </div>
+            </div>
+        </nav>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto align-items-center">
                 <li class="nav-item"><a href="#abilities" class="nav-link">Abilities</a></li>
                 <li class="nav-item"><a href="#comparison-section" class="nav-link">Comparison</a></li>
                 <li class="nav-item"><a href="#compatibility" class="nav-link">Compatibility</a></li>
                 <li class="nav-item"><a href="#sales-knowledge" class="nav-link">Sales Logic</a></li>
                 <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
-                <li class="nav-item"><a href="#contact" class="nav-link text-white fw-bold">Get Started</a></li>
+                <li class="nav-item"><a href="/demo-chat" class="nav-link">Demo</a></li>
+                
+                <!-- Login / Sign Up Buttons -->
+                <li class="nav-item ms-3">
+                    <a href="/login" class="btn btn-outline-light me-2">Log In</a>
+                </li>
+                <li class="nav-item">
+                    <a href="/register" class="btn btn-primary" style="background: #00ff88; border: none; color: #000; font-weight: bold;">Sign Up</a>
+                </li>
             </ul>
         </div>
     </div>
@@ -372,7 +505,219 @@ def home():
 </html>
 """
     return render_template_string(home_html)
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        email = form.email.data
+        # Simple check — in production hash password
+        session["email"] = email
+        session["password"] = form.password.data  # NEVER store plain in real app
+        flash("Account created! Please subscribe.")
+        return redirect("/checkout")
+    return render_template_string("""
+    <h1>Register</h1>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        {{ form.email.label }} {{ form.email }}<br>
+        {{ form.password.label }} {{ form.password }}<br>
+        {{ form.confirm.label }} {{ form.confirm }}<br>
+        {{ form.submit }}
+    </form>
+    <p><a href="/login">Already have an account?</a></p>
+    """, form=form)
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        # Simple auth — replace with proper hashing in production
+        if session.get("email") == form.email.data and session.get("password") == form.password.data:
+            user = User(id=form.email.data, email=form.email.data)
+            login_user(user)
+            return redirect("/dashboard")
+        flash("Invalid credentials")
+    return render_template_string("""
+    <h1>Login</h1>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        {{ form.email.label }} {{ form.email }}<br>
+        {{ form.password.label }} {{ form.password }}<br>
+        {{ form.submit }}
+    </form>
+    <p><a href="/register">Create account</a></p>
+    """, form=form)
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect("/")
+
+@app.route("/dashboard", methods=["GET", "POST"])
+@login_required
+def dashboard():
+    if not worksheet:
+        return "Google Sheet not configured – check SUBSCRIBER_SHEET_URL and GOOGLE_CREDENTIALS", 500
+
+    form = ConfigForm()
+
+    # Get all values from sheet
+    values = worksheet.get_all_values()
+    if not values:
+        # First run – add headers
+        headers = ["Email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message"]
+        worksheet.append_row(headers)
+        values = [headers]
+
+    header = values[0]
+    header_lower = [h.strip().lower() for h in header]
+
+    # Safe column lookup
+    def col_index(name):
+        try:
+            return header_lower.index(name.lower())
+        except ValueError:
+            return header.index(name)  # fallback exact match
+
+    try:
+        email_idx = col_index("Email")
+        location_idx = col_index("location_id")
+        calendar_idx = col_index("calendar_id")
+        api_key_idx = col_index("crm_api_key")
+        user_id_idx = col_index("crm_user_id")
+        bot_name_idx = col_index("bot_first_name")
+        timezone_idx = col_index("timezone")
+        initial_msg_idx = col_index("initial_message")
+    except ValueError as e:
+        return f"<h1>Sheet Error</h1><p>Missing column: {e}</p><p>Current headers: {header}</p>", 500
+
+    # Find user's row by Email
+    user_row_num = None
+    for i, row in enumerate(values[1:], start=2):
+        if len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
+            user_row_num = i
+            break
+
+    if form.validate_on_submit():
+        data = [
+            current_user.email,
+            form.location_id.data or "",
+            form.calendar_id.data or "",
+            form.crm_api_key.data or "",
+            form.crm_user_id.data or "",
+            form.bot_name.data or "",
+            form.timezone.data or "",
+            form.initial_message.data or "",
+        ]
+
+        if user_row_num:
+            worksheet.update(f"A{user_row_num}:H{user_row_num}", [data])
+        else:
+            worksheet.append_row(data)
+        sync_subscribers()
+
+        flash("settings saved and bot updated instantly", "success")
+        return redirect("/dashboard")
+
+    # Pre-fill form from existing row
+    if user_row_num and len(values[user_row_num - 1]) >= 8:
+        row = values[user_row_num - 1]
+        form.location_id.data = row[location_idx]
+        form.calendar_id.data = row[calendar_idx]
+        form.crm_api_key.data = row[api_key_idx]
+        form.crm_user_id.data = row[user_id_idx]
+        form.bot_name.data = row[bot_name_idx]
+        form.timezone.data = row[timezone_idx]
+        form.initial_message.data = row[initial_msg_idx]
+
+    return render_template_string("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - InsuranceGrokBot</title>
+    <style>
+        body { background:#000; color:#fff; font-family:Arial; padding:40px; }
+        .container { max-width:800px; margin:auto; }
+        h1 { font-size:48px; text-align:center; color:#00ff88; }
+        .form-group { margin:25px 0; }
+        label { display:block; margin-bottom:8px; font-size:18px; }
+        input { width:100%; padding:12px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:16px; }
+        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:30px; }
+        button:hover { background:#00cc70; }
+        .logout { position:absolute; top:20px; right:20px; color:#00ff88; font-size:18px; }
+        .alert { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/logout" class="logout">Logout</a>
+        <h1>Dashboard</h1>
+        <p style="text-align:center; font-size:20px;">Welcome back, <strong>{{ current_user.email }}</strong></p>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert">
+              {% for message in messages %}
+                {{ message }}<br>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <h2 style="color:#00ff88; text-align:center;">Configure Your Bot</h2>
+        <form method="post">
+            {{ form.hidden_tag() }}
+
+            <div class="form-group">
+                {{ form.location_id.label }}
+                {{ form.location_id(class="form-control", placeholder="e.g. k7lOZdwaMruhP") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.calendar_id.label }}
+                {{ form.calendar_id(class="form-control", placeholder="e.g. S4KnucrFaXO76") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.crm_api_key.label }}
+                {{ form.crm_api_key(class="form-control", placeholder="e.g. pit-ae0fh932-a8c") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.crm_user_id.label }}
+                {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – required for calendar") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.timezone.label }}
+                {{ form.timezone(class="form-control", placeholder="e.g. America/Chicago") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.bot_name.label }}
+                {{ form.bot_name(class="form-control", placeholder="e.g. Mitch") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.initial_message.label }}
+                {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
+            </div>
+
+            <div style="text-align:center;">
+                {{ form.submit }}
+            </div>
+        </form>
+
+        <p style="text-align:center; margin-top:60px;">
+            <a href="/" style="color:#00ff88;">← Back to Home</a>
+        </p>
+    </div>
+</body>
+</html>
+    """, form=form)
 # At the top, add a demo-specific contact ID
 DEMO_CONTACT_ID = "demo_web_visitor"
 
@@ -702,6 +1047,128 @@ Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><bdt clas
 </html>
     """
     return render_template_string(terms_html)
+
+@app.route("/checkout")
+def checkout():
+    checkout_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subscribe to InsuranceGrokBot</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      background: #000; 
+      color: #fff; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
+      margin: 0; 
+    }
+    section { text-align: center; }
+    .product { margin-bottom: 30px; }
+    h1 { font-size: 36px; }
+    h2 { font-size: 48px; margin: 20px 0; }
+    button { 
+      padding: 15px 40px; 
+      font-size: 20px; 
+      background: #00ff88; 
+      color: #000; 
+      border: none; 
+      border-radius: 8px; 
+      cursor: pointer; 
+    }
+    button:hover { background: #00cc70; }
+  </style>
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <section>
+    <div class="product">
+      <h1>InsuranceGrokBot</h1>
+      <h3>The AI that re-engages your cold leads 24/7</h3>
+      <h2>$100 / month</h2>
+    </div>
+    <button id="checkout-button">Subscribe Now</button>
+  </section>
+
+  <script>
+    const stripe = Stripe(os.getenv("STRIPE_PUBLISHABLE_KEY")); //
+
+    document.getElementById('checkout-button').addEventListener('click', async () => {
+      const response = await fetch('/create-checkout-session', {
+        method: 'POST',
+      });
+      const { sessionId } = await response.json();
+      const { error } = await stripe.redirectToCheckout({ sessionId });
+      if (error) console.error(error);
+    });
+  </script>
+</body>
+</html>
+"""
+    return render_template_string(checkout_html)
+
+@app.route("/create-checkout-session", methods=["POST"])
+def create_checkout_session():
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{
+                "price": os.getenv("STRIPE_PRICE_ID"),
+                "quantity": 1,
+            }],
+            success_url=f"{YOUR_DOMAIN}/success",
+            cancel_url=f"{YOUR_DOMAIN}/cancel",
+        )
+        return jsonify({"sessionId": session.id})
+    except Exception as e:
+        return jsonify(error=str(e)), 403
+
+@app.route("/cancel")
+def cancel():
+    cancel_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Checkout Canceled</title>
+  <style>
+    body { font-family: Arial; background: #000; color: #fff; text-align: center; padding: 100px; }
+    a { color: #00ff88; }
+  </style>
+</head>
+<body>
+  <h1>Checkout Canceled</h1>
+  <p>No worries, come back anytime.</p>
+  <p><a href="/">Back to Home</a></p>
+</body>
+</html>
+"""
+    return render_template_string(cancel_html)
+@app.route("/success")
+def success_html():
+    success_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Subscription Successful!</title>
+  <style>
+    body { font-family: Arial; background: #000; color: #fff; text-align: center; padding: 100px; }
+    a { color: #00ff88; font-size: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Thank You!</h1>
+  <p>Your subscription to InsuranceGrokBot is now active.</p>
+  <p><a href="/dashboard">Go to your dashboard to configure your bot</a></p>
+</body>
+</html>
+"""
+    return render_template_string(success_html)
 
 @app.route("/refresh")
 def refresh_subscribers():

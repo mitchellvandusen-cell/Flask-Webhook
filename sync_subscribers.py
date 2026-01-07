@@ -35,8 +35,11 @@ def sync_subscribers():
             subscribers_to_sync.append((
                 row.get('location_id').strip(),
                 row.get('bot_first_name', 'Mitchell').strip(),
-                row.get('ghl_api_key').strip(),
-                row.get('timezone', 'America/Chicago').strip()
+                row.get('api_key').strip(),
+                row.get('timezone', 'America/Chicago').strip(),
+                row.get('crm_user_id').strip(),
+                row.get('calendar_id').strip(),
+                row.get('initial_message').strip()
             ))
 
         if not subscribers_to_sync:
@@ -50,9 +53,12 @@ def sync_subscribers():
         # Create table if it doesn't exist
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
-                ghl_location_id TEXT PRIMARY KEY,
+                crm_location_id TEXT PRIMARY KEY,
                 bot_first_name TEXT,
-                ghl_api_key TEXT,
+                crm_user_id TEXT,
+                calendar_id TEXT,
+                initial_message TEXT,
+                crm_api_key TEXT,
                 timezone TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -60,13 +66,16 @@ def sync_subscribers():
 
         # Perform the UPSERT (Update on conflict)
         upsert_query = """
-            INSERT INTO subscribers (ghl_location_id, bot_first_name, ghl_api_key, timezone)
+            INSERT INTO subscribers (crm_location_id, bot_first_name, crm_api_key, timezone, initial_message, crm_user_id, calendar_id)
             VALUES %s
             ON CONFLICT (ghl_location_id) 
             DO UPDATE SET 
                 bot_first_name = EXCLUDED.bot_first_name,
-                ghl_api_key = EXCLUDED.ghl_api_key,
+                crm_api_key = EXCLUDED.crm_api_key,
                 timezone = EXCLUDED.timezone,
+                crm_user_id = EXCLUDED.crm_user_id,
+                initial_message = EXCLUDED.initial_message,
+                calendar_id = EXCLUDED.calendar_id,
                 updated_at = CURRENT_TIMESTAMP;
         """
 
