@@ -311,8 +311,8 @@ def home():
     </div>
 </nav>
 
-<header class="hero-section text-center">
-    <div class="container">
+<header class="hero-section text-center position-relative">
+    <div class="container position-relative" style="z-index: 2;">
         <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
         <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
         <a href="/demo-chat" class="demo-button">Try the Assistant Here</a>
