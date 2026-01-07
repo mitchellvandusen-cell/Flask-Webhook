@@ -54,7 +54,7 @@ def webhook():
             'ghl_api_key': 'DEMO',
             'timezone': 'America/Chicago'
         }
-        contact_id = "demo_web_visitor"  # Fixed ID → easy to clear/ignore persistence
+        contact_id = payload.get("contact_id", "demo_fallback")
     else:
         subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
@@ -517,24 +517,33 @@ def demo_chat():
         const chat = document.getElementById('chat-screen');
 
         async function sendMessage() {
-            const msg = input.value.trim();
-            if (!msg) return;
+                const input = document.getElementById('user-input');
+                const chat = document.getElementById('chat-screen');
+                const msg = input.value.trim();
+                if (!msg) return;
 
-            chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
-            input.value = '';
-            chat.scrollTop = chat.scrollHeight;
+                chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
+                input.value = '';
+                chat.scrollTop = chat.scrollHeight;
 
-            try {
-                const res = await fetch('/webhook', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        locationId: 'DEMO_ACCOUNT_SALES_ONLY',
-                        contact_id: 'demo_web_visitor',
-                        first_name: 'Visitor',
-                        message: {body: msg}
-                    })
-                });
+                try {
+                    const res = await fetch('/webhook', {
+                        method: 'POST',
+                        headers: {{'Content-Type': 'application/json'}},
+                        body: JSON.stringify({{
+                            locationId: 'DEMO_ACCOUNT_SALES_ONLY',
+                            contact_id: SESSION_ID,
+                            first_name: 'Visitor',
+                            message: {{body: msg}}
+                        }})
+                    });
+                    const data = await res.json();
+                    chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
+                } catch(e) {
+                    chat.innerHTML += `<div class="msg bot-msg">Sorry — connection issue. Try again?</div>`;
+                }
+                chat.scrollTop = chat.scrollHeight;
+            };
                 const data = await res.json();
                 chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
             } catch(e) {
