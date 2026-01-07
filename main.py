@@ -376,7 +376,17 @@ def home():
     <div class="container position-relative" style="z-index: 2;">
         <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
         <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
-        <a href="/demo-chat" class="demo-button">Try the Assistant Here</a>
+        
+        <!-- Main CTA: Buy Now -->
+        <a href="/checkout" class="demo-button" style="font-size: 32px; padding: 20px 60px;">
+            Buy Now early special $100/mo
+        </a>
+
+        <p class="mt-5">
+            <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:18px;">
+                Or try the demo first →
+            </a>
+        </p>
     </div>
 </header>
 
