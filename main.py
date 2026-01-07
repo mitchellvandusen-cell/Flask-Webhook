@@ -200,7 +200,19 @@ def webhook():
                 save_new_facts(contact_id, new_facts_extracted)
             reply = raw_reply.split("<new_facts>")[0].strip()
         except:
-            pass  # fallback
+            pass
+
+    # === CLEAN AI TELLS ===
+    reply = reply.replace("—", ",")
+    reply = reply.replace("–", ",")
+    reply = reply.replace("…", "...")
+    reply = reply.replace(""", '"')
+    reply = reply.replace(""", '"')
+    # Optional: fix smart apostrophes
+    reply = reply.replace("'", "'").replace("'", "'")
+
+    # Trim any extra whitespace
+    reply = reply.strip()
 
     # 9. Send Reply
     if ghl_api_key != 'DEMO':
