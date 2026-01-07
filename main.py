@@ -92,33 +92,6 @@ class User(UserMixin):
         self.email = email
         self.stripe_customer_id = stripe_customer_id
 
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    form = RegisterForm()
-    if form.validate_on_submit():
-        email = form.email.data
-        if User.get(email):
-            flash("Email already registered")
-            return redirect("/register")
-        
-        password_hash = generate_password_hash(form.password.data)
-        if User.create(email, password_hash):
-            flash("Account created! Please log in.")
-            return redirect("/login")
-        else:
-            flash("Registration failed. Try again.")
-    return render_template_string("""
-    <h1>Register</h1>
-    <form method="post">
-        {{ form.hidden_tag() }}
-        {{ form.email.label }} {{ form.email }}<br><br>
-        {{ form.password.label }} {{ form.password }}<br><br>
-        {{ form.confirm.label }} {{ form.confirm }}<br><br>
-        {{ form.submit }}
-    </form>
-    <p><a href="/login">Already have an account? Log in</a></p>
-    """, form=form)
-
 # Forms
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
@@ -511,26 +484,32 @@ def home():
 </html>
 """
     return render_template_string(home_html)
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
         email = form.email.data
-        # Simple check — in production hash password
-        session["email"] = email
-        session["password"] = form.password.data  # NEVER store plain in real app
-        flash("Account created! Please subscribe.")
-        return redirect("/checkout")
+        if User.get(email):
+            flash("Email already registered")
+            return redirect("/register")
+        
+        password_hash = generate_password_hash(form.password.data)
+        if User.create(email, password_hash):
+            flash("Account created! Please log in.")
+            return redirect("/login")
+        else:
+            flash("Registration failed. Try again.")
     return render_template_string("""
     <h1>Register</h1>
     <form method="post">
         {{ form.hidden_tag() }}
-        {{ form.email.label }} {{ form.email }}<br>
-        {{ form.password.label }} {{ form.password }}<br>
-        {{ form.confirm.label }} {{ form.confirm }}<br>
+        {{ form.email.label }} {{ form.email }}<br><br>
+        {{ form.password.label }} {{ form.password }}<br><br>
+        {{ form.confirm.label }} {{ form.confirm }}<br><br>
         {{ form.submit }}
     </form>
-    <p><a href="/login">Already have an account?</a></p>
+    <p><a href="/login">Already have an account? Log in</a></p>
     """, form=form)
 
 @app.route("/login", methods=["GET", "POST"])
