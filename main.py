@@ -203,8 +203,6 @@ def home():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InsuranceGrokBot | AI Lead Re-engagement</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
@@ -212,60 +210,32 @@ def home():
         .navbar { background-color: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
         .navbar-brand { font-weight: 700; color: #fff !important; text-shadow: 0 0 5px var(--neon-glow); }
         .highlight { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
-        
-        /* Fixed Titles to use the Neon Green color */
         .card h3, .card h4 { color: var(--accent) !important; text-shadow: 0 0 5px var(--neon-glow); }
-        
-        .btn-outline-danger {
-            border-color: #ff4444;
-            color: #ff4444;
-            transition: 0.3s;
-            box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
-        }
-        .btn-outline-danger:hover {
-            background-color: #ff4444;
-            color: #fff;
-            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
-        }
-        /* Sections */
         .hero-section { padding: 120px 0; background: radial-gradient(circle at center, #111 0%, #000 100%); position: relative; overflow: hidden; }
         .hero-section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,255,136,0.1) 0%, transparent 100%); opacity: 0.5; pointer-events: none; }
-        .btn-primary { background-color: var(--accent); color: #000; border: none; font-weight: bold; padding: 12px 30px; border-radius: 5px; box-shadow: 0 0 15px var(--neon-glow); transition: 0.3s; }
-        .btn-primary:hover { box-shadow: 0 0 25px var(--neon-glow); transform: translateY(-2px); }
-        
-        /* Demo Button with working URL */
         .demo-button { display: inline-block; text-decoration: none; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; border: none; padding: 15px 40px; border-radius: 50px; box-shadow: 0 5px 20px var(--neon-glow); transition: 0.3s; }
-        .demo-button:hover { transform: scale(1.05); box-shadow: 0 10px 30px var(--neon-glow); color: #000; }
-
-        /* Comparison Section */
-        #comparison-section { background: #0a0a0a; padding: 60px 0; }
+        .demo-button:hover { transform: scale(1.05); box-shadow: 0 10px 30px var(--neon-glow); }
         .comparison-card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: 1px solid #333; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
         .comparison-card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
         .comparison-card h4 { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
         .comparison-card ul { list-style-type: none; padding: 0; }
         .comparison-card li { margin-bottom: 10px; display: flex; align-items: center; }
         .comparison-card li::before { content: '\\2714'; color: var(--accent); margin-right: 10px; font-size: 1.2em; }
-
-        /* Abilities Cards */
         .card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
         .card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
-
-        /* General */
         h2, h4 { letter-spacing: 1px; text-transform: uppercase; }
-
     </style>
 </head>
 <body>
-
 <nav class="navbar navbar-expand-lg sticky-top">
     <div class="container">
         <a class="navbar-brand" href="#">INSURANCE<span class="highlight">GROK</span>BOT</a>
-        <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="collapse navbar-collapse">
             <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a href="#demo" class="nav-link">Live Demo</a></li>
                 <li class="nav-item"><a href="#abilities" class="nav-link">Abilities</a></li>
+                <li class="nav-item"><a href="#comparison-section" class="nav-link">Comparison</a></li>
                 <li class="nav-item"><a href="#compatibility" class="nav-link">Compatibility</a></li>
-                <li class="nav-item"><a href="#sales-knowledge" class="nav-link">Sales Knowledge</a></li>
+                <li class="nav-item"><a href="#sales-knowledge" class="nav-link">Sales Logic</a></li>
                 <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
                 <li class="nav-item"><a href="#contact" class="nav-link text-white fw-bold">Get Started</a></li>
             </ul>
@@ -404,68 +374,80 @@ def demo_chat():
     # Or just ignore — since we'll force known_facts = []
 
     demo_html = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Chat with GrokBot</title>
-        <!-- Your iPhone frame CSS from before -->
-        <style>
-            /* Paste your full iPhone frame CSS here */
-        </style>
-    </head>
-    <body>
-        <div class="iphone-frame">
-            <div id="chat-screen" class="chat-screen">
-                <div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>
-            </div>
-            <div class="input-area">
-                <input type="text" id="user-input" placeholder="Type your message..." autofocus>
-                <button id="send-btn">Send</button>
-            </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with GrokBot</title>
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; background: #f5f5f7; display: flex; justify-content: center; align-items: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .iphone-frame { width: 375px; height: 812px; background: #000; border-radius: 60px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); padding: 60px 15px 100px; position: relative; overflow: hidden; }
+        .iphone-frame::before { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 160px; height: 30px; background: #000; border-radius: 20px; }
+        .chat-screen { height: calc(100% - 120px); overflow-y: auto; padding: 20px 10px; background: #fff; display: flex; flex-direction: column; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; word-wrap: break-word; }
+        .bot-msg { background: #e5e5ea; color: #000; align-self: flex-start; border-bottom-left-radius: 5px; }
+        .user-msg { background: #007aff; color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
+        .input-area { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; background: #fff; border-radius: 25px; padding: 8px 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        #user-input { flex: 1; border: none; outline: none; font-size: 16px; }
+        #send-btn { background: #007aff; color: white; border: none; border-radius: 50%; width: 36px; height: 36px; margin-left: 10px; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="iphone-frame">
+        <div id="chat-screen" class="chat-screen">
+            <div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>
         </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." autofocus>
+            <button id="send-btn">↑</button>
+        </div>
+    </div>
 
-        <script>
-            const DEMO_CONTACT = "demo_web_visitor";
+    <script>
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chat = document.getElementById('chat-screen');
 
-            async function sendMessage() {
-                const input = document.getElementById('user-input');
-                const chat = document.getElementById('chat-screen');
-                const msg = input.value.trim();
-                if (!msg) return;
+        async function sendMessage() {
+            const msg = input.value.trim();
+            if (!msg) return;
 
-                chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
-                input.value = '';
-                chat.scrollTop = chat.scrollHeight;
+            chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
 
-                try {
-                    const res = await fetch('/webhook', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            locationId: 'DEMO_ACCOUNT_SALES_ONLY',
-                            contact_id: DEMO_CONTACT,
-                            first_name: 'Visitor',
-                            message: {body: msg}
-                        })
-                    });
-                    const data = await res.json();
-                    chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
-                } catch(e) {
-                    chat.innerHTML += `<div class="msg bot-msg">Sorry — having connection trouble. Try again?</div>`;
-                }
-                chat.scrollTop = chat.scrollHeight;
+            try {
+                const res = await fetch('/webhook', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        locationId: 'DEMO_ACCOUNT_SALES_ONLY',
+                        contact_id: 'demo_web_visitor',
+                        first_name: 'Visitor',
+                        message: {body: msg}
+                    })
+                });
+                const data = await res.json();
+                chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
+            } catch(e) {
+                chat.innerHTML += `<div class="msg bot-msg">Sorry — connection issue. Try again?</div>`;
             }
+            chat.scrollTop = chat.scrollHeight;
+        }
 
-            document.getElementById('user-input').addEventListener('keypress', e => {
-                if (e.key === 'Enter') sendMessage();
-            });
-            document.getElementById('send-btn').addEventListener('click', sendMessage);
-        </script>
-    </body>
-    </html>
-    """
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+    </script>
+</body>
+</html>
+"""
     return render_template_string(demo_html)
 
 @app.route("/refresh")
