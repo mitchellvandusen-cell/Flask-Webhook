@@ -232,341 +232,272 @@ def webhook():
 
 @app.route("/") # Website 
 def home():
-    html_template = """
+   home_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsuranceGrokBot | AI Lead Re-engagement</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background-color: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; scroll-behavior: smooth; }
+        .navbar { background-color: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
+        .navbar-brand { font-weight: 700; color: #fff !important; text-shadow: 0 0 5px var(--neon-glow); }
+        .highlight { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
+        .btn-outline-danger {
+            border-color: #ff4444;
+            color: #ff4444;
+            transition: 0.3s;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
+        }
+        .btn-outline-danger:hover {
+            background-color: #ff4444;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+        }
+        /* Sections */
+        .hero-section { padding: 120px 0; background: radial-gradient(circle at center, #111 0%, #000 100%); position: relative; overflow: hidden; }
+        .hero-section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,255,136,0.1) 0%, transparent 100%); opacity: 0.5; }
+        .btn-primary { background-color: var(--accent); color: #000; border: none; font-weight: bold; padding: 12px 30px; border-radius: 5px; box-shadow: 0 0 15px var(--neon-glow); transition: 0.3s; }
+        .btn-primary:hover { box-shadow: 0 0 25px var(--neon-glow); transform: translateY(-2px); }
+        
+        /* Demo Button */
+        .demo-button { background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; border: none; padding: 15px 40px; border-radius: 50px; box-shadow: 0 5px 20px var(--neon-glow); transition: 0.3s; }
+        .demo-button:hover { transform: scale(1.05); box-shadow: 0 10px 30px var(--neon-glow); }
+
+        /* Comparison Section */
+        #comparison-section { background: #0a0a0a; padding: 60px 0; }
+        .comparison-card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: 1px solid #333; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
+        .comparison-card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
+        .comparison-card h4 { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
+        .comparison-card ul { list-style-type: none; padding: 0; }
+        .comparison-card li { margin-bottom: 10px; display: flex; align-items: center; }
+        .comparison-card li::before { content: '\\2714'; color: var(--accent); margin-right: 10px; font-size: 1.2em; }
+
+        /* Abilities Cards */
+        .card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
+        .card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
+        .card h3 { color: var(--accent); }
+
+        /* General */
+        h2, h4 { letter-spacing: 1px; text-transform: uppercase; }
+
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container">
+        <a class="navbar-brand" href="#">INSURANCE<span class="highlight">GROK</span>BOT</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a href="#demo" class="nav-link">Live Demo</a></li>
+                <li class="nav-item"><a href="#abilities" class="nav-link">Abilities</a></li>
+                <li class="nav-item"><a href="#compatibility" class="nav-link">Compatibility</a></li>
+                <li class="nav-item"><a href="#sales-knowledge" class="nav-link">Sales Knowledge</a></li>
+                <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
+                <li class="nav-item"><a href="#contact" class="nav-link text-white fw-bold">Get Started</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<header class="hero-section text-center">
+    <div class="container">
+        <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
+        <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
+        <a href="#demo-chat" class="demo-button">Try the Assistant - Click Here</a>
+    </div>
+</header>
+
+<section id="abilities" class="py-5 bg-dark">
+    <div class="container">
+        <h2 class="fw-bold text-center mb-5">Current Abilities</h2>
+        <div class="row g-4">
+            <div class="col-md-4"><div class="card p-4"><h3>Multi-Tenant</h3><p class="text-secondary">Handles leads across different agencies with unique identities and data isolation.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h3>Deep Discovery</h3><p class="text-secondary">Automated fact-finding to identify gaps in existing work or pension coverage.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h3>24/7 Re-engagement</h3><p class="text-secondary">Picks up old leads and works them until they are ready to talk to an agent.</p></div></div>
+        </div>
+    </div>
+</section>
+
+<section id="comparison-section" class="py-5 bg-black">
+    <div class="container text-center">
+        <h2 class="mb-5 fw-bold">Others vs. InsuranceGrokBot</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="comparison-card">
+                    <h4>Feature</h4>
+                    <ul>
+                        <li>Logic</li>
+                        <li>Persistence</li>
+                        <li>Knowledge</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="comparison-card">
+                    <h4>Standard Bot</h4>
+                    <ul>
+                        <li>Hardcoded Scripts</li>
+                        <li>Gives up on "No"</li>
+                        <li>Generic</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="comparison-card">
+                    <h4 class="highlight">GrokBot</h4>
+                    <ul>
+                        <li>Real-time Reasoning</li>
+                        <li>NEPQ Objection Handling</li>
+                        <li>Insurance Specific</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="compatibility" class="py-5 bg-dark">
+    <div class="container">
+        <h2 class="fw-bold text-center mb-5">Built for Every CRM</h2>
+        <div class="row g-3 text-center">
+            <div class="col-md-4"><div class="card p-4"><h4>GoHighLevel</h4><p class="small text-secondary">Native webhook support. Easy setup.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h4>HubSpot</h4><p class="small text-secondary">Workflow triggers. Easy setup.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h4>Pipedrive</h4><p class="small text-secondary">Activity-based webhooks. Easy setup.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h4>Zoho CRM</h4><p class="small text-secondary">Automation rules. Semi-easy setup.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h4>Salesforce</h4><p class="small text-secondary">Enterprise outbound messaging. Semi-easy.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h4>Zapier</h4><p class="small text-secondary">The universal bridge. Easy setup.</p></div></div>
+        </div>
+    </div>
+</section>
+
+<section id="sales-knowledge" class="py-5 bg-black">
+    <div class="container">
+        <h2 class="fw-bold highlight mb-4">The Master Sales Logic</h2>
+        <div class="row g-5">
+            <div class="col-md-6">
+                <h4>Jeremy Miner's NEPQ</h4>
+                <p class="text-secondary">Neuro-Emotional Persuasion Questions focus on getting the lead to persuade themselves. By asking the right questions, the bot uncovers the "Gap" between their current situation and their needs.</p>
+                <h4>Jordan Belfort's Straight Line</h4>
+                <p class="text-secondary">The bot is programmed to maintain control of the sale. It loops back to the benefits of the policy while building massive certainty in the lead's mind.</p>
+            </div>
+            <div class="col-md-6">
+                <h4>Gap Selling & Psychology of Selling</h4>
+                <p class="text-secondary">Using Keenan’s 'Gap Selling' and Brian Tracy’s 'Psychology of Selling', this bot identifies the lead's pain points and refuses to back down from smoke-screen objections. It is designed to manage the conversation until a result is achieved.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="pricing" class="py-5 bg-dark text-center">
+    <div class="container">
+        <h2 class="fw-bold highlight mb-4">Pricing</h2>
+        <div class="card p-5 mx-auto" style="max-width: 500px; box-shadow: 0 0 20px var(--neon-glow);">
+            <h3 class="display-4 fw-bold">$100<small class="fs-4">/mo</small></h3>
+            <p class="lead">Early Adopter Rate</p>
+            <p class="text-secondary">Limited to the first 50 people. Don't let old leads go to waste.</p>
+            <a href="#contact" class="btn btn-primary w-100 mt-4">RESERVE MY SPOT</a>
+        </div>
+    </div>
+</section>
+
+<section id="contact" class="py-5 bg-black">
+    <div class="container text-center" style="max-width: 600px;">
+        <h2 class="fw-bold mb-4">Ready to Automate?</h2>
+        <form action="mailto:mitchell_vandusen@hotmal.com" method="post" enctype="text/plain">
+            <input type="text" name="name" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Name" required>
+            <input type="email" name="email" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Email" required>
+            <textarea name="msg" class="form-control mb-4 bg-dark text-white border-secondary" placeholder="Your CRM and Lead Volume..." rows="4"></textarea>
+            <button type="submit" class="btn btn-primary btn-lg w-100">SUBMIT REQUEST</button>
+        </form>
+    </div>
+</section>
+
+<footer class="py-4 text-center border-top border-secondary bg-black">
+    <p class="text-secondary">&copy; 2026 InsuranceGrokBot. Built by Life Insurance Agents for Life Insurance Agents.</p>
+</footer>
+</body>
+</html>
+"""
+
+@app.route("/demo-chat")
+def demo_chat():
+    chat_html = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>InsuranceGrokBot | AI Lead Re-engagement</title>
+        <title>Chat with GrokBot</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
         <style>
-            :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; }
-            body { background-color: var(--dark-bg); color: #fff; font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
-            .navbar { background-color: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
-            .navbar-brand { font-weight: 700; color: #fff !important; }
-            .highlight { color: var(--accent); }
-            .btn-outline-danger {
-                border-color: #ff4444;
-                color: #ff4444;
-                transition: 0.3s;
-            }
-            .btn-outline-danger:hover {
-                background-color: #ff4444;
-                color: #fff;
-            }
-            /* Mobile Responsive Tweak */
-            @media (max-width: 768px) {
-                #demo-container {
-                    flex-direction: column; /* Stacks columns vertically */
-                    height: auto;           /* Let it grow as long as needed */
-                }
-                
-                #chat-column {
-                    height: 65vh;          /* Set to 65% of the screen height */
-                    flex: 1 0 auto;        /* Let it take the remaining space */
-                }
-
-                 /* 1. Make the Fact Box (Memory) smaller on mobile */
-                #fact-column {
-                    order: -1; 
-                    margin-bottom: 10px;
-                    flex: 0 0 auto;        /* Don't let it grow */
-                    max-height: 150px;     /* Limit height so it doesn't hog the screen */
-                    overflow-y: auto;      /* Scroll inside if there are many facts */
-                    padding: 10px;         /* Tighten padding */
-                }
-                /* Inside your existing @media block */
-                .input-group {
-                    flex-wrap: wrap; /* Allows buttons to drop to a second line if needed */
-                }
-
-                #user-input {
-                    width: 100% !important; 
-                    margin-bottom: 10px;
-                    border-radius: 5px !important; 
-                    font-size: 16px !important; /* Prevents iPhone zoom */
-                }
-
-                #send-btn, .btn-outline-danger {
-                    flex-grow: 1; /* Makes buttons wider and easier to tap */
-                    padding: 12px;
-                }
-            }
-            /* Sections */
-            .hero-section { padding: 100px 0; background: radial-gradient(circle at center, #111 0%, #000 100%); }
-            .btn-primary { background-color: #fff; color: #000; border: none; font-weight: bold; padding: 12px 30px; border-radius: 5px; }
-            .btn-primary:hover { background-color: var(--accent); color: #000; }
-            
-            /* Demo Layout */
-            #demo-container { display: flex; gap: 20px; height: 600px; position: relative; }
-            #chat-column { flex: 2; display: flex; flex-direction: column; background: var(--card-bg); border: 1px solid #333; border-radius: 12px; overflow: hidden; }
-            #fact-column { flex: 1; background: #080808; border: 1px solid #333; border-radius: 12px; padding: 20px; }
-            
-            #chat-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-            .msg { max-width: 85%; padding: 12px 18px; border-radius: 18px; font-size: 1rem; }
-            .bot-msg { background: #1a1a1a; align-self: flex-start; border: 1px solid #333; }
-            .user-msg { background: #fff; color: #000; align-self: flex-end; font-weight: 500; }
-            
-            .fact-pill { background: #111; border-left: 3px solid var(--accent); padding: 10px; margin-bottom: 10px; font-size: 0.9rem; }
-            .objection-btn { background: transparent; border: 1px solid #333; color: #888; font-size: 0.85rem; border-radius: 20px; padding: 8px 12px; margin: 3px; }
-            .objection-btn:hover { border-color: var(--accent); color: #fff; }
-
-            /* Modal */
-            #limit-modal { 
-                display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-                background: rgba(0,0,0,0.98); z-index: 2000; flex-direction: column; 
-                justify-content: center; align-items: center; text-align: center; padding: 40px; border: 2px solid var(--accent); border-radius: 12px;
-            }
-
-            .progress-container { height: 6px; background: #222; border-radius: 3px; margin-top: 10px; }
-            #progress-bar { height: 100%; background: var(--accent); width: 0%; border-radius: 3px; transition: 0.3s; }
-
-            .card { background-color: var(--card-bg); border: 1px solid #222; color: #fff; transition: 0.3s; }
-            .card:hover { border-color: var(--accent); }
+            body { background: #f0f0f0; font-family: 'Montserrat', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .iphone-frame { background: #000; border-radius: 60px; box-shadow: 0 0 50px rgba(0,0,0,0.3); padding: 60px 15px 100px; width: 375px; height: 812px; position: relative; overflow: hidden; }
+            .iphone-frame::before { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 150px; height: 25px; background: #000; border-radius: 20px; }
+            .chat-screen { background: #fff; height: 100%; overflow-y: auto; padding: 20px 10px; display: flex; flex-direction: column; }
+            .msg { max-width: 80%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; word-wrap: break-word; }
+            .bot-msg { background: #e5e5ea; color: #000; align-self: flex-start; border-bottom-left-radius: 5px; }
+            .user-msg { background: #007aff; color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
+            .input-area { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; }
+            #user-input { flex-grow: 1; border-radius: 20px; padding: 10px; border: 1px solid #ccc; background: #fff; color: #000; font-size: 16px; }
+            #send-btn { background: #007aff; color: #fff; border: none; padding: 10px 15px; border-radius: 20px; margin-left: 10px; }
         </style>
     </head>
     <body>
-
-    <nav class="navbar navbar-expand-lg sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="#">INSURANCE<span class="highlight">GROK</span>BOT</a>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item"><a href="#demo" class="nav-link">Live Demo</a></li>
-                    <li class="nav-item"><a href="#abilities" class="nav-link">Abilities</a></li>
-                    <li class="nav-item"><a href="#compatibility" class="nav-link">Compatibility</a></li>
-                    <li class="nav-item"><a href="#sales-knowledge" class="nav-link">Sales Knowledge</a></li>
-                    <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
-                    <li class="nav-item"><a href="#contact" class="nav-link text-white fw-bold">Get Started</a></li>
-                </ul>
+        <div class="iphone-frame">
+            <div id="chat-screen" class="chat-screen">
+                <div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type your message...">
+                <button id="send-btn" onclick="sendMessage()">Send</button>
             </div>
         </div>
-    </nav>
+        <script>
+            async function sendMessage() {
+                const input = document.getElementById('user-input');
+                const chat = document.getElementById('chat-screen');
+                const msg = input.value.trim();
+                if(!msg) return;
 
-    <header class="hero-section text-center">
-        <div class="container">
-            <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
-            <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
-            <a href="#demo" class="btn btn-primary btn-lg px-5">TEST THE BOT LIVE</a>
-        </div>
-    </header>
+                chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
+                input.value = '';
 
-    <section id="demo" class="py-5 bg-black border-top border-secondary">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Watch Grok Build The Case</h2>
-                <div class="progress-container mx-auto" style="max-width: 500px;">
-                    <div id="progress-bar"></div>
-                </div>
-                <small id="counter-text" class="text-muted">Capacity: 0 / 70</small>
-            </div>
-            
-            <div id="demo-container">
-                <div id="limit-modal">
-                    <h2 class="fw-bold mb-3">When's the best time to make more money? <span class="highlight">Today!</span></h2>
-                    <p class="lead mb-4">Fill out the form below and start today. Let me work for you and get more appointments on your calendar.</p>
-                    <a href="#contact" class="btn btn-primary btn-lg" onclick="closeModal()">SECURE YOUR SPOT</a>
-                </div>
-
-                <div id="chat-column">
-                    <div id="chat-window">
-                        <div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>
-                    </div>
-                    <div class="p-3 border-top border-secondary bg-black">
-                        <div class="mb-3">
-                            <button class="objection-btn" onclick="sendSug('I am 55 and married.')">"I'm 55 and married"</button>
-                            <button class="objection-btn" onclick="sendSug('I have a policy through my job.')">"I have work coverage"</button>
-                            <button class="objection-btn" onclick="sendSug('I am too old for this now.')">"I am too old"</button>
-                        </div>
-                        <div class="input-group">
-                            <input type="text" id="user-input" class="form-control bg-transparent text-white border-secondary" placeholder="Type an objection...">
-                            <button onclick="resetDemo()" class="btn btn-outline-danger btn-sm ms-2">RESET</button>
-                            <button onclick="sendMessage()" class="btn btn-light" id="send-btn">SEND</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="fact-column">
-                    <h5 class="fw-bold mb-4 highlight">LIVE FACT MEMORY</h5>
-                    <div id="fact-list">
-                        <div class="text-muted small italic">Awaiting lead details...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="abilities" class="py-5 bg-dark">
-        <div class="container">
-            <h2 class="section-title fw-bold mb-4">Current Abilities</h2>
-            <div class="row g-4">
-                <div class="col-md-4"><div class="card p-4 h-100"><h3>Multi-Tenant</h3><p class="text-secondary">Handles leads across different agencies with unique identities and data isolation.</p></div></div>
-                <div class="col-md-4"><div class="card p-4 h-100"><h3>Deep Discovery</h3><p class="text-secondary">Automated fact-finding to identify gaps in existing work or pension coverage.</p></div></div>
-                <div class="col-md-4"><div class="card p-4 h-100"><h3>24/7 Re-engagement</h3><p class="text-secondary">Picks up old leads and works them until they are ready to talk to an agent.</p></div></div>
-            </div>
-        </div>
-    </section>
-
-    <section class="py-5 bg-black">
-        <div class="container text-center">
-            <h2 class="mb-5 fw-bold">Others vs. InsuranceGrokBot</h2>
-            <table class="table text-white border-secondary">
-                <thead><tr><th>Feature</th><th>Standard Bot</th><th class="highlight">GrokBot</th></tr></thead>
-                <tbody>
-                    <tr><td>Logic</td><td>Hardcoded Scripts</td><td>Real-time Reasoning</td></tr>
-                    <tr><td>Persistence</td><td>Gives up on "No"</td><td>NEPQ Objection Handling</td></tr>
-                    <tr><td>Knowledge</td><td>Generic</td><td>Insurance Specific</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <section id="compatibility" class="py-5 bg-dark">
-        <div class="container">
-            <h2 class="fw-bold text-center mb-5">Built for Every CRM</h2>
-            <div class="row g-3 text-center">
-                <div class="col-md-4"><h4>GoHighLevel</h4><p class="small text-secondary">Native webhook support. Easy setup.</p></div>
-                <div class="col-md-4"><h4>HubSpot</h4><p class="small text-secondary">Workflow triggers. Easy setup.</p></div>
-                <div class="col-md-4"><h4>Pipedrive</h4><p class="small text-secondary">Activity-based webhooks. Easy setup.</p></div>
-                <div class="col-md-4"><h4>Zoho CRM</h4><p class="small text-secondary">Automation rules. Semi-easy setup.</p></div>
-                <div class="col-md-4"><h4>Salesforce</h4><p class="small text-secondary">Enterprise outbound messaging. Semi-easy.</p></div>
-                <div class="col-md-4"><h4>Zapier</h4><p class="small text-secondary">The universal bridge. Easy setup.</p></div>
-            </div>
-        </div>
-    </section>
-
-    <section id="sales-knowledge" class="py-5 bg-black">
-        <div class="container">
-            <h2 class="fw-bold highlight mb-4">The Master Sales Logic</h2>
-            <div class="row g-5">
-                <div class="col-md-6">
-                    <h4>Jeremy Miner's NEPQ</h4>
-                    <p class="text-secondary">Neuro-Emotional Persuasion Questions focus on getting the lead to persuade themselves. By asking the right questions, the bot uncovers the "Gap" between their current situation and their needs.</p>
-                    <h4>Jordan Belfort's Straight Line</h4>
-                    <p class="text-secondary">The bot is programmed to maintain control of the sale. It loops back to the benefits of the policy while building massive certainty in the lead's mind.</p>
-                </div>
-                <div class="col-md-6">
-                    <h4>Gap Selling & Psychology of Selling</h4>
-                    <p class="text-secondary">Using Keenan’s 'Gap Selling' and Brian Tracy’s 'Psychology of Selling', this bot identifies the lead's pain points and refuses to back down from smoke-screen objections. It is designed to manage the conversation until a result is achieved.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="pricing" class="py-5 bg-dark text-center">
-        <div class="container">
-            <h2 class="fw-bold highlight mb-4">Pricing</h2>
-            <div class="card p-5 mx-auto" style="max-width: 500px;">
-                <h3 class="display-4 fw-bold">$100<small class="fs-4">/mo</small></h3>
-                <p class="lead">Early Adopter Rate</p>
-                <p class="text-secondary">Limited to the first 50 people. Don't let old leads go to waste.</p>
-                <a href="#contact" class="btn btn-primary w-100 mt-4">RESERVE MY SPOT</a>
-            </div>
-        </div>
-    </section>
-
-    <section id="contact" class="py-5 bg-black">
-        <div class="container text-center" style="max-width: 600px;">
-            <h2 class="fw-bold mb-4">Ready to Automate?</h2>
-            <form action="mailto:mitchell_vandusen@hotmal.com" method="post" enctype="text/plain">
-                <input type="text" name="name" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Name" required>
-                <input type="email" name="email" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Email" required>
-                <textarea name="msg" class="form-control mb-4 bg-dark text-white border-secondary" placeholder="Your CRM and Lead Volume..." rows="4"></textarea>
-                <button type="submit" class="btn btn-primary btn-lg w-100">SUBMIT REQUEST</button>
-            </form>
-        </div>
-    </section>
-
-    <footer class="py-4 text-center border-top border-secondary bg-black">
-        <p class="text-secondary">&copy; 2026 InsuranceGrokBot. Built by Life Insurance Agents for Life Insurance Agents.</p>
-    </footer>
-
-    <script>
-        let exchanges = 0;
-        const LIMIT = 70;
-        const tracked = new Set();
-
-        async function sendMessage() {
-            if(exchanges >= LIMIT) return;
-            const input = document.getElementById('user-input');
-            const win = document.getElementById('chat-window');
-            const msg = input.value.trim();
-            if(!msg) return;
-
-            // Add User Message to UI
-            win.innerHTML += `<div class="msg user-msg">${msg}</div>`;
-            input.value = '';
-            exchanges++;
-            updateUI();
-
-            try {
-                const res = await fetch('/webhook', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        locationId: 'DEMO_ACCOUNT_SALES_ONLY', 
-                        contact_id: 'WEB', 
-                        first_name: 'Lead', 
-                        message: {body: msg}
-                    })
-                });
-                const data = await res.json();
-                
-                // Add Bot Reply to UI
-                win.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
-                
-                // --- SMART SIDEBAR UPDATE ---
-                // This uses the "facts" list returned by your Python backend
-                if (data.facts && data.facts.length > 0) {
-                    const list = document.getElementById('fact-list');
-                    // If this is the first fact found, clear the "Awaiting details..." text
-                    if(tracked.size === 0) list.innerHTML = ''; 
-                    
-                    data.facts.forEach(fact => {
-                        if(!tracked.has(fact)) {
-                            tracked.add(fact);
-                            list.innerHTML += `<div class="fact-pill">✔ ${fact}</div>`;
-                        }
+                try {
+                    const res = await fetch('/webhook', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            locationId: 'DEMO_ACCOUNT_SALES_ONLY', 
+                            contact_id: 'WEB', 
+                            first_name: 'Lead', 
+                            message: {body: msg}
+                        })
                     });
+                    const data = await res.json();
+                    chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
+                    if (data.facts && data.facts.length > 0) {
+                        // Optional: Add facts to a sidebar if you want, but since it's iMessage style, perhaps log or ignore for this view
+                    }
+                } catch(e) {
+                    console.error("Error:", e);
+                    chat.innerHTML += `<div class="msg bot-msg">Sorry, I'm having trouble right now.</div>`;
                 }
-                // -----------------------------
-
-                exchanges++;
-                updateUI();
-                if(exchanges >= LIMIT) document.getElementById('limit-modal').style.display = 'flex';
-            } catch(e) { 
-                console.error("Connection Error:", e);
-                win.innerHTML += `<div class="msg bot-msg">Sorry, I'm having trouble connecting to my brain right now.</div>`;
+                chat.scrollTop = chat.scrollHeight;
             }
-            win.scrollTop = win.scrollHeight;
-        }
-
-        function updateUI() {
-            document.getElementById('progress-bar').style.width = (exchanges/LIMIT*100) + '%';
-            document.getElementById('counter-text').innerText = `Capacity: ${exchanges} / 70`;
-        }
-
-        function sendSug(t) { document.getElementById('user-input').value = t; sendMessage(); }
-        function closeModal() { document.getElementById('limit-modal').style.display = 'none'; }
-
-        // === ADD THE RESET FUNCTION HERE ===
-        function resetDemo() {
-            exchanges = 0;
-            tracked.clear();
-            document.getElementById('chat-window').innerHTML = '<div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>';
-            document.getElementById('fact-list').innerHTML = '<div class="text-muted small italic">Awaiting lead details...</div>';
-            updateUI();
-        }
-        // ===================================
-    </script>
+        </script>
     </body>
     </html>
     """
-    return render_template_string(html_template)
+    return render_template_string(chat_html)
 
 @app.route("/refresh")
 def refresh_subscribers():
