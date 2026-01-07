@@ -57,7 +57,10 @@ def webhook():
             'ghl_api_key': 'DEMO',
             'timezone': 'America/Chicago'
         }
-        contact_id = payload.get("contact_id", "demo_fallback")
+        contact_id = payload.get("contact_id")
+        if not contact_id:
+            logger.warning("Demo webhook missing contact_id — rejecting")
+            return jsonify({"status": "error", "message": "Invalid demo session"}), 400
     else:
         subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
