@@ -1,97 +1,35 @@
+# main.py - Clean Final Version (2026)
+
 from flask import Flask, request, jsonify, render_template_string
 import os
-import io
 import logging
-import requests  
-import time      
-import json
-import psycopg2
-from psycopg2.extras import RealDictCursor, execute_values
-import datetime
-from datetime import date, datetime as dt
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()
-
-# === REPOSITORY IMPORTS ===
-from conversation_engine import (
-    ConversationState, detect_stage, 
-    extract_facts_from_message, detect_dismissive
-)
-from ghl_message import send_sms_via_ghl
-from unified_brain import get_unified_brain, get_decision_prompt
+# === NEW MINIMAL IMPORTS ===
 from prompt import build_system_prompt
+from memory import save_message, get_recent_messages, save_new_facts, get_known_facts
+from conversation_engine import ConversationState, classify_vibe
+from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
-from outcome_learning import classify_vibe, get_learning_context, init_tables
-from memory import (
-    save_message, get_contact_messages, 
-    get_topics_already_discussed, get_recent_agent_messages,
-    format_nlp_for_prompt
-)
-from insurance_companies import (
-    find_company_in_message, normalize_company_name, get_company_context
-)
-from underwriting import get_underwriting_context, UNDERWRITING_DATA
-from knowledge_base import (
-    get_relevant_knowledge, identify_triggers, format_knowledge_for_prompt
-)
-from db import get_db_connection, init_nlp_tables, get_subscriber_info
+from underwriting import get_underwriting_context
+from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
+from db import get_subscriber_info, get_db_connection
 from age import calculate_age_from_dob
 from sync_subscribers import sync_subscribers
+
+load_dotenv()
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- DATABASE & SYNC INITIALIZATION ---
-
-def init_db():
-    """Initializes the subscriber table and runs the first sync."""
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    if not DATABASE_URL:
-        logging.error("DATABASE_URL not found!")
-        return
-
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        # Create the table if it's a brand new database
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS subscribers (
-                ghl_location_id TEXT PRIMARY KEY,
-                ghl_calendar_id TEXT,
-                ghl_api_key TEXT,
-                ghl_user_id TEXT,
-                bot_first_name TEXT,
-                timezone TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        # Trigger the sync from Google Sheets immediately on startup
-        logging.info("Running initial subscriber sync...")
-        sync_subscribers() 
-    except Exception as e:
-        logging.error(f"Initialization failed: {e}")
-
-# Call the initialization
-init_db()
-
-# === API CLIENTS ===
+# === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
 
-# === DATABASE INITIALIZATION ===
-try:
-    init_nlp_tables()
-    init_tables()
-    logger.info("Database tables initialized successfully.")
-except Exception as e:
-    logger.error(f"Database init error: {e}")
+# === INITIALIZATION ===
+sync_subscribers()  # Run on startup
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -99,160 +37,185 @@ def webhook():
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    # 1. Identity Lookup (The Multi-Tenant Core)
+    # 1. Identity Lookup
     location_id = payload.get("locationId")
     if not location_id:
         return jsonify({"status": "error", "message": "Missing locationId"}), 400
-    # BYPASS FOR WEBSITE DEMO
+
+    # Demo bypass
     if location_id == 'DEMO_ACCOUNT_SALES_ONLY':
         subscriber = {
             'bot_first_name': 'Grok',
             'ghl_api_key': 'DEMO',
-            'timezone': 'America/Chicago',
-            'custom_instructions': "DEMO MODE: Focus 100% on selling life insurance. Use NEPQ to uncover gaps. Do not book appointments."
+            'timezone': 'America/Chicago'
         }
     else:
         subscriber = get_subscriber_info(location_id)
+        if not subscriber or not subscriber.get('bot_first_name'):
+            logger.error(f"Identity not configured for {location_id}")
+            return jsonify({"status": "error", "message": "Not configured"}), 404
 
-    if not subscriber or not subscriber.get('bot_first_name'):
-        logger.error(f"CRITICAL: Identity not configured for location {location_id}")
-        return jsonify({"status": "error", "message": "Identity not configured"}), 404
-
-    bot_first_name = subscriber.get('bot_first_name')
-    ghl_api_key = subscriber.get('ghl_api_key')
+    bot_first_name = subscriber['bot_first_name']
+    ghl_api_key = subscriber['ghl_api_key']
     timezone = subscriber.get('timezone', 'America/Chicago')
 
     # 2. Extract Lead Data
     data = {k.lower(): v for k, v in payload.items()}
     contact_id = data.get("contact_id") or data.get("contactid") or data.get("contact", {}).get("id")
-    
     if not contact_id:
         return jsonify({"status": "error", "error": "Missing contact_id"}), 400
-    
-    first_name = data.get("first_name", "there").capitalize()
+
     raw_message = data.get("message", {})
     message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
+    if not message:
+        return jsonify({"status": "ignored", "reason": "empty message"}), 200
 
-    # 3. Idempotency (Duplicate Webhook Check)
+    # 3. Robust Idempotency Check - Prevents duplicate sends
     message_id = data.get("message_id") or data.get("id")
     if message_id:
         conn = get_db_connection()
         if conn:
             try:
                 cur = conn.cursor()
-                cur.execute("SELECT 1 FROM processed_webhooks WHERE webhook_id = %s", (message_id,))
+                cur.execute("""
+                    SELECT 1 FROM processed_webhooks 
+                    WHERE webhook_id = %s
+                """, (message_id,))
                 if cur.fetchone():
+                    logger.info(f"Duplicate webhook ignored: {message_id}")
+                    cur.close()
                     conn.close()
                     return jsonify({"status": "success", "message": "Already processed"}), 200
-                cur.execute("INSERT INTO processed_webhooks (webhook_id) VALUES (%s)", (message_id,))
+                
+                # Mark as processed early
+                cur.execute("""
+                    INSERT INTO processed_webhooks (webhook_id, created_at)
+                    VALUES (%s, CURRENT_TIMESTAMP)
+                """, (message_id,))
                 conn.commit()
+                cur.close()
+                conn.close()
             except Exception as e:
                 logger.error(f"Idempotency check failed: {e}")
+                # Continue anyway — better to risk duplicate than drop message
             finally:
-                conn.close()
+                if 'conn' in locals() and conn:
+                    conn.close()
+    else:
+        logger.warning("Webhook received without message_id — risk of duplicates")
 
     save_message(contact_id, message, "lead")
-    # 4. Context Gathering
-    date_of_birth = data.get("contact", {}).get("date_of_birth", "")
-    age = calculate_age_from_dob(date_of_birth)
-    current_facts = extract_facts_from_message(state, message)
-    if "mortgage" in str(current_facts).lower() and "paid" in message.lower():
-        state.update_fact("mortgage_status", "Paid Off")
-    recent_messages = get_contact_messages(contact_id, limit=20)
-    recent_agent_messages = get_recent_agent_messages(contact_id, limit=20)
-    topics_discussed = get_topics_already_discussed(contact_id)
-    nlp_context = format_nlp_for_prompt(contact_id)
-    triggers = identify_triggers(message)
-    knowledge_section = format_knowledge_for_prompt(get_relevant_knowledge(triggers))
-    learning_context = get_learning_context(contact_id, message)
-    # 5. Conversation Logic
-    state = ConversationState(contact_id=contact_id, first_name=first_name)
-    state.exchange_count = len([m for m in recent_messages if m["message_type"] == "assistant"])
-    state.stage = detect_stage(state, message, recent_messages)
+
+    # 4. Gather Clean Context
+    age = calculate_age_from_dob(data.get("contact", {}).get("date_of_birth", ""))
     
-    # Underwriting & Company Detect
-    underwriting_context = get_underwriting_context(message)
+    # Get known facts from DB (you'll need a get_known_facts function)
+    known_facts = get_known_facts(contact_id)  # → List[str], e.g. ["Employer coverage: Yes", "Age: 55"]
+
+    # Conversation state
+    state = ConversationState(contact_id=contact_id)
+    state.stage = "discovery"  # Optional: improve with lightweight detection later
+    vibe = classify_vibe(message).value
+
+    recent_exchanges = get_recent_messages(contact_id, limit=8)
+
+    # Optional smart nudges
+    context_nudge = ""
+    msg_lower = message.lower()
+    if any(x in msg_lower for x in ["covered", "i'm good", "already have", "taken care of"]):
+        context_nudge = "Lead just claimed to be 'covered' or 'good' : smoke screen likely"
+    elif any(x in msg_lower for x in ["work", "job", "employer"]):
+        context_nudge = "Lead mentioned work/employer coverage"
+
+    # Calendar — only when relevant
+    calendar_slots = ""
+    if any(k in msg_lower for k in ["schedule", "time", "call", "appointment", "available"]):
+        calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
+
+    # === UNDERWRITING: ONLY ON MEDICAL MENTION ===
+    underwriting_context = ""
+    medical_keywords = [
+        "cancer", "diabetes", "diabetic", "heart", "attack", "stent", "bypass",
+        "stroke", "copd", "oxygen", "insulin", "chemo", "remission", "health issue",
+        "health problem", "condition", "medical", "sick", "illness", "disease",
+        "blood pressure", "cholesterol", "parkinsons", "alzheimers", "kidney", "liver"
+    ]
+    if any(keyword in msg_lower for keyword in medical_keywords):
+        underwriting_context = get_underwriting_context(message)
+
+    # Company detection (light)
     company_context = ""
     raw_company = find_company_in_message(message)
     if raw_company:
         normalized = normalize_company_name(raw_company)
-        company_context = get_company_context(normalized) if normalized else f"Lead mentioned {raw_company}"
+        if normalized:
+            company_context = get_company_context(normalized)
 
-    # Calendar Check
-    calendar_slots = ""
-    if any(k in message.lower() for k in ["schedule", "time", "available", "call", "appointment"]):
-        calendar_slots = consolidated_calendar_op('fetch_slots')
-
-    # 6. AI Generation
-    filtered_triggers = [t for t in triggers if t not in topics_discussed]
-    decision_prompt = get_decision_prompt(
-        message=message,
-        context=f"{nlp_context}\n{knowledge_section}",
-        stage=state.stage.value,
-        proven_patterns=learning_context,
-        triggers_found=triggers,
-        trigger_suggestion=filtered_triggers,
-    )
-
+    # 5. Build Prompt (NEW CLEAN VERSION)
     system_prompt = build_system_prompt(
-        state=state,
         bot_first_name=bot_first_name,
+        timezone=timezone,
+        known_facts=known_facts,
+        stage=state.stage,
+        vibe=vibe,
+        recent_exchanges=recent_exchanges,
         message=message,
-        nlp_context=nlp_context,
-        proven_patterns=learning_context,
-        underwriting_context=underwriting_context,
-        company_context=company_context,
-        unified_brain=get_unified_brain(),
-        lead_vibe=classify_vibe(message).value,
-        decision_prompt=decision_prompt,
-        age=age,
-        recent_agent_messages=recent_agent_messages,
-        topics_discussed=topics_discussed,
         calendar_slots=calendar_slots,
-        timezone=timezone
+        context_nudge=context_nudge
     )
-    print(f"DEBUG: Found {len(recent_messages)} past messages for {contact_id}")
-    grok_messages = [{"role": "system", "content": system_prompt}]
-    for msg in recent_messages[-10:]: # Last 10 messages for context
-        role = "user" if msg["message_type"] == "lead" else "assistant"
-        grok_messages.append({"role": role, "content": msg["message_text"]})
-    if message:
-        grok_messages.append({"role": "user", "content": message})
 
+    # 6. Messages to Grok
+    grok_messages = [{"role": "system", "content": system_prompt}]
+    for msg in recent_exchanges:
+        role = "user" if msg["role"] == "lead" else "assistant"
+        grok_messages.append({"role": role, "content": msg["text"]})
+    grok_messages.append({"role": "user", "content": message})
+
+    # 7. Call Grok
     try:
         response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
+            model="grok-4-1-fast-reasoning",  # or grok-beta when available
             messages=grok_messages,
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=500
         )
         raw_reply = response.choices[0].message.content.strip()
-
-        # --- NEW CLEANUP LOGIC ---
-        # If the AI included its "Thinking Block", we strip it out
-        if "</thinking>" in raw_reply:
-            reply = raw_reply.split("</thinking>")[-1].strip()
-        elif "<reply>" in raw_reply:
-            reply = raw_reply.split("<reply>")[-1].split("</reply>")[0].strip()
-        else:
-            reply = raw_reply
-        # -------------------------
     except Exception as e:
-        logger.error(f"Grok Error: {e}")
-        reply = "Gotcha. Quick question, when was the last time you actually had someone look over those policy details with you?"
+        logger.error(f"Grok API error: {e}")
+        raw_reply = "Gotcha, mind if I ask, when was the last time someone reviewed your coverage with you?"
 
+    # 8. Parse <new_facts> and clean reply
+    reply = raw_reply
+    new_facts_extracted = []
+
+    if "<new_facts>" in raw_reply:
+        try:
+            facts_block = raw_reply.split("<new_facts>")[1].split("</new_facts>")[0]
+            new_facts_extracted = [
+                line.strip(" -•").strip()
+                for line in facts_block.split("\n")
+                if line.strip() and not line.strip().startswith("<")
+            ]
+            if new_facts_extracted:
+                save_new_facts(contact_id, new_facts_extracted)
+            reply = raw_reply.split("<new_facts>")[0].strip()
+        except:
+            pass  # fallback
+
+    # 9. Send Reply
     if ghl_api_key != 'DEMO':
         send_sms_via_ghl(contact_id, reply, api_key=ghl_api_key, location_id=location_id)
-    
+
     save_message(contact_id, reply, "assistant")
 
-    # If it's a demo, send facts to update the sidebar. If not, just send the reply.
+    # 10. Demo Response
     if location_id == 'DEMO_ACCOUNT_SALES_ONLY':
         return jsonify({
-            "status": "success", 
+            "status": "success",
             "reply": reply,
-            "facts": extract_facts_from_message(state, message)
+            "facts": new_facts_extracted  # Show newly extracted facts in sidebar
         })
-    
+
     return jsonify({"status": "success", "reply": reply})
 
 @app.route("/") # Website 
