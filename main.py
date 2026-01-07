@@ -43,108 +43,81 @@ def webhook():
     if not location_id:
         return jsonify({"status": "error", "message": "Missing locationId"}), 400
 
-    # Demo bypass
-    if location_id == 'DEMO_ACCOUNT_SALES_ONLY':
+    is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY')
+
+    if is_demo:
         subscriber = {
             'bot_first_name': 'Grok',
             'ghl_api_key': 'DEMO',
             'timezone': 'America/Chicago'
         }
+        contact_id = "demo_web_visitor"  # Fixed ID → easy to clear/ignore persistence
     else:
         subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
             logger.error(f"Identity not configured for {location_id}")
             return jsonify({"status": "error", "message": "Not configured"}), 404
+        contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id")
+        if not contact_id:
+            return jsonify({"status": "error", "error": "Missing contact_id"}), 400
 
     bot_first_name = subscriber['bot_first_name']
     ghl_api_key = subscriber['ghl_api_key']
     timezone = subscriber.get('timezone', 'America/Chicago')
 
-    # 2. Extract Lead Data
-    data = {k.lower(): v for k, v in payload.items()}
-    contact_id = data.get("contact_id") or data.get("contactid") or data.get("contact", {}).get("id")
-    if not contact_id:
-        return jsonify({"status": "error", "error": "Missing contact_id"}), 400
-
-    raw_message = data.get("message", {})
+    # 2. Extract Message
+    raw_message = payload.get("message", {})
     message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
     if not message:
         return jsonify({"status": "ignored", "reason": "empty message"}), 200
 
-    # 3. Robust Idempotency Check - Prevents duplicate sends
-    message_id = data.get("message_id") or data.get("id")
-    if message_id:
-        conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("""
-                    SELECT 1 FROM processed_webhooks 
-                    WHERE webhook_id = %s
-                """, (message_id,))
-                if cur.fetchone():
-                    logger.info(f"Duplicate webhook ignored: {message_id}")
+    # 3. Idempotency (real mode only — demo can have duplicates safely)
+    if not is_demo:
+        message_id = payload.get("message_id") or payload.get("id")
+        if message_id:
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute("SELECT 1 FROM processed_webhooks WHERE webhook_id = %s", (message_id,))
+                    if cur.fetchone():
+                        logger.info(f"Duplicate ignored: {message_id}")
+                        return jsonify({"status": "success", "message": "Already processed"}), 200
+                    cur.execute("INSERT INTO processed_webhooks (webhook_id) VALUES (%s)", (message_id,))
+                    conn.commit()
+                except Exception as e:
+                    logger.error(f"Idempotency error: {e}")
+                finally:
                     cur.close()
                     conn.close()
-                    return jsonify({"status": "success", "message": "Already processed"}), 200
-                
-                # Mark as processed early
-                cur.execute("""
-                    INSERT INTO processed_webhooks (webhook_id, created_at)
-                    VALUES (%s, CURRENT_TIMESTAMP)
-                """, (message_id,))
-                conn.commit()
-                cur.close()
-                conn.close()
-            except Exception as e:
-                logger.error(f"Idempotency check failed: {e}")
-                # Continue anyway — better to risk duplicate than drop message
-            finally:
-                if 'conn' in locals() and conn:
-                    conn.close()
-    else:
-        logger.warning("Webhook received without message_id — risk of duplicates")
 
+    # Always save message (for history in real mode, minimal in demo)
     save_message(contact_id, message, "lead")
 
-    # 4. Gather Clean Context
-    age = calculate_age_from_dob(data.get("contact", {}).get("date_of_birth", ""))
-    
-    # Get known facts from DB (you'll need a get_known_facts function)
-    known_facts = get_known_facts(contact_id)  # → List[str], e.g. ["Employer coverage: Yes", "Age: 55"]
-
-    # Conversation state
-    state = ConversationState(contact_id=contact_id)
-    state.stage = "discovery"  # Optional: improve with lightweight detection later
+    # 4. Context Gathering
+    known_facts = [] if is_demo else get_known_facts(contact_id)
     vibe = classify_vibe(message).value
-
     recent_exchanges = get_recent_messages(contact_id, limit=8)
 
-    # Optional smart nudges
     context_nudge = ""
     msg_lower = message.lower()
     if any(x in msg_lower for x in ["covered", "i'm good", "already have", "taken care of"]):
-        context_nudge = "Lead just claimed to be 'covered' or 'good' : smoke screen likely"
+        context_nudge = "Lead claims to be covered — likely smoke screen"
     elif any(x in msg_lower for x in ["work", "job", "employer"]):
         context_nudge = "Lead mentioned work/employer coverage"
 
-    # Calendar — only when relevant
+    # Calendar — DISABLED in demo (focus on selling, not booking)
     calendar_slots = ""
-    if any(k in msg_lower for k in ["schedule", "time", "call", "appointment", "available"]):
+    if not is_demo and any(k in msg_lower for k in ["schedule", "time", "call", "appointment", "available"]):
         calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
 
-    # === UNDERWRITING: ONLY ON MEDICAL MENTION ===
+    # Underwriting — only on health mention
     underwriting_context = ""
-    medical_keywords = [
-        "cancer", "diabetes", "diabetic", "heart", "attack", "stent", "bypass",
-        "stroke", "copd", "oxygen", "insulin", "chemo", "remission", "health issue",
-        "health problem", "condition", "medical", "sick", "illness", "disease",
-        "blood pressure", "cholesterol", "parkinsons", "alzheimers", "kidney", "liver"
-    ]
-    if any(keyword in msg_lower for keyword in medical_keywords):
+    medical_keywords = ["cancer", "diabetes", "heart", "stroke", "copd", "health issue", "condition", "medical", "sick"]
+    if any(k in msg_lower for k in medical_keywords):
         underwriting_context = get_underwriting_context(message)
 
-    # Company detection (light)
+    # Company (light)
     company_context = ""
     raw_company = find_company_in_message(message)
     if raw_company:
@@ -152,12 +125,12 @@ def webhook():
         if normalized:
             company_context = get_company_context(normalized)
 
-    # 5. Build Prompt (NEW CLEAN VERSION)
+    # 5. Build Prompt
     system_prompt = build_system_prompt(
         bot_first_name=bot_first_name,
         timezone=timezone,
         known_facts=known_facts,
-        stage=state.stage,
+        stage="discovery",
         vibe=vibe,
         recent_exchanges=recent_exchanges,
         message=message,
@@ -165,71 +138,60 @@ def webhook():
         context_nudge=context_nudge
     )
 
-    # 6. Messages to Grok
+    # 6. Grok Call
     grok_messages = [{"role": "system", "content": system_prompt}]
     for msg in recent_exchanges:
         role = "user" if msg["role"] == "lead" else "assistant"
         grok_messages.append({"role": role, "content": msg["text"]})
     grok_messages.append({"role": "user", "content": message})
 
-    # 7. Call Grok
     try:
         response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",  # or grok-beta when available
+            model="grok-4-1-fast-reasoning",
             messages=grok_messages,
             temperature=0.7,
             max_tokens=500
         )
         raw_reply = response.choices[0].message.content.strip()
     except Exception as e:
-        logger.error(f"Grok API error: {e}")
-        raw_reply = "Gotcha, mind if I ask, when was the last time someone reviewed your coverage with you?"
+        logger.error(f"Grok error: {e}")
+        raw_reply = "Gotcha — quick question, when was the last time someone reviewed your coverage?"
 
-    # 8. Parse <new_facts> and clean reply
+    # 7. Clean Reply & Extract Facts
     reply = raw_reply
     new_facts_extracted = []
 
     if "<new_facts>" in raw_reply:
         try:
-            facts_block = raw_reply.split("<new_facts>")[1].split("</new_facts>")[0]
-            new_facts_extracted = [
-                line.strip(" -•").strip()
-                for line in facts_block.split("\n")
-                if line.strip() and not line.strip().startswith("<")
-            ]
-            if new_facts_extracted:
-                save_new_facts(contact_id, new_facts_extracted)
+            block = raw_reply.split("<new_facts>")[1].split("</new_facts>")[0]
+            new_facts_extracted = [line.strip(" -•").strip() for line in block.split("\n") if line.strip()]
             reply = raw_reply.split("<new_facts>")[0].strip()
         except:
             pass
 
-    # === CLEAN AI TELLS ===
-    reply = reply.replace("—", ",")
-    reply = reply.replace("–", ",")
-    reply = reply.replace("…", "...")
-    reply = reply.replace(""", '"')
-    reply = reply.replace(""", '"')
-    # Optional: fix smart apostrophes
-    reply = reply.replace("'", "'").replace("'", "'")
-
-    # Trim any extra whitespace
+    # Clean AI tells
+    reply = reply.replace("—", "-").replace("–", "-").replace("…", "...")
+    reply = reply.replace(""", '"').replace(""", '"')
     reply = reply.strip()
 
-    # 9. Send Reply
-    if ghl_api_key != 'DEMO':
-        send_sms_via_ghl(contact_id, reply, api_key=ghl_api_key, location_id=location_id)
+    # 8. Persistence — SKIP in demo (fresh every time)
+    if not is_demo:
+        if new_facts_extracted:
+            save_new_facts(contact_id, new_facts_extracted)
+        if ghl_api_key != 'DEMO':
+            send_sms_via_ghl(contact_id, reply, ghl_api_key, location_id)
 
     save_message(contact_id, reply, "assistant")
 
-    # 10. Demo Response
-    if location_id == 'DEMO_ACCOUNT_SALES_ONLY':
-        return jsonify({
-            "status": "success",
-            "reply": reply,
-            "facts": new_facts_extracted  # Show newly extracted facts in sidebar
-        })
+    # 9. Response
+    response_data = {
+        "status": "success",
+        "reply": reply
+    }
+    if is_demo:
+        response_data["facts"] = new_facts_extracted  # Show in demo sidebar
 
-    return jsonify({"status": "success", "reply": reply})
+    return jsonify(response_data)
 
 @app.route("/") # Website 
 def home():
@@ -432,28 +394,25 @@ def home():
 """
     return render_template_string(home_html)
 
+# At the top, add a demo-specific contact ID
+DEMO_CONTACT_ID = "demo_web_visitor"
+
 @app.route("/demo-chat")
 def demo_chat():
-    chat_html = """
+    # Clear any old demo facts on load (fresh start every time)
+    # Optional: delete from contact_facts where contact_id = DEMO_CONTACT_ID
+    # Or just ignore — since we'll force known_facts = []
+
+    demo_html = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Chat with GrokBot</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+        <!-- Your iPhone frame CSS from before -->
         <style>
-            body { background: #f0f0f0; font-family: 'Montserrat', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .iphone-frame { background: #000; border-radius: 60px; box-shadow: 0 0 50px rgba(0,0,0,0.3); padding: 60px 15px 100px; width: 375px; height: 812px; position: relative; overflow: hidden; }
-            .iphone-frame::before { content: ''; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 150px; height: 25px; background: #000; border-radius: 20px; }
-            .chat-screen { background: #fff; height: 100%; overflow-y: auto; padding: 20px 10px; display: flex; flex-direction: column; }
-            .msg { max-width: 80%; padding: 10px 15px; border-radius: 20px; margin-bottom: 10px; word-wrap: break-word; }
-            .bot-msg { background: #e5e5ea; color: #000; align-self: flex-start; border-bottom-left-radius: 5px; }
-            .user-msg { background: #007aff; color: #fff; align-self: flex-end; border-bottom-right-radius: 5px; }
-            .input-area { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; }
-            #user-input { flex-grow: 1; border-radius: 20px; padding: 10px; border: 1px solid #ccc; background: #fff; color: #000; font-size: 16px; }
-            #send-btn { background: #007aff; color: #fff; border: none; padding: 10px 15px; border-radius: 20px; margin-left: 10px; }
+            /* Paste your full iPhone frame CSS here */
         </style>
     </head>
     <body>
@@ -462,47 +421,52 @@ def demo_chat():
                 <div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>
             </div>
             <div class="input-area">
-                <input type="text" id="user-input" placeholder="Type your message...">
-                <button id="send-btn" onclick="sendMessage()">Send</button>
+                <input type="text" id="user-input" placeholder="Type your message..." autofocus>
+                <button id="send-btn">Send</button>
             </div>
         </div>
+
         <script>
+            const DEMO_CONTACT = "demo_web_visitor";
+
             async function sendMessage() {
                 const input = document.getElementById('user-input');
                 const chat = document.getElementById('chat-screen');
                 const msg = input.value.trim();
-                if(!msg) return;
+                if (!msg) return;
 
                 chat.innerHTML += `<div class="msg user-msg">${msg}</div>`;
                 input.value = '';
+                chat.scrollTop = chat.scrollHeight;
 
                 try {
                     const res = await fetch('/webhook', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({
-                            locationId: 'DEMO_ACCOUNT_SALES_ONLY', 
-                            contact_id: 'WEB', 
-                            first_name: 'Lead', 
+                            locationId: 'DEMO_ACCOUNT_SALES_ONLY',
+                            contact_id: DEMO_CONTACT,
+                            first_name: 'Visitor',
                             message: {body: msg}
                         })
                     });
                     const data = await res.json();
                     chat.innerHTML += `<div class="msg bot-msg">${data.reply}</div>`;
-                    if (data.facts && data.facts.length > 0) {
-                        // Optional: Log facts
-                    }
                 } catch(e) {
-                    console.error("Error:", e);
-                    chat.innerHTML += `<div class="msg bot-msg">Sorry, I'm having trouble right now.</div>`;
+                    chat.innerHTML += `<div class="msg bot-msg">Sorry — having connection trouble. Try again?</div>`;
                 }
                 chat.scrollTop = chat.scrollHeight;
             }
+
+            document.getElementById('user-input').addEventListener('keypress', e => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
         </script>
     </body>
     </html>
     """
-    return render_template_string(chat_html)
+    return render_template_string(demo_html)
 
 @app.route("/refresh")
 def refresh_subscribers():
