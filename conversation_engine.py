@@ -14,7 +14,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from enum import Enum
-from memory import add_to_qualification_array
 
 logger = logging.getLogger(__name__)
 
@@ -110,70 +109,6 @@ def detect_stage(state: ConversationState, current_message: str, conversation_hi
             return ConversationStage.CLOSING
     
     return ConversationStage.DISCOVERY
-
-def extract_facts_from_message(state: ConversationState, message: str) -> Dict[str, Any]:
-    # SOLUTION: Safe nested initialization
-    state.facts = state.facts or {}
-    state.facts.setdefault("coverage", {"has_any": None, "type": None, "amount": None, "employer": None, "guaranteed_issue": None, "carrier": None})
-    state.facts.setdefault("family", {"spouse": None, "kids": None, "dependents": None})
-    state.facts.setdefault("health", {"conditions": [], "details": []})
-
-    msg_lower = message.lower()
-    new_facts = {}
-    
-    # Family
-    if re.search(r'wife|husband|spouse|married', msg_lower):
-        state.facts["family"]["spouse"] = True
-        new_facts["spouse"] = True
-        add_to_qualification_array(state.contact_id, "topics_asked", "marital_status")
-    
-    kids_match = re.search(r'(\d+)\s*kids?', msg_lower)
-    if kids_match:
-        state.facts["family"]["kids"] = int(kids_match.group(1))
-        new_facts["kids"] = int(kids_match.group(1))
-        add_to_qualification_array(state.contact_id, "topics_asked", "kids")
-    
-    # Coverage
-    if re.search(r'(employer|work|job)\s*(coverage|policy|insurance)', msg_lower):
-        state.facts["coverage"]["employer"] = True
-        new_facts["employer_coverage"] = True
-        add_to_qualification_array(state.contact_id, "topics_asked", "coverage_source")
-    
-    if re.search(r'no\s*(coverage|insurance|policy)|don\'?t have|nothing', msg_lower):
-        state.facts["coverage"]["has_any"] = False
-        new_facts["no_coverage"] = True
-        add_to_qualification_array(state.contact_id, "topics_asked", "coverage")
-    
-    # Health
-    health_conditions = {
-        "diabetes": r'diabet(es|ic)',
-        "heart": r'heart',
-        "cancer": r'cancer',
-        "copd": r'copd|emphysema',
-        "stroke": r'stroke'
-    }
-    for condition, pattern in health_conditions.items():
-        if re.search(pattern, msg_lower):
-            if condition not in state.facts["health"]["conditions"]:
-                state.facts["health"]["conditions"].append(condition)
-                new_facts[f"health_{condition}"] = True
-            add_to_qualification_array(state.contact_id, "topics_asked", "health")
-    
-    # Motivation
-    motivation_patterns = [
-        (r'(protect|take care of).*(family|wife|kids)', "family protection"),
-        (r'(new|just had).*(baby|kid)', "new baby"),
-        (r'(bought|buying).*(house|mortgage)', "new home"),
-        (r'retire|retirement', "retirement planning")
-    ]
-    for pattern, motivation in motivation_patterns:
-        if re.search(pattern, msg_lower):
-            state.facts["motivating_goal"] = motivation
-            new_facts["motivation"] = motivation
-            add_to_qualification_array(state.contact_id, "topics_asked", "motivation")
-            break
-    
-    return new_facts
 
 def detect_dismissive(message: str) -> tuple[bool, bool]:
     msg_lower = message.lower()

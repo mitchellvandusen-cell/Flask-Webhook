@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 # === NEW MINIMAL IMPORTS ===
 from prompt import build_system_prompt
 from memory import save_message, get_recent_messages, save_new_facts, get_known_facts
-from conversation_engine import ConversationState, classify_vibe
+from conversation_engine import ConversationState
+from outcome_learning import classify_vibe
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
 from underwriting import get_underwriting_context
