@@ -731,7 +731,7 @@ def dashboard():
         body { background:#000; color:#fff; font-family:Arial; padding:40px; }
         .container { max-width:900px; margin:auto; }
         h1 { font-size:48px; text-align:center; color:#00ff88; }
-        .nav-tabs .nav-link { color:#888; border-color:#333; }
+        .nav-tabs .nav-link { color:#aaa; border-color:#333; }
         .nav-tabs .nav-link.active { color:#00ff88; background:#111; border-color:#00ff88 #00ff88 #111; }
         .nav-tabs { border-bottom:1px solid #333; }
         .tab-content { margin-top:30px; }
@@ -746,6 +746,10 @@ def dashboard():
         .alert-error { border-left:5px solid #ff6b6b; }
         .card { background:#111; border:1px solid #333; border-radius:15px; padding:30px; margin:30px 0; }
         code { background:#222; padding:2px 6px; border-radius:4px; color:#00ff88; }
+        /* Light text for guide and billing */
+        .guide-text, .billing-text { color:#fff !important; }
+        .guide-text h3 { color:#00ff88; }
+        .guide-text li { color:#ddd; }
     </style>
 </head>
 <body>
@@ -824,7 +828,7 @@ def dashboard():
 
             <!-- GHL Setup Guide Tab -->
             <div class="tab-pane fade" id="guide">
-                <div class="card">
+                <div class="card guide-text">
                     <h2 style="color:#00ff88; text-align:center;">GoHighLevel Setup Guide</h2>
                     <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your CRM</p>
 
@@ -868,13 +872,17 @@ def dashboard():
                             <li>Increases automatically (250 next day, then higher)</li>
                             <li>Check in GHL Settings → Phone Numbers</li>
                         </ul>
+
+                        <p style="text-align:center; margin-top:40px; font-weight:bold;">
+                            Once set up, the bot runs 24/7 — no more dead leads.
+                        </p>
                     </div>
                 </div>
             </div>
 
             <!-- Billing Tab -->
             <div class="tab-pane fade" id="billing">
-                <div class="card">
+                <div class="card billing-text">
                     <h2 style="color:#00ff88;">Billing</h2>
                     <p>Update payment method, view invoices, or cancel subscription</p>
                     <form method="post" action="/create-portal-session">
