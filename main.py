@@ -869,7 +869,7 @@ def dashboard():
                         <h3 style="color:#00ff88; margin-top:40px;">Daily SMS Limits</h3>
                         <ul>
                             <li>GHL starts at <strong>100 outbound SMS/day</strong></li>
-                            <li>Increases automatically (250 next day, then higher)</li>
+                            <li>Increases automatically when previous limit hit (250 next day, then higher)</li>
                             <li>Check in GHL Settings → Phone Numbers</li>
                         </ul>
 
