@@ -387,7 +387,7 @@ def home():
 
         <p class="mt-4">
             <a href="/getting-started" style="color:#00ff88; font-size:20px; text-decoration:underline;">
-                New here? Follow the setup guide →
+                How To? Follow the setup guide →
             </a>
         </p>
 
