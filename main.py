@@ -1114,7 +1114,7 @@ def demo_chat():
 <body>
     <div class="iphone-frame">
         <div id="chat-screen" class="chat-screen">
-            <div class="msg bot-msg">Hey! I saw you were looking for coverage recently. Do you actually have a plan in place right now, or are you starting from scratch?</div>
+            <div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>
         </div>
         <div class="input-area">
             <input type="text" id="user-input" placeholder="Type your message..." autofocus>
