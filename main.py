@@ -807,22 +807,22 @@ def dashboard():
 @login_required
 def create_portal_session():
     try:
-        # Get the user's Stripe customer ID from DB (add this column if not there yet)
-        user = User.get(current_user.email)
-        if not user or not user.stripe_customer_id:
-            flash("No billing info found — subscribe first", "error")
+        # Get stripe_customer_id from current logged-in user
+        if not current_user.stripe_customer_id:
+            flash("No subscription found — subscribe first", "error")
             return redirect("/dashboard")
 
         session = stripe.billing_portal.Session.create(
-            customer=user.stripe_customer_id,
+            customer=current_user.stripe_customer_id,
             return_url=f"{YOUR_DOMAIN}/dashboard",
         )
         return redirect(session.url)
     except Exception as e:
-        logger.error(f"Portal session error: {e}")
+        logger.error(f"Portal error: {e}")
         flash("Unable to open billing portal", "error")
         return redirect("/dashboard")
-    
+
+
 # At the top, add a demo-specific contact ID
 DEMO_CONTACT_ID = "demo_web_visitor"
 
