@@ -549,27 +549,43 @@ def login():
     <title>Log In - InsuranceGrokBot</title>
     <style>
         body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; }
-        input { width:300px; padding:10px; margin:10px; background:#111; border:1px solid #333; color:#fff; }
-        button { padding:10px 30px; background:#00ff88; color:#000; border:none; }
+        h1 { color:#00ff88; font-size:48px; }
+        .form-group { margin:20px 0; }
+        label { font-size:20px; }
+        input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
+        button { padding:15px 60px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; }
+        button:hover { background:#00cc70; }
+        .link { color:#00ff88; text-decoration:underline; font-size:18px; }
     </style>
 </head>
 <body>
     <h1>Log In</h1>
-    <form method="post">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <p style="color:#ff6b6b;">{{ message }}</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="post" action="">
         {{ form.hidden_tag() }}
-        {{ form.email.label }}<br>
-        {{ form.email(size=40) }}<br><br>
-        {{ form.password.label }}<br>
-        {{ form.password(size=40) }}<br><br>
+        <div class="form-group">
+            {{ form.email.label }}<br>
+            {{ form.email(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.password.label }}<br>
+            {{ form.password(class="form-control") }}
+        </div>
         {{ form.submit }}
     </form>
-    <p><a href="/register" style="color:#00ff88;">Don't have an account? Sign up</a></p>
-    <p><a href="/" style="color:#888;">← Back to home</a></p>
+    <p class="mt-4">
+        <a href="/register" class="link">Don't have an account? Sign up</a>
+    </p>
+    <p><a href="/" class="link">← Back to home</a></p>
 </body>
 </html>
     """, form=form)
-
 @app.route("/logout")
 @login_required
 def logout():
