@@ -631,6 +631,8 @@ def login():
 </body>
 </html>
     """, form=form)
+
+
 @app.route("/logout")
 @login_required
 def logout():
@@ -841,14 +843,14 @@ def dashboard():
                                 <ul>
                                     <li>URL: <code>https://insurancegrokbot.click/webhook</code></li>
                                     <li>Method: POST</li>
-                                    <li>Body fields:
+                                    <li>Body fields (copy these exactly into GHL):
                                         <ul>
-                                            <li><code>intent</code>: {{trigger.tag}}</li>
-                                            <li><code>first_name</code>: {{contact.first_name}}</li>
-                                            <li><code>age</code>: {{contact.custom_fields.age or "unknown"}}</li>
-                                            <li><code>contact_address</code>: {{contact.address1}}</li>
-                                            <li><code>agent_name</code>: "Your Name" (or {{user.full_name}})</li>
-                                            <li><code>message</code>: {{message.body}}</li>
+                                            <li><code>intent</code>: {{ "{{trigger.tag}}" }}</li>
+                                            <li><code>first_name</code>: {{ "{{contact.first_name}}" }}</li>
+                                            <li><code>age</code>: {{ "{{contact.custom_fields.age or 'unknown'}}" }}</li>
+                                            <li><code>contact_address</code>: {{ "{{contact.address1}}" }}</li>
+                                            <li><code>agent_name</code>: "Your Name" (or {{ "{{user.full_name}}" }})</li>
+                                            <li><code>message</code>: {{ "{{message.body}}" }}</li>
                                         </ul>
                                     </li>
                                 </ul>
