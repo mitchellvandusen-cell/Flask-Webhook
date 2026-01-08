@@ -392,7 +392,7 @@ def home():
         <h2 class="fw-bold text-center mb-5">Current Abilities</h2>
         <div class="row g-4">
             <div class="col-md-4"><div class="card p-4"><h3>Multi-Tenant</h3><p class="text-secondary">Handles leads across different agencies with unique identities and data isolation.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h3>Deep Discovery</h3><p class="text-secondary">Automated fact-finding to identify gaps in existing work or pension coverage.</p></div></div>
+            <div class="col-md-4"><div class="card p-4"><h3>Deep Discovery</h3><p class="text-secondary">Automated fact-finding to identify gaps in existing work or personal coverage.</p></div></div>
             <div class="col-md-4"><div class="card p-4"><h3>24/7 Re-engagement</h3><p class="text-secondary">Picks up old leads and works them until they are ready to talk to an agent.</p></div></div>
         </div>
     </div>
@@ -404,11 +404,13 @@ def home():
         <div class="row g-4">
             <div class="col-md-4">
                 <div class="comparison-card">
-                    <h4>Feature</h4>
+                    <h4>Features</h4>
                     <ul>
-                        <li>Logic</li>
+                        <li>5 Different Sales Systems</li>
+                        <li>Complete Insurance Logic</li>
+                        <li>Extensive Underwriting Knowledge</li>
                         <li>Persistence</li>
-                        <li>Knowledge</li>
+                        <li>Only books leads that have a need</li>
                     </ul>
                 </div>
             </div>
@@ -473,9 +475,9 @@ def home():
         <h2 class="fw-bold highlight mb-4">Pricing</h2>
         <div class="card p-5 mx-auto" style="max-width: 500px; box-shadow: 0 0 20px var(--neon-glow);">
             <h3 class="display-4 fw-bold">$100<small class="fs-4">/mo</small></h3>
-            <p class="lead">Early Adopter Rate</p>
+            <p class="lead">Early Adopter Rate var(--neon-glow)</p>
             <p class="text-secondary">Limited to the first 50 people. Don't let old leads go to waste.</p>
-            <a href="#contact" class="btn btn-primary w-100 mt-4">RESERVE MY SPOT</a>
+            <a href="#contact" class="btn btn-primary w-100 mt-4">SUBSCRIBE NOW</a>
         </div>
     </div>
 </section>
@@ -487,7 +489,7 @@ def home():
             <input type="text" name="name" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Name" required>
             <input type="email" name="email" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Email" required>
             <textarea name="msg" class="form-control mb-4 bg-dark text-white border-secondary" placeholder="Your CRM and Lead Volume..." rows="4"></textarea>
-            <button type="submit" class="btn btn-primary btn-lg w-100">SUBMIT REQUEST</button>
+            <button type="submit" class="btn btn-primary btn-lg w-100">CONTACT US</button>
         </form>
     </div>
 </section>
