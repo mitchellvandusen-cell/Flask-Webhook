@@ -645,14 +645,15 @@ def dashboard():
     form = ConfigForm()
 
     # Get all values from sheet
-    values = worksheet.get_all_values()
+    values = worksheet.get_all_values() if worksheet else []
     if not values:
         # First run – add headers
         headers = ["Email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message"]
-        worksheet.append_row(headers)
+        if worksheet:
+            worksheet.append_row(headers)
         values = [headers]
 
-    header = values[0]
+    header = values[0] if values else []
     header_lower = [h.strip().lower() for h in header]
 
     # Safe column lookup
@@ -660,58 +661,70 @@ def dashboard():
         try:
             return header_lower.index(name.lower())
         except ValueError:
-            return header.index(name)  # fallback exact match
+            try:
+                return header.index(name)
+            except ValueError:
+                return -1
 
-    try:
-        email_idx = col_index("Email")
-        location_idx = col_index("location_id")
-        calendar_idx = col_index("calendar_id")
-        api_key_idx = col_index("crm_api_key")
-        user_id_idx = col_index("crm_user_id")
-        bot_name_idx = col_index("bot_first_name")
-        timezone_idx = col_index("timezone")
-        initial_msg_idx = col_index("initial_message")
-    except ValueError as e:
-        return f"<h1>Sheet Error</h1><p>Missing column: {e}</p><p>Current headers: {header}</p>", 500
+    # Default indexes if columns missing
+    email_idx = col_index("Email")
+    location_idx = col_index("location_id")
+    calendar_idx = col_index("calendar_id")
+    api_key_idx = col_index("crm_api_key")
+    user_id_idx = col_index("crm_user_id")
+    bot_name_idx = col_index("bot_first_name")
+    timezone_idx = col_index("timezone")
+    initial_msg_idx = col_index("initial_message")
 
     # Find user's row by Email
     user_row_num = None
     for i, row in enumerate(values[1:], start=2):
-        if len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
+        if email_idx >= 0 and len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
             user_row_num = i
             break
 
-    if form.validate_on_submit():
+    if form.validate_on_submit() and worksheet:
         data = [
             current_user.email,
             form.location_id.data or "",
             form.calendar_id.data or "",
             form.crm_api_key.data or "",
             form.crm_user_id.data or "",
-            form.bot_name.data or "",
-            form.timezone.data or "",
+            form.bot_name.data or "Grok",
+            form.timezone.data or "America/Chicago",
             form.initial_message.data or "",
         ]
 
-        if user_row_num:
-            worksheet.update(f"A{user_row_num}:H{user_row_num}", [data])
-        else:
-            worksheet.append_row(data)
-        sync_subscribers()
+        try:
+            if user_row_num:
+                worksheet.update(f"A{user_row_num}:H{user_row_num}", [data])
+            else:
+                worksheet.append_row(data)
+            sync_subscribers()
+            flash("Settings saved and bot updated instantly!", "success")
+        except Exception as e:
+            logger.error(f"Sheet write failed: {e}")
+            flash("Error saving to sheet — try again", "error")
 
-        flash("settings saved and bot updated instantly", "success")
         return redirect("/dashboard")
 
     # Pre-fill form from existing row
-    if user_row_num and len(values[user_row_num - 1]) >= 8:
+    if user_row_num and values:
         row = values[user_row_num - 1]
-        form.location_id.data = row[location_idx]
-        form.calendar_id.data = row[calendar_idx]
-        form.crm_api_key.data = row[api_key_idx]
-        form.crm_user_id.data = row[user_id_idx]
-        form.bot_name.data = row[bot_name_idx]
-        form.timezone.data = row[timezone_idx]
-        form.initial_message.data = row[initial_msg_idx]
+        if location_idx >= 0 and len(row) > location_idx:
+            form.location_id.data = row[location_idx]
+        if calendar_idx >= 0 and len(row) > calendar_idx:
+            form.calendar_id.data = row[calendar_idx]
+        if api_key_idx >= 0 and len(row) > api_key_idx:
+            form.crm_api_key.data = row[api_key_idx]
+        if user_id_idx >= 0 and len(row) > user_id_idx:
+            form.crm_user_id.data = row[user_id_idx]
+        if bot_name_idx >= 0 and len(row) > bot_name_idx:
+            form.bot_name.data = row[bot_name_idx]
+        if timezone_idx >= 0 and len(row) > timezone_idx:
+            form.timezone.data = row[timezone_idx]
+        if initial_msg_idx >= 0 and len(row) > initial_msg_idx:
+            form.initial_message.data = row[initial_msg_idx]
 
     return render_template_string("""
 <!DOCTYPE html>
@@ -720,17 +733,22 @@ def dashboard():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - InsuranceGrokBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background:#000; color:#fff; font-family:Arial; padding:40px; }
-        .container { max-width:800px; margin:auto; }
+        .container { max-width:900px; margin:auto; }
         h1 { font-size:48px; text-align:center; color:#00ff88; }
         .form-group { margin:25px 0; }
         label { display:block; margin-bottom:8px; font-size:18px; }
         input { width:100%; padding:12px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:16px; }
-        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:30px; }
+        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; }
         button:hover { background:#00cc70; }
         .logout { position:absolute; top:20px; right:20px; color:#00ff88; font-size:18px; }
         .alert { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px 0; }
+        .alert-success { border-left:5px solid #00ff88; }
+        .alert-error { border-left:5px solid #ff6b6b; }
+        .card { background:#111; border:1px solid #333; border-radius:15px; padding:30px; margin:30px 0; }
+        code { background:#222; padding:2px 6px; border-radius:4px; }
     </style>
 </head>
 <body>
@@ -739,67 +757,139 @@ def dashboard():
         <h1>Dashboard</h1>
         <p style="text-align:center; font-size:20px;">Welcome back, <strong>{{ current_user.email }}</strong></p>
 
-        {% with messages = get_flashed_messages() %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
-            <div class="alert">
-              {% for message in messages %}
-                {{ message }}<br>
-              {% endfor %}
-            </div>
+            {% for category, message in messages %}
+              <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+            {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <h2 style="color:#00ff88; text-align:center;">Configure Your Bot</h2>
-        <form method="post">
-            {{ form.hidden_tag() }}
+        <ul class="nav nav-tabs justify-content-center mb-5">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#config">Configuration</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#guide">GHL Setup Guide</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#billing">Billing</a>
+            </li>
+        </ul>
 
-            <div class="form-group">
-                {{ form.location_id.label }}
-                {{ form.location_id(class="form-control", placeholder="e.g. k7lOZdwaMruhP") }}
-            </div>
+        <div class="tab-content">
+            <!-- Configuration Tab -->
+            <div class="tab-pane active" id="config">
+                <h2 style="color:#00ff88; text-align:center;">Configure Your Bot</h2>
+                <form method="post">
+                    {{ form.hidden_tag() }}
 
-            <div class="form-group">
-                {{ form.calendar_id.label }}
-                {{ form.calendar_id(class="form-control", placeholder="e.g. S4KnucrFaXO76") }}
-            </div>
+                    <div class="form-group">
+                        {{ form.location_id.label }}
+                        {{ form.location_id(class="form-control", placeholder="e.g. k7lOZdwaMruhP") }}
+                    </div>
 
-            <div class="form-group">
-                {{ form.crm_api_key.label }}
-                {{ form.crm_api_key(class="form-control", placeholder="e.g. pit-ae0fh932-a8c") }}
-            </div>
+                    <div class="form-group">
+                        {{ form.calendar_id.label }}
+                        {{ form.calendar_id(class="form-control", placeholder="e.g. S4KnucrFaXO76") }}
+                    </div>
 
-            <div class="form-group">
-                {{ form.crm_user_id.label }}
-                {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – May be required for calendar") }}
-            </div>
+                    <div class="form-group">
+                        {{ form.crm_api_key.label }}
+                        {{ form.crm_api_key(class="form-control", placeholder="e.g. pit-ae0fh932-a8c") }}
+                    </div>
 
-            <div class="form-group">
-                {{ form.timezone.label }}
-                {{ form.timezone(class="form-control", placeholder="e.g. America/Chicago") }}
-            </div>
+                    <div class="form-group">
+                        {{ form.crm_user_id.label }}
+                        {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – required for calendar") }}
+                    </div>
 
-            <div class="form-group">
-                {{ form.bot_name.label }}
-                {{ form.bot_name(class="form-control", placeholder="e.g. Your First Name") }}
-            </div>
+                    <div class="form-group">
+                        {{ form.timezone.label }}
+                        {{ form.timezone(class="form-control", placeholder="e.g. America/Chicago") }}
+                    </div>
 
-            <div class="form-group">
-                {{ form.initial_message.label }}
-                {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
-            </div>
+                    <div class="form-group">
+                        {{ form.bot_name.label }}
+                        {{ form.bot_name(class="form-control", placeholder="e.g. Mitch") }}
+                    </div>
 
-            <div class="card">
-                <h2>Billing</h2>
-                <p>Manage your subscription, update payment method, or cancel</p>
-                <form method="post" action="/create-portal-session">
-                    <button type="submit" class="btn">Manage Billing →</button>
+                    <div class="form-group">
+                        {{ form.initial_message.label }}
+                        {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
+                    </div>
+
+                    <div style="text-align:center; margin-top:40px;">
+                        {{ form.submit(class="btn btn-success") }}
+                    </div>
                 </form>
             </div>
-                                  
-            <div style="text-align:center;">
-                {{ form.submit }}
+
+            <!-- GHL Setup Guide Tab -->
+            <div class="tab-pane fade" id="guide">
+                <div class="card">
+                    <h2 style="color:#00ff88; text-align:center;">GoHighLevel Setup Guide</h2>
+                    <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your CRM</p>
+
+                    <div style="text-align:left;">
+                        <h3 style="color:#00ff88;">Step 1: Create "Re-engage Leads" Workflow</h3>
+                        <ol>
+                            <li>Go to <strong>Automations → Workflows → Create Workflow</strong></li>
+                            <li><strong>Trigger</strong>: Tag Applied (create a tag like "Grok-Reengage")</li>
+                            <li>Add <strong>Wait</strong>: 5–30 minutes</li>
+                            <li>Add <strong>Webhook</strong>:
+                                <ul>
+                                    <li>URL: <code>https://insurancegrokbot.click/webhook</code></li>
+                                    <li>Method: POST</li>
+                                    <li>Body fields:
+                                        <ul>
+                                            <li><code>intent</code>: {{trigger.tag}}</li>
+                                            <li><code>first_name</code>: {{contact.first_name}}</li>
+                                            <li><code>age</code>: {{contact.custom_fields.age or "unknown"}}</li>
+                                            <li><code>contact_address</code>: {{contact.address1}}</li>
+                                            <li><code>agent_name</code>: "Your Name" (or {{user.full_name}})</li>
+                                            <li><code>message</code>: {{message.body}}</li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li>Add <strong>Condition</strong>: If appointment booked → stop workflow</li>
+                            <li>Else → Wait + same webhook → repeat as needed</li>
+                        </ol>
+
+                        <h3 style="color:#00ff88; margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
+                        <ol>
+                            <li>New Workflow</li>
+                            <li><strong>Trigger</strong>: Inbound SMS with tag "Grok-Reengage"</li>
+                            <li>Add <strong>Wait</strong>: 2 minutes</li>
+                            <li>Add <strong>Webhook</strong> (same URL and fields as above)</li>
+                        </ol>
+
+                        <h3 style="color:#00ff88; margin-top:40px;">Daily SMS Limits</h3>
+                        <ul>
+                            <li>GHL starts at <strong>100 outbound SMS/day</strong></li>
+                            <li>Increases automatically (250 next day, then higher)</li>
+                            <li>Check in GHL Settings → Phone Numbers</li>
+                        </ul>
+
+                        <p style="text-align:center; margin-top:40px; font-weight:bold;">
+                            Once set up, the bot runs 24/7 — no more dead leads.
+                        </p>
+                    </div>
+                </div>
             </div>
-        </form>
+
+            <!-- Billing Tab -->
+            <div class="tab-pane fade" id="billing">
+                <div class="card">
+                    <h2 style="color:#00ff88;">Billing</h2>
+                    <p>Update payment method, view invoices, or cancel subscription</p>
+                    <form method="post" action="/create-portal-session">
+                        <button type="submit" class="btn">Manage Billing on Stripe →</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <p style="text-align:center; margin-top:60px;">
             <a href="/" style="color:#00ff88;">← Back to Home</a>
