@@ -782,6 +782,14 @@ def dashboard():
                 {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
             </div>
 
+            <div class="card">
+                <h2>Billing</h2>
+                <p>Manage your subscription, update payment method, or cancel</p>
+                <form method="post" action="/create-portal-session">
+                    <button type="submit" class="btn">Manage Billing →</button>
+                </form>
+            </div>
+                                  
             <div style="text-align:center;">
                 {{ form.submit }}
             </div>
@@ -794,6 +802,27 @@ def dashboard():
 </body>
 </html>
     """, form=form)
+
+@app.route("/create-portal-session", methods=["POST"])
+@login_required
+def create_portal_session():
+    try:
+        # Get the user's Stripe customer ID from DB (add this column if not there yet)
+        user = User.get(current_user.email)
+        if not user or not user.stripe_customer_id:
+            flash("No billing info found — subscribe first", "error")
+            return redirect("/dashboard")
+
+        session = stripe.billing_portal.Session.create(
+            customer=user.stripe_customer_id,
+            return_url=f"{YOUR_DOMAIN}/dashboard",
+        )
+        return redirect(session.url)
+    except Exception as e:
+        logger.error(f"Portal session error: {e}")
+        flash("Unable to open billing portal", "error")
+        return redirect("/dashboard")
+    
 # At the top, add a demo-specific contact ID
 DEMO_CONTACT_ID = "demo_web_visitor"
 
