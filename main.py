@@ -764,7 +764,7 @@ def dashboard():
 
             <div class="form-group">
                 {{ form.crm_user_id.label }}
-                {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – required for calendar") }}
+                {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – May be required for calendar") }}
             </div>
 
             <div class="form-group">
@@ -774,7 +774,7 @@ def dashboard():
 
             <div class="form-group">
                 {{ form.bot_name.label }}
-                {{ form.bot_name(class="form-control", placeholder="e.g. Mitch") }}
+                {{ form.bot_name(class="form-control", placeholder="e.g. Your First Name") }}
             </div>
 
             <div class="form-group">
