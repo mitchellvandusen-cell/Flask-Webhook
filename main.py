@@ -519,16 +519,55 @@ def register():
         else:
             flash("Registration failed — try again")
     return render_template_string("""
-    <h1>Register</h1>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register - InsuranceGrokBot</title>
+    <style>
+        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+        h1 { color:#00ff88; font-size:48px; margin-bottom:40px; }
+        .form-group { margin:30px 0; }
+        label { font-size:20px; display:block; margin-bottom:10px; }
+        input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
+        button { padding:15px 60px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:20px; }
+        button:hover { background:#00cc70; }
+        .link { color:#00ff88; text-decoration:underline; font-size:18px; margin:20px 0; display:inline-block; }
+        .flash { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px auto; max-width:500px; }
+    </style>
+</head>
+<body>
+    <h1>Create Your Account</h1>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="flash">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <form method="post">
         {{ form.hidden_tag() }}
-        {{ form.email.label }} {{ form.email }}<br><br>
-        {{ form.password.label }} {{ form.password }}<br><br>
-        {{ form.confirm.label }} {{ form.confirm }}<br><br>
+        <div class="form-group">
+            {{ form.email.label }}<br>
+            {{ form.email(class="form-control", placeholder="your@email.com") }}
+        </div>
+        <div class="form-group">
+            {{ form.password.label }}<br>
+            {{ form.password(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.confirm.label }}<br>
+            {{ form.confirm(class="form-control") }}
+        </div>
         {{ form.submit }}
     </form>
-    <p><a href="/login">Already registered? Log in</a></p>
-    """, form=form)
+
+    <p class="link"><a href="/login">Already have an account? Log in</a></p>
+    <p><a href="/" style="color:#888;">← Back to home</a></p>
+</body>
+</html>
+""", form=form)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
