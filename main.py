@@ -385,6 +385,12 @@ def home():
             </a>
         </p>
 
+        <p class="mt-4">
+            <a href="/getting-started" style="color:#00ff88; font-size:20px; text-decoration:underline;">
+                New here? Follow the setup guide →
+            </a>
+        </p>
+
         <p class="mt-4 text-secondary">
             <small>No contract • Cancel anytime • Instant activation</small>
         </p>
@@ -508,29 +514,62 @@ def home():
 """
     return render_template_string(home_html)
 
+@app.route("/stripe-webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get("Stripe-Signature")
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+    except:
+        return '', 400
+
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        customer_id = session.customer
+        email = session.customer_details.email.lower()
+
+        if email and customer_id:
+            # Create user if not exists
+            if not User.get(email):
+                password_hash = generate_password_hash(str(uuid.uuid4()))  # Random password
+                User.create(email, password_hash, customer_id)
+                logger.info(f"Created paid user {email}")
+
+            # Update stripe_customer_id
+            conn = get_db_connection()
+            conn.execute("UPDATE users SET stripe_customer_id = ? WHERE email = ?", (customer_id, email))
+            conn.commit()
+            conn.close()
+
+    return '', 200
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    form = RegisterForm()
-    if form.validate_on_submit():
-        email = form.email.data.lower()  # Good practice
-        if User.get(email):
-            flash("Email already registered — try logging in")
-            return redirect("/login")
-        
-        password_hash = generate_password_hash(form.password.data)
-        if User.create(email, password_hash):
-            # Auto-login the new user
-            new_user = User.get(email)
-            login_user(new_user)
-            flash("Account created and logged in! Welcome to InsuranceGrokBot.")
-            return redirect("/dashboard")  # Go straight to dashboard
-        else:
-            flash("Registration failed — try again")
-    return render_template_string("""
+    # Admin bypass — only you use this URL
+    if request.args.get("admin") == "true":
+        form = RegisterForm()
+        if form.validate_on_submit():
+            email = form.email.data.lower()
+            if User.get(email):
+                flash("Email already registered", "error")
+                return redirect("/register?admin=true")
+            
+            password_hash = generate_password_hash(form.password.data)
+            if User.create(email, password_hash):
+                flash(f"Account created for {email}!", "success")
+                # Optional: auto-login the new user
+                new_user = User.get(email)
+                login_user(new_user)
+                return redirect("/dashboard")
+            else:
+                flash("Creation failed", "error")
+        return render_template_string("""
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Register - InsuranceGrokBot</title>
+    <title>Admin Register - InsuranceGrokBot</title>
     <style>
         body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
         h1 { color:#00ff88; font-size:48px; margin-bottom:40px; }
@@ -539,17 +578,18 @@ def register():
         input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
         button { padding:15px 60px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:20px; }
         button:hover { background:#00cc70; }
-        .link { color:#00ff88; text-decoration:underline; font-size:18px; margin:20px 0; display:inline-block; }
         .flash { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px auto; max-width:500px; }
+        .flash-error { border-left:5px solid #ff6b6b; }
+        .flash-success { border-left:5px solid #00ff88; }
     </style>
 </head>
 <body>
-    <h1>Create Your Account</h1>
+    <h1>Admin Account Creation</h1>
 
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for message in messages %}
-                <div class="flash">{{ message }}</div>
+            {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
@@ -558,7 +598,7 @@ def register():
         {{ form.hidden_tag() }}
         <div class="form-group">
             {{ form.email.label }}<br>
-            {{ form.email(class="form-control", placeholder="your@email.com") }}
+            {{ form.email(class="form-control", placeholder="email@example.com") }}
         </div>
         <div class="form-group">
             {{ form.password.label }}<br>
@@ -571,11 +611,32 @@ def register():
         {{ form.submit }}
     </form>
 
-    <p class="link"><a href="/login">Already have an account? Log in</a></p>
-    <p><a href="/" style="color:#888;">← Back to home</a></p>
+    <p style="margin-top:40px;"><a href="/dashboard" style="color:#00ff88;">← Dashboard</a></p>
 </body>
 </html>
-""", form=form)
+        """, form=form)
+
+    # Normal users — registration closed
+    return render_template_string("""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Registration Closed</title>
+    <style>
+        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+        h1 { color:#00ff88; font-size:48px; }
+        p { font-size:24px; }
+        a { color:#00ff88; font-size:20px; text-decoration:underline; }
+    </style>
+</head>
+<body>
+    <h1>Registration Closed</h1>
+    <p>Accounts are created automatically after you subscribe.</p>
+    <p><a href="/checkout">Subscribe Now →</a></p>
+    <p style="margin-top:40px;"><a href="/">← Back to Home</a></p>
+</body>
+</html>
+    """)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
