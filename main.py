@@ -1503,37 +1503,51 @@ def getting_started():
         <title>Getting Started - InsuranceGrokBot</title>
         <style>
             body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:60px; }
-            h1 { font-size:48px; color:#00ff88; }
-            .step { margin:40px auto; max-width:600px; font-size:20px; }
-            .btn { display:inline-block; padding:15px 40px; background:#00ff88; color:#000; font-weight:bold; text-decoration:none; border-radius:12px; font-size:22px; margin:20px; }
-            .btn:hover { background:#00cc70; }
+            h1 { font-size:48px; color:#00ff88; text-shadow: 0 0 20px rgba(0,255,136,0.5); }
+            .step { margin:60px auto; max-width:700px; font-size:20px; background:#111; padding:40px; border-radius:20px; border:1px solid #333; box-shadow: 0 0 30px rgba(0,255,136,0.2); }
+            .step h2 { color:#00ff88; font-size:32px; }
+            .btn { display:inline-block; padding:18px 50px; background:#00ff88; color:#000; font-weight:bold; text-decoration:none; border-radius:12px; font-size:24px; margin:20px; box-shadow: 0 0 20px rgba(0,255,136,0.5); }
+            .btn:hover { background:#00cc70; transform:scale(1.05); }
+            code { background:#222; padding:4px 8px; border-radius:6px; color:#00ff88; }
         </style>
     </head>
     <body>
         <h1>Welcome to InsuranceGrokBot</h1>
-        <p style="font-size:24px;">Get set up in 3 simple steps</p>
+        <p style="font-size:26px; margin-bottom:60px;">Get set up in 5 simple steps</p>
 
         <div class="step">
-            <h2>1. Create Your Account</h2>
-            <p>Sign up with your email — takes 10 seconds</p>
-            <a href="/register" class="btn">Sign Up Now</a>
+            <h2>1. Subscribe</h2>
+            <p>Start your $100/month subscription — cancel anytime</p>
+            <a href="/checkout" class="btn">Subscribe Now</a>
         </div>
 
         <div class="step">
-            <h2>2. Subscribe</h2>
-            <p>$100/month — cancel anytime</p>
-            <a href="/checkout" class="btn">Subscribe ($100/mo)</a>
+            <h2>2. Complete Payment</h2>
+            <p>Pay securely with Stripe — your account is created automatically</p>
         </div>
 
         <div class="step">
-            <h2>3. Configure Your Bot</h2>
-            <p>Log in and paste your GoHighLevel Location ID + API Key</p>
-            <a href="/login" class="btn">Log In → Dashboard</a>
+            <h2>3. Set Your Password</h2>
+            <p>After payment, you'll be prompted to create a password for your account</p>
         </div>
 
-        <p style="margin-top:80px;">
-            <a href="/demo-chat" style="color:#00ff88;">Try the demo chat</a> | 
-            <a href="/" style="color:#888;">← Back</a>
+        <div class="step">
+            <h2>4. Configure Your Bot</h2>
+            <p>Log in and go to Dashboard → enter your GoHighLevel details (Location ID, API Key, etc.)</p>
+            <a href="/dashboard" class="btn">Go to Dashboard (after login)</a>
+        </div>
+
+        <div class="step">
+            <h2>5. Connect to GoHighLevel</h2>
+            <p>In GHL → Automations → Workflows</p>
+            <p>Create two workflows using webhook URL:</p>
+            <p><code>https://insurancegrokbot.click/webhook</code></p>
+            <p>See full setup guide in your dashboard under "GHL Setup Guide" tab</p>
+        </div>
+
+        <p style="margin-top:80px; font-size:20px;">
+            <a href="/demo-chat" style="color:#00ff88; text-decoration:underline;">Try the demo chat first →</a> | 
+            <a href="/" style="color:#888;">← Back to Home</a>
         </p>
     </body>
     </html>
