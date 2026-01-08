@@ -826,25 +826,25 @@ def dashboard():
                 </form>
             </div>
 
-            <!-- GHL Setup Guide Tab -->
+            <!-- CRM Setup Guide Tab -->
             <div class="tab-pane fade" id="guide">
                 <div class="card guide-text">
-                    <h2 style="color:#00ff88; text-align:center;">GoHighLevel Setup Guide</h2>
+                    <h2 style="color:#00ff88; text-align:center;">CRM Setup Guide - GHL is template</h2>
                     <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your CRM</p>
 
                     <div style="text-align:left;">
                         <h3 style="color:#00ff88;">Step 1: Create "Re-engage Leads" Workflow</h3>
                         <ol>
                             <li>Go to <strong>Automations → Workflows → Create Workflow</strong></li>
-                            <li><strong>Trigger</strong>: Tag Applied (create a tag like "Grok-Reengage")</li>
+                            <li><strong>Trigger</strong>: Tag Applied (create a tag like "Re-engage text")</li>
                             <li>Add <strong>Wait</strong>: 5–30 minutes</li>
                             <li>Add <strong>Webhook</strong>:
                                 <ul>
                                     <li>URL: <code>https://insurancegrokbot.click/webhook</code></li>
                                     <li>Method: POST</li>
-                                    <li>Body fields (copy into GHL):
+                                    <li>Body fields (use correct crm "{{}}"):
                                         <ul>
-                                            <li><code>intent</code>: {{ "{{trigger.tag}}" }}</li>
+                                            <li><code>intent</code>: {{ "the intent of the message" }}</li>
                                             <li><code>first_name</code>: {{ "{{contact.first_name}}" }}</li>
                                             <li><code>age</code>: {{ "{{contact.custom_fields.age or 'unknown'}}" }}</li>
                                             <li><code>contact_address</code>: {{ "{{contact.address1}}" }}</li>
@@ -861,7 +861,7 @@ def dashboard():
                         <h3 style="color:#00ff88; margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
                         <ol>
                             <li>New Workflow</li>
-                            <li><strong>Trigger</strong>: Inbound SMS with tag "Grok-Reengage"</li>
+                            <li><strong>Trigger</strong>: Inbound SMS with tag "Re-engage text"</li>
                             <li>Add <strong>Wait</strong>: 2 minutes</li>
                             <li>Add <strong>Webhook</strong> (same URL and fields)</li>
                         </ol>
