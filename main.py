@@ -133,6 +133,8 @@ def webhook():
         subscriber = {
             'bot_first_name': 'Grok',
             'crm_api_key': 'DEMO',
+            'crm_user_id': '',
+            'calendar_id': '',
             'timezone': 'America/Chicago'
         }
         contact_id = payload.get("contact_id")
