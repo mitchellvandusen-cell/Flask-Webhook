@@ -844,12 +844,12 @@ def dashboard():
                                     <li>Method: POST</li>
                                     <li>Body fields (use correct crm "{{}}"):
                                         <ul>
-                                            <li><code>intent</code>: {{ "the intent of the message" }}</li>
-                                            <li><code>first_name</code>: {{ "{{contact.first_name}}" }}</li>
-                                            <li><code>age</code>: {{ "{{contact.custom_fields.age or 'unknown'}}" }}</li>
-                                            <li><code>contact_address</code>: {{ "{{contact.address1}}" }}</li>
-                                            <li><code>agent_name</code>: "Your Name" (or {{ "{{user.full_name}}" }})</li>
-                                            <li><code>message</code>: {{ "{{message.body}}" }}</li>
+                                            <li><code>intent</code>: "the intent of the message" </li>
+                                            <li><code>first_name</code>: "{{contact.first_name}}" </li>
+                                            <li><code>age</code>: "{{contact.custom_fields.age or 'unknown'}}" </li>
+                                            <li><code>contact_address</code>: "{{contact.address1}}" </li>
+                                            <li><code>agent_name</code>: "Your Name" (or "{{user.full_name}}") </li>
+                                            <li><code>message</code>: "{{message.body}}" </li>
                                         </ul>
                                     </li>
                                 </ul>
