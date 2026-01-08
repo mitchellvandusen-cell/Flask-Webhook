@@ -2,83 +2,26 @@ import os
 import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
-import sqlite3
 from flask_login import UserMixin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 def get_db_connection():
-    """Get database connection from DATABASE_URL"""
+    """Get PostgreSQL connection from DATABASE_URL"""
+    if not DATABASE_URL:
+        logger.error("DATABASE_URL not set")
+        return None
     try:
-        url = os.environ.get("DATABASE_URL")
-        if not url:
-            logger.error("DATABASE_URL environment variable is not set")
-            return None
-        return psycopg2.connect(url)
+        return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     except Exception as e:
-        logger.error(f"Database connection error: {e}")
+        logger.error(f"Database connection failed: {e}")
         return None
 
-# ===================================
-# INITIALIZATION
-# ===================================
-DATABASE = 'users.db'
-
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def init_db():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            email TEXT PRIMARY KEY,
-            password_hash TEXT NOT NULL,
-            stripe_customer_id TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-class User(UserMixin):
-    def __init__(self, email, password_hash=None, stripe_customer_id=None):
-        self.id = email
-        self.email = email
-        self.password_hash = password_hash
-        self.stripe_customer_id = stripe_customer_id
-
-    @staticmethod
-    def get(email):
-        conn = get_db_connection()
-        user = conn.execute(
-            'SELECT email, password_hash, stripe_customer_id FROM users WHERE email = ?',
-            (email,)
-        ).fetchone()
-        conn.close()
-        if user:
-            return User(user['email'], user['password_hash'], user['stripe_customer_id'])
-        return None
-
-    @staticmethod
-    def create(email, password_hash, stripe_customer_id=None):
-        conn = get_db_connection()
-        try:
-            conn.execute(
-                'INSERT INTO users (email, password_hash, stripe_customer_id) VALUES (?, ?, ?)',
-                (email, password_hash, stripe_customer_id)
-            )
-            conn.commit()
-            return True
-        except sqlite3.IntegrityError:
-            return False  # Email already exists
-        finally:
-            conn.close()
-
-def init_db():
-    """Initialize all required tables"""
+    """Initialize all required tables in PostgreSQL"""
     conn = get_db_connection()
     if not conn:
         return False
@@ -86,19 +29,7 @@ def init_db():
     try:
         cur = conn.cursor()
 
-        # 1. Subscribers (multi-tenancy)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS subscribers (
-                ghl_location_id TEXT PRIMARY KEY,
-                ghl_api_key TEXT NOT NULL,
-                ghl_calendar_id TEXT,
-                ghl_user_id TEXT,
-                bot_first_name TEXT DEFAULT 'Grok',
-                timezone TEXT DEFAULT 'America/Chicago',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+        # Users table (login + Stripe)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 email TEXT PRIMARY KEY,
@@ -106,32 +37,48 @@ def init_db():
                 stripe_customer_id TEXT
             );
         """)
-        # 2. Raw message log (for conversation history)
+
+        # Subscribers table (GHL config)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS subscribers (
+                location_id TEXT PRIMARY KEY,
+                bot_first_name TEXT DEFAULT 'Grok',
+                crm_api_key TEXT NOT NULL,
+                timezone TEXT DEFAULT 'America/Chicago',
+                crm_user_id TEXT,
+                calendar_id TEXT,
+                initial_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # Conversation messages
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_messages (
                 id SERIAL PRIMARY KEY,
                 contact_id TEXT NOT NULL,
                 message_type TEXT NOT NULL CHECK (message_type IN ('lead', 'assistant')),
                 message_text TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_contact_messages_contact_id (contact_id),
-                INDEX idx_contact_messages_created (contact_id, created_at DESC)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_contact_id ON contact_messages (contact_id);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_created ON contact_messages (contact_id, created_at DESC);")
 
-        # 3. Grok-extracted facts (core memory)
+        # Extracted facts
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_facts (
                 id SERIAL PRIMARY KEY,
                 contact_id TEXT NOT NULL,
                 fact_text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(contact_id, fact_text),
-                INDEX idx_contact_facts_contact_id (contact_id)
+                UNIQUE(contact_id, fact_text)
             );
         """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_facts_contact_id ON contact_facts (contact_id);")
 
-        # 4. Webhook deduplication
+        # Webhook deduplication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS processed_webhooks (
                 webhook_id TEXT PRIMARY KEY,
@@ -140,7 +87,7 @@ def init_db():
         """)
 
         conn.commit()
-        logger.info("Database tables initialized successfully")
+        logger.info("All database tables initialized successfully")
         return True
 
     except Exception as e:
@@ -152,28 +99,67 @@ def init_db():
             cur.close()
             conn.close()
 
-# ===================================
-# SUBSCRIBER LOOKUP
-# ===================================
+class User(UserMixin):
+    def __init__(self, email, password_hash=None, stripe_customer_id=None):
+        self.id = email
+        self.email = email
+        self.password_hash = password_hash
+        self.stripe_customer_id = stripe_customer_id
+
+    @staticmethod
+    def get(email):
+        conn = get_db_connection()
+        if not conn:
+            return None
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT email, password_hash, stripe_customer_id FROM users WHERE email = %s", (email,))
+            row = cur.fetchone()
+            if row:
+                return User(row['email'], row['password_hash'], row['stripe_customer_id'])
+            return None
+        except Exception as e:
+            logger.error(f"User.get error: {e}")
+            return None
+        finally:
+            cur.close()
+            conn.close()
+
+    @staticmethod
+    def create(email, password_hash, stripe_customer_id=None):
+        conn = get_db_connection()
+        if not conn:
+            return False
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO users (email, password_hash, stripe_customer_id) VALUES (%s, %s, %s)",
+                (email, password_hash, stripe_customer_id)
+            )
+            conn.commit()
+            return True
+        except psycopg2.IntegrityError:
+            return False  # Duplicate email
+        except Exception as e:
+            logger.error(f"User.create error: {e}")
+            return False
+        finally:
+            cur.close()
+            conn.close()
 
 def get_subscriber_info(location_id: str) -> dict | None:
-    """Get subscriber config by GoHighLevel location ID"""
+    """Get subscriber config by location ID"""
     conn = get_db_connection()
     if not conn:
         return None
-
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute(
-            "SELECT * FROM subscribers WHERE ghl_location_id = %s",
-            (location_id,)
-        )
-        subscriber = cur.fetchone()
-        return dict(subscriber) if subscriber else None
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE location_id = %s", (location_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
     except Exception as e:
         logger.error(f"Error fetching subscriber {location_id}: {e}")
         return None
     finally:
-        if conn:
-            cur.close()
-            conn.close()
+        cur.close()
+        conn.close()
