@@ -99,7 +99,13 @@ def init_db():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                email TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                stripe_customer_id TEXT
+            );
+        """)
         # 2. Raw message log (for conversation history)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_messages (
