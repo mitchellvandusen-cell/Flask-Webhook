@@ -1307,6 +1307,7 @@ def create_checkout_session():
                 "price": os.getenv("STRIPE_PRICE_ID"),
                 "quantity": 1,
             }],
+            allow_promotion_codes=True,
             success_url=f"{YOUR_DOMAIN}/success",
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
