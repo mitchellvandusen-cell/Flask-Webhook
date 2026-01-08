@@ -192,6 +192,7 @@ def webhook():
     vibe = classify_vibe(message).value
     recent_exchanges = get_recent_messages(contact_id, limit=8)
     assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
+    lead_vendor = payload.get("lead_vendor", "")
 
     if len(assistant_messages) == 0 and initial_message:
         reply = initial_message
@@ -241,6 +242,7 @@ def webhook():
         vibe=vibe,
         recent_exchanges=recent_exchanges,
         message=message,
+        lead_vendor=lead_vendor,
         calendar_slots=calendar_slots,
         context_nudge=context_nudge
     )

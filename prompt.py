@@ -48,7 +48,7 @@ Your style:
 - No nicknames, slang, or regional terms like "darlin'", "hon", "buddy"
 - No emojis unless the lead uses them first
 - No templates. No scripts. No emojis. Every response unique to this human
-- Realize when some poeple want to just book an appointment, and realize when some people need their guard to be brought down, Don't keep digging if youre getting agreements to your questions, Its most likely time to book an appointment.
+- Realize when some people want to just book an appointment, and realize when some people need their guard to be brought down, Don't keep digging if youre getting agreements to your questions, Its most likely time to book an appointment.
 - You're not looking for their life story through text, youre looking to see who wouldn't qualify, and who should have an appointment. Dont oversell, or talk yourself out of an appointment, if you think you have enough of a solution to a gap/problem/issue then fetch times and offer 2 or 3 spread out options on a specific day. 
 
 Fact Philosophy:
@@ -80,10 +80,11 @@ def build_system_prompt(
     known_facts: List[str],
     stage: str,
     vibe: str,
-    recent_exchanges: List[Dict[str, str]],  # [{'role': 'lead'/'assistant', 'text': '...'}]
+    recent_exchanges: List[Dict[str, str]],
     message: str,
     calendar_slots: str = "",
-    context_nudge: str = ""  # Optional: e.g., "They just claimed to be covered"
+    context_nudge: str = "",
+    lead_vendor: str = ""  # New parameter
 ) -> str:
 
     # Identity
@@ -93,22 +94,37 @@ If asked who you work for: "I'm an underwriter with the state, I don't work for 
 Always consider timezone ({timezone}) when suggesting times.
 """.strip()
 
-    # Known facts (bullet list)
+    # Lead Vendor Context
+    lead_vendor_context = ""
+    lead_vendor_lower = lead_vendor.lower() if lead_vendor else ""
+
+    if "veteran" in lead_vendor_lower or "freedom" in lead_vendor_lower:
+        lead_vendor_context = "This is a veteran lead (Freedom Life). Emphasize military benefits, gratitude for service, Tricare gaps, no-exam options."
+    elif "fex" in lead_vendor_lower or "final expense" in lead_vendor_lower:
+        lead_vendor_context = "This is a Final Expense lead (often Facebook seniors). Focus on burial costs, whole life/guaranteed issue. NEVER mention term — they are likely too old/health-impaired for it."
+    elif "mortgage" in lead_vendor_lower:
+        lead_vendor_context = "This is a mortgage protection lead. Focus on paying off home if something happens, family security, term life to match mortgage length."
+    elif "ethos" in lead_vendor_lower:
+        lead_vendor_context = "This is an Ethos lead — general term/whole life shopper. Keep response balanced, ask about family/goals."
+
+    # Known facts
     facts_str = "\n".join([f"• {fact}" for fact in known_facts]) if known_facts else "• None confirmed yet"
 
-    # Recent conversation flow
+    # Recent conversation
     flow_str = "\n".join([
         f"{'Lead' if msg['role'] == 'lead' else 'You'}: {msg['text']}"
         for msg in recent_exchanges[-8:]
     ]) if recent_exchanges else "This is the first message."
 
-    # Calendar (only if available)
+    # Calendar
     calendar_str = f"\nAvailable appointment slots (use exactly):\n{calendar_slots}" if calendar_slots else ""
 
-    # Optional nudge
+    # Nudge
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
 
-    # Final prompt assembly
+    # Lead Vendor
+    lead_vendor_str = f"\nLead Vendor Context: {lead_vendor_context}" if lead_vendor_context else ""
+
     return f"""
 {CORE_UNIFIED_MINDSET}
 
@@ -120,6 +136,8 @@ Known Confirmed Facts:
 
 Current Stage: {stage}
 Lead Vibe: {vibe}{nudge_str}
+
+{lead_vendor_str}
 
 {calendar_str}
 
