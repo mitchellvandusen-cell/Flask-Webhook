@@ -504,17 +504,20 @@ def home():
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
-        email = form.email.data
+        email = form.email.data.lower()  # Good practice
         if User.get(email):
-            flash("Email already registered")
-            return redirect("/register")
+            flash("Email already registered — try logging in")
+            return redirect("/login")
         
         password_hash = generate_password_hash(form.password.data)
         if User.create(email, password_hash):
-            flash("Account created! Please log in.")
-            return redirect("/login")
+            # Auto-login the new user
+            new_user = User.get(email)
+            login_user(new_user)
+            flash("Account created and logged in! Welcome to InsuranceGrokBot.")
+            return redirect("/dashboard")  # Go straight to dashboard
         else:
-            flash("Registration failed. Try again.")
+            flash("Registration failed — try again")
     return render_template_string("""
     <h1>Register</h1>
     <form method="post">
@@ -524,7 +527,7 @@ def register():
         {{ form.confirm.label }} {{ form.confirm }}<br><br>
         {{ form.submit }}
     </form>
-    <p><a href="/login">Already have an account? Log in</a></p>
+    <p><a href="/login">Already registered? Log in</a></p>
     """, form=form)
 
 @app.route("/login", methods=["GET", "POST"])
