@@ -831,7 +831,7 @@ def dashboard():
                 <div class="card guide-text">
                     <h2 style="color:#00ff88; text-align:center;">CRM Setup Guide - GHL is template</h2>
                     <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your CRM</p>
-
+                    {% raw %}
                     <div style="text-align:left;">
                         <h3 style="color:#00ff88;">Step 1: Create "Re-engage Leads" Workflow</h3>
                         <ol>
@@ -877,6 +877,7 @@ def dashboard():
                             Once set up, the bot runs 24/7 — no more dead leads.
                         </p>
                     </div>
+                    {% endraw %}
                 </div>
             </div>
 
