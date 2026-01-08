@@ -528,20 +528,20 @@ def stripe_webhook():
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         customer_id = session.customer
-        email = session.customer_details.email.lower()
+        email = session.customer_details.email.lower() if session.customer_details.email else None
 
         if email and customer_id:
-            # Create user if not exists
-            if not User.get(email):
-                password_hash = generate_password_hash(str(uuid.uuid4()))  # Random password
-                User.create(email, password_hash, customer_id)
-                logger.info(f"Created paid user {email}")
-
-            # Update stripe_customer_id
-            conn = get_db_connection()
-            conn.execute("UPDATE users SET stripe_customer_id = ? WHERE email = ?", (customer_id, email))
-            conn.commit()
-            conn.close()
+            user = User.get(email)
+            if not user:
+                # Create user with NO password (they'll set it later)
+                User.create(email, password_hash=None, stripe_customer_id=customer_id)
+                logger.info(f"Created paid user {email} (password pending)")
+            else:
+                # Update existing user
+                conn = get_db_connection()
+                conn.execute("UPDATE users SET stripe_customer_id = ? WHERE email = ?", (customer_id, email))
+                conn.commit()
+                conn.close()
 
     return '', 200
 
@@ -1396,26 +1396,73 @@ def cancel():
 </html>
 """
     return render_template_string(cancel_html)
+
 @app.route("/success")
-def success_html():
-    success_html = """
+def success():
+    session_id = request.args.get("session_id")
+    email = None
+    if session_id:
+        session = stripe.checkout.Session.retrieve(session_id)
+        email = session.customer_details.email.lower() if session.customer_details.email else None
+
+    if email:
+        user = User.get(email)
+        if user and not user.password_hash:
+            # Show password set form
+            return render_template_string("""
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <title>Subscription Successful!</title>
-  <style>
-    body { font-family: Arial; background: #000; color: #fff; text-align: center; padding: 100px; }
-    a { color: #00ff88; font-size: 20px; }
-  </style>
+    <title>Set Password - InsuranceGrokBot</title>
+    <style>
+        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+        h1 { color:#00ff88; }
+        input { width:400px; padding:15px; background:#111; border:1px solid #333; color:#fff; margin:10px; }
+        button { padding:15px 40px; background:#00ff88; color:#000; border:none; }
+    </style>
 </head>
 <body>
-  <h1>Thank You!</h1>
-  <p>Your subscription to InsuranceGrokBot is now active.</p>
-  <p><a href="/dashboard">Go to your dashboard to configure your bot</a></p>
+    <h1>Almost Done!</h1>
+    <p>Set a password for your account: <strong>{{ email }}</strong></p>
+    <form action="/set-password" method="post">
+        <input type="hidden" name="email" value="{{ email }}">
+        <input type="password" name="password" placeholder="Password" required><br>
+        <input type="password" name="confirm" placeholder="Confirm Password" required><br>
+        <button type="submit">Set Password & Log In</button>
+    </form>
 </body>
 </html>
-"""
-    return render_template_string(success_html)
+            """, email=email)
+
+    return render_template_string("""
+    <h1>Thank You!</h1>
+    <p>Your subscription is active.</p>
+    <p><a href="/dashboard">Go to Dashboard</a> | <a href="/login">Log In</a></p>
+    """)
+
+@app.route("/set-password", methods=["POST"])
+def set_password():
+    email = request.form.get("email").lower()
+    password = request.form.get("password")
+    confirm = request.form.get("confirm")
+
+    if password != confirm:
+        flash("Passwords don't match")
+        return redirect("/success")
+
+    user = User.get(email)
+    if user:
+        password_hash = generate_password_hash(password)
+        conn = get_db_connection()
+        conn.execute("UPDATE users SET password_hash = ? WHERE email = ?", (password_hash, email))
+        conn.commit()
+        conn.close()
+        login_user(user)
+        flash("Password set — welcome!")
+        return redirect("/dashboard")
+
+    flash("User not found")
+    return redirect("/success")
 
 @app.route("/refresh")
 def refresh_subscribers():
@@ -1438,7 +1485,7 @@ def oauth_callback():
         <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
         <p>Location ID: {location_id or 'Not provided'}</p>
         <p>Your bot is now active please create a workflow in CRM with webhook for response.</p>
-        <p><a href="/dashboard" style="color:#00ff88;font-size:20px;">Go to Dashboard → Configure Bot</a></p>
+        <p><a href="/dashboard" style="color:#00ff88;font-size:20px;">Go to Dashboard → CRM Setup Guide</a></p>
         <p><a href="/" style="color:#888;">← Back to Home</a></p>
     </body>
     </html>
