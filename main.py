@@ -646,10 +646,9 @@ def dashboard():
 
     form = ConfigForm()
 
-    # Get all values from sheet
+    # Get all values from sheet (safe)
     values = worksheet.get_all_values() if worksheet else []
     if not values:
-        # First run – add headers
         headers = ["Email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message"]
         if worksheet:
             worksheet.append_row(headers)
@@ -658,7 +657,6 @@ def dashboard():
     header = values[0] if values else []
     header_lower = [h.strip().lower() for h in header]
 
-    # Safe column lookup
     def col_index(name):
         try:
             return header_lower.index(name.lower())
@@ -668,7 +666,6 @@ def dashboard():
             except ValueError:
                 return -1
 
-    # Default indexes if columns missing
     email_idx = col_index("Email")
     location_idx = col_index("location_id")
     calendar_idx = col_index("calendar_id")
@@ -678,7 +675,7 @@ def dashboard():
     timezone_idx = col_index("timezone")
     initial_msg_idx = col_index("initial_message")
 
-    # Find user's row by Email
+    # Find user's row
     user_row_num = None
     for i, row in enumerate(values[1:], start=2):
         if email_idx >= 0 and len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
@@ -706,27 +703,20 @@ def dashboard():
             flash("Settings saved and bot updated instantly!", "success")
         except Exception as e:
             logger.error(f"Sheet write failed: {e}")
-            flash("Error saving to sheet — try again", "error")
+            flash("Error saving settings", "error")
 
         return redirect("/dashboard")
 
-    # Pre-fill form from existing row
+    # Pre-fill form
     if user_row_num and values:
         row = values[user_row_num - 1]
-        if location_idx >= 0 and len(row) > location_idx:
-            form.location_id.data = row[location_idx]
-        if calendar_idx >= 0 and len(row) > calendar_idx:
-            form.calendar_id.data = row[calendar_idx]
-        if api_key_idx >= 0 and len(row) > api_key_idx:
-            form.crm_api_key.data = row[api_key_idx]
-        if user_id_idx >= 0 and len(row) > user_id_idx:
-            form.crm_user_id.data = row[user_id_idx]
-        if bot_name_idx >= 0 and len(row) > bot_name_idx:
-            form.bot_name.data = row[bot_name_idx]
-        if timezone_idx >= 0 and len(row) > timezone_idx:
-            form.timezone.data = row[timezone_idx]
-        if initial_msg_idx >= 0 and len(row) > initial_msg_idx:
-            form.initial_message.data = row[initial_msg_idx]
+        if location_idx >= 0 and len(row) > location_idx: form.location_id.data = row[location_idx]
+        if calendar_idx >= 0 and len(row) > calendar_idx: form.calendar_id.data = row[calendar_idx]
+        if api_key_idx >= 0 and len(row) > api_key_idx: form.crm_api_key.data = row[api_key_idx]
+        if user_id_idx >= 0 and len(row) > user_id_idx: form.crm_user_id.data = row[user_id_idx]
+        if bot_name_idx >= 0 and len(row) > bot_name_idx: form.bot_name.data = row[bot_name_idx]
+        if timezone_idx >= 0 and len(row) > timezone_idx: form.timezone.data = row[timezone_idx]
+        if initial_msg_idx >= 0 and len(row) > initial_msg_idx: form.initial_message.data = row[initial_msg_idx]
 
     return render_template_string("""
 <!DOCTYPE html>
@@ -736,10 +726,15 @@ def dashboard():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - InsuranceGrokBot</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
         body { background:#000; color:#fff; font-family:Arial; padding:40px; }
         .container { max-width:900px; margin:auto; }
         h1 { font-size:48px; text-align:center; color:#00ff88; }
+        .nav-tabs .nav-link { color:#888; border-color:#333; }
+        .nav-tabs .nav-link.active { color:#00ff88; background:#111; border-color:#00ff88 #00ff88 #111; }
+        .nav-tabs { border-bottom:1px solid #333; }
+        .tab-content { margin-top:30px; }
         .form-group { margin:25px 0; }
         label { display:block; margin-bottom:8px; font-size:18px; }
         input { width:100%; padding:12px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:16px; }
@@ -750,7 +745,7 @@ def dashboard():
         .alert-success { border-left:5px solid #00ff88; }
         .alert-error { border-left:5px solid #ff6b6b; }
         .card { background:#111; border:1px solid #333; border-radius:15px; padding:30px; margin:30px 0; }
-        code { background:#222; padding:2px 6px; border-radius:4px; }
+        code { background:#222; padding:2px 6px; border-radius:4px; color:#00ff88; }
     </style>
 </head>
 <body>
@@ -822,7 +817,7 @@ def dashboard():
                     </div>
 
                     <div style="text-align:center; margin-top:40px;">
-                        {{ form.submit(class="btn btn-success") }}
+                        {{ form.submit(class="btn") }}
                     </div>
                 </form>
             </div>
@@ -843,7 +838,7 @@ def dashboard():
                                 <ul>
                                     <li>URL: <code>https://insurancegrokbot.click/webhook</code></li>
                                     <li>Method: POST</li>
-                                    <li>Body fields (copy these exactly into GHL):
+                                    <li>Body fields (copy into GHL):
                                         <ul>
                                             <li><code>intent</code>: {{ "{{trigger.tag}}" }}</li>
                                             <li><code>first_name</code>: {{ "{{contact.first_name}}" }}</li>
@@ -856,7 +851,7 @@ def dashboard():
                                 </ul>
                             </li>
                             <li>Add <strong>Condition</strong>: If appointment booked → stop workflow</li>
-                            <li>Else → Wait + same webhook → repeat as needed</li>
+                            <li>Else → Wait + same webhook → repeat</li>
                         </ol>
 
                         <h3 style="color:#00ff88; margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
@@ -864,7 +859,7 @@ def dashboard():
                             <li>New Workflow</li>
                             <li><strong>Trigger</strong>: Inbound SMS with tag "Grok-Reengage"</li>
                             <li>Add <strong>Wait</strong>: 2 minutes</li>
-                            <li>Add <strong>Webhook</strong> (same URL and fields as above)</li>
+                            <li>Add <strong>Webhook</strong> (same URL and fields)</li>
                         </ol>
 
                         <h3 style="color:#00ff88; margin-top:40px;">Daily SMS Limits</h3>
@@ -873,10 +868,6 @@ def dashboard():
                             <li>Increases automatically (250 next day, then higher)</li>
                             <li>Check in GHL Settings → Phone Numbers</li>
                         </ul>
-
-                        <p style="text-align:center; margin-top:40px; font-weight:bold;">
-                            Once set up, the bot runs 24/7 — no more dead leads.
-                        </p>
                     </div>
                 </div>
             </div>
@@ -887,7 +878,7 @@ def dashboard():
                     <h2 style="color:#00ff88;">Billing</h2>
                     <p>Update payment method, view invoices, or cancel subscription</p>
                     <form method="post" action="/create-portal-session">
-                        <button type="submit" class="btn">Manage Billing on Stripe →</button>
+                        <button type="submit">Manage Billing on Stripe →</button>
                     </form>
                 </div>
             </div>
