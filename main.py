@@ -374,6 +374,12 @@ def home():
         <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
         <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
         
+        <p class="mt-4">
+            <a href="/confirm-marketplace" style="color:#aaa; font-size:18px;">
+                Bought in GHL Marketplace? Confirm access here →
+            </a>
+        </p>
+        
         <!-- Primary CTA: Buy Now (Stripe) -->
         <a href="/checkout" class="demo-button" style="font-size: 36px; padding: 25px 70px;">
             Subscribe Now – $100/mo
@@ -544,6 +550,55 @@ def stripe_webhook():
                 conn.close()
 
     return '', 200
+
+@app.route("/confirm-marketplace", methods=["GET", "POST"])
+def confirm_marketplace():
+    if request.method == "POST":
+        code = request.form.get("code", "").strip().upper()
+        email = request.form.get("email", "").strip().lower()
+
+        # Your secret codes (hardcode or DB — change these!)
+        VALID_CODES = {
+            "GHL2026MITCH": "mitchell_vandusen@hotmail.com",  # Example
+            "GROKBOTEARLY": "test@example.com",
+        }
+
+        if code in VALID_CODES and VALID_CODES[code] == email:
+            # Create or update user as paid
+            if not User.get(email):
+                User.create(email, generate_password_hash(str(uuid.uuid4())))
+            flash("Marketplace purchase confirmed! Welcome.", "success")
+            user = User.get(email)
+            login_user(user)
+            return redirect("/dashboard")
+        else:
+            flash("Invalid code or email", "error")
+
+    return render_template_string("""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Confirm GHL Marketplace Purchase</title>
+    <style>
+        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+        h1 { color:#00ff88; font-size:48px; }
+        input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; margin:10px; border-radius:8px; }
+        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; }
+    </style>
+</head>
+<body>
+    <h1>Confirm GHL Marketplace Purchase</h1>
+    <p>Purchased InsuranceGrokBot in GoHighLevel Marketplace?</p>
+    <p>Enter your confirmation code and email below</p>
+    <form method="post">
+        <input type="text" name="code" placeholder="Confirmation Code (e.g. GHL2026MITCH)" required><br>
+        <input type="email" name="email" placeholder="Your Email" required><br>
+        <button type="submit">Confirm Access</button>
+    </form>
+    <p style="margin-top:40px;"><a href="/" style="color:#888;">← Back</a></p>
+</body>
+</html>
+    """)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
