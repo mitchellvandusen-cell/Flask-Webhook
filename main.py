@@ -534,21 +534,40 @@ def register():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        # Simple auth — replace with proper hashing in production
-        if session.get("email") == form.email.data and session.get("password") == form.password.data:
-            user = User(id=form.email.data, email=form.email.data)
+        email = form.email.data.lower()
+        user = User.get(email)
+        if user and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
+            flash("Logged in successfully!")
             return redirect("/dashboard")
-        flash("Invalid credentials")
+        else:
+            flash("Invalid email or password")
     return render_template_string("""
-    <h1>Login</h1>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log In - InsuranceGrokBot</title>
+    <style>
+        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+        h1 { color:#00ff88; }
+        input { width:300px; padding:10px; margin:10px; background:#111; border:1px solid #333; color:#fff; }
+        button { padding:10px 30px; background:#00ff88; color:#000; border:none; }
+    </style>
+</head>
+<body>
+    <h1>Log In</h1>
     <form method="post">
         {{ form.hidden_tag() }}
-        {{ form.email.label }} {{ form.email }}<br>
-        {{ form.password.label }} {{ form.password }}<br>
+        {{ form.email.label }}<br>
+        {{ form.email(size=40) }}<br><br>
+        {{ form.password.label }}<br>
+        {{ form.password(size=40) }}<br><br>
         {{ form.submit }}
     </form>
-    <p><a href="/register">Create account</a></p>
+    <p><a href="/register" style="color:#00ff88;">Don't have an account? Sign up</a></p>
+    <p><a href="/" style="color:#888;">← Back to home</a></p>
+</body>
+</html>
     """, form=form)
 
 @app.route("/logout")
