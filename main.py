@@ -372,7 +372,7 @@ def home():
         
         <!-- Primary CTA: Buy Now (Stripe) -->
         <a href="/checkout" class="demo-button" style="font-size: 36px; padding: 25px 70px;">
-            Buy Now – $100/mo
+            Subscribe Now – $100/mo
         </a>
 
         <p class="mt-5">
@@ -475,9 +475,11 @@ def home():
         <h2 class="fw-bold highlight mb-4">Pricing</h2>
         <div class="card p-5 mx-auto" style="max-width: 500px; box-shadow: 0 0 20px var(--neon-glow);">
             <h3 class="display-4 fw-bold">$100<small class="fs-4">/mo</small></h3>
-            <p class="lead">Early Adopter Rate var(--neon-glow)</p>
+            <p class="lead" style="color: #00ff88; font-weight: bold;">Early Adopter Rate</p>
             <p class="text-secondary">Limited to the first 50 people. Don't let old leads go to waste.</p>
-            <a href="#contact" class="btn btn-primary w-100 mt-4">SUBSCRIBE NOW</a>
+            <a href="/checkout" class="btn btn-primary w-100 mt-4" style="font-size: 20px; padding: 15px;">
+                SUBSCRIBE NOW
+            </a>
         </div>
     </div>
 </section>
