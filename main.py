@@ -94,13 +94,6 @@ def load_user(user_id):
         logger.error(f"Failed to load user {user_id}: {e}")
         return None  # Return None on error — prevents crash
 
-
-class User(UserMixin):
-    def __init__(self, id, email, stripe_customer_id=None):
-        self.id = id
-        self.email = email
-        self.stripe_customer_id = stripe_customer_id
-
 # Forms
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
