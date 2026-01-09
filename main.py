@@ -1094,228 +1094,321 @@ DEMO_CONTACT_ID = "demo_web_visitor"
 
 @app.route("/demo-chat")
 def demo_chat():
-    # If they already have a session, we might want to clear it to ensure a "fresh" feel on reload
-    if 'demo_session_id' in session:
-        old_id = session['demo_session_id']
-        # Optional: Clean up DB for the old session to save space
-        conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (old_id,))
-                cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (old_id,))
-                cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (old_id,))
-                conn.commit()
-            except Exception as e:
-                logger.error(f"Cleanup error: {e}")
-            finally:
-                conn.close()
+    # 1. Session Management
+    if 'demo_session_id' not in session:
+        session['demo_session_id'] = str(uuid.uuid4())
+    
+    demo_contact_id = f"demo_{session['demo_session_id']}"
 
-    # Generate a brand new ID for this fresh visit
-    session['demo_session_id'] = "DEMO_" + str(uuid.uuid4())
-    demo_session_id = session['demo_session_id']
+    # 2. Auto-Wipe Logic (Fresh Start)
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
+            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
+            cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
+            conn.commit()
+        except Exception as e:
+            logger.error(f"Demo reset failed: {e}")
+        finally:
+            cur.close()
+            conn.close()
 
+    # 3. The Interface
     demo_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Live Demo - InsuranceGrokBot</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <title>Live AI Demo - InsuranceGrokBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {{ 
-            --accent: #00ff88; 
-            --dark-bg: #000; 
-            --phone-bg: #0f0f0f;
-            --msg-bot: #222;
-            --msg-user: #00ff88;
-        }}
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; display: flex; overflow: hidden; }}
         
-        body {{ 
-            background: var(--dark-bg); 
-            font-family: 'Montserrat', sans-serif; 
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden; /* Prevent body scroll */
+        /* Left Column: The Phone */
+        .chat-col {{ 
+            flex: 1; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%);
+            border-right: 1px solid #333;
         }}
-
-        /* Responsive Phone Container */
-        .phone-wrapper {{
-            width: 95%;
-            max-width: 400px;
-            height: 90vh; /* Scalable height */
-            max-height: 850px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            border: 8px solid #1a1a1a;
-            border-radius: 40px;
-            background: #000;
-            box-shadow: 0 0 40px rgba(0, 255, 136, 0.15);
+        
+        /* Right Column: The Brain */
+        .log-col {{ 
+            width: 450px; 
+            background: #0a0a0a; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 25px; 
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
         }}
-
-        /* Header / Notch Area */
-        .phone-header {{
-            height: 40px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        
+        /* Phone UI */
+        .phone {{ 
+            width: 380px; 
+            height: 800px; 
+            max-height: 90vh;
+            background: #000; 
+            border: 6px solid #333; 
+            border-radius: 45px; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1);
         }}
+        
         .notch {{
-            width: 120px;
-            height: 20px;
-            background: #1a1a1a;
-            border-radius: 0 0 15px 15px;
+            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 25px; background: #333; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;
+            z-index: 10;
         }}
 
-        /* Chat Scroll Area */
-        .chat-area {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            background: var(--phone-bg);
-            scrollbar-width: none; /* Firefox */
+        .screen {{ 
+            flex: 1; 
+            padding: 40px 20px 20px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            scrollbar-width: none;
         }}
-        .chat-area::-webkit-scrollbar {{ display: none; }} /* Chrome/Safari */
+        .screen::-webkit-scrollbar {{ display: none; }}
 
-        .msg {{
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            margin-bottom: 12px;
-            font-size: 15px;
-            line-height: 1.4;
-            word-wrap: break-word;
+        .input-area {{ 
+            padding: 15px; 
+            background: #111; 
+            display: flex; 
+            gap: 10px; 
+            border-top: 1px solid #222;
         }}
-        .bot-msg {{
-            background: var(--msg-bot);
-            color: #fff;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-        }}
-        .user-msg {{
-            background: var(--msg-user);
-            color: #000;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-            font-weight: 600;
-        }}
-
-        /* Sticky Input Area */
-        .input-area {{
-            padding: 15px;
-            background: #111;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-bottom-left-radius: 32px;
-            border-bottom-right-radius: 32px;
-        }}
-
-        #user-input {{
-            flex: 1;
-            background: #222;
-            border: 1px solid #333;
-            border-radius: 20px;
-            padding: 12px 15px;
-            color: #fff;
-            outline: none;
+        
+        input {{ 
+            flex: 1; 
+            padding: 12px 15px; 
+            border-radius: 25px; 
+            border: 1px solid #333; 
+            background: #222; 
+            color: #fff; 
+            outline: none; 
             font-size: 16px;
         }}
-
-        #send-btn {{
-            background: #007aff;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
+        
+        button.send-btn {{ 
+            width: 45px; height: 45px; 
+            border-radius: 50%; 
+            border: none; 
+            background: #00ff88; 
+            color: #000;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; 
             transition: transform 0.1s;
         }}
-        #send-btn:active {{ transform: scale(0.9); }}
-        #send-btn svg {{ width: 18px; height: 18px; fill: white; }}
+        button.send-btn:active {{ transform: scale(0.95); }}
+        
+        .msg {{ 
+            padding: 12px 16px; 
+            border-radius: 18px; 
+            max-width: 85%; 
+            font-size: 15px; 
+            line-height: 1.4; 
+            animation: popIn 0.3s ease-out;
+        }}
+        @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
-        @media (max-height: 600px) {{
-            .phone-wrapper {{ height: 98vh; }}
-            .chat-area {{ padding: 10px; }}
+        .bot {{ background: #262626; align-self: flex-start; color: #e0e0e0; border-bottom-left-radius: 4px; }}
+        .user {{ background: #00ff88; align-self: flex-end; color: #000; border-bottom-right-radius: 4px; font-weight: 600; }}
+        
+        /* Log UI */
+        h3 {{ 
+            color: #00ff88; 
+            margin-top: 0; 
+            font-size: 14px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }}
+        
+        #logs {{ 
+            flex: 1; 
+            overflow-y: auto; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; 
+            padding-right: 10px;
+        }}
+        #logs::-webkit-scrollbar {{ width: 6px; }}
+        #logs::-webkit-scrollbar-thumb {{ background: #333; border-radius: 3px; }}
+
+        .log-entry {{ margin-bottom: 20px; border-left: 2px solid #333; padding-left: 15px; opacity: 0; animation: fadeIn 0.5s forwards; }}
+        @keyframes fadeIn {{ to {{ opacity: 1; }} }}
+
+        .log-time {{ color: #666; font-size: 10px; margin-bottom: 4px; }}
+        .log-type {{ color: #00ff88; font-weight: bold; margin-bottom: 4px; }}
+        .log-content {{ color: #ccc; line-height: 1.5; white-space: pre-wrap; }}
+
+        /* Controls Area */
+        .controls {{
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }}
+
+        .btn {{
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }}
+
+        .reset-btn {{
+            background: transparent;
+            border: 1px solid #ff4444;
+            color: #ff4444;
+        }}
+        .reset-btn:hover {{ background: #ff4444; color: #fff; }}
+
+        .download-btn {{
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+        }}
+        .download-btn:hover {{ background: #333; border-color: #666; }}
+
+        /* Mobile */
+        @media (max-width: 900px) {{
+            .log-col {{ display: none; }}
+            .chat-col {{ width: 100%; border: none; }}
+            .phone {{ width: 100%; height: 100%; border: none; border-radius: 0; max-height: none; }}
+            .notch {{ display: none; }}
         }}
     </style>
 </head>
 <body>
-    <div class="phone-wrapper">
-        <div class="phone-header">
-            <div class="notch"></div>
-        </div>
-        
-        <div id="chat-screen" class="chat-area">
-            <div class="msg bot-msg">
-                Hey! Quick question — are you still with that life insurance plan you mentioned before?
-            </div>
-        </div>
 
+<div class="chat-col">
+    <div class="phone">
+        <div class="notch"></div>
+        <div class="screen" id="chat">
+            <div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>
+        </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
-            <button id="send-btn">
-                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            <input type="text" id="msgInput" placeholder="Type your reply..." autofocus autocomplete="off">
+            <button class="send-btn" onclick="send()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
             </button>
         </div>
     </div>
+</div>
 
-    <script>
-        const contactId = "{demo_session_id}";
-        const chat = document.getElementById('chat-screen');
-        const input = document.getElementById('user-input');
-        const btn = document.getElementById('send-btn');
+<div class="log-col">
+    <h3>Live Brain Activity</h3>
+    <div id="logs">
+        <div style="color:#666; margin-top:20px;">Waiting for user input...</div>
+    </div>
+    
+    <div class="controls">
+        <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" class="btn download-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Log
+        </a>
+        <button class="btn reset-btn" onclick="location.reload()">Reset Session</button>
+    </div>
+</div>
 
-        async function sendMessage() {{
-            const text = input.value.trim();
-            if (!text) return;
+<script>
+    const CONTACT_ID = '{demo_contact_id}';
+    const chat = document.getElementById('chat');
+    const logs = document.getElementById('logs');
+    const input = document.getElementById('msgInput');
+    let lastLogCount = 0;
 
-            input.value = '';
-            chat.innerHTML += `<div class="msg user-msg">${{text}}</div>`;
-            chat.scrollTop = chat.scrollHeight;
+    async function send() {{
+        const text = input.value.trim();
+        if (!text) return;
+        
+        chat.innerHTML += `<div class="msg user">${{text}}</div>`;
+        input.value = '';
+        chat.scrollTop = chat.scrollHeight;
 
-            try {{
-                const response = await fetch('/webhook', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{
-                        locationId: 'DEMO_ACCOUNT_SALES_ONLY',
-                        contact_id: contactId,
-                        message: {{ body: text }},
-                        first_name: 'Visitor'
-                    }})
-                }});
+        try {{
+            const res = await fetch('/webhook', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{
+                    locationId: 'DEMO_ACCOUNT_SALES_ONLY', 
+                    contact_id: CONTACT_ID,
+                    message: {{ body: text }},
+                    first_name: 'Demo User'
+                }})
+            }});
+            const data = await res.json();
+            
+            if (data.reply) {{
+                chat.innerHTML += `<div class="msg bot">${{data.reply}}</div>`;
+                chat.scrollTop = chat.scrollHeight;
+            }}
+            fetchLogs();
+        }} catch (err) {{
+            console.error(err);
+            chat.innerHTML += `<div class="msg bot" style="color:#ff4444">Error connecting to bot.</div>`;
+        }}
+    }}
+
+    async function fetchLogs() {{
+        try {{
+            const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
+            const data = await res.json();
+            
+            if (data.logs && data.logs.length > 0) {{
+                logs.innerHTML = data.logs.map(l => `
+                    <div class="log-entry">
+                        <div class="log-time">${{l.timestamp.split('T')[1]?.split('.')[0] || l.timestamp}}</div>
+                        <div class="log-type">${{l.type}}</div>
+                        <div class="log-content">${{l.content}}</div>
+                    </div>
+                `).join('');
                 
-                const data = await response.json();
-                if (data.reply) {{
-                    chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
-                    chat.scrollTop = chat.scrollHeight;
+                if (data.logs.length > lastLogCount) {{
+                    logs.scrollTop = logs.scrollHeight;
+                    lastLogCount = data.logs.length;
                 }}
             }}
-            catch (err) {{
-                console.error("Demo Error:", err);
-            }}
+        }} catch (err) {{
+            console.error("Log fetch error:", err);
         }}
+    }}
 
-        btn.onclick = sendMessage;
-        input.onkeydown = (e) => {{ if (e.key === 'Enter') sendMessage(); }};
-    </script>
+    input.addEventListener('keypress', (e) => {{
+        if (e.key === 'Enter') send();
+    }});
+
+    setInterval(fetchLogs, 2500);
+</script>
+
 </body>
 </html>
     """
-    return render_template_string(demo_html)
+    return render_template_string(demo_html, demo_contact_id=demo_contact_id)
 
 @app.route("/terms")
 def terms():
@@ -1583,7 +1676,7 @@ def test_page():
                 
                 <div class="chat-area" id="chat-screen">
                     <div class="msg bot-msg">
-                        Hey! Quick question — are you still with that life insurance plan you mentioned before?
+                        Hey! Quick question, are you still with that life insurance plan you mentioned before?
                     </div>
                 </div>
 
@@ -1677,10 +1770,10 @@ def test_page():
 def get_logs():
     contact_id = request.args.get("contact_id")
 
-    # Security check
-    if not contact_id or not contact_id.startswith("test_"):
-        logger.warning(f"Invalid log request: {contact_id}")
-        pass
+    # === FIX 1: Allow "demo_" IDs so the new page works ===
+    if not contact_id or (not contact_id.startswith("test_") and not contact_id.startswith("demo_")):
+        # Just return empty logs instead of crashing or warning heavily
+        return jsonify({"logs": []}) 
 
     conn = get_db_connection()
     if not conn:
@@ -1704,7 +1797,7 @@ def get_logs():
         for msg_type, text, created_at in messages:
             role = "Lead" if msg_type == "lead" else "Bot"
             
-            # === CRITICAL FIX: Handle Date vs String ===
+            # Handle Date vs String
             timestamp = "Unknown"
             if created_at:
                 if isinstance(created_at, str):
@@ -1719,20 +1812,16 @@ def get_logs():
         facts = get_known_facts(contact_id)
         fact_content = "\n".join([f"• {f}" for f in facts]) if facts else "No facts extracted yet"
         logs.append({"timestamp": datetime.now().isoformat(), "type": "Known Facts", "content": fact_content})
-
-        story_narrative = get_narrative(contact_id)
-        profile_narrative, _ = build_comprehensive_profile(story_narrative=story_narrative, known_facts=facts)
-        logs.append({"timestamp": datetime.now().isoformat(), "type": "Narrative", "content": profile_narrative})
-        # === 3. Full Profile Narrative (What Grok Actually "Knows") ===
-        story_narrative = get_narrative(contact_id)
         
-        # Extract basics for profile rebuild (redundancy check)
+        # Extract basics for profile rebuild
         first_name = None
         age = None
         address = None
         facts_text = " ".join(facts).lower()
+
+        story_narrative = get_narrative(contact_id)
         
-        # Simple regex fallbacks for logs visualization
+        # Simple regex fallbacks
         name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
         if name_match: first_name = name_match.group(1).capitalize()
         
@@ -1742,18 +1831,33 @@ def get_logs():
         addr_match = re.search(r"address/location: (.*)", facts_text, re.IGNORECASE)
         if addr_match: address = addr_match.group(1).strip()
 
-        profile_narrative = build_comprehensive_profile(
-            story_narrative=story_narrative,
-            known_facts=facts,
-            first_name=first_name,
-            age=age,
-            address=address
-        )
+        # Default text if build fails
+        narrative_text = "Narrative pending..."
 
+        try:
+            profile_narrative = build_comprehensive_profile(
+                story_narrative=story_narrative,
+                known_facts=facts,
+                first_name=first_name,
+                age=age,
+                address=address
+            )
+
+            # Unpack Tuple if necessary
+            if isinstance(profile_narrative, tuple):
+                narrative_text = profile_narrative[0]
+            else:
+                narrative_text = str(profile_narrative)
+
+        except Exception as e:
+            logger.error(f"Profile build error in logs: {e}")
+            narrative_text = f"Error building profile: {str(e)}"
+
+        # === FIX 2: Use 'narrative_text' (String) not 'profile_narrative' (Object) ===
         logs.append({
             "timestamp": datetime.now().isoformat(),
             "type": "Full Human Identity Narrative",
-            "content": profile_narrative
+            "content": narrative_text 
         })
 
     except Exception as e:
