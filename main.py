@@ -2127,6 +2127,7 @@ def test_page():
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
                         locationId: 'TEST_LOCATION_456',
+                        intent: 're-engage old lead'
                         contact_id: TEST_CONTACT_ID,
                         first_name: 'Test User',
                         message: {{ body: msg }},
