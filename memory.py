@@ -8,11 +8,8 @@ from db import get_db_connection
 from psycopg2.extras import execute_values
 
 logger = logging.getLogger(__name__)
-client = OpenAI(
-    base_url="https://api.x.ai/v1",
-    api_key=os.getenv("XAI_API_KEY")
-)
-
+XAI_API_KEY = os.getenv("XAI_API_KEY")
+client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY)
 # ===================================
 # MESSAGE STORAGE & RETRIEVAL
 # ===================================
@@ -184,7 +181,7 @@ def run_narrative_observer(contact_id: str, lead_message: str):
 
     try:
         response = client.chat.completions.create(
-            model="grok-beta", # Or your preferred model
+            model="grok-4-1-fast=reasoning", # Or your preferred model
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3
         )
