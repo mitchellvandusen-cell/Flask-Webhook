@@ -2157,13 +2157,13 @@ def test_page():
         }}
 
         
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
+        input.addEventListener('keydown', function(e) {{
+            if (e.key === "Enter") {{
                 e.preventDefault();
                 
                 sendMessage();
-            }
-        });
+            }}
+        }});
 
         sendBtn.addEventListener('click', sendMessage);
 
