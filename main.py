@@ -364,7 +364,6 @@ def home():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
     <!-- SEO -->
     <meta name="description" content="The most advanced AI SMS bot for life insurance lead re-engagement. Powered by Grok. Books appointments from cold leads 24/7.">
@@ -380,31 +379,27 @@ def home():
             --dark-bg: #000;
             --card-bg: #0f0f0f;
             --text-secondary: #aaa;
-            --neon-glow: 0 0 20px rgba(0, 255, 136, 0.4);
+            --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4);
         }
         body {
             background: var(--dark-bg);
             color: #fff;
             font-family: 'Montserrat', sans-serif;
             line-height: 1.7;
-            overflow-x: hidden;
         }
         .navbar {
             background: rgba(0,0,0,0.95);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid #222;
         }
         .navbar-brand {
             font-weight: 700;
             font-size: 1.8rem;
-            color: #fff !important;
         }
         .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
         .nav-link {
-            color: #ccc !important;
+            color: #ddd !important;
             font-weight: 600;
-            margin: 0 10px;
-            transition: color 0.3s;
+            padding: 0.8rem 1rem !important;
         }
         .nav-link:hover { color: var(--accent) !important; }
         .btn-primary {
@@ -412,31 +407,36 @@ def home():
             border: none;
             color: #000;
             font-weight: 700;
-            padding: 16px 40px;
+            padding: 20px 50px;
             border-radius: 50px;
             box-shadow: var(--neon-glow);
-            font-size: 1.4rem;
+            font-size: 1.6rem;
             transition: all 0.3s;
         }
         .btn-primary:hover {
-            transform: translateY(-4px) scale(1.05);
-            box-shadow: 0 15px 30px rgba(0, 255, 136, 0.6);
-        }
-        .btn-outline-light {
-            border-color: #444;
-            color: #ddd;
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0, 255, 136, 0.6);
         }
         .hero {
-            padding: 160px 0 120px;
+            padding: 140px 20px 100px;
             text-align: center;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background: radial-gradient(circle at center, #111 0%, #000 80%);
         }
         .hero h1 {
-            font-size: 4.5rem;
+            font-size: 3.5rem;
             font-weight: 700;
             line-height: 1.2;
             margin-bottom: 30px;
             text-shadow: var(--neon-glow);
+        }
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.8rem; }
+            .hero p.lead { font-size: 1.4rem; }
+            .btn-primary { font-size: 1.4rem; padding: 18px 40px; }
         }
         .hero p.lead {
             font-size: 1.6rem;
@@ -445,7 +445,7 @@ def home():
             margin: 0 auto 50px;
         }
         .section {
-            padding: 120px 0;
+            padding: 100px 20px;
         }
         .section-title {
             font-size: 3rem;
@@ -478,6 +478,8 @@ def home():
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            max-width: 1000px;
+            margin: 0 auto;
         }
         .comparison-header {
             background: linear-gradient(135deg, var(--accent), #00b36d);
@@ -490,35 +492,30 @@ def home():
         .comparison-row {
             display: flex;
             border-bottom: 1px solid #222;
-            padding: 20px 0;
+            padding: 25px 0;
+            align-items: center;
         }
         .comparison-row:last-child { border-bottom: none; }
         .comparison-label {
             flex: 2;
-            padding: 20px;
+            padding: 0 40px;
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
         }
-        .comparison-other {
+        .comparison-other, .comparison-grok {
             flex: 1;
             text-align: center;
-            padding: 20px;
-            color: #ff6b6b;
+            font-size: 2.5rem;
         }
-        .comparison-grok {
-            flex: 1;
-            text-align: center;
-            padding: 20px;
-            color: var(--accent);
-            font-weight: 700;
-        }
-        .check { font-size: 2rem; }
-        .cross { font-size: 2rem; color: #ff6b6b; }
+        .comparison-other { color: #ff6b6b; }
+        .comparison-grok { color: var(--accent); font-weight: 700; }
         .sales-logic {
             background: var(--card-bg);
             border-radius: 20px;
             padding: 60px;
             box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            max-width: 1000px;
+            margin: 0 auto;
         }
         .sales-logic h3 {
             color: var(--accent);
@@ -542,10 +539,20 @@ def home():
             text-shadow: var(--neon-glow);
         }
         footer {
-            padding: 60px 0;
+            padding: 80px 20px;
             text-align: center;
             color: var(--text-secondary);
             border-top: 1px solid #222;
+        }
+        @media (max-width: 768px) {
+            .section { padding: 80px 20px; }
+            .section-title { font-size: 2.5rem; margin-bottom: 60px; }
+            .comparison-row { flex-direction: column; padding: 20px; }
+            .comparison-label { padding: 20px 0; text-align: center; }
+            .comparison-other, .comparison-grok { padding: 10px 0; }
+            .sales-logic { padding: 40px; }
+            .pricing-card { padding: 50px; }
+            .price { font-size: 4.5rem; }
         }
     </style>
 </head>
@@ -580,13 +587,13 @@ def home():
         <div class="container">
             <h1>The Most Advanced Life Insurance<br>Lead Re-engagement AI Ever Built</h1>
             <p class="lead">Powered by xAI's Grok. Trained on thousands of real insurance conversations.<br>Books appointments from leads that have been cold for months.</p>
-            <a href="/checkout" class="btn-primary mt-5">Subscribe Now — $100/month</a>
+            <a href="/checkout" class="btn-primary mt-5">Subscribe Now, $100/month</a>
             <p class="mt-4"><a href="/demo-chat" style="color:#888; text-decoration:underline;">Or try the live demo first →</a></p>
             <p class="mt-3 text-secondary"><small>No contract. Cancel anytime. Instant activation.</small></p>
         </div>
     </section>
 
-    <section id="features" class="section bg-black">
+    <section id="features" class="section">
         <div class="container">
             <h2 class="section-title">What Makes InsuranceGrokBot Different</h2>
             <div class="row g-5">
@@ -630,10 +637,10 @@ def home():
         </div>
     </section>
 
-    <section id="comparison" class="section">
+    <section id="comparison" class="section bg-black">
         <div class="container">
             <h2 class="section-title">Why InsuranceGrokBot Dominates Every Other Bot</h2>
-            <div class="comparison-table mx-auto" style="max-width: 1000px;">
+            <div class="comparison-table">
                 <div class="comparison-header">
                     The Most Extensive Feature Comparison in Insurance AI
                 </div>
@@ -682,17 +689,22 @@ def home():
                     <div class="comparison-other"><span class="cross">✗</span></div>
                     <div class="comparison-grok"><span class="check">✓</span></div>
                 </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Handles complex objections with emotional intelligence</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
             </div>
             <div class="text-center mt-5">
-                <p style="font-size:1.4rem; color:var(--text-secondary);">Other bots use simple scripts. GrokBot thinks like a top-producing agent.</p>
+                <p style="font-size:1.6rem; color:var(--text-secondary);">Other bots use simple scripts. GrokBot thinks like a top-producing agent.</p>
             </div>
         </div>
     </section>
 
-    <section id="logic" class="section bg-black">
+    <section id="logic" class="section">
         <div class="container">
             <h2 class="section-title">Master-Level Sales Logic Built In</h2>
-            <div class="sales-logic mx-auto" style="max-width: 1000px;">
+            <div class="sales-logic">
                 <div class="row">
                     <div class="col-md-6 mb-5">
                         <h3>Jeremy Miner’s NEPQ</h3>
@@ -709,19 +721,19 @@ def home():
                         <p>Identifies the gap between current and desired state (Keenan) while using emotional drivers and closing psychology (Brian Tracy).</p>
                     </div>
                 </div>
-                <p class="text-center" style="font-size:1.4rem; margin-top:40px;">
-                    The bot dynamically chooses the best framework for each moment based on lead responses — something no scripted bot can do.
+                <p class="text-center" style="font-size:1.6rem; margin-top:40px;">
+                    The bot dynamically chooses the best framework for each moment based on lead responses, something no scripted bot can do.
                 </p>
             </div>
         </div>
     </section>
 
-    <section id="pricing" class="section">
+    <section id="pricing" class="section bg-black">
         <div class="container text-center">
             <h2 class="section-title">Simple, Transparent Pricing</h2>
             <div class="pricing-card">
                 <div class="price">$100<span style="font-size:2rem;">/month</span></div>
-                <p style="font-size:1.6rem; margin:30px 0;">Early Adopter Rate — Limited to First 100 Agents</p>
+                <p style="font-size:1.6rem; margin:30px 0;">Early Adopter Rate, Limited to First 100 Agents</p>
                 <ul style="text-align:left; max-width:400px; margin:30px auto; font-size:1.2rem;">
                     <li>Unlimited conversations</li>
                     <li>Full memory and fact extraction</li>
@@ -730,7 +742,7 @@ def home():
                     <li>Multi-tenant support</li>
                     <li>Priority updates and support</li>
                 </ul>
-                <a href="/checkout" class="btn-primary">Subscribe Now — Instant Activation</a>
+                <a href="/checkout" class="btn-primary">Subscribe Now, Instant Activation</a>
                 <p class="mt-4 text-secondary">No contract. Cancel anytime.</p>
             </div>
         </div>
