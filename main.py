@@ -403,19 +403,24 @@ def home():
         }
         .nav-link:hover { color: var(--accent) !important; }
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent), #00b36d);
-            border: none;
+            display: inline-block;
+            background: #00ff88;
             color: #000;
             font-weight: 700;
-            padding: 20px 50px;
+            font-size: 1.6rem; /* Your current size — not bigger */
+            padding: 18px 50px; /* Your current padding — clean proportions */
             border-radius: 50px;
-            box-shadow: var(--neon-glow);
-            font-size: 1.6rem;
-            transition: all 0.3s;
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3); /* Subtle glow */
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            letter-spacing: 0.5px;
         }
+
         .btn-primary:hover {
-            transform: translateY(-5px) scale(1.05);
-            box-shadow: 0 20px 40px rgba(0, 255, 136, 0.6);
+            background: #00ee80; /* Slight brighten */
+            box-shadow: 0 12px 30px rgba(0, 255, 136, 0.5); /* Glow intensifies */
+            transform: translateY(-4px); /* Clean lift — not too much */
         }
         .hero {
             padding: 140px 20px 100px;
@@ -587,9 +592,17 @@ def home():
         <div class="container">
             <h1>The Most Advanced Life Insurance<br>Lead Re-engagement AI Ever Built</h1>
             <p class="lead">Powered by xAI's Grok. Trained on thousands of real insurance conversations.<br>Books appointments from leads that have been cold for months.</p>
-            <a href="/checkout" class="btn-primary mt-5">Subscribe Now, $100/month</a>
-            <p class="mt-4"><a href="/demo-chat" style="color:#888; text-decoration:underline;">Or try the live demo first →</a></p>
-            <p class="mt-3 text-secondary"><small>No contract. Cancel anytime. Instant activation.</small></p>
+            
+            <!-- CTA Group — centered, spaced perfectly -->
+            <div class="text-center mt-5">
+                <a href="/checkout" class="btn-primary">Subscribe Now — $100/month</a>
+                <p class="mt-3">
+                    <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:1.4rem;">
+                        Or try the live demo first →
+                    </a>
+                </p>
+                <p class="mt-3 text-secondary"><small>No contract. Cancel anytime. Instant activation.</small></p>
+            </div>
         </div>
     </section>
 
