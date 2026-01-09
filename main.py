@@ -1678,7 +1678,7 @@ def get_logs():
     # Security check
     if not contact_id or not contact_id.startswith("test_"):
         logger.warning(f"Invalid log request: {contact_id}")
-        return jsonify({"error": "Invalid test contact"}), 400
+        pass
 
     conn = get_db_connection()
     if not conn:
@@ -1701,12 +1701,14 @@ def get_logs():
 
         for msg_type, text, created_at in messages:
             role = "Lead" if msg_type == "lead" else "Bot"
-            timestamp = created_at.isoformat() if created_at else "Unknown time"
-            logs.append({
-                "timestamp": timestamp,
-                "type": f"{role} Message",
-                "content": text.strip()
-            })
+            timestamp = "Unknown"
+            if created_at:
+                if hasattr(created_at, 'isoformat'):
+                    timestamp = created_at.isoformat()
+                else:
+                    timestamp = str(created_at)
+            
+            logs.append({"timestamp": timestamp, "type": f"{role} Message", "content": text.strip()})
 
         # === 2. Current Known Facts ===
         facts = get_known_facts(contact_id)

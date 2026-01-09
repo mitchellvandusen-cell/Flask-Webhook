@@ -111,6 +111,7 @@ Always consider timezone ({timezone}) when suggesting times.
 """.strip()
     
     # Lead Vendor Context
+    lv = (lead_vendor or "").lower().strip()
     lead_vendor_context = ""
     if lead_vendor:
         lv = lead_vendor.lower()
