@@ -120,6 +120,7 @@ def webhook():
     payload = request.get_json(silent=True) or {}
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
+
     # Extract from payload
     intent = payload.get("intent") or ""
     first_name = payload.get("first_name") or ""
@@ -193,6 +194,13 @@ def webhook():
             logger.error(f"Identity not configured for location {location_id}")
             return jsonify({"status": "error", "message": "Not configured"}), 404
 
+        # NEW: Validate the API key from payload matches the stored one (security)
+        provided_api_key = payload.get("apiKey") or payload.get("api_key") or payload.get("crm_api_key")
+        stored_api_key = subscriber.get('crm_api_key')
+        if provided_api_key and stored_api_key and provided_api_key != stored_api_key:
+            logger.warning(f"API key mismatch for location {location_id}")
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
         contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id")
         if not contact_id:
             return jsonify({"status": "error", "error": "Missing contact_id"}), 400
@@ -202,7 +210,6 @@ def webhook():
     timezone = subscriber.get('timezone', 'America/Chicago')
     crm_user_id = subscriber['crm_user_id']
     calendar_id = subscriber['calendar_id']
-
 
     # 2. Extract Message
     raw_message = payload.get("message", {})
@@ -242,16 +249,10 @@ def webhook():
 
     if len(assistant_messages) == 0 and initial_message:
         reply = initial_message
-
         save_message(contact_id, reply, "assistant")
         if not is_demo and crm_api_key != 'DEMO':
             send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
-
-        return jsonify({
-            "status": "success",
-            "reply": reply
-        })
-    
+        return jsonify({"status": "success", "reply": reply})
 
     context_nudge = ""
     msg_lower = message.lower()
@@ -351,7 +352,7 @@ def webhook():
 
     return jsonify(response_data)
 
-@app.route("/") # Website 
+@app.route("/")
 def home():
     home_html = """
 <!DOCTYPE html>
@@ -359,223 +360,392 @@ def home():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsuranceGrokBot | AI Lead Re-engagement</title>
+    <title>InsuranceGrokBot | AI Lead Re-engagement for Life Insurance Agents</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="The most advanced AI SMS bot for life insurance lead re-engagement. Powered by Grok. Books appointments from cold leads 24/7.">
+    <meta name="theme-color" content="#00ff88">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <style>
-        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background-color: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; scroll-behavior: smooth; }
-        .navbar { background-color: rgba(0,0,0,0.9); border-bottom: 1px solid #222; }
-        .navbar-brand { font-weight: 700; color: #fff !important; text-shadow: 0 0 5px var(--neon-glow); }
-        .highlight { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
-        .card h3, .card h4 { color: var(--accent) !important; text-shadow: 0 0 5px var(--neon-glow); }
-        .hero-section { padding: 120px 0; background: radial-gradient(circle at center, #111 0%, #000 100%); position: relative; overflow: hidden; }
-        .hero-section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(0,255,136,0.1) 0%, transparent 100%); opacity: 0.5; pointer-events: none; }
-        .demo-button { display: inline-block; text-decoration: none; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; border: none; padding: 15px 40px; border-radius: 50px; box-shadow: 0 5px 20px var(--neon-glow); transition: 0.3s; }
-        .demo-button:hover { transform: scale(1.05); box-shadow: 0 10px 30px var(--neon-glow); }
-        .comparison-card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: 1px solid #333; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
-        .comparison-card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
-        .comparison-card h4 { color: var(--accent); text-shadow: 0 0 5px var(--neon-glow); }
-        .comparison-card ul { list-style-type: none; padding: 0; }
-        .comparison-card li { margin-bottom: 10px; display: flex; align-items: center; }
-        .comparison-card li::before { content: '\\2714'; color: var(--accent); margin-right: 10px; font-size: 1.2em; }
-        .card { background: linear-gradient(to bottom, #1a1a1a, #0a0a0a); border: none; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; }
-        .card:hover { box-shadow: 0 5px 20px var(--neon-glow); transform: translateY(-5px); }
-        h2, h4 { letter-spacing: 1px; text-transform: uppercase; }
+        :root {
+            --accent: #00ff88;
+            --dark-bg: #000;
+            --card-bg: #0f0f0f;
+            --text-secondary: #aaa;
+            --neon-glow: 0 0 20px rgba(0, 255, 136, 0.4);
+        }
+        body {
+            background: var(--dark-bg);
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        .navbar {
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #222;
+        }
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.8rem;
+            color: #fff !important;
+        }
+        .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
+        .nav-link {
+            color: #ccc !important;
+            font-weight: 600;
+            margin: 0 10px;
+            transition: color 0.3s;
+        }
+        .nav-link:hover { color: var(--accent) !important; }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #00b36d);
+            border: none;
+            color: #000;
+            font-weight: 700;
+            padding: 16px 40px;
+            border-radius: 50px;
+            box-shadow: var(--neon-glow);
+            font-size: 1.4rem;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(0, 255, 136, 0.6);
+        }
+        .btn-outline-light {
+            border-color: #444;
+            color: #ddd;
+        }
+        .hero {
+            padding: 160px 0 120px;
+            text-align: center;
+            background: radial-gradient(circle at center, #111 0%, #000 80%);
+        }
+        .hero h1 {
+            font-size: 4.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 30px;
+            text-shadow: var(--neon-glow);
+        }
+        .hero p.lead {
+            font-size: 1.6rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto 50px;
+        }
+        .section {
+            padding: 120px 0;
+        }
+        .section-title {
+            font-size: 3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 80px;
+            color: var(--accent);
+            text-shadow: var(--neon-glow);
+        }
+        .feature-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: all 0.4s;
+            height: 100%;
+        }
+        .feature-card:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 20px 50px rgba(0, 255, 136, 0.3);
+        }
+        .feature-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+        .comparison-table {
+            background: var(--card-bg);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+        }
+        .comparison-header {
+            background: linear-gradient(135deg, var(--accent), #00b36d);
+            color: #000;
+            padding: 40px;
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .comparison-row {
+            display: flex;
+            border-bottom: 1px solid #222;
+            padding: 20px 0;
+        }
+        .comparison-row:last-child { border-bottom: none; }
+        .comparison-label {
+            flex: 2;
+            padding: 20px;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+        .comparison-other {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+            color: #ff6b6b;
+        }
+        .comparison-grok {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+            color: var(--accent);
+            font-weight: 700;
+        }
+        .check { font-size: 2rem; }
+        .cross { font-size: 2rem; color: #ff6b6b; }
+        .sales-logic {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 60px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+        }
+        .sales-logic h3 {
+            color: var(--accent);
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .pricing-card {
+            background: linear-gradient(135deg, #111, #000);
+            border: 2px solid var(--accent);
+            border-radius: 30px;
+            padding: 60px;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0, 255, 136, 0.3);
+        }
+        .price {
+            font-size: 6rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-shadow: var(--neon-glow);
+        }
+        footer {
+            padding: 60px 0;
+            text-align: center;
+            color: var(--text-secondary);
+            border-top: 1px solid #222;
+        }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg sticky-top">
-    <div class="container">
-        <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
-        
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
-        </button>
-        
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto align-items-center">
-                <li class="nav-item"><a href="#abilities" class="nav-link">Abilities</a></li>
-                <li class="nav-item"><a href="#comparison-section" class="nav-link">Comparison</a></li>
-                <li class="nav-item"><a href="#compatibility" class="nav-link">Compatibility</a></li>
-                <li class="nav-item"><a href="#sales-knowledge" class="nav-link">Sales Logic</a></li>
-                <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
-                <li class="nav-item"><a href="/demo-chat" class="nav-link">Demo</a></li>
-                
-                <!-- Dynamic Login / Logout -->
-                <li class="nav-item ms-4">
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item"><a href="#features" class="nav-link">Features</a></li>
+                    <li class="nav-item"><a href="#comparison" class="nav-link">Why GrokBot Wins</a></li>
+                    <li class="nav-item"><a href="#logic" class="nav-link">Sales Logic</a></li>
+                    <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
+                    <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
                     {% if current_user.is_authenticated %}
-                        <span class="navbar-text me-3 text-light">Hello, {{ current_user.email }}</span>
-                        <a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a>
-                        <a href="/logout" class="btn btn-outline-danger">Logout</a>
+                        <li class="nav-item"><span class="navbar-text me-3">Hello, {{ current_user.email }}</span></li>
+                        <li class="nav-item"><a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a></li>
+                        <li class="nav-item"><a href="/logout" class="btn btn-outline-danger">Logout</a></li>
                     {% else %}
-                        <a href="/login" class="btn btn-outline-light me-2">Log In</a>
-                        <a href="/register" class="btn btn-primary" style="background: #00ff88; border: none; color: #000; font-weight: bold;">Sign Up</a>
+                        <li class="nav-item"><a href="/login" class="btn btn-outline-light me-2">Log In</a></li>
+                        <li class="nav-item"><a href="/register" class="btn btn-primary">Sign Up</a></li>
                     {% endif %}
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-
-<header class="hero-section text-center position-relative">
-    <div class="container position-relative" style="z-index: 2;">
-        <h1 class="display-3 fw-bold mb-4">The Most Durable Life Insurance Lead Re-engagement Assistant</h1>
-        <p class="lead mb-5 text-secondary">Powered by <span class="highlight">xAI's Grok</span>. Built by life insurance agents for life insurance agents.</p>
-        
-        <p class="mt-4">
-            <a href="/confirm-marketplace" style="color:#aaa; font-size:18px;">
-                Bought in GHL Marketplace? Confirm access here →
-            </a>
-        </p>
-
-        <!-- Primary CTA: Buy Now (Stripe) -->
-        <a href="/checkout" class="demo-button" style="font-size: 36px; padding: 25px 70px;">
-            Subscribe Now – $100/mo
-        </a>
-
-        <p class="mt-5">
-            <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:20px;">
-                Or try the demo first →
-            </a>
-        </p>
-
-        <p class="mt-4">
-            <a href="/getting-started" style="color:#00ff88; font-size:20px; text-decoration:underline;">
-                How To? Follow the setup guide →
-            </a>
-        </p>
-
-        <p class="mt-4 text-secondary">
-            <small>No contract • Cancel anytime • Instant activation</small>
-        </p>
-    </div>
-</header>
-
-<section id="abilities" class="py-5 bg-dark">
-    <div class="container">
-        <h2 class="fw-bold text-center mb-5">Current Abilities</h2>
-        <div class="row g-4">
-            <div class="col-md-4"><div class="card p-4"><h3>Multi-Tenant</h3><p class="text-secondary">Handles leads across different agencies with unique identities and data isolation.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h3>Deep Discovery</h3><p class="text-secondary">Automated fact-finding to identify gaps in existing work or personal coverage.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h3>24/7 Re-engagement</h3><p class="text-secondary">Picks up old leads and works them until they are ready to talk to an agent.</p></div></div>
-        </div>
-    </div>
-</section>
-
-<section id="comparison-section" class="py-5 bg-black">
-    <div class="container text-center">
-        <h2 class="mb-5 fw-bold">Others vs. InsuranceGrokBot</h2>
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="comparison-card">
-                    <h4>Features</h4>
-                    <ul>
-                        <li>5 Different Sales Systems</li>
-                        <li>Complete Insurance Logic</li>
-                        <li>Extensive Underwriting Knowledge</li>
-                        <li>Persistence</li>
-                        <li>Only books leads that have a need</li>
-                    </ul>
-                </div>
+                </ul>
             </div>
-            <div class="col-md-4">
-                <div class="comparison-card">
-                    <h4>Standard Bot</h4>
-                    <ul>
-                        <li>Hardcoded Scripts</li>
-                        <li>Gives up on "No"</li>
-                        <li>Generic</li>
-                    </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <h1>The Most Advanced Life Insurance<br>Lead Re-engagement AI Ever Built</h1>
+            <p class="lead">Powered by xAI's Grok. Trained on thousands of real insurance conversations.<br>Books appointments from leads that have been cold for months.</p>
+            <a href="/checkout" class="btn-primary mt-5">Subscribe Now — $100/month</a>
+            <p class="mt-4"><a href="/demo-chat" style="color:#888; text-decoration:underline;">Or try the live demo first →</a></p>
+            <p class="mt-3 text-secondary"><small>No contract. Cancel anytime. Instant activation.</small></p>
+        </div>
+    </section>
+
+    <section id="features" class="section bg-black">
+        <div class="container">
+            <h2 class="section-title">What Makes InsuranceGrokBot Different</h2>
+            <div class="row g-5">
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <h3>Real Human Memory</h3>
+                        <p>Remembers every fact from every message across the entire conversation. Never repeats questions. Builds a complete profile over time.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="comparison-card">
-                    <h4 class="highlight">GrokBot</h4>
-                    <ul>
-                        <li>Real-time Reasoning</li>
-                        <li>NEPQ Objection Handling</li>
-                        <li>Insurance Specific</li>
-                    </ul>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <h3>5 Proven Sales Frameworks</h3>
+                        <p>Blends NEPQ, Gap Selling, Straight Line Persuasion, Never Split the Difference, and Psychology of Selling in real time based on lead responses.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <h3>Extensive Underwriting Knowledge</h3>
+                        <p>Trained on carrier guidelines, health conditions, and build charts. Knows when a lead is likely insurable and asks the right questions.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <h3>Never Gives Up</h3>
+                        <p>Most bots stop at "no". GrokBot loops, reframes, and persists until the lead either books or truly has no need.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <h3>Only Books Qualified Leads</h3>
+                        <p>Won't waste your time with appointments from leads who have no gap or aren't interested. Only schedules when there's real potential.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <h3>Multi-Tenant Ready</h3>
+                        <p>Agencies can manage hundreds of agents with complete data isolation and custom identities per location.</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section id="compatibility" class="py-5 bg-dark">
-    <div class="container">
-        <h2 class="fw-bold text-center mb-5">Built for Every CRM</h2>
-        <div class="row g-3 text-center">
-            <div class="col-md-4"><div class="card p-4"><h4>GoHighLevel</h4><p class="small text-secondary">Native webhook support. Easy setup.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h4>HubSpot</h4><p class="small text-secondary">Workflow triggers. Easy setup.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h4>Pipedrive</h4><p class="small text-secondary">Activity-based webhooks. Easy setup.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h4>Zoho CRM</h4><p class="small text-secondary">Automation rules. Semi-easy setup.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h4>Salesforce</h4><p class="small text-secondary">Enterprise outbound messaging. Semi-easy.</p></div></div>
-            <div class="col-md-4"><div class="card p-4"><h4>Zapier</h4><p class="small text-secondary">The universal bridge. Easy setup.</p></div></div>
-        </div>
-    </div>
-</section>
-
-<section id="sales-knowledge" class="py-5 bg-black">
-    <div class="container">
-        <h2 class="fw-bold highlight mb-4">The Master Sales Logic</h2>
-        <div class="row g-5">
-            <div class="col-md-6">
-                <h4>Jeremy Miner's NEPQ</h4>
-                <p class="text-secondary">Neuro-Emotional Persuasion Questions focus on getting the lead to persuade themselves. By asking the right questions, the bot uncovers the "Gap" between their current situation and their needs.</p>
-                <h4>Jordan Belfort's Straight Line</h4>
-                <p class="text-secondary">The bot is programmed to maintain control of the sale. It loops back to the benefits of the policy while building massive certainty in the lead's mind.</p>
+    <section id="comparison" class="section">
+        <div class="container">
+            <h2 class="section-title">Why InsuranceGrokBot Dominates Every Other Bot</h2>
+            <div class="comparison-table mx-auto" style="max-width: 1000px;">
+                <div class="comparison-header">
+                    The Most Extensive Feature Comparison in Insurance AI
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Real-time reasoning with Grok</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">5 blended sales frameworks (NEPQ, Gap Selling, Straight Line, Never Split the Difference, Psychology of Selling)</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Full underwriting knowledge and health condition handling</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Persistent memory across entire conversation history</div>
+                    <div class="comparison-other">Limited</div>
+                    <div class="comparison-grok"><span class="check">✓</span> Complete</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Never accepts "no" without proper discovery</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Only books leads with identified gaps</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Multi-tenant agency support with data isolation</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Calendar integration and availability checking</div>
+                    <div class="comparison-other">Basic</div>
+                    <div class="comparison-grok"><span class="check">✓</span> Advanced</div>
+                </div>
+                <div class="comparison-row">
+                    <div class="comparison-label">Built and continuously trained by active life insurance agents</div>
+                    <div class="comparison-other"><span class="cross">✗</span></div>
+                    <div class="comparison-grok"><span class="check">✓</span></div>
+                </div>
             </div>
-            <div class="col-md-6">
-                <h4>Gap Selling & Psychology of Selling</h4>
-                <p class="text-secondary">Using Keenan’s 'Gap Selling' and Brian Tracy’s 'Psychology of Selling', this bot identifies the lead's pain points and refuses to back down from smoke-screen objections. It is designed to manage the conversation until a result is achieved.</p>
+            <div class="text-center mt-5">
+                <p style="font-size:1.4rem; color:var(--text-secondary);">Other bots use simple scripts. GrokBot thinks like a top-producing agent.</p>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section id="pricing" class="py-5 bg-dark text-center">
-    <div class="container">
-        <h2 class="fw-bold highlight mb-4">Pricing</h2>
-        <div class="card p-5 mx-auto" style="max-width: 500px; box-shadow: 0 0 20px var(--neon-glow);">
-            <h3 class="display-4 fw-bold">$100<small class="fs-4">/mo</small></h3>
-            <p class="lead" style="color: #00ff88; font-weight: bold;">Early Adopter Rate</p>
-            <p class="text-secondary">Limited to the first 50 people. Don't let old leads go to waste.</p>
-            <a href="/checkout" class="btn btn-primary w-100 mt-4" style="font-size: 20px; padding: 15px;">
-                SUBSCRIBE NOW
-            </a>
+    <section id="logic" class="section bg-black">
+        <div class="container">
+            <h2 class="section-title">Master-Level Sales Logic Built In</h2>
+            <div class="sales-logic mx-auto" style="max-width: 1000px;">
+                <div class="row">
+                    <div class="col-md-6 mb-5">
+                        <h3>Jeremy Miner’s NEPQ</h3>
+                        <p>Neuro-Emotional Persuasion Questioning. The bot asks problem-awareness and consequence questions that make leads persuade themselves they need coverage.</p>
+                        
+                        <h3>Never Split the Difference</h3>
+                        <p>Chris Voss negotiation tactics. Uses calibrated questions, labels, and mirrors to handle objections and build trust.</p>
+                    </div>
+                    <div class="col-md-6 mb-5">
+                        <h3>Jordan Belfort’s Straight Line</h3>
+                        <p>Maintains control of the conversation, loops back to benefits, and builds massive certainty in the product.</p>
+                        
+                        <h3>Gap Selling + Psychology of Selling</h3>
+                        <p>Identifies the gap between current and desired state (Keenan) while using emotional drivers and closing psychology (Brian Tracy).</p>
+                    </div>
+                </div>
+                <p class="text-center" style="font-size:1.4rem; margin-top:40px;">
+                    The bot dynamically chooses the best framework for each moment based on lead responses — something no scripted bot can do.
+                </p>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section id="contact" class="py-5 bg-black">
-    <div class="container text-center" style="max-width: 600px;">
-        <h2 class="fw-bold mb-4">Ready to Automate?</h2>
-        <form action="mailto:mitchell_vandusen@hotmal.com" method="post" enctype="text/plain">
-            <input type="text" name="name" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Name" required>
-            <input type="email" name="email" class="form-control mb-3 bg-dark text-white border-secondary" placeholder="Email" required>
-            <textarea name="msg" class="form-control mb-4 bg-dark text-white border-secondary" placeholder="Your CRM and Lead Volume..." rows="4"></textarea>
-            <button type="submit" class="btn btn-primary btn-lg w-100">CONTACT US</button>
-        </form>
-    </div>
-</section>
+    <section id="pricing" class="section">
+        <div class="container text-center">
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <div class="pricing-card">
+                <div class="price">$100<span style="font-size:2rem;">/month</span></div>
+                <p style="font-size:1.6rem; margin:30px 0;">Early Adopter Rate — Limited to First 100 Agents</p>
+                <ul style="text-align:left; max-width:400px; margin:30px auto; font-size:1.2rem;">
+                    <li>Unlimited conversations</li>
+                    <li>Full memory and fact extraction</li>
+                    <li>All 5 sales frameworks</li>
+                    <li>Calendar booking</li>
+                    <li>Multi-tenant support</li>
+                    <li>Priority updates and support</li>
+                </ul>
+                <a href="/checkout" class="btn-primary">Subscribe Now — Instant Activation</a>
+                <p class="mt-4 text-secondary">No contract. Cancel anytime.</p>
+            </div>
+        </div>
+    </section>
 
-<footer class="py-4 text-center border-top border-secondary bg-black">
-    <p class="text-secondary">&copy; 2026 InsuranceGrokBot. Built by Life Insurance Agents for Life Insurance Agents.</p>
-</footer>
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 InsuranceGrokBot. Built by life insurance agents, for life insurance agents.</p>
+            <p><a href="/terms" style="color:var(--text-secondary);">Terms</a> • <a href="/privacy" style="color:var(--text-secondary);">Privacy</a></p>
+        </div>
+    </footer>
 </body>
 </html>
-"""
+    """
     return render_template_string(home_html)
-
-# In main.py, update expected_headers in dashboard (and oauth if using dynamic there)
-expected_headers = [
-    "Email", "location_id", "calendar_id", "crm_api_key",
-    "crm_user_id", "bot_first_name", "timezone", "initial_message",
-    "stripe_customer_id"  # ← Add this
-]
 
 # Update stripe_webhook to auto-save Stripe ID to Sheet on success
 @app.route("/stripe-webhook", methods=["POST"])
@@ -686,54 +856,6 @@ def stripe_webhook():
 
     return '', 200
 
-@app.route("/confirm-marketplace", methods=["GET", "POST"])
-def confirm_marketplace():
-    if request.method == "POST":
-        code = request.form.get("code", "").strip().upper()
-        email = request.form.get("email", "").strip().lower()
-
-        # Your secret codes (hardcode or DB — change these!)
-        VALID_CODES = {
-            "GHL2026MITCH": "mitchell_vandusen@hotmail.com",  # Example
-            "GROKBOTEARLY": "test@example.com",
-        }
-
-        if code in VALID_CODES and VALID_CODES[code] == email:
-            # Create or update user as paid
-            if not User.get(email):
-                User.create(email, generate_password_hash(str(uuid.uuid4())))
-            flash("Marketplace purchase confirmed! Welcome.", "success")
-            user = User.get(email)
-            login_user(user)
-            return redirect("/dashboard")
-        else:
-            flash("Invalid code or email", "error")
-
-    return render_template_string("""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Confirm GHL Marketplace Purchase</title>
-    <style>
-        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; font-size:48px; }
-        input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; margin:10px; border-radius:8px; }
-        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; }
-    </style>
-</head>
-<body>
-    <h1>Confirm GHL Marketplace Purchase</h1>
-    <p>Purchased InsuranceGrokBot in GoHighLevel Marketplace?</p>
-    <p>Enter your confirmation code and email below</p>
-    <form method="post">
-        <input type="text" name="code" placeholder="Confirmation Code (e.g. GHL2026MITCH)" required><br>
-        <input type="email" name="email" placeholder="Your Email" required><br>
-        <button type="submit">Confirm Access</button>
-    </form>
-    <p style="margin-top:40px;"><a href="/" style="color:#888;">← Back</a></p>
-</body>
-</html>
-    """)
 
 # First, update your RegisterForm class (add the code field)
 class RegisterForm(FlaskForm):
@@ -843,25 +965,41 @@ def register():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Create your InsuranceGrokBot account — for GHL Marketplace installs or website subscribers.">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; font-size:48px; margin-bottom:40px; text-shadow: 0 0 10px rgba(0,255,136,0.5); }
-        .container { max-width:600px; margin:auto; }
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
+        .container { max-width:600px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
+        .note { font-size:20px; color:#aaa; margin:30px 0; line-height:1.6; }
         .form-group { margin:30px 0; }
-        label { font-size:20px; display:block; margin-bottom:10px; }
-        input { width:100%; max-width:400px; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
-        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:20px; }
-        button:hover { background:#00cc70; }
-        .flash { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px auto; max-width:500px; }
+        label { font-size:20px; display:block; margin-bottom:10px; color:#ddd; }
+        input { width:100%; max-width:400px; padding:18px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:18px; }
+        input::placeholder { color:#888; }
+        button { padding:18px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); margin-top:20px; }
+        button:hover { background:#00cc70; transform:scale(1.05); }
+        .flash { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:18px; }
         .flash-error { border-left:5px solid #ff6b6b; }
-        .flash-success { border-left:5px solid #00ff88; }
-        .note { font-size:18px; color:#aaa; margin:30px 0; }
-        a { color:#00ff88; text-decoration:underline; }
+        .flash-success { border-left:5px solid var(--accent); }
+        .links { margin-top:40px; }
+        .links a { color:var(--accent); text-decoration:underline; font-size:18px; margin:0 15px; display:block; margin-bottom:15px; }
+        .back { margin-top:60px; }
+        .back a { color:#888; font-size:18px; text-decoration:underline; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Create Your Account</h1>
+
         <p class="note">
             If you installed from <strong>GHL Marketplace</strong>, enter your confirmation code.<br>
             If you subscribed on this website, just use your email.
@@ -879,33 +1017,36 @@ def register():
             {{ form.hidden_tag() }}
 
             <div class="form-group">
-                {{ form.email.label }}<br>
+                {{ form.email.label }}
                 {{ form.email(class="form-control", placeholder="your@email.com") }}
             </div>
 
             <div class="form-group">
-                {{ form.code.label("Confirmation Code (GHL install only)") }}<br>
+                {{ form.code.label("Confirmation Code (GHL install only)") }}
                 {{ form.code(class="form-control", placeholder="e.g. A1B2C3D4 — leave blank if subscribed here") }}
             </div>
 
             <div class="form-group">
-                {{ form.password.label }}<br>
+                {{ form.password.label }}
                 {{ form.password(class="form-control") }}
             </div>
 
             <div class="form-group">
-                {{ form.confirm.label }}<br>
+                {{ form.confirm.label }}
                 {{ form.confirm(class="form-control") }}
             </div>
 
             {{ form.submit(class="button") }}
         </form>
 
-        <p style="margin-top:40px;">
-            <a href="/checkout">Need to subscribe first?</a><br><br>
-            <a href="/login">Already have an account? Log in</a><br><br>
+        <div class="links">
+            <a href="/checkout">Need to subscribe first?</a>
+            <a href="/login">Already have an account? Log in</a>
+        </div>
+
+        <div class="back">
             <a href="/">← Back to Home</a>
-        </p>
+        </div>
     </div>
 </body>
 </html>
@@ -919,55 +1060,87 @@ def login():
         user = User.get(email)
         if user and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
-            flash("Logged in successfully!")
+            flash("Logged in successfully!", "success")
             return redirect("/dashboard")
         else:
-            flash("Invalid email or password")
+            flash("Invalid email or password", "error")
+
     return render_template_string("""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Log In - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Log in to your InsuranceGrokBot dashboard to manage your AI lead re-engagement bot.">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; font-size:48px; }
-        .form-group { margin:20px 0; }
-        label { font-size:20px; }
-        input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
-        button { padding:15px 60px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; }
-        button:hover { background:#00cc70; }
-        .link { color:#00ff88; text-decoration:underline; font-size:18px; }
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
+        .container { max-width:600px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
+        .form-group { margin:30px 0; }
+        label { font-size:20px; display:block; margin-bottom:10px; color:#ddd; }
+        input { width:100%; max-width:400px; padding:18px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:18px; }
+        input::placeholder { color:#888; }
+        button { padding:18px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); margin-top:20px; }
+        button:hover { background:#00cc70; transform:scale(1.05); }
+        .flash { padding:15px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:18px; }
+        .flash-error { border-left:5px solid #ff6b6b; }
+        .flash-success { border-left:5px solid var(--accent); }
+        .links { margin-top:40px; }
+        .links a { color:var(--accent); text-decoration:underline; font-size:18px; margin:0 15px; }
+        .back { margin-top:60px; }
+        .back a { color:#888; font-size:18px; text-decoration:underline; }
     </style>
 </head>
 <body>
-    <h1>Log In</h1>
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <p style="color:#ff6b6b;">{{ message }}</p>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-    <form method="post" action="">
-        {{ form.hidden_tag() }}
-        <div class="form-group">
-            {{ form.email.label }}<br>
-            {{ form.email(class="form-control") }}
+    <div class="container">
+        <h1>Log In</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="post">
+            {{ form.hidden_tag() }}
+
+            <div class="form-group">
+                {{ form.email.label }}
+                {{ form.email(class="form-control", placeholder="your@email.com") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.password.label }}
+                {{ form.password(class="form-control", placeholder="********") }}
+            </div>
+
+            {{ form.submit(class="button") }}
+        </form>
+
+        <div class="links">
+            <a href="/register">Don't have an account? Register</a>
         </div>
-        <div class="form-group">
-            {{ form.password.label }}<br>
-            {{ form.password(class="form-control") }}
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
         </div>
-        {{ form.submit }}
-    </form>
-    <p class="mt-4">
-        <a href="/register" class="link">Don't have an account? Sign up</a>
-    </p>
-    <p><a href="/" class="link">← Back to home</a></p>
+    </div>
 </body>
 </html>
     """, form=form)
-
 
 @app.route("/logout")
 @login_required
@@ -1010,6 +1183,7 @@ def dashboard():
     bot_name_idx = col_index("bot_first_name")
     timezone_idx = col_index("timezone")
     initial_msg_idx = col_index("initial_message")
+    stripe_idx = col_index("stripe_customer_id")
 
     # Find user's row
     user_row_num = None
@@ -1028,11 +1202,12 @@ def dashboard():
             form.bot_name.data or "Grok",
             form.timezone.data or "America/Chicago",
             form.initial_message.data or "",
+            current_user.stripe_customer_id or ""
         ]
 
         try:
             if user_row_num:
-                worksheet.update(f"A{user_row_num}:H{user_row_num}", [data])
+                worksheet.update(f"A{user_row_num}:I{user_row_num}", [data])
             else:
                 worksheet.append_row(data)
             sync_subscribers()
@@ -1054,6 +1229,7 @@ def dashboard():
         if timezone_idx >= 0 and len(row) > timezone_idx: form.timezone.data = row[timezone_idx]
         if initial_msg_idx >= 0 and len(row) > initial_msg_idx: form.initial_message.data = row[initial_msg_idx]
 
+    # Render the dashboard — HTML starts at column 0, closing parenthesis correct
     return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
@@ -1061,45 +1237,59 @@ def dashboard():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Manage your InsuranceGrokBot settings, configure GoHighLevel integration, and view billing.">
+    <meta name="theme-color" content="#00ff88">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background:#000; color:#fff; font-family:Arial; padding:40px; }
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:40px; }
         .container { max-width:900px; margin:auto; }
-        h1 { font-size:48px; text-align:center; color:#00ff88; }
-        .nav-tabs .nav-link { color:#aaa; border-color:#333; }
-        .nav-tabs .nav-link.active { color:#00ff88; background:#111; border-color:#00ff88 #00ff88 #111; }
-        .nav-tabs { border-bottom:1px solid #333; }
+        h1 { font-size:48px; text-align:center; color:var(--accent); text-shadow:0 0 15px var(--neon-glow); margin-bottom:20px; }
+        .welcome { text-align:center; font-size:22px; margin-bottom:40px; }
+        .logout { position:absolute; top:20px; right:20px; color:var(--accent); font-size:18px; text-decoration:underline; }
+        .nav-tabs { border-bottom:1px solid #333; margin-bottom:40px; }
+        .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:20px; padding:15px 30px; }
+        .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
         .tab-content { margin-top:30px; }
-        .form-group { margin:25px 0; }
-        label { display:block; margin-bottom:8px; font-size:18px; }
-        input { width:100%; padding:12px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:16px; }
-        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; }
-        button:hover { background:#00cc70; }
-        .logout { position:absolute; top:20px; right:20px; color:#00ff88; font-size:18px; }
-        .alert { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px 0; }
-        .alert-success { border-left:5px solid #00ff88; }
+        .form-group { margin:30px 0; }
+        label { display:block; margin-bottom:10px; font-size:18px; color:#ddd; }
+        input { width:100%; padding:16px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:17px; }
+        input::placeholder { color:#888; }
+        button { padding:18px 50px; background:var(--accent); color:#000; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); }
+        button:hover { background:#00cc70; transform:scale(1.05); }
+        .alert { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:18px; }
+        .alert-success { border-left:5px solid var(--accent); }
         .alert-error { border-left:5px solid #ff6b6b; }
-        .card { background:#111; border:1px solid #333; border-radius:15px; padding:30px; margin:30px 0; }
-        code { background:#222; padding:2px 6px; border-radius:4px; color:#00ff88; }
-        /* Light text for guide and billing */
-        .guide-text, .billing-text { color:#fff !important; }
-        .guide-text h3 { color:#00ff88; }
-        .guide-text li { color:#ddd; }
+        .card { background:var(--card-bg); border:1px solid #333; border-radius:15px; padding:40px; margin:30px 0; box-shadow:0 10px 30px var(--neon-glow); }
+        .guide-text { color:#fff !important; }
+        .guide-text h3 { color:var(--accent); margin:40px 0 20px; }
+        .guide-text li { color:#ddd; margin:15px 0; font-size:18px; }
+        code { background:#222; padding:6px 12px; border-radius:8px; color:var(--accent); font-family:monospace; }
+        .back { text-align:center; margin-top:80px; }
+        .back a { color:#888; font-size:20px; text-decoration:underline; }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="/logout" class="logout">Logout</a>
         <h1>Dashboard</h1>
-        <p style="text-align:center; font-size:20px;">Welcome back, <strong>{{ current_user.email }}</strong></p>
+        <p class="welcome">Welcome back, <strong>{{ current_user.email }}</strong></p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
         {% endwith %}
 
         <ul class="nav nav-tabs justify-content-center mb-5">
@@ -1117,59 +1307,61 @@ def dashboard():
         <div class="tab-content">
             <!-- Configuration Tab -->
             <div class="tab-pane active" id="config">
-                <h2 style="color:#00ff88; text-align:center;">Configure Your Bot</h2>
-                <form method="post">
-                    {{ form.hidden_tag() }}
+                <div class="card">
+                    <h2 style="color:var(--accent); text-align:center;">Configure Your Bot</h2>
+                    <form method="post">
+                        {{ form.hidden_tag() }}
 
-                    <div class="form-group">
-                        {{ form.location_id.label }}
-                        {{ form.location_id(class="form-control", placeholder="e.g. k7lOZdwaMruhP") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.location_id.label }}
+                            {{ form.location_id(class="form-control", placeholder="e.g. k7lOZdwaMruhP") }}
+                        </div>
 
-                    <div class="form-group">
-                        {{ form.calendar_id.label }}
-                        {{ form.calendar_id(class="form-control", placeholder="e.g. S4KnucrFaXO76") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.calendar_id.label }}
+                            {{ form.calendar_id(class="form-control", placeholder="e.g. S4KnucrFaXO76") }}
+                        </div>
 
-                    <div class="form-group">
-                        {{ form.crm_api_key.label }}
-                        {{ form.crm_api_key(class="form-control", placeholder="e.g. pit-ae0fh932-a8c") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.crm_api_key.label }}
+                            {{ form.crm_api_key(class="form-control", placeholder="e.g. pit-ae0fh932-a8c") }}
+                        </div>
 
-                    <div class="form-group">
-                        {{ form.crm_user_id.label }}
-                        {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – required for calendar") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.crm_user_id.label }}
+                            {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – required for calendar") }}
+                        </div>
 
-                    <div class="form-group">
-                        {{ form.timezone.label }}
-                        {{ form.timezone(class="form-control", placeholder="e.g. America/Chicago") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.timezone.label }}
+                            {{ form.timezone(class="form-control", placeholder="e.g. America/Chicago") }}
+                        </div>
 
-                    <div class="form-group">
-                        {{ form.bot_name.label }}
-                        {{ form.bot_name(class="form-control", placeholder="e.g. Mitch") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.bot_name.label }}
+                            {{ form.bot_name(class="form-control", placeholder="e.g. Mitch") }}
+                        </div>
 
-                    <div class="form-group">
-                        {{ form.initial_message.label }}
-                        {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
-                    </div>
+                        <div class="form-group">
+                            {{ form.initial_message.label }}
+                            {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
+                        </div>
 
-                    <div style="text-align:center; margin-top:40px;">
-                        {{ form.submit(class="btn") }}
-                    </div>
-                </form>
+                        <div style="text-align:center; margin-top:50px;">
+                            {{ form.submit(class="button") }}
+                        </div>
+                    </form>
+                </div>
             </div>
 
-            <!-- CRM Setup Guide Tab -->
+            <!-- GHL Setup Guide Tab -->
             <div class="tab-pane fade" id="guide">
                 <div class="card guide-text">
-                    <h2 style="color:#00ff88; text-align:center;">CRM Setup Guide - GHL is template</h2>
-                    <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your CRM</p>
+                    <h2 style="color:var(--accent); text-align:center;">GoHighLevel Setup Guide</h2>
+                    <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your GHL account</p>
                     {% raw %}
                     <div style="text-align:left;">
-                        <h3 style="color:#00ff88;">Step 1: Create "Re-engage Leads" Workflow</h3>
+                        <h3 style="color:var(--accent);">Step 1: Create "Re-engage Leads" Workflow</h3>
                         <ol>
                             <li>Go to <strong>Automations → Workflows → Create Workflow</strong></li>
                             <li><strong>Trigger</strong>: Tag Applied (create a tag like "Re-engage text")</li>
@@ -1180,12 +1372,12 @@ def dashboard():
                                     <li>Method: POST</li>
                                     <li>Body fields (use correct crm "{{}}"):
                                         <ul>
-                                            <li><code>intent</code>: "the intent of the message" </li>
-                                            <li><code>first_name</code>: "{{contact.first_name}}" </li>
-                                            <li><code>age</code>: "{{contact.custom_fields.age or 'unknown'}}" </li>
-                                            <li><code>contact_address</code>: "{{contact.address1}}" </li>
-                                            <li><code>agent_name</code>: "Your Name" (or "{{user.full_name}}") </li>
-                                            <li><code>message</code>: "{{message.body}}" </li>
+                                            <li><code>intent</code>: "the intent of the message"</li>
+                                            <li><code>first_name</code>: "{{contact.first_name}}"</li>
+                                            <li><code>age</code>: "{{contact.custom_fields.age or 'unknown'}}"</li>
+                                            <li><code>contact_address</code>: "{{contact.address1}}"</li>
+                                            <li><code>agent_name</code>: "Your Name" (or "{{user.full_name}}")</li>
+                                            <li><code>message</code>: "{{message.body}}"</li>
                                         </ul>
                                     </li>
                                 </ul>
@@ -1194,7 +1386,7 @@ def dashboard():
                             <li>Else → Wait + same webhook → repeat</li>
                         </ol>
 
-                        <h3 style="color:#00ff88; margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
+                        <h3 style="color:var(--accent); margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
                         <ol>
                             <li>New Workflow</li>
                             <li><strong>Trigger</strong>: Inbound SMS with tag "Re-engage text"</li>
@@ -1202,7 +1394,7 @@ def dashboard():
                             <li>Add <strong>Webhook</strong> (same URL and fields)</li>
                         </ol>
 
-                        <h3 style="color:#00ff88; margin-top:40px;">Daily SMS Limits</h3>
+                        <h3 style="color:var(--accent); margin-top:40px;">Daily SMS Limits</h3>
                         <ul>
                             <li>GHL starts at <strong>100 outbound SMS/day</strong></li>
                             <li>Increases automatically when previous limit hit (250 next day, then higher)</li>
@@ -1220,7 +1412,7 @@ def dashboard():
             <!-- Billing Tab -->
             <div class="tab-pane fade" id="billing">
                 <div class="card billing-text">
-                    <h2 style="color:#00ff88;">Billing</h2>
+                    <h2 style="color:var(--accent);">Billing</h2>
                     <p>Update payment method, view invoices, or cancel subscription</p>
                     <form method="post" action="/create-portal-session">
                         <button type="submit">Manage Billing on Stripe →</button>
@@ -1229,13 +1421,13 @@ def dashboard():
             </div>
         </div>
 
-        <p style="text-align:center; margin-top:60px;">
-            <a href="/" style="color:#00ff88;">← Back to Home</a>
-        </p>
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
     </div>
 </body>
 </html>
-    """, form=form)
+""", form=form)
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
@@ -1260,333 +1452,6 @@ def create_portal_session():
 # At the top, add a demo-specific contact ID
 DEMO_CONTACT_ID = "demo_web_visitor"
 
-@app.route("/demo-chat")
-def demo_chat():
-    # Generate unique session ID for this visitor
-    if 'demo_session_id' not in session:
-        session['demo_session_id'] = str(uuid.uuid4())
-
-    demo_session_id = session['demo_session_id']
-
-    demo_html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat with GrokBot</title>
-    <style>
-        * {{ box-sizing: border-box; }}
-        html, body {{
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background: #f5f5f7;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            overflow: hidden;
-        }}
-
-        .iphone-frame {{
-            width: 375px;
-            max-width: 100%;
-            height: 100vh;
-            max-height: 812px;
-            background: #000;
-            border-radius: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-            padding: 40px 12px 80px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }}
-
-        .iphone-frame::before {{
-            content: '';
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 160px;
-            height: 30px;
-            background: #000;
-            border-radius: 20px;
-            z-index: 10;
-        }}
-
-        .chat-screen {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px 10px 10px;
-            background: #fff;
-            display: flex;
-            flex-direction: column;
-            -webkit-overflow-scrolling: touch;
-        }}
-
-        .msg {{
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 20px;
-            margin-bottom: 12px;
-            word-wrap: break-word;
-            align-self: flex-start;
-        }}
-
-        .bot-msg {{
-            background: #e5e5ea;
-            color: #000;
-            border-bottom-left-radius: 5px;
-        }}
-
-        .user-msg {{
-            background: #007aff;
-            color: #fff;
-            align-self: flex-end;
-            border-bottom-right-radius: 5px;
-        }}
-
-        .input-area {{
-            position: relative;
-            margin: 10px 10px 20px;
-            display: flex;
-            background: #fff;
-            border-radius: 25px;
-            padding: 8px 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-
-        #user-input {{
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 16px;
-            background: transparent;
-        }}
-
-        #send-btn {{
-            background: #007aff;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            margin-left: 10px;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }}
-
-        .chat-screen::-webkit-scrollbar {{ display: none; }}
-    </style>
-</head>
-<body>
-    <div class="iphone-frame">
-        <div id="chat-screen" class="chat-screen">
-            <div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>
-        </div>
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Type your message..." autofocus>
-            <button id="send-btn">↑</button>
-        </div>
-    </div>
-
-    <script>
-        const SESSION_ID = "{demo_session_id}";
-
-        const input = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const chat = document.getElementById('chat-screen');
-
-        async function sendMessage() {{
-            const msg = input.value.trim();
-            if (!msg) return;
-
-            chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
-            input.value = '';
-            chat.scrollTop = chat.scrollHeight;
-
-            try {{
-                const res = await fetch('/webhook', {{
-                    method: 'POST',
-                    headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{
-                        locationId: 'DEMO_ACCOUNT_SALES_ONLY',
-                        contact_id: SESSION_ID,
-                        first_name: 'Visitor',
-                        message: {{body: msg}}
-                    }})
-                }});
-                const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
-            }} catch(e) {{
-                chat.innerHTML += `<div class="msg bot-msg">Sorry — connection issue. Try again?</div>`;
-            }}
-            chat.scrollTop = chat.scrollHeight;
-        }}
-
-        input.addEventListener('keydown', e => {{
-            if (e.key === 'Enter') {{
-                e.preventDefault();
-                sendMessage();
-            }}
-        }});
-
-        sendBtn.addEventListener('click', sendMessage);
-
-        input.focus();
-    </script>
-</body>
-</html>
-    """
-    return render_template_string(demo_html)
-
-@app.route("/terms")
-def terms():
-    terms_html = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms and Conditions - InsuranceGrokBot</title>
-    <style>
-        body { 
-            background: #000; 
-            color: #fff; 
-            font-family: 'Montserrat', Arial, sans-serif; 
-            padding: 40px; 
-            margin: 0; 
-        }
-        a { color: #00ff88; }
-    </style>
-</head>
-<body>
-    <style>
-      [data-custom-class='body'], [data-custom-class='body'] * {
-              background: transparent !important;
-            }
-    [data-custom-class='title'], [data-custom-class='title'] * {
-              font-family: Arial !important;
-    font-size: 26px !important;
-    color: #000000 !important;
-            }
-    [data-custom-class='subtitle'], [data-custom-class='subtitle'] * {
-              font-family: Arial !important;
-    color: #595959 !important;
-    font-size: 14px !important;
-            }
-    [data-custom-class='heading_1'], [data-custom-class='heading_1'] * {
-              font-family: Arial !important;
-    font-size: 19px !important;
-    color: #000000 !important;
-            }
-    [data-custom-class='heading_2'], [data-custom-class='heading_2'] * {
-              font-family: Arial !important;
-    font-size: 17px !important;
-    color: #000000 !important;
-            }
-    [data-custom-class='body_text'], [data-custom-class='body_text'] * {
-              color: #595959 !important;
-    font-size: 14px !important;
-    font-family: Arial !important;
-            }
-    [data-custom-class='link'], [data-custom-class='link'] * {
-              color: #3030F1 !important;
-    font-size: 14px !important;
-    font-family: Arial !important;
-    word-break: break-word !important;
-            }
-    </style>
-          <span style="display: block;margin: 0 auto 3.125rem;width: 11.125rem;height: 2.375rem;background: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNzgiIGhlaWdodD0iMzgiIHZpZXdCb3g9IjAgMCAxNzggMzgiPgogICAgPGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj4KICAgICAgICA8cGF0aCBmaWxsPSIjRDFEMUQxIiBkPSJNNC4yODMgMjQuMTA3Yy0uNzA1IDAtMS4yNTgtLjI1Ni0xLjY2LS43NjhoLS4wODVjLjA1Ny41MDIuMDg2Ljc5Mi4wODYuODd2Mi40MzRILjk4NXYtOC42NDhoMS4zMzJsLjIzMS43NzloLjA3NmMuMzgzLS41OTQuOTUtLjg5MiAxLjcwMi0uODkyLjcxIDAgMS4yNjQuMjc0IDEuNjY1LjgyMi40MDEuNTQ4LjYwMiAxLjMwOS42MDIgMi4yODMgMCAuNjQtLjA5NCAxLjE5OC0uMjgyIDEuNjctLjE4OC40NzMtLjQ1Ni44MzMtLjgwMyAxLjA4LS4zNDcuMjQ3LS43NTYuMzctMS4yMjUuMzd6TTMuOCAxOS4xOTNjLS40MDUgMC0uNy4xMjQtLjg4Ni4zNzMtLjE4Ny4yNDktLjI4My42Ni0uMjkgMS4yMzN2LjE3N2MwIC42NDUuMDk1IDEuMTA3LjI4NyAxLjM4Ni4xOTIuMjguNDk1LjQxOS45MS40MTkuNzM0IDAgMS4xMDEtLjYwNSAxLjEwMS0xLjgxNiAwLS41OS0uMDktMS4wMzQtLjI3LTEuMzI5LS4xODItLjI5NS0uNDY1LS40NDMtLjg1Mi0uNDQzem01LjU3IDEuNzk0YzAgLjU5NC4wOTggMS4wNDQuMjkzIDEuMzQ4LjE5Ni4zMDQuNTEzLjQ1Ny45NTQuNDU3LjQzNyAwIC43NS0uMTUyLjk0Mi0uNDU0LjE5Mi0uMzAzLjI4OC0uNzUzLjI4OC0xLjM1MSAwLS41OTUtLjA5Ny0xLjA0LS4yOS0xLjMzOC0uMTk0LS4yOTctLjUxLS40NDUtLjk1LS40NDUtLjQzOCAwLS43NTMuMTQ3LS45NDYuNDQzLS4xOTQuMjk1LS4yOS43NDItLjI5IDEuMzR6bTQuMTUzIDBjMCAuOTc3LS4yNTggMS43NDItLjc3NCAyLjI5My0uNTE1LjU1Mi0xLjIzMy44MjctMi4xNTQuODI3LS41NzYgMC0xLjA4NS0uMTI2LTEuNTI1LS4zNzhhMi41MiAyLjUyIDAgMCAxLTEuMDE1LTEuMDg4Yy0uMjM3LS40NzMtLjM1NS0xLjAyNC0uMzU1LTEuNjU0IDAtLjk4MS4yNTYtMS43NDQuNzY4LTIuMjg4LjUxMi0uNTQ1IDEuMjMyLS44MTcgMi4xNi0uODE3LjU3NiAwIDEuMDg1LjEyNiAxLjUyNS4zNzYuNDQuMjUxLjc3OS42MSAxLjAxNSAxLjA4LjIzNi40NjkuMzU1IDEuMDE5LjM1NSAxLjY0OXpNMTkuNzEgMjRsLS40NjItMi4xLS42MjMtMi42NTNoLS4wMzdMMTcuNDkzIDI0SDE1LjczbC0xLjcwOC02LjAwNWgxLjYzM2wuNjkzIDIuNjU5Yy4xMS40NzYuMjI0IDEuMTMzLjMzOCAxLjk3MWguMDMyYy4wMTUtLjI3Mi4wNzctLjcwNC4xODgtMS4yOTRsLjA4Ni0uNDU3Ljc0Mi0yLjg3OWgxLjgwNGwuNzA0IDIuODc5Yy4wMTQuMDc5LjAzNy4xOTUuMDY3LjM1YTIwLjk5OCAyMC45OTggMCAwIDEgLjE2NyAxLjAwMmMuMDIzLjE2NS4wMzYuMjk5LjA0LjM5OWguMDMyYy4wMzItLjI1OC4wOS0uNjExLjE3Mi0xLjA2LjA4Mi0uNDUuMTQxLS43NTQuMTc3LS45MTFsLjcyLTIuNjU5aDEuNjA2TDIxLjQ5NCAyNGgtMS43ODN6bTcuMDg2LTQuOTUyYy0uMzQ4IDAtLjYyLjExLS44MTcuMzMtLjE5Ny4yMi0uMzEuNTMzLS4zMzguOTM3aDIuMjk5Yy0uMDA4LS40MDQtLjExMy0uNzE3LS4zMTctLjkzNy0uMjA0LS4yMi0uNDgtLjMzLS44MjctLjMzem0uMjMgNS4wNmMtLjk2NiAwLTEuNzIyLS4yNjctMi4yNjYtLjgtLjU0NC0uNTM0LS44MTYtMS4yOS0uODE2LTIuMjY3IDAtMS4wMDcuMjUxLTEuNzg1Ljc1NC0yLjMzNC41MDMtLjU1IDEuMTk5LS44MjUgMi4wODctLjgyNS44NDggMCAxLjUxLjI0MiAxLjk4Mi43MjUuNDcyLjQ4NC43MDkgMS4xNTIuNzA5IDIuMDA0di43OTVoLTMuODczYy4wMTguNDY1LjE1Ni44MjkuNDE0IDEuMDkuMjU4LjI2MS42Mi4zOTIgMS4wODUuMzkyLjM2MSAwIC43MDMtLjAzNyAxLjAyNi0uMTEzYTUuMTMzIDUuMTMzIDAgMCAwIDEuMDEtLjM2djEuMjY4Yy0uMjg3LjE0My0uNTkzLjI1LS45Mi4zMmE1Ljc5IDUuNzkgMCAwIDEtMS4xOTEuMTA0em03LjI1My02LjIyNmMuMjIyIDAgLjQwNi4wMTYuNTUzLjA0OWwtLjEyNCAxLjUzNmExLjg3NyAxLjg3NyAwIDAgMC0uNDgzLS4wNTRjLS41MjMgMC0uOTMuMTM0LTEuMjIyLjQwMy0uMjkyLjI2OC0uNDM4LjY0NC0uNDM4IDEuMTI4VjI0aC0xLjYzOHYtNi4wMDVoMS4yNGwuMjQyIDEuMDFoLjA4Yy4xODctLjMzNy40MzktLjYwOC43NTYtLjgxNGExLjg2IDEuODYgMCAwIDEgMS4wMzQtLjMwOXptNC4wMjkgMS4xNjZjLS4zNDcgMC0uNjIuMTEtLjgxNy4zMy0uMTk3LjIyLS4zMS41MzMtLjMzOC45MzdoMi4yOTljLS4wMDctLjQwNC0uMTEzLS43MTctLjMxNy0uOTM3LS4yMDQtLjIyLS40OC0uMzMtLjgyNy0uMzN6bS4yMyA1LjA2Yy0uOTY2IDAtMS43MjItLjI2Ny0yLjI2Ni0uOC0uNTQ0LS41MzQtLjgxNi0xLjI5LS44MTYtMi4yNjcgMC0xLjAwNy4yNTEtMS43ODUuNzU0LTIuMzM0LjUwNC0uNTUgMS4yLS44MjUgMi4wODctLjgyNS44NDkgMCAxLjUxLjI0MiAxLjk4Mi43MjUuNDczLjQ4NC43MDkgMS4xNTIuNzA5IDIuMDA0di43OTVoLTMuODczYy4wMTguNDY1LjE1Ni44MjkuNDE0IDEuMDkuMjU4LjI2MS42Mi4zOTIgMS4wODUuMzkyLjM2MiAwIC43MDQtLjAzNyAxLjAyNi0uMTEzYTUuMTMzIDUuMTMzIDAgMCAwIDEuMDEtLjM2djEuMjY4Yy0uMjg3LjE0My0uNTkzLjI1LS45MTkuMzJhNS43OSA1Ljc5IDAgMCAxLTEuMTkyLjEwNHptNS44MDMgMGMtLjcwNiAwLTEuMjYtLjI3NS0xLjY2My0uODIyLS40MDMtLjU0OC0uNjA0LTEuMzA3LS42MDQtMi4yNzggMC0uOTg0LjIwNS0xLjc1Mi42MTUtMi4zMDEuNDEtLjU1Ljk3NS0uODI1IDEuNjk1LS44MjUuNzU1IDAgMS4zMzIuMjk0IDEuNzI5Ljg4MWguMDU0YTYuNjk3IDYuNjk3IDAgMCAxLS4xMjQtMS4xOTh2LTEuOTIyaDEuNjQ0VjI0SDQ2LjQzbC0uMzE3LS43NzhoLS4wN2MtLjM3Mi41OTEtLjk0Ljg4Ni0xLjcwMi44ODZ6bS41NzQtMS4zMDZjLjQyIDAgLjcyNi0uMTIxLjkyMS0uMzY1LjE5Ni0uMjQzLjMwMi0uNjU3LjMyLTEuMjR2LS4xNzhjMC0uNjQ0LS4xLTEuMTA2LS4yOTgtMS4zODYtLjE5OS0uMjc5LS41MjItLjQxOS0uOTctLjQxOWEuOTYyLjk2MiAwIDAgMC0uODUuNDY1Yy0uMjAzLjMxLS4zMDQuNzYtLjMwNCAxLjM1IDAgLjU5Mi4xMDIgMS4wMzUuMzA2IDEuMzMuMjA0LjI5Ni40OTYuNDQzLjg3NS40NDN6bTEwLjkyMi00LjkyYy43MDkgMCAxLjI2NC4yNzcgMS42NjUuODMuNC41NTMuNjAxIDEuMzEyLjYwMSAyLjI3NSAwIC45OTItLjIwNiAxLjc2LS42MiAyLjMwNC0uNDE0LjU0NC0uOTc3LjgxNi0xLjY5LjgxNi0uNzA1IDAtMS4yNTgtLjI1Ni0xLjY1OS0uNzY4aC0uMTEzbC0uMjc0LjY2MWgtMS4yNTF2LTguMzU3aDEuNjM4djEuOTQ0YzAgLjI0Ny0uMDIxLjY0My0uMDY0IDEuMTg3aC4wNjRjLjM4My0uNTk0Ljk1LS44OTIgMS43MDMtLjg5MnptLS41MjcgMS4zMWMtLjQwNCAwLS43LjEyNS0uODg2LjM3NC0uMTg2LjI0OS0uMjgzLjY2LS4yOSAxLjIzM3YuMTc3YzAgLjY0NS4wOTYgMS4xMDcuMjg3IDEuMzg2LjE5Mi4yOC40OTUuNDE5LjkxLjQxOS4zMzcgMCAuNjA1LS4xNTUuODA0LS40NjUuMTk5LS4zMS4yOTgtLjc2LjI5OC0xLjM1IDAtLjU5MS0uMS0xLjAzNS0uMy0xLjMzYS45NDMuOTQzIDAgMCAwLS44MjMtLjQ0M3ptMy4xODYtMS4xOTdoMS43OTRsMS4xMzQgMy4zNzljLjA5Ni4yOTMuMTYzLjY0LjE5OCAxLjA0MmguMDMzYy4wMzktLjM3LjExNi0uNzE3LjIzLTEuMDQybDEuMTEyLTMuMzc5aDEuNzU3bC0yLjU0IDYuNzczYy0uMjM0LjYyNy0uNTY2IDEuMDk2LS45OTcgMS40MDctLjQzMi4zMTItLjkzNi40NjgtMS41MTIuNDY4LS4yODMgMC0uNTYtLjAzLS44MzMtLjA5MnYtMS4zYTIuOCAyLjggMCAwIDAgLjY0NS4wN2MuMjkgMCAuNTQzLS4wODguNzYtLjI2Ni4yMTctLjE3Ny4zODYtLjQ0NC41MDgtLjgwM2wuMDk2LS4yOTUtMi4zODUtNS45NjJ6Ii8+CiAgICAgICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzMpIj4KICAgICAgICAgICAgPGNpcmNsZSBjeD0iMTkiIGN5PSIxOSIgcj0iMTkiIGZpbGw9IiNFMEUwRTAiLz4KICAgICAgICAgICAgPHBhdGggZmlsbD0iI0ZGRiIgZD0iTTIyLjQ3NCAxNS40NDNoNS4xNjJMMTIuNDM2IDMwLjRWMTAuMzYzaDE1LjJsLTUuMTYyIDUuMDh6Ii8+CiAgICAgICAgPC9nPgogICAgICAgIDxwYXRoIGZpbGw9IiNEMkQyRDIiIGQ9Ik0xMjEuNTQ0IDE0LjU2di0xLjcyOGg4LjI3MnYxLjcyOGgtMy4wMjRWMjRoLTIuMjR2LTkuNDRoLTMuMDA4em0xMy43NDQgOS41NjhjLTEuMjkgMC0yLjM0MS0uNDE5LTMuMTUyLTEuMjU2LS44MS0uODM3LTEuMjE2LTEuOTQ0LTEuMjE2LTMuMzRzLjQwOC0yLjQ3NyAxLjIyNC0zLjMwNGcuODE2LS44MjcgMS44NzItMS4yNCAzLjE2OC0xLjI0czIuMzYuNDAzIDMuMTkyIDEuMjA4Yy44MzIuODA1IDEuMjQ4IDEuODggMS4yNDggMy4yMjQgMCAuMzEtLjAyMS41OTctLjA2NC44NjRoLTYuNDY0Yy4wNTMuNTc2LjI2NyAxLjA0LjY0IDEuMzkyLjM3My4zNTIuODQ4LjUyOCAxLjQyNC41MjguNzc5IDAgMS4zNTUtLjMyIDEuNzI4LS45NmgyLjQzMmEzLjg5MSAzLjg5MSAwIDAgMS0xLjQ4OCAyLjA2NGMtLjczNi41MzMtMS42MjcuOC0yLjY3Mi44em0xLjQ4LTYuNjg4Yy0uNC0uMzUyLS44ODMtLjUyOC0xLjQ0OC0uNTI4cy0xLjAzNy4xNzYtMS40MTYuNTI4Yy0uMzc5LjM1Mi0uNjA1LjgyMS0uNjggMS40MDhoNC4xOTJjLS4wMzItLjU4Ny0uMjQ4LTEuMDU2LS42NDgtMS40MDh6bTcuMDE2LTIuMzA0djEuNTY4Yy41OTctMS4xMyAxLjQ2MS0xLjY5NiAyLjU5Mi0xLjY5NnYyLjMwNGgtLjU2Yy0uNjcyIDAtMS4xNzkuMTY4LTEuNTIuNTA0LS4zNDEuMzM2LS41MTIuOTE1LS41MTIgMS43MzZWMjRoLTIuMjU2di04Ljg2NGgyLjI1NnpNMTY0LjkzNiAyNFYxMi4xNmgyLjI1NlYyNGgtMi4yNTZ6bTcuMDQtLjE2bC0zLjQ3Mi04LjcwNGgyLjUyOGwyLjI1NiA2LjMwNCAyLjM4NC02LjMwNGgyLjM1MmwtNS41MzYgMTMuMDU2aC0yLjM1MmwxLjg0LTQuMzUyeiIvPgogICAgPC9nPgo8L3N2Zz4K) center no-repeat;"></span>
-      <div data-custom-class="body">
-      <div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="title" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 19px;"></bdt><bdt class="question"><strong><h1>TERMS OF SERVICE</h1></strong></bdt><bdt class="statement-end-if-in-editor"></bdt></span></div><div class="MsoNormal" data-custom-class="subtitle" style="line-height: 1.5;"><strong>Last updated</strong> <bdt class="question"><strong>January 07, 2026</strong></bdt></div><div class="MsoNormal" style="line-height: 1.1;"><br></div><div style="line-height: 1.5;"><br></div><div style="line-height: 1.5;"><strong><span data-custom-class="heading_1"><h2>AGREEMENT TO OUR LEGAL TERMS</h2></span></strong></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" id="agreement" style="line-height: 1.5;"><a name="_6aa3gkhykvst"></a></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We are <bdt class="question noTranslate" data-id="9d459c4e-c548-e5cb-7729-a118548965d2">__________</bdt><bdt class="block-component"></bdt> (<bdt class="block-component"></bdt>"<strong>Company</strong>," "<strong>we</strong>," "<strong>us</strong>," "<strong>our</strong>"<bdt class="statement-end-if-in-editor"></bdt>)<span style="font-size:11.0pt;line-height:115%;
-Arial;mso-fareast-font-family:Calibri;color:#595959;mso-themecolor:text1;
-mso-themetint:166;"><span style="font-size:11.0pt;line-height:115%;
-Arial;mso-fareast-font-family:Calibri;color:#595959;mso-themecolor:text1;
-mso-themetint:166;"><span style="font-size:11.0pt;line-height:115%;
-Arial;mso-fareast-font-family:Calibri;color:#595959;mso-themecolor:text1;
-mso-themetint:166;"><bdt class="question"><bdt class="block-component">.</bdt></span><bdt class="block-component"></bdt></span></span></span></span></span></span></div></div><div align="center" style="line-height: 1;"><br></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We operate <bdt class="block-component"></bdt>the website <span style="color: rgb(0, 58, 250);"><bdt class="question noTranslate">[insurancegrokbot.click](http://insurancegrokbot.click)</bdt></span> (the <bdt class="block-component"></bdt>"<strong>Site</strong>"<bdt class="statement-end-if-in-editor"></bdt>)<bdt class="block-component"></bdt><bdt class="block-component"></bdt>, as well as any other related products and services that refer or link to these legal terms (the <bdt class="block-component"></bdt>"<strong>Legal Terms</strong>"<bdt class="statement-end-if-in-editor"></bdt>) (collectively, the <bdt class="block-component"></bdt>"<strong>Services</strong>"<bdt class="statement-end-if-in-editor"></bdt>).<bdt class="block-component"></bdt></span></div><div class="MsoNormal" style="line-height: 1;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><bdt class="question">InsuranceGrokBot is a third-party AI-powered SMS conversation assistant designed exclusively for life insurance agents and agencies using the GoHighLevel platform.
-The app integrates via webhooks to automatically re-engage cold or unresponsive insurance leads through intelligent, human-like text message conversations. Powered by xAI's Grok language model, InsuranceGrokBot conducts discovery, handles objections, uncovers coverage gaps, and schedules appointments directly into the user's GoHighLevel calendar.
-Key features include:
-- Persistent, multi-turn SMS conversations
-- Fact extraction and memory across messages
-- Objection handling using proven sales methodologies (NEPQ, Gap Selling, Straight Line Persuasion)
-- Calendar availability checking and appointment booking
-- Multi-tenant support for agencies
-The service is provided on a subscription basis through the GoHighLevel Marketplace. Users are responsible for ensuring all communications comply with applicable laws (TCPA, CAN-SPAM, insurance regulations, etc.). No personal data is stored beyond what is necessary for conversation context within the user's own GoHighLevel account.</bdt></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><bdt class="statement-end-if-in-editor"></bdt></span></div><div class="MsoNormal" style="line-height: 1;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">You can contact us by <bdt class="block-component">email at <bdt class="question noTranslate">__________</bdt><bdt class="block-component"></bdt> or by mail to <bdt class="question noTranslate">__________</bdt><bdt class="block-component"></bdt>, <bdt class="question noTranslate">__________</bdt><bdt class="block-component"></bdt><bdt class="block-component"></bdt><bdt class="block-component"><bdt class="block-component">, </bdt><bdt class="question noTranslate">__________</bdt><bdt class="statement-end-if-in-editor"></bdt></bdt>.</span></div><div class="MsoNormal" style="line-height: 1;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">These Legal Terms constitute a legally binding agreement made between you, whether personally or on behalf of an entity (<bdt class="block-component"></bdt>"<strong>you</strong>"<bdt class="statement-end-if-in-editor"></bdt>), and <bdt class="question noTranslate">__________</bdt>, concerning your access to and use of the Services. You agree that by accessing the Services, you have read, understood, and agreed to be bound by all of these Legal Terms. IF YOU DO NOT AGREE WITH ALL OF THESE LEGAL TERMS, THEN YOU ARE EXPRESSLY PROHIBITED FROM USING THE SERVICES AND YOU MUST DISCONTINUE USE IMMEDIATELY.<bdt class="block-component"></bdt></span></div><div class="MsoNormal" style="line-height: 1;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">Supplemental terms and conditions or documents that may be posted on the Services from time to time are hereby expressly incorporated herein by reference. We reserve the right, in our sole discretion, to make changes or modifications to these Legal Terms <bdt class="block-component"></bdt>at any time and for any reason<bdt class="statement-end-if-in-editor"></bdt>. We will alert you about any changes by updating the <bdt class="block-component"></bdt>"Last updated"<bdt class="statement-end-if-in-editor"></bdt> date of these Legal Terms, and you waive any right to receive specific notice of each such change. It is your responsibility to periodically review these Legal Terms to stay informed of updates. You will be subject to, and will be deemed to have been made aware of and to have accepted, the changes in any revised Legal Terms by your continued use of the Services after the date such revised Legal Terms are posted.<bdt class="else-block"></bdt></span></div></div><div align="center" style="line-height: 1;"><br></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" id="a2595956-7028-dbe5-123e-d3d3a93ed076"><bdt data-type="conditional-block"><bdt data-type="body"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><bdt class="block-component"></bdt>The
-Services are intended for users who are at least 18 years old. Persons under the age
-of 18 are not permitted to use or register for the Services.</span></bdt></bdt><bdt data-type="conditional-block"><bdt class="block-component"></bdt></bdt></div><div class="MsoNormal" style="line-height: 1;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;">We recommend that you print a copy of these Legal Terms for your records.</div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="heading_1" style="line-height: 1.5;"><strong><h2>TABLE OF CONTENTS</h2></strong></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#services"><span data-custom-class="link"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">1. OUR SERVICES</span></span></span></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#ip"><span style="color: rgb(0, 58, 250);"><span data-custom-class="body_text">2. INTELLECTUAL PROPERTY RIGHTS</span></span></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#userreps"></a><a data-custom-class="link" href="#userreps"><span style="color: rbg(0, 58, 250); font-size: 15px; line-height: 1.5;"><span data-custom-class="body_text">3. USER REPRESENTATIONS</span></span></a></div><div class="MsoNormal" style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span> <a data-custom-class="link" href="#products"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#products"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#purchases"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#purchases"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt>4. PURCHASES AND PAYMENT<bdt class="statement-end-if-in-editor"></bdt></span></span></a></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt><a data-custom-class="link" href="#subscriptions"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">5. SUBSCRIPTIONS</span></span></a><bdt class="statement-end-if-in-editor"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span> <a data-custom-class="link" href="#software"></a> <a data-custom-class="link" href="#software"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#software"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#prohibited"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#prohibited"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">6. PROHIBITED ACTIVITIES</span></span></a> <a data-custom-class="link" href="#ugc"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#ugc"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">7. USER GENERATED CONTRIBUTIONS</span></span></a> <a data-custom-class="link" href="#license"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#license"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">8. CONTRIBUTION <bdt class="block-component"></bdt>LICENSE<bdt class="statement-end-if-in-editor"></bdt></span></span></a> <a data-custom-class="link" href="#reviews"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#reviews"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#mobile"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#mobile"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#socialmedia"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#socialmedia"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#thirdparty"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#thirdparty"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#advertisers"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#advertisers"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt>9. ADVERTISERS<bdt class="statement-end-if-in-editor"></bdt></span></span></a> <a data-custom-class="link" href="#sitemanage"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#sitemanage"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">10. SERVICES MANAGEMENT</span></span></a> <a data-custom-class="link" href="#ppyes"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#ppyes"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt></span></span></a> <a data-custom-class="link" href="#ppno"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#ppno"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt>11. PRIVACY POLICY<bdt class="statement-end-if-in-editor"></bdt></span></span></a> <a data-custom-class="link" href="#dmca"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#dmca"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt><bdt class="block-component"></bdt><bdt class="statement-end-if-in-editor"></bdt></span></span></a></div><div class="MsoNormal" style="line-height: 1.5;"><span style="font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt><bdt class="block-component"></bdt><bdt class="block-component"></bdt></span></span> <a data-custom-class="link" href="#terms"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#terms"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">12. TERM AND TERMINATION</span></span></a> <a data-custom-class="link" href="#modifications"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#modifications"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">13. MODIFICATIONS AND INTERRUPTIONS</span></span></a> <a data-custom-class="link" href="#law"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#law"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">14. GOVERNING LAW</span></span></a> <a data-custom-class="link" href="#disputes"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#disputes"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">15. DISPUTE RESOLUTION</span></span></a> <a data-custom-class="link" href="#corrections"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#corrections"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">16. CORRECTIONS</span></span></a> <a data-custom-class="link" href="#disclaimer"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#disclaimer"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">17. DISCLAIMER</span></span></a> <a data-custom-class="link" href="#liability"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#liability"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">18. LIMITATIONS OF LIABILITY</span></span></a> <a data-custom-class="link" href="#indemnification"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#indemnification"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">19. INDEMNIFICATION</span></span></a> <a data-custom-class="link" href="#userdata"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#userdata"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">20. USER DATA</span></span></a> <a data-custom-class="link" href="#electronic"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#electronic"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">21. ELECTRONIC COMMUNICATIONS, TRANSACTIONS, AND SIGNATURES</span></span></a> <a data-custom-class="link" href="#california"></a></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#california"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text"><bdt class="block-component"></bdt>22. CALIFORNIA USERS AND RESIDENTS<bdt class="statement-end-if-in-editor"></bdt></span></span></a> <a data-custom-class="link" href="#misc"></a></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#misc"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">23. MISCELLANEOUS</span></span></a> <a data-custom-class="link" href="#contact"></a></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></span></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><a data-custom-class="link" href="#contact"><span style="color: rgb(0, 58, 250); font-size: 15px;"><span data-custom-class="body_text">24. CONTACT US</span></span></a></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="heading_1" style="line-height: 1.5;"><a name="_b6y29mp52qvx"></a></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="services" style="line-height: 1.5;"><strong><span style="font-size: 19px; line-height: 1.5;"><h2>1. OUR SERVICES</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">The information provided when using the Services is not intended for distribution to or use by any person or entity in any jurisdiction or country where such distribution or use would be contrary to law or regulation or which would subject us to any registration requirement within such jurisdiction or country. Accordingly, those persons who choose to access the Services from other locations do so on their own initiative and are solely responsible for compliance with local laws, if and to the extent local laws are applicable.<bdt class="block-component"></bdt></span><bdt class="block-component"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">The Services are not tailored to comply with industry-specific regulations (Health Insurance Portability and Accountability Act (HIPAA), Federal Information Security Management Act (FISMA), etc.), so if your interactions would be subjected to such laws, you may not use the Services. You may not use the Services in a way that would violate the Gramm-Leach-Bliley Act (GLBA).<bdt class="block-component"></bdt><bdt class="statement-end-if-in-editor"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><br></div></div><div align="center" data-custom-class="heading_1" style="text-align: left; line-height: 1.5;"><strong><span id="ip" style="font-size: 19px; line-height: 1.5;"><h2>2. INTELLECTUAL PROPERTY RIGHTS</h2></span></strong></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5;"><strong><h3>Our intellectual property</h3></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We are the owner or the licensee of all intellectual property rights in our Services, including all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics in the Services (collectively, the <bdt class="block-component"></bdt>"Content"<bdt class="statement-end-if-in-editor"></bdt>), as well as the trademarks, service marks, and logos contained therein (the <bdt class="block-component"></bdt>"Marks"<bdt class="statement-end-if-in-editor"></bdt>).</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">Our Content and Marks are protected by copyright and trademark laws (and various other intellectual property rights and unfair competition laws) and treaties<bdt class="block-component"></bdt> in the United States and<bdt class="statement-end-if-in-editor"></bdt> around the world.</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">The Content and Marks are provided in or through the Services <bdt class="block-component"></bdt>"AS IS"<bdt class="statement-end-if-in-editor"></bdt> for your <bdt class="block-component"></bdt>personal, non-commercial use or internal business purpose<bdt class="statement-end-if-in-editor"></bdt> only.</span></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5;"><strong><h3>Your use of our Services</h3></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">Subject to your compliance with these Legal Terms, including the <bdt class="block-component"></bdt>"<bdt class="statement-end-if-in-editor"></bdt></span><a data-custom-class="link" href="#prohibited"><span style="color: rgb(0, 58, 250); font-size: 15px;">PROHIBITED ACTIVITIES</span></a><span style="font-size: 15px;"><bdt class="block-component"></bdt>"<bdt class="statement-end-if-in-editor"></bdt> section below, we grant you a non-exclusive, non-transferable, revocable <bdt class="block-component"></bdt>license<bdt class="statement-end-if-in-editor"></bdt> to:</span></div><ul><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">access the Services; and</span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">download or print a copy of any portion of the Content to which you have properly gained access,</span></li></ul><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">solely for your <bdt class="block-component"></bdt>personal, non-commercial use or internal business purpose<bdt class="statement-end-if-in-editor"></bdt>.</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">Except as set out in this section or elsewhere in our Legal Terms, no part of the Services and no Content or Marks may be copied, reproduced,
-aggregated, republished, uploaded, posted, publicly displayed, encoded,
-translated, transmitted, distributed, sold, licensed, or otherwise exploited
-for any commercial purpose whatsoever, without our express prior written
-permission.</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">If you wish to make any use of the Services, Content, or Marks other than as set out in this section or elsewhere in our Legal Terms, please address your request to: <bdt class="question noTranslate">__________</bdt>. If we ever grant you the permission to post, reproduce, or publicly display any part of our Services or Content, you must identify us as the owners or licensors of the Services, Content, or Marks and ensure that any copyright or proprietary notice appears or is visible on posting, reproducing, or displaying our Content.</span></div></div><div align="center" style="line-height: 1.5;"><br></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We reserve all rights not expressly granted to you in and to the Services, Content, and Marks.</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">Any breach of these Intellectual Property Rights will constitute a material breach of our Legal Terms and your right to use our Services will terminate immediately.</span></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:1.5;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><h3>Your submissions<bdt class="block-component"></strong></bdt></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">Please review this section and the <bdt class="block-component"></bdt>"<bdt class="statement-end-if-in-editor"></bdt><a data-custom-class="link" href="#prohibited"><span style="color: rgb(0, 58, 250);">PROHIBITED ACTIVITIES</span></a><bdt class="block-component"></bdt>"<bdt class="statement-end-if-in-editor"></bdt> section carefully prior to using our Services to understand the (a) rights you give us and (b) obligations you have when you post or upload any content through the Services.</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;"><strong>Submissions:</strong> By directly sending us any question, comment, suggestion, idea, feedback, or other information about the Services (<bdt class="block-component"></bdt>"Submissions"<bdt class="statement-end-if-in-editor"></bdt>), you agree to assign to us all intellectual property rights in such Submission. You agree that we shall own this Submission and be entitled to its unrestricted use and dissemination for any lawful purpose, commercial or otherwise, without acknowledgment or compensation to you.<bdt class="block-component"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;"><strong>You are responsible for what you post or upload:</strong> By sending us Submissions<bdt class="block-component"></bdt> through any part of the Services<bdt class="block-component"></bdt> you:</span></div><ul><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">confirm that you have read and agree with our <bdt class="block-component"></bdt>"<bdt class="statement-end-if-in-editor"></bdt></span><a data-custom-class="link" href="#prohibited"><span style="color: rgb(0, 58, 250); font-size: 15px;">PROHIBITED ACTIVITIES</span></a><span style="font-size: 15px;"><bdt class="block-component"></bdt>"<bdt class="statement-end-if-in-editor"></bdt> and will not post, send, publish, upload, or transmit through the Services any Submission<bdt class="block-component"></bdt> that is illegal, harassing, hateful, harmful, defamatory, obscene, bullying, abusive, discriminatory, threatening to any person or group, sexually explicit, false, inaccurate, deceitful, or misleading;</span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">to the extent permissible by applicable law, waive any and all moral rights to any such Submission<bdt class="block-component"></bdt>;</span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">warrant that any such Submission<bdt class="block-component"></bdt> are original to you or that you have the necessary rights and <bdt class="block-component"></bdt>licenses<bdt class="statement-end-if-in-editor"></bdt> to submit such Submissions<bdt class="block-component"></bdt> and that you have full authority to grant us the above-mentioned rights in relation to your Submissions<bdt class="block-component"></bdt>; and</span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;">warrant and represent that your Submissions<bdt class="block-component"></bdt> do not constitute confidential information.</span></li></ul><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;">You are solely responsible for your Submissions<bdt class="block-component"></bdt> and you expressly agree to reimburse us for any and all losses that we may suffer because of your breach of (a) this section, (b) any third party’s intellectual property rights, or (c) applicable law.<bdt class="block-component"></bdt><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><br></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="heading_1" id="userreps" style="line-height: 1.5;"><a name="_5hg7kgyv9l8z"></a><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>3. USER REPRESENTATIONS</h2></span></strong></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">By using the Services, you represent and warrant that:</span><bdt class="block-container if" data-type="if" id="d2d82ca8-275f-3f86-8149-8a5ef8054af6"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_account_option" data-type="statement"></bdt> </bdt><span style="color: rgb(89, 89, 89); font-size: 11pt;">(</span><span style="color: rgb(89, 89, 89); font-size: 14.6667px;">1</span><span style="color: rgb(89, 89, 89); font-size: 11pt;">) you have the legal capacity and you agree to comply with these Legal Terms;</span><bdt class="block-container if" data-type="if" id="8d4c883b-bc2c-f0b4-da3e-6d0ee51aca13"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_u13_option" data-type="statement"></bdt> </bdt><span style="color: rgb(89, 89, 89); font-size: 11pt;">(</span><span style="color: rgb(89, 89, 89); font-size: 14.6667px;">2</span><span style="color: rgb(89, 89, 89); font-size: 11pt;">) you are not a
-minor in the jurisdiction in which you reside<bdt class="block-container if" data-type="if" id="76948fab-ec9e-266a-bb91-948929c050c9"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_o18_option" data-type="statement"></bdt></bdt>; (</span><span style="color: rgb(89, 89, 89); font-size: 14.6667px;">3</span><span style="color: rgb(89, 89, 89); font-size: 11pt;">) you will not access the Services through automated or non-human means, whether through a bot, script or
-otherwise; (</span><span style="color: rgb(89, 89, 89); font-size: 14.6667px;">4</span><span style="color: rgb(89, 89, 89); font-size: 11pt;">) you will not use the Services for any illegal or <bdt class="block-component"></bdt>unauthorized<bdt class="statement-end-if-in-editor"></bdt> purpose; and (</span><span style="color: rgb(89, 89, 89); font-size: 14.6667px;">5</span><span style="color: rgb(89, 89, 89); font-size: 11pt;">) your use of the Services will not violate any applicable law or regulation.</span><span style="color: rgb(89, 89, 89); font-size: 14.6667px;"></span></div></div><div align="center" style="line-height: 1.5;"><br></div><div align="center" style="text-align: left;"><div class="MsoNormal" style="text-align: justify; line-height: 115%;"><div class="MsoNormal" style="line-height: 17.25px;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">If you provide any information that is untrue, inaccurate, not current, or incomplete, we have the right to suspend or terminate your account and refuse any and all current or future use of the Services (or any portion thereof).</span></div><div class="MsoNormal" style="line-height: 1.1; text-align: left;"><bdt class="block-component"></bdt></span></div></bdt></bdt> <bdt class="block-component"><span style="font-size: 15px;"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="heading_1" id="purchases" style="line-height: 1.5;"><a name="_ynub0jdx8pob"></a><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>4. PURCHASES AND PAYMENT</h2></span></strong></div></div><div align="center" style="text-align: left;"><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We accept the following forms of payment:</span></div><div class="MsoNormal" style="text-align:justify;line-height:115%;"><div class="MsoNormal" style="text-align: left; line-height: 1;"><br></div></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; margin-left: 20px;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><bdt class="forloop-component"></bdt>-  <bdt class="question noTranslate">Visa</bdt></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; margin-left: 20px;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><bdt class="forloop-component"></bdt>-  <bdt class="question noTranslate">Mastercard</bdt></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; margin-left: 20px;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><bdt class="forloop-component"></bdt>-  <bdt class="question noTranslate">Discover</bdt></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; margin-left: 20px;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><bdt class="forloop-component"></bdt></span></div><div class="MsoNormal" style="line-height: 1;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><br></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">You agree to provide current, complete, and accurate purchase and account information for all purchases made via the Services. You further agree to promptly update account and payment information, including email address, payment method, and payment card expiration date, so that we can complete your transactions and contact you as needed. Sales tax will be added to the price of purchases as deemed required by us. We may change prices at any time. All payments shall be </span><span style="font-size: 15px; line-height: 115%; font-family: Arial; color: rgb(89, 89, 89);">in <bdt class="question">US dollars</bdt>.</span></div></div><div align="center" style="line-height: 1.5;"><br></div><div align="center" style="text-align: left;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">You agree to pay all charges at the prices then in effect for your purchases and any applicable shipping fees, and you <bdt class="block-component"></bdt>authorize<bdt class="statement-end-if-in-editor"></bdt> us to charge your chosen payment provider for any such amounts upon placing your order. We reserve the right to correct any errors or mistakes in pricing, even if we have already requested or received payment.</span></div></div><div align="center" style="line-height: 1.5;"><br></div><div align="center" style="text-align: left; line-height: 1.5;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We reserve the right to refuse any order placed through the Services. We may, in our sole discretion, limit or cancel quantities purchased per person, per household, or per order. These restrictions may include orders placed by or under the same customer account, the same payment method, and/or orders that use the same billing or shipping address. We reserve the right to limit or prohibit orders that, in our sole <bdt class="block-component"></bdt>judgment<bdt class="statement-end-if-in-editor"></bdt>, appear to be placed by dealers, resellers, or distributors.</span><span style="line-height: 115%; font-family: Arial; color: rgb(89, 89, 89);"><bdt data-type="conditional-block" style="color: rgb(10, 54, 90); text-align: left;"><bdt class="block-component" data-record-question-key="return_option" data-type="statement" style="font-size: 15px;"></bdt></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="subscriptions" style="line-height: 1.5;"><strong><span style="font-size: 19px; line-height: 1.5;"><h2>5. SUBSCRIPTIONS</h2></span></strong></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5;"><strong><span style="font-size: 15px; line-height: 1.5;"><h3>Billing and Renewal</h3></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 15px;"><bdt class="block-component"></bdt>Your subscription will continue and automatically renew unless <bdt class="block-component"></bdt>canceled<bdt class="statement-end-if-in-editor"></bdt>. You consent to our charging your payment method on a recurring basis without requiring your prior approval for each recurring charge, until such time as you cancel the applicable order.<bdt class="block-component"></bdt> The length of your billing cycle <bdt class="block-component"></bdt>is monthly<bdt class="block-component"></bdt>.<bdt class="statement-end-if-in-editor"></bdt><bdt class="else-block"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 15px;"></bdt></span><bdt class="block-component"><span style="font-size: 15px;"></span></bdt></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5;"><span style="font-size: 15px; line-height: 1.5;"><strong><h3>Cancellation</h3></strong></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt><span style="font-size: 15px;">All purchases are non-refundable. <bdt class="statement-end-if-in-editor"></bdt><bdt class="block-component"></bdt>You can cancel your subscription at any time by contacting us using the contact information provided below.<bdt class="else-block"></bdt> Your cancellation will take effect at the end of the current paid term. If you have any questions or are unsatisfied with our Services, please email us at <bdt class="question noTranslate">__________</bdt>.<bdt class="statement-end-if-in-editor"></bdt><br></span></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5;"><strong><span style="font-size: 15px; line-height: 1.5;"><h3>Fee Changes</h3></span></strong></div><span style="font-size: 15px;"><span data-custom-class="body_text">We may, from time to time, make changes to the subscription fee and will communicate any price changes to you in accordance with applicable law.</span></span><div class="MsoNormal" style="line-height: 1.5;"><span style="font-size: 15px;"><bdt class="statement-end-if-in-editor"></bdt></span><bdt class="block-component"><span style="font-size: 15px;"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-component"></bdt></div><div class="MsoNormal" style="text-align: justify; line-height: 1.5;"><span style="line-height: 115%; font-family: Arial; color: rgb(89, 89, 89);"><bdt data-type="conditional-block" style="color: rgb(10, 54, 90); text-align: left;"><bdt data-type="body"><div class="MsoNormal" style="font-size: 15px; line-height: 1.5;"><br></div></bdt></bdt></span><div class="MsoNormal" data-custom-class="heading_1" id="prohibited" style="text-align: left; line-height: 1.5;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>6. PROHIBITED ACTIVITIES</h2></span></strong></div></div><div class="MsoNormal" style="text-align: justify; line-height: 1;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">You may not access or use the Services for any purpose other than that for which we make the Services available. The Services may not be used in connection with any commercial <bdt class="block-component"></bdt>endeavors<bdt class="statement-end-if-in-editor"></bdt> except those that are specifically endorsed or approved by us.</span></div></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" style="text-align: justify; line-height: 1;"><div class="MsoNormal" style="line-height: 17.25px;"><div class="MsoNormal" style="line-height: 1.1;"><div class="MsoNormal" style="line-height: 17.25px;"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">As a user of the Services, you agree not to:</span></div></div><ul><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-size: 15px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Systematically retrieve data or other content from the Services to create or compile, directly or indirectly, a collection, compilation, database, or directory without written permission from us.</span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Trick, defraud, or mislead us and other users, especially in any attempt to learn sensitive account information such as user passwords.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Circumvent, disable, or otherwise interfere with security-related features of the Services, including features that prevent or restrict the use or copying of any Content or enforce limitations on the use of the Services and/or the Content contained therein.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Disparage, tarnish, or otherwise harm, in our opinion, us and/or the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Use any information obtained from the Services in order to harass, abuse, or harm another person.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Make improper use of our support services or submit false reports of abuse or misconduct.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Use the Services in a manner inconsistent with any applicable laws or regulations.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Engage in <bdt class="block-component"></bdt>unauthorized<bdt class="statement-end-if-in-editor"></bdt> framing of or linking to the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Upload or transmit (or attempt to upload or to transmit) viruses, Trojan horses, or other material, including excessive use of capital letters and spamming (continuous posting of repetitive text), that interferes with any party’s uninterrupted use and enjoyment of the Services or modifies, impairs, disrupts, alters, or interferes with the use, features, functions, operation, or maintenance of the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Engage in any automated use of the system, such as using scripts to send comments or messages, or using any data mining, robots, or similar data gathering and extraction tools.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Delete the copyright or other proprietary rights notice from any Content.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Attempt to impersonate another user or person or use the username of another user.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Upload or transmit (or attempt to upload or to transmit) any material that acts as a passive or active information collection or transmission mechanism, including without limitation, clear graphics interchange formats (<bdt class="block-component"></bdt>"gifs"<bdt class="statement-end-if-in-editor"></bdt>), 1×1 pixels, web bugs, cookies, or other similar devices (sometimes referred to as <bdt class="block-component"></bdt>"spyware" or "passive collection mechanisms" or "pcms"<bdt class="statement-end-if-in-editor"></bdt>).</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Interfere with, disrupt, or create an undue burden on the Services or the networks or services connected to the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Harass, annoy, intimidate, or threaten any of our employees or agents engaged in providing any portion of the Services to you.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Attempt to bypass any measures of the Services designed to prevent or restrict access to the Services, or any portion of the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Copy or adapt the Services' software, including but not limited to Flash, PHP, HTML, JavaScript, or other code.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Except as permitted by applicable law, decipher, decompile, disassemble, or reverse engineer any of the software comprising or in any way making up a part of the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Except as may be the result of standard search engine or Internet browser usage, use, launch, develop, or distribute any automated system, including without limitation, any spider, robot, cheat utility, scraper, or offline reader that accesses the Services, or use or launch any <bdt class="block-component"></bdt>unauthorized<bdt class="statement-end-if-in-editor"></bdt> script or other software.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Use a buying agent or purchasing agent to make purchases on the Services.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Make any <bdt class="block-component"></bdt>unauthorized<bdt class="statement-end-if-in-editor"></bdt> use of the Services, including collecting usernames and/or email addresses of users by electronic or other means for the purpose of sending unsolicited email, or creating user accounts by automated means or under false <bdt class="block-component"></bdt>pretenses<bdt class="statement-end-if-in-editor"></bdt>.</span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><span style="line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);">Use the Services as part of any effort to compete with us or otherwise use the Services and/or the Content for any revenue-generating <bdt class="block-component"></bdt>endeavor<bdt class="statement-end-if-in-editor"></bdt> or commercial enterprise.</span><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);font-family: sans-serif; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: justify; text-indent: -29.4px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; background-color: rgb(255, 255, 255); text-decoration-style: initial; text-decoration-color: initial; color: rgb(89, 89, 89);"><bdt class="forloop-component"></bdt></span></span></span></span></span></li><li class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="question">Sell or otherwise transfer your profile.</bdt><bdt class="forloop-component"></bdt></span></li></ul><div class="MsoNormal"><br></div><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt data-type="body"><div class="MsoNormal" data-custom-class="heading_1" id="ugc" style="line-height: 1.5;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>7. USER GENERATED CONTRIBUTIONS</h2></span></strong></div></bdt></bdt></bdt> <bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt data-type="body"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if" id="24327c5d-a34f-f7e7-88f1-65a2f788484f" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_post_content_option" data-type="statement"></bdt><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">The Services does not offer users to submit or post content.<bdt class="block-component"></bdt> We may provide you with the opportunity to create, submit, post, display, transmit, perform, publish, distribute, or broadcast content and materials to us or on the Services, including but not limited to text, writings, video, audio, photographs, graphics, comments, suggestions, or personal information or other material (collectively, <bdt class="block-component"></bdt>"Contributions"<bdt class="statement-end-if-in-editor"></bdt>). Contributions may be viewable by other users of the Services and through third-party websites.<bdt class="block-component"></bdt> When you create or make available any Contributions, you thereby represent and warrant that:<span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="statement-end-if-in-editor"><bdt class="block-component"></bdt></bdt></span></span></span></div></bdt></bdt></bdt></div></div><div class="MsoNormal" style="line-height: 17.25px;"><ul style="font-size: medium;text-align: left;"><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">The creation, distribution, transmission, public display, or performance, and the accessing, downloading, or copying of your Contributions do not and will not infringe the proprietary rights, including but not limited to the copyright, patent, trademark, trade secret, or moral rights of any third party.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">You are the creator and owner of or have the necessary <bdt class="block-component"></bdt>licenses<bdt class="statement-end-if-in-editor"></bdt>, rights, consents, releases, and permissions to use and to <bdt class="block-component"></bdt>authorize<bdt class="statement-end-if-in-editor"></bdt> us, the Services, and other users of the Services to use your Contributions in any manner contemplated by the Services and these Legal Terms.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">You have the written consent, release, and/or permission of each and every identifiable individual person in your Contributions to use the name or likeness of each and every such identifiable individual person to enable inclusion and use of your Contributions in any manner contemplated by the Services and these Legal Terms.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions are not false, inaccurate, or misleading.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions are not unsolicited or <bdt class="block-component"></bdt>unauthorized<bdt class="statement-end-if-in-editor"></bdt> advertising, promotional materials, pyramid schemes, chain letters, spam, mass mailings, or other forms of solicitation.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions are not obscene, lewd, lascivious, filthy, violent, harassing, <bdt class="block-component"></bdt>libelous<bdt class="statement-end-if-in-editor"></bdt>, slanderous, or otherwise objectionable (as determined by us).</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions do not ridicule, mock, disparage, intimidate, or abuse anyone.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions are not used to harass or threaten (in the legal sense of those terms) any other person and to promote violence against a specific person or class of people.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions do not violate any applicable law, regulation, or rule.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions do not violate the privacy or publicity rights of any third party.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions do not violate any applicable law concerning child pornography, or otherwise intended to protect the health or well-being of minors.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions do not include any offensive comments that are connected to race, national origin, gender, sexual preference, or physical handicap.</span></span></span></li><li data-custom-class="body_text" style="line-height: 1.5;"><span style="color: rgb(89, 89, 89);"><span style="font-size: 14px;"><span data-custom-class="body_text">Your Contributions do not otherwise violate, or link to material that violates, any provision of these Legal Terms, or any applicable law or regulation.</span></span></span></li></ul><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt data-type="body"><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">Any use of the Services in violation of the foregoing violates these Legal Terms and may result in, among other things, termination or suspension of your rights to use the Services.</span></div></bdt></bdt></bdt></div></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" style="text-align: justify; line-height: 1;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt data-type="body"><div class="MsoNormal" data-custom-class="heading_1" id="license" style="line-height: 1.5;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>8. CONTRIBUTION <bdt class="block-component"></bdt>LICENSE<bdt class="statement-end-if-in-editor"></bdt></h2></span></strong></div></bdt></bdt></bdt></div><div class="MsoNormal" style="line-height: 1;"><bdt class="block-container if" data-type="if" id="a088ddfb-d8c1-9e58-6f21-958c3f4f0709" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_post_content_option" data-type="statement"></bdt></span></bdt></bdt></bdt></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">You and Services agree that we may access, store, process, and use any information and personal data that you provide<bdt class="block-component"></bdt> and your choices (including settings).</span></span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">By submitting suggestions or other feedback regarding the Services, you agree that we can use and share such feedback for any purpose without compensation to you.<bdt class="block-component"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">We do not assert any ownership over your Contributions. You retain full ownership of all of your Contributions and any intellectual property rights or other proprietary rights associated with your Contributions. We are not liable for any statements or representations in your Contributions provided by you in any area on the Services. You are solely responsible for your Contributions to the Services and you expressly agree to exonerate us from any and all responsibility and to refrain from any legal action against us regarding your Contributions.<bdt class="statement-end-if-in-editor"></bdt></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt class="statement-end-if-in-editor" data-type="close"></bdt></bdt></span></span></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="review_option" data-type="statement"></bdt></bdt></span></span></span></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="mobile_app_option" data-type="statement"></bdt></bdt></span></span></span></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="socialnetwork_link_option" data-type="statement"></span></div></bdt></bdt></bdt> <bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="3rd_party_option" data-type="statement"></bdt></bdt></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="advertiser_option" data-type="statement"></bdt></bdt></bdt></div><div class="MsoNormal" data-custom-class="heading_1" id="advertisers" style="line-height: 1.5;"><strong><h2>9. ADVERTISERS</h2></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">We allow advertisers to display their advertisements and other information in certain areas of the Services, such as sidebar advertisements or banner advertisements. We simply provide the space to place such advertisements, and we have no other relationship with advertisers.</span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt class="statement-end-if-in-editor" data-type="close"></bdt></bdt></div><div class="MsoNormal" data-custom-class="heading_1" id="sitemanage" style="line-height: 1.5;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>10. SERVICES MANAGEMENT</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;">We reserve the right, but not the obligation, to: (1) monitor the Services for violations of these Legal Terms; (2) take appropriate legal action against anyone who, in our sole discretion, violates the law or these Legal Terms, including without limitation, reporting such user to law enforcement authorities; (3) in our sole discretion and without limitation, refuse, restrict access to, limit the availability of, or disable (to the extent technologically feasible) any of your Contributions or any portion thereof; (4) in our sole discretion and without limitation, notice, or liability, to remove from the Services or otherwise disable all files and content that are excessive in size or are in any way burdensome to our systems; and (5) otherwise manage the Services in a manner designed to protect our rights and property and to facilitate the proper functioning of the Services.</div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="privacy_policy_option" data-type="statement"></bdt></bdt><bdt class="block-container if" data-type="if"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="privacy_policy_followup" data-type="statement" style="font-size: 14.6667px;"></bdt></bdt></bdt></div><div class="MsoNormal" data-custom-class="heading_1" id="ppno" style="line-height: 1.5;"><strong><h2>11. PRIVACY POLICY</h2></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">We care about data privacy and security. By using the Services, you agree to be bound by our Privacy Policy posted on the Services, which is incorporated into these Legal Terms. Please be advised the Services are hosted in <span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-component"></bdt>the <bdt class="question noTranslate">United States</bdt><bdt class="block-component"></bdt></span><bdt class="block-component"></bdt>. If you access the Services from any other region of the world with laws or other requirements governing personal data collection, use, or disclosure that differ from applicable laws in <span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-component"></bdt>the <bdt class="question noTranslate">United States</bdt><bdt class="block-component"></bdt></span><bdt class="block-component"></bdt>, then through your continued use of the Services, you are transferring your data to <span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-component"></bdt>the <bdt class="question noTranslate">United States</bdt><bdt class="block-component"></bdt></span><bdt class="block-component"></bdt>, and you expressly consent to have your data transferred to and processed in <span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-component"></bdt>the <bdt class="question noTranslate">United States</bdt><bdt class="block-component"></bdt></span><bdt class="block-component"></bdt>.<bdt class="block-container if" data-type="if" id="547bb7bb-ecf2-84b9-1cbb-a861dc3e14e7"><bdt data-type="conditional-block"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if" id="547bb7bb-ecf2-84b9-1cbb-a861dc3e14e7"><bdt data-type="conditional-block"><bdt data-type="body"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-component"></bdt><bdt class="block-container if" data-type="if" id="547bb7bb-ecf2-84b9-1cbb-a861dc3e14e7"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_u13_option" data-type="statement"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="statement-end-if-in-editor"></bdt></span></bdt></bdt></span></bdt></bdt></bdt></span></bdt></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><br></div><div class="MsoNormal" style="line-height: 1.5;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if"><bdt data-type="conditional-block"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if"><bdt data-type="conditional-block"><bdt data-type="body"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if"><bdt class="statement-end-if-in-editor" data-type="close"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="statement-end-if-in-editor"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if"><bdt data-type="conditional-block"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if"><bdt data-type="conditional-block"><bdt data-type="body"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if"><bdt class="statement-end-if-in-editor" data-type="close"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="statement-end-if-in-editor"></bdt></span></bdt></bdt></span></bdt></bdt></bdt></span></bdt></bdt></span></bdt></span></bdt></bdt></span></bdt></bdt></bdt></span></bdt></bdt></span></div><div class="MsoNormal" style="line-height: 1.5;"><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="copyright_agent_option" data-type="statement"><bdt class="block-component"></bdt><bdt class="block-component"></bdt></bdt><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt class="statement-end-if-in-editor" data-type="close"></bdt></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="block-component"></bdt><bdt class="block-container if" data-type="if" style="text-align: left;"><bdt class="statement-end-if-in-editor" data-type="close"><bdt class="block-component"></bdt></bdt><bdt class="block-component"></bdt></div><div class="MsoNormal" data-custom-class="heading_1" id="terms" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>12. TERM AND TERMINATION</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">These Legal Terms shall remain in full force and effect while you use the Services. WITHOUT LIMITING ANY OTHER PROVISION OF THESE LEGAL TERMS, WE RESERVE THE RIGHT TO, IN OUR SOLE DISCRETION AND WITHOUT NOTICE OR LIABILITY, DENY ACCESS TO AND USE OF THE SERVICES (INCLUDING BLOCKING CERTAIN IP ADDRESSES), TO ANY PERSON FOR ANY REASON OR FOR NO REASON, INCLUDING WITHOUT LIMITATION FOR BREACH OF ANY REPRESENTATION, WARRANTY, OR COVENANT CONTAINED IN THESE LEGAL TERMS OR OF ANY APPLICABLE LAW OR REGULATION. WE MAY TERMINATE YOUR USE OR PARTICIPATION IN THE SERVICES OR DELETE <bdt class="block-container if" data-type="if" id="a6e121c2-36b4-5066-bf9f-a0a33512e768"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_account_option" data-type="statement"></bdt></bdt>ANY CONTENT OR INFORMATION THAT YOU POSTED AT ANY TIME, WITHOUT WARNING, IN OUR SOLE DISCRETION.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">If we terminate or suspend your account for any reason, you are prohibited from registering and creating a new account under your name, a fake or borrowed name, or the name of any third party, even if you may be acting on behalf of the third party. In addition to terminating or suspending your account, we reserve the right to take appropriate legal action, including without limitation pursuing civil, criminal, and injunctive redress.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="modifications" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>13. MODIFICATIONS AND INTERRUPTIONS</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">We reserve the right to change, modify, or remove the contents of the Services at any time or for any reason at our sole discretion without notice. However, we have no obligation to update any information on our Services.<bdt class="block-component"></bdt> We will not be liable to you or any third party for any modification, price change, suspension, or discontinuance of the Services.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">We cannot guarantee the Services will be available at all times. We may experience hardware, software, or other problems or need to perform maintenance related to the Services, resulting in interruptions, delays, or errors. We reserve the right to change, revise, update, suspend, discontinue, or otherwise modify the Services at any time or for any reason without notice to you. You agree that we have no liability whatsoever for any loss, damage, or inconvenience caused by your inability to access or use the Services during any downtime or discontinuance of the Services. Nothing in these Legal Terms will be construed to obligate us to maintain and support the Services or to supply any corrections, updates, or releases in connection therewith.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="law" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>14. GOVERNING LAW</h2></span></strong></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-component"></bdt></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);">These Legal Terms and your use of the Services are governed by and construed in accordance with the laws of <bdt class="block-container if" data-type="if" id="b86653c1-52f0-c88c-a218-e300b912dd6b"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="governing_law" data-type="statement"></bdt><bdt data-type="body">the State of <bdt class="block-container question question-in-editor" data-id="b61250bd-6b61-32ea-a9e7-4a02690297c3" data-type="question noTranslate">Texas</bdt></bdt></bdt><bdt class="statement-end-if-in-editor" data-type="close"></bdt></bdt> applicable to agreements made and to be entirely performed within<bdt class="block-container if" data-type="if" id="b86653c1-52f0-c88c-a218-e300b912dd6b" style="font-size: 14.6667px;"><bdt data-type="conditional-block"> <span style="font-size: 11pt; line-height: 16.8667px; color: rgb(89, 89, 89);"><bdt class="block-container if" data-type="if" id="b86653c1-52f0-c88c-a218-e300b912dd6b"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="governing_law" data-type="statement"></bdt><bdt data-type="body">the State of <bdt class="block-container question question-in-editor" data-id="b61250bd-6b61-32ea-a9e7-4a02690297c3" data-type="question noTranslate">Texas</bdt></bdt></bdt><bdt class="statement-end-if-in-editor" data-type="close"></bdt></bdt><span style="font-size: 14.6667px;">, </span>without regard to its conflict of law principles.<bdt class="block-component"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="disputes" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-size: 19px;"><h2>15. DISPUTE RESOLUTION</h2></span></strong></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="block-component"></bdt></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="block-component"></bdt></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5; text-align: left;"><strong><h3>Binding Arbitration</h3></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><bdt class="block-component"><span style="font-size: 15px;"></span></bdt><span style="font-size: 15px;">If the Parties are unable to resolve a Dispute through informal negotiations, the Dispute (except those Disputes expressly excluded below) will be finally and exclusively resolved by binding arbitration. YOU UNDERSTAND THAT WITHOUT THIS PROVISION, YOU WOULD HAVE THE RIGHT TO SUE IN COURT AND HAVE A JURY TRIAL. <bdt class="block-component"></bdt>The arbitration shall be commenced and conducted under the Commercial Arbitration Rules of the American Arbitration Association (<bdt class="block-component"></bdt>"AAA"<bdt class="statement-end-if-in-editor"></bdt>) and, where appropriate, the AAA’s Supplementary Procedures for Consumer Related Disputes (<bdt class="block-component"></bdt>"AAA Consumer Rules"<bdt class="statement-end-if-in-editor"></bdt>), both of which are available at the <span style="font-size: 15px; line-height: 16.8667px; color: rgb(0, 58, 250);"><a data-custom-class="link" href="<http://www.adr.org>" rel="noopener noreferrer" target="_blank">American Arbitration Association (AAA) website</a></span>. Your arbitration fees and your share of arbitrator compensation shall be governed by the AAA Consumer Rules and, where appropriate, limited by the AAA Consumer Rules. <bdt class="else-block"></bdt>The arbitration may be conducted in person, through the submission of documents, by phone, or online. The arbitrator will make a decision in writing, but need not provide a statement of reasons unless requested by either Party. The arbitrator must follow applicable law, and any award may be challenged if the arbitrator fails to do so. Except where otherwise required by the applicable <bdt class="block-component"></bdt>AAA<bdt class="else-block"></bdt> rules or applicable law, the arbitration will take place in <bdt class="block-component"></bdt><bdt class="block-component"></bdt><bdt class="question noTranslate">Texas</bdt><bdt class="statement-end-if-in-editor"></bdt>. Except as otherwise provided herein, the Parties may litigate in court to compel arbitration, stay proceedings pending arbitration, or to confirm, modify, vacate, or enter <bdt class="block-component"></bdt>judgment<bdt class="statement-end-if-in-editor"></bdt> on the award entered by the arbitrator.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;">If for any reason, a Dispute proceeds in court rather than arbitration, the Dispute shall be commenced or prosecuted in the</span> <bdt class="block-component" style="font-size: 15px;"></bdt><span style="font-size: 15px;"> state and federal courts</span><bdt class="statement-end-if-in-editor" style="font-size: 15px;"></bdt><span style="font-size: 15px;"> located in</span><bdt class="block-component" style="font-size: 15px;"></bdt><bdt class="block-component" style="font-size: 15px;"> </bdt><bdt class="question noTranslate" style="font-size: 15px;">__________</bdt><bdt class="statement-end-if-in-editor" style="font-size: 15px;"></bdt><span style="font-size: 15px;">, and the Parties hereby consent to, and waive all <bdt class="block-component"></bdt>defenses<bdt class="statement-end-if-in-editor"></bdt> of lack of personal jurisdiction, and forum non conveniens with respect to venue and jurisdiction in such<bdt class="block-component"></bdt> state and federal courts<bdt class="statement-end-if-in-editor"></bdt>. Application of the United Nations Convention on Contracts for the International Sale of Goods and the Uniform Computer Information Transaction Act (UCITA) are excluded from these Legal Terms.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><bdt class="block-component"></bdt>If this provision is found to be illegal or unenforceable, then neither Party will elect to arbitrate any Dispute falling within that portion of this provision found to be illegal or unenforceable and such Dispute shall be decided by a court of competent jurisdiction within the courts listed for jurisdiction above, and the Parties agree to submit to the personal jurisdiction of that court.<bdt class="block-component"></bdt></bdt></div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5; text-align: left;"><strong><h3>Restrictions</h3></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;">The Parties agree that any arbitration shall be limited to the Dispute between the Parties individually. To the full extent permitted by law, (a) no arbitration shall be joined with any other proceeding; (b) there is no right or authority for any Dispute to be arbitrated on a class-action basis or to <bdt class="block-component"></bdt>utilize<bdt class="statement-end-if-in-editor"></bdt> class action procedures; and (c) there is no right or authority for any Dispute to be brought in a purported representative capacity on behalf of the general public or any other persons.</div><div class="MsoNormal" data-custom-class="heading_2" style="line-height: 1.5; text-align: left;"><bdt class="block-component"></bdt><strong><h3>Exceptions to Arbitration</h3></strong> <bdt class="else-block"></bdt></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><bdt class="block-component"></bdt>The Parties agree that the following Disputes are not subject to the above provisions concerning binding arbitration: (a) any Disputes seeking to enforce or protect, or concerning the validity of, any of the intellectual property rights of a Party; (b) any Dispute related to, or arising from, allegations of theft, piracy, invasion of privacy, or <bdt class="block-component"></bdt>unauthorized<bdt class="statement-end-if-in-editor"></bdt> use; and (c) any claim for injunctive relief. If this provision is found to be illegal or unenforceable, then neither Party will elect to arbitrate any Dispute falling within that portion of this provision found to be illegal or unenforceable and such Dispute shall be decided by a court of competent jurisdiction within the courts listed for jurisdiction above, and the Parties agree to submit to the personal jurisdiction of that court.<bdt class="else-block"></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="statement-end-if-in-editor"><bdt class="statement-end-if-in-editor"></bdt></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="corrections" style="line-height: 1.5; text-align: left;"><strong><span style="font-size: 19px; line-height: 1.5;"><h2>16. CORRECTIONS</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;">There may be information on the Services that contains typographical errors, inaccuracies, or omissions, including descriptions, pricing, availability, and various other information. We reserve the right to correct any errors, inaccuracies, or omissions and to change or update the information on the Services at any time, without prior notice.</div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="disclaimer" style="line-height: 1.5; text-align: left;"><span style="font-size: 19px; line-height: 1.5; color: rgb(0, 0, 0);"><strong><h2>17. DISCLAIMER</h2></strong></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">THE SERVICES ARE PROVIDED ON AN AS-IS AND AS-AVAILABLE BASIS. YOU AGREE THAT YOUR USE OF THE SERVICES WILL BE AT YOUR SOLE RISK. TO THE FULLEST EXTENT PERMITTED BY LAW, WE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED, IN CONNECTION WITH THE SERVICES AND YOUR USE THEREOF, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE MAKE NO WARRANTIES OR REPRESENTATIONS ABOUT THE ACCURACY OR COMPLETENESS OF THE SERVICES' CONTENT OR THE CONTENT OF ANY WEBSITES OR MOBILE APPLICATIONS LINKED TO THE SERVICES AND WE WILL ASSUME NO LIABILITY OR RESPONSIBILITY FOR ANY (1) ERRORS, MISTAKES, OR INACCURACIES OF CONTENT AND MATERIALS, (2) PERSONAL INJURY OR PROPERTY DAMAGE, OF ANY NATURE WHATSOEVER, RESULTING FROM YOUR ACCESS TO AND USE OF THE SERVICES, (3) ANY <bdt class="block-component"></bdt>UNAUTHORIZED<bdt class="statement-end-if-in-editor"></bdt> ACCESS TO OR USE OF OUR SECURE SERVERS AND/OR ANY AND ALL PERSONAL INFORMATION AND/OR FINANCIAL INFORMATION STORED THEREIN, (4) ANY INTERRUPTION OR CESSATION OF TRANSMISSION TO OR FROM THE SERVICES, (5) ANY BUGS, VIRUSES, TROJAN HORSES, OR THE LIKE WHICH MAY BE TRANSMITTED TO OR THROUGH THE SERVICES BY ANY THIRD PARTY, AND/OR (6) ANY ERRORS OR OMISSIONS IN ANY CONTENT AND MATERIALS OR FOR ANY LOSS OR DAMAGE OF ANY KIND INCURRED AS A RESULT OF THE USE OF ANY CONTENT POSTED, TRANSMITTED, OR OTHERWISE MADE AVAILABLE VIA THE SERVICES. WE DO NOT WARRANT, ENDORSE, GUARANTEE, OR ASSUME RESPONSIBILITY FOR ANY PRODUCT OR SERVICE ADVERTISED OR OFFERED BY A THIRD PARTY THROUGH THE SERVICES, ANY HYPERLINKED WEBSITE, OR ANY WEBSITE OR MOBILE APPLICATION FEATURED IN ANY BANNER OR OTHER ADVERTISING, AND WE WILL NOT BE A PARTY TO OR IN ANY WAY BE RESPONSIBLE FOR MONITORING ANY TRANSACTION BETWEEN YOU AND ANY THIRD-PARTY PROVIDERS OF PRODUCTS OR SERVICES. AS WITH THE PURCHASE OF A PRODUCT OR SERVICE THROUGH ANY MEDIUM OR IN ANY ENVIRONMENT, YOU SHOULD USE YOUR BEST <bdt class="block-component"></bdt>JUDGMENT<bdt class="statement-end-if-in-editor"></bdt> AND EXERCISE CAUTION WHERE APPROPRIATE.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="liability" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>18. LIMITATIONS OF LIABILITY</h2></span></strong></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><span data-custom-class="body_text">IN NO EVENT WILL WE OR OUR DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE TO YOU OR ANY THIRD PARTY FOR ANY DIRECT, INDIRECT, CONSEQUENTIAL, EXEMPLARY, INCIDENTAL, SPECIAL, OR PUNITIVE DAMAGES, INCLUDING LOST PROFIT, LOST REVENUE, LOSS OF DATA, OR OTHER DAMAGES ARISING FROM YOUR USE OF THE SERVICES, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.</span> <bdt class="block-container if" data-type="if" id="3c3071ce-c603-4812-b8ca-ac40b91b9943"><span data-custom-class="body_text"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="limitations_liability_option" data-type="statement"></bdt><bdt data-type="body">NOTWITHSTANDING ANYTHING TO THE CONTRARY CONTAINED HEREIN, OUR LIABILITY TO YOU FOR ANY CAUSE WHATSOEVER AND REGARDLESS OF THE FORM OF THE ACTION, WILL AT ALL TIMES BE LIMITED TO <bdt class="block-container if" data-type="if" id="73189d93-ed3a-d597-3efc-15956fa8e04e"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="limitations_liability_option" data-type="statement"></bdt><bdt data-type="body">THE
-AMOUNT PAID, IF ANY, BY YOU TO US<bdt class="block-container if" data-type="if" id="19e172cb-4ccf-1904-7c06-4251800ba748"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="limilation_liability_time_option" data-type="statement"> </bdt><bdt data-type="body"><span style="font-size: 11pt; color: rgb(89, 89, 89); text-transform: uppercase;">DURING THE <bdt class="block-container question question-in-editor" data-id="5dd68d46-ed6f-61c7-cd66-6b3f424b6bdd" data-type="question">one (1)</bdt> mONTH PERIOD PRIOR TO ANY CAUSE OF ACTION ARISING</span></bdt></bdt><bdt class="statement-end-if-in-editor" data-type="close"></bdt></bdt></bdt></bdt><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="limitations_liability_option" data-type="statement">.</span></bdt> </bdt></span><span data-custom-class="body_text">CERTAIN US STATE LAWS AND INTERNATIONAL LAWS DO NOT ALLOW LIMITATIONS ON IMPLIED WARRANTIES OR THE EXCLUSION OR LIMITATION OF CERTAIN DAMAGES. IF THESE LAWS APPLY TO YOU, SOME OR ALL OF THE ABOVE DISCLAIMERS OR LIMITATIONS MAY NOT APPLY TO YOU, AND YOU MAY HAVE ADDITIONAL RIGHTS.</span></bdt></bdt></span><bdt class="statement-end-if-in-editor" data-type="close"><span data-custom-class="body_text"></span></bdt></bdt></span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="indemnification" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>19. INDEMNIFICATION</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">You agree to
-defend, indemnify, and hold us harmless, including our subsidiaries,
-affiliates, and all of our respective officers, agents, partners, and
-employees, from and against any loss, damage, liability, claim, or demand, including
-reasonable attorneys’ fees and expenses, made by any third party due to or
-arising out of: <bdt class="block-container if" data-type="if" id="475fffa5-05ca-def8-ac88-f426b238903c"><bdt data-type="conditional-block"><bdt class="block-component" data-record-question-key="user_post_content_option" data-type="statement"></bdt></bdt>(<span style="font-size: 14.6667px;">1</span>) use of the Services; (<span style="font-size: 14.6667px;">2</span>) breach of these Legal Terms; (<span style="font-size: 14.6667px;">3</span>) any breach of your representations and warranties set forth in these Legal Terms; (<span style="font-size: 14.6667px;">4</span>) your violation of the rights of a third party, including but not limited to intellectual property rights; or (<span style="font-size: 14.6667px;">5</span>) any overt harmful act toward any other user of the Services with whom you connected via the Services. Notwithstanding the foregoing, we reserve the right, at your expense, to assume the exclusive <bdt class="block-component"></bdt>defense<bdt class="statement-end-if-in-editor"></bdt> and control of any matter for which you are required to indemnify us, and you agree to cooperate, at your expense, with our <bdt class="block-component"></bdt>defense<bdt class="statement-end-if-in-editor"></bdt> of such claims. We will use reasonable efforts to notify you of any such claim, action, or proceeding which is subject to this indemnification upon becoming aware of it.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="userdata" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>20. USER DATA</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">We will maintain
-certain data that you transmit to the Services for the purpose of managing the
-performance of the Services, as well as data relating to your use of the Services. Although we perform regular routine backups
-of data, you are solely responsible for all data that you transmit or that
-relates to any activity you have undertaken using the Services. You agree
-that we shall have no liability to you for any loss or corruption of any such
-data, and you hereby waive any right of action against us arising from any such
-loss or corruption of such data.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="electronic" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>21. ELECTRONIC COMMUNICATIONS, TRANSACTIONS, AND SIGNATURES</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">Visiting the Services, sending us emails, and completing online forms constitute electronic communications. You consent to receive electronic communications, and you agree that all agreements, notices, disclosures, and other communications we provide to you electronically, via email and on the Services, satisfy any legal requirement that such communication be in writing. YOU HEREBY AGREE TO THE USE OF ELECTRONIC SIGNATURES, CONTRACTS, ORDERS, AND OTHER RECORDS, AND TO ELECTRONIC DELIVERY OF NOTICES, POLICIES, AND RECORDS OF TRANSACTIONS INITIATED OR COMPLETED BY US OR VIA THE SERVICES. You hereby waive any rights or requirements under any statutes, regulations, rules, ordinances, or other laws in any jurisdiction which require an original signature or delivery or retention of non-electronic records, or to payments or the granting of credits by any means other than electronic means.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="block-component"><span style="font-size: 15px;"></bdt></span><bdt class="block-component"></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="california" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>22. CALIFORNIA USERS AND RESIDENTS</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">If any complaint
-with us is not satisfactorily resolved, you can contact the Complaint
-Assistance Unit of the Division of Consumer Services of the California
-Department of Consumer Affairs in writing at 1625 North Market Blvd., Suite N
-112, Sacramento, California 95834 or by telephone at (800) 952-5210 or (916)
-445-1254.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="statement-end-if-in-editor"></bdt></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="misc" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 1.5; font-family: Arial; font-size: 19px;"><h2>23. MISCELLANEOUS</h2></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">These Legal Terms and any policies or operating rules posted by us on the Services or in respect to the Services constitute the entire agreement and understanding between you and us. Our failure to exercise or enforce any right or provision of these Legal Terms shall not operate as a waiver of such right or provision. These Legal Terms operate to the fullest extent permissible by law. We may assign any or all of our rights and obligations to others at any time. We shall not be responsible or liable for any loss, damage, delay, or failure to act caused by any cause beyond our reasonable control. If any provision or part of a provision of these Legal Terms is determined to be unlawful, void, or unenforceable, that provision or part of the provision is deemed severable from these Legal Terms and does not affect the validity and enforceability of any remaining provisions. There is no joint venture, partnership, employment or agency relationship created between you and us as a result of these Legal Terms or use of the Services. You agree that these Legal Terms will not be construed against us by virtue of having drafted them. You hereby waive any and all <bdt class="block-component"></bdt>defenses<bdt class="statement-end-if-in-editor"></bdt> you may have based on the electronic form of these Legal Terms and the lack of signing by the parties hereto to execute these Legal Terms.</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><bdt class="block-component"><span style="font-size: 15px;"></bdt></span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="heading_1" id="contact" style="line-height: 1.5; text-align: left;"><strong><span style="line-height: 115%; font-family: Arial;"><span style="font-size: 19px; line-height: 1.5;"><h2>24. CONTACT US</h2></span></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;">In order to resolve a complaint regarding the Services or to receive further information regarding use of the Services, please contact us at:</span></div><div class="MsoNormal" style="line-height: 1.5; text-align: left;"><br></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><span style="color: rgb(89, 89, 89);"><bdt class="question noTranslate"><strong>__________</strong></bdt><strong><bdt class="block-component"></bdt></span><bdt class="block-component"></bdt></span></span></span></span></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><span style="font-size: 15px;"><strong><span style="color: rgb(89, 89, 89);"><bdt class="question"><bdt class="block-component"></bdt></bdt><bdt class="block-component"></bdt><bdt class="block-component"></bdt></span></strong><strong><span style="color: rgb(89, 89, 89);"><bdt class="block-component"></strong></bdt></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><strong><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><bdt class="block-component"></bdt></strong></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><strong><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><bdt class="block-component"></bdt></strong></span></strong></span></strong></div><div class="MsoNormal" data-custom-class="body_text" style="line-height: 1.5; text-align: left;"><strong><span style="font-size:11.0pt;line-height:115%;font-family:Arial;
-Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><bdt class="question"><bdt class="block-component"></bdt></bdt></strong></span></strong></div></div><div style="display: none;"><a class="terms123" href="[https://app.termly.io/dsar/9966e826-b893-4e51-823b-610b7b9fdba4"></a></div></div>
-</body>
-</html>
-    """
-    return render_template_string(terms_html)
-
 @app.route("/test-page")
 def test_page():
     # Generate unique test contact ID per session
@@ -1609,314 +1474,708 @@ def test_page():
             cur.close()
             conn.close()
 
-    # Cooler iPhone design (enhanced with notch, status bar, shadows)
+    # Ultimate iPhone 15 Pro Max mockup — ultra-realistic, auto-adjusts, nothing cut off
     test_html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>Test Chat with GrokBot</title>
-        <style>
-            * {{ box-sizing: border-box; }}
-            html, body {{
-                height: 100%;
-                margin: 0;
-                padding: 0;
-                background: #121212;
-                display: flex;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                overflow: hidden;
-            }}
-            .container {{
-                display: flex;
-                width: 100%;
-                height: 100%;
-            }}
-            .chat-column {{
-                flex: 1;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding: 20px;
-                background: linear-gradient(to bottom, #1e1e1e, #0a0a0a);
-            }}
-            .log-column {{
-                flex: 1;
-                padding: 40px;
-                overflow-y: auto;
-                background: #0a0a0a;
-                border-left: 1px solid #333;
-            }}
-            .iphone-frame {{
-                width: 375px;
-                height: 812px;
-                background: #000;
-                border-radius: 60px;
-                box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
-                padding: 40px 12px 80px;
-                position: relative;
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
-            }}
-            .iphone-frame::before {{
-                content: '';
-                position: absolute;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: 200px;
-                height: 35px;
-                background: #000;
-                border-radius: 20px;
-                z-index: 10;
-            }}
-            .status-bar {{
-                position: absolute;
-                top: 5px;
-                left: 20px;
-                right: 20px;
-                display: flex;
-                justify-content: space-between;
-                color: #fff;
-                font-size: 12px;
-                z-index: 10;
-            }}
-            .chat-screen {{
-                flex: 1;
-                overflow-y: auto;
-                padding: 40px 10px 10px;
-                background: #f0f0f5;
-                display: flex;
-                flex-direction: column;
-                border-radius: 30px 30px 0 0;
-                -webkit-overflow-scrolling: touch;
-            }}
-            .msg {{
-                max-width: 80%;
-                padding: 12px 18px;
-                border-radius: 20px;
-                margin-bottom: 15px;
-                word-wrap: break-word;
-                font-size: 15px;
-                line-height: 1.3;
-                align-self: flex-start;
-            }}
-            .bot-msg {{
-                background: #e5e5ea;
-                color: #000;
-                border-bottom-left-radius: 5px;
-            }}
-            .user-msg {{
-                background: #007aff;
-                color: #fff;
-                align-self: flex-end;
-                border-bottom-right-radius: 5px;
-            }}
-            .input-area {{
-                position: relative;
-                margin: 10px 10px 20px;
-                display: flex;
-                background: #f0f0f5;
-                border-radius: 25px;
-                padding: 8px 15px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }}
-            #user-input {{
-                flex: 1;
-                border: none;
-                outline: none;
-                font-size: 16px;
-                background: transparent;
-            }}
-            #send-btn {{
-                background: #007aff;
-                color: white;
-                border: none;
-                border-radius: 50%;
-                width: 36px;
-                height: 36px;
-                margin-left: 10px;
-                font-size: 18px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }}
-            .chat-screen::-webkit-scrollbar {{ display: none; }}
-            /* Log panel styles */
-            .log-panel {{
-                background: #111;
-                border-radius: 15px;
-                padding: 20px;
-                height: 812px;
-                overflow-y: auto;
-                box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-            }}
-            .log-entry {{
-                margin-bottom: 30px;
-                padding: 15px;
-                background: #1a1a1a;
-                border-radius: 10px;
-            }}
-            .log-entry h4 {{
-                color: #00ff88;
-                margin-bottom: 10px;
-            }}
-            .log-entry p {{
-                font-size: 14px;
-                color: #ddd;
-                white-space: pre-wrap;
-            }}
-            .buttons {{
-                margin-top: 20px;
-                display: flex;
-                justify-content: space-around;
-            }}
-            .btn {{
-                padding: 12px 30px;
-                background: #00ff88;
-                color: #000;
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                font-size: 16px;
-            }}
-            .btn:hover {{
-                background: #00cc70;
-            }}
-            .btn-reset {{ background: #ff6b6b; }}
-            .btn-reset:hover {{ background: #ff4d4d; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <!-- Chat Column (iPhone) -->
-            <div class="chat-column">
-                <div class="iphone-frame">
-                    <div class="status-bar">
-                        <span>9:41 AM</span>
-                        <span>📶 🔋</span>
-                    </div>
-                    <div id="chat-screen" class="chat-screen">
-                        <!-- Initial bot message -->
-                        <div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>
-                    </div>
-                    <div class="input-area">
-                        <input type="text" id="user-input" placeholder="Type your message..." autofocus>
-                        <button id="send-btn">↑</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Test Chat - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        html, body {{
+            height: 100%;
+            background: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }}
+        .phone-container {{
+            position: relative;
+            width: 390px;           /* iPhone 15 Pro Max width */
+            max-width: 95vw;
+            aspect-ratio: 9 / 19.5; /* Exact iPhone aspect */
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+        }}
+        .phone-frame {{
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 60px;
+            padding: 12px;
+            position: relative;
+            box-shadow: 
+                inset 0 0 20px rgba(255,255,255,0.05),
+                0 0 60px rgba(0, 255, 136, 0.3);
+        }}
+        .screen {{
+            width: 100%;
+            height: 100%;
+            background: #111;
+            border-radius: 48px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }}
+        .notch {{
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 34px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 10;
+        }}
+        .status-bar {{
+            position: absolute;
+            top: 12px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            font-size: 13px;
+            z-index: 11;
+        }}
+        .chat-area {{
+            flex: 1;
+            padding: 60px 20px 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
+        }}
+        .msg {{
+            max-width: 80%;
+            padding: 14px 20px;
+            border-radius: 22px;
+            margin-bottom: 16px;
+            word-wrap: break-word;
+            font-size: 16px;
+            line-height: 1.4;
+            align-self: flex-start;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }}
+        .bot-msg {{
+            background: #222;
+            color: #fff;
+            border-bottom-left-radius: 6px;
+        }}
+        .user-msg {{
+            background: #00ff88;
+            color: #000;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+            font-weight: 600;
+        }}
+        .input-area {{
+            padding: 12px 20px 30px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        #user-input {{
+            flex: 1;
+            background: #222;
+            border: none;
+            border-radius: 25px;
+            padding: 16px 20px;
+            color: #fff;
+            font-size: 17px;
+            outline: none;
+        }}
+        #user-input::placeholder {{ color: #888; }}
+        #send-btn {{
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.6);
+        }}
+        .log-panel {{
+            background: #111;
+            border-radius: 15px;
+            padding: 20px;
+            height: 812px;
+            overflow-y: auto;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            margin-left: 40px;
+        }}
+        /* Hide scrollbar but keep functionality */
+        .chat-area::-webkit-scrollbar, .log-panel::-webkit-scrollbar {{ display: none; }}
+        .chat-area, .log-panel {{ -ms-overflow-style: none; scrollbar-width: none; }}
+    </style>
+</head>
+<body>
+    <div class="phone-container">
+        <div class="phone-frame">
+            <div class="screen">
+                <div class="notch"></div>
+                <div class="status-bar">
+                    <span>9:41</span>
+                    <span>●●● ●●● 100%</span>
+                </div>
+                <div class="chat-area" id="chat-screen">
+                    <div class="msg bot-msg">
+                        Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
+                        A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
                     </div>
                 </div>
-            </div>
-            <!-- Log Column -->
-            <div class="log-column">
-                <div class="log-panel">
-                    <h2 style="color:#00ff88; text-align:center;">Log Panel</h2>
-                    <div id="logs"></div>
-                    <div class="buttons">
-                        <button class="btn btn-reset" onclick="resetChat()">Reset Chat</button>
-                        <button class="btn" onclick="downloadTranscript()">Download Transcript</button>
-                    </div>
+                <div class="input-area">
+                    <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
+                    <button id="send-btn">↑</button>
                 </div>
             </div>
         </div>
-        <script>
-            const TEST_CONTACT_ID = '{test_contact_id}';  // Fixed for this session
-            const input = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
-            const chat = document.getElementById('chat-screen');
-            const logs = document.getElementById('logs');
+    </div>
 
-            async function sendMessage() {{
-                const msg = input.value.trim();
-                if (!msg) return;
-                chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
-                input.value = '';
+    <!-- Log Panel (right side on desktop, hidden on mobile) -->
+    <div class="log-panel">
+        <h2 style="color:#00ff88; text-align:center; margin-bottom:20px;">Live Log Panel</h2>
+        <div id="logs"></div>
+        <div style="margin-top:30px; text-align:center;">
+            <button class="btn" style="background:#ff6b6b;" onclick="resetChat()">Reset Chat</button>
+            <button class="btn" onclick="downloadTranscript()">Download Transcript</button>
+        </div>
+    </div>
+
+    <script>
+        const TEST_CONTACT_ID = '{test_contact_id}';
+
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chat = document.getElementById('chat-screen');
+        const logs = document.getElementById('logs');
+
+        async function sendMessage() {{
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+
+            try {{
+                const res = await fetch('/webhook', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        locationId: 'TEST_LOCATION_456',
+                        contact_id: TEST_CONTACT_ID,
+                        first_name: 'Test User',
+                        message: {{ body: msg }},
+                        age: '1980-01-01',
+                        address: '123 Test St, Houston, TX'
+                    }})
+                }});
+
+                const data = await res.json();
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Thinking...'}}</div>`;
                 chat.scrollTop = chat.scrollHeight;
-
-                try {{
-                    const res = await fetch('/webhook', {{
-                        method: 'POST',
-                        headers: {{'Content-Type': 'application/json'}},
-                        body: JSON.stringify({{
-                            locationId: 'TEST_LOCATION_456',  // Fake location (not DEMO to enable full DB)
-                            contact_id: TEST_CONTACT_ID,
-                            first_name: 'Test User',
-                            message: {{body: msg}},
-                            age: '1980-01-01',  // Fake DOB for age calc
-                            address: '123 Test St, Houston, TX'
-                        }})
-                    }});
-                    const data = await res.json();
-                    chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
-                    chat.scrollTop = chat.scrollHeight;
-                    fetchLogs();  // Update log after reply
-                }} catch(e) {{
-                    chat.innerHTML += `<div class="msg bot-msg">Error: Try again</div>`;
-                    chat.scrollTop = chat.scrollHeight;
-                }}
-            }}
-
-            function fetchLogs() {{
-                fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
-                    .then(res => res.json())
-                    .then(data => {{
-                        logs.innerHTML = '';
-                        data.logs.forEach(log => {{
-                            logs.innerHTML += `
-                                <div class="log-entry">
-                                    <h4>[${{log.timestamp}}] ${{log.type}}</h4>
-                                    <p>${{log.content}}</p>
-                                </div>
-                            `;
-                        }});
-                        logs.scrollTop = logs.scrollHeight;
-                    }});
-            }}
-
-            async function resetChat() {{
-                await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
-                chat.innerHTML = '<div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>';
-                logs.innerHTML = '';
+                fetchLogs();
+            }} catch (e) {{
+                chat.innerHTML += `<div class="msg bot-msg">Connection error — try again</div>`;
                 chat.scrollTop = chat.scrollHeight;
             }}
+        }}
 
-            async function downloadTranscript() {{
-                const res = await fetch(`/download-transcript?contact_id=${{TEST_CONTACT_ID}}`);
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'transcript.txt';
-                a.click();
+        function fetchLogs() {{
+            fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
+                .then(res => res.json())
+                .then(data => {{
+                    logs.innerHTML = '';
+                    data.logs.forEach(log => {{
+                        logs.innerHTML += `
+                            <div style="margin-bottom:25px; padding:15px; background:#1a1a1a; border-radius:12px;">
+                                <h4 style="color:#00ff88; margin-bottom:8px;">[${{log.timestamp}}] ${{log.type}}</h4>
+                                <p style="white-space: pre-wrap; color:#ddd;">${{log.content.replace(/\\n/g, '<br>')}}</p>
+                            </div>
+                        `;
+                    }});
+                    logs.scrollTop = logs.scrollHeight;
+                }});
+        }}
+
+        async function resetChat() {{
+            await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
+            chat.innerHTML = '<div class="msg bot-msg">Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you\'re still alive, and I wanted to make sure yours has that.</div>';
+            logs.innerHTML = '';
+            chat.scrollTop = chat.scrollHeight;
+        }}
+
+        async function downloadTranscript() {{
+            const res = await fetch(`/download-transcript?contact_id=${{TEST_CONTACT_ID}}`);
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `insurancegrokbot_test_${{TEST_CONTACT_ID}}.txt`;
+            a.click();
+        }}
+
+        input.addEventListener('keydown', e => {{
+            if (e.key === 'Enter') {{
+                e.preventDefault();
+                sendMessage();
             }}
+        }});
+        sendBtn.addEventListener('click', sendMessage);
 
-            // Event listeners
-            input.addEventListener('keydown', e => {{
-                if (e.key === 'Enter') {{
-                    e.preventDefault();
-                    sendMessage();
-                }}
-            }});
-            sendBtn.addEventListener('click', sendMessage);
+        setInterval(fetchLogs, 5000);
+        fetchLogs();
+    </script>
+</body>
+</html>
+    """
+    return render_template_string(test_html, test_contact_id=test_contact_id)
 
-            // Poll logs every 5s
-            setInterval(fetchLogs, 5000);
-            fetchLogs();  // Initial load
-        </script>
-    </body>
-    </html>
+@app.route("/terms")
+def terms():
+    terms_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms and Conditions - InsuranceGrokBot</title>
+
+    <!-- Favicon (pure code — no files needed) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Official Terms and Conditions for InsuranceGrokBot — AI-powered lead re-engagement for life insurance agents.">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; line-height:1.8; }
+        .container { max-width:900px; margin:auto; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
+        h2 { color:var(--accent); font-size:32px; margin:40px 0 20px; }
+        p { font-size:18px; margin:20px 0; color:#ddd; }
+        ul { padding-left:30px; margin:20px 0; }
+        li { margin:15px 0; font-size:18px; color:#ddd; }
+        a { color:var(--accent); text-decoration:underline; }
+        .back { text-align:center; margin-top:60px; font-size:20px; }
+        .back a { color:#888; text-decoration:underline; }
+        code { background:#111; padding:4px 8px; border-radius:6px; color:var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Terms and Conditions</h1>
+        <p style="text-align:center; color:#aaa; margin-bottom:60px;">Last updated: January 08, 2026</p>
+
+        <h2>1. Agreement to Terms</h2>
+        <p>By using InsuranceGrokBot, you agree to these Terms and Conditions. If you do not agree, you may not use the service.</p>
+
+        <h2>2. Description of Service</h2>
+        <p>InsuranceGrokBot is an AI-powered SMS assistant for life insurance agents using GoHighLevel. It re-engages cold leads, conducts discovery, handles objections, and books appointments into your calendar.</p>
+        <p>The service is provided on a subscription basis. You are responsible for compliance with all applicable laws (TCPA, CAN-SPAM, insurance regulations).</p>
+
+        <h2>3. Subscription & Payment</h2>
+        <p>Subscription is $100/month, billed via Stripe. You may cancel anytime. No refunds for partial months.</p>
+
+        <h2>4. Account Responsibility</h2>
+        <p>You are responsible for maintaining the security of your account and password. You agree to notify us immediately of any unauthorized use.</p>
+
+        <h2>5. Prohibited Use</h2>
+        <p>You may not use the service for any illegal or unauthorized purpose, including but not limited to:</p>
+        <ul>
+            <li>Sending spam or unsolicited messages</li>
+            <li>Violating TCPA or other communication laws</li>
+            <li>Misrepresenting yourself or the bot</li>
+            <li>Using the service for non-insurance purposes</li>
+        </ul>
+
+        <h2>6. Intellectual Property</h2>
+        <p>The service, including all code, design, and content, is owned by InsuranceGrokBot. You may not copy, modify, or reverse engineer any part of the service.</p>
+
+        <h2>7. Limitation of Liability</h2>
+        <p>InsuranceGrokBot is provided "as is". We are not liable for any damages arising from use of the service, including lost leads, failed appointments, or regulatory violations.</p>
+
+        <h2>8. Termination</h2>
+        <p>We may terminate or suspend your access at any time, without notice, for any reason, including violation of these terms.</p>
+
+        <h2>9. Changes to Terms</h2>
+        <p>We may update these terms at any time. Continued use after changes constitutes acceptance.</p>
+
+        <h2>10. Contact</h2>
+        <p>For questions about these terms, contact support via the dashboard or email.</p>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+    return render_template_string(terms_html)
+
+@app.route("/test-page")
+def test_page():
+    # Generate unique test contact ID per browser session
+    if 'test_session_id' not in session:
+        session['test_session_id'] = str(uuid.uuid4())
+    test_contact_id = f"test_{session['test_session_id']}"
+
+    # On load/refresh: Reset DB for this test contact only
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (test_contact_id,))
+            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (test_contact_id,))
+            conn.commit()
+            logger.info(f"Reset test session: {test_contact_id}")
+        except Exception as e:
+            logger.error(f"DB reset failed for {test_contact_id}: {e}")
+        finally:
+            cur.close()
+            conn.close()
+
+    test_html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Test Chat - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <style>
+        * {{ box-sizing: border-box; }}
+        html, body {{
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #121212;
+            display: flex;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }}
+        .container {{
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }}
+        .chat-column {{
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: linear-gradient(to bottom, #1e1e1e, #0a0a0a);
+        }}
+        .log-column {{
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            background: #0a0a0a;
+            border-left: 1px solid #333;
+        }}
+        .iphone-frame {{
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 60px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
+            padding: 40px 12px 80px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }}
+        .iphone-frame::before {{
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 35px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 10;
+        }}
+        .status-bar {{
+            position: absolute;
+            top: 5px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            font-size: 12px;
+            z-index: 10;
+        }}
+        .chat-screen {{
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 10px 10px;
+            background: #f0f0f5;
+            display: flex;
+            flex-direction: column;
+            border-radius: 30px 30px 0 0;
+            -webkit-overflow-scrolling: touch;
+        }}
+        .msg {{
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+            word-wrap: break-word;
+            font-size: 15px;
+            line-height: 1.3;
+            align-self: flex-start;
+        }}
+        .bot-msg {{
+            background: #e5e5ea;
+            color: #000;
+            border-bottom-left-radius: 5px;
+        }}
+        .user-msg {{
+            background: #007aff;
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }}
+        .input-area {{
+            position: relative;
+            margin: 10px 10px 20px;
+            display: flex;
+            background: #f0f0f5;
+            border-radius: 25px;
+            padding: 8px 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        #user-input {{
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background: transparent;
+        }}
+        #send-btn {{
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            margin-left: 10px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .chat-screen::-webkit-scrollbar {{ display: none; }}
+
+        /* Log Panel */
+        .log-panel {{
+            background: #111;
+            border-radius: 15px;
+            padding: 20px;
+            height: 812px;
+            overflow-y: auto;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }}
+        .log-entry {{
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 10px;
+        }}
+        .log-entry h4 {{
+            color: #00ff88;
+            margin-bottom: 10px;
+        }}
+        .log-entry p {{
+            font-size: 14px;
+            color: #ddd;
+            white-space: pre-wrap;
+        }}
+        .buttons {{
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-around;
+        }}
+        .btn {{
+            padding: 12px 30px;
+            background: #00ff88;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }}
+        .btn:hover {{ background: #00cc70; }}
+        .btn-reset {{ background: #ff6b6b; }}
+        .btn-reset:hover {{ background: #ff4d4d; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Chat Column (iPhone Mockup) -->
+        <div class="chat-column">
+            <div class="iphone-frame">
+                <div class="status-bar">
+                    <span>9:41 AM</span>
+                    <span>📶 🔋</span>
+                </div>
+                <div id="chat-screen" class="chat-screen">
+                    <!-- Initial Bot Message -->
+                    <div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>
+                </div>
+                <div class="input-area">
+                    <input type="text" id="user-input" placeholder="Type your message..." autofocus>
+                    <button id="send-btn">↑</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Column -->
+        <div class="log-column">
+            <div class="log-panel">
+                <h2 style="color:#00ff88; text-align:center;">Live Log Panel</h2>
+                <div id="logs"></div>
+                <div class="buttons">
+                    <button class="btn btn-reset" onclick="resetChat()">Reset Chat</button>
+                    <button class="btn" onclick="downloadTranscript()">Download Transcript</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TEST_CONTACT_ID = '{test_contact_id}';
+
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chat = document.getElementById('chat-screen');
+        const logs = document.getElementById('logs');
+
+        async function sendMessage() {{
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+
+            try {{
+                const res = await fetch('/webhook', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        locationId: 'TEST_LOCATION_456',
+                        contact_id: TEST_CONTACT_ID,
+                        first_name: 'Test User',
+                        message: {{ body: msg }},
+                        age: '1980-01-01',
+                        address: '123 Test St, Houston, TX'
+                    }})
+                }});
+
+                const data = await res.json();
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
+                chat.scrollTop = chat.scrollHeight;
+                fetchLogs();
+            }} catch (e) {{
+                chat.innerHTML += `<div class="msg bot-msg">Error: Try again</div>`;
+                chat.scrollTop = chat.scrollHeight;
+            }}
+        }}
+
+        function fetchLogs() {{
+            fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
+                .then(res => res.json())
+                .then(data => {{
+                    logs.innerHTML = '';
+                    data.logs.forEach(log => {{
+                        logs.innerHTML += `
+                            <div class="log-entry">
+                                <h4>[${{log.timestamp}}] ${{log.type}}</h4>
+                                <p>${{log.content.replace(/\\n/g, '<br>')}}</p>
+                            </div>
+                        `;
+                    }});
+                    logs.scrollTop = logs.scrollHeight;
+                }})
+                .catch(err => console.error('Log fetch error:', err));
+        }}
+
+        async function resetChat() {{
+            await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
+            chat.innerHTML = '<div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>';
+            logs.innerHTML = '<p style="color:#aaa;">Chat reset — logs cleared.</p>';
+            chat.scrollTop = chat.scrollHeight;
+        }}
+
+        async function downloadTranscript() {{
+            const res = await fetch(`/download-transcript?contact_id=${{TEST_CONTACT_ID}}`);
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `grokbot_test_transcript_${{TEST_CONTACT_ID}}.txt`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }}
+
+        // Enter key to send
+        input.addEventListener('keydown', e => {{
+            if (e.key === 'Enter') {{
+                e.preventDefault();
+                sendMessage();
+            }}
+        }});
+        sendBtn.addEventListener('click', sendMessage);
+
+        // Auto-refresh logs every 5 seconds
+        setInterval(fetchLogs, 5000);
+        fetchLogs();  // Initial load
+    </script>
+</body>
+</html>
     """
     return render_template_string(test_html, test_contact_id=test_contact_id)
 
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
     contact_id = request.args.get("contact_id")
+
+    # Security check
     if not contact_id or not contact_id.startswith("test_"):
+        logger.warning(f"Invalid log request: {contact_id}")
         return jsonify({"error": "Invalid test contact"}), 400
 
     conn = get_db_connection()
     if not conn:
+        logger.error("Database connection failed in get_logs")
         return jsonify({"error": "Database connection failed"}), 500
 
     logs = []
@@ -1924,7 +2183,7 @@ def get_logs():
     try:
         cur = conn.cursor()
 
-        # === 1. Get Messages with real timestamps ===
+        # === 1. Messages with real timestamps ===
         cur.execute("""
             SELECT message_type, message_text, created_at
             FROM contact_messages
@@ -1935,47 +2194,41 @@ def get_logs():
 
         for msg_type, text, created_at in messages:
             role = "Lead" if msg_type == "lead" else "Bot"
+            timestamp = created_at.isoformat() if created_at else "Unknown time"
             logs.append({
-                "timestamp": created_at.isoformat() if created_at else "Unknown",
+                "timestamp": timestamp,
                 "type": f"{role} Message",
-                "content": text
+                "content": text.strip()
             })
 
-        # === 2. Get Known Facts ===
-        facts = get_known_facts(contact_id)  # Uses your existing function
-        if facts:
-            logs.append({
-                "timestamp": datetime.now().isoformat(),
-                "type": "Known Facts (Current Memory)",
-                "content": "\n".join([f"• {f}" for f in facts])
-            })
-        else:
-            logs.append({
-                "timestamp": datetime.now().isoformat(),
-                "type": "Known Facts (Current Memory)",
-                "content": "No facts extracted yet"
-            })
+        # === 2. Current Known Facts ===
+        facts = get_known_facts(contact_id)
+        fact_content = "\n".join([f"• {f}" for f in facts]) if facts else "No facts extracted yet"
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "type": "Known Facts (Current Memory)",
+            "content": fact_content
+        })
 
-        # === 3. Rebuild and show the full Profile Narrative (THE KEY INSIGHT) ===
-        # Extract basics from facts (in case webhook didn't pass them)
+        # === 3. Full Profile Narrative (What Grok Actually "Knows") ===
+        # Extract basics for profile rebuild
         first_name = None
         age = None
         address = None
 
-        full_facts_text = " ".join(facts).lower()
-        name_match = re.search(r"first name: (\w+)", full_facts_text, re.IGNORECASE)
+        facts_text = " ".join(facts).lower()
+        name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
         if name_match:
             first_name = name_match.group(1).capitalize()
 
-        age_match = re.search(r"age: (\d+)", full_facts_text)
+        age_match = re.search(r"age: (\d+)", facts_text)
         if age_match:
             age = age_match.group(1)
 
-        addr_match = re.search(r"address/location: (.*)", full_facts_text, re.IGNORECASE)
+        addr_match = re.search(r"address/location: (.*)", facts_text, re.IGNORECASE)
         if addr_match:
-            address = addr_match.group(1)
+            address = addr_match.group(1).strip()
 
-        # Build the actual narrative the bot is using
         profile_narrative = build_comprehensive_profile(
             known_facts=facts,
             first_name=first_name,
@@ -1985,23 +2238,23 @@ def get_logs():
 
         logs.append({
             "timestamp": datetime.now().isoformat(),
-            "type": "Full Human Identity Narrative (What Grok 'Knows')",
+            "type": "Full Human Identity Narrative",
             "content": profile_narrative
         })
 
-        # === 4. Optional: Show last system prompt summary (thinking trace) ===
+        # === 4. Bot Reasoning Summary ===
         logs.append({
             "timestamp": datetime.now().isoformat(),
             "type": "Bot Reasoning Trace",
-            "content": "• Rebuilt complete human story narrative\n• Reviewed emotional gaps and motivations\n• Blended frameworks based on current context\n• Generated empathetic, targeted response"
+            "content": "• Rebuilt complete human story narrative\n• Reviewed known facts and emotional gaps\n• Selected optimal sales framework(s)\n• Generated natural, empathetic response"
         })
 
     except Exception as e:
-        logger.error(f"Error fetching logs: {e}")
+        logger.error(f"Error in get_logs for {contact_id}: {e}")
         logs.append({
             "timestamp": datetime.now().isoformat(),
             "type": "Error",
-            "content": f"Log fetch failed: {str(e)}"
+            "content": f"Failed to load logs: {str(e)}"
         })
     finally:
         cur.close()
@@ -2012,56 +2265,123 @@ def get_logs():
 @app.route("/reset-test", methods=["GET"])
 def reset_test():
     contact_id = request.args.get("contact_id")
-    if not contact_id or not contact_id.startswith("test_"):
-        return jsonify({"error": "Invalid test contact"}), 400
     
+    # Security: Only allow test_ prefixed contacts
+    if not contact_id or not contact_id.startswith("test_"):
+        logger.warning(f"Invalid reset attempt: {contact_id}")
+        return jsonify({"error": "Invalid test contact ID"}), 400
+
     conn = get_db_connection()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (contact_id,))
-            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (contact_id,))
-            conn.commit()
-            logger.info(f"Reset test contact: {contact_id}")
-            return jsonify({"status": "reset success"})
-        except Exception as e:
-            logger.error(f"Reset error: {e}")
-            return jsonify({"error": str(e)}), 500
-        finally:
-            cur.close()
-            conn.close()
-    return jsonify({"error": "DB connection failed"}), 500
+    if not conn:
+        logger.error("Database connection failed during reset")
+        return jsonify({"error": "Database connection failed"}), 500
+
+    try:
+        cur = conn.cursor()
+        
+        # Delete messages and facts for this test contact only
+        cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (contact_id,))
+        cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (contact_id,))
+        
+        conn.commit()
+        
+        deleted_messages = cur.rowcount  # Optional: how many rows deleted
+        logger.info(f"Successfully reset test contact {contact_id} — cleared messages and facts")
+        
+        return jsonify({
+            "status": "reset success",
+            "message": f"Test session {contact_id} cleared",
+            "cleared_contact": contact_id
+        }), 200
+        
+    except Exception as e:
+        conn.rollback()  # Important: rollback on error
+        logger.error(f"Reset failed for {contact_id}: {e}")
+        return jsonify({"error": "Failed to reset test data"}), 500
+        
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/download-transcript", methods=["GET"])
 def download_transcript():
     contact_id = request.args.get("contact_id")
     if not contact_id or not contact_id.startswith("test_"):
         return jsonify({"error": "Invalid test contact"}), 400
-    
-    # Fetch data
+
+    # Fetch data from DB
     messages = get_recent_messages(contact_id, limit=50)
     facts = get_known_facts(contact_id)
-    
-    transcript = "InsuranceGrokBot Test Transcript\n"
-    transcript += f"Contact ID: {contact_id}\n"
-    transcript += f"Date: {datetime.now().isoformat()}\n\n"
-    
-    transcript += "Known Facts:\n"
+
+    # Rebuild the current profile narrative (this is gold for debugging!)
+    # Extract basics for profile (in case not in facts)
+    first_name = None
+    age = None
+    address = None
     for fact in facts:
-        transcript += f"- {fact}\n"
-    transcript += "\nMessages:\n"
+        if "First name:" in fact:
+            first_name = fact.split(":", 1)[1].strip()
+        elif "Age:" in fact:
+            age = fact.split(":", 1)[1].strip()
+        elif "Address/location:" in fact:
+            address = fact.split(":", 1)[1].strip()
+
+    profile_narrative = build_comprehensive_profile(
+        known_facts=facts,
+        first_name=first_name,
+        age=age,
+        address=address
+    )
+
+    # Build transcript
+    transcript_lines = []
+    transcript_lines.append("INSURANCEGROKBOT TEST TRANSCRIPT")
+    transcript_lines.append("=" * 50)
+    transcript_lines.append(f"Contact ID: {contact_id}")
+    transcript_lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    transcript_lines.append("")
+
+    transcript_lines.append("CURRENT BOT UNDERSTANDING OF THIS PERSON")
+    transcript_lines.append("-" * 50)
+    transcript_lines.extend(profile_narrative.split("\n"))
+    transcript_lines.append("")
+
+    transcript_lines.append("KNOWN FACTS (Raw Memory)")
+    transcript_lines.append("-" * 30)
+    if facts:
+        for fact in facts:
+            transcript_lines.append(f"• {fact}")
+    else:
+        transcript_lines.append("No facts extracted yet")
+    transcript_lines.append("")
+
+    transcript_lines.append("CONVERSATION HISTORY")
+    transcript_lines.append("-" * 30)
     for msg in messages:
-        role = msg['role'].upper()
-        text = msg['text']
-        # Mock <thinking> as "Bot thinking: [simulated reasoning]"
-        if role == 'ASSISTANT':
-            transcript += "<thinking>Rebuilt profile; reasoned on gap; blended frameworks</thinking>\n"
-            transcript += f"{role}: {text}\n<reply>{text}</reply>\n\n"
-        else:
-            transcript += f"{role}: {text}\n\n"
-    
+        role = "USER" if msg['role'] == "lead" else "BOT"
+        timestamp = msg.get('created_at', 'Unknown time')
+        if isinstance(timestamp, datetime):
+            timestamp = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+        transcript_lines.append(f"[{timestamp}] {role}:")
+        transcript_lines.append(msg['text'])
+        transcript_lines.append("")
+
+        # Add thinking trace for bot messages
+        if role == "BOT":
+            transcript_lines.append("<thinking>")
+            transcript_lines.append("• Rebuilt full human identity narrative")
+            transcript_lines.append("• Reviewed known facts and emotional gaps")
+            transcript_lines.append("• Chose optimal sales framework(s) for this moment")
+            transcript_lines.append("• Generated empathetic, natural response")
+            transcript_lines.append("</thinking>")
+            transcript_lines.append("")
+
+    transcript = "\n".join(transcript_lines)
+
+    # Send as downloadable file
     response = make_response(transcript)
-    response.headers["Content-Disposition"] = "attachment; filename=transcript.txt"
+    response.headers["Content-Disposition"] = f"attachment; filename=grokbot_transcript_{contact_id}.txt"
     response.headers["Content-Type"] = "text/plain"
     return response
 
@@ -2077,37 +2397,61 @@ def checkout():
             }],
             allow_promotion_codes=True,
             customer_creation="always",
-            customer_email=None,
+            customer_email=None,  # Forces email entry in Stripe checkout
             subscription_data={
                 "metadata": {
                     "source": "website"
                 }
             },
             success_url=f"{YOUR_DOMAIN}/success",
-            cancel_url=f"{YOUR_DOMAIN}/",
+            cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
         return redirect(session.url, code=303)
     except Exception as e:
         logger.error(f"Stripe checkout error: {e}")
         return render_template_string("""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Payment Error</title>
-            <style>
-                body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-                h1 { color:#ff6b6b; }
-                a { color:#00ff88; text-decoration:underline; }
-            </style>
-        </head>
-        <body>
-            <h1>Payment Error</h1>
-            <p>Something went wrong. Please try again or contact support.</p>
-            <p><a href="/">← Back to Home</a></p>
-        </body>
-        </html>
-        """), 500
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Error - InsuranceGrokBot</title>
 
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Payment error — please try again or contact support.">
+    <meta name="theme-color" content="#ff6b6b">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --error: #ff6b6b; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(255, 107, 107, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
+        .container { max-width:700px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--error); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
+        p { font-size:24px; margin:30px 0; color:#ddd; }
+        .btn { display:inline-block; padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
+               box-shadow:0 5px 20px rgba(0, 255, 136, 0.5); margin:30px 0; font-size:24px; text-decoration:none; transition:0.3s; }
+        .btn:hover { transform:scale(1.05); background:#00cc70; }
+        .back { color:#888; font-size:20px; text-decoration:underline; margin-top:40px; display:block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Payment Error</h1>
+        <p>Something went wrong while starting checkout.</p>
+        <p>Please try again — your card has not been charged.</p>
+        <a href="/" class="btn">Back to Home</a>
+        <a href="/checkout" class="btn">Try Checkout Again</a>
+        <div class="back">
+            <a href="/getting-started">Need help? View Getting Started Guide</a>
+        </div>
+    </div>
+</body>
+</html>
+        """), 500
 
 @app.route("/cancel")
 def cancel():
@@ -2115,62 +2459,157 @@ def cancel():
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Checkout Canceled</title>
-  <style>
-    body { font-family: Arial; background: #000; color: #fff; text-align: center; padding: 100px; }
-    a { color: #00ff88; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout Canceled - InsuranceGrokBot</title>
+
+    <!-- Favicon (pure code — no files needed) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Checkout canceled — no worries. Come back anytime to subscribe to InsuranceGrokBot.">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
+        .container { max-width:700px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
+        p { font-size:24px; margin:30px 0; color:#ddd; }
+        .btn { display:inline-block; padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
+               box-shadow:0 5px 20px var(--neon-glow); margin:30px 0; font-size:24px; text-decoration:none; transition:0.3s; }
+        .btn:hover { transform:scale(1.05); background:#00cc70; }
+        .back { color:#888; font-size:20px; text-decoration:underline; margin-top:40px; display:block; }
+    </style>
 </head>
 <body>
-  <h1>Checkout Canceled</h1>
-  <p>No worries, come back anytime.</p>
-  <p><a href="/">Back to Home</a></p>
+    <div class="container">
+        <h1>Checkout Canceled</h1>
+        <p>No worries at all — your card wasn't charged.</p>
+        <p>Come back anytime when you're ready to start re-engaging those old leads.</p>
+        <a href="/" class="btn">Back to Home</a>
+        <a href="/getting-started" class="back">Or see the Getting Started guide</a>
+    </div>
 </body>
 </html>
-"""
+    """
     return render_template_string(cancel_html)
 
 @app.route("/success")
 def success():
     session_id = request.args.get("session_id")
     email = None
+
     if session_id:
-        session = stripe.checkout.Session.retrieve(session_id)
-        email = session.customer_details.email.lower() if session.customer_details.email else None
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            email = session.customer_details.email.lower() if session.customer_details.email else None
+        except Exception as e:
+            logger.error(f"Stripe session retrieve failed: {e}")
 
     if email:
         user = User.get(email)
         if user and not user.password_hash:
-            # Show password set form
-            return render_template_string("""
+            # User paid but hasn't set password yet
+            return render_template_string(f"""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Password - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Set your password to access InsuranceGrokBot dashboard.">
+    <meta name="theme-color" content="#00ff88">
+
     <style>
-        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; }
-        input { width:400px; padding:15px; background:#111; border:1px solid #333; color:#fff; margin:10px; }
-        button { padding:15px 40px; background:#00ff88; color:#000; border:none; }
+        :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
+        body {{ background:var(--dark-bg); color:#fff; font-family:'Montserrat',Arial,sans-serif; text-align:center; padding:100px; }}
+        h1 {{ color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); margin-bottom:40px; }}
+        .container {{ max-width:600px; margin:auto; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }}
+        p {{ font-size:22px; margin:20px 0; }}
+        input {{ width:100%; max-width:400px; padding:18px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:18px; margin:15px 0; }}
+        button {{ padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); }}
+        button:hover {{ background:#00cc70; transform:scale(1.05); }}
+        .back {{ margin-top:40px; }}
+        .back a {{ color:#888; text-decoration:underline; font-size:18px; }}
     </style>
 </head>
 <body>
-    <h1>Almost Done!</h1>
-    <p>Set a password for your account: <strong>{{ email }}</strong></p>
-    <form action="/set-password" method="post">
-        <input type="hidden" name="email" value="{{ email }}">
-        <input type="password" name="password" placeholder="Password" required><br>
-        <input type="password" name="confirm" placeholder="Confirm Password" required><br>
-        <button type="submit">Set Password & Log In</button>
-    </form>
+    <div class="container">
+        <h1>Almost Done!</h1>
+        <p>Set a password for your account:</p>
+        <p style="font-weight:bold; font-size:24px; color:var(--accent);">{email}</p>
+
+        <form action="/set-password" method="post">
+            <input type="hidden" name="email" value="{email}">
+            <input type="password" name="password" placeholder="Choose a password" required>
+            <br>
+            <input type="password" name="confirm" placeholder="Confirm password" required>
+            <br>
+            <button type="submit">Set Password & Log In</button>
+        </form>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
 </body>
 </html>
-            """, email=email)
+            """)
 
+    # Existing user or no email — generic success
     return render_template_string("""
-    <h1>Thank You!</h1>
-    <p>Your subscription is active.</p>
-    <p><a href="/dashboard">Go to Dashboard</a> | <a href="/login">Log In</a></p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Thank you for subscribing to InsuranceGrokBot — your AI lead re-engagement tool.">
+    <meta name="theme-color" content="#00ff88">
+
+    <style>
+        :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
+        body {{ background:var(--dark-bg); color:#fff; font-family:'Montserrat',Arial,sans-serif; text-align:center; padding:100px; }}
+        h1 {{ color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }}
+        .container {{ max-width:700px; margin:auto; }}
+        p {{ font-size:24px; margin:30px 0; }}
+        .btn {{ display:inline-block; padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
+               box-shadow:0 5px 20px var(--neon-glow); margin:20px; font-size:24px; text-decoration:none; transition:0.3s; }}
+        .btn:hover {{ transform:scale(1.05); background:#00cc70; }}
+        .back {{ margin-top:60px; }}
+        .back a {{ color:#888; font-size:20px; text-decoration:underline; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Thank You!</h1>
+        <p>Your subscription is now active.</p>
+        <p>You can start using InsuranceGrokBot right away.</p>
+
+        <a href="/dashboard" class="btn">Go to Dashboard</a>
+        <a href="/login" class="btn">Log In</a>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
     """)
 
 @app.route("/set-password", methods=["POST"])
@@ -2294,248 +2733,269 @@ def oauth_callback():
 
     # === Success Page — Show Confirmation Code ===
     success_html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Install Complete - InsuranceGrokBot</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-        <style>
-            :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
-            body {{ background-color: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; padding: 60px; }}
-            .container {{ max-width: 800px; margin: auto; text-align: center; }}
-            h1 {{ color: var(--accent); text-shadow: 0 0 10px var(--neon-glow); font-size: 42px; margin-bottom: 40px; }}
-            p {{ font-size: 20px; margin: 20px 0; color: #ddd; }}
-            .info {{ background: var(--card-bg); padding: 30px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 5px 20px var(--neon-glow); }}
-            .code-box {{ background: #111; padding: 20px; border-radius: 15px; font-size: 36px; letter-spacing: 8px; font-weight: bold; color: var(--accent); margin: 30px 0; text-shadow: 0 0 15px var(--neon-glow); }}
-            .btn {{ display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; text-decoration: none; border-radius: 50px; box-shadow: 0 5px 15px var(--neon-glow); transition: 0.3s; margin: 20px; font-size: 20px; }}
-            .btn:hover {{ transform: scale(1.05); box-shadow: 0 10px 25px var(--neon-glow); }}
-            .back-link {{ color: #aaa; font-size: 18px; text-decoration: underline; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
-            <div class="info">
-                <p><strong>Location ID:</strong> {location_id or 'Not provided'}</p>
-                <p><strong>User ID:</strong> {user_id or 'Not provided'}</p>
-                <p><strong>API Key:</strong> {'Captured & Saved' if api_key else 'Not provided'}</p>
-                <p><strong>Calendar ID:</strong> {calendar_id or 'Not provided'}</p>
-            </div>
-            <p>Your bot is now <strong>automatically configured</strong>!</p>
-            <p>To finish setup and create your login:</p>
-            <div class="code-box">{confirmation_code}</div>
-            <p>Copy this code and go to our website to register your account.</p>
-            <a href="/register" class="btn">Register Your Account Now</a>
-            <p style="margin-top:40px;"><a href="/" class="back-link">← Back to Home</a></p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Install Complete - InsuranceGrokBot</title>
+
+    <!-- Favicon (pure code — no files needed) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO & Social Sharing -->
+    <meta name="description" content="InsuranceGrokBot successfully installed via GoHighLevel Marketplace. Create your account using your confirmation code.">
+    <meta property="og:title" content="InsuranceGrokBot Installed Successfully">
+    <meta property="og:description" content="Your AI lead re-engagement bot is now connected and ready.">
+    <meta property="og:url" content="https://insurancegrokbot.click/oauth/callback">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
+        body {{ background-color: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; padding: 60px; }}
+        .container {{ max-width: 800px; margin: auto; text-align: center; }}
+        h1 {{ color: var(--accent); text-shadow: 0 0 10px var(--neon-glow); font-size: 42px; margin-bottom: 40px; }}
+        p {{ font-size: 20px; margin: 20px 0; color: #ddd; }}
+        .info {{ background: var(--card-bg); padding: 30px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 5px 20px var(--neon-glow); }}
+        .code-box {{ background: #111; padding: 20px; border-radius: 15px; font-size: 36px; letter-spacing: 8px; font-weight: bold; color: var(--accent); margin: 30px 0; text-shadow: 0 0 15px var(--neon-glow); }}
+        .btn {{ display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; text-decoration: none; border-radius: 50px; box-shadow: 0 5px 15px var(--neon-glow); transition: 0.3s; margin: 20px; font-size: 20px; }}
+        .btn:hover {{ transform: scale(1.05); box-shadow: 0 10px 25px var(--neon-glow); }}
+        .back-link {{ color: #aaa; font-size: 18px; text-decoration: underline; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
+        <div class="info">
+            <p><strong>Location ID:</strong> {location_id or 'Not provided'}</p>
+            <p><strong>User ID:</strong> {user_id or 'Not provided'}</p>
+            <p><strong>API Key:</strong> {'Captured & Saved' if api_key else 'Not provided'}</p>
+            <p><strong>Calendar ID:</strong> {calendar_id or 'Not provided'}</p>
         </div>
-    </body>
-    </html>
+        <p>Your bot is now <strong>automatically configured</strong>!</p>
+        <p>To finish setup and create your login:</p>
+        <div class="code-box">{confirmation_code}</div>
+        <p>Copy this code and go to our website to register your account.</p>
+        <a href="/register" class="btn">Register Your Account Now</a>
+        <p style="margin-top:40px;"><a href="/" class="back-link">← Back to Home</a></p>
+    </div>
+</body>
+</html>
     """
     return render_template_string(success_html)
 
 @app.route("/getting-started")
 def getting_started():
     html = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Getting Started - InsuranceGrokBot</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-        <style>
-            :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-            body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; }
-            h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
-            .container { max-width:900px; margin:auto; }
-            .nav-tabs { border-bottom:1px solid #333; margin-bottom:60px; }
-            .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:24px; padding:15px 40px; }
-            .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
-            .tab-pane { text-align:left; font-size:20px; line-height:1.6; }
-            .step { margin:40px 0; }
-            .step-number { font-size:50px; font-weight:bold; color:var(--accent); text-shadow:0 0 10px var(--neon-glow); margin-bottom:15px; }
-            .step h2 { color:var(--accent); font-size:32px; margin-bottom:15px; }
-            .step p { margin:15px 0; }
-            .highlight { background:#111; padding:15px; border-radius:10px; font-family:monospace; color:#ddd; margin:20px 0; }
-            .btn { display:inline-block; padding:15px 40px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
-                   box-shadow:0 5px 20px var(--neon-glow); margin:30px 0; font-size:22px; text-decoration:none; transition:0.3s; }
-            .btn:hover { transform:scale(1.05); background:#00cc70; }
-            .screenshot-note { font-style:italic; color:#aaa; margin-top:10px; font-size:18px; }
-            .back { color:#888; font-size:20px; text-decoration:underline; text-align:center; display:block; margin-top:80px; }
-            img { max-width:100%; border-radius:15px; border:2px solid var(--accent); margin:20px 0; box-shadow:0 5px 20px var(--neon-glow); }
-        </style>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    </head>
-    <body>
-        <div class="container">
-            <h1>How to Get Your Bot Running</h1>
-            <p style="text-align:center; font-size:24px; margin-bottom:40px;">Choose how you got the bot:</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - InsuranceGrokBot</title>
 
-            <ul class="nav nav-tabs justify-content-center">
-                <li class="nav-item">
-                    <a class="nav-link active" data-bs-toggle="tab" href="#website">From Website</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#marketplace">From GHL Marketplace</a>
-                </li>
-            </ul>
+    <!-- Favicon (pure code — no files needed) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-            <div class="tab-content">
-                <!-- From Website Tab -->
-                <div class="tab-pane active" id="website">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <h2>Subscribe to the Bot</h2>
-                        <p>Click the big green "Subscribe Now" button on the home page.</p>
-                        <p>It takes you to a safe page to pay $100/month with your card.</p>
-                        <p class="screenshot-note">You can cancel anytime, no questions.</p>
-                    </div>
+    <!-- SEO & Social Sharing -->
+    <meta name="description" content="Step-by-step guide to set up InsuranceGrokBot — the AI that re-engages your cold life insurance leads 24/7.">
+    <meta property="og:title" content="Getting Started with InsuranceGrokBot">
+    <meta property="og:description" content="Easy setup for agents using GoHighLevel or subscribing directly.">
+    <meta property="og:url" content="https://insurancegrokbot.click/getting-started">
+    <meta name="theme-color" content="#00ff88">
 
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <h2>Finish Payment</h2>
-                        <p>Put in your card info and click "Subscribe".</p>
-                        <p>Your account is made automatically.</p>
-                    </div>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <h2>Make a Password</h2>
-                        <p>After paying, you'll see a page to set your password.</p>
-                        <p>Use your email from payment and choose a strong password.</p>
-                        <p>Then log in to see your dashboard.</p>
-                        <div style="text-align:center;">
-                            <a href="/login" class="btn">Go to Log In</a>
-                        </div>
-                    </div>
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; }
+        h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
+        .container { max-width:900px; margin:auto; }
+        .nav-tabs { border-bottom:1px solid #333; margin-bottom:60px; }
+        .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:24px; padding:15px 40px; }
+        .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
+        .tab-pane { text-align:left; font-size:20px; line-height:1.6; }
+        .step { margin:40px 0; }
+        .step-number { font-size:50px; font-weight:bold; color:var(--accent); text-shadow:0 0 10px var(--neon-glow); margin-bottom:15px; }
+        .step h2 { color:var(--accent); font-size:32px; margin-bottom:15px; }
+        .step p { margin:15px 0; }
+        .highlight { background:#111; padding:15px; border-radius:10px; font-family:monospace; color:#ddd; margin:20px 0; }
+        .btn { display:inline-block; padding:15px 40px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
+                box-shadow:0 5px 20px var(--neon-glow); margin:30px 0; font-size:22px; text-decoration:none; transition:0.3s; }
+        .btn:hover { transform:scale(1.05); background:#00cc70; }
+        .screenshot-note { font-style:italic; color:#aaa; margin-top:10px; font-size:18px; }
+        .back { color:#888; font-size:20px; text-decoration:underline; text-align:center; display:block; margin-top:80px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>How to Get Your Bot Running</h1>
+        <p style="text-align:center; font-size:24px; margin-bottom:40px;">Choose the way you got InsuranceGrokBot:</p>
 
-                    <div class="step">
-                        <div class="step-number">4</div>
-                        <h2>Fill in Your GoHighLevel Info</h2>
-                        <p>In your dashboard, click "Configuration" tab.</p>
-                        <p>Put in these things (copy from GoHighLevel):</p>
-                        <ul>
-                            <li><strong>Location ID</strong>: In GHL, go to Settings → look in the URL or Settings page for "Location ID".</li>
-                            <li><strong>API Key</strong>: Go to Settings → API Keys → create new key, copy it.</li>
-                            <li><strong>User ID</strong>: Go to Settings → My Profile → copy "User ID".</li>
-                            <li><strong>Calendar ID</strong>: Go to Calendars → click your calendar → copy ID from URL.</li>
-                            <li><strong>Bot First Name</strong>: Choose a name like "Alex" for the bot to use.</li>
-                            <li><strong>Initial Message</strong>: Optional first message the bot sends.</li>
-                        </ul>
-                        <p>Click the "Save Settings" button at the bottom.</p>
-                        <p class="screenshot-note">If stuck, email support for help with pictures.</p>
-                        <div style="text-align:center;">
-                            <a href="/dashboard" class="btn">Go to Dashboard (log in first)</a>
-                        </div>
-                    </div>
+        <ul class="nav nav-tabs justify-content-center">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#website">Subscribed on Website</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#marketplace">Installed from GHL Marketplace</a>
+            </li>
+        </ul>
 
-                    <div class="step">
-                        <div class="step-number">5</div>
-                        <h2>Set Up Two Easy Workflows in GoHighLevel</h2>
-                        <p>Go to GHL → Automations → Workflows → Create New Workflow.</p>
-                        <p>Make these two:</p>
+        <div class="tab-content">
+            <!-- From Website Tab -->
+            <div class="tab-pane active" id="website">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h2>Subscribe to InsuranceGrokBot</h2>
+                    <p>Click the large green "Subscribe Now" button on the home page.</p>
+                    <p>You will be taken to a secure payment page to complete your $100/month subscription.</p>
+                    <p class="screenshot-note">You can cancel at any time with no questions asked.</p>
+                </div>
 
-                        <div class="highlight">
-                            <strong>Workflow 1: Re-Engage Old Leads</strong><br>
-                            - Trigger: Tag Added (make a tag called "Re-Engage")<br>
-                            - Add: Wait 10 minutes<br>
-                            - Add: Webhook<br>
-                            - URL: <code>https://insurancegrokbot.click/webhook</code><br>
-                            - Method: POST<br>
-                            - Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
-                        </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h2>Complete Your Payment</h2>
+                    <p>Enter your card details and click "Subscribe".</p>
+                    <p>Your account will be created automatically using the email you provide.</p>
+                </div>
 
-                        <div class="highlight" style="margin-top:30px;">
-                            <strong>Workflow 2: Handle Incoming Texts</strong><br>
-                            - Trigger: Inbound SMS (only for contacts with "Re-Engage" tag)<br>
-                            - Add: Wait 2 minutes<br>
-                            - Add: Webhook (same URL and fields as above)
-                        </div>
-
-                        <p>That's it! Add the "Re-Engage" tag to old leads — your bot starts texting them.</p>
-                        <p class="screenshot-note">If you need pictures, email us — we'll send a video.</p>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h2>Create Your Password and Log In</h2>
+                    <p>After payment, you will be prompted to set a password.</p>
+                    <p>Once set, log in to access your personal dashboard.</p>
+                    <div style="text-align:center;">
+                        <a href="/login" class="btn">Go to Log In</a>
                     </div>
                 </div>
 
-                <!-- From Marketplace Tab -->
-                <div class="tab-pane" id="marketplace">
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <h2>Find and Install the App</h2>
-                        <p>In GoHighLevel, go to the "App Marketplace" (search in search bar if needed).</p>
-                        <p>Search for "InsuranceGrokBot".</p>
-                        <p>Click on it, then click "Install App" button.</p>
-                        <p>Click "Allow & Install" on the next page.</p>
-                        <p class="screenshot-note">This connects your GHL account to the bot automatically.</p>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h2>Connect Your GoHighLevel Account</h2>
+                    <p>In your dashboard, go to the "Configuration" tab.</p>
+                    <p>Enter the following details from your GoHighLevel account:</p>
+                    <ul>
+                        <li><strong>Location ID</strong>: Found in GHL Settings or in the browser URL when viewing your agency.</li>
+                        <li><strong>API Key</strong>: Go to Settings → API Keys → create and copy a new key.</li>
+                        <li><strong>User ID</strong>: Go to Settings → My Profile → copy the User ID.</li>
+                        <li><strong>Calendar ID</strong>: Go to Calendars → click your main calendar → copy the ID from the URL.</li>
+                        <li><strong>Bot First Name</strong>: Choose a friendly name like "Alex" or "Jordan".</li>
+                        <li><strong>Initial Message</strong>: Optional — the first message the bot sends (leave blank for default).</li>
+                    </ul>
+                    <p>Click the "Save Settings" button when finished.</p>
+                    <div style="text-align:center;">
+                        <a href="/dashboard" class="btn">Go to Dashboard (after logging in)</a>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <h2>Create Two Workflows in GoHighLevel</h2>
+                    <p>Go to GoHighLevel → Automations → Workflows → Create New Workflow.</p>
+                    <p>Create these two workflows:</p>
+
+                    <div class="highlight">
+                        <strong>Workflow 1: Re-Engage Old Leads</strong><br>
+                        Trigger: Tag Added (create tag "Re-Engage")<br>
+                        Add Wait: 10 minutes<br>
+                        Add Webhook:<br>
+                        URL: <code>https://insurancegrokbot.click/webhook</code><br>
+                        Method: POST<br>
+                        Body Fields:<br>
+                        intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
                     </div>
 
-                    <div class="step">
-                        <div class="step-number">2</div>
-                        <h2>See Your Confirmation Code</h2>
-                        <p>After install, you'll see a success page with your unique code (like "XYZ123").</p>
-                        <p>Copy that code — you'll need it next.</p>
+                    <div class="highlight" style="margin-top:30px;">
+                        <strong>Workflow 2: Handle Incoming Texts</strong><br>
+                        Trigger: Inbound SMS (from contacts with "Re-Engage" tag)<br>
+                        Add Wait: 2 minutes<br>
+                        Add Webhook (same URL and fields as above)
                     </div>
 
-                    <div class="step">
-                        <div class="step-number">3</div>
-                        <h2>Create Your Account on Our Website</h2>
-                        <p>Go to our website: <code>https://insurancegrokbot.click/register</code></p>
-                        <p>Enter your email and the confirmation code from step 2.</p>
-                        <p>Choose a password.</p>
-                        <p>That's it — your account is ready!</p>
-                        <div style="text-align:center;">
-                            <a href="/register" class="btn">Go to Register Page</a>
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">4</div>
-                        <h2>Add Extra Bot Settings (If You Want)</h2>
-                        <p>Log in to dashboard → Configuration tab.</p>
-                        <p>Most stuff (like API key) is already set from install.</p>
-                        <p>Change bot name or add first message if you want.</p>
-                        <p>Click "Save Settings".</p>
-                        <div style="text-align:center;">
-                            <a href="/dashboard" class="btn">Go to Dashboard (log in first)</a>
-                        </div>
-                    </div>
-
-                    <div class="step">
-                        <div class="step-number">5</div>
-                        <h2>Set Up Two Easy Workflows in GoHighLevel</h2>
-                        <p>Go to Automations → Workflows → Create New.</p>
-                        <p>Make these two:</p>
-
-                        <div class="highlight">
-                            <strong>Workflow 1: Re-Engage Old Leads</strong><br>
-                            - Trigger: Tag Added ("Re-Engage")<br>
-                            - Wait 10 minutes<br>
-                            - Webhook: URL <code>https://insurancegrokbot.click/webhook</code>, POST<br>
-                            - Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
-                        </div>
-
-                        <div class="highlight" style="margin-top:30px;">
-                            <strong>Workflow 2: Handle Incoming Texts</strong><br>
-                            - Trigger: Inbound SMS (for "Re-Engage" tagged contacts)<br>
-                            - Wait 2 minutes<br>
-                            - Webhook (same as above)
-                        </div>
-
-                        <p>Add "Re-Engage" tag to old leads — bot starts working!</p>
-                        <p class="screenshot-note">Email us for pictures or video if stuck.</p>
-                    </div>
+                    <p>Apply the "Re-Engage" tag to your old leads — the bot will start texting them automatically.</p>
+                    <p class="screenshot-note">Need screenshots or a video? Just email support.</p>
                 </div>
             </div>
 
-            <a href="/" class="back">← Back to Home</a>
+            <!-- From Marketplace Tab -->
+            <div class="tab-pane" id="marketplace">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h2>Install from GoHighLevel Marketplace</h2>
+                    <p>In GoHighLevel, open the App Marketplace (use search if needed).</p>
+                    <p>Search for "InsuranceGrokBot", click the app, then click "Install App".</p>
+                    <p>On the next screen, click "Allow & Install".</p>
+                    <p class="screenshot-note">This securely connects your GHL account to the bot.</p>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h2>Get Your Confirmation Code</h2>
+                    <p>After installation, you will see a success page with your unique confirmation code (example: A1B2C3D4).</p>
+                    <p>Copy this code — you will need it in the next step.</p>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h2>Create Your Account on Our Website</h2>
+                    <p>Visit: <code>https://insurancegrokbot.click/register</code></p>
+                    <p>Enter your email, the confirmation code from step 2, and choose a password.</p>
+                    <p>Your account will be created and linked instantly.</p>
+                    <div style="text-align:center;">
+                        <a href="/register" class="btn">Go to Register Page</a>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h2>Optional: Customize Bot Settings</h2>
+                    <p>Log in to your dashboard and go to the "Configuration" tab.</p>
+                    <p>Most settings (API key, location, etc.) were set automatically during install.</p>
+                    <p>You can change the bot's first name or initial message if you'd like.</p>
+                    <p>Click "Save Settings" when done.</p>
+                    <div style="text-align:center;">
+                        <a href="/dashboard" class="btn">Go to Dashboard (after logging in)</a>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <h2>Create Two Workflows in GoHighLevel</h2>
+                    <p>Go to Automations → Workflows → Create New Workflow.</p>
+                    <p>Create these two:</p>
+
+                    <div class="highlight">
+                        <strong>Workflow 1: Re-Engage Old Leads</strong><br>
+                        Trigger: Tag Added ("Re-Engage")<br>
+                        Wait 10 minutes<br>
+                        Webhook: URL <code>https://insurancegrokbot.click/webhook</code>, POST<br>
+                        Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
+                    </div>
+
+                    <div class="highlight" style="margin-top:30px;">
+                        <strong>Workflow 2: Handle Incoming Texts</strong><br>
+                        Trigger: Inbound SMS (for "Re-Engage" tagged contacts)<br>
+                        Wait 2 minutes<br>
+                        Webhook (same as above)
+                    </div>
+
+                    <p>Apply the "Re-Engage" tag to your old leads — the bot begins working immediately.</p>
+                    <p class="screenshot-note">Need help with screenshots? Just email support.</p>
+                </div>
+            </div>
         </div>
-    </body>
-    </html>
-    """
+
+        <a href="/" class="back">← Back to Home</a>
+    </div>
+</body>
+</html>
+"""
     return render_template_string(html)
 
 if __name__ == "__main__":
