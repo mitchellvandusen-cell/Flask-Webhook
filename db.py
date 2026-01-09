@@ -66,7 +66,8 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_contact_id ON contact_messages (contact_id);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_created ON contact_messages (contact_id, created_at DESC);")
 
-        # Extracted facts
+        # RESTORED: Fact Storage (Safety Net Redundancy)
+        # This is required for save_new_facts in memory.py to work!
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_facts (
                 id SERIAL PRIMARY KEY,
@@ -77,6 +78,15 @@ def init_db():
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_facts_contact_id ON contact_facts (contact_id);")
+
+        # NEW: Narrative Story Ledger (Replaces individual facts)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS contact_narratives (
+                contact_id TEXT PRIMARY KEY,
+                story_narrative TEXT DEFAULT '',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
 
         # Webhook deduplication
         cur.execute("""
