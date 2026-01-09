@@ -2158,7 +2158,7 @@ def test_page():
 
         
         input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === 'Return') {
+            if (e.key === 'Enter') {
                 e.preventDefault();
                 
                 sendMessage();
