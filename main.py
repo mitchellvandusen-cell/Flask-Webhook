@@ -1574,14 +1574,15 @@ def demo_chat():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Fixed viewport for iPhone safe areas (no cut-off by URL/taskbar) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Live Demo - InsuranceGrokBot</title>
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
 
-    <!-- SEO (no em dash) -->
-    <meta name="description" content="Try a live demo of InsuranceGrokBot, the AI that re-engages cold life insurance leads.">
+    <!-- SEO -->
+    <meta name="description" content="Try a live demo of InsuranceGrokBot — the AI that re-engages cold life insurance leads.">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
@@ -1590,6 +1591,8 @@ def demo_chat():
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         html, body {{
             height: 100%;
+            margin: 0;
+            padding: 0;
             background: var(--dark-bg);
             display: flex;
             justify-content: center;
@@ -1597,19 +1600,21 @@ def demo_chat():
             font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
         }}
+        /* iPhone 16 Pro Max proportions (realistic) */
         .phone-container {{
             width: 100vw;
             height: 100vh;
-            max-width: 420px;
-            padding: 20px;
+            max-width: 430px; /* iPhone 16 Pro Max width */
+            aspect-ratio: 9 / 19.6; /* Real iPhone 16 Pro Max ratio */
+            padding: 10px;
             display: flex;
             flex-direction: column;
         }}
         .phone-frame {{
             flex: 1;
             background: #000;
-            border-radius: 40px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
+            border-radius: 60px; /* iPhone 16 Pro Max corner radius */
+            box-shadow: 0 40px 80px rgba(0,0,0,0.7), inset 0 0 15px rgba(255,255,255,0.05);
             position: relative;
             overflow: hidden;
             display: flex;
@@ -1617,20 +1622,20 @@ def demo_chat():
         }}
         .notch {{
             position: absolute;
-            top: 10px;
+            top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            width: 180px;
-            height: 34px;
+            width: 200px;
+            height: 36px;
             background: #000;
-            border-radius: 20px;
+            border-radius: 24px;
             z-index: 10;
         }}
         .status-bar {{
             position: absolute;
-            top: 15px;
-            left: 20px;
-            right: 20px;
+            top: 18px;
+            left: 24px;
+            right: 24px;
             display: flex;
             justify-content: space-between;
             color: #fff;
@@ -1639,7 +1644,7 @@ def demo_chat():
         }}
         .chat-area {{
             flex: 1;
-            padding: 60px 20px 20px;
+            padding: 70px 24px 20px;
             overflow-y: auto;
             background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
             display: flex;
@@ -1647,12 +1652,12 @@ def demo_chat():
         }}
         .msg {{
             max-width: 80%;
-            padding: 16px 22px;
+            padding: 14px 20px;
             border-radius: 22px;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             word-wrap: break-word;
-            font-size: 18px;
-            line-height: 1.5;
+            font-size: 17px;
+            line-height: 1.4;
             align-self: flex-start;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }}
@@ -1669,45 +1674,44 @@ def demo_chat():
             font-weight: 600;
         }}
         .input-area {{
-            padding: 20px 25px 40px;
+            padding: 15px 24px 40px;
             background: #111;
             display: flex;
             align-items: center;
-            gap: 20px;
+            justify-content: space-between;
+            gap: 12px;
         }}
         #user-input {{
             flex: 1;
             background: #222;
             border: none;
-            border-radius: 30px;
-            padding: 20px 28px;
+            border-radius: 25px;
+            padding: 18px 25px;
             color: #fff;
-            font-size: 19px;
+            font-size: 18px;
             outline: none;
         }}
         #user-input::placeholder {{ color: #888; }}
         #send-btn {{
-            background: var(--accent);
-            color: #000;
+            background: #007aff; /* iMessage blue */
             border: none;
             border-radius: 50%;
-            width: 64px;
-            height: 64px;
-            font-size: 28px;
-            font-weight: bold;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 6px 20px var(--neon-glow);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+            transition: background 0.2s;
+        }}
+        #send-btn:hover {{
+            background: #0066d6;
+        }}
+        #send-btn svg {{
+            width: 24px;
+            height: 24px;
         }}
         .chat-area::-webkit-scrollbar {{ display: none; }}
-
-        /* Larger elements on mobile */
-        @media (max-width: 480px) {{
-            .msg {{ font-size: 19px; padding: 18px 24px; }}
-            #user-input {{ font-size: 20px; padding: 22px 30px; }}
-            #send-btn {{ width: 70px; height: 70px; font-size: 32px; }}
-        }}
     </style>
 </head>
 <body>
@@ -1718,15 +1722,20 @@ def demo_chat():
                 <span>9:41 AM</span>
                 <span>Signal • Battery</span>
             </div>
-            <div class="chat-area" id="chat-screen">
+            <div id="chat-screen" class="chat-area">
                 <div class="msg bot-msg">
-                    Hey! Quick question, are you still with that life insurance plan you mentioned before?<br><br>
+                    Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
                     A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
                 </div>
             </div>
             <div class="input-area">
                 <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
-                <button id="send-btn">↑</button>
+                <button id="send-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 2 11 13"></polyline>
+                        <polyline points="22 2 15 22 11 13 2 9 22 2"></polyline>
+                    </svg>
+                </button>
             </div>
         </div>
     </div>
@@ -1759,9 +1768,9 @@ def demo_chat():
                 }});
 
                 const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Got it, thinking...'}}</div>`;
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Got it — thinking...'}}</div>`;
             }} catch (e) {{
-                chat.innerHTML += `<div class="msg bot-msg">Connection issue, try again?</div>`;
+                chat.innerHTML += `<div class="msg bot-msg">Connection issue — try again?</div>`;
             }}
             chat.scrollTop = chat.scrollHeight;
         }}
@@ -1896,8 +1905,8 @@ def test_page():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- FIXED VIEWPORT — this solves the zoom issue -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Fixed viewport for iPhone safe areas (no cut-off by URL/taskbar) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Test Chat - InsuranceGrokBot</title>
 
     <!-- Favicon -->
@@ -1907,6 +1916,8 @@ def test_page():
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         html, body {{
             height: 100%;
+            margin: 0;
+            padding: 0;
             background: #121212;
             display: flex;
             justify-content: center;
@@ -1914,20 +1925,21 @@ def test_page():
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
         }}
-        /* Mobile-first: Full screen phone on small devices */
+        /* iPhone 16 Pro Max proportions (realistic) */
         .phone-container {{
             width: 100vw;
             height: 100vh;
-            max-width: 420px;
-            padding: 20px;
+            max-width: 430px; /* iPhone 16 Pro Max width */
+            aspect-ratio: 9 / 19.6; /* Real iPhone 16 Pro Max ratio */
+            padding: 10px;
             display: flex;
             flex-direction: column;
         }}
         .phone-frame {{
             flex: 1;
             background: #000;
-            border-radius: 40px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            border-radius: 60px; /* iPhone 16 Pro Max corner radius */
+            box-shadow: 0 40px 80px rgba(0,0,0,0.7), inset 0 0 15px rgba(255,255,255,0.05);
             position: relative;
             overflow: hidden;
             display: flex;
@@ -1935,20 +1947,20 @@ def test_page():
         }}
         .notch {{
             position: absolute;
-            top: 10px;
+            top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            width: 180px;
-            height: 34px;
+            width: 200px;
+            height: 36px;
             background: #000;
-            border-radius: 20px;
+            border-radius: 24px;
             z-index: 10;
         }}
         .status-bar {{
             position: absolute;
-            top: 15px;
-            left: 20px;
-            right: 20px;
+            top: 18px;
+            left: 24px;
+            right: 24px;
             display: flex;
             justify-content: space-between;
             color: #fff;
@@ -1957,7 +1969,7 @@ def test_page():
         }}
         .chat-area {{
             flex: 1;
-            padding: 60px 20px 20px;
+            padding: 70px 24px 20px;
             overflow-y: auto;
             background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
             display: flex;
@@ -1987,11 +1999,12 @@ def test_page():
             font-weight: 600;
         }}
         .input-area {{
-            padding: 15px 20px 30px;
+            padding: 15px 24px 40px;
             background: #111;
             display: flex;
             align-items: center;
-            gap: 15px;
+            justify-content: space-between;
+            gap: 12px;
         }}
         #user-input {{
             flex: 1;
@@ -2004,8 +2017,6 @@ def test_page():
             outline: none;
         }}
         #user-input::placeholder {{ color: #888; }}
-
-        /* Real iPhone iMessage send button - normal size */
         #send-btn {{
             background: #007aff; /* iMessage blue */
             border: none;
@@ -2025,6 +2036,7 @@ def test_page():
             width: 24px;
             height: 24px;
         }}
+        .chat-area::-webkit-scrollbar {{ display: none; }}
 
         /* Desktop: Side-by-side with log panel */
         @media (min-width: 768px) {{
@@ -2060,7 +2072,6 @@ def test_page():
         @media (max-width: 767px) {{
             .log-column {{ display: none; }}
         }}
-        
     </style>
 </head>
 <body>
@@ -2075,14 +2086,14 @@ def test_page():
                     </div>
                     <div class="chat-area" id="chat-screen">
                         <div class="msg bot-msg">
-                            Hey! Quick question, are you still with that life insurance plan you mentioned before?<br><br>
+                            Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
                             A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
                         </div>
                     </div>
                     <div class="input-area">
-                        <input type="text" id="user-input" placeholder="iMessage" autofocus>
+                        <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
                         <button id="send-btn">
-                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="22 2 11 13"></polyline>
                                 <polyline points="22 2 15 22 11 13 2 9 22 2"></polyline>
                             </svg>
@@ -2127,7 +2138,6 @@ def test_page():
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
                         locationId: 'TEST_LOCATION_456',
-                        intent: 're-engage old lead'
                         contact_id: TEST_CONTACT_ID,
                         first_name: 'Test User',
                         message: {{ body: msg }},
@@ -2145,6 +2155,16 @@ def test_page():
                 chat.scrollTop = chat.scrollHeight;
             }}
         }}
+
+        // Enter key sends
+        input.addEventListener('keydown', e => {{
+            if (e.key === 'Enter') {{
+                e.preventDefault();
+                sendMessage();
+            }}
+        }});
+
+        sendBtn.addEventListener('click', sendMessage);
 
         function fetchLogs() {{
             fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
@@ -2165,7 +2185,7 @@ def test_page():
 
         async function resetChat() {{
             await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
-            chat.innerHTML = '<div class="msg bot-msg">Quick question are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you\'re still alive, and I wanted to make sure yours has that.</div>';
+            chat.innerHTML = '<div class="msg bot-msg">Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.</div>';
             logs.innerHTML = '<p style="color:#aaa; text-align:center; padding:40px;">Chat reset — logs cleared.</p>';
             chat.scrollTop = chat.scrollHeight;
         }}
@@ -2180,14 +2200,6 @@ def test_page():
             a.click();
             window.URL.revokeObjectURL(url);
         }}
-
-        input.addEventListener('keydown', e => {{
-            if (e.key === 'Enter') {{
-                e.preventDefault();
-                sendMessage();
-            }}
-        }});
-        sendBtn.addEventListener('click', sendMessage);
 
         setInterval(fetchLogs, 5000);
         fetchLogs();
