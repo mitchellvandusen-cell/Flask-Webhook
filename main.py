@@ -2075,7 +2075,7 @@ def test_page():
 
         async function resetChat() {{
             await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
-            chat.innerHTML = '<div class="msg bot-msg">Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you\'re still alive, and I wanted to make sure yours has that.</div>';
+            chat.innerHTML = '<div class="msg bot-msg">Quick question are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you\'re still alive, and I wanted to make sure yours has that.</div>';
             logs.innerHTML = '<p style="color:#aaa; text-align:center; padding:40px;">Chat reset — logs cleared.</p>';
             chat.scrollTop = chat.scrollHeight;
         }}
