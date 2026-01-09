@@ -394,8 +394,12 @@ def home():
         .navbar-brand {
             font-weight: 700;
             font-size: 1.8rem;
+            color: #fff !important; /* Makes INSURANCE and BOT white */
         }
-        .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
+        .highlight {
+            color: var(--accent); /* Only GROK gets neon green */
+            text-shadow: var(--neon-glow);
+        }
         .nav-link {
             color: #ddd !important;
             font-weight: 600;
