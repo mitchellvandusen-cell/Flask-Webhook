@@ -2004,19 +2004,26 @@ def test_page():
             outline: none;
         }}
         #user-input::placeholder {{ color: #888; }}
+
+        /* Real iPhone iMessage send button - normal size */
         #send-btn {{
-            background: #00ff88;
-            color: #000;
+            background: #007aff; /* iMessage blue */
             border: none;
             border-radius: 50%;
-            width: 56px;
-            height: 56px;
-            font-size: 24px;
-            font-weight: bold;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.6);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+            transition: background 0.2s;
+        }}
+        #send-btn:hover {{
+            background: #0066d6;
+        }}
+        #send-btn svg {{
+            width: 24px;
+            height: 24px;
         }}
 
         /* Desktop: Side-by-side with log panel */
@@ -2053,6 +2060,7 @@ def test_page():
         @media (max-width: 767px) {{
             .log-column {{ display: none; }}
         }}
+        
     </style>
 </head>
 <body>
@@ -2067,13 +2075,18 @@ def test_page():
                     </div>
                     <div class="chat-area" id="chat-screen">
                         <div class="msg bot-msg">
-                            Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
+                            Hey! Quick question, are you still with that life insurance plan you mentioned before?<br><br>
                             A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
                         </div>
                     </div>
                     <div class="input-area">
-                        <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
-                        <button id="send-btn">↑</button>
+                        <input type="text" id="user-input" placeholder="iMessage" autofocus>
+                        <button id="send-btn">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="22 2 11 13"></polyline>
+                                <polyline points="22 2 15 22 11 13 2 9 22 2"></polyline>
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </div>
