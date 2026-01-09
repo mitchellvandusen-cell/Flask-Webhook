@@ -380,6 +380,8 @@ def home():
             --card-bg: #0f0f0f;
             --text-secondary: #aaa;
             --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4);
+            --red-x: #ff4444;
+            --green-check: #00ff88;
         }
         body {
             background: var(--dark-bg);
@@ -394,10 +396,10 @@ def home():
         .navbar-brand {
             font-weight: 700;
             font-size: 1.8rem;
-            color: #fff !important; /* Makes INSURANCE and BOT white */
+            color: #fff !important;
         }
         .highlight {
-            color: var(--accent); /* Only GROK gets neon green */
+            color: var(--accent);
             text-shadow: var(--neon-glow);
         }
         .nav-link {
@@ -411,20 +413,19 @@ def home():
             background: #00ff88;
             color: #000;
             font-weight: 700;
-            font-size: 1.6rem; /* Your current size — not bigger */
-            padding: 18px 50px; /* Your current padding — clean proportions */
+            font-size: 1.6rem;
+            padding: 18px 50px;
             border-radius: 50px;
-            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3); /* Subtle glow */
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3);
             text-decoration: none;
             transition: all 0.3s ease;
             border: none;
             letter-spacing: 0.5px;
         }
-
         .btn-primary:hover {
-            background: #00ee80; /* Slight brighten */
-            box-shadow: 0 12px 30px rgba(0, 255, 136, 0.5); /* Glow intensifies */
-            transform: translateY(-4px); /* Clean lift — not too much */
+            background: #00ee80;
+            box-shadow: 0 12px 30px rgba(0, 255, 136, 0.5);
+            transform: translateY(-4px);
         }
         .hero {
             padding: 140px 20px 100px;
@@ -482,42 +483,87 @@ def home():
             margin-bottom: 20px;
             color: var(--accent);
         }
-        .comparison-table {
+
+        /* COMPARISON TABLE — CLEAN & PROFESSIONAL */
+        .comparison-wrapper {
+            max-width: 1000px;
+            margin: 0 auto;
             background: var(--card-bg);
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 15px 40px rgba(0,0,0,0.6);
-            max-width: 1000px;
-            margin: 0 auto;
         }
-        .comparison-header {
-            background: linear-gradient(135deg, var(--accent), #00b36d);
-            color: #000;
-            padding: 40px;
-            text-align: center;
-            font-size: 2.5rem;
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .comparison-table th {
+            padding: 30px;
+            font-size: 1.8rem;
             font-weight: 700;
-        }
-        .comparison-row {
-            display: flex;
-            border-bottom: 1px solid #222;
-            padding: 25px 0;
-            align-items: center;
-        }
-        .comparison-row:last-child { border-bottom: none; }
-        .comparison-label {
-            flex: 2;
-            padding: 0 40px;
-            font-weight: 600;
-            font-size: 1.3rem;
-        }
-        .comparison-other, .comparison-grok {
-            flex: 1;
             text-align: center;
-            font-size: 2.5rem;
         }
-        .comparison-other { color: #ff6b6b; }
-        .comparison-grok { color: var(--accent); font-weight: 700; }
+        .feature-header { text-align: left; padding-left: 40px; color: #fff; }
+        .standard-header { color: var(--red-x); }
+        .grok-header { color: var(--accent); }
+        .comparison-table td {
+            padding: 25px 20px;
+            vertical-align: middle;
+            font-size: 1.3rem;
+            border-bottom: 1px solid #222;
+        }
+        .comparison-table tr:last-child td { border-bottom: none; }
+        .feature-cell { text-align: left; padding-left: 40px; }
+        .standard-cell, .grok-cell { text-align: center; font-size: 3.5rem; }
+        .check { color: var(--green-check); }
+        .cross { color: var(--red-x); }
+
+        /* Sticky header on mobile */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            background: #111;
+            z-index: 10;
+        }
+
+        .comparison-footer {
+            text-align: center;
+            margin-top: 60px;
+            font-size: 1.6rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Mobile: Clean stacked cards with sticky header */
+        @media (max-width: 992px) {
+            .comparison-table thead { display: none; }
+            .comparison-table tr {
+                display: block;
+                margin: 25px 0;
+                background: #111;
+                border-radius: 15px;
+                padding: 25px;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+            }
+            .comparison-table td {
+                display: block;
+                text-align: center;
+                padding: 12px 0;
+                border: none;
+            }
+            .feature-cell {
+                text-align: center;
+                font-weight: bold;
+                font-size: 1.4rem;
+                margin-bottom: 20px;
+                padding-left: 0;
+            }
+            .standard-cell::before { content: "Standard Bots: "; font-weight: bold; color: var(--red-x); display: block; margin-bottom: 10px; }
+            .grok-cell::before { content: "InsuranceGrokBot: "; font-weight: bold; color: var(--accent); display: block; margin-bottom: 10px; }
+            .check, .cross { font-size: 4rem; }
+            .comparison-footer { font-size: 1.4rem; margin-top: 40px; }
+        }
+
         .sales-logic {
             background: var(--card-bg);
             border-radius: 20px;
@@ -556,9 +602,6 @@ def home():
         @media (max-width: 768px) {
             .section { padding: 80px 20px; }
             .section-title { font-size: 2.5rem; margin-bottom: 60px; }
-            .comparison-row { flex-direction: column; padding: 20px; }
-            .comparison-label { padding: 20px 0; text-align: center; }
-            .comparison-other, .comparison-grok { padding: 10px 0; }
             .sales-logic { padding: 40px; }
             .pricing-card { padding: 50px; }
             .price { font-size: 4.5rem; }
@@ -659,68 +702,74 @@ def home():
             <h2 class="section-title">Why InsuranceGrokBot Dominates Every Other Bot</h2>
             
             <div class="table-responsive">
-                <table class="comparison-table table table-borderless">
+                <table class="comparison-table">
                     <thead>
                         <tr>
-                            <th style="text-align:left; width:50%; font-size:1.4rem;">Feature</th>
-                            <th style="text-align:center; width:25%; font-size:1.6rem; color:#ff6b6b;">Standard Bots</th>
-                            <th style="text-align:center; width:25%; font-size:1.6rem; color:var(--accent);">InsuranceGrokBot</th>
+                            <th class="feature-col">Feature</th>
+                            <th class="standard-col">Standard Bots</th>
+                            <th class="grok-col">InsuranceGrokBot</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Real-time reasoning with Grok</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Real-time reasoning with Grok</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">5 blended sales frameworks (NEPQ, Gap Selling, Straight Line, Never Split the Difference, Psychology of Selling)</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">5 blended sales frameworks (NEPQ, Gap Selling, Straight Line, Never Split the Difference, Psychology of Selling)</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Full underwriting knowledge and health condition handling</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Full underwriting knowledge and health condition handling</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Persistent memory across entire conversation history</td>
-                            <td style="text-align:center;">Limited</td>
-                            <td style="text-align:center; color:var(--accent); font-weight:700;">Complete</td>
+                            <td class="feature-col">Persistent memory across entire conversation history</td>
+                            <td class="standard-col">Limited</td>
+                            <td class="grok-col">Complete</td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Never accepts "no" without proper discovery</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Never accepts "no" without proper discovery</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Only books leads with identified gaps</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Only books leads with identified gaps</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Multi-tenant agency support with data isolation</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Multi-tenant agency support with data isolation</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Calendar integration and availability checking</td>
-                            <td style="text-align:center;">Basic</td>
-                            <td style="text-align:center; color:var(--accent); font-weight:700;">Advanced</td>
+                            <td class="feature-col">Calendar integration and availability checking</td>
+                            <td class="standard-col">Basic</td>
+                            <td class="grok-col">Advanced</td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Built and continuously trained by active life insurance agents</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Built and continuously trained by active life insurance agents</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                         <tr>
-                            <td style="text-align:left; padding:20px 0;">Handles complex objections with emotional intelligence</td>
-                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
-                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                            <td class="feature-col">Handles complex objections with emotional intelligence</td>
+                            <td class="standard-col"><span class="cross">✗</span></td>
+                            <td class="grok-col"><span class="check">✓</span></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+
+            <div class="text-center mt-5">
+                <p style="font-size:1.6rem; color:var(--text-secondary);">Other bots use simple scripts. InsuranceGrokBot thinks like a top-producing agent.</p>
+            </div>
+        </div>
+    </section>
 
             <div class="text-center mt-5">
                 <p style="font-size:1.6rem; color:var(--text-secondary);">Other bots use simple scripts. InsuranceGrokBot thinks like a top-producing agent.</p>
@@ -748,8 +797,8 @@ def home():
                         <p>Identifies the gap between current and desired state (Keenan) while using emotional drivers and closing psychology (Brian Tracy).</p>
                     </div>
                 </div>
-                <p class="text-center" style="font-size:1.6rem; margin-top:40px;">
-                    The bot dynamically chooses the best framework for each moment based on lead responses, something no scripted bot can do.
+                <p class="text-center" style="font-size:1.3rem; margin-top:40px;">
+                    THE BOT DYNAMICALLY CHOOSES THE BEST FRAMEWORK FOR EACH MOMENT BASED ON LEAD RESPONSES, SOMETHING NO OTHER SCRIPTED BOT CAN DO.
                 </p>
             </div>
         </div>
