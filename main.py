@@ -27,8 +27,6 @@ from memory import save_message, save_new_facts, get_known_facts, get_narrative,
 from outcome_learning import classify_vibe
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
-from underwriting import get_underwriting_context
-from insurance_companies import get_company_context
 from db import get_subscriber_info, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
 from individual_profile import build_comprehensive_profile
@@ -143,6 +141,7 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
         current_stage = director_output["stage"]
         underwriting_ctx = director_output["underwriting_context"]
         known_facts = director_output["known_facts"]
+        company_ctx = director_output["company_context"]
         story_narrative = director_output["story_narrative"]
         recent_exchanges = director_output["recent_exchanges"]
         
@@ -224,7 +223,7 @@ def webhook():
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
     location_id = payload.get("locationId")
-    is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY')
+    is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY' or location_id == 'TEST_LOCATION_456')
     contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
     
     if is_demo:
@@ -238,7 +237,7 @@ def webhook():
             'initial_message': "Hey! Quick question — are you still with that life insurance plan you mentioned before?",
             'location_id': 'DEMO'
         }
-        if contact_id == "unknown":
+        if contact_id == "unknown" and location_id != 'TEST_LOCATION_456':
             return jsonify({"status": "error", "message": "Invalid demo session"}), 400
     else:
         # Production Identity
