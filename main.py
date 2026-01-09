@@ -16,17 +16,19 @@ from oauth2client.service_account import ServiceAccountCredentials
 import json
 from dotenv import load_dotenv
 import sqlite3
+from threading import Thread
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 # === IMPORTS ===
+from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from memory import save_message, save_new_facts, get_known_facts, get_narrative, get_recent_messages
 from outcome_learning import classify_vibe
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
 from underwriting import get_underwriting_context
-from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
+from insurance_companies import get_company_context
 from db import get_subscriber_info, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
 from individual_profile import build_comprehensive_profile
@@ -115,6 +117,104 @@ class ConfigForm(FlaskForm):
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
     initial_message = StringField("Optional Initial Message")
     submit = SubmitField("Save Settings")
+def process_conversation_logic(contact_id, message, subscriber, first_name, age, address, lead_vendor, is_demo):
+    """
+    Executes the full Observer -> Director -> Grok -> GHL pipeline.
+    """
+    try:
+        # 1. Identity
+        bot_first_name = subscriber['bot_first_name']
+        crm_api_key = subscriber['crm_api_key']
+        timezone = subscriber.get('timezone', 'America/Chicago')
+        location_id = subscriber.get('location_id') # Needed for sending
+
+        # 2. CALL THE SALES DIRECTOR (The Whole Brain)
+        director_output = generate_strategic_directive(
+            contact_id=contact_id,
+            message=message,
+            first_name=first_name,
+            age=age,
+            address=address
+        )
+        
+        # 3. UNPACK DIRECTIVE
+        profile_str = director_output["profile_str"]
+        tactical_narrative = director_output["tactical_narrative"]
+        current_stage = director_output["stage"]
+        underwriting_ctx = director_output["underwriting_context"]
+        known_facts = director_output["known_facts"]
+        story_narrative = director_output["story_narrative"]
+        recent_exchanges = director_output["recent_exchanges"]
+        
+        # 4. OPERATIONAL CHECKS
+        try: vibe = classify_vibe(message).value
+        except: vibe = "neutral"
+        
+        calendar_slots = ""
+        if not is_demo and current_stage == "closing":
+            calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
+            
+        context_nudge = ""
+        if "covered" in message.lower(): context_nudge = "Lead claims coverage."
+        final_nudge = f"{context_nudge}\n{underwriting_ctx}".strip()
+
+        # Ghost Check (First Message logic)
+        initial_message = subscriber.get('initial_message', '').strip()
+        assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
+        
+        reply = ""
+        if len(assistant_messages) == 0 and initial_message:
+            reply = initial_message
+        else:
+            # 5. BUILD PROMPT
+            system_prompt = build_system_prompt(
+                bot_first_name=bot_first_name,
+                timezone=timezone,
+                profile_str=profile_str,
+                tactical_narrative=tactical_narrative,
+                known_facts=known_facts,
+                story_narrative=story_narrative,
+                stage=current_stage,
+                recent_exchanges=recent_exchanges,
+                message=message,
+                calendar_slots=calendar_slots,
+                context_nudge=final_nudge,
+                lead_vendor=lead_vendor
+            )
+
+            # 6. GROK CALL
+            grok_messages = [{"role": "system", "content": system_prompt}]
+            for msg in recent_exchanges:
+                role = "user" if msg["role"] == "lead" else "assistant"
+                grok_messages.append({"role": role, "content": msg["text"]})
+            grok_messages.append({"role": "user", "content": message})
+
+            try:
+                response = client.chat.completions.create(
+                    model="grok-4-1-fast-reasoning",
+                    messages=grok_messages,
+                    temperature=0.7,
+                    max_tokens=500
+                )
+                reply = response.choices[0].message.content.strip()
+            except Exception as e:
+                logger.error(f"Grok Error: {e}")
+                reply = "Fair enough. Just to clarify, was it the timing that was off or something else?"
+
+        # 7. CLEANUP & SAVE
+        reply = re.sub(r'<[^>]+>', '', reply).strip() 
+        save_message(contact_id, reply, "assistant")
+
+        # 8. SEND VIA GHL (Only if not demo)
+        if not is_demo and crm_api_key != 'DEMO':
+            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
+            logger.info(f"Background thread sent reply to {contact_id}")
+        
+        return reply # Returned for Demo mode display
+
+    except Exception as e:
+        logger.error(f"Critical error in processing thread: {e}")
+        return None
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -123,58 +223,45 @@ def webhook():
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    # Extract raw data from incoming request
     location_id = payload.get("locationId")
     is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY')
-    
-    # Identify the user (In demo, this is the session ID; in GHL, it's the contact ID)
     contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
     
     if is_demo:
-        # Stateful Demo Mode Identity
+        # Demo Identity
         subscriber = {
             'bot_first_name': 'Grok',
             'crm_api_key': 'DEMO', 
             'crm_user_id': '',
             'calendar_id': '',
             'timezone': 'America/Chicago',
-            'initial_message': "Hey! Quick question — are you still with that life insurance plan you mentioned before?"
+            'initial_message': "Hey! Quick question — are you still with that life insurance plan you mentioned before?",
+            'location_id': 'DEMO'
         }
         if contact_id == "unknown":
             return jsonify({"status": "error", "message": "Invalid demo session"}), 400
     else:
-        # Production Mode Identity
+        # Production Identity
         subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
             logger.error(f"Identity not configured for location {location_id}")
             return jsonify({"status": "error", "message": "Not configured"}), 404
 
-        # Security: Validate API Key
+        # Security Check
         provided_api_key = payload.get("apiKey") or payload.get("api_key") or payload.get("crm_api_key")
         if provided_api_key and subscriber.get('crm_api_key') != provided_api_key:
             logger.warning(f"API key mismatch for location {location_id}")
             return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    # Set operational variables from subscriber config
-    bot_first_name = subscriber['bot_first_name']
-    crm_api_key = subscriber['crm_api_key']
-    timezone = subscriber.get('timezone', 'America/Chicago')
-    crm_user_id = subscriber['crm_user_id']
-    calendar_id = subscriber['calendar_id']
-
     # === STEP 2: METADATA & PRE-LOAD FACTS ===
     first_name = payload.get("first_name") or ""
-    dob_str = payload.get("age") or ""  # Typically passed as DOB
+    dob_str = payload.get("age") or ""
     address = payload.get("address") or ""
     intent = payload.get("intent") or ""
     lead_vendor = payload.get("lead_vendor", "")
-
-    # Calculate age if DOB is present
-    from age import calculate_age_from_dob
     age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
-    # Load initial knowledge into DB (Memory starts here)
-    # We still save these as 'Facts' for the hard-coded safety nets in individual_profile.py
+    # Load initial knowledge into DB
     initial_facts = []
     if first_name: initial_facts.append(f"First name: {first_name}")
     if age and age != "unknown": initial_facts.append(f"Age: {age}")
@@ -191,7 +278,7 @@ def webhook():
     if not message:
         return jsonify({"status": "ignored", "reason": "empty message"}), 200
 
-    # Idempotency: Prevent duplicate processing (Only for real GHL webhooks)
+    # Idempotency (Prevent duplicate processing)
     if not is_demo:
         message_id = payload.get("message_id") or payload.get("id")
         if message_id:
@@ -201,7 +288,6 @@ def webhook():
                     cur = conn.cursor()
                     cur.execute("SELECT 1 FROM processed_webhooks WHERE webhook_id = %s", (message_id,))
                     if cur.fetchone():
-                        logger.info(f"Duplicate ignored: {message_id}")
                         return jsonify({"status": "success", "message": "Already processed"}), 200
                     cur.execute("INSERT INTO processed_webhooks (webhook_id) VALUES (%s)", (message_id,))
                     conn.commit()
@@ -210,123 +296,26 @@ def webhook():
                 finally:
                     conn.close()
 
-    # Save the lead's message to the conversation history
+    # Save Lead Message (Synchronous - Critical)
     save_message(contact_id, message, "lead")
 
-    # === STEP 4: NARRATIVE OBSERVER & CONTEXT GATHERING ===
-    
-    # 4a. Run the Observer (The Background Brain)
-    # This dissects the message and updates the 'Story' in the DB *before* we reply
-    director_output = generate_strategic_directive(
-        contact_id=contact_id,
-        message=message,
-        first_name=first_name,
-        age=age,
-        address=address
-    )
-    
-    #3. UNPACK DIRECTIVE
-    profile_str = director_output["profile_str"]
-    tactical_narrative = director_output["tactical_narrative"]
-    current_stage = director_output["stage"]
-    underwriting_ctx = director_output["underwriting_ctx"]
-    known_facts = director_output["known_facts"]
-    story_narrative = director_output["story_narrative"]
-    recent_exchanges = director_output["recent_exchanges"]
-
-    #4. OPERATIONAL CHECKS
-    try: vibe = classify_vibe(message).value
-    except: vibe = "neutral"
-    
-    # Check if this is the very first interaction (Ghost check)
-    initial_message = subscriber.get('initial_message', '').strip()
-    assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
-    if len(assistant_messages) == 0 and initial_message:
-        reply = initial_message
-        save_message(contact_id, reply, "assistant")
-        if not is_demo and crm_api_key != 'DEMO':
-            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
-        return jsonify({"status": "success", "reply": reply})
-
-    # Content Contextual Nudges
-    context_nudge = ""
-    msg_lower = message.lower()
-    if "covered" in msg_lower: context_nudge = "Lead claims coverage"
-
-    # Calendar (Disabled in demo for focus on conversational flow)
-    calendar_slots = ""
-    if not is_demo and any(k in msg_lower for k in ["schedule", "time", "call", "appointment", "available"]):
-        calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
-
-    # Underwriting (Medical keyword detection)
-    underwriting_context = ""
-    medical_keywords = ["cancer", "diabetes", "heart", "stroke", "copd", "health issue", "condition", "medical", "sick"]
-    if any(k in msg_lower for k in medical_keywords):
-        underwriting_context = get_underwriting_context(message)
-
-    # Company Search (Competitive intel)
-    company_context = ""
-    raw_company = find_company_in_message(message)
-    if raw_company:
-        normalized = normalize_company_name(raw_company)
-        if normalized:
-            company_context = get_company_context(normalized)
-
-    # === STEP 5: BUILD SYSTEM PROMPT ===
-    # Combine Nudges + Underwriting Logic for the Prompt
-    final_nudge = f"{context_nudge}\n{underwriting_context}".strip()
-    system_prompt = build_system_prompt(
-        bot_first_name=bot_first_name,
-        timezone=timezone,
-        story_narrative=story_narrative,  # NEW: The Evolving Story
-        known_facts=known_facts,
-        tactical_narrative=tactical_narrative,        
-        stage=current_stage,
-        recent_exchanges=recent_exchanges,
-        message=message,
-        lead_vendor=lead_vendor,
-        calendar_slots=calendar_slots,
-        context_nudge=context_nudge,
-        lead_first_name=first_name,
-        lead_age=age,
-        lead_address=address
-    )
-
-    # === STEP 6: GROK CALL ===
-    grok_messages = [{"role": "system", "content": system_prompt}]
-    for msg in recent_exchanges:
-        role = "user" if msg["role"] == "lead" else "assistant"
-        grok_messages.append({"role": role, "content": msg["text"]})
-    grok_messages.append({"role": "user", "content": message})
-
-    try:
-        response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
-            messages=grok_messages,
-            temperature=0.7,
-            max_tokens=500
+    # === STEP 4: ROUTING (THE FIRE & FORGET SPLIT) ===
+    if is_demo:
+        # DEMO MODE: Wait for result (Foreground)
+        reply = process_conversation_logic(
+            contact_id, message, subscriber, first_name, age, address, lead_vendor, True
         )
-        reply = response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"Grok Error: {e}")
-        raw_reply = "Understood. Quick question, what was the main reason you were looking for protection originally?"
-
-    # === STEP 7: CLEAN REPLY & OPTIONAL FACT EXTRACTION ===
-    reply = re.sub(r'<[^>]+>', '', reply).strip()
-    save_message(contact_id, reply, "assistant")
-
-    reply = reply.replace("—", ",").replace("–", ",").replace("…", "...")
-    reply = reply.strip()
-    
-    save_message(contact_id, reply, "assistant")
-
-    # === STEP 9: FINAL DELIVERY ===
-    if not is_demo and crm_api_key != 'DEMO':
-        # Send actual SMS via GoHighLevel
-        send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
-    
-    # Return JSON for demo page consumption
-    return jsonify({"status": "success", "reply": reply})
+        return jsonify({"status": "success", "reply": reply})
+    else:
+        # LIVE MODE: Threading (Background) 
+        # 1. Spawn the worker thread
+        thread = Thread(target=process_conversation_logic, args=(
+            contact_id, message, subscriber, first_name, age, address, lead_vendor, False
+        ))
+        thread.start()
+        
+        # 2. Return 200 OK instantly to GHL so it doesn't timeout
+        return jsonify({"status": "processing", "message": "Bot is thinking..."})
                     
 @app.route("/")
 def home():

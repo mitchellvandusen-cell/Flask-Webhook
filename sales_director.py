@@ -2,6 +2,7 @@
 from conversation_engine import analyze_logic_flow, LogicSignal, ConversationStage
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
+from insurance_companies import get_company_context, find_company_in_message, normalize_company_name
 from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer
 
 def generate_strategic_directive(contact_id: str, message: str, first_name: str, age: str, address: str) -> dict:
@@ -37,6 +38,14 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     if "health" in message.lower() or "medic" in message.lower() or profile_ctx.get("health_issues"):
         underwriting_ctx = get_underwriting_context(message)
     
+    # Competitor Check (Strategic Brain) - NEW
+    company_ctx = ""
+    raw_company = find_company_in_message(message)
+    if raw_company:
+        normalized = normalize_company_name(raw_company)
+        if normalized:
+            company_ctx = get_company_context(normalized)
+
     # 3. EXECUTIVE SYNTHESIS
     directive = ""
     framework = "NEPQ"
@@ -82,6 +91,7 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         "tactical_narrative": f"STRATEGY: {framework}\nORDER: {directive}",
         "stage": logic.stage.value,
         "underwriting_context": underwriting_ctx,
+        "company_context": company_ctx,
         "known_facts": known_facts,       # Passed back so main.py doesn't need to fetch
         "story_narrative": story_narrative, # Passed back so main.py doesn't need to fetch
         "recent_exchanges": recent_exchanges
