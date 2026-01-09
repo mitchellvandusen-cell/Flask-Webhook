@@ -2157,12 +2157,12 @@ def test_page():
         }}
 
         // Enter key sends
-        input.addEventListener('keydown', e => {{
-            if (e.key === 'Enter') {{
-                e.preventDefault();
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === 'Return') {  // Covers both desktop Enter and mobile Return
+                e.preventDefault(); // Prevents newline in input
                 sendMessage();
-            }}
-        }});
+            }
+        });
 
         sendBtn.addEventListener('click', sendMessage);
 
