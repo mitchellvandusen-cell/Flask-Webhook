@@ -818,7 +818,7 @@ def home():
                     <li>Multi-tenant support</li>
                     <li>Priority updates and support</li>
                 </ul>
-                <a href="/checkout" class="btn-primary">Subscribe Now, Instant Activation</a>
+                <a href="/checkout" class="btn-primary">Subscribe Now<br>Instant Activation</a>
                 <p class="mt-4 text-secondary">No contract. Cancel anytime.</p>
             </div>
         </div>
