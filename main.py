@@ -1896,137 +1896,107 @@ def test_page():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>Test Chat - InsuranceGrokBot</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
-
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {{
             --safe-top: env(safe-area-inset-top);
             --safe-bottom: env(safe-area-inset-bottom);
+            --accent: #00ff88;
         }}
 
-        * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         
         body, html {{
             height: 100%;
+            width: 100%;
             background: #000;
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             overflow: hidden;
             color: white;
         }}
 
-        /* Layout Container */
+        /* Main Container: Splits Chat and Logs */
         .main-wrapper {{
             display: flex;
             height: 100vh;
             width: 100vw;
         }}
 
-        /* --- DESKTOP IPHONE FRAME --- */
+        /* --- CHAT COLUMN --- */
         .chat-column {{
             flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
             background: #121212;
-            position: relative;
+            padding: 20px;
         }}
 
+        /* The Phone Frame - DYNAMIC SCALING FIXED HERE */
         .phone-frame {{
             width: 100%;
-            height: 100%;
+            max-width: 380px;
+            height: 90vh; /* Scalable height */
+            max-height: 800px; /* Upper limit */
             background: #000;
             display: flex;
             flex-direction: column;
             position: relative;
+            border: 8px solid #333;
+            border-radius: 45px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
         }}
 
-        /* Desktop specific constraints */
-        @media (min-width: 768px) {{
-            .phone-frame {{
-                max-width: 400px;
-                height: 800px;
-                border-radius: 50px;
-                border: 8px solid #333;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                overflow: hidden;
-            }}
-            .status-bar {{ display: flex !important; }}
-            .notch {{ display: block !important; }}
-        }}
-
-        /* Status Bar (iPhone Style) */
-        .status-bar {{
-            display: none;
-            padding: 14px 24px 0;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-            font-weight: 600;
-            z-index: 10;
-        }}
-
+        /* iPhone Elements */
         .notch {{
-            display: none;
-            width: 160px;
-            height: 30px;
-            background: #000;
-            border-radius: 0 0 20px 20px;
+            width: 150px;
+            height: 25px;
+            background: #333;
+            border-radius: 0 0 15px 15px;
             position: absolute;
             top: 0;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 11;
+            z-index: 10;
         }}
 
-        /* --- CHAT AREA --- */
         .chat-area {{
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 40px 15px 15px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
             background: #000;
-            padding-top: calc(20px + var(--safe-top));
+            scrollbar-width: none;
         }}
+        .chat-area::-webkit-scrollbar {{ display: none; }}
 
         .msg {{
-            max-width: 80%;
-            padding: 12px 16px;
+            max-width: 85%;
+            padding: 10px 15px;
             border-radius: 18px;
-            font-size: 16px;
+            font-size: 15px;
             line-height: 1.4;
-            word-wrap: break-word;
         }}
+        .bot-msg {{ background: #262626; color: white; align-self: flex-start; border-bottom-left-radius: 4px; }}
+        .user-msg {{ background: #007AFF; color: white; align-self: flex-end; border-bottom-right-radius: 4px; font-weight: 600; }}
 
-        .bot-msg {{
-            background: #262626;
-            color: white;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-        }}
-
-        .user-msg {{
-            background: #007AFF; /* iMessage Blue */
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }}
-
-        /* --- INPUT AREA --- */
+        /* INPUT AREA - PINNED TO BOTTOM OF FRAME */
         .input-area {{
-            background: #121212;
-            padding: 10px 15px calc(15px + var(--safe-bottom));
+            background: #1a1a1a;
+            padding: 12px 15px;
             display: flex;
             align-items: center;
             gap: 10px;
-            border-top: 1px solid #222;
+            border-top: 1px solid #333;
         }}
 
         #user-input {{
             flex: 1;
             background: #262626;
-            border: 1px solid #333;
+            border: 1px solid #444;
             border-radius: 20px;
             padding: 10px 15px;
             color: white;
@@ -2038,20 +2008,21 @@ def test_page():
             background: #007AFF;
             border: none;
             border-radius: 50%;
-            width: 35px;
-            height: 35px;
+            width: 38px;
+            height: 38px;
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            flex-shrink: 0;
+            transition: 0.2s;
         }}
+        #send-btn:hover {{ background: #0063d1; }}
 
-        /* --- LOG PANEL (Desktop) --- */
+        /* --- LOG COLUMN --- */
         .log-column {{
-            width: 450px;
+            width: 400px;
             background: #0a0a0a;
-            border-left: 1px solid #222;
+            border-left: 2px solid #222;
             display: flex;
             flex-direction: column;
             padding: 20px;
@@ -2060,37 +2031,23 @@ def test_page():
         #logs {{
             flex: 1;
             overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-            color: #00ff88;
-        }}
-
-        /* --- MOBILE LOGS MENU --- */
-        .mobile-menu-btn {{
-            position: fixed;
-            top: calc(10px + var(--safe-top));
-            right: 15px;
-            background: rgba(40,40,40,0.8);
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            z-index: 100;
-            display: none;
-        }}
-
-        .mobile-log-overlay {{
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--accent);
             background: #000;
-            z-index: 200;
-            display: none;
-            flex-direction: column;
-            padding: calc(20px + var(--safe-top)) 20px;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #111;
         }}
 
-        @media (max-width: 767px) {{
+        .log-entry {{ margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; }}
+        .log-ts {{ color: #555; }}
+        .log-type {{ font-weight: bold; color: #fff; }}
+
+        /* Mobile Adjustments */
+        @media (max-width: 800px) {{
             .log-column {{ display: none; }}
-            .mobile-menu-btn {{ display: block; }}
+            .phone-frame {{ height: 100vh; max-height: none; border: none; border-radius: 0; }}
         }}
     </style>
 </head>
@@ -2098,47 +2055,33 @@ def test_page():
 
     <div class="main-wrapper">
         <div class="chat-column">
-            <button class="mobile-menu-btn" onclick="toggleMobileLogs()">Debug Menu</button>
-            
             <div class="phone-frame">
                 <div class="notch"></div>
-                <div class="status-bar">
-                    <span>9:41</span>
-                    <span style="letter-spacing: 1px;">LTE 🔋</span>
-                </div>
-
+                
                 <div class="chat-area" id="chat-screen">
                     <div class="msg bot-msg">
-                        Hey! Quick question — are you still with that life insurance plan?
+                        Hey! Quick question — are you still with that life insurance plan you mentioned before?
                     </div>
                 </div>
 
                 <div class="input-area">
-                    <input type="text" id="user-input" placeholder="iMessage" autocomplete="off">
+                    <input type="text" id="user-input" placeholder="iMessage" autocomplete="off" autofocus>
                     <button id="send-btn" type="button">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                     </button>
                 </div>
             </div>
         </div>
 
         <div class="log-column">
-            <h3 style="margin-bottom: 15px; color: #00ff88;">System Logs</h3>
-            <div id="logs"></div>
+            <h3 style="margin-bottom: 15px; color: var(--accent); letter-spacing: 1px;">DEBUG CONSOLE</h3>
+            <div id="logs">
+                <div class="log-entry">Waiting for interaction...</div>
+            </div>
             <div style="margin-top: 15px; display: flex; gap: 10px;">
-                <button onclick="resetChat()" style="flex:1; padding: 10px; border-radius: 8px; border:none; background:#ff4444; color:white;">Reset</button>
-                <button onclick="downloadTranscript()" style="flex:1; padding: 10px; border-radius: 8px; border:none; background:#007AFF; color:white;">Download</button>
+                <button onclick="location.reload()" style="flex:1; padding: 12px; border-radius: 8px; border:none; background:#ff4444; color:white; font-weight:bold; cursor:pointer;">Reset Chat</button>
             </div>
         </div>
-    </div>
-
-    <div id="mobile-overlay" class="mobile-log-overlay">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-            <h2>Logs</h2>
-            <button onclick="toggleMobileLogs()" style="color: #ff4444; background: none; border: none; font-size: 18px;">Close</button>
-        </div>
-        <div id="mobile-logs" style="flex:1; overflow-y:auto; font-family: monospace; color:#00ff88;"></div>
-        <button onclick="downloadTranscript()" style="width:100%; padding:15px; margin-top:10px; background:#007AFF; border:none; color:white; border-radius:10px;">Download Logs</button>
     </div>
 
     <script>
@@ -2147,18 +2090,11 @@ def test_page():
         const sendBtn = document.getElementById('send-btn');
         const chat = document.getElementById('chat-screen');
         const logsDiv = document.getElementById('logs');
-        const mobileLogsDiv = document.getElementById('mobile-logs');
-
-        function toggleMobileLogs() {{
-            const overlay = document.getElementById('mobile-overlay');
-            overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
-        }}
 
         async function sendMessage() {{
             const msg = input.value.trim();
             if (!msg) return;
 
-            // Update UI immediately
             chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
             input.value = '';
             chat.scrollTop = chat.scrollHeight;
@@ -2176,54 +2112,43 @@ def test_page():
                 }});
 
                 const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'No response from bot.'}}</div>`;
-                chat.scrollTop = chat.scrollHeight;
+                if(data.reply) {{
+                    chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
+                    chat.scrollTop = chat.scrollHeight;
+                }}
                 fetchLogs();
             }} catch (e) {{
-                chat.innerHTML += `<div class="msg bot-msg" style="background: #440000;">Error: Connection lost.</div>`;
+                console.error("Test Error:", e);
             }}
         }}
 
-        // Send triggers
-        sendBtn.addEventListener('click', (e) => {{
-            e.preventDefault();
-            sendMessage();
-        }});
-
-        input.addEventListener('keypress', (e) => {{
-            if (e.key === 'Enter') sendMessage();
-        }});
+        sendBtn.onclick = sendMessage;
+        input.onkeydown = (e) => {{ if(e.key === 'Enter') sendMessage(); }};
 
         function fetchLogs() {{
             fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
                 .then(res => res.json())
                 .then(data => {{
-                    const html = data.logs.map(l => `<div style="margin-bottom:10px;">[${{l.timestamp}}] ${{l.type}}<br>${{l.content}}</div>`).join('');
-                    logsDiv.innerHTML = html;
-                    mobileLogsDiv.innerHTML = html;
+                    if(data.logs && data.logs.length > 0) {{
+                        logsDiv.innerHTML = data.logs.map(l => `
+                            <div class="log-entry">
+                                <span class="log-ts">[${{l.timestamp.split('T')[1].split('.')[0]}}]</span> 
+                                <span class="log-type">${{l.type}}</span><br>
+                                ${{l.content}}
+                            </div>
+                        `).join('');
+                        logsDiv.scrollTop = logsDiv.scrollHeight;
+                    }}
                 }});
         }}
 
-        async function resetChat() {{
-            location.reload();
-        }}
-
-        async function downloadTranscript() {{
-            const res = await fetch(`/download-transcript?contact_id=${{TEST_CONTACT_ID}}`);
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `logs_${{TEST_CONTACT_ID}}.txt`;
-            a.click();
-        }}
-
-        setInterval(fetchLogs, 4000);
+        // Poll for logs every 3 seconds
+        setInterval(fetchLogs, 3000);
     </script>
 </body>
 </html>
     """
-    return render_template_string(test_html, test_contact_id=test_contact_id)
+    return render_template_string(test_html)
 
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
