@@ -21,8 +21,7 @@ from datetime import datetime
 
 # === IMPORTS ===
 from prompt import build_system_prompt
-from memory import save_message, get_recent_messages, save_new_facts, get_known_facts, run_narrative_observer, get_narrative
-from conversation_engine import ConversationState, analyze_conversation_flow
+from memory import save_message, save_new_facts, get_known_facts, get_narrative, get_recent_messages
 from outcome_learning import classify_vibe
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
@@ -31,6 +30,7 @@ from insurance_companies import find_company_in_message, normalize_company_name,
 from db import get_subscriber_info, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
 from individual_profile import build_comprehensive_profile
+from sales_director import generate_strategic_directive
 load_dotenv()
 
 app = Flask(__name__)
@@ -231,6 +231,7 @@ def webhook():
     current_stage = director_output["stage"]
     underwriting_ctx = director_output["underwriting_ctx"]
     known_facts = director_output["known_facts"]
+    story_narrative = director_output["story_narrative"]
     recent_exchanges = director_output["recent_exchanges"]
 
     #4. OPERATIONAL CHECKS
@@ -250,12 +251,7 @@ def webhook():
     # Content Contextual Nudges
     context_nudge = ""
     msg_lower = message.lower()
-    vibe = classify_vibe(message).value
-    
-    if any(x in msg_lower for x in ["covered", "i'm good", "already have", "taken care of"]):
-        context_nudge = "Lead claims to be covered — likely a smoke screen."
-    elif any(x in msg_lower for x in ["work", "job", "employer"]):
-        context_nudge = "Lead mentioned work/employer coverage."
+    if "covered" in msg_lower: context_nudge = "Lead claims coverage"
 
     # Calendar (Disabled in demo for focus on conversational flow)
     calendar_slots = ""
@@ -286,7 +282,6 @@ def webhook():
         known_facts=known_facts,
         tactical_narrative=tactical_narrative,        
         stage=current_stage,
-        vibe=vibe,
         recent_exchanges=recent_exchanges,
         message=message,
         lead_vendor=lead_vendor,
@@ -311,35 +306,17 @@ def webhook():
             temperature=0.7,
             max_tokens=500
         )
-        raw_reply = response.choices[0].message.content.strip()
+        reply = response.choices[0].message.content.strip()
     except Exception as e:
         logger.error(f"Grok Error: {e}")
         raw_reply = "Understood. Quick question, what was the main reason you were looking for protection originally?"
 
     # === STEP 7: CLEAN REPLY & OPTIONAL FACT EXTRACTION ===
-    reply = raw_reply
-    new_facts_extracted = []
+    reply = re.sub(r'<[^>]+>', '', reply).strip()
+    save_message(contact_id, reply, "assistant")
 
-    # Note: Main extraction is now done by the Narrative Observer, 
-    # but we keep this logic in case the prompt still outputs <new_facts> tags
-    if "<new_facts>" in raw_reply:
-        try:
-            parts = raw_reply.split("<new_facts>")
-            reply_part = parts[0]
-            fact_part = parts[1].split("</new_facts>")[0]
-            new_facts_extracted = [line.strip(" -•").strip() for line in fact_part.split("\n") if line.strip()]
-            reply = reply_part.strip()
-        except Exception:
-            pass
-
-    # Humanize text (Clean up AI artifacts)
     reply = reply.replace("—", ",").replace("–", ",").replace("…", "...")
     reply = reply.strip()
-
-    # === STEP 8: PERSISTENCE ===
-    # We save these for EVERYONE (Demo and Client) so memory works
-    if new_facts_extracted:
-        save_new_facts(contact_id, new_facts_extracted)
     
     save_message(contact_id, reply, "assistant")
 
@@ -349,13 +326,8 @@ def webhook():
         send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
     
     # Return JSON for demo page consumption
-    return jsonify({
-        "status": "success", 
-        "reply": reply, 
-        "contact_id": contact_id,
-        "facts_saved": len(new_facts_extracted)
-    })
-
+    return jsonify({"status": "success", "reply": reply})
+                    
 @app.route("/")
 def home():
     home_html = """

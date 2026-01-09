@@ -89,9 +89,10 @@ def build_system_prompt(
     bot_first_name: str,
     timezone: str,
     profile_str: str,
-    tactical_narrative: str,                      
+    tactical_narrative: str,
+    known_facts: List[str],
+    story_narrative: str,                     
     stage: str,
-    vibe: str,
     recent_exchanges: List[Dict[str, str]],
     message: str,
     calendar_slots: str = "",
@@ -102,16 +103,6 @@ def build_system_prompt(
     lead_address: Optional[str] = None
 ) -> str:
 
-    # Build the comprehensive human identity narrative
-    # We pass BOTH the narrative AND the raw facts for maximum context
-    profile_str = build_comprehensive_profile(
-        story_narrative=story_narrative,
-        known_facts=known_facts,                # PASSED HERE
-        first_name=lead_first_name,
-        age=lead_age,
-        address=lead_address
-    )
-
     # Identity
     identity = f"""
 Your name is {bot_first_name}. You are a state-licensed insurance underwriter who works with over 90 carriers to find the best coverage and rates.
@@ -121,16 +112,12 @@ Always consider timezone ({timezone}) when suggesting times.
     
     # Lead Vendor Context
     lead_vendor_context = ""
-    lead_vendor_lower = lead_vendor.lower() if lead_vendor else ""
-
-    if "veteran" in lead_vendor_lower or "freedom" in lead_vendor_lower:
-        lead_vendor_context = "This is a veteran lead (Freedom Life). Emphasize military benefits, gratitude for service, Tricare gaps, no-exam options."
-    elif "fex" in lead_vendor_lower or "final expense" in lead_vendor_lower:
-        lead_vendor_context = "This is a Final Expense lead (Facebook seniors). Focus on burial costs, whole life/guaranteed issue. NEVER mention term."
-    elif "mortgage" in lead_vendor_lower:
-        lead_vendor_context = "This is a mortgage protection lead. Focus on paying off home if something happens, family security, term life to match mortgage length."
-    elif "ethos" in lead_vendor_lower:
-        lead_vendor_context = "This is an Ethos lead — general term/whole life shopper. Keep response balanced, ask about family/goals."
+    if lead_vendor:
+        lv = lead_vendor.lower()
+        if "veteran" in lv or "freedom" in lv: lead_vendor_context = "Lead Context = Veteran"
+    elif "fex" in lv: lead_vendor_context = "Lead Context: Final Expense. No TERM."
+    elif "mortgage" in lead_vendor_context: "Lead Context: mortgage protection lead. Focus on paying off home if something happens, family security."
+    elif "ethos" in lead_vendor_context: "Lead Context: Ethos lead."
 
     # Recent conversation flow
     flow_str = "\n".join([
@@ -156,11 +143,9 @@ Always consider timezone ({timezone}) when suggesting times.
 
 CURRENT LEAD STATE:
 Current Stage: {stage}
-Lead Vibe: {vibe}{nudge_str}
-
-{lead_vendor_str}
-
-{calendar_str}
+{context_nudge}
+{lead_vendor_context}
+{f"Slots: {calendar_slots}" if calendar_slots else ""}
 
 RECENT CONVERSATION FLOW:
 {flow_str}

@@ -7,76 +7,82 @@ from memory import get_recent_messages, get_known_facts, get_narrative, run_narr
 def generate_strategic_directive(contact_id: str, message: str, first_name: str, age: str, address: str) -> dict:
     """
     The Master Function.
-    1. Aggregates all data.
+    1. Aggregates all data (History, Narrative, Facts).
     2. Runs Logic Engine (Left Brain).
     3. Runs Profile Engine (Right Brain).
-    4. Synthesizes a 'Strategic Directive' for the Prompt.
+    4. Synthesizes a 'Strategic Directive'.
     """
     
-    # 1. GATHER INTELLIGENCE
-    # Critical: Run Observer FIRST to update the "Story"
-    run_narrative_observer(contact_id, message) 
+    # 1. GATHER INTELLIGENCE (The Senses)
+    # Run Observer first to ensure narrative is fresh
+    run_narrative_observer(contact_id, message)
     
+    # Fetch Data ONCE
     recent_exchanges = get_recent_messages(contact_id, limit=10)
     story_narrative = get_narrative(contact_id)
     known_facts = get_known_facts(contact_id)
     
     # 2. PROCESS HEMISPHERES
+    # Left Brain (Logic)
     logic: LogicSignal = analyze_logic_flow(recent_exchanges)
     
+    # Right Brain (Context & Profile)
     profile_str, profile_ctx = build_comprehensive_profile(
         story_narrative, known_facts, first_name, age, address
     )
     
-    # Only pull underwriting if health is actually mentioned
+    # Underwriting (Technical Brain)
+    # Only run if health is relevant to save processing
     underwriting_ctx = ""
-    if "health" in message.lower() or "medic" in message.lower() or profile_ctx["health_issues"]:
+    if "health" in message.lower() or "medic" in message.lower() or profile_ctx.get("health_issues"):
         underwriting_ctx = get_underwriting_context(message)
     
     # 3. EXECUTIVE SYNTHESIS
     directive = ""
     framework = "NEPQ"
     
-    # --- VOSS PARADOX (Highest Success) ---
+    # VOSS PARADOX (Highest Priority)
     if logic.voss_no_signal:
         directive = "SUCCESS: Lead gave a 'Protective No' (Agreement). Proceed immediately to booking."
         framework = "CHRIS VOSS (Closing)"
         
-    # --- OBJECTION: 'NOT INTERESTED' / 'I'M GOOD' ---
-    # This is where the Salesperson Mindset kicks in.
-    elif logic.last_move_type == "objection":
-        if profile_ctx["is_skeptical"]:
-            directive = "SKEPTICAL RESISTANCE. Do not fight. Use a Voss Label: 'It seems like you've been pestered by agents before.' Then soft pivot."
-            framework = "CHRIS VOSS (De-escalation)"
-        else:
-            directive = "SMOKESCREEN DETECTED. They said 'Not Interested' but haven't given a reason. Use NEPQ Curiosity: 'Fair enough. Was it just bad timing, or did you not see anything you liked last time?' Do NOT accept the 'No'."
-            framework = "NEPQ (Curiosity Probe)"
-
-    # --- OBJECTION: DEFLECTION ---
+    # RESISTANCE / SKEPTICISM
+    elif profile_ctx.get("is_skeptical") and logic.stage != ConversationStage.CLOSING:
+        directive = "HIGH RESISTANCE. Do not pitch. Use a Chris Voss 'Accusation Audit' (e.g., 'You probably think I'm just another salesperson'). Disarm them first."
+        framework = "CHRIS VOSS (De-escalation)"
+        
+    # DEFLECTION
     elif logic.last_move_type == "deflection":
-        directive = "DEFLECTION. Lead is trying to take control. Answer briefly, then LOOP BACK to your previous question. Do not get lost in their questions."
+        directive = "DEFLECTION. Answer briefly, then LOOP BACK to your previous question. Do not get lost in their interrogation."
         framework = "STRAIGHT LINE (Looping)"
         
-    # --- GAP DISCOVERY ---
+    # NOT INTERESTED (The Hunter Mindset)
+    elif logic.last_move_type == "objection":
+        directive = "SMOKESCREEN. They said 'Not Interested' but haven't given a reason. Use NEPQ Curiosity: 'Fair enough. Was it just bad timing?' Do NOT accept the 'No'."
+        framework = "NEPQ (Curiosity Probe)"
+
+    # GAP DISCOVERY
     elif logic.gap_signal or (logic.stage == ConversationStage.CONSEQUENCE):
-        directive = "PAIN POINT FOUND. Use NEPQ Consequence Questions. 'What happens to [Family/House] if you don't fix this?' Make them feel the gap."
+        directive = "PAIN POINT FOUND. Use NEPQ Consequence Questions. 'What happens to [Family] if you don't fix this?'"
         framework = "NEPQ (Consequence)"
         
-    # --- CLOSING ---
+    # CLOSING
     elif logic.stage == ConversationStage.CLOSING:
         directive = "GREEN LIGHT. Offer 2 specific times immediately. 'Would 2pm or 4pm be a bad idea?'"
         framework = "ASSUMPTIVE CLOSE"
         
-    # --- DEFAULT DISCOVERY ---
+    # DEFAULT
     else:
-        directive = "CONTINUE DISCOVERY. We have not found the 'Gap' yet. Ask a probing question about Current State vs Future State."
+        directive = "CONTINUE DISCOVERY. Ask a probing question about Current State vs Future State."
         framework = "NEPQ (Discovery)"
 
+    # 4. RETURN THE COMPLETE PACKAGE
     return {
         "profile_str": profile_str,
         "tactical_narrative": f"STRATEGY: {framework}\nORDER: {directive}",
         "stage": logic.stage.value,
         "underwriting_context": underwriting_ctx,
-        "known_facts": known_facts,
+        "known_facts": known_facts,       # Passed back so main.py doesn't need to fetch
+        "story_narrative": story_narrative, # Passed back so main.py doesn't need to fetch
         "recent_exchanges": recent_exchanges
     }
