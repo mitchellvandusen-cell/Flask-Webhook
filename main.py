@@ -201,7 +201,9 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
                 reply = "Fair enough. Just to clarify, was it the timing that was off or something else?"
 
         # 7. CLEANUP & SAVE
-        reply = re.sub(r'<[^>]+>', '', reply).strip() 
+        reply = re.sub(r'<[^>]+>', '', reply).strip()
+        reply = reply.replace("—", ",").replace("–", ",").replace("−", ",")  # Catch Em, En, and Minus signs
+        reply = reply.replace("…", "...").replace("’", "'").replace("“", '"').replace("”", '"')
         save_message(contact_id, reply, "assistant")
 
         # 8. SEND VIA GHL (Only if not demo)
