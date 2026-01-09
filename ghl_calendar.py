@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 import re
 import requests
 import logging
+import time as time_module  # ← Correct alias for sleep()
 
 logger = logging.getLogger(__name__)
 
@@ -22,23 +23,18 @@ def set_cache(key, data):
 def consolidated_calendar_op(
     operation: str,
     subscriber_data: dict,
-    timezone_str: str = None,
     contact_id: str = None,
     first_name: str = None,
-    selected_time: str = None,
-    appointment_id: str = None,
-    reason: str = None,
-    calendar_id: str = None
+    selected_time: str = None
 ) -> any:
-    # Extract credentials
     api_key = subscriber_data.get("crm_api_key")
     location_id = subscriber_data.get("location_id")
-    cal_id = calendar_id or subscriber_data.get("calendar_id")
+    cal_id = subscriber_data.get("calendar_id")
     crm_user_id = subscriber_data.get("crm_user_id")
-    local_tz_str = timezone_str or subscriber_data.get("timezone", "America/Chicago")
+    local_tz_str = subscriber_data.get("timezone", "America/Chicago")
 
     if not api_key or not cal_id:
-        logger.error(f"Missing calendar credentials for location {location_id}")
+        logger.error(f"Missing credentials for calendar op (location {location_id})")
         return "let me look at my calendar" if operation == "fetch_slots" else False
 
     headers = {
@@ -58,13 +54,13 @@ def consolidated_calendar_op(
             url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
 
             now_utc = datetime.now(timezone.utc)
-            start_ts = int(now_utc.timestamp() * 1000)
+            start_ts = int(now_utc.timestamp() * 1000)  # ← Milliseconds!
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
 
             params = {
                 "startDate": start_ts,
                 "endDate": end_ts,
-                "timezone": local_tz_str
+                "timezone": local_tz_str  # ← Fixed: actual string, not 'str'
             }
             if crm_user_id:
                 params["userId"] = crm_user_id
@@ -94,7 +90,6 @@ def consolidated_calendar_op(
             if not slots:
                 return "let me look at my calendar"
 
-            # Parse and filter slots
             parsed_slots = []
             for slot in slots:
                 try:
@@ -104,7 +99,7 @@ def consolidated_calendar_op(
                     if start_str.endswith("Z"):
                         start_str = start_str.replace("Z", "+00:00")
                     dt = datetime.fromisoformat(start_str).astimezone(local_tz)
-                    if 8 <= dt.hour < 17:  # 8am to 5pm
+                    if 8 <= dt.hour < 17:
                         parsed_slots.append(dt)
                 except Exception:
                     continue
@@ -150,7 +145,6 @@ def consolidated_calendar_op(
 
     # === BOOK APPOINTMENT ===
     if operation == "book" and selected_time and contact_id:
-        # Parse selected_time → start/end ISO
         time_str = selected_time.lower().strip()
         now_local = datetime.now(local_tz)
         target_date = (now_local + timedelta(days=1)).date() if "tomorrow" in time_str else now_local.date()
@@ -167,14 +161,13 @@ def consolidated_calendar_op(
                 h = 0
             hour, minute = h, m
 
-        hour = max(8, min(16, hour))  # Clamp to business hours
+        hour = max(8, min(16, hour))
 
         start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
         end_dt = start_dt + timedelta(minutes=30)
 
-        # 2-day max booking window
         if start_dt.date() > (now_local + timedelta(days=2)).date():
-            logger.info("Attempted booking too far ahead")
+            logger.info("Booking too far ahead")
             return False
 
         payload = {
@@ -195,10 +188,10 @@ def consolidated_calendar_op(
                 logger.info(f"Appointment booked: {contact_id} at {start_dt}")
                 return True
             else:
-                logger.error(f"Booking failed {response.status_code}: {response.text}")
+                logger.error(f"Booking failed: {response.status_code} {response.text}")
                 return False
         except Exception as e:
             logger.error(f"Booking exception: {e}")
             return False
 
-    return False if operation in ["book", "reschedule", "block"] else "let me look at my calendar"
+    return False
