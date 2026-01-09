@@ -8,7 +8,7 @@ from db import get_db_connection
 from psycopg2.extras import execute_values
 
 logger = logging.getLogger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("XAI_API_KEY"))
 
 # ===================================
 # MESSAGE STORAGE & RETRIEVAL
@@ -125,25 +125,17 @@ def get_known_facts(contact_id: str) -> List[str]:
 # ===================================
 
 def get_narrative(contact_id: str) -> str:
-    """Fetch the current evolving story narrative for a contact"""
     conn = get_db_connection()
     if not conn: return ""
     try:
         cur = conn.cursor()
         cur.execute("SELECT story_narrative FROM contact_narratives WHERE contact_id = %s", (contact_id,))
         row = cur.fetchone()
-        if row:
-            # Handle RealDictCursor vs standard tuple return
-            return row['story_narrative'] if isinstance(row, dict) else row[0]
-        return ""
-    except Exception as e:
-        logger.error(f"Error fetching narrative: {e}")
-        return ""
-    finally:
-        conn.close()
-
+        return row['story_narrative'] if row else ""
+    except: return ""
+    finally: conn.close()
+    
 def update_narrative(contact_id: str, new_story: str):
-    """Save the updated story narrative to the DB"""
     conn = get_db_connection()
     if not conn: return
     try:
@@ -157,9 +149,7 @@ def update_narrative(contact_id: str, new_story: str):
         conn.commit()
     except Exception as e:
         logger.error(f"Error updating narrative: {e}")
-        conn.rollback()
-    finally:
-        conn.close()
+    finally: conn.close()
 
 def run_narrative_observer(contact_id: str, lead_message: str):
     """
@@ -168,6 +158,7 @@ def run_narrative_observer(contact_id: str, lead_message: str):
     """
     current_story = get_narrative(contact_id)
     
+    # This prompt ensures we capture the "Whole Story" not just keywords
     observer_prompt = f"""
     You are a Narrative Observer. Dissect the new message from the lead to update their life story.
     
@@ -190,7 +181,7 @@ def run_narrative_observer(contact_id: str, lead_message: str):
 
     try:
         response = client.chat.completions.create(
-            model="grok-beta",
+            model="grok-beta", # Or your preferred model
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3
         )

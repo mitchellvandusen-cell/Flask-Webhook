@@ -22,7 +22,7 @@ from datetime import datetime
 # === IMPORTS ===
 from prompt import build_system_prompt
 from memory import save_message, get_recent_messages, save_new_facts, get_known_facts, run_narrative_observer, get_narrative
-from conversation_engine import ConversationState
+from conversation_engine import ConversationState, analyze_conversation_flow
 from outcome_learning import classify_vibe
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
@@ -217,12 +217,25 @@ def webhook():
     
     # 4a. Run the Observer (The Background Brain)
     # This dissects the message and updates the 'Story' in the DB *before* we reply
-    run_narrative_observer(contact_id, message)
+    director_output = generate_strategic_directive(
+        contact_id=contact_id,
+        message=message,
+        first_name=first_name,
+        age=age,
+        address=address
+    )
     
-    # 4b. Fetch Memory (Story + Redundant Facts)
-    story_narrative = get_narrative(contact_id)
-    known_facts = get_known_facts(contact_id)
-    recent_exchanges = get_recent_messages(contact_id, limit=8)
+    #3. UNPACK DIRECTIVE
+    profile_str = director_output["profile_str"]
+    tactical_narrative = director_output["tactical_narrative"]
+    current_stage = director_output["stage"]
+    underwriting_ctx = director_output["underwriting_ctx"]
+    known_facts = director_output["known_facts"]
+    recent_exchanges = director_output["recent_exchanges"]
+
+    #4. OPERATIONAL CHECKS
+    try: vibe = classify_vibe(message).value
+    except: vibe = "neutral"
     
     # Check if this is the very first interaction (Ghost check)
     initial_message = subscriber.get('initial_message', '').strip()
@@ -264,12 +277,15 @@ def webhook():
             company_context = get_company_context(normalized)
 
     # === STEP 5: BUILD SYSTEM PROMPT ===
+    # Combine Nudges + Underwriting Logic for the Prompt
+    final_nudge = f"{context_nudge}\n{underwriting_context}".strip()
     system_prompt = build_system_prompt(
         bot_first_name=bot_first_name,
         timezone=timezone,
         story_narrative=story_narrative,  # NEW: The Evolving Story
-        known_facts=known_facts,          # OLD: The Redundant Safety Net
-        stage="discovery",
+        known_facts=known_facts,
+        tactical_narrative=tactical_narrative,        
+        stage=current_stage,
         vibe=vibe,
         recent_exchanges=recent_exchanges,
         message=message,
