@@ -1701,24 +1701,26 @@ def get_logs():
 
         for msg_type, text, created_at in messages:
             role = "Lead" if msg_type == "lead" else "Bot"
+            
+            # === CRITICAL FIX: Handle Date vs String ===
             timestamp = "Unknown"
             if created_at:
-                if hasattr(created_at, 'isoformat'):
+                if isinstance(created_at, str):
+                    timestamp = created_at
+                elif hasattr(created_at, 'isoformat'):
                     timestamp = created_at.isoformat()
                 else:
                     timestamp = str(created_at)
             
             logs.append({"timestamp": timestamp, "type": f"{role} Message", "content": text.strip()})
 
-        # === 2. Current Known Facts ===
         facts = get_known_facts(contact_id)
         fact_content = "\n".join([f"• {f}" for f in facts]) if facts else "No facts extracted yet"
-        logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "type": "Known Facts (Current Memory)",
-            "content": fact_content
-        })
+        logs.append({"timestamp": datetime.now().isoformat(), "type": "Known Facts", "content": fact_content})
 
+        story_narrative = get_narrative(contact_id)
+        profile_narrative, _ = build_comprehensive_profile(story_narrative=story_narrative, known_facts=facts)
+        logs.append({"timestamp": datetime.now().isoformat(), "type": "Narrative", "content": profile_narrative})
         # === 3. Full Profile Narrative (What Grok Actually "Knows") ===
         story_narrative = get_narrative(contact_id)
         
@@ -1753,12 +1755,8 @@ def get_logs():
         })
 
     except Exception as e:
-        logger.error(f"Error in get_logs for {contact_id}: {e}")
-        logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "type": "Error",
-            "content": f"Failed to load logs: {str(e)}"
-        })
+        logger.error(f"Error in get_logs: {e}")
+        logs.append({"timestamp": datetime.now().isoformat(), "type": "Error", "content": str(e)})
     finally:
         cur.close()
         conn.close()
