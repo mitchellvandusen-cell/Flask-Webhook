@@ -1452,6 +1452,300 @@ def create_portal_session():
 # At the top, add a demo-specific contact ID
 DEMO_CONTACT_ID = "demo_web_visitor"
 
+@app.route("/demo-chat")
+def demo_chat():
+    # Generate unique session ID for this visitor (no DB, fresh every time)
+    if 'demo_session_id' not in session:
+        session['demo_session_id'] = str(uuid.uuid4())
+
+    demo_session_id = session['demo_session_id']
+
+    demo_html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Demo - InsuranceGrokBot</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+
+    <!-- SEO -->
+    <meta name="description" content="Try a live demo of InsuranceGrokBot — the AI that re-engages cold life insurance leads.">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
+        * {{ box-sizing: border-box; }}
+        html, body {{
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: var(--dark-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }}
+        .iphone-frame {{
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 60px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
+            padding: 40px 12px 80px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }}
+        .iphone-frame::before {{
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 35px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 10;
+        }}
+        .status-bar {{
+            position: absolute;
+            top: 5px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            font-size: 12px;
+            z-index: 10;
+        }}
+        .chat-screen {{
+            flex: 1;
+            overflow-y: auto;
+            padding: 60px 20px 20px;
+            background: #111;
+            display: flex;
+            flex-direction: column;
+            border-radius: 30px 30px 0 0;
+            -webkit-overflow-scrolling: touch;
+        }}
+        .msg {{
+            max-width: 80%;
+            padding: 14px 20px;
+            border-radius: 22px;
+            margin-bottom: 16px;
+            word-wrap: break-word;
+            font-size: 16px;
+            line-height: 1.4;
+            align-self: flex-start;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }}
+        .bot-msg {{
+            background: #222;
+            color: #fff;
+            border-bottom-left-radius: 6px;
+        }}
+        .user-msg {{
+            background: var(--accent);
+            color: #000;
+            align-self: flex-end;
+            border-bottom-right-radius: 6px;
+            font-weight: 600;
+        }}
+        .input-area {{
+            padding: 12px 20px 30px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        #user-input {{
+            flex: 1;
+            background: #222;
+            border: none;
+            border-radius: 25px;
+            padding: 16px 20px;
+            color: #fff;
+            font-size: 17px;
+            outline: none;
+        }}
+        #user-input::placeholder {{ color: #888; }}
+        #send-btn {{
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px var(--neon-glow);
+        }}
+        .chat-screen::-webkit-scrollbar {{ display: none; }}
+    </style>
+</head>
+<body>
+    <div class="iphone-frame">
+        <div class="status-bar">
+            <span>9:41 AM</span>
+            <span>●●● ●●● 100%</span>
+        </div>
+        <div id="chat-screen" class="chat-screen">
+            <div class="msg bot-msg">
+                Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
+                A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
+            </div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
+            <button id="send-btn">↑</button>
+        </div>
+    </div>
+
+    <script>
+        const SESSION_ID = "{demo_session_id}";
+
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chat = document.getElementById('chat-screen');
+
+        async function sendMessage() {{
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
+            input.value = '';
+            chat.scrollTop = chat.scrollHeight;
+
+            try {{
+                const res = await fetch('/webhook', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        locationId: 'DEMO_ACCOUNT_SALES_ONLY',
+                        contact_id: SESSION_ID,
+                        first_name: 'Visitor',
+                        message: {{ body: msg }}
+                    }})
+                }});
+
+                const data = await res.json();
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Got it — thinking...'}}</div>`;
+            }} catch (e) {{
+                chat.innerHTML += `<div class="msg bot-msg">Connection issue — try again?</div>`;
+            }}
+            chat.scrollTop = chat.scrollHeight;
+        }}
+
+        input.addEventListener('keydown', e => {{
+            if (e.key === 'Enter') {{
+                e.preventDefault();
+                sendMessage();
+            }}
+        }});
+
+        sendBtn.addEventListener('click', sendMessage);
+        input.focus();
+    </script>
+</body>
+</html>
+    """
+    return render_template_string(demo_html)
+
+@app.route("/terms")
+def terms():
+    terms_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms and Conditions - InsuranceGrokBot</title>
+
+    <!-- Favicon (pure code — no files needed) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
+
+    <!-- SEO -->
+    <meta name="description" content="Official Terms and Conditions for InsuranceGrokBot — AI-powered lead re-engagement for life insurance agents.">
+    <meta name="theme-color" content="#00ff88">
+
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; line-height:1.8; }
+        .container { max-width:900px; margin:auto; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
+        h2 { color:var(--accent); font-size:32px; margin:40px 0 20px; }
+        p { font-size:18px; margin:20px 0; color:#ddd; }
+        ul { padding-left:30px; margin:20px 0; }
+        li { margin:15px 0; font-size:18px; color:#ddd; }
+        a { color:var(--accent); text-decoration:underline; }
+        .back { text-align:center; margin-top:60px; font-size:20px; }
+        .back a { color:#888; text-decoration:underline; }
+        code { background:#111; padding:4px 8px; border-radius:6px; color:var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Terms and Conditions</h1>
+        <p style="text-align:center; color:#aaa; margin-bottom:60px;">Last updated: January 08, 2026</p>
+
+        <h2>1. Agreement to Terms</h2>
+        <p>By using InsuranceGrokBot, you agree to these Terms and Conditions. If you do not agree, you may not use the service.</p>
+
+        <h2>2. Description of Service</h2>
+        <p>InsuranceGrokBot is an AI-powered SMS assistant for life insurance agents using GoHighLevel. It re-engages cold leads, conducts discovery, handles objections, and books appointments into your calendar.</p>
+        <p>The service is provided on a subscription basis. You are responsible for compliance with all applicable laws (TCPA, CAN-SPAM, insurance regulations).</p>
+
+        <h2>3. Subscription & Payment</h2>
+        <p>Subscription is $100/month, billed via Stripe. You may cancel anytime. No refunds for partial months.</p>
+
+        <h2>4. Account Responsibility</h2>
+        <p>You are responsible for maintaining the security of your account and password. You agree to notify us immediately of any unauthorized use.</p>
+
+        <h2>5. Prohibited Use</h2>
+        <p>You may not use the service for any illegal or unauthorized purpose, including but not limited to:</p>
+        <ul>
+            <li>Sending spam or unsolicited messages</li>
+            <li>Violating TCPA or other communication laws</li>
+            <li>Misrepresenting yourself or the bot</li>
+            <li>Using the service for non-insurance purposes</li>
+        </ul>
+
+        <h2>6. Intellectual Property</h2>
+        <p>The service, including all code, design, and content, is owned by InsuranceGrokBot. You may not copy, modify, or reverse engineer any part of the service.</p>
+
+        <h2>7. Limitation of Liability</h2>
+        <p>InsuranceGrokBot is provided "as is". We are not liable for any damages arising from use of the service, including lost leads, failed appointments, or regulatory violations.</p>
+
+        <h2>8. Termination</h2>
+        <p>We may terminate or suspend your access at any time, without notice, for any reason, including violation of these terms.</p>
+
+        <h2>9. Changes to Terms</h2>
+        <p>We may update these terms at any time. Continued use after changes constitutes acceptance.</p>
+
+        <h2>10. Contact</h2>
+        <p>For questions about these terms, contact support via the dashboard or email.</p>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+    return render_template_string(terms_html)
+
 @app.route("/test-page")
 def test_page():
     # Generate unique test contact ID per session
@@ -1459,7 +1753,7 @@ def test_page():
         session['test_session_id'] = str(uuid.uuid4())
     test_contact_id = f"test_{session['test_session_id']}"
 
-    # On load/refresh: Delete existing data for this test contact (reset)
+    # On load/refresh: Reset DB for this test contact only
     conn = get_db_connection()
     if conn:
         try:
@@ -1467,14 +1761,13 @@ def test_page():
             cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (test_contact_id,))
             cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (test_contact_id,))
             conn.commit()
-            logger.info(f"Reset DB for test contact: {test_contact_id}")
+            logger.info(f"Reset test session: {test_contact_id}")
         except Exception as e:
-            logger.error(f"DB reset error: {e}")
+            logger.error(f"DB reset failed for {test_contact_id}: {e}")
         finally:
             cur.close()
             conn.close()
 
-    # Ultimate iPhone 15 Pro Max mockup — ultra-realistic, auto-adjusts, nothing cut off
     test_html = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -1485,6 +1778,7 @@ def test_page():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -1499,9 +1793,9 @@ def test_page():
         }}
         .phone-container {{
             position: relative;
-            width: 390px;           /* iPhone 15 Pro Max width */
+            width: 390px;
             max-width: 95vw;
-            aspect-ratio: 9 / 19.5; /* Exact iPhone aspect */
+            aspect-ratio: 9 / 19.5;
             box-shadow: 0 40px 100px rgba(0,0,0,0.8);
         }}
         .phone-frame {{
@@ -1619,7 +1913,6 @@ def test_page():
             box-shadow: 0 10px 20px rgba(0,0,0,0.3);
             margin-left: 40px;
         }}
-        /* Hide scrollbar but keep functionality */
         .chat-area::-webkit-scrollbar, .log-panel::-webkit-scrollbar {{ display: none; }}
         .chat-area, .log-panel {{ -ms-overflow-style: none; scrollbar-width: none; }}
     </style>
@@ -1647,13 +1940,13 @@ def test_page():
         </div>
     </div>
 
-    <!-- Log Panel (right side on desktop, hidden on mobile) -->
+    <!-- Log Panel (right side on desktop) -->
     <div class="log-panel">
         <h2 style="color:#00ff88; text-align:center; margin-bottom:20px;">Live Log Panel</h2>
         <div id="logs"></div>
         <div style="margin-top:30px; text-align:center;">
-            <button class="btn" style="background:#ff6b6b;" onclick="resetChat()">Reset Chat</button>
-            <button class="btn" onclick="downloadTranscript()">Download Transcript</button>
+            <button style="padding:12px 30px; background:#ff6b6b; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:16px;" onclick="resetChat()">Reset Chat</button>
+            <button style="padding:12px 30px; background:#00ff88; color:#000; border:none; border-radius:8px; cursor:pointer; font-size:16px; margin-left:20px;" onclick="downloadTranscript()">Download Transcript</button>
         </div>
     </div>
 
@@ -1711,13 +2004,14 @@ def test_page():
                         `;
                     }});
                     logs.scrollTop = logs.scrollHeight;
-                }});
+                }})
+                .catch(err => console.error('Log fetch error:', err));
         }}
 
         async function resetChat() {{
             await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
             chat.innerHTML = '<div class="msg bot-msg">Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you\'re still alive, and I wanted to make sure yours has that.</div>';
-            logs.innerHTML = '';
+            logs.innerHTML = '<p style="color:#aaa; text-align:center; padding:20px;">Chat reset — logs cleared.</p>';
             chat.scrollTop = chat.scrollHeight;
         }}
 
@@ -1729,6 +2023,7 @@ def test_page():
             a.href = url;
             a.download = `insurancegrokbot_test_${{TEST_CONTACT_ID}}.txt`;
             a.click();
+            window.URL.revokeObjectURL(url);
         }}
 
         input.addEventListener('keydown', e => {{
@@ -1741,423 +2036,6 @@ def test_page():
 
         setInterval(fetchLogs, 5000);
         fetchLogs();
-    </script>
-</body>
-</html>
-    """
-    return render_template_string(test_html, test_contact_id=test_contact_id)
-
-@app.route("/terms")
-def terms():
-    terms_html = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms and Conditions - InsuranceGrokBot</title>
-
-    <!-- Favicon (pure code — no files needed) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
-
-    <!-- SEO -->
-    <meta name="description" content="Official Terms and Conditions for InsuranceGrokBot — AI-powered lead re-engagement for life insurance agents.">
-    <meta name="theme-color" content="#00ff88">
-
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; line-height:1.8; }
-        .container { max-width:900px; margin:auto; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
-        h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
-        h2 { color:var(--accent); font-size:32px; margin:40px 0 20px; }
-        p { font-size:18px; margin:20px 0; color:#ddd; }
-        ul { padding-left:30px; margin:20px 0; }
-        li { margin:15px 0; font-size:18px; color:#ddd; }
-        a { color:var(--accent); text-decoration:underline; }
-        .back { text-align:center; margin-top:60px; font-size:20px; }
-        .back a { color:#888; text-decoration:underline; }
-        code { background:#111; padding:4px 8px; border-radius:6px; color:var(--accent); }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Terms and Conditions</h1>
-        <p style="text-align:center; color:#aaa; margin-bottom:60px;">Last updated: January 08, 2026</p>
-
-        <h2>1. Agreement to Terms</h2>
-        <p>By using InsuranceGrokBot, you agree to these Terms and Conditions. If you do not agree, you may not use the service.</p>
-
-        <h2>2. Description of Service</h2>
-        <p>InsuranceGrokBot is an AI-powered SMS assistant for life insurance agents using GoHighLevel. It re-engages cold leads, conducts discovery, handles objections, and books appointments into your calendar.</p>
-        <p>The service is provided on a subscription basis. You are responsible for compliance with all applicable laws (TCPA, CAN-SPAM, insurance regulations).</p>
-
-        <h2>3. Subscription & Payment</h2>
-        <p>Subscription is $100/month, billed via Stripe. You may cancel anytime. No refunds for partial months.</p>
-
-        <h2>4. Account Responsibility</h2>
-        <p>You are responsible for maintaining the security of your account and password. You agree to notify us immediately of any unauthorized use.</p>
-
-        <h2>5. Prohibited Use</h2>
-        <p>You may not use the service for any illegal or unauthorized purpose, including but not limited to:</p>
-        <ul>
-            <li>Sending spam or unsolicited messages</li>
-            <li>Violating TCPA or other communication laws</li>
-            <li>Misrepresenting yourself or the bot</li>
-            <li>Using the service for non-insurance purposes</li>
-        </ul>
-
-        <h2>6. Intellectual Property</h2>
-        <p>The service, including all code, design, and content, is owned by InsuranceGrokBot. You may not copy, modify, or reverse engineer any part of the service.</p>
-
-        <h2>7. Limitation of Liability</h2>
-        <p>InsuranceGrokBot is provided "as is". We are not liable for any damages arising from use of the service, including lost leads, failed appointments, or regulatory violations.</p>
-
-        <h2>8. Termination</h2>
-        <p>We may terminate or suspend your access at any time, without notice, for any reason, including violation of these terms.</p>
-
-        <h2>9. Changes to Terms</h2>
-        <p>We may update these terms at any time. Continued use after changes constitutes acceptance.</p>
-
-        <h2>10. Contact</h2>
-        <p>For questions about these terms, contact support via the dashboard or email.</p>
-
-        <div class="back">
-            <a href="/">← Back to Home</a>
-        </div>
-    </div>
-</body>
-</html>
-    """
-    return render_template_string(terms_html)
-
-@app.route("/test-page")
-def test_page():
-    # Generate unique test contact ID per browser session
-    if 'test_session_id' not in session:
-        session['test_session_id'] = str(uuid.uuid4())
-    test_contact_id = f"test_{session['test_session_id']}"
-
-    # On load/refresh: Reset DB for this test contact only
-    conn = get_db_connection()
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (test_contact_id,))
-            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (test_contact_id,))
-            conn.commit()
-            logger.info(f"Reset test session: {test_contact_id}")
-        except Exception as e:
-            logger.error(f"DB reset failed for {test_contact_id}: {e}")
-        finally:
-            cur.close()
-            conn.close()
-
-    test_html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Test Chat - InsuranceGrokBot</title>
-
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
-
-    <style>
-        * {{ box-sizing: border-box; }}
-        html, body {{
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background: #121212;
-            display: flex;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            overflow: hidden;
-        }}
-        .container {{
-            display: flex;
-            width: 100%;
-            height: 100%;
-        }}
-        .chat-column {{
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            background: linear-gradient(to bottom, #1e1e1e, #0a0a0a);
-        }}
-        .log-column {{
-            flex: 1;
-            padding: 40px;
-            overflow-y: auto;
-            background: #0a0a0a;
-            border-left: 1px solid #333;
-        }}
-        .iphone-frame {{
-            width: 375px;
-            height: 812px;
-            background: #000;
-            border-radius: 60px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
-            padding: 40px 12px 80px;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }}
-        .iphone-frame::before {{
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 200px;
-            height: 35px;
-            background: #000;
-            border-radius: 20px;
-            z-index: 10;
-        }}
-        .status-bar {{
-            position: absolute;
-            top: 5px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            color: #fff;
-            font-size: 12px;
-            z-index: 10;
-        }}
-        .chat-screen {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 40px 10px 10px;
-            background: #f0f0f5;
-            display: flex;
-            flex-direction: column;
-            border-radius: 30px 30px 0 0;
-            -webkit-overflow-scrolling: touch;
-        }}
-        .msg {{
-            max-width: 80%;
-            padding: 12px 18px;
-            border-radius: 20px;
-            margin-bottom: 15px;
-            word-wrap: break-word;
-            font-size: 15px;
-            line-height: 1.3;
-            align-self: flex-start;
-        }}
-        .bot-msg {{
-            background: #e5e5ea;
-            color: #000;
-            border-bottom-left-radius: 5px;
-        }}
-        .user-msg {{
-            background: #007aff;
-            color: #fff;
-            align-self: flex-end;
-            border-bottom-right-radius: 5px;
-        }}
-        .input-area {{
-            position: relative;
-            margin: 10px 10px 20px;
-            display: flex;
-            background: #f0f0f5;
-            border-radius: 25px;
-            padding: 8px 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-        #user-input {{
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 16px;
-            background: transparent;
-        }}
-        #send-btn {{
-            background: #007aff;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            margin-left: 10px;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }}
-        .chat-screen::-webkit-scrollbar {{ display: none; }}
-
-        /* Log Panel */
-        .log-panel {{
-            background: #111;
-            border-radius: 15px;
-            padding: 20px;
-            height: 812px;
-            overflow-y: auto;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        }}
-        .log-entry {{
-            margin-bottom: 30px;
-            padding: 15px;
-            background: #1a1a1a;
-            border-radius: 10px;
-        }}
-        .log-entry h4 {{
-            color: #00ff88;
-            margin-bottom: 10px;
-        }}
-        .log-entry p {{
-            font-size: 14px;
-            color: #ddd;
-            white-space: pre-wrap;
-        }}
-        .buttons {{
-            margin-top: 20px;
-            display: flex;
-            justify-content: space-around;
-        }}
-        .btn {{
-            padding: 12px 30px;
-            background: #00ff88;
-            color: #000;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }}
-        .btn:hover {{ background: #00cc70; }}
-        .btn-reset {{ background: #ff6b6b; }}
-        .btn-reset:hover {{ background: #ff4d4d; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Chat Column (iPhone Mockup) -->
-        <div class="chat-column">
-            <div class="iphone-frame">
-                <div class="status-bar">
-                    <span>9:41 AM</span>
-                    <span>📶 🔋</span>
-                </div>
-                <div id="chat-screen" class="chat-screen">
-                    <!-- Initial Bot Message -->
-                    <div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>
-                </div>
-                <div class="input-area">
-                    <input type="text" id="user-input" placeholder="Type your message..." autofocus>
-                    <button id="send-btn">↑</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Log Column -->
-        <div class="log-column">
-            <div class="log-panel">
-                <h2 style="color:#00ff88; text-align:center;">Live Log Panel</h2>
-                <div id="logs"></div>
-                <div class="buttons">
-                    <button class="btn btn-reset" onclick="resetChat()">Reset Chat</button>
-                    <button class="btn" onclick="downloadTranscript()">Download Transcript</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const TEST_CONTACT_ID = '{test_contact_id}';
-
-        const input = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const chat = document.getElementById('chat-screen');
-        const logs = document.getElementById('logs');
-
-        async function sendMessage() {{
-            const msg = input.value.trim();
-            if (!msg) return;
-
-            chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
-            input.value = '';
-            chat.scrollTop = chat.scrollHeight;
-
-            try {{
-                const res = await fetch('/webhook', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{
-                        locationId: 'TEST_LOCATION_456',
-                        contact_id: TEST_CONTACT_ID,
-                        first_name: 'Test User',
-                        message: {{ body: msg }},
-                        age: '1980-01-01',
-                        address: '123 Test St, Houston, TX'
-                    }})
-                }});
-
-                const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
-                chat.scrollTop = chat.scrollHeight;
-                fetchLogs();
-            }} catch (e) {{
-                chat.innerHTML += `<div class="msg bot-msg">Error: Try again</div>`;
-                chat.scrollTop = chat.scrollHeight;
-            }}
-        }}
-
-        function fetchLogs() {{
-            fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
-                .then(res => res.json())
-                .then(data => {{
-                    logs.innerHTML = '';
-                    data.logs.forEach(log => {{
-                        logs.innerHTML += `
-                            <div class="log-entry">
-                                <h4>[${{log.timestamp}}] ${{log.type}}</h4>
-                                <p>${{log.content.replace(/\\n/g, '<br>')}}</p>
-                            </div>
-                        `;
-                    }});
-                    logs.scrollTop = logs.scrollHeight;
-                }})
-                .catch(err => console.error('Log fetch error:', err));
-        }}
-
-        async function resetChat() {{
-            await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
-            chat.innerHTML = '<div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>';
-            logs.innerHTML = '<p style="color:#aaa;">Chat reset — logs cleared.</p>';
-            chat.scrollTop = chat.scrollHeight;
-        }}
-
-        async function downloadTranscript() {{
-            const res = await fetch(`/download-transcript?contact_id=${{TEST_CONTACT_ID}}`);
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `grokbot_test_transcript_${{TEST_CONTACT_ID}}.txt`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }}
-
-        // Enter key to send
-        input.addEventListener('keydown', e => {{
-            if (e.key === 'Enter') {{
-                e.preventDefault();
-                sendMessage();
-            }}
-        }});
-        sendBtn.addEventListener('click', sendMessage);
-
-        // Auto-refresh logs every 5 seconds
-        setInterval(fetchLogs, 5000);
-        fetchLogs();  // Initial load
     </script>
 </body>
 </html>
