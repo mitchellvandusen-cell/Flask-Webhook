@@ -599,7 +599,7 @@ def home():
             
             <!-- CTA Group — centered, spaced perfectly -->
             <div class="text-center mt-5">
-                <a href="/checkout" class="btn-primary">Subscribe Now — $100/month</a>
+                <a href="/checkout" class="btn-primary">Subscribe Now $100/mth</a>
                 <p class="mt-3">
                     <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:1.4rem;">
                         Or try the live demo first →
@@ -657,63 +657,73 @@ def home():
     <section id="comparison" class="section bg-black">
         <div class="container">
             <h2 class="section-title">Why InsuranceGrokBot Dominates Every Other Bot</h2>
-            <div class="comparison-table">
-                <div class="comparison-header">
-                    The Most Extensive Feature Comparison in Insurance AI
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Real-time reasoning with Grok</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">5 blended sales frameworks (NEPQ, Gap Selling, Straight Line, Never Split the Difference, Psychology of Selling)</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Full underwriting knowledge and health condition handling</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Persistent memory across entire conversation history</div>
-                    <div class="comparison-other">Limited</div>
-                    <div class="comparison-grok"><span class="check">✓</span> Complete</div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Never accepts "no" without proper discovery</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Only books leads with identified gaps</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Multi-tenant agency support with data isolation</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Calendar integration and availability checking</div>
-                    <div class="comparison-other">Basic</div>
-                    <div class="comparison-grok"><span class="check">✓</span> Advanced</div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Built and continuously trained by active life insurance agents</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
-                <div class="comparison-row">
-                    <div class="comparison-label">Handles complex objections with emotional intelligence</div>
-                    <div class="comparison-other"><span class="cross">✗</span></div>
-                    <div class="comparison-grok"><span class="check">✓</span></div>
-                </div>
+            
+            <div class="table-responsive">
+                <table class="comparison-table table table-borderless">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; width:50%; font-size:1.4rem;">Feature</th>
+                            <th style="text-align:center; width:25%; font-size:1.6rem; color:#ff6b6b;">Standard Bots</th>
+                            <th style="text-align:center; width:25%; font-size:1.6rem; color:var(--accent);">InsuranceGrokBot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Real-time reasoning with Grok</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">5 blended sales frameworks (NEPQ, Gap Selling, Straight Line, Never Split the Difference, Psychology of Selling)</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Full underwriting knowledge and health condition handling</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Persistent memory across entire conversation history</td>
+                            <td style="text-align:center;">Limited</td>
+                            <td style="text-align:center; color:var(--accent); font-weight:700;">Complete</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Never accepts "no" without proper discovery</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Only books leads with identified gaps</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Multi-tenant agency support with data isolation</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Calendar integration and availability checking</td>
+                            <td style="text-align:center;">Basic</td>
+                            <td style="text-align:center; color:var(--accent); font-weight:700;">Advanced</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Built and continuously trained by active life insurance agents</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:left; padding:20px 0;">Handles complex objections with emotional intelligence</td>
+                            <td style="text-align:center;"><span class="cross" style="font-size:2.5rem;">✗</span></td>
+                            <td style="text-align:center;"><span class="check" style="font-size:2.5rem;">✓</span></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
+
             <div class="text-center mt-5">
-                <p style="font-size:1.6rem; color:var(--text-secondary);">Other bots use simple scripts. GrokBot thinks like a top-producing agent.</p>
+                <p style="font-size:1.6rem; color:var(--text-secondary);">Other bots use simple scripts. InsuranceGrokBot thinks like a top-producing agent.</p>
             </div>
         </div>
     </section>
@@ -749,7 +759,7 @@ def home():
         <div class="container text-center">
             <h2 class="section-title">Simple, Transparent Pricing</h2>
             <div class="pricing-card">
-                <div class="price">$100<span style="font-size:2rem;">/month</span></div>
+                <div class="price">$100<span style="font-size:2rem;">/mth</span></div>
                 <p style="font-size:1.6rem; margin:30px 0;">Early Adopter Rate, Limited to First 100 Agents</p>
                 <ul style="text-align:left; max-width:400px; margin:30px auto; font-size:1.2rem;">
                     <li>Unlimited conversations</li>
