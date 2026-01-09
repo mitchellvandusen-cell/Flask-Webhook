@@ -886,23 +886,23 @@ def register():
 
         # Prevent duplicate registration
         if User.get(email):
-            flash("This email is already registered — please log in.", "error")
+            flash("This email is already registered, please log in.", "error")
             return redirect("/login")
 
         is_valid = False
         used_code_row = None
 
-        # === Option 1: User paid via Stripe (already has stripe_customer_id in session) ===
+        # Option 1: User paid via Stripe (already has stripe_customer_id in session)
         if current_user.is_authenticated and current_user.stripe_customer_id:
             is_valid = True
             logger.info(f"Registering via existing Stripe subscription: {email}")
 
-        # === Option 2: User installed from GHL Marketplace and has confirmation code ===
+        # Option 2: User installed from GHL Marketplace and has confirmation code
         elif code and worksheet:
             try:
                 values = worksheet.get_all_values()
                 if not values:
-                    flash("System error — please contact support", "error")
+                    flash("System error, please contact support", "error")
                     return redirect("/register")
 
                 header = values[0]
@@ -953,12 +953,12 @@ def register():
 
             except Exception as e:
                 logger.error(f"Code validation error: {e}")
-                flash("Error validating confirmation code — please try again", "error")
+                flash("Error validating confirmation code, please try again", "error")
                 return redirect("/register")
 
-        # === Final Validation ===
+        # Final Validation
         if not is_valid:
-            flash("Invalid confirmation code or no active subscription — please subscribe or use a valid code.", "error")
+            flash("Invalid confirmation code or no active subscription, please subscribe or use a valid code.", "error")
             return redirect("/register")
 
         # Create the user account
@@ -967,7 +967,7 @@ def register():
             flash("Account created successfully! Please log in.", "success")
             return redirect("/login")
         else:
-            flash("Account creation failed — please try again", "error")
+            flash("Account creation failed, please try again", "error")
 
     # GET request — show form
     return render_template_string("""
@@ -980,32 +980,39 @@ def register():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO -->
-    <meta name="description" content="Create your InsuranceGrokBot account — for GHL Marketplace installs or website subscribers.">
+    <!-- SEO (no em dash) -->
+    <meta name="description" content="Create your InsuranceGrokBot account, for GHL Marketplace installs or website subscribers.">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
-        .container { max-width:600px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
-        h1 { color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
-        .note { font-size:20px; color:#aaa; margin:30px 0; line-height:1.6; }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .container { max-width:600px; width:100%; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:4rem; text-shadow:var(--neon-glow); margin-bottom:40px; }
+        .note { font-size:1.6rem; color:#aaa; margin:30px 0; line-height:1.6; }
         .form-group { margin:30px 0; }
-        label { font-size:20px; display:block; margin-bottom:10px; color:#ddd; }
-        input { width:100%; max-width:400px; padding:18px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:18px; }
+        label { font-size:1.6rem; display:block; margin-bottom:12px; color:#ddd; }
+        input { width:100%; max-width:400px; padding:20px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:1.6rem; }
         input::placeholder { color:#888; }
-        button { padding:18px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); margin-top:20px; }
+        button { padding:20px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:1.8rem; cursor:pointer; box-shadow:var(--neon-glow); margin-top:20px; }
         button:hover { background:#00cc70; transform:scale(1.05); }
-        .flash { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:18px; }
+        .flash { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:1.4rem; }
         .flash-error { border-left:5px solid #ff6b6b; }
         .flash-success { border-left:5px solid var(--accent); }
         .links { margin-top:40px; }
-        .links a { color:var(--accent); text-decoration:underline; font-size:18px; margin:0 15px; display:block; margin-bottom:15px; }
+        .links a { color:var(--accent); text-decoration:underline; font-size:1.6rem; margin:0 15px; display:block; margin-bottom:15px; }
         .back { margin-top:60px; }
-        .back a { color:#888; font-size:18px; text-decoration:underline; }
+        .back a { color:#888; font-size:1.4rem; text-decoration:underline; }
+        @media (max-width: 576px) {
+            h1 { font-size:3rem; }
+            .note { font-size:1.4rem; }
+            label { font-size:1.4rem; }
+            input { font-size:1.4rem; padding:18px; }
+            button { font-size:1.6rem; padding:18px 50px; }
+            .flash { font-size:1.3rem; }
+        }
     </style>
 </head>
 <body>
@@ -1035,7 +1042,7 @@ def register():
 
             <div class="form-group">
                 {{ form.code.label("Confirmation Code (GHL install only)") }}
-                {{ form.code(class="form-control", placeholder="e.g. A1B2C3D4 — leave blank if subscribed here") }}
+                {{ form.code(class="form-control", placeholder="e.g. A1B2C3D4, leave blank if subscribed here") }}
             </div>
 
             <div class="form-group">
@@ -1057,7 +1064,7 @@ def register():
         </div>
 
         <div class="back">
-            <a href="/">← Back to Home</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
 </body>
@@ -1087,7 +1094,6 @@ def login():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
     <!-- SEO -->
     <meta name="description" content="Log in to your InsuranceGrokBot dashboard to manage your AI lead re-engagement bot.">
@@ -1096,22 +1102,29 @@ def login():
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
-        .container { max-width:600px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
-        h1 { color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .container { max-width:600px; width:100%; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:4rem; text-shadow:var(--neon-glow); margin-bottom:40px; }
         .form-group { margin:30px 0; }
-        label { font-size:20px; display:block; margin-bottom:10px; color:#ddd; }
-        input { width:100%; max-width:400px; padding:18px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:18px; }
+        label { font-size:1.6rem; display:block; margin-bottom:12px; color:#ddd; }
+        input { width:100%; max-width:400px; padding:20px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:1.6rem; }
         input::placeholder { color:#888; }
-        button { padding:18px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); margin-top:20px; }
+        button { padding:20px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:1.8rem; cursor:pointer; box-shadow:var(--neon-glow); margin-top:20px; }
         button:hover { background:#00cc70; transform:scale(1.05); }
-        .flash { padding:15px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:18px; }
+        .flash { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:1.4rem; }
         .flash-error { border-left:5px solid #ff6b6b; }
         .flash-success { border-left:5px solid var(--accent); }
         .links { margin-top:40px; }
-        .links a { color:var(--accent); text-decoration:underline; font-size:18px; margin:0 15px; }
+        .links a { color:var(--accent); text-decoration:underline; font-size:1.6rem; margin:0 15px; display:block; margin-bottom:15px; }
         .back { margin-top:60px; }
-        .back a { color:#888; font-size:18px; text-decoration:underline; }
+        .back a { color:#888; font-size:1.4rem; text-decoration:underline; }
+        @media (max-width: 576px) {
+            h1 { font-size:3rem; }
+            label { font-size:1.4rem; }
+            input { font-size:1.4rem; padding:18px; }
+            button { font-size:1.6rem; padding:18px 50px; }
+            .flash { font-size:1.3rem; }
+        }
     </style>
 </head>
 <body>
@@ -1147,7 +1160,7 @@ def login():
         </div>
 
         <div class="back">
-            <a href="/">← Back to Home</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
 </body>
@@ -1170,7 +1183,7 @@ def dashboard():
     # Get all values from sheet (safe)
     values = worksheet.get_all_values() if worksheet else []
     if not values:
-        headers = ["Email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id"]
+        headers = ["email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id"]
         if worksheet:
             worksheet.append_row(headers)
         values = [headers]
@@ -1187,7 +1200,7 @@ def dashboard():
             except ValueError:
                 return -1
 
-    email_idx = col_index("Email")
+    email_idx = col_index("email")
     location_idx = col_index("location_id")
     calendar_idx = col_index("calendar_id")
     api_key_idx = col_index("crm_api_key")
@@ -1241,7 +1254,6 @@ def dashboard():
         if timezone_idx >= 0 and len(row) > timezone_idx: form.timezone.data = row[timezone_idx]
         if initial_msg_idx >= 0 and len(row) > initial_msg_idx: form.initial_message.data = row[initial_msg_idx]
 
-    # Render the dashboard — HTML starts at column 0, closing parenthesis correct
     return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
@@ -1252,7 +1264,6 @@ def dashboard():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
     <!-- SEO -->
     <meta name="description" content="Manage your InsuranceGrokBot settings, configure GoHighLevel integration, and view billing.">
@@ -1263,31 +1274,41 @@ def dashboard():
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:40px; }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:40px 20px; min-height:100vh; }
         .container { max-width:900px; margin:auto; }
-        h1 { font-size:48px; text-align:center; color:var(--accent); text-shadow:0 0 15px var(--neon-glow); margin-bottom:20px; }
-        .welcome { text-align:center; font-size:22px; margin-bottom:40px; }
-        .logout { position:absolute; top:20px; right:20px; color:var(--accent); font-size:18px; text-decoration:underline; }
+        h1 { color:var(--accent); font-size:3.5rem; text-shadow:var(--neon-glow); text-align:center; margin-bottom:20px; }
+        .welcome { text-align:center; font-size:1.8rem; margin-bottom:40px; }
+        .logout { position:absolute; top:20px; right:20px; color:var(--accent); font-size:1.4rem; text-decoration:underline; }
         .nav-tabs { border-bottom:1px solid #333; margin-bottom:40px; }
-        .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:20px; padding:15px 30px; }
+        .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:1.6rem; padding:15px 30px; }
         .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
         .tab-content { margin-top:30px; }
         .form-group { margin:30px 0; }
-        label { display:block; margin-bottom:10px; font-size:18px; color:#ddd; }
-        input { width:100%; padding:16px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:17px; }
+        label { display:block; margin-bottom:10px; font-size:1.4rem; color:#ddd; }
+        input { width:100%; padding:16px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:1.4rem; }
         input::placeholder { color:#888; }
-        button { padding:18px 50px; background:var(--accent); color:#000; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); }
+        button { padding:18px 50px; background:var(--accent); color:#000; border:none; border-radius:50px; font-size:1.8rem; cursor:pointer; box-shadow:var(--neon-glow); margin-top:20px; }
         button:hover { background:#00cc70; transform:scale(1.05); }
-        .alert { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:18px; }
+        .alert { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:1.4rem; }
         .alert-success { border-left:5px solid var(--accent); }
         .alert-error { border-left:5px solid #ff6b6b; }
         .card { background:var(--card-bg); border:1px solid #333; border-radius:15px; padding:40px; margin:30px 0; box-shadow:0 10px 30px var(--neon-glow); }
-        .guide-text { color:#fff !important; }
-        .guide-text h3 { color:var(--accent); margin:40px 0 20px; }
-        .guide-text li { color:#ddd; margin:15px 0; font-size:18px; }
+        .guide-text h3 { color:var(--accent); margin:40px 0 20px; font-size:2rem; }
+        .guide-text li { color:#ddd; margin:15px 0; font-size:1.4rem; }
         code { background:#222; padding:6px 12px; border-radius:8px; color:var(--accent); font-family:monospace; }
         .back { text-align:center; margin-top:80px; }
-        .back a { color:#888; font-size:20px; text-decoration:underline; }
+        .back a { color:#888; font-size:1.6rem; text-decoration:underline; }
+        @media (max-width: 768px) {
+            h1 { font-size:2.8rem; }
+            .welcome { font-size:1.6rem; }
+            .nav-tabs .nav-link { font-size:1.4rem; padding:12px 20px; }
+            .form-group { margin:25px 0; }
+            label { font-size:1.3rem; }
+            input { font-size:1.3rem; }
+            button { font-size:1.6rem; padding:16px 40px; }
+            .alert { font-size:1.3rem; }
+            .card { padding:30px; }
+        }
     </style>
 </head>
 <body>
@@ -1341,7 +1362,7 @@ def dashboard():
 
                         <div class="form-group">
                             {{ form.crm_user_id.label }}
-                            {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C – required for calendar") }}
+                            {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C, required for calendar") }}
                         </div>
 
                         <div class="form-group">
@@ -1375,9 +1396,9 @@ def dashboard():
                     <div style="text-align:left;">
                         <h3 style="color:var(--accent);">Step 1: Create "Re-engage Leads" Workflow</h3>
                         <ol>
-                            <li>Go to <strong>Automations → Workflows → Create Workflow</strong></li>
+                            <li>Go to <strong>Automations, Workflows, Create Workflow</strong></li>
                             <li><strong>Trigger</strong>: Tag Applied (create a tag like "Re-engage text")</li>
-                            <li>Add <strong>Wait</strong>: 5–30 minutes</li>
+                            <li>Add <strong>Wait</strong>: 5 to 30 minutes</li>
                             <li>Add <strong>Webhook</strong>:
                                 <ul>
                                     <li>URL: <code>https://insurancegrokbot.click/webhook</code></li>
@@ -1394,8 +1415,8 @@ def dashboard():
                                     </li>
                                 </ul>
                             </li>
-                            <li>Add <strong>Condition</strong>: If appointment booked → stop workflow</li>
-                            <li>Else → Wait + same webhook → repeat</li>
+                            <li>Add <strong>Condition</strong>: If appointment booked, stop workflow</li>
+                            <li>Else, Wait + same webhook, repeat</li>
                         </ol>
 
                         <h3 style="color:var(--accent); margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
@@ -1410,11 +1431,11 @@ def dashboard():
                         <ul>
                             <li>GHL starts at <strong>100 outbound SMS/day</strong></li>
                             <li>Increases automatically when previous limit hit (250 next day, then higher)</li>
-                            <li>Check in GHL Settings → Phone Numbers</li>
+                            <li>Check in GHL Settings, Phone Numbers</li>
                         </ul>
 
                         <p style="text-align:center; margin-top:40px; font-weight:bold;">
-                            Once set up, the bot runs 24/7 — no more dead leads.
+                            Once set up, the bot runs 24/7, no more dead leads.
                         </p>
                     </div>
                     {% endraw %}
@@ -1427,19 +1448,19 @@ def dashboard():
                     <h2 style="color:var(--accent);">Billing</h2>
                     <p>Update payment method, view invoices, or cancel subscription</p>
                     <form method="post" action="/create-portal-session">
-                        <button type="submit">Manage Billing on Stripe →</button>
+                        <button type="submit">Manage Billing on Stripe</button>
                     </form>
                 </div>
             </div>
         </div>
 
         <div class="back">
-            <a href="/">← Back to Home</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
 </body>
 </html>
-""", form=form)
+    """, form=form)
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
@@ -1447,7 +1468,7 @@ def create_portal_session():
     try:
         # Get stripe_customer_id from current logged-in user
         if not current_user.stripe_customer_id:
-            flash("No subscription found — subscribe first", "error")
+            flash("No subscription found! Please subscribe first", "error")
             return redirect("/dashboard")
 
         session = stripe.billing_portal.Session.create(
@@ -1477,24 +1498,22 @@ def demo_chat():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Demo - InsuranceGrokBot</title>
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
 
-    <!-- SEO -->
-    <meta name="description" content="Try a live demo of InsuranceGrokBot — the AI that re-engages cold life insurance leads.">
+    <!-- SEO (no em dash) -->
+    <meta name="description" content="Try a live demo of InsuranceGrokBot, the AI that re-engages cold life insurance leads.">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
-        * {{ box-sizing: border-box; }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         html, body {{
             height: 100%;
-            margin: 0;
-            padding: 0;
             background: var(--dark-bg);
             display: flex;
             justify-content: center;
@@ -1502,59 +1521,62 @@ def demo_chat():
             font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
         }}
-        .iphone-frame {{
-            width: 375px;
-            height: 812px;
+        .phone-container {{
+            width: 100vw;
+            height: 100vh;
+            max-width: 420px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }}
+        .phone-frame {{
+            flex: 1;
             background: #000;
-            border-radius: 60px;
+            border-radius: 40px;
             box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
-            padding: 40px 12px 80px;
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }}
-        .iphone-frame::before {{
-            content: '';
+        .notch {{
             position: absolute;
-            top: 20px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            width: 200px;
-            height: 35px;
+            width: 180px;
+            height: 34px;
             background: #000;
             border-radius: 20px;
             z-index: 10;
         }}
         .status-bar {{
             position: absolute;
-            top: 5px;
+            top: 15px;
             left: 20px;
             right: 20px;
             display: flex;
             justify-content: space-between;
             color: #fff;
-            font-size: 12px;
-            z-index: 10;
+            font-size: 14px;
+            z-index: 11;
         }}
-        .chat-screen {{
+        .chat-area {{
             flex: 1;
-            overflow-y: auto;
             padding: 60px 20px 20px;
-            background: #111;
+            overflow-y: auto;
+            background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
             display: flex;
             flex-direction: column;
-            border-radius: 30px 30px 0 0;
-            -webkit-overflow-scrolling: touch;
         }}
         .msg {{
             max-width: 80%;
-            padding: 14px 20px;
+            padding: 16px 22px;
             border-radius: 22px;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
             word-wrap: break-word;
-            font-size: 16px;
-            line-height: 1.4;
+            font-size: 18px;
+            line-height: 1.5;
             align-self: flex-start;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }}
@@ -1571,20 +1593,20 @@ def demo_chat():
             font-weight: 600;
         }}
         .input-area {{
-            padding: 12px 20px 30px;
+            padding: 20px 25px 40px;
             background: #111;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 20px;
         }}
         #user-input {{
             flex: 1;
             background: #222;
             border: none;
-            border-radius: 25px;
-            padding: 16px 20px;
+            border-radius: 30px;
+            padding: 20px 28px;
             color: #fff;
-            font-size: 17px;
+            font-size: 19px;
             outline: none;
         }}
         #user-input::placeholder {{ color: #888; }}
@@ -1593,33 +1615,43 @@ def demo_chat():
             color: #000;
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 20px;
+            width: 64px;
+            height: 64px;
+            font-size: 28px;
             font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 15px var(--neon-glow);
+            box-shadow: 0 6px 20px var(--neon-glow);
         }}
-        .chat-screen::-webkit-scrollbar {{ display: none; }}
+        .chat-area::-webkit-scrollbar {{ display: none; }}
+
+        /* Larger elements on mobile */
+        @media (max-width: 480px) {{
+            .msg {{ font-size: 19px; padding: 18px 24px; }}
+            #user-input {{ font-size: 20px; padding: 22px 30px; }}
+            #send-btn {{ width: 70px; height: 70px; font-size: 32px; }}
+        }}
     </style>
 </head>
 <body>
-    <div class="iphone-frame">
-        <div class="status-bar">
-            <span>9:41 AM</span>
-            <span>●●● ●●● 100%</span>
-        </div>
-        <div id="chat-screen" class="chat-screen">
-            <div class="msg bot-msg">
-                Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
-                A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
+    <div class="phone-container">
+        <div class="phone-frame">
+            <div class="notch"></div>
+            <div class="status-bar">
+                <span>9:41 AM</span>
+                <span>Signal • Battery</span>
             </div>
-        </div>
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
-            <button id="send-btn">↑</button>
+            <div class="chat-area" id="chat-screen">
+                <div class="msg bot-msg">
+                    Hey! Quick question, are you still with that life insurance plan you mentioned before?<br><br>
+                    A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
+                </div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
+                <button id="send-btn">↑</button>
+            </div>
         </div>
     </div>
 
@@ -1651,9 +1683,9 @@ def demo_chat():
                 }});
 
                 const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Got it — thinking...'}}</div>`;
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Got it, thinking...'}}</div>`;
             }} catch (e) {{
-                chat.innerHTML += `<div class="msg bot-msg">Connection issue — try again?</div>`;
+                chat.innerHTML += `<div class="msg bot-msg">Connection issue, try again?</div>`;
             }}
             chat.scrollTop = chat.scrollHeight;
         }}
@@ -1683,34 +1715,37 @@ def terms():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terms and Conditions - InsuranceGrokBot</title>
 
-    <!-- Favicon (pure code — no files needed) -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO -->
-    <meta name="description" content="Official Terms and Conditions for InsuranceGrokBot — AI-powered lead re-engagement for life insurance agents.">
+    <!-- SEO (no em dash) -->
+    <meta name="description" content="Official Terms and Conditions for InsuranceGrokBot, AI-powered lead re-engagement for life insurance agents.">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; line-height:1.8; }
-        .container { max-width:900px; margin:auto; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
-        h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
-        h2 { color:var(--accent); font-size:32px; margin:40px 0 20px; }
-        p { font-size:18px; margin:20px 0; color:#ddd; }
-        ul { padding-left:30px; margin:20px 0; }
-        li { margin:15px 0; font-size:18px; color:#ddd; }
-        a { color:var(--accent); text-decoration:underline; }
-        .back { text-align:center; margin-top:60px; font-size:20px; }
-        .back a { color:#888; text-decoration:underline; }
-        code { background:#111; padding:4px 8px; border-radius:6px; color:var(--accent); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px 20px; min-height:100vh; }
+        .container { max-width:900px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:4rem; text-shadow:var(--neon-glow); text-align:center; margin-bottom:40px; }
+        h2 { color:var(--accent); font-size:2.5rem; margin:50px 0 25px; }
+        p { font-size:1.4rem; margin:20px 0; color:#ddd; line-height:1.8; }
+        ul { padding-left:40px; margin:30px 0; }
+        li { font-size:1.4rem; margin:20px 0; color:#ddd; line-height:1.6; }
+        .back { text-align:center; margin-top:80px; }
+        .back a { color:#888; font-size:1.6rem; text-decoration:underline; }
+        @media (max-width: 768px) {
+            h1 { font-size:3rem; }
+            h2 { font-size:2.2rem; }
+            p, li { font-size:1.3rem; }
+            .container { padding:40px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Terms and Conditions</h1>
-        <p style="text-align:center; color:#aaa; margin-bottom:60px;">Last updated: January 08, 2026</p>
+        <p style="text-align:center; color:#aaa; margin-bottom:60px;">Last updated: January 09, 2026</p>
 
         <h2>1. Agreement to Terms</h2>
         <p>By using InsuranceGrokBot, you agree to these Terms and Conditions. If you do not agree, you may not use the service.</p>
@@ -1719,7 +1754,7 @@ def terms():
         <p>InsuranceGrokBot is an AI-powered SMS assistant for life insurance agents using GoHighLevel. It re-engages cold leads, conducts discovery, handles objections, and books appointments into your calendar.</p>
         <p>The service is provided on a subscription basis. You are responsible for compliance with all applicable laws (TCPA, CAN-SPAM, insurance regulations).</p>
 
-        <h2>3. Subscription & Payment</h2>
+        <h2>3. Subscription and Payment</h2>
         <p>Subscription is $100/month, billed via Stripe. You may cancel anytime. No refunds for partial months.</p>
 
         <h2>4. Account Responsibility</h2>
@@ -1750,7 +1785,7 @@ def terms():
         <p>For questions about these terms, contact support via the dashboard or email.</p>
 
         <div class="back">
-            <a href="/">← Back to Home</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
 </body>
@@ -1785,12 +1820,12 @@ def test_page():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- FIXED VIEWPORT — this solves the zoom issue -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Chat - InsuranceGrokBot</title>
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -1803,37 +1838,28 @@ def test_page():
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
         }}
+        /* Mobile-first: Full screen phone on small devices */
         .phone-container {{
-            position: relative;
-            width: 390px;
-            max-width: 95vw;
-            aspect-ratio: 9 / 19.5;
-            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+            width: 100vw;
+            height: 100vh;
+            max-width: 420px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
         }}
         .phone-frame {{
-            width: 100%;
-            height: 100%;
+            flex: 1;
             background: #000;
-            border-radius: 60px;
-            padding: 12px;
+            border-radius: 40px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
             position: relative;
-            box-shadow: 
-                inset 0 0 20px rgba(255,255,255,0.05),
-                0 0 60px rgba(0, 255, 136, 0.3);
-        }}
-        .screen {{
-            width: 100%;
-            height: 100%;
-            background: #111;
-            border-radius: 48px;
             overflow: hidden;
-            position: relative;
             display: flex;
             flex-direction: column;
         }}
         .notch {{
             position: absolute;
-            top: 8px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
             width: 180px;
@@ -1844,22 +1870,22 @@ def test_page():
         }}
         .status-bar {{
             position: absolute;
-            top: 12px;
+            top: 15px;
             left: 20px;
             right: 20px;
             display: flex;
             justify-content: space-between;
             color: #fff;
-            font-size: 13px;
+            font-size: 14px;
             z-index: 11;
         }}
         .chat-area {{
             flex: 1;
             padding: 60px 20px 20px;
             overflow-y: auto;
+            background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
             display: flex;
             flex-direction: column;
-            background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
         }}
         .msg {{
             max-width: 80%;
@@ -1867,7 +1893,7 @@ def test_page():
             border-radius: 22px;
             margin-bottom: 16px;
             word-wrap: break-word;
-            font-size: 16px;
+            font-size: 17px;
             line-height: 1.4;
             align-self: flex-start;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
@@ -1885,20 +1911,20 @@ def test_page():
             font-weight: 600;
         }}
         .input-area {{
-            padding: 12px 20px 30px;
+            padding: 15px 20px 30px;
             background: #111;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
         }}
         #user-input {{
             flex: 1;
             background: #222;
             border: none;
             border-radius: 25px;
-            padding: 16px 20px;
+            padding: 18px 25px;
             color: #fff;
-            font-size: 17px;
+            font-size: 18px;
             outline: none;
         }}
         #user-input::placeholder {{ color: #888; }}
@@ -1907,58 +1933,86 @@ def test_page():
             color: #000;
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 20px;
+            width: 56px;
+            height: 56px;
+            font-size: 24px;
             font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 15px rgba(0, 255, 136, 0.6);
         }}
-        .log-panel {{
-            background: #111;
-            border-radius: 15px;
-            padding: 20px;
-            height: 812px;
-            overflow-y: auto;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-            margin-left: 40px;
+
+        /* Desktop: Side-by-side with log panel */
+        @media (min-width: 768px) {{
+            .container {{
+                display: flex;
+                width: 100%;
+                height: 100%;
+            }}
+            .chat-column {{
+                flex: 1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 40px;
+            }}
+            .log-column {{
+                flex: 1;
+                padding: 40px;
+                background: #0a0a0a;
+                border-left: 1px solid #333;
+            }}
+            .log-panel {{
+                background: #111;
+                border-radius: 15px;
+                padding: 30px;
+                height: 100%;
+                overflow-y: auto;
+                box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            }}
         }}
-        .chat-area::-webkit-scrollbar, .log-panel::-webkit-scrollbar {{ display: none; }}
-        .chat-area, .log-panel {{ -ms-overflow-style: none; scrollbar-width: none; }}
+
+        /* Hide log panel on mobile */
+        @media (max-width: 767px) {{
+            .log-column {{ display: none; }}
+        }}
     </style>
 </head>
 <body>
-    <div class="phone-container">
-        <div class="phone-frame">
-            <div class="screen">
-                <div class="notch"></div>
-                <div class="status-bar">
-                    <span>9:41</span>
-                    <span>●●● ●●● 100%</span>
-                </div>
-                <div class="chat-area" id="chat-screen">
-                    <div class="msg bot-msg">
-                        Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
-                        A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
+    <div class="container">
+        <div class="chat-column">
+            <div class="phone-container">
+                <div class="phone-frame">
+                    <div class="notch"></div>
+                    <div class="status-bar">
+                        <span>11:55</span>
+                        <span>Signal • Battery</span>
                     </div>
-                </div>
-                <div class="input-area">
-                    <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
-                    <button id="send-btn">↑</button>
+                    <div class="chat-area" id="chat-screen">
+                        <div class="msg bot-msg">
+                            Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
+                            A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
+                        </div>
+                    </div>
+                    <div class="input-area">
+                        <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
+                        <button id="send-btn">↑</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Log Panel (right side on desktop) -->
-    <div class="log-panel">
-        <h2 style="color:#00ff88; text-align:center; margin-bottom:20px;">Live Log Panel</h2>
-        <div id="logs"></div>
-        <div style="margin-top:30px; text-align:center;">
-            <button style="padding:12px 30px; background:#ff6b6b; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:16px;" onclick="resetChat()">Reset Chat</button>
-            <button style="padding:12px 30px; background:#00ff88; color:#000; border:none; border-radius:8px; cursor:pointer; font-size:16px; margin-left:20px;" onclick="downloadTranscript()">Download Transcript</button>
+        <!-- Log Panel (desktop only) -->
+        <div class="log-column">
+            <div class="log-panel">
+                <h2 style="color:#00ff88; text-align:center;">Live Log Panel</h2>
+                <div id="logs"></div>
+                <div style="margin-top:40px; text-align:center;">
+                    <button style="padding:14px 32px; background:#ff6b6b; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:18px;" onclick="resetChat()">Reset Chat</button>
+                    <button style="padding:14px 32px; background:#00ff88; color:#000; border:none; border-radius:8px; cursor:pointer; font-size:18px; margin-left:20px;" onclick="downloadTranscript()">Download Transcript</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2009,21 +2063,20 @@ def test_page():
                     logs.innerHTML = '';
                     data.logs.forEach(log => {{
                         logs.innerHTML += `
-                            <div style="margin-bottom:25px; padding:15px; background:#1a1a1a; border-radius:12px;">
-                                <h4 style="color:#00ff88; margin-bottom:8px;">[${{log.timestamp}}] ${{log.type}}</h4>
-                                <p style="white-space: pre-wrap; color:#ddd;">${{log.content.replace(/\\n/g, '<br>')}}</p>
+                            <div style="margin-bottom:30px; padding:18px; background:#1a1a1a; border-radius:12px;">
+                                <h4 style="color:#00ff88; margin-bottom:10px;">[${{log.timestamp}}] ${{log.type}}</h4>
+                                <p style="white-space: pre-wrap; color:#ddd; font-size:16px;">${{log.content.replace(/\\n/g, '<br>')}}</p>
                             </div>
                         `;
                     }});
                     logs.scrollTop = logs.scrollHeight;
-                }})
-                .catch(err => console.error('Log fetch error:', err));
+                }});
         }}
 
         async function resetChat() {{
             await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
             chat.innerHTML = '<div class="msg bot-msg">Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you\'re still alive, and I wanted to make sure yours has that.</div>';
-            logs.innerHTML = '<p style="color:#aaa; text-align:center; padding:20px;">Chat reset — logs cleared.</p>';
+            logs.innerHTML = '<p style="color:#aaa; text-align:center; padding:40px;">Chat reset — logs cleared.</p>';
             chat.scrollTop = chat.scrollHeight;
         }}
 
@@ -2309,30 +2362,90 @@ def checkout():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO -->
-    <meta name="description" content="Payment error — please try again or contact support.">
+    <!-- SEO (no em dash) -->
+    <meta name="description" content="Payment error, please try again or contact support.">
     <meta name="theme-color" content="#ff6b6b">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --accent: #00ff88; --error: #ff6b6b; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(255, 107, 107, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
-        .container { max-width:700px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
-        h1 { color:var(--error); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
-        p { font-size:24px; margin:30px 0; color:#ddd; }
-        .btn { display:inline-block; padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
-               box-shadow:0 5px 20px rgba(0, 255, 136, 0.5); margin:30px 0; font-size:24px; text-decoration:none; transition:0.3s; }
-        .btn:hover { transform:scale(1.05); background:#00cc70; }
-        .back { color:#888; font-size:20px; text-decoration:underline; margin-top:40px; display:block; }
+        :root { 
+            --accent: #00ff88; 
+            --error: #ff6b6b; 
+            --dark-bg: #000; 
+            --card-bg: #0a0a0a; 
+            --neon-glow: rgba(255, 107, 107, 0.5); 
+        }
+        body { 
+            background:var(--dark-bg); 
+            color:#fff; 
+            font-family:'Montserrat',sans-serif; 
+            text-align:center; 
+            padding:60px 20px; 
+            min-height:100vh; 
+            display:flex; 
+            align-items:center; 
+            justify-content:center; 
+        }
+        .container { 
+            max-width:700px; 
+            width:100%; 
+            background:var(--card-bg); 
+            padding:60px; 
+            border-radius:20px; 
+            border:1px solid #333; 
+            box-shadow:0 10px 30px var(--neon-glow); 
+        }
+        h1 { 
+            color:var(--error); 
+            font-size:4rem; 
+            text-shadow:0 0 20px var(--neon-glow); 
+            margin-bottom:40px; 
+        }
+        p { 
+            font-size:1.6rem; 
+            margin:30px 0; 
+            color:#ddd; 
+            line-height:1.6; 
+        }
+        .btn { 
+            display:block; 
+            width:fit-content; 
+            margin:30px auto; 
+            padding:18px 60px; 
+            background:var(--accent); 
+            color:#000; 
+            font-weight:700; 
+            border-radius:50px; 
+            box-shadow:0 5px 20px rgba(0, 255, 136, 0.5); 
+            font-size:1.6rem; 
+            text-decoration:none; 
+            transition:0.3s; 
+        }
+        .btn:hover { 
+            transform:scale(1.05); 
+            background:#00cc70; 
+        }
+        .back { 
+            margin-top:40px; 
+        }
+        .back a { 
+            color:#888; 
+            font-size:1.4rem; 
+            text-decoration:underline; 
+        }
+        @media (max-width: 576px) {
+            h1 { font-size:3rem; }
+            p { font-size:1.4rem; }
+            .btn { font-size:1.4rem; padding:16px 50px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Payment Error</h1>
         <p>Something went wrong while starting checkout.</p>
-        <p>Please try again — your card has not been charged.</p>
+        <p>Please try again, your card has not been charged.</p>
         <a href="/" class="btn">Back to Home</a>
         <a href="/checkout" class="btn">Try Checkout Again</a>
         <div class="back">
@@ -2353,34 +2466,41 @@ def cancel():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout Canceled - InsuranceGrokBot</title>
 
-    <!-- Favicon (pure code — no files needed) -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO -->
-    <meta name="description" content="Checkout canceled — no worries. Come back anytime to subscribe to InsuranceGrokBot.">
+    <!-- SEO (no em dash) -->
+    <meta name="description" content="Checkout canceled, no worries. Come back anytime to subscribe to InsuranceGrokBot.">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px; }
-        .container { max-width:700px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
-        h1 { color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }
-        p { font-size:24px; margin:30px 0; color:#ddd; }
-        .btn { display:inline-block; padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
-               box-shadow:0 5px 20px var(--neon-glow); margin:30px 0; font-size:24px; text-decoration:none; transition:0.3s; }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+        .container { max-width:700px; width:100%; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); font-size:4rem; text-shadow:var(--neon-glow); margin-bottom:40px; }
+        p { font-size:1.6rem; margin:30px 0; color:#ddd; line-height:1.6; }
+        .btn { display:block; width:fit-content; margin:40px auto 20px; padding:18px 60px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
+               box-shadow:var(--neon-glow); font-size:1.6rem; text-decoration:none; transition:0.3s; }
         .btn:hover { transform:scale(1.05); background:#00cc70; }
-        .back { color:#888; font-size:20px; text-decoration:underline; margin-top:40px; display:block; }
+        .back { margin-top:20px; }
+        .back a { color:#888; font-size:1.4rem; text-decoration:underline; }
+        @media (max-width: 576px) {
+            h1 { font-size:3rem; }
+            p { font-size:1.4rem; }
+            .btn { font-size:1.4rem; padding:16px 50px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Checkout Canceled</h1>
-        <p>No worries at all — your card wasn't charged.</p>
+        <p>No worries at all, your card wasn't charged.</p>
         <p>Come back anytime when you're ready to start re-engaging those old leads.</p>
         <a href="/" class="btn">Back to Home</a>
-        <a href="/getting-started" class="back">Or see the Getting Started guide</a>
+        <div class="back">
+            <a href="/getting-started">Or see the Getting Started guide</a>
+        </div>
     </div>
 </body>
 </html>
@@ -2413,49 +2533,53 @@ def success():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO -->
+    <!-- SEO (no em dash) -->
     <meta name="description" content="Set your password to access InsuranceGrokBot dashboard.">
     <meta name="theme-color" content="#00ff88">
 
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
-        body {{ background:var(--dark-bg); color:#fff; font-family:'Montserrat',Arial,sans-serif; text-align:center; padding:100px; }}
-        h1 {{ color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); margin-bottom:40px; }}
-        .container {{ max-width:600px; margin:auto; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }}
-        p {{ font-size:22px; margin:20px 0; }}
+        body {{ background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; min-height:100vh; display:flex; align-items:center; justify-content:center; }}
+        .container {{ max-width:600px; width:100%; background:var(--card-bg); padding:50px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }}
+        h1 {{ color:var(--accent); font-size:3.5rem; text-shadow:var(--neon-glow); margin-bottom:40px; }}
+        p {{ font-size:1.6rem; margin:20px 0; }}
         input {{ width:100%; max-width:400px; padding:18px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:18px; margin:15px 0; }}
-        button {{ padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:22px; cursor:pointer; box-shadow:0 5px 20px var(--neon-glow); }}
+        input::placeholder {{ color:#888; }}
+        button {{ padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; font-size:1.6rem; cursor:pointer; box-shadow:var(--neon-glow); margin-top:20px; }}
         button:hover {{ background:#00cc70; transform:scale(1.05); }}
         .back {{ margin-top:40px; }}
-        .back a {{ color:#888; text-decoration:underline; font-size:18px; }}
+        .back a {{ color:#888; font-size:1.3rem; text-decoration:underline; }}
+        @media (max-width: 576px) {{
+            h1 {{ font-size:2.8rem; }}
+            p {{ font-size:1.4rem; }}
+            button {{ font-size:1.4rem; padding:16px 40px; }}
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Almost Done!</h1>
         <p>Set a password for your account:</p>
-        <p style="font-weight:bold; font-size:24px; color:var(--accent);">{email}</p>
+        <p style="font-weight:bold; font-size:1.8rem; color:var(--accent); margin:30px 0;">{email}</p>
 
         <form action="/set-password" method="post">
             <input type="hidden" name="email" value="{email}">
             <input type="password" name="password" placeholder="Choose a password" required>
-            <br>
             <input type="password" name="confirm" placeholder="Confirm password" required>
-            <br>
             <button type="submit">Set Password & Log In</button>
         </form>
 
         <div class="back">
-            <a href="/">← Back to Home</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
 </body>
 </html>
             """)
 
-    # Existing user or no email — generic success
+    # Generic success (existing user or no email)
     return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
@@ -2466,23 +2590,28 @@ def success():
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO -->
-    <meta name="description" content="Thank you for subscribing to InsuranceGrokBot — your AI lead re-engagement tool.">
+    <!-- SEO (no em dash) -->
+    <meta name="description" content="Thank you for subscribing to InsuranceGrokBot, your AI lead re-engagement tool.">
     <meta name="theme-color" content="#00ff88">
 
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
-        body {{ background:var(--dark-bg); color:#fff; font-family:'Montserrat',Arial,sans-serif; text-align:center; padding:100px; }}
-        h1 {{ color:var(--accent); font-size:56px; text-shadow:0 0 20px var(--neon-glow); margin-bottom:40px; }}
-        .container {{ max-width:700px; margin:auto; }}
-        p {{ font-size:24px; margin:30px 0; }}
+        body {{ background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; min-height:100vh; display:flex; align-items:center; justify-content:center; }}
+        .container {{ max-width:700px; width:100%; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 15px 40px var(--neon-glow); }}
+        h1 {{ color:var(--accent); font-size:4rem; text-shadow:var(--neon-glow); margin-bottom:40px; }}
+        p {{ font-size:1.6rem; margin:30px 0; color:#ddd; }}
         .btn {{ display:inline-block; padding:18px 50px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
-               box-shadow:0 5px 20px var(--neon-glow); margin:20px; font-size:24px; text-decoration:none; transition:0.3s; }}
+               box-shadow:var(--neon-glow); margin:20px; font-size:1.6rem; text-decoration:none; transition:0.3s; }}
         .btn:hover {{ transform:scale(1.05); background:#00cc70; }}
         .back {{ margin-top:60px; }}
-        .back a {{ color:#888; font-size:20px; text-decoration:underline; }}
+        .back a {{ color:#888; font-size:1.4rem; text-decoration:underline; }}
+        @media (max-width: 576px) {{
+            h1 {{ font-size:3rem; }}
+            p {{ font-size:1.4rem; }}
+            .btn {{ font-size:1.4rem; padding:16px 40px; }}
+        }}
     </style>
 </head>
 <body>
@@ -2495,7 +2624,7 @@ def success():
         <a href="/login" class="btn">Log In</a>
 
         <div class="back">
-            <a href="/">← Back to Home</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
 </body>
@@ -2537,7 +2666,7 @@ def refresh_subscribers():
     
 @app.route("/oauth/callback")
 def oauth_callback():
-    import uuid  # ← Add at top of file if not already there
+    import uuid  # Add at top of file if not already there
 
     # Capture all params GHL sends on Marketplace install
     location_id = request.args.get("locationId")
@@ -2551,7 +2680,7 @@ def oauth_callback():
     # Generate a unique confirmation code for this install
     confirmation_code = str(uuid.uuid4())[:8].upper()  # e.g. A1B2C3D4
 
-    # === AUTO-SAVE TO GOOGLE SHEET (Only on real installs) ===
+    # AUTO-SAVE TO GOOGLE SHEET (Only on real installs)
     if worksheet:
         try:
             values = worksheet.get_all_values()
@@ -2560,9 +2689,9 @@ def oauth_callback():
 
             # Expected headers (in order) — ADD confirmation_code and code_used
             expected_headers = [
-                "Email", "location_id", "calendar_id", "crm_api_key",
+                "email", "location_id", "calendar_id", "crm_api_key",
                 "crm_user_id", "bot_first_name", "timezone", "initial_message",
-                "confirmation_code", "code_used"  # ← NEW
+                "confirmation_code", "code_used"
             ]
 
             # Create headers if missing or incomplete
@@ -2621,7 +2750,7 @@ def oauth_callback():
         except Exception as e:
             logger.error(f"Sheet auto-save failed: {e}")
 
-    # === Success Page — Show Confirmation Code ===
+    # Success Page — Show Confirmation Code
     success_html = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -2630,15 +2759,11 @@ def oauth_callback():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Install Complete - InsuranceGrokBot</title>
 
-    <!-- Favicon (pure code — no files needed) -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO & Social Sharing -->
+    <!-- SEO -->
     <meta name="description" content="InsuranceGrokBot successfully installed via GoHighLevel Marketplace. Create your account using your confirmation code.">
-    <meta property="og:title" content="InsuranceGrokBot Installed Successfully">
-    <meta property="og:description" content="Your AI lead re-engagement bot is now connected and ready.">
-    <meta property="og:url" content="https://insurancegrokbot.click/oauth/callback">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -2654,23 +2779,29 @@ def oauth_callback():
         .btn {{ display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; text-decoration: none; border-radius: 50px; box-shadow: 0 5px 15px var(--neon-glow); transition: 0.3s; margin: 20px; font-size: 20px; }}
         .btn:hover {{ transform: scale(1.05); box-shadow: 0 10px 25px var(--neon-glow); }}
         .back-link {{ color: #aaa; font-size: 18px; text-decoration: underline; }}
+        @media (max-width: 576px) {{
+            body {{ padding: 40px 20px; }}
+            h1 {{ font-size: 36px; }}
+            .code-box {{ font-size: 28px; letter-spacing: 6px; }}
+            .btn {{ padding: 14px 36px; font-size: 18px; }}
+        }}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
+        <h1>InsuranceGrokBot Installed Successfully!</h1>
         <div class="info">
             <p><strong>Location ID:</strong> {location_id or 'Not provided'}</p>
             <p><strong>User ID:</strong> {user_id or 'Not provided'}</p>
             <p><strong>API Key:</strong> {'Captured & Saved' if api_key else 'Not provided'}</p>
             <p><strong>Calendar ID:</strong> {calendar_id or 'Not provided'}</p>
         </div>
-        <p>Your bot is now <strong>automatically configured</strong>!</p>
+        <p>Your bot is now automatically configured!</p>
         <p>To finish setup and create your login:</p>
         <div class="code-box">{confirmation_code}</div>
         <p>Copy this code and go to our website to register your account.</p>
         <a href="/register" class="btn">Register Your Account Now</a>
-        <p style="margin-top:40px;"><a href="/" class="back-link">← Back to Home</a></p>
+        <p style="margin-top:40px;"><a href="/" class="back-link">Back to Home</a></p>
     </div>
 </body>
 </html>
@@ -2684,208 +2815,303 @@ def getting_started():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- FIXED VIEWPORT — essential for mobile -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Getting Started - InsuranceGrokBot</title>
 
-    <!-- Favicon (pure code — no files needed) -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
-    <!-- SEO & Social Sharing -->
+    <!-- SEO -->
     <meta name="description" content="Step-by-step guide to set up InsuranceGrokBot — the AI that re-engages your cold life insurance leads 24/7.">
-    <meta property="og:title" content="Getting Started with InsuranceGrokBot">
-    <meta property="og:description" content="Easy setup for agents using GoHighLevel or subscribing directly.">
-    <meta property="og:url" content="https://insurancegrokbot.click/getting-started">
     <meta name="theme-color" content="#00ff88">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; }
-        h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
-        .container { max-width:900px; margin:auto; }
-        .nav-tabs { border-bottom:1px solid #333; margin-bottom:60px; }
-        .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:24px; padding:15px 40px; }
-        .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
-        .tab-pane { text-align:left; font-size:20px; line-height:1.6; }
-        .step { margin:40px 0; }
-        .step-number { font-size:50px; font-weight:bold; color:var(--accent); text-shadow:0 0 10px var(--neon-glow); margin-bottom:15px; }
-        .step h2 { color:var(--accent); font-size:32px; margin-bottom:15px; }
-        .step p { margin:15px 0; }
-        .highlight { background:#111; padding:15px; border-radius:10px; font-family:monospace; color:#ddd; margin:20px 0; }
-        .btn { display:inline-block; padding:15px 40px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
-                box-shadow:0 5px 20px var(--neon-glow); margin:30px 0; font-size:22px; text-decoration:none; transition:0.3s; }
-        .btn:hover { transform:scale(1.05); background:#00cc70; }
-        .screenshot-note { font-style:italic; color:#aaa; margin-top:10px; font-size:18px; }
-        .back { color:#888; font-size:20px; text-decoration:underline; text-align:center; display:block; margin-top:80px; }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:40px 20px; min-height:100vh; }
+        .container { max-width:1000px; margin:auto; }
+        h1 { color:var(--accent); font-size:3.5rem; text-shadow:var(--neon-glow); text-align:center; margin-bottom:60px; }
+        .tab-buttons { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            margin-bottom: 60px; 
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .tab-btn {
+            padding: 20px;
+            background: #111;
+            color: #aaa;
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 600;
+            border-radius: 15px;
+            border: 2px solid #333;
+            transition: all 0.3s;
+        }
+        .tab-btn.active, .tab-btn:hover {
+            background: #222;
+            color: var(--accent);
+            border-color: var(--accent);
+            box-shadow: var(--neon-glow);
+        }
+        .step { 
+            background: var(--card-bg); 
+            border-radius: 20px; 
+            padding: 40px; 
+            margin:40px 0; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .step-number { 
+            font-size:4rem; 
+            font-weight:700; 
+            color:var(--accent); 
+            text-shadow:var(--neon-glow); 
+            margin-bottom:20px; 
+            text-align:center;
+        }
+        .step h2 { 
+            color:var(--accent); 
+            font-size:2rem; 
+            text-align:center; 
+            margin-bottom:25px;
+        }
+        .step p { 
+            font-size:1.3rem; 
+            line-height:1.8; 
+            margin:20px 0;
+        }
+        .highlight { 
+            background:#111; 
+            padding:20px; 
+            border-radius:12px; 
+            font-family:monospace; 
+            color:#ddd; 
+            margin:25px 0; 
+            font-size:1.1rem;
+        }
+        .btn { 
+            display:block; 
+            width: fit-content;
+            margin: 40px auto;
+            padding:18px 50px; 
+            background:var(--accent); 
+            color:#000; 
+            font-weight:700; 
+            border-radius:50px; 
+            box-shadow:var(--neon-glow); 
+            font-size:1.4rem; 
+            text-decoration:none; 
+            transition:0.3s;
+            text-align:center;
+        }
+        .btn:hover { 
+            transform:scale(1.05); 
+            background:#00cc70; 
+        }
+        .screenshot-note { 
+            font-style:italic; 
+            color:#aaa; 
+            font-size:1.1rem; 
+            margin-top:15px;
+            text-align:center;
+        }
+        .back { 
+            text-align:center; 
+            margin-top:80px; 
+            font-size:1.3rem;
+        }
+        .back a { 
+            color:#888; 
+            text-decoration:underline; 
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            h1 { font-size:2.8rem; margin-bottom:40px; }
+            .step { padding:30px; margin:30px 0; }
+            .step-number { font-size:3.5rem; }
+            .step h2 { font-size:1.8rem; }
+            .step p { font-size:1.2rem; }
+            .highlight { font-size:1rem; padding:15px; }
+            .btn { font-size:1.3rem; padding:16px 40px; }
+            .tab-btn { font-size:1.3rem; padding:18px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>How to Get Your Bot Running</h1>
-        <p style="text-align:center; font-size:24px; margin-bottom:40px;">Choose the way you got InsuranceGrokBot:</p>
+        <p style="text-align:center; font-size:1.6rem; margin-bottom:50px;">Choose your setup path:</p>
 
-        <ul class="nav nav-tabs justify-content-center">
-            <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#website">Subscribed on Website</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#marketplace">Installed from GHL Marketplace</a>
-            </li>
-        </ul>
+        <div class="tab-buttons">
+            <div class="tab-btn active" onclick="openTab(event, 'website')">Subscribed on Website</div>
+            <div class="tab-btn" onclick="openTab(event, 'marketplace')">Installed from GHL Marketplace</div>
+        </div>
 
-        <div class="tab-content">
-            <!-- From Website Tab -->
-            <div class="tab-pane active" id="website">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <h2>Subscribe to InsuranceGrokBot</h2>
-                    <p>Click the large green "Subscribe Now" button on the home page.</p>
-                    <p>You will be taken to a secure payment page to complete your $100/month subscription.</p>
-                    <p class="screenshot-note">You can cancel at any time with no questions asked.</p>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <h2>Complete Your Payment</h2>
-                    <p>Enter your card details and click "Subscribe".</p>
-                    <p>Your account will be created automatically using the email you provide.</p>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <h2>Create Your Password and Log In</h2>
-                    <p>After payment, you will be prompted to set a password.</p>
-                    <p>Once set, log in to access your personal dashboard.</p>
-                    <div style="text-align:center;">
-                        <a href="/login" class="btn">Go to Log In</a>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <h2>Connect Your GoHighLevel Account</h2>
-                    <p>In your dashboard, go to the "Configuration" tab.</p>
-                    <p>Enter the following details from your GoHighLevel account:</p>
-                    <ul>
-                        <li><strong>Location ID</strong>: Found in GHL Settings or in the browser URL when viewing your agency.</li>
-                        <li><strong>API Key</strong>: Go to Settings → API Keys → create and copy a new key.</li>
-                        <li><strong>User ID</strong>: Go to Settings → My Profile → copy the User ID.</li>
-                        <li><strong>Calendar ID</strong>: Go to Calendars → click your main calendar → copy the ID from the URL.</li>
-                        <li><strong>Bot First Name</strong>: Choose a friendly name like "Alex" or "Jordan".</li>
-                        <li><strong>Initial Message</strong>: Optional — the first message the bot sends (leave blank for default).</li>
-                    </ul>
-                    <p>Click the "Save Settings" button when finished.</p>
-                    <div style="text-align:center;">
-                        <a href="/dashboard" class="btn">Go to Dashboard (after logging in)</a>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">5</div>
-                    <h2>Create Two Workflows in GoHighLevel</h2>
-                    <p>Go to GoHighLevel → Automations → Workflows → Create New Workflow.</p>
-                    <p>Create these two workflows:</p>
-
-                    <div class="highlight">
-                        <strong>Workflow 1: Re-Engage Old Leads</strong><br>
-                        Trigger: Tag Added (create tag "Re-Engage")<br>
-                        Add Wait: 10 minutes<br>
-                        Add Webhook:<br>
-                        URL: <code>https://insurancegrokbot.click/webhook</code><br>
-                        Method: POST<br>
-                        Body Fields:<br>
-                        intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
-                    </div>
-
-                    <div class="highlight" style="margin-top:30px;">
-                        <strong>Workflow 2: Handle Incoming Texts</strong><br>
-                        Trigger: Inbound SMS (from contacts with "Re-Engage" tag)<br>
-                        Add Wait: 2 minutes<br>
-                        Add Webhook (same URL and fields as above)
-                    </div>
-
-                    <p>Apply the "Re-Engage" tag to your old leads — the bot will start texting them automatically.</p>
-                    <p class="screenshot-note">Need screenshots or a video? Just email support.</p>
-                </div>
+        <div id="website" class="tab-content">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h2>Subscribe to InsuranceGrokBot</h2>
+                <p>Click the large green "Subscribe Now" button on the home page.</p>
+                <p>You will be taken to a secure payment page to complete your $100/month subscription.</p>
+                <p class="screenshot-note">You can cancel at any time with no questions asked.</p>
             </div>
 
-            <!-- From Marketplace Tab -->
-            <div class="tab-pane" id="marketplace">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <h2>Install from GoHighLevel Marketplace</h2>
-                    <p>In GoHighLevel, open the App Marketplace (use search if needed).</p>
-                    <p>Search for "InsuranceGrokBot", click the app, then click "Install App".</p>
-                    <p>On the next screen, click "Allow & Install".</p>
-                    <p class="screenshot-note">This securely connects your GHL account to the bot.</p>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h2>Complete Your Payment</h2>
+                <p>Enter your card details and click "Subscribe".</p>
+                <p>Your account will be created automatically using the email you provide.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h2>Create Your Password and Log In</h2>
+                <p>After payment, you will be prompted to set a password.</p>
+                <p>Once set, log in to access your personal dashboard.</p>
+                <a href="/login" class="btn">Go to Log In</a>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h2>Connect Your GoHighLevel Account</h2>
+                <p>In your dashboard, go to the "Configuration" tab.</p>
+                <p>Enter the following details from your GoHighLevel account:</p>
+                <ul style="text-align:left; max-width:700px; margin:30px auto; font-size:1.3rem;">
+                    <li><strong>Location ID</strong>: Found in GHL Settings or in the browser URL when viewing your agency.</li>
+                    <li><strong>API Key</strong>: Go to Settings → API Keys → create and copy a new key.</li>
+                    <li><strong>User ID</strong>: Go to Settings → My Profile → copy the User ID.</li>
+                    <li><strong>Calendar ID</strong>: Go to Calendars → click your main calendar → copy the ID from the URL.</li>
+                    <li><strong>Bot First Name</strong>: Choose a friendly name like "Alex" or "Jordan".</li>
+                    <li><strong>Initial Message</strong>: Optional — the first message the bot sends (leave blank for default).</li>
+                </ul>
+                <p>Click the "Save Settings" button when finished.</p>
+                <a href="/dashboard" class="btn">Go to Dashboard (after logging in)</a>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h2>Create Two Workflows in GoHighLevel</h2>
+                <p>Go to GoHighLevel → Automations → Workflows → Create New Workflow.</p>
+                <p>Create these two workflows:</p>
+
+                <div class="highlight">
+                    <strong>Workflow 1: Re-Engage Old Leads</strong><br>
+                    Trigger: Tag Added (create tag "Re-Engage")<br>
+                    Add Wait: 10 minutes<br>
+                    Add Webhook:<br>
+                    URL: <code>https://insurancegrokbot.click/webhook</code><br>
+                    Method: POST<br>
+                    Body Fields:<br>
+                    intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
                 </div>
 
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <h2>Get Your Confirmation Code</h2>
-                    <p>After installation, you will see a success page with your unique confirmation code (example: A1B2C3D4).</p>
-                    <p>Copy this code — you will need it in the next step.</p>
+                <div class="highlight">
+                    <strong>Workflow 2: Handle Incoming Texts</strong><br>
+                    Trigger: Inbound SMS (from contacts with "Re-Engage" tag)<br>
+                    Add Wait: 2 minutes<br>
+                    Add Webhook (same URL and fields as above)
                 </div>
 
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <h2>Create Your Account on Our Website</h2>
-                    <p>Visit: <code>https://insurancegrokbot.click/register</code></p>
-                    <p>Enter your email, the confirmation code from step 2, and choose a password.</p>
-                    <p>Your account will be created and linked instantly.</p>
-                    <div style="text-align:center;">
-                        <a href="/register" class="btn">Go to Register Page</a>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <h2>Optional: Customize Bot Settings</h2>
-                    <p>Log in to your dashboard and go to the "Configuration" tab.</p>
-                    <p>Most settings (API key, location, etc.) were set automatically during install.</p>
-                    <p>You can change the bot's first name or initial message if you'd like.</p>
-                    <p>Click "Save Settings" when done.</p>
-                    <div style="text-align:center;">
-                        <a href="/dashboard" class="btn">Go to Dashboard (after logging in)</a>
-                    </div>
-                </div>
-
-                <div class="step">
-                    <div class="step-number">5</div>
-                    <h2>Create Two Workflows in GoHighLevel</h2>
-                    <p>Go to Automations → Workflows → Create New Workflow.</p>
-                    <p>Create these two:</p>
-
-                    <div class="highlight">
-                        <strong>Workflow 1: Re-Engage Old Leads</strong><br>
-                        Trigger: Tag Added ("Re-Engage")<br>
-                        Wait 10 minutes<br>
-                        Webhook: URL <code>https://insurancegrokbot.click/webhook</code>, POST<br>
-                        Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
-                    </div>
-
-                    <div class="highlight" style="margin-top:30px;">
-                        <strong>Workflow 2: Handle Incoming Texts</strong><br>
-                        Trigger: Inbound SMS (for "Re-Engage" tagged contacts)<br>
-                        Wait 2 minutes<br>
-                        Webhook (same as above)
-                    </div>
-
-                    <p>Apply the "Re-Engage" tag to your old leads — the bot begins working immediately.</p>
-                    <p class="screenshot-note">Need help with screenshots? Just email support.</p>
-                </div>
+                <p>Apply the "Re-Engage" tag to your old leads — the bot will start texting them automatically.</p>
+                <p class="screenshot-note">Need screenshots or a video? Just email support.</p>
             </div>
         </div>
 
-        <a href="/" class="back">← Back to Home</a>
+        <div id="marketplace" class="tab-content" style="display:none;">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h2>Install from GoHighLevel Marketplace</h2>
+                <p>In GoHighLevel, open the App Marketplace (use search if needed).</p>
+                <p>Search for "InsuranceGrokBot", click the app, then click "Install App".</p>
+                <p>On the next screen, click "Allow & Install".</p>
+                <p class="screenshot-note">This securely connects your GHL account to the bot.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <h2>Get Your Confirmation Code</h2>
+                <p>After installation, you will see a success page with your unique confirmation code (example: A1B2C3D4).</p>
+                <p>Copy this code — you will need it in the next step.</p>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <h2>Create Your Account on Our Website</h2>
+                <p>Visit: <code>https://insurancegrokbot.click/register</code></p>
+                <p>Enter your email, the confirmation code from step 2, and choose a password.</p>
+                <p>Your account will be created and linked instantly.</p>
+                <a href="/register" class="btn">Go to Register Page</a>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <h2>Optional: Customize Bot Settings</h2>
+                <p>Log in to your dashboard and go to the "Configuration" tab.</p>
+                <p>Most settings (API key, location, etc.) were set automatically during install.</p>
+                <p>You can change the bot's first name or initial message if you'd like.</p>
+                <p>Click "Save Settings" when done.</p>
+                <a href="/dashboard" class="btn">Go to Dashboard (after logging in)</a>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <h2>Create Two Workflows in GoHighLevel</h2>
+                <p>Go to Automations → Workflows → Create New Workflow.</p>
+                <p>Create these two:</p>
+
+                <div class="highlight">
+                    <strong>Workflow 1: Re-Engage Old Leads</strong><br>
+                    Trigger: Tag Added ("Re-Engage")<br>
+                    Wait 10 minutes<br>
+                    Webhook: URL <code>https://insurancegrokbot.click/webhook</code>, POST<br>
+                    Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
+                </div>
+
+                <div class="highlight">
+                    <strong>Workflow 2: Handle Incoming Texts</strong><br>
+                    Trigger: Inbound SMS (for "Re-Engage" tagged contacts)<br>
+                    Wait 2 minutes<br>
+                    Webhook (same as above)
+                </div>
+
+                <p>Apply the "Re-Engage" tag to your old leads — the bot begins working immediately.</p>
+                <p class="screenshot-note">Need help with screenshots? Just email support.</p>
+            </div>
+        </div>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
     </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            var i, tabcontent, tabbtns;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tabbtns = document.getElementsByClassName("tab-btn");
+            for (i = 0; i < tabbtns.length; i++) {
+                tabbtns[i].className = tabbtns[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+        // Default open first tab
+        document.getElementsByClassName("tab-btn")[0].click();
+    </script>
 </body>
 </html>
-"""
+    """
     return render_template_string(html)
 
 if __name__ == "__main__":
