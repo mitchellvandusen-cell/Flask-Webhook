@@ -181,7 +181,7 @@ def run_narrative_observer(contact_id: str, lead_message: str):
 
     try:
         response = client.chat.completions.create(
-            model="grok-4-1-fast=reasoning", # Or your preferred model
+            model="grok-4-1-fast-reasoning", # Or your preferred model
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3
         )
