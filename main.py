@@ -1885,7 +1885,7 @@ def test_page():
         session['test_session_id'] = str(uuid.uuid4())
     test_contact_id = f"test_{session['test_session_id']}"
 
-    # On load/refresh: Reset DB for this test contact only
+    # Database Reset Logic
     conn = get_db_connection()
     if conn:
         try:
@@ -1905,229 +1905,271 @@ def test_page():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Fixed viewport for iPhone safe areas (no cut-off by URL/taskbar) -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>Test Chat - InsuranceGrokBot</title>
-
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>">
 
     <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        html, body {{
+        :root {{
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }}
+
+        * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
+        
+        body, html {{
             height: 100%;
-            margin: 0;
-            padding: 0;
-            background: #121212;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            color: white;
+        }}
+
+        /* Layout Container */
+        .main-wrapper {{
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }}
+
+        /* --- DESKTOP IPHONE FRAME --- */
+        .chat-column {{
+            flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            overflow: hidden;
-        }}
-        /* iPhone 16 Pro Max proportions (realistic) */
-        .phone-container {{
-            width: 100vw;
-            height: 100vh;
-            max-width: 430px; /* iPhone 16 Pro Max width */
-            aspect-ratio: 9 / 19.6; /* Real iPhone 16 Pro Max ratio */
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-        }}
-        .phone-frame {{
-            flex: 1;
-            background: #000;
-            border-radius: 60px; /* iPhone 16 Pro Max corner radius */
-            box-shadow: 0 40px 80px rgba(0,0,0,0.7), inset 0 0 15px rgba(255,255,255,0.05);
+            background: #121212;
             position: relative;
-            overflow: hidden;
+        }}
+
+        .phone-frame {{
+            width: 100%;
+            height: 100%;
+            background: #000;
             display: flex;
             flex-direction: column;
+            position: relative;
         }}
-        .notch {{
-            position: absolute;
-            top: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 200px;
-            height: 36px;
-            background: #000;
-            border-radius: 24px;
+
+        /* Desktop specific constraints */
+        @media (min-width: 768px) {{
+            .phone-frame {{
+                max-width: 400px;
+                height: 800px;
+                border-radius: 50px;
+                border: 8px solid #333;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                overflow: hidden;
+            }}
+            .status-bar {{ display: flex !important; }}
+            .notch {{ display: block !important; }}
+        }}
+
+        /* Status Bar (iPhone Style) */
+        .status-bar {{
+            display: none;
+            padding: 14px 24px 0;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
             z-index: 10;
         }}
-        .status-bar {{
+
+        .notch {{
+            display: none;
+            width: 160px;
+            height: 30px;
+            background: #000;
+            border-radius: 0 0 20px 20px;
             position: absolute;
-            top: 18px;
-            left: 24px;
-            right: 24px;
-            display: flex;
-            justify-content: space-between;
-            color: #fff;
-            font-size: 14px;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 11;
         }}
+
+        /* --- CHAT AREA --- */
         .chat-area {{
             flex: 1;
-            padding: 70px 24px 20px;
             overflow-y: auto;
-            background: linear-gradient(to bottom, #1a1a1a, #0f0f0f);
+            padding: 20px;
             display: flex;
             flex-direction: column;
+            gap: 12px;
+            background: #000;
+            padding-top: calc(20px + var(--safe-top));
         }}
+
         .msg {{
             max-width: 80%;
-            padding: 14px 20px;
-            border-radius: 22px;
-            margin-bottom: 16px;
-            word-wrap: break-word;
-            font-size: 17px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 16px;
             line-height: 1.4;
-            align-self: flex-start;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            word-wrap: break-word;
         }}
+
         .bot-msg {{
-            background: #222;
-            color: #fff;
-            border-bottom-left-radius: 6px;
+            background: #262626;
+            color: white;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
         }}
+
         .user-msg {{
-            background: #00ff88;
-            color: #000;
+            background: #007AFF; /* iMessage Blue */
+            color: white;
             align-self: flex-end;
-            border-bottom-right-radius: 6px;
-            font-weight: 600;
+            border-bottom-right-radius: 4px;
         }}
+
+        /* --- INPUT AREA --- */
         .input-area {{
-            padding: 15px 20px 30px;
-            background: #111;
+            background: #121212;
+            padding: 10px 15px calc(15px + var(--safe-bottom));
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
+            gap: 10px;
+            border-top: 1px solid #222;
         }}
+
         #user-input {{
             flex: 1;
-            background: #222;
-            border: none;
-            border-radius: 25px;
-            padding: 18px 25px;
-            color: #fff;
-            font-size: 18px;
+            background: #262626;
+            border: 1px solid #333;
+            border-radius: 20px;
+            padding: 10px 15px;
+            color: white;
+            font-size: 16px;
             outline: none;
         }}
-        #user-input::placeholder {{ color: #888; }}
+
         #send-btn {{
-            background: #007aff; /* iMessage blue */
+            background: #007AFF;
             border: none;
             border-radius: 50%;
-            width: 44px;
-            height: 44px;
+            width: 35px;
+            height: 35px;
             display: flex;
-            align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-            transition: background 0.2s;
-        }}
-        #send-btn:hover {{
-            background: #0066d6;
-        }}
-        #send-btn svg {{
-            width: 24px;
-            height: 24px;
-        }}
-        .chat-area::-webkit-scrollbar {{ display: none; }}
-
-        /* Desktop: Side-by-side with log panel */
-        @media (min-width: 768px) {{
-            .container {{
-                display: flex;
-                width: 100%;
-                height: 100%;
-            }}
-            .chat-column {{
-                flex: 1;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding: 40px;
-            }}
-            .log-column {{
-                flex: 1;
-                padding: 40px;
-                background: #0a0a0a;
-                border-left: 1px solid #333;
-            }}
-            .log-panel {{
-                background: #111;
-                border-radius: 15px;
-                padding: 30px;
-                height: 100%;
-                overflow-y: auto;
-                box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-            }}
+            align-items: center;
+            cursor: pointer;
+            flex-shrink: 0;
         }}
 
-        /* Hide log panel on mobile */
+        /* --- LOG PANEL (Desktop) --- */
+        .log-column {{
+            width: 450px;
+            background: #0a0a0a;
+            border-left: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }}
+
+        #logs {{
+            flex: 1;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ff88;
+        }}
+
+        /* --- MOBILE LOGS MENU --- */
+        .mobile-menu-btn {{
+            position: fixed;
+            top: calc(10px + var(--safe-top));
+            right: 15px;
+            background: rgba(40,40,40,0.8);
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            z-index: 100;
+            display: none;
+        }}
+
+        .mobile-log-overlay {{
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            padding: calc(20px + var(--safe-top)) 20px;
+        }}
+
         @media (max-width: 767px) {{
             .log-column {{ display: none; }}
+            .mobile-menu-btn {{ display: block; }}
         }}
     </style>
 </head>
 <body>
-    <div class="container">
+
+    <div class="main-wrapper">
         <div class="chat-column">
-            <div class="phone-container">
-                <div class="phone-frame">
-                    <div class="notch"></div>
-                    <div class="status-bar">
-                        <span>11:55</span>
-                        <span>Signal • Battery</span>
+            <button class="mobile-menu-btn" onclick="toggleMobileLogs()">Debug Menu</button>
+            
+            <div class="phone-frame">
+                <div class="notch"></div>
+                <div class="status-bar">
+                    <span>9:41</span>
+                    <span style="letter-spacing: 1px;">LTE 🔋</span>
+                </div>
+
+                <div class="chat-area" id="chat-screen">
+                    <div class="msg bot-msg">
+                        Hey! Quick question — are you still with that life insurance plan?
                     </div>
-                    <div class="chat-area" id="chat-screen">
-                        <div class="msg bot-msg">
-                            Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>
-                            A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.
-                        </div>
-                    </div>
-                    <div class="input-area">
-                        <input type="text" id="user-input" placeholder="Type your reply..." autofocus>
-                        <button id="send-btn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="22 2 11 13"></polyline>
-                                <polyline points="22 2 15 22 11 13 2 9 22 2"></polyline>
-                            </svg>
-                        </button>
-                    </div>
+                </div>
+
+                <div class="input-area">
+                    <input type="text" id="user-input" placeholder="iMessage" autocomplete="off">
+                    <button id="send-btn" type="button">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Log Panel (desktop only) -->
         <div class="log-column">
-            <div class="log-panel">
-                <h2 style="color:#00ff88; text-align:center;">Live Log Panel</h2>
-                <div id="logs"></div>
-                <div style="margin-top:40px; text-align:center;">
-                    <button style="padding:14px 32px; background:#ff6b6b; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:18px;" onclick="resetChat()">Reset Chat</button>
-                    <button style="padding:14px 32px; background:#00ff88; color:#000; border:none; border-radius:8px; cursor:pointer; font-size:18px; margin-left:20px;" onclick="downloadTranscript()">Download Transcript</button>
-                </div>
+            <h3 style="margin-bottom: 15px; color: #00ff88;">System Logs</h3>
+            <div id="logs"></div>
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <button onclick="resetChat()" style="flex:1; padding: 10px; border-radius: 8px; border:none; background:#ff4444; color:white;">Reset</button>
+                <button onclick="downloadTranscript()" style="flex:1; padding: 10px; border-radius: 8px; border:none; background:#007AFF; color:white;">Download</button>
             </div>
         </div>
     </div>
 
+    <div id="mobile-overlay" class="mobile-log-overlay">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+            <h2>Logs</h2>
+            <button onclick="toggleMobileLogs()" style="color: #ff4444; background: none; border: none; font-size: 18px;">Close</button>
+        </div>
+        <div id="mobile-logs" style="flex:1; overflow-y:auto; font-family: monospace; color:#00ff88;"></div>
+        <button onclick="downloadTranscript()" style="width:100%; padding:15px; margin-top:10px; background:#007AFF; border:none; color:white; border-radius:10px;">Download Logs</button>
+    </div>
+
     <script>
         const TEST_CONTACT_ID = '{test_contact_id}';
-
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
         const chat = document.getElementById('chat-screen');
-        const logs = document.getElementById('logs');
+        const logsDiv = document.getElementById('logs');
+        const mobileLogsDiv = document.getElementById('mobile-logs');
+
+        function toggleMobileLogs() {{
+            const overlay = document.getElementById('mobile-overlay');
+            overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+        }}
 
         async function sendMessage() {{
             const msg = input.value.trim();
             if (!msg) return;
 
+            // Update UI immediately
             chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
             input.value = '';
             chat.scrollTop = chat.scrollHeight;
@@ -2140,54 +2182,41 @@ def test_page():
                         locationId: 'TEST_LOCATION_456',
                         contact_id: TEST_CONTACT_ID,
                         first_name: 'Test User',
-                        message: {{ body: msg }},
-                        age: '1980-01-01',
-                        address: '123 Test St, Houston, TX'
+                        message: {{ body: msg }}
                     }})
                 }});
 
                 const data = await res.json();
-                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'Thinking...'}}</div>`;
+                chat.innerHTML += `<div class="msg bot-msg">${{data.reply || 'No response from bot.'}}</div>`;
                 chat.scrollTop = chat.scrollHeight;
                 fetchLogs();
             }} catch (e) {{
-                chat.innerHTML += `<div class="msg bot-msg">Connection error — try again</div>`;
-                chat.scrollTop = chat.scrollHeight;
+                chat.innerHTML += `<div class="msg bot-msg" style="background: #440000;">Error: Connection lost.</div>`;
             }}
         }}
 
-        
-        input.addEventListener('keydown', e => {{
-            if (e.key === 'Enter') {{
-                e.preventDefault();
-                sendMessage();
-            }}
+        // Send triggers
+        sendBtn.addEventListener('click', (e) => {{
+            e.preventDefault();
+            sendMessage();
         }});
 
-        sendBtn.addEventListener("click", sendMessage);
+        input.addEventListener('keypress', (e) => {{
+            if (e.key === 'Enter') sendMessage();
+        }});
 
         function fetchLogs() {{
             fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
                 .then(res => res.json())
                 .then(data => {{
-                    logs.innerHTML = '';
-                    data.logs.forEach(log => {{
-                        logs.innerHTML += `
-                            <div style="margin-bottom:30px; padding:18px; background:#1a1a1a; border-radius:12px;">
-                                <h4 style="color:#00ff88; margin-bottom:10px;">[${{log.timestamp}}] ${{log.type}}</h4>
-                                <p style="white-space: pre-wrap; color:#ddd; font-size:16px;">${{log.content.replace(/\\n/g, '<br>')}}</p>
-                            </div>
-                        `;
-                    }});
-                    logs.scrollTop = logs.scrollHeight;
+                    const html = data.logs.map(l => `<div style="margin-bottom:10px;">[${{l.timestamp}}] ${{l.type}}<br>${{l.content}}</div>`).join('');
+                    logsDiv.innerHTML = html;
+                    mobileLogsDiv.innerHTML = html;
                 }});
         }}
 
         async function resetChat() {{
-            await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
-            chat.innerHTML = '<div class="msg bot-msg">Hey! Quick question — are you still with that life insurance plan you mentioned before?<br><br>A lot of people have been asking about new living benefits that let you access money while you're still alive, and I wanted to make sure yours has that.</div>';
-            logs.innerHTML = '<p style="color:#aaa; text-align:center; padding:40px;">Chat reset — logs cleared.</p>';
-            chat.scrollTop = chat.scrollHeight;
+            location.reload();
         }}
 
         async function downloadTranscript() {{
@@ -2196,13 +2225,11 @@ def test_page():
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `insurancegrokbot_test_${{TEST_CONTACT_ID}}.txt`;
+            a.download = `logs_${{TEST_CONTACT_ID}}.txt`;
             a.click();
-            window.URL.revokeObjectURL(url);
         }}
 
-        setInterval(fetchLogs, 5000);
-        fetchLogs();
+        setInterval(fetchLogs, 4000);
     </script>
 </body>
 </html>
