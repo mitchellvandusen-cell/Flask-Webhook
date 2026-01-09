@@ -117,107 +117,79 @@ class ConfigForm(FlaskForm):
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    # === STEP 1: INITIAL PAYLOAD & IDENTITY ===
     payload = request.get_json(silent=True) or {}
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    # Extract from payload
-    intent = payload.get("intent") or ""
-    first_name = payload.get("first_name") or ""
-    contact_id = payload.get("contact_id") or "unknown"
-    agent_name = payload.get("agentName") or ""
-    dob_str = payload.get("age") or ""  # Note: This is DOB, not age
-    address = payload.get("address") or ""
-    lead_vendor = payload.get("lead_vendor", "")
-
-    from age import calculate_age_from_dob
-    age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
-
-    # Pre-load initial facts
-    initial_facts = []
-    if first_name:
-        initial_facts.append(f"First name: {first_name}")
-    if age and age != "unknown":
-        initial_facts.append(f"Age: {age}")
-    if address:
-        initial_facts.append(f"Address/location: {address}")
-    if intent:
-        initial_facts.append(f"Intent: {intent}")
-    if agent_name:
-        initial_facts.append(f"Agent name: {agent_name}")
-
-    if initial_facts and contact_id != "unknown":
-        save_new_facts(contact_id, initial_facts)
-        logger.info(f"Pre-loaded {len(initial_facts)} facts for {contact_id}")
-
-    # 1. Identity Lookup
+    # Extract raw data from incoming request
     location_id = payload.get("locationId")
-    if not location_id:
-        return jsonify({"status": "error", "message": "Missing locationId"}), 400
-
-    # Determine mode
     is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY')
-    is_test = (location_id == 'TEST_LOCATION_456')  # Used by /test-page
-
+    
+    # Identify the user (In demo, this is the session ID; in GHL, it's the contact ID)
+    contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
+    
     if is_demo:
-        # === DEMO MODE === (existing behavior — no DB persistence, fresh every time)
+        # Stateful Demo Mode Identity
         subscriber = {
             'bot_first_name': 'Grok',
-            'crm_api_key': 'DEMO',
+            'crm_api_key': 'DEMO', 
             'crm_user_id': '',
             'calendar_id': '',
             'timezone': 'America/Chicago',
-            'initial_message': ''  # Optional
+            'initial_message': "Hey! Quick question — are you still with that life insurance plan you mentioned before?"
         }
-        contact_id = payload.get("contact_id")
-        if not contact_id:
-            logger.warning("Demo webhook missing contact_id — rejecting")
+        if contact_id == "unknown":
             return jsonify({"status": "error", "message": "Invalid demo session"}), 400
-
-    elif is_test:
-        # === TEST MODE === (full bot capabilities, DB active, but safe/no real API)
-        subscriber = {
-            'bot_first_name': 'Grok',
-            'crm_api_key': 'DEMO',          # Prevents real SMS
-            'crm_user_id': '',
-            'calendar_id': '',
-            'timezone': 'America/Chicago',
-            'initial_message': ''
-        }
-        contact_id = payload.get("contact_id") or "unknown"
-        logger.info(f"Test mode activated for contact {contact_id}")
-
     else:
-        # === REAL PRODUCTION MODE ===
+        # Production Mode Identity
         subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
             logger.error(f"Identity not configured for location {location_id}")
             return jsonify({"status": "error", "message": "Not configured"}), 404
 
-        # NEW: Validate the API key from payload matches the stored one (security)
+        # Security: Validate API Key
         provided_api_key = payload.get("apiKey") or payload.get("api_key") or payload.get("crm_api_key")
-        stored_api_key = subscriber.get('crm_api_key')
-        if provided_api_key and stored_api_key and provided_api_key != stored_api_key:
+        if provided_api_key and subscriber.get('crm_api_key') != provided_api_key:
             logger.warning(f"API key mismatch for location {location_id}")
             return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-        contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id")
-        if not contact_id:
-            return jsonify({"status": "error", "error": "Missing contact_id"}), 400
-
+    # Set operational variables from subscriber config
     bot_first_name = subscriber['bot_first_name']
     crm_api_key = subscriber['crm_api_key']
     timezone = subscriber.get('timezone', 'America/Chicago')
     crm_user_id = subscriber['crm_user_id']
     calendar_id = subscriber['calendar_id']
 
-    # 2. Extract Message
+    # === STEP 2: METADATA & PRE-LOAD FACTS ===
+    first_name = payload.get("first_name") or ""
+    dob_str = payload.get("age") or ""  # Typically passed as DOB
+    address = payload.get("address") or ""
+    intent = payload.get("intent") or ""
+    lead_vendor = payload.get("lead_vendor", "")
+
+    # Calculate age if DOB is present
+    from age import calculate_age_from_dob
+    age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
+
+    # Load initial knowledge into DB (Memory starts here)
+    initial_facts = []
+    if first_name: initial_facts.append(f"First name: {first_name}")
+    if age and age != "unknown": initial_facts.append(f"Age: {age}")
+    if address: initial_facts.append(f"Address: {address}")
+    if intent: initial_facts.append(f"Intent: {intent}")
+    
+    if initial_facts and contact_id != "unknown":
+        save_new_facts(contact_id, initial_facts)
+
+    # === STEP 3: MESSAGE EXTRACTION & IDEMPOTENCY ===
     raw_message = payload.get("message", {})
     message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
+    
     if not message:
         return jsonify({"status": "ignored", "reason": "empty message"}), 200
 
-    # 3. Idempotency (real mode only — demo can have duplicates safely)
+    # Idempotency: Prevent duplicate processing (Only for real GHL webhooks)
     if not is_demo:
         message_id = payload.get("message_id") or payload.get("id")
         if message_id:
@@ -234,19 +206,19 @@ def webhook():
                 except Exception as e:
                     logger.error(f"Idempotency error: {e}")
                 finally:
-                    cur.close()
                     conn.close()
 
-    # Always save message (for history in real mode, minimal in demo)
+    # Save the lead's message to the conversation history
     save_message(contact_id, message, "lead")
 
-    # 4. Context Gathering
+    # === STEP 4: CONTEXT GATHERING (THE MEMORY) ===
     initial_message = subscriber.get('initial_message', '').strip()
-    known_facts = [] if is_demo else get_known_facts(contact_id)
+    known_facts = get_known_facts(contact_id)
     vibe = classify_vibe(message).value
     recent_exchanges = get_recent_messages(contact_id, limit=8)
+    
+    # Check if this is the very first interaction
     assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
-
     if len(assistant_messages) == 0 and initial_message:
         reply = initial_message
         save_message(contact_id, reply, "assistant")
@@ -254,25 +226,26 @@ def webhook():
             send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
         return jsonify({"status": "success", "reply": reply})
 
+    # Content Contextual Nudges
     context_nudge = ""
     msg_lower = message.lower()
     if any(x in msg_lower for x in ["covered", "i'm good", "already have", "taken care of"]):
-        context_nudge = "Lead claims to be covered — likely smoke screen"
+        context_nudge = "Lead claims to be covered — likely a smoke screen."
     elif any(x in msg_lower for x in ["work", "job", "employer"]):
-        context_nudge = "Lead mentioned work/employer coverage"
+        context_nudge = "Lead mentioned work/employer coverage."
 
-    # Calendar — DISABLED in demo (focus on selling, not booking)
+    # Calendar (Disabled in demo for focus on conversational flow)
     calendar_slots = ""
     if not is_demo and any(k in msg_lower for k in ["schedule", "time", "call", "appointment", "available"]):
         calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
 
-    # Underwriting — only on health mention
+    # Underwriting (Medical keyword detection)
     underwriting_context = ""
     medical_keywords = ["cancer", "diabetes", "heart", "stroke", "copd", "health issue", "condition", "medical", "sick"]
     if any(k in msg_lower for k in medical_keywords):
         underwriting_context = get_underwriting_context(message)
 
-    # Company (light)
+    # Company Search (Competitive intel)
     company_context = ""
     raw_company = find_company_in_message(message)
     if raw_company:
@@ -280,7 +253,7 @@ def webhook():
         if normalized:
             company_context = get_company_context(normalized)
 
-    # 5. Build Prompt
+    # === STEP 5: BUILD SYSTEM PROMPT ===
     system_prompt = build_system_prompt(
         bot_first_name=bot_first_name,
         timezone=timezone,
@@ -297,7 +270,7 @@ def webhook():
         lead_address=address
     )
 
-    # 6. Grok Call
+    # === STEP 6: GROK CALL ===
     grok_messages = [{"role": "system", "content": system_prompt}]
     for msg in recent_exchanges:
         role = "user" if msg["role"] == "lead" else "assistant"
@@ -313,44 +286,46 @@ def webhook():
         )
         raw_reply = response.choices[0].message.content.strip()
     except Exception as e:
-        logger.error(f"Grok error: {e}")
-        raw_reply = "Gotcha — quick question, when was the last time someone reviewed your coverage?"
+        logger.error(f"Grok Error: {e}")
+        raw_reply = "Understood. Quick question, what was the main reason you were looking for protection originally?"
 
-    # 7. Clean Reply & Extract Facts
+    # === STEP 7: CLEAN REPLY & EXTRACT NEW FACTS ===
     reply = raw_reply
     new_facts_extracted = []
 
     if "<new_facts>" in raw_reply:
         try:
-            block = raw_reply.split("<new_facts>")[1].split("</new_facts>")[0]
-            new_facts_extracted = [line.strip(" -•").strip() for line in block.split("\n") if line.strip()]
-            reply = raw_reply.split("<new_facts>")[0].strip()
-        except:
+            parts = raw_reply.split("<new_facts>")
+            reply_part = parts[0]
+            fact_part = parts[1].split("</new_facts>")[0]
+            new_facts_extracted = [line.strip(" -•").strip() for line in fact_part.split("\n") if line.strip()]
+            reply = reply_part.strip()
+        except Exception:
             pass
 
-    # Clean AI tells
+    # Humanize text (Clean up AI artifacts)
     reply = reply.replace("—", ",").replace("–", ",").replace("…", "...")
-    reply = reply.replace(""", '"').replace(""", '"')
     reply = reply.strip()
 
-    # 8. Persistence — SKIP in demo (fresh every time)
-    if not is_demo:
-        if new_facts_extracted:
-            save_new_facts(contact_id, new_facts_extracted)
-        if crm_api_key != 'DEMO':
-            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
-
+    # === STEP 8: PERSISTENCE (SAVE MEMORY) ===
+    # We save these for EVERYONE (Demo and Client) so memory works
+    if new_facts_extracted:
+        save_new_facts(contact_id, new_facts_extracted)
+    
     save_message(contact_id, reply, "assistant")
 
-    # 9. Response
-    response_data = {
-        "status": "success",
-        "reply": reply
-    }
-    if is_demo:
-        response_data["facts"] = new_facts_extracted  # Show in demo sidebar
-
-    return jsonify(response_data)
+    # === STEP 9: FINAL DELIVERY ===
+    if not is_demo and crm_api_key != 'DEMO':
+        # Send actual SMS via GoHighLevel
+        send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
+    
+    # Return JSON for demo page consumption
+    return jsonify({
+        "status": "success", 
+        "reply": reply, 
+        "contact_id": contact_id,
+        "facts_saved": len(new_facts_extracted)
+    })
 
 @app.route("/")
 def home():
@@ -1563,10 +1538,24 @@ DEMO_CONTACT_ID = "demo_web_visitor"
 
 @app.route("/demo-chat")
 def demo_chat():
-    # Generate unique session ID for this visitor (no DB, fresh every time)
-    if 'demo_session_id' not in session:
-        session['demo_session_id'] = str(uuid.uuid4())
+    # If they already have a session, we might want to clear it to ensure a "fresh" feel on reload
+    if 'demo_session_id' in session:
+        old_id = session['demo_session_id']
+        # Optional: Clean up DB for the old session to save space
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (old_id,))
+                cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (old_id,))
+                conn.commit()
+            except Exception as e:
+                logger.error(f"Cleanup error: {e}")
+            finally:
+                conn.close()
 
+    # Generate a brand new ID for this fresh visit
+    session['demo_session_id'] = "DEMO_" + str(uuid.uuid4())
     demo_session_id = session['demo_session_id']
 
     demo_html = f"""
