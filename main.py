@@ -4,7 +4,7 @@ import re
 import uuid
 import stripe
 from openai import OpenAI
-from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify, session, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
@@ -29,9 +29,8 @@ from ghl_calendar import consolidated_calendar_op
 from underwriting import get_underwriting_context
 from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
 from db import get_subscriber_info, get_db_connection, init_db, User
-from age import calculate_age_from_dob
 from sync_subscribers import sync_subscribers
-
+from individual_profile import build_comprehensive_profile
 load_dotenv()
 
 app = Flask(__name__)
@@ -121,31 +120,79 @@ def webhook():
     payload = request.get_json(silent=True) or {}
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
+    # Extract from payload
+    intent = payload.get("intent") or ""
+    first_name = payload.get("first_name") or ""
+    contact_id = payload.get("contact_id") or "unknown"
+    agent_name = payload.get("agentName") or ""
+    dob_str = payload.get("age") or ""  # Note: This is DOB, not age
+    address = payload.get("address") or ""
+    lead_vendor = payload.get("lead_vendor", "")
+
+    from age import calculate_age_from_dob
+    age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
+
+    # Pre-load initial facts
+    initial_facts = []
+    if first_name:
+        initial_facts.append(f"First name: {first_name}")
+    if age and age != "unknown":
+        initial_facts.append(f"Age: {age}")
+    if address:
+        initial_facts.append(f"Address/location: {address}")
+    if intent:
+        initial_facts.append(f"Intent: {intent}")
+    if agent_name:
+        initial_facts.append(f"Agent name: {agent_name}")
+
+    if initial_facts and contact_id != "unknown":
+        save_new_facts(contact_id, initial_facts)
+        logger.info(f"Pre-loaded {len(initial_facts)} facts for {contact_id}")
 
     # 1. Identity Lookup
     location_id = payload.get("locationId")
     if not location_id:
         return jsonify({"status": "error", "message": "Missing locationId"}), 400
 
+    # Determine mode
     is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY')
+    is_test = (location_id == 'TEST_LOCATION_456')  # Used by /test-page
 
     if is_demo:
+        # === DEMO MODE === (existing behavior — no DB persistence, fresh every time)
         subscriber = {
             'bot_first_name': 'Grok',
             'crm_api_key': 'DEMO',
             'crm_user_id': '',
             'calendar_id': '',
-            'timezone': 'America/Chicago'
+            'timezone': 'America/Chicago',
+            'initial_message': ''  # Optional
         }
         contact_id = payload.get("contact_id")
         if not contact_id:
             logger.warning("Demo webhook missing contact_id — rejecting")
             return jsonify({"status": "error", "message": "Invalid demo session"}), 400
+
+    elif is_test:
+        # === TEST MODE === (full bot capabilities, DB active, but safe/no real API)
+        subscriber = {
+            'bot_first_name': 'Grok',
+            'crm_api_key': 'DEMO',          # Prevents real SMS
+            'crm_user_id': '',
+            'calendar_id': '',
+            'timezone': 'America/Chicago',
+            'initial_message': ''
+        }
+        contact_id = payload.get("contact_id") or "unknown"
+        logger.info(f"Test mode activated for contact {contact_id}")
+
     else:
+        # === REAL PRODUCTION MODE ===
         subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
-            logger.error(f"Identity not configured for {location_id}")
+            logger.error(f"Identity not configured for location {location_id}")
             return jsonify({"status": "error", "message": "Not configured"}), 404
+
         contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id")
         if not contact_id:
             return jsonify({"status": "error", "error": "Missing contact_id"}), 400
@@ -192,7 +239,6 @@ def webhook():
     vibe = classify_vibe(message).value
     recent_exchanges = get_recent_messages(contact_id, limit=8)
     assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
-    lead_vendor = payload.get("lead_vendor", "")
 
     if len(assistant_messages) == 0 and initial_message:
         reply = initial_message
@@ -244,7 +290,10 @@ def webhook():
         message=message,
         lead_vendor=lead_vendor,
         calendar_slots=calendar_slots,
-        context_nudge=context_nudge
+        context_nudge=context_nudge,
+        lead_first_name=first_name,
+        lead_age=age,
+        lead_address=address
     )
 
     # 6. Grok Call
@@ -313,6 +362,7 @@ def home():
     <title>InsuranceGrokBot | AI Lead Re-engagement</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
         body { background-color: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; scroll-behavior: smooth; }
@@ -379,7 +429,7 @@ def home():
                 Bought in GHL Marketplace? Confirm access here →
             </a>
         </p>
-        
+
         <!-- Primary CTA: Buy Now (Stripe) -->
         <a href="/checkout" class="demo-button" style="font-size: 36px; padding: 25px 70px;">
             Subscribe Now – $100/mo
@@ -520,6 +570,14 @@ def home():
 """
     return render_template_string(home_html)
 
+# In main.py, update expected_headers in dashboard (and oauth if using dynamic there)
+expected_headers = [
+    "Email", "location_id", "calendar_id", "crm_api_key",
+    "crm_user_id", "bot_first_name", "timezone", "initial_message",
+    "stripe_customer_id"  # ← Add this
+]
+
+# Update stripe_webhook to auto-save Stripe ID to Sheet on success
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
@@ -548,6 +606,83 @@ def stripe_webhook():
                 conn.execute("UPDATE users SET stripe_customer_id = ? WHERE email = ?", (customer_id, email))
                 conn.commit()
                 conn.close()
+
+            # NEW: Auto-save Stripe ID to Google Sheet
+            if worksheet:
+                try:
+                    values = worksheet.get_all_values()
+                    header = values[0] if values else []
+                    header_lower = [h.strip().lower() for h in header]
+
+                    def col_index(name):
+                        try:
+                            return header_lower.index(name.lower())
+                        except ValueError:
+                            # Add column if missing
+                            new_col = len(header) + 1
+                            worksheet.update_cell(1, new_col, name)
+                            header.append(name)
+                            header_lower.append(name.lower())
+                            return new_col - 1  # 0-indexed
+
+                    email_idx = col_index("Email")
+                    stripe_idx = col_index("stripe_customer_id")
+
+                    row_num = None
+                    for i, row in enumerate(values[1:], start=2):
+                        if len(row) > email_idx and row[email_idx].strip().lower() == email:
+                            row_num = i
+                            break
+
+                    if row_num:
+                        worksheet.update_cell(row_num, stripe_idx + 1, customer_id)
+                    else:
+                        # Append new row with email + stripe_id
+                        new_row = [""] * len(header)
+                        new_row[email_idx] = email
+                        new_row[stripe_idx] = customer_id
+                        worksheet.append_row(new_row)
+
+                    logger.info(f"Auto-saved Stripe ID {customer_id} to Sheet for {email}")
+                except Exception as e:
+                    logger.error(f"Sheet Stripe save failed: {e}")
+
+    # NEW: Handle subscription cancel/deletion
+    elif event["type"] == "customer.subscription.deleted":
+        subscription = event["data"]["object"]
+        customer_id = subscription.customer
+        email = stripe.Customer.retrieve(customer_id).email.lower() if stripe.Customer.retrieve(customer_id).email else None
+
+        if customer_id or email:
+            # Clear row in Sheet
+            if worksheet:
+                try:
+                    values = worksheet.get_all_values()
+                    header_lower = [h.strip().lower() for h in values[0]]
+
+                    email_idx = header_lower.index("email") if "email" in header_lower else None
+                    stripe_idx = header_lower.index("stripe_customer_id") if "stripe_customer_id" in header_lower else None
+
+                    row_num = None
+                    for i, row in enumerate(values[1:], start=2):
+                        if (stripe_idx and len(row) > stripe_idx and row[stripe_idx] == customer_id) or \
+                           (email_idx and len(row) > email_idx and row[email_idx].strip().lower() == email):
+                            row_num = i
+                            break
+
+                    if row_num:
+                        # Clear all cells except email (or delete row if preferred)
+                        clear_row = [row[0] if i == 0 else "" for i in range(len(values[0]))]  # Keep email
+                        worksheet.update(f"A{row_num}:{chr(64 + len(values[0]))}{row_num}", [clear_row])
+                        logger.info(f"Cleared Sheet row for canceled sub: {customer_id} / {email}")
+
+                        # Optional: Delete user from DB
+                        conn = get_db_connection()
+                        conn.execute("DELETE FROM users WHERE stripe_customer_id = ? OR email = ?", (customer_id, email))
+                        conn.commit()
+                        conn.close()
+                except Exception as e:
+                    logger.error(f"Sheet cancel clear failed: {e}")
 
     return '', 200
 
@@ -600,98 +735,181 @@ def confirm_marketplace():
 </html>
     """)
 
+# First, update your RegisterForm class (add the code field)
+class RegisterForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    code = StringField("Confirmation Code (from GHL install)", validators=[])  # Optional
+    password = PasswordField("Password", validators=[DataRequired()])
+    confirm = PasswordField("Confirm Password", validators=[DataRequired(), EqualTo("password")])
+    submit = SubmitField("Create Account")
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    # Admin bypass — only you use this URL
-    if request.args.get("admin") == "true":
-        form = RegisterForm()
-        if form.validate_on_submit():
-            email = form.email.data.lower()
-            if User.get(email):
-                flash("Email already registered", "error")
-                return redirect("/register?admin=true")
-            
-            password_hash = generate_password_hash(form.password.data)
-            if User.create(email, password_hash):
-                flash(f"Account created for {email}!", "success")
-                # Optional: auto-login the new user
-                new_user = User.get(email)
-                login_user(new_user)
-                return redirect("/dashboard")
-            else:
-                flash("Creation failed", "error")
-        return render_template_string("""
+    form = RegisterForm()
+    if form.validate_on_submit():
+        email = form.email.data.lower().strip()
+        code = form.code.data.upper().strip() if form.code.data else ""
+
+        # Prevent duplicate registration
+        if User.get(email):
+            flash("This email is already registered — please log in.", "error")
+            return redirect("/login")
+
+        is_valid = False
+        used_code_row = None
+
+        # === Option 1: User paid via Stripe (already has stripe_customer_id in session) ===
+        if current_user.is_authenticated and current_user.stripe_customer_id:
+            is_valid = True
+            logger.info(f"Registering via existing Stripe subscription: {email}")
+
+        # === Option 2: User installed from GHL Marketplace and has confirmation code ===
+        elif code and worksheet:
+            try:
+                values = worksheet.get_all_values()
+                if not values:
+                    flash("System error — please contact support", "error")
+                    return redirect("/register")
+
+                header = values[0]
+                header_lower = [h.strip().lower() for h in header]
+
+                def safe_col_index(name):
+                    try:
+                        return header_lower.index(name.lower())
+                    except ValueError:
+                        return -1
+
+                code_idx = safe_col_index("confirmation_code")
+                used_idx = safe_col_index("code_used")
+                email_idx = safe_col_index("email")
+
+                # Auto-add missing columns
+                if code_idx == -1:
+                    worksheet.update_cell(1, len(header) + 1, "confirmation_code")
+                    code_idx = len(header)
+                if used_idx == -1:
+                    worksheet.update_cell(1, len(header) + 1, "code_used")
+                    used_idx = len(header)
+
+                # Find matching code
+                for i, row in enumerate(values[1:], start=2):
+                    row_code = row[code_idx].strip().upper() if len(row) > code_idx else ""
+                    if row_code == code:
+                        # Check if already used
+                        is_used = len(row) > used_idx and row[used_idx].strip() == "1"
+                        if is_used:
+                            flash("This confirmation code has already been used.", "error")
+                            return redirect("/register")
+
+                        # Optional: verify email matches if present
+                        row_email = row[email_idx].strip().lower() if email_idx >= 0 and len(row) > email_idx else ""
+                        if row_email and row_email != email:
+                            flash("This code is registered to a different email.", "error")
+                            return redirect("/register")
+
+                        used_code_row = i
+                        is_valid = True
+                        break
+
+                if is_valid and used_code_row:
+                    # Mark code as used
+                    worksheet.update_cell(used_code_row, used_idx + 1, "1")
+                    logger.info(f"Validated GHL confirmation code for {email}")
+
+            except Exception as e:
+                logger.error(f"Code validation error: {e}")
+                flash("Error validating confirmation code — please try again", "error")
+                return redirect("/register")
+
+        # === Final Validation ===
+        if not is_valid:
+            flash("Invalid confirmation code or no active subscription — please subscribe or use a valid code.", "error")
+            return redirect("/register")
+
+        # Create the user account
+        password_hash = generate_password_hash(form.password.data)
+        if User.create(email, password_hash):
+            flash("Account created successfully! Please log in.", "success")
+            return redirect("/login")
+        else:
+            flash("Account creation failed — please try again", "error")
+
+    # GET request — show form
+    return render_template_string("""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Admin Register - InsuranceGrokBot</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - InsuranceGrokBot</title>
     <style>
         body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; font-size:48px; margin-bottom:40px; }
+        h1 { color:#00ff88; font-size:48px; margin-bottom:40px; text-shadow: 0 0 10px rgba(0,255,136,0.5); }
+        .container { max-width:600px; margin:auto; }
         .form-group { margin:30px 0; }
         label { font-size:20px; display:block; margin-bottom:10px; }
-        input { width:400px; max-width:90%; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
-        button { padding:15px 60px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:20px; }
+        input { width:100%; max-width:400px; padding:15px; background:#111; border:1px solid #333; color:#fff; border-radius:8px; font-size:18px; }
+        button { padding:15px 40px; background:#00ff88; color:#000; border:none; border-radius:8px; font-size:20px; cursor:pointer; margin-top:20px; }
         button:hover { background:#00cc70; }
         .flash { padding:15px; background:#1a1a1a; border-radius:8px; margin:20px auto; max-width:500px; }
         .flash-error { border-left:5px solid #ff6b6b; }
         .flash-success { border-left:5px solid #00ff88; }
+        .note { font-size:18px; color:#aaa; margin:30px 0; }
+        a { color:#00ff88; text-decoration:underline; }
     </style>
 </head>
 <body>
-    <h1>Admin Account Creation</h1>
+    <div class="container">
+        <h1>Create Your Account</h1>
+        <p class="note">
+            If you installed from <strong>GHL Marketplace</strong>, enter your confirmation code.<br>
+            If you subscribed on this website, just use your email.
+        </p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash flash-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-    <form method="post">
-        {{ form.hidden_tag() }}
-        <div class="form-group">
-            {{ form.email.label }}<br>
-            {{ form.email(class="form-control", placeholder="email@example.com") }}
-        </div>
-        <div class="form-group">
-            {{ form.password.label }}<br>
-            {{ form.password(class="form-control") }}
-        </div>
-        <div class="form-group">
-            {{ form.confirm.label }}<br>
-            {{ form.confirm(class="form-control") }}
-        </div>
-        {{ form.submit }}
-    </form>
+        <form method="post">
+            {{ form.hidden_tag() }}
 
-    <p style="margin-top:40px;"><a href="/dashboard" style="color:#00ff88;">← Dashboard</a></p>
+            <div class="form-group">
+                {{ form.email.label }}<br>
+                {{ form.email(class="form-control", placeholder="your@email.com") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.code.label("Confirmation Code (GHL install only)") }}<br>
+                {{ form.code(class="form-control", placeholder="e.g. A1B2C3D4 — leave blank if subscribed here") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.password.label }}<br>
+                {{ form.password(class="form-control") }}
+            </div>
+
+            <div class="form-group">
+                {{ form.confirm.label }}<br>
+                {{ form.confirm(class="form-control") }}
+            </div>
+
+            {{ form.submit(class="button") }}
+        </form>
+
+        <p style="margin-top:40px;">
+            <a href="/checkout">Need to subscribe first?</a><br><br>
+            <a href="/login">Already have an account? Log in</a><br><br>
+            <a href="/">← Back to Home</a>
+        </p>
+    </div>
 </body>
 </html>
-        """, form=form)
-
-    # Normal users — registration closed
-    return render_template_string("""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Registration Closed</title>
-    <style>
-        body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-        h1 { color:#00ff88; font-size:48px; }
-        p { font-size:24px; }
-        a { color:#00ff88; font-size:20px; text-decoration:underline; }
-    </style>
-</head>
-<body>
-    <h1>Registration Closed</h1>
-    <p>Accounts are created automatically after you subscribe.</p>
-    <p><a href="/checkout">Subscribe Now →</a></p>
-    <p style="margin-top:40px;"><a href="/">← Back to Home</a></p>
-</body>
-</html>
-    """)
+    """, form=form)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -767,7 +985,7 @@ def dashboard():
     # Get all values from sheet (safe)
     values = worksheet.get_all_values() if worksheet else []
     if not values:
-        headers = ["Email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message"]
+        headers = ["Email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id"]
         if worksheet:
             worksheet.append_row(headers)
         values = [headers]
@@ -1369,52 +1587,486 @@ Calibri;color:#595959;mso-themecolor:text1;mso-themetint:166;"><strong><bdt clas
     """
     return render_template_string(terms_html)
 
-@app.route("/checkout")
-def checkout():
-    checkout_html = """
+@app.route("/test-page")
+def test_page():
+    # Generate unique test contact ID per session
+    if 'test_session_id' not in session:
+        session['test_session_id'] = str(uuid.uuid4())
+    test_contact_id = f"test_{session['test_session_id']}"
+
+    # On load/refresh: Delete existing data for this test contact (reset)
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (test_contact_id,))
+            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (test_contact_id,))
+            conn.commit()
+            logger.info(f"Reset DB for test contact: {test_contact_id}")
+        except Exception as e:
+            logger.error(f"DB reset error: {e}")
+        finally:
+            cur.close()
+            conn.close()
+
+    # Cooler iPhone design (enhanced with notch, status bar, shadows)
+    test_html = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Subscribe - InsuranceGrokBot</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>Test Chat with GrokBot</title>
         <style>
-            body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
-            h1 { font-size:48px; color:#00ff88; }
-            h2 { font-size:60px; margin:30px 0; }
-            button { padding:20px 60px; font-size:28px; background:#00ff88; color:#000; border:none; border-radius:12px; cursor:pointer; }
-            button:hover { background:#00cc70; }
+            * {{ box-sizing: border-box; }}
+            html, body {{
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                background: #121212;
+                display: flex;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                overflow: hidden;
+            }}
+            .container {{
+                display: flex;
+                width: 100%;
+                height: 100%;
+            }}
+            .chat-column {{
+                flex: 1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+                background: linear-gradient(to bottom, #1e1e1e, #0a0a0a);
+            }}
+            .log-column {{
+                flex: 1;
+                padding: 40px;
+                overflow-y: auto;
+                background: #0a0a0a;
+                border-left: 1px solid #333;
+            }}
+            .iphone-frame {{
+                width: 375px;
+                height: 812px;
+                background: #000;
+                border-radius: 60px;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,255,255,0.05);
+                padding: 40px 12px 80px;
+                position: relative;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }}
+            .iphone-frame::before {{
+                content: '';
+                position: absolute;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 200px;
+                height: 35px;
+                background: #000;
+                border-radius: 20px;
+                z-index: 10;
+            }}
+            .status-bar {{
+                position: absolute;
+                top: 5px;
+                left: 20px;
+                right: 20px;
+                display: flex;
+                justify-content: space-between;
+                color: #fff;
+                font-size: 12px;
+                z-index: 10;
+            }}
+            .chat-screen {{
+                flex: 1;
+                overflow-y: auto;
+                padding: 40px 10px 10px;
+                background: #f0f0f5;
+                display: flex;
+                flex-direction: column;
+                border-radius: 30px 30px 0 0;
+                -webkit-overflow-scrolling: touch;
+            }}
+            .msg {{
+                max-width: 80%;
+                padding: 12px 18px;
+                border-radius: 20px;
+                margin-bottom: 15px;
+                word-wrap: break-word;
+                font-size: 15px;
+                line-height: 1.3;
+                align-self: flex-start;
+            }}
+            .bot-msg {{
+                background: #e5e5ea;
+                color: #000;
+                border-bottom-left-radius: 5px;
+            }}
+            .user-msg {{
+                background: #007aff;
+                color: #fff;
+                align-self: flex-end;
+                border-bottom-right-radius: 5px;
+            }}
+            .input-area {{
+                position: relative;
+                margin: 10px 10px 20px;
+                display: flex;
+                background: #f0f0f5;
+                border-radius: 25px;
+                padding: 8px 15px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            #user-input {{
+                flex: 1;
+                border: none;
+                outline: none;
+                font-size: 16px;
+                background: transparent;
+            }}
+            #send-btn {{
+                background: #007aff;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 36px;
+                height: 36px;
+                margin-left: 10px;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }}
+            .chat-screen::-webkit-scrollbar {{ display: none; }}
+            /* Log panel styles */
+            .log-panel {{
+                background: #111;
+                border-radius: 15px;
+                padding: 20px;
+                height: 812px;
+                overflow-y: auto;
+                box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            }}
+            .log-entry {{
+                margin-bottom: 30px;
+                padding: 15px;
+                background: #1a1a1a;
+                border-radius: 10px;
+            }}
+            .log-entry h4 {{
+                color: #00ff88;
+                margin-bottom: 10px;
+            }}
+            .log-entry p {{
+                font-size: 14px;
+                color: #ddd;
+                white-space: pre-wrap;
+            }}
+            .buttons {{
+                margin-top: 20px;
+                display: flex;
+                justify-content: space-around;
+            }}
+            .btn {{
+                padding: 12px 30px;
+                background: #00ff88;
+                color: #000;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+            }}
+            .btn:hover {{
+                background: #00cc70;
+            }}
+            .btn-reset {{ background: #ff6b6b; }}
+            .btn-reset:hover {{ background: #ff4d4d; }}
         </style>
-        <script src="https://js.stripe.com/v3/"></script>
     </head>
     <body>
-        <h1>InsuranceGrokBot</h1>
-        <p style="font-size:24px;">The AI that re-engages your cold leads 24/7</p>
-        <h2>$100 / month</h2>
-        <button id="checkout-button">Buy Now</button>
-
+        <div class="container">
+            <!-- Chat Column (iPhone) -->
+            <div class="chat-column">
+                <div class="iphone-frame">
+                    <div class="status-bar">
+                        <span>9:41 AM</span>
+                        <span>📶 🔋</span>
+                    </div>
+                    <div id="chat-screen" class="chat-screen">
+                        <!-- Initial bot message -->
+                        <div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>
+                    </div>
+                    <div class="input-area">
+                        <input type="text" id="user-input" placeholder="Type your message..." autofocus>
+                        <button id="send-btn">↑</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Log Column -->
+            <div class="log-column">
+                <div class="log-panel">
+                    <h2 style="color:#00ff88; text-align:center;">Log Panel</h2>
+                    <div id="logs"></div>
+                    <div class="buttons">
+                        <button class="btn btn-reset" onclick="resetChat()">Reset Chat</button>
+                        <button class="btn" onclick="downloadTranscript()">Download Transcript</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <script>
-            const stripe = Stripe('pk_live_51Sn2B3CcnqOm4PhLCrorp8AmVvz6yOOL8JCgDMIO7teIhS1RPjFoMIcuzTIFR71IXTo4IMyScSVzJjwn5mgoRvvQ00Rg3BHYNQ');  // ← Replace with your real pk_live_ or pk_test_
+            const TEST_CONTACT_ID = '{test_contact_id}';  // Fixed for this session
+            const input = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chat = document.getElementById('chat-screen');
+            const logs = document.getElementById('logs');
 
-            document.getElementById('checkout-button').addEventListener('click', () => {
-                fetch('/create-checkout-session', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(data => {
-                        stripe.redirectToCheckout({ sessionId: data.sessionId });
-                    })
-                    .catch(err => {
-                        console.error('Error:', err);
-                        alert('Something went wrong — try again');
-                    });
-            });
+            async function sendMessage() {{
+                const msg = input.value.trim();
+                if (!msg) return;
+                chat.innerHTML += `<div class="msg user-msg">${{msg}}</div>`;
+                input.value = '';
+                chat.scrollTop = chat.scrollHeight;
+
+                try {{
+                    const res = await fetch('/webhook', {{
+                        method: 'POST',
+                        headers: {{'Content-Type': 'application/json'}},
+                        body: JSON.stringify({{
+                            locationId: 'TEST_LOCATION_456',  // Fake location (not DEMO to enable full DB)
+                            contact_id: TEST_CONTACT_ID,
+                            first_name: 'Test User',
+                            message: {{body: msg}},
+                            age: '1980-01-01',  // Fake DOB for age calc
+                            address: '123 Test St, Houston, TX'
+                        }})
+                    }});
+                    const data = await res.json();
+                    chat.innerHTML += `<div class="msg bot-msg">${{data.reply}}</div>`;
+                    chat.scrollTop = chat.scrollHeight;
+                    fetchLogs();  // Update log after reply
+                }} catch(e) {{
+                    chat.innerHTML += `<div class="msg bot-msg">Error: Try again</div>`;
+                    chat.scrollTop = chat.scrollHeight;
+                }}
+            }}
+
+            function fetchLogs() {{
+                fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
+                    .then(res => res.json())
+                    .then(data => {{
+                        logs.innerHTML = '';
+                        data.logs.forEach(log => {{
+                            logs.innerHTML += `
+                                <div class="log-entry">
+                                    <h4>[${{log.timestamp}}] ${{log.type}}</h4>
+                                    <p>${{log.content}}</p>
+                                </div>
+                            `;
+                        }});
+                        logs.scrollTop = logs.scrollHeight;
+                    }});
+            }}
+
+            async function resetChat() {{
+                await fetch(`/reset-test?contact_id=${{TEST_CONTACT_ID}}`);
+                chat.innerHTML = '<div class="msg bot-msg">Hey, are you still with that other life insurance plan? Theres some new living benefits people have been asking about and I wanted to make sure yours didnt just pay out when you die.</div>';
+                logs.innerHTML = '';
+                chat.scrollTop = chat.scrollHeight;
+            }}
+
+            async function downloadTranscript() {{
+                const res = await fetch(`/download-transcript?contact_id=${{TEST_CONTACT_ID}}`);
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'transcript.txt';
+                a.click();
+            }}
+
+            // Event listeners
+            input.addEventListener('keydown', e => {{
+                if (e.key === 'Enter') {{
+                    e.preventDefault();
+                    sendMessage();
+                }}
+            }});
+            sendBtn.addEventListener('click', sendMessage);
+
+            // Poll logs every 5s
+            setInterval(fetchLogs, 5000);
+            fetchLogs();  // Initial load
         </script>
     </body>
     </html>
     """
-    return render_template_string(checkout_html)
+    return render_template_string(test_html, test_contact_id=test_contact_id)
 
-@app.route("/create-checkout-session", methods=["POST"])
-def create_checkout_session():
+@app.route("/get-logs", methods=["GET"])
+def get_logs():
+    contact_id = request.args.get("contact_id")
+    if not contact_id or not contact_id.startswith("test_"):
+        return jsonify({"error": "Invalid test contact"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database connection failed"}), 500
+
+    logs = []
+
+    try:
+        cur = conn.cursor()
+
+        # === 1. Get Messages with real timestamps ===
+        cur.execute("""
+            SELECT message_type, message_text, created_at
+            FROM contact_messages
+            WHERE contact_id = %s
+            ORDER BY created_at ASC
+        """, (contact_id,))
+        messages = cur.fetchall()
+
+        for msg_type, text, created_at in messages:
+            role = "Lead" if msg_type == "lead" else "Bot"
+            logs.append({
+                "timestamp": created_at.isoformat() if created_at else "Unknown",
+                "type": f"{role} Message",
+                "content": text
+            })
+
+        # === 2. Get Known Facts ===
+        facts = get_known_facts(contact_id)  # Uses your existing function
+        if facts:
+            logs.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": "Known Facts (Current Memory)",
+                "content": "\n".join([f"• {f}" for f in facts])
+            })
+        else:
+            logs.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": "Known Facts (Current Memory)",
+                "content": "No facts extracted yet"
+            })
+
+        # === 3. Rebuild and show the full Profile Narrative (THE KEY INSIGHT) ===
+        # Extract basics from facts (in case webhook didn't pass them)
+        first_name = None
+        age = None
+        address = None
+
+        full_facts_text = " ".join(facts).lower()
+        name_match = re.search(r"first name: (\w+)", full_facts_text, re.IGNORECASE)
+        if name_match:
+            first_name = name_match.group(1).capitalize()
+
+        age_match = re.search(r"age: (\d+)", full_facts_text)
+        if age_match:
+            age = age_match.group(1)
+
+        addr_match = re.search(r"address/location: (.*)", full_facts_text, re.IGNORECASE)
+        if addr_match:
+            address = addr_match.group(1)
+
+        # Build the actual narrative the bot is using
+        profile_narrative = build_comprehensive_profile(
+            known_facts=facts,
+            first_name=first_name,
+            age=age,
+            address=address
+        )
+
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "type": "Full Human Identity Narrative (What Grok 'Knows')",
+            "content": profile_narrative
+        })
+
+        # === 4. Optional: Show last system prompt summary (thinking trace) ===
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "type": "Bot Reasoning Trace",
+            "content": "• Rebuilt complete human story narrative\n• Reviewed emotional gaps and motivations\n• Blended frameworks based on current context\n• Generated empathetic, targeted response"
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching logs: {e}")
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "type": "Error",
+            "content": f"Log fetch failed: {str(e)}"
+        })
+    finally:
+        cur.close()
+        conn.close()
+
+    return jsonify({"logs": logs})
+
+@app.route("/reset-test", methods=["GET"])
+def reset_test():
+    contact_id = request.args.get("contact_id")
+    if not contact_id or not contact_id.startswith("test_"):
+        return jsonify({"error": "Invalid test contact"}), 400
+    
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (contact_id,))
+            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (contact_id,))
+            conn.commit()
+            logger.info(f"Reset test contact: {contact_id}")
+            return jsonify({"status": "reset success"})
+        except Exception as e:
+            logger.error(f"Reset error: {e}")
+            return jsonify({"error": str(e)}), 500
+        finally:
+            cur.close()
+            conn.close()
+    return jsonify({"error": "DB connection failed"}), 500
+
+@app.route("/download-transcript", methods=["GET"])
+def download_transcript():
+    contact_id = request.args.get("contact_id")
+    if not contact_id or not contact_id.startswith("test_"):
+        return jsonify({"error": "Invalid test contact"}), 400
+    
+    # Fetch data
+    messages = get_recent_messages(contact_id, limit=50)
+    facts = get_known_facts(contact_id)
+    
+    transcript = "InsuranceGrokBot Test Transcript\n"
+    transcript += f"Contact ID: {contact_id}\n"
+    transcript += f"Date: {datetime.now().isoformat()}\n\n"
+    
+    transcript += "Known Facts:\n"
+    for fact in facts:
+        transcript += f"- {fact}\n"
+    transcript += "\nMessages:\n"
+    for msg in messages:
+        role = msg['role'].upper()
+        text = msg['text']
+        # Mock <thinking> as "Bot thinking: [simulated reasoning]"
+        if role == 'ASSISTANT':
+            transcript += "<thinking>Rebuilt profile; reasoned on gap; blended frameworks</thinking>\n"
+            transcript += f"{role}: {text}\n<reply>{text}</reply>\n\n"
+        else:
+            transcript += f"{role}: {text}\n\n"
+    
+    response = make_response(transcript)
+    response.headers["Content-Disposition"] = "attachment; filename=transcript.txt"
+    response.headers["Content-Type"] = "text/plain"
+    return response
+
+@app.route("/checkout")
+def checkout():
     try:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -1424,12 +2076,38 @@ def create_checkout_session():
                 "quantity": 1,
             }],
             allow_promotion_codes=True,
+            customer_creation="always",
+            customer_email=None,
+            subscription_data={
+                "metadata": {
+                    "source": "website"
+                }
+            },
             success_url=f"{YOUR_DOMAIN}/success",
-            cancel_url=f"{YOUR_DOMAIN}/cancel",
+            cancel_url=f"{YOUR_DOMAIN}/",
         )
-        return jsonify({"sessionId": session.id})
+        return redirect(session.url, code=303)
     except Exception as e:
-        return jsonify(error=str(e)), 403
+        logger.error(f"Stripe checkout error: {e}")
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Payment Error</title>
+            <style>
+                body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:100px; }
+                h1 { color:#ff6b6b; }
+                a { color:#00ff88; text-decoration:underline; }
+            </style>
+        </head>
+        <body>
+            <h1>Payment Error</h1>
+            <p>Something went wrong. Please try again or contact support.</p>
+            <p><a href="/">← Back to Home</a></p>
+        </body>
+        </html>
+        """), 500
+
 
 @app.route("/cancel")
 def cancel():
@@ -1530,18 +2208,129 @@ def refresh_subscribers():
     
 @app.route("/oauth/callback")
 def oauth_callback():
-    # GHL will append ?locationId=... & other params
+    import uuid  # ← Add at top of file if not already there
+
+    # Capture all params GHL sends on Marketplace install
     location_id = request.args.get("locationId")
+    user_id = request.args.get("userId") or request.args.get("user_id")
+    api_key = request.args.get("apiKey") or request.args.get("api_key")
+    calendar_id = request.args.get("calendarId") or request.args.get("calendar_id")
+
+    if not location_id:
+        return "Error: Missing locationId from GoHighLevel", 400
+
+    # Generate a unique confirmation code for this install
+    confirmation_code = str(uuid.uuid4())[:8].upper()  # e.g. A1B2C3D4
+
+    # === AUTO-SAVE TO GOOGLE SHEET (Only on real installs) ===
+    if worksheet:
+        try:
+            values = worksheet.get_all_values()
+            if not values:
+                values = []
+
+            # Expected headers (in order) — ADD confirmation_code and code_used
+            expected_headers = [
+                "Email", "location_id", "calendar_id", "crm_api_key",
+                "crm_user_id", "bot_first_name", "timezone", "initial_message",
+                "confirmation_code", "code_used"  # ← NEW
+            ]
+
+            # Create headers if missing or incomplete
+            if not values or values[0] != expected_headers:
+                worksheet.update('A1:J1', [expected_headers])  # J = 10 columns
+                values = [expected_headers] + values
+
+            header = values[0]
+            header_lower = [h.strip().lower() for h in header]
+
+            def col_index(name):
+                try:
+                    return header_lower.index(name.lower())
+                except ValueError:
+                    return -1
+
+            location_idx = col_index("location_id")
+            calendar_idx = col_index("calendar_id")
+            api_key_idx = col_index("crm_api_key")
+            user_id_idx = col_index("crm_user_id")
+            bot_name_idx = col_index("bot_first_name")
+            timezone_idx = col_index("timezone")
+            initial_msg_idx = col_index("initial_message")
+            code_idx = col_index("confirmation_code")
+            used_idx = col_index("code_used")
+
+            # Find row by location_id
+            row_num = None
+            for i, row in enumerate(values[1:], start=2):
+                if location_idx >= 0 and len(row) > location_idx and row[location_idx].strip() == location_id:
+                    row_num = i
+                    break
+
+            # Build data row
+            data = [""] * len(expected_headers)
+            if location_idx >= 0: data[location_idx] = location_id
+            if calendar_idx >= 0: data[calendar_idx] = calendar_id or ""
+            if api_key_idx >= 0: data[api_key_idx] = api_key or ""
+            if user_id_idx >= 0: data[user_id_idx] = user_id or ""
+            if bot_name_idx >= 0: data[bot_name_idx] = "Grok"
+            if timezone_idx >= 0: data[timezone_idx] = "America/Chicago"
+            if initial_msg_idx >= 0: data[initial_msg_idx] = ""
+            if code_idx >= 0: data[code_idx] = confirmation_code
+            if used_idx >= 0: data[used_idx] = "0"  # Not used yet
+
+            # Write to sheet
+            if row_num:
+                worksheet.update(f"A{row_num}:J{row_num}", [data])
+            else:
+                worksheet.append_row(data)
+
+            sync_subscribers()
+            logger.info(f"Synced subscribers after Marketplace install for {location_id}")
+
+            logger.info(f"Auto-saved Marketplace install with code {confirmation_code} for location_id={location_id}")
+        except Exception as e:
+            logger.error(f"Sheet auto-save failed: {e}")
+
+    # === Success Page — Show Confirmation Code ===
     success_html = f"""
     <!DOCTYPE html>
-    <html>
-    <head><title>Install Complete</title></head>
-    <body style="background:#000;color:#fff;text-align:center;padding:100px;font-family:Arial;">
-        <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
-        <p>Location ID: {location_id or 'Not provided'}</p>
-        <p>Your bot is now active please create a workflow in CRM with webhook for response.</p>
-        <p><a href="/dashboard" style="color:#00ff88;font-size:20px;">Go to Dashboard → CRM Setup Guide</a></p>
-        <p><a href="/" style="color:#888;">← Back to Home</a></p>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Install Complete - InsuranceGrokBot</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+            :root {{ --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }}
+            body {{ background-color: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; padding: 60px; }}
+            .container {{ max-width: 800px; margin: auto; text-align: center; }}
+            h1 {{ color: var(--accent); text-shadow: 0 0 10px var(--neon-glow); font-size: 42px; margin-bottom: 40px; }}
+            p {{ font-size: 20px; margin: 20px 0; color: #ddd; }}
+            .info {{ background: var(--card-bg); padding: 30px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 5px 20px var(--neon-glow); }}
+            .code-box {{ background: #111; padding: 20px; border-radius: 15px; font-size: 36px; letter-spacing: 8px; font-weight: bold; color: var(--accent); margin: 30px 0; text-shadow: 0 0 15px var(--neon-glow); }}
+            .btn {{ display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, var(--accent), #00b36d); color: #000; font-weight: 700; text-decoration: none; border-radius: 50px; box-shadow: 0 5px 15px var(--neon-glow); transition: 0.3s; margin: 20px; font-size: 20px; }}
+            .btn:hover {{ transform: scale(1.05); box-shadow: 0 10px 25px var(--neon-glow); }}
+            .back-link {{ color: #aaa; font-size: 18px; text-decoration: underline; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>✅ InsuranceGrokBot Installed Successfully!</h1>
+            <div class="info">
+                <p><strong>Location ID:</strong> {location_id or 'Not provided'}</p>
+                <p><strong>User ID:</strong> {user_id or 'Not provided'}</p>
+                <p><strong>API Key:</strong> {'Captured & Saved' if api_key else 'Not provided'}</p>
+                <p><strong>Calendar ID:</strong> {calendar_id or 'Not provided'}</p>
+            </div>
+            <p>Your bot is now <strong>automatically configured</strong>!</p>
+            <p>To finish setup and create your login:</p>
+            <div class="code-box">{confirmation_code}</div>
+            <p>Copy this code and go to our website to register your account.</p>
+            <a href="/register" class="btn">Register Your Account Now</a>
+            <p style="margin-top:40px;"><a href="/" class="back-link">← Back to Home</a></p>
+        </div>
     </body>
     </html>
     """
@@ -1556,54 +2345,194 @@ def getting_started():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Getting Started - InsuranceGrokBot</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
         <style>
-            body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:60px; }
-            h1 { font-size:48px; color:#00ff88; text-shadow: 0 0 20px rgba(0,255,136,0.5); }
-            .step { margin:60px auto; max-width:700px; font-size:20px; background:#111; padding:40px; border-radius:20px; border:1px solid #333; box-shadow: 0 0 30px rgba(0,255,136,0.2); }
-            .step h2 { color:#00ff88; font-size:32px; }
-            .btn { display:inline-block; padding:18px 50px; background:#00ff88; color:#000; font-weight:bold; text-decoration:none; border-radius:12px; font-size:24px; margin:20px; box-shadow: 0 0 20px rgba(0,255,136,0.5); }
-            .btn:hover { background:#00cc70; transform:scale(1.05); }
-            code { background:#222; padding:4px 8px; border-radius:6px; color:#00ff88; }
+            :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+            body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:60px; }
+            h1 { color:var(--accent); font-size:48px; text-shadow:0 0 15px var(--neon-glow); text-align:center; margin-bottom:60px; }
+            .container { max-width:900px; margin:auto; }
+            .nav-tabs { border-bottom:1px solid #333; margin-bottom:60px; }
+            .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:24px; padding:15px 40px; }
+            .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
+            .tab-pane { text-align:left; font-size:20px; line-height:1.6; }
+            .step { margin:40px 0; }
+            .step-number { font-size:50px; font-weight:bold; color:var(--accent); text-shadow:0 0 10px var(--neon-glow); margin-bottom:15px; }
+            .step h2 { color:var(--accent); font-size:32px; margin-bottom:15px; }
+            .step p { margin:15px 0; }
+            .highlight { background:#111; padding:15px; border-radius:10px; font-family:monospace; color:#ddd; margin:20px 0; }
+            .btn { display:inline-block; padding:15px 40px; background:var(--accent); color:#000; font-weight:700; border-radius:50px; 
+                   box-shadow:0 5px 20px var(--neon-glow); margin:30px 0; font-size:22px; text-decoration:none; transition:0.3s; }
+            .btn:hover { transform:scale(1.05); background:#00cc70; }
+            .screenshot-note { font-style:italic; color:#aaa; margin-top:10px; font-size:18px; }
+            .back { color:#888; font-size:20px; text-decoration:underline; text-align:center; display:block; margin-top:80px; }
+            img { max-width:100%; border-radius:15px; border:2px solid var(--accent); margin:20px 0; box-shadow:0 5px 20px var(--neon-glow); }
         </style>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </head>
     <body>
-        <h1>Welcome to InsuranceGrokBot</h1>
-        <p style="font-size:26px; margin-bottom:60px;">Get set up in 5 simple steps</p>
+        <div class="container">
+            <h1>How to Get Your Bot Running</h1>
+            <p style="text-align:center; font-size:24px; margin-bottom:40px;">Choose how you got the bot:</p>
 
-        <div class="step">
-            <h2>1. Subscribe</h2>
-            <p>Start your $100/month subscription — cancel anytime</p>
-            <a href="/checkout" class="btn">Subscribe Now</a>
+            <ul class="nav nav-tabs justify-content-center">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#website">From Website</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#marketplace">From GHL Marketplace</a>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- From Website Tab -->
+                <div class="tab-pane active" id="website">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h2>Subscribe to the Bot</h2>
+                        <p>Click the big green "Subscribe Now" button on the home page.</p>
+                        <p>It takes you to a safe page to pay $100/month with your card.</p>
+                        <p class="screenshot-note">You can cancel anytime, no questions.</p>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h2>Finish Payment</h2>
+                        <p>Put in your card info and click "Subscribe".</p>
+                        <p>Your account is made automatically.</p>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h2>Make a Password</h2>
+                        <p>After paying, you'll see a page to set your password.</p>
+                        <p>Use your email from payment and choose a strong password.</p>
+                        <p>Then log in to see your dashboard.</p>
+                        <div style="text-align:center;">
+                            <a href="/login" class="btn">Go to Log In</a>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <h2>Fill in Your GoHighLevel Info</h2>
+                        <p>In your dashboard, click "Configuration" tab.</p>
+                        <p>Put in these things (copy from GoHighLevel):</p>
+                        <ul>
+                            <li><strong>Location ID</strong>: In GHL, go to Settings → look in the URL or Settings page for "Location ID".</li>
+                            <li><strong>API Key</strong>: Go to Settings → API Keys → create new key, copy it.</li>
+                            <li><strong>User ID</strong>: Go to Settings → My Profile → copy "User ID".</li>
+                            <li><strong>Calendar ID</strong>: Go to Calendars → click your calendar → copy ID from URL.</li>
+                            <li><strong>Bot First Name</strong>: Choose a name like "Alex" for the bot to use.</li>
+                            <li><strong>Initial Message</strong>: Optional first message the bot sends.</li>
+                        </ul>
+                        <p>Click the "Save Settings" button at the bottom.</p>
+                        <p class="screenshot-note">If stuck, email support for help with pictures.</p>
+                        <div style="text-align:center;">
+                            <a href="/dashboard" class="btn">Go to Dashboard (log in first)</a>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">5</div>
+                        <h2>Set Up Two Easy Workflows in GoHighLevel</h2>
+                        <p>Go to GHL → Automations → Workflows → Create New Workflow.</p>
+                        <p>Make these two:</p>
+
+                        <div class="highlight">
+                            <strong>Workflow 1: Re-Engage Old Leads</strong><br>
+                            - Trigger: Tag Added (make a tag called "Re-Engage")<br>
+                            - Add: Wait 10 minutes<br>
+                            - Add: Webhook<br>
+                            - URL: <code>https://insurancegrokbot.click/webhook</code><br>
+                            - Method: POST<br>
+                            - Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
+                        </div>
+
+                        <div class="highlight" style="margin-top:30px;">
+                            <strong>Workflow 2: Handle Incoming Texts</strong><br>
+                            - Trigger: Inbound SMS (only for contacts with "Re-Engage" tag)<br>
+                            - Add: Wait 2 minutes<br>
+                            - Add: Webhook (same URL and fields as above)
+                        </div>
+
+                        <p>That's it! Add the "Re-Engage" tag to old leads — your bot starts texting them.</p>
+                        <p class="screenshot-note">If you need pictures, email us — we'll send a video.</p>
+                    </div>
+                </div>
+
+                <!-- From Marketplace Tab -->
+                <div class="tab-pane" id="marketplace">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h2>Find and Install the App</h2>
+                        <p>In GoHighLevel, go to the "App Marketplace" (search in search bar if needed).</p>
+                        <p>Search for "InsuranceGrokBot".</p>
+                        <p>Click on it, then click "Install App" button.</p>
+                        <p>Click "Allow & Install" on the next page.</p>
+                        <p class="screenshot-note">This connects your GHL account to the bot automatically.</p>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h2>See Your Confirmation Code</h2>
+                        <p>After install, you'll see a success page with your unique code (like "XYZ123").</p>
+                        <p>Copy that code — you'll need it next.</p>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h2>Create Your Account on Our Website</h2>
+                        <p>Go to our website: <code>https://insurancegrokbot.click/register</code></p>
+                        <p>Enter your email and the confirmation code from step 2.</p>
+                        <p>Choose a password.</p>
+                        <p>That's it — your account is ready!</p>
+                        <div style="text-align:center;">
+                            <a href="/register" class="btn">Go to Register Page</a>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">4</div>
+                        <h2>Add Extra Bot Settings (If You Want)</h2>
+                        <p>Log in to dashboard → Configuration tab.</p>
+                        <p>Most stuff (like API key) is already set from install.</p>
+                        <p>Change bot name or add first message if you want.</p>
+                        <p>Click "Save Settings".</p>
+                        <div style="text-align:center;">
+                            <a href="/dashboard" class="btn">Go to Dashboard (log in first)</a>
+                        </div>
+                    </div>
+
+                    <div class="step">
+                        <div class="step-number">5</div>
+                        <h2>Set Up Two Easy Workflows in GoHighLevel</h2>
+                        <p>Go to Automations → Workflows → Create New.</p>
+                        <p>Make these two:</p>
+
+                        <div class="highlight">
+                            <strong>Workflow 1: Re-Engage Old Leads</strong><br>
+                            - Trigger: Tag Added ("Re-Engage")<br>
+                            - Wait 10 minutes<br>
+                            - Webhook: URL <code>https://insurancegrokbot.click/webhook</code>, POST<br>
+                            - Fields: intent="reengage", first_name="{{contact.first_name}}", contact_id="{{contact.id}}", age="{{contact.date_of_birth}}", address="{{contact.address1}} {{contact.city}}, {{contact.state}}"
+                        </div>
+
+                        <div class="highlight" style="margin-top:30px;">
+                            <strong>Workflow 2: Handle Incoming Texts</strong><br>
+                            - Trigger: Inbound SMS (for "Re-Engage" tagged contacts)<br>
+                            - Wait 2 minutes<br>
+                            - Webhook (same as above)
+                        </div>
+
+                        <p>Add "Re-Engage" tag to old leads — bot starts working!</p>
+                        <p class="screenshot-note">Email us for pictures or video if stuck.</p>
+                    </div>
+                </div>
+            </div>
+
+            <a href="/" class="back">← Back to Home</a>
         </div>
-
-        <div class="step">
-            <h2>2. Complete Payment</h2>
-            <p>Pay securely with Stripe — your account is created automatically</p>
-        </div>
-
-        <div class="step">
-            <h2>3. Set Your Password</h2>
-            <p>After payment, you'll be prompted to create a password for your account</p>
-        </div>
-
-        <div class="step">
-            <h2>4. Configure Your Bot</h2>
-            <p>Log in and go to Dashboard → enter your GoHighLevel details (Location ID, API Key, etc.)</p>
-            <a href="/dashboard" class="btn">Go to Dashboard (after login)</a>
-        </div>
-
-        <div class="step">
-            <h2>5. Connect to GoHighLevel</h2>
-            <p>In GHL → Automations → Workflows</p>
-            <p>Create two workflows using webhook URL:</p>
-            <p><code>https://insurancegrokbot.click/webhook</code></p>
-            <p>See full setup guide in your dashboard under "GHL Setup Guide" tab</p>
-        </div>
-
-        <p style="margin-top:80px; font-size:20px;">
-            <a href="/demo-chat" style="color:#00ff88; text-decoration:underline;">Try the demo chat first →</a> | 
-            <a href="/" style="color:#888;">← Back to Home</a>
-        </p>
     </body>
     </html>
     """
