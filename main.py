@@ -1999,7 +1999,7 @@ def test_page():
             font-weight: 600;
         }}
         .input-area {{
-            padding: 15px 24px 40px;
+            padding: 15px 20px 30px;
             background: #111;
             display: flex;
             align-items: center;
@@ -2157,15 +2157,14 @@ def test_page():
         }}
 
         
-        input.addEventListener('keydown', function(e) {{
-            if (e.key === "Enter") {{
+        input.addEventListener('keydown', e => {{
+            if (e.key === 'Enter') {{
                 e.preventDefault();
-                
                 sendMessage();
             }}
         }});
 
-        sendBtn.addEventListener('click', sendMessage);
+        sendBtn.addEventListener("click", sendMessage);
 
         function fetchLogs() {{
             fetch(`/get-logs?contact_id=${{TEST_CONTACT_ID}}`)
