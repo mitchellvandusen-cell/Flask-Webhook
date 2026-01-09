@@ -2156,10 +2156,11 @@ def test_page():
             }}
         }}
 
-        // Enter key sends
+        
         input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === 'Return') {  // Covers both desktop Enter and mobile Return
-                e.preventDefault(); // Prevents newline in input
+            if (e.key === 'Enter' || e.key === 'Return') {
+                e.preventDefault();
+                
                 sendMessage();
             }
         });
