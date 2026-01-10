@@ -392,14 +392,14 @@ def home():
                 <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
+                <ul class="navbar-nav align-items-center">
                     <li class="nav-item"><a href="#features" class="nav-link">Features</a></li>
                     <li class="nav-item"><a href="#comparison" class="nav-link">Why GrokBot Wins</a></li>
                     <li class="nav-item"><a href="#logic" class="nav-link">Sales Logic</a></li>
                     <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
                     <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
                     {% if current_user.is_authenticated %}
-                        <li class="nav-item"><span class="navbar-text me-3">Hello, {{ current_user.email }}</span></li>
+                        <li class="nav-item"><span class="navbar-text text-white me-3">Hello, {{ current_user.email }}</span></li>
                         <li class="nav-item"><a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a></li>
                         <li class="nav-item"><a href="/logout" class="btn btn-outline-danger">Logout</a></li>
                     {% else %}
@@ -788,7 +788,7 @@ def login():
             {{ form.password(placeholder="Password") }}
             {{ form.submit() }}
         </form>
-        <p style="margin-top:30px;"><a href="/register" style="color:var(--accent);">Need an account? Register</a></p>
+        <p style="color: #aaa; margin-top:30px;"><a href="/register" style="color:var(--accent);">Need an account? Register</a></p>
     </div>
 </body>
 </html>
@@ -1051,7 +1051,7 @@ def dashboard():
                             <li>Check in GHL Settings, Phone Numbers</li>
                         </ul>
 
-                        <p style="text-align:center; margin-top:40px; font-weight:bold;">
+                        <p style="color: #aaa; text-align:center; margin-top:40px; font-weight:bold;">
                             Once set up, the bot runs 24/7, no more dead leads.
                         </p>
                     </div>
@@ -1062,7 +1062,7 @@ def dashboard():
             <div class="tab-pane fade" id="billing">
                 <div class="card billing-text">
                     <h2 style="color:var(--accent);">Billing</h2>
-                    <p>Update payment method, view invoices, or cancel subscription</p>
+                    <p style="color: #aaa;">Update payment method, view invoices, or cancel subscription</p>
                     
                     {% if current_user.stripe_customer_id %}
                         <form method="post" action="/create-portal-session">
