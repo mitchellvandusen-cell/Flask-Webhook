@@ -528,7 +528,7 @@ def home():
                         <h3>Jeremy Miner’s NEPQ</h3>
                         <p>Neuro-Emotional Persuasion Questioning. The bot asks problem-awareness questions that make leads persuade themselves.</p>
                     </div>
-                    <div>
+                    <div class="col-md-6 mb5">
                         <h3>Never Split the Difference</h3>
                         <p>Chris Voss negotiation tactics. Uses calibrated questions, labels, and mirrors to handle objections.</p>
                     </div>
@@ -536,7 +536,7 @@ def home():
                         <h3>Jordan Belfort’s Straight Line</h3>
                         <p>Maintains control of the conversation, loops back to benefits, and builds certainty.</p>
                     </div>
-                    <div>
+                    <div class="col-md-6 mb-5">
                         <h3>Gap Selling + Psychology of Selling</h3>
                         <p>Identifies the gap between current and desired state while using emotional drivers.</p>
                     </div>
