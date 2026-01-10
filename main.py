@@ -399,7 +399,6 @@ def home():
                     <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
                     <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
                     {% if current_user.is_authenticated %}
-                        <li class="nav-item"><span class="navbar-text text-white me-3">Hello, {{ current_user.email }}</span></li>
                         <li class="nav-item"><a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a></li>
                         <li class="nav-item"><a href="/logout" class="btn btn-outline-danger">Logout</a></li>
                     {% else %}
