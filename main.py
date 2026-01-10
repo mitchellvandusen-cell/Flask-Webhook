@@ -1006,7 +1006,7 @@ def dashboard():
             <div class="tab-pane fade" id="guide">
                 <div class="card guide-text">
                     <h2 style="color:var(--accent); text-align:center;">GoHighLevel Setup Guide</h2>
-                    <p style="text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your GHL account</p>
+                    <p style="color #aaa; text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your GHL account</p>
                     {% raw %}
                     <div style="text-align:left;">
                         <h3 style="color:var(--accent);">Step 1: Create "Re-engage Leads" Workflow</h3>
