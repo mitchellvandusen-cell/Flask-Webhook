@@ -1984,7 +1984,6 @@ def checkout():
                 "quantity": 1,
             }],
             allow_promotion_codes=True,
-            customer_creation="always",
             customer_email=customer_email,  # Pre-fill email here
             subscription_data={
                 "metadata": {
