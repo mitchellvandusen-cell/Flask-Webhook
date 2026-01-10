@@ -996,7 +996,7 @@ def dashboard():
                             {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
                         </div>
 
-                        <div style="text-align:center; margin-top:50px;">
+                        <div style="color:var(--accent); text-align:center; margin-top:50px;">
                             {{ form.submit(class="button") }}
                         </div>
                     </form>
