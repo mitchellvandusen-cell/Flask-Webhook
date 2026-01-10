@@ -236,7 +236,7 @@ def webhook():
             'crm_user_id': '',
             'calendar_id': '',
             'timezone': 'America/Chicago',
-            'initial_message': "Hey! Quick question — are you still with that life insurance plan you mentioned before?",
+            'initial_message': "Hey! Quick question, are you still with that life insurance plan you mentioned before?",
             'location_id': 'DEMO'
         }
         if contact_id == "unknown" and location_id != 'TEST_LOCATION_456':
@@ -1106,19 +1106,67 @@ def create_portal_session():
 # At the top, add a demo-specific contact ID
 DEMO_CONTACT_ID = "demo_web_visitor"
 
-@app.route("/demo-chat")
-def demo_chat():
-    # 1. Session Management
-    if 'demo_session_id' not in session:
-        session['demo_session_id'] = str(uuid.uuid4())
-    
-    demo_contact_id = f"demo_{session['demo_session_id']}"
-
-    # 2. Auto-Wipe Logic (Fresh Start)
+def run_demo_janitor():
+    """
+    Deletes all demo data older than 2 hours.
+    Keeps the DB very light.
+    """
     conn = get_db_connection()
     if conn:
         try:
             cur = conn.cursor()
+            
+            # 1. Clean Messages (older than 2 hours)
+            cur.execute("""
+                DELETE FROM contact_messages 
+                WHERE contact_id LIKE 'demo_%' 
+                AND created_at < NOW() - INTERVAL '2 hours';
+            """)
+            
+            # 2. Clean Facts (older than 2 hours)
+            cur.execute("""
+                DELETE FROM contact_facts 
+                WHERE contact_id LIKE 'demo_%' 
+                AND created_at < NOW() - INTERVAL '2 hours';
+            """)
+
+            # 3. Clean Narratives (older than 2 hours)
+            cur.execute("""
+                DELETE FROM contact_narratives 
+                WHERE contact_id LIKE 'demo_%' 
+                AND updated_at < NOW() - INTERVAL '2 hours';
+            """)
+
+            conn.commit()
+            
+        except Exception as e:
+            logger.error(f"Janitor cleanup failed: {e}")
+        finally:
+            cur.close()
+            conn.close()
+
+@app.route("/demo-chat")
+def demo_chat():
+    # --- STEP 1: RUN THE JANITOR ---
+    # Every time someone visits, we clean up yesterday's mess.
+    # We run this inside a "try" block or just call it so it doesn't block loading if it's slow.
+    run_demo_janitor()
+    # 2. NUCLEAR OPTION: Always force a new ID
+    # We do NOT check "if in session". We overwrite it every time.
+    new_id = str(uuid.uuid4())
+    session['demo_session_id'] = new_id
+    
+    # This makes the user "demo_b8a9..." -> completely unique
+    demo_contact_id = f"demo_{new_id}"
+
+    # 3. (Optional) Safety Wipe
+    # Since the ID is brand new, the DB is technically already empty for this ID.
+    # But we can run this just to be safe or to clean up if you re-use IDs later.
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            # Just making 100% sure this brand new ID has no baggage
             cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
             cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
             cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
@@ -1129,7 +1177,7 @@ def demo_chat():
             cur.close()
             conn.close()
 
-    # 3. The Interface
+    # 4. The Interface
     demo_html = f"""
 <!DOCTYPE html>
 <html lang="en">
