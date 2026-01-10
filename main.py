@@ -546,8 +546,8 @@ def home():
             <h2 class="section-title">Simple, Transparent Pricing</h2>
             <div class="pricing-card">
                 <div class="price">$100<span style="font-size:2rem;">/mth</span></div>
-                <p style="font-size:1.6rem; margin:30px 0;">Early Adopter Rate</p>
-                <ul style="text-align:center; max-width:400px; margin:30px auto; font-size:1.2rem;">
+                <p style="font-size:1.9rem; margin:30px 0;">Early Adopter Rate</p>
+                <ul style="text-align:left; max-width:400px; margin:30px auto; font-size:1.2rem;">
                     <li>Unlimited conversations</li>
                     <li>Full narrative memory</li>
                     <li>All 5 sales frameworks</li>
