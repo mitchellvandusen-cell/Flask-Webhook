@@ -355,7 +355,7 @@ def home():
         .hero h1 { font-size: 3.5rem; font-weight: 700; line-height: 1.2; margin-bottom: 30px; text-shadow: var(--neon-glow); }
         .section { padding: 100px 20px; }
         .section-title { font-size: 3rem; font-weight: 700; text-align: center; margin-bottom: 80px; color: var(--accent); text-shadow: var(--neon-glow); }
-        .feature-card { background: var(--card-bg); border-radius: 20px; padding: 40px; text-align: justify; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.4s; height: 100%; }
+        .feature-card { background: var(--card-bg); border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.4s; height: 100%; }
         .feature-card:hover { transform: translateY(-15px); box-shadow: 0 20px 50px rgba(0, 255, 136, 0.3); }
         .feature-card h3 { font-size: 1.8rem; margin-bottom: 20px; color: var(--accent); }
         .comparison-wrapper { max-width: 1000px; margin: 0 auto; background: var(--card-bg); border-radius: 20px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); }
