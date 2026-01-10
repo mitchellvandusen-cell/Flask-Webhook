@@ -337,14 +337,14 @@ def home():
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0f0f0f; --text-secondary: #aaa; --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4); --red-x: #ff4444; --green-check: #00ff88; }
         body { background: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; line-height: 1.7; }
         .navbar { background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); }
-        .navbar-brand { font-weight: 700; font-size: 1.8rem; color: #fff !important; }
+        .navbar-brand { font-weight: 700; font-size: 1.6rem; color: #fff !important; margin-right: 15px !important; }
         .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
-        .navbar-nav { align-items: center !important; gap 5px; }
-        .nav-item, .btn-nav { height: 50px; display: flex; align-items: center; }
-        .nav-link { color: #ddd !important; font-weight: 800 !important; font-size: 0.85rem !important; text-transform: uppercase; letter-spacing: 0.5px; padding 0 20 px !important; white-space: nowrap !important; display: flex; align-items: center; height: 100%; transition: color 0.3s ease; }
+        .navbar-nav { align-items: center !important; gap 2px; }
+        .nav-item, .btn-nav { height: 50px !important; display: flex; align-items: center; }
+        .nav-link { color: #ddd !important; font-weight: 700 !important; font-size: 0.8rem !important; text-transform: uppercase; letter-spacing: 0.5px; padding 0 12 px !important; height: 40px; white-space: nowrap !important; display: flex; align-items: center; transition: color 0.3s ease; border-radius: 4px; }
         .nav-link:hover { color: var(--accent) !important; background: rgba(255, 255, 255, 0.05); text-shadow: var(--neon-glow); }
-        .nav-btn-group { display: flex; align-items: center; gap: 15px; margin-left: 20px; }
-        .btn-nav { width: 140px !important; height: 50px !important; display: flex !important; align-items: center; justify-content: center; font-weight: 800 !important; text-transform: uppercase; text-decoration: none; border-radius: 4px; }
+        .nav-btn-group { display: flex; align-items: center; gap: 10px; margin-left: 15px; }
+        .btn-nav { width: 120px !important; !important; display: flex !important; align-items: center; justify-content: center; font-weight: 800 !important; text-transform: uppercase; font-size: 0.9rem !important; padding: 0 !important; text-decoration: none; border-radius: 4px !important; transition: all 0.3s ease; }
         .btn-login-custom:hover { background: #111; border: 1px solid #333; color: var(--accent) !important; }
         .btn-login-custom { background: #000; border 1px solid #333; color: #fff !important; }
         .btn-signup-custom { background: var(--accent); border 2px solid var(--accent); color: #000 !important; box-shadow: var(--neon-glow); }
