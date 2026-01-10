@@ -339,8 +339,16 @@ def home():
         .navbar { background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); }
         .navbar-brand { font-weight: 700; font-size: 1.8rem; color: #fff !important; }
         .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
-        .nav-link { color: #ddd !important; font-weight: 600; padding: 0.8rem 1rem !important; }
-        .nav-link:hover { color: var(--accent) !important; }
+        .navbar-nav { align-items: center !important; gap 5px; }
+        .nav-item, .btn-nav { height: 50px; display: flex; align-items: center; }
+        .nav-link { color: #ddd !important; font-weight: 800 !important; font-size: 0.85rem !important; text-transform }
+        .nav-link:hover { color: var(--accent) !important; background: rgba(255, 255, 255, 0.05); text-shadow: var(--neon-glow); }
+        .nav-btn-group { display: flex; align-items: center; gap: 15px; margin-left: 20px; }
+        .btn-nav { width: 140px !important; height: 50px !important; display: flex !important; align-items: center; justify-content: center; font-weight: 800 !important; text-transform: uppercase; text-decoration: none; border-radius: 4px; }
+        .btn-login-custom:hover { background: #111; border: 1px solid #333; color: var(--accent) !important; }
+        .btn-login-custom { background: #000; border 1px solid #333; color: #fff !important; }
+        .btn-signup-custom { background: var(--accent); border 2px solid var(--accent); color: #000 !important; box-shadow: var(--neon-glow); }
+        .btn-signup-custom:hover { background: #00cc6a; border-color: #00cc6a; transform: translateY(-2px); box-shadow: 0 0 40px rhba(0, 255, 136, 0.6); }
         .btn-primary { display: inline-block; background: #00ff88; color: #000; font-weight: 700; font-size: 1.6rem; padding: 18px 50px; border-radius: 50px; box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3); text-decoration: none; transition: all 0.3s ease; border: none; letter-spacing: 0.5px; }
         .btn-primary:hover { background: #00ee80; box-shadow: 0 12px 30px rgba(0, 255, 136, 0.5); transform: translateY(-4px); }
         .hero { padding: 140px 20px 100px; text-align: center; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, #111 0%, #000 80%); }
@@ -395,8 +403,12 @@ def home():
                         <li class="nav-item"><a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a></li>
                         <li class="nav-item"><a href="/logout" class="btn btn-outline-danger">Logout</a></li>
                     {% else %}
-                        <li class="nav-item"><a href="/login" class="btn btn-outline-light me-2">Log In</a></li>
-                        <li class="nav-item"><a href="/register" class="btn btn-primary">Sign Up</a></li>
+                        <li class="nav-item">
+                            <div class="nav-btn-group">
+                                <a href="/login" class="btn-nav btn-login-custom">Log In</a>
+                                <a href="/register" class="btn-nav btn-signup-custom">Sign Up</a>
+                            </div>
+                        </li>
                     {% endif %}
                 </ul>
             </div>
