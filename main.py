@@ -1007,10 +1007,9 @@ def dashboard():
                                         <ul>
                                             <li><code>intent</code>: "the intent of the message"</li>
                                             <li><code>first_name</code>: "{{contact.first_name}}"</li>
-                                            <li><code>age</code>: "{{contact.custom_fields.age or 'unknown'}}"</li>
-                                            <li><code>contact_address</code>: "{{contact.address1}}"</li>
+                                            <li><code>age</code>: "{{contact.date_of_birth or 'unknown'}}"</li>
+                                            <li><code>contact_address</code>: "{{contact.full_address}}"</li>
                                             <li><code>agent_name</code>: "Your Name" (or "{{user.full_name}}")</li>
-                                            <li><code>message</code>: "{{message.body}}"</li>
                                         </ul>
                                     </li>
                                 </ul>
@@ -1025,7 +1024,7 @@ def dashboard():
                             <li>New Workflow</li>
                             <li><strong>Trigger</strong>: Inbound SMS with tag "Re-engage text"</li>
                             <li>Add <strong>Wait</strong>: 2 minutes</li>
-                            <li>Add <strong>Webhook</strong> (same URL and fields)</li>
+                            <li>Add <strong>Webhook</strong> (same URL and fields but this time add custom field - ""message"" & {{message.body}})</li>
                             <li>Enable "Allow Re-entry" in settings.</li>
                         </ol>
 
