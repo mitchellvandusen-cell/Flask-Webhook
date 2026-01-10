@@ -527,12 +527,16 @@ def home():
                     <div class="col-md-6 mb-5">
                         <h3>Jeremy Miner’s NEPQ</h3>
                         <p>Neuro-Emotional Persuasion Questioning. The bot asks problem-awareness questions that make leads persuade themselves.</p>
+                    </div>
+                    <div>
                         <h3>Never Split the Difference</h3>
                         <p>Chris Voss negotiation tactics. Uses calibrated questions, labels, and mirrors to handle objections.</p>
                     </div>
                     <div class="col-md-6 mb-5">
                         <h3>Jordan Belfort’s Straight Line</h3>
                         <p>Maintains control of the conversation, loops back to benefits, and builds certainty.</p>
+                    </div>
+                    <div>
                         <h3>Gap Selling + Psychology of Selling</h3>
                         <p>Identifies the gap between current and desired state while using emotional drivers.</p>
                     </div>
@@ -546,7 +550,7 @@ def home():
             <h2 class="section-title">Simple, Transparent Pricing</h2>
             <div class="pricing-card">
                 <div class="price">$100<span style="font-size:2rem;">/mth</span></div>
-                <p style="font-size:1.5rem; margin:30px 0;">Early Adopter Rate</p>
+                <p style="font-size:1.7rem; margin:30px 0;">Early Adopter Rate</p>
                 <ul style="text-align:left; max-width:400px; margin:30px auto; font-size:1.4rem;">
                     <li>Unlimited conversations</li>
                     <li>Full narrative memory</li>
