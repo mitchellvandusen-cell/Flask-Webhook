@@ -341,7 +341,7 @@ def home():
         .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
         .navbar-nav { align-items: center !important; gap 5px; }
         .nav-item, .btn-nav { height: 50px; display: flex; align-items: center; }
-        .nav-link { color: #ddd !important; font-weight: 800 !important; font-size: 0.85rem !important; text-transform }
+        .nav-link { color: #ddd !important; font-weight: 800 !important; font-size: 0.85rem !important; text-transform: uppercase; letter-spacing: 0.5px; padding 0 20 px !important; white-space: nowrap !important; display: flex; align-items: center; height: 100%; transition: color 0.3s ease; }
         .nav-link:hover { color: var(--accent) !important; background: rgba(255, 255, 255, 0.05); text-shadow: var(--neon-glow); }
         .nav-btn-group { display: flex; align-items: center; gap: 15px; margin-left: 20px; }
         .btn-nav { width: 140px !important; height: 50px !important; display: flex !important; align-items: center; justify-content: center; font-weight: 800 !important; text-transform: uppercase; text-decoration: none; border-radius: 4px; }
