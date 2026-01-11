@@ -224,7 +224,7 @@ def webhook():
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    location_id = payload.get("locationId")
+    location_id = payload.get("locationId") or payload.get("location_id")
     is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY' or location_id == 'TEST_LOCATION_456')
     contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
     
@@ -397,6 +397,7 @@ def home():
                     <li class="nav-item"><a href="#comparison" class="nav-link">Why GrokBot Wins</a></li>
                     <li class="nav-item"><a href="#logic" class="nav-link">Sales Logic</a></li>
                     <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
+                    <li class="nav-item"><a href="/getting-started" class="nav-link">Getting Started</a></li>
                     <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
                     {% if current_user.is_authenticated %}
                         <li class="nav-item"><a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a></li>
@@ -2217,8 +2218,7 @@ def refresh_subscribers():
 
 @app.route("/oauth/callback")
 def oauth_callback():
-    import uuid
-    location_id = request.args.get("locationId")
+    location_id = request.args.get("locationId") or request.args.get("location_id")
     user_id = request.args.get("userId") or request.args.get("user_id")
     api_key = request.args.get("apiKey") or request.args.get("api_key")
     calendar_id = request.args.get("calendarId") or request.args.get("calendar_id")
