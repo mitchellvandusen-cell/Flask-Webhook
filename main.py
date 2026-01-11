@@ -222,6 +222,7 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
 def webhook():
     # === STEP 1: INITIAL PAYLOAD & IDENTITY ===
     payload = request.get_json(silent=True) or {}
+    logger.info(f"FULL PAYLOAD RECIEVED: {payload}")
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
