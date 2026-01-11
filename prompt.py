@@ -121,11 +121,11 @@ Always consider timezone ({timezone}) when suggesting times.
     elif "mortgage" in lead_vendor_context: "Lead Context: mortgage protection lead. Focus on paying off home if something happens, family security."
     elif "ethos" in lead_vendor_context: "Lead Context: Ethos lead."
 
-    # Recent conversation flow
+    # Updated prompt.py logic
     flow_str = "\n".join([
-        f"{'Lead' if msg['role'] == 'lead' else 'You'}: {msg['text']}"
+        f"{msg['text']}" # Removed the 'You:' and 'Lead:' labels
         for msg in recent_exchanges[-8:]
-    ]) if recent_exchanges else "This is the first message."
+    ])
 
     # Calendar and Nudges
     calendar_str = f"\nAvailable appointment slots (use exactly):\n{calendar_slots}" if calendar_slots else ""
