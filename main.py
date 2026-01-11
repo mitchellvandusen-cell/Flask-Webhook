@@ -1547,11 +1547,14 @@ def demo_chat():
             border-radius: 18px; 
             max-width: 85%; 
             font-size: 14px; 
+            display: inline-block;
             line-height: 1.4; 
+            overflow-wrap: break-word;
             word-wrap: break-word; /* Fix for text wrapping */
             overflow-wrap: breakword;
             white-space: pre-wrap; /* Fix for text wrapping */
             animation: popIn 0.3s ease-out;
+            flex-shrink: 0;
         }}
         @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
