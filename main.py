@@ -1549,6 +1549,7 @@ def demo_chat():
             font-size: 14px; 
             line-height: 1.4; 
             word-wrap: break-word; /* Fix for text wrapping */
+            overflow-wrap: breakword;
             white-space: pre-wrap; /* Fix for text wrapping */
             animation: popIn 0.3s ease-out;
         }}
