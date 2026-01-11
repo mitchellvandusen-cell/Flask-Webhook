@@ -39,16 +39,16 @@ def sync_subscribers():
             calendar_id = (row.get('calendar_id') or '').strip()
             initial_message = (row.get('initial_message') or '').strip()
 
-            if not location_id or not crm_api_key:
-                logger.warning(f"Row {row_num} skipped: missing location_id or crm_api_key")
+            if not crm_user_id or not crm_api_key:
+                logger.warning(f"Row {row_num} skipped: missing crm_user_id or crm_api_key")
                 continue
 
             subscribers_to_sync.append((
+                crm_user_id,
                 location_id,
                 bot_name,
                 crm_api_key,
                 timezone,
-                crm_user_id,
                 calendar_id,
                 initial_message
             ))
