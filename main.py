@@ -283,7 +283,7 @@ def webhook():
 
             try:
                 response = client.chat.completions.create(
-                    model="grok-2-1212", # Ensure correct model name
+                    model="grok-4-1-fast-reasoning", # Ensure correct model name
                     messages=grok_messages,
                     temperature=0.7,
                     max_tokens=500
