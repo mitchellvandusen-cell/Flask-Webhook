@@ -1646,7 +1646,7 @@ def demo_chat():
                 chat.scrollTop = chat.scrollHeight;
             }}
             fetchLogs();
-        } catch (err) {{
+        }} catch (err) {{
             console.error(err);
         }}
     }}
