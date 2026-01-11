@@ -226,7 +226,11 @@ def webhook():
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    location_id = payload.get("locationId") or payload.get("location_id")
+    location_id = {
+        payload.get("location_id") or 
+        payload.get("location", {}).get("id") or 
+        payload.get("customData", {}).get("location_id")
+    }
     if not location_id:
         logger.error("Identity not configured for location None")
         return jsonify({"status": "error"}), 400
