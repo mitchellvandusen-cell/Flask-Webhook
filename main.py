@@ -115,10 +115,6 @@ class ConfigForm(FlaskForm):
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
     initial_message = StringField("Optional Initial Message")
     submit = SubmitField("Save Settings")
-import re
-from flask import Flask, request, jsonify
-from threading import Thread
-# Assuming your other imports (logger, subscriber info, etc.) are already at the top
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -294,9 +290,15 @@ def webhook():
                 reply = "Fair enough. Just to clarify, was it the timing that was off or something else?"
 
         # 7. CLEANUP & SAVE
+        # Now we clean the 'reply' variable we just captured
+        reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
+        reply = re.sub(r'</?reply>', '', reply)
         reply = re.sub(r'<[^>]+>', '', reply).strip()
+        
+        # Punctuation and character normalization
         reply = reply.replace("—", ",").replace("–", ",").replace("−", ",")
         reply = reply.replace("…", "...").replace("’", "'").replace("“", '"').replace("”", '"')
+        reply = reply.strip()
         
         if reply:
             save_message(contact_id, reply, "assistant")
@@ -307,7 +309,6 @@ def webhook():
                 logger.info(f"Successfully sent reply to {contact_id}")
 
         return jsonify({"status": "success", "reply": reply}), 200
-
     except Exception as e:
         logger.error(f"Critical error in processing: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
