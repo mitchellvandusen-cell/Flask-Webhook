@@ -379,7 +379,7 @@ def home():
             display: block;
             width: 100%;
             height: 3px;
-            background-color: var(--accent);
+            background-color: var(--accent) !important;
             border-radius: 10px;
             transition: all 0.3s ease;
         }
@@ -416,8 +416,8 @@ def home():
         }
         footer { padding: 80px 20px; text-align: center; color: var(--text-secondary); border-top: 1px solid #222; }
         @media (max-width: 768px) {
-            .navbar-collapse { background: #0a0a0a; padding: 20px; border-radius: 15px; border: 1px solid #222; margin-top: 15px; box-shadow: var(--neon-glow); }
-            .nav-item { width: 100%; text-align: center; margin: 10px 0; }
+            .navbar-collapse { background: #111; padding: 20px; border-radius: 15px; border: 1px solid var(--accent); margin-top: 15px; box-shadow: var(--neon-glow); }
+            .nav-item { width: 100%; text-align: center; margin: 10px 0; border-bottom: 1px solid #222; }
             .navbar-nav { font-size: 0.7rem; }
             .nav-link { padding: 0 5px !imporant; }
             .nav-btn-group { flex-direction: column; width: 100% margin-left: 0; gap: 15px; }
