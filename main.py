@@ -124,7 +124,8 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
         bot_first_name = subscriber['bot_first_name']
         crm_api_key = subscriber['crm_api_key']
         timezone = subscriber.get('timezone', 'America/Chicago')
-        user_id = subscriber.get('user_id') # Needed for sending
+        user_id = subscriber.get('user_id')
+        location_id = subscriber.get('location_id')
 
         # 2. CALL THE SALES DIRECTOR (The Whole Brain)
         director_output = generate_strategic_directive(
@@ -208,7 +209,7 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
 
         # 8. SEND VIA GHL (Only if not demo)
         if not is_demo and crm_api_key != 'DEMO':
-            send_sms_via_ghl(contact_id, reply, crm_api_key, user_id)
+            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
             logger.info(f"Background thread sent reply to {contact_id}")
         
         return reply # Returned for Demo mode display
@@ -1808,7 +1809,7 @@ def test_page():
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
-                        locationId: 'TEST_LOCATION_456',
+                        UserId: 'TEST_LOCATION_456',
                         contact_id: TEST_CONTACT_ID,
                         first_name: 'Test User',
                         message: {{ body: msg }}
