@@ -115,19 +115,109 @@ class ConfigForm(FlaskForm):
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
     initial_message = StringField("Optional Initial Message")
     submit = SubmitField("Save Settings")
-def process_conversation_logic(contact_id, message, subscriber, first_name, age, address, lead_vendor, is_demo):
-    """
-    Executes the full Observer -> Director -> Grok -> GHL pipeline.
-    """
+import re
+from flask import Flask, request, jsonify
+from threading import Thread
+# Assuming your other imports (logger, subscriber info, etc.) are already at the top
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    # === STEP 1: INITIAL PAYLOAD & IDENTITY ===
+    # Use fallback to form data if JSON header is missing
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
+    logger.info(f"FULL PAYLOAD RECIEVED: {payload}")
+    
+    if not payload:
+        return jsonify({"status": "error", "error": "No payload received"}), 400
+
+    # Robust ID Extraction from the 'location' object GHL automatically sends
+    location_id = (
+        payload.get("location", {}).get("id") or 
+        payload.get("location_id") or 
+        payload.get("locationId")
+    )
+    
+    if not location_id:
+        logger.error("Identity not configured for location None")
+        return jsonify({"status": "error", "message": "Location ID missing"}), 400
+    
+    is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY' or location_id == 'TEST_LOCATION_456')
+    contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
+    
+    if is_demo:
+        subscriber = {
+            'bot_first_name': 'Grok',
+            'crm_api_key': 'DEMO', 
+            'crm_user_id': '',
+            'calendar_id': '',
+            'timezone': 'America/Chicago',
+            'initial_message': "Hey! Quick question, are you still with that life insurance plan you mentioned before?",
+            'location_id': 'DEMO'
+        }
+    else:
+        subscriber = get_subscriber_info(location_id)
+        if not subscriber or not subscriber.get('bot_first_name'):
+            logger.error(f"Identity not configured for location {location_id}")
+            return jsonify({"status": "error", "message": "Not configured"}), 404
+
+    # === STEP 2: METADATA & PRE-LOAD FACTS ===
+    first_name = payload.get("first_name") or ""
+    dob_str = payload.get("age") or ""
+    address = payload.get("address") or ""
+    intent = payload.get("intent") or ""
+    lead_vendor = payload.get("lead_vendor", "")
+    age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
+
+    # Load initial knowledge into DB
+    initial_facts = []
+    if first_name: initial_facts.append(f"First name: {first_name}")
+    if age and age != "unknown": initial_facts.append(f"Age: {age}")
+    if address: initial_facts.append(f"Address: {address}")
+    if intent: initial_facts.append(f"Intent: {intent}")
+    
+    if initial_facts and contact_id != "unknown":
+        save_new_facts(contact_id, initial_facts)
+
+    # === STEP 3: MESSAGE EXTRACTION & IDEMPOTENCY ===
+    raw_message = payload.get("message", {})
+    message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
+    
+    # Allow empty message for initiation/outreach webhooks
+    if not message:
+        logger.info(f"Empty message received - treating as initiation for {contact_id}")
+
+    # Idempotency (Prevent duplicate processing)
+    if not is_demo:
+        message_id = payload.get("message_id") or payload.get("id")
+        if message_id:
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute("SELECT 1 FROM processed_webhooks WHERE webhook_id = %s", (message_id,))
+                    if cur.fetchone():
+                        logger.info(f"Message {message_id} already processed. Skipping.")
+                        return jsonify({"status": "success", "message": "Already processed"}), 200
+                    cur.execute("INSERT INTO processed_webhooks (webhook_id) VALUES (%s)", (message_id,))
+                    conn.commit()
+                except Exception as e:
+                    logger.error(f"Idempotency error: {e}")
+                finally:
+                    conn.close()
+
+    # Save Lead Message (Synchronous)
+    if message:
+        save_message(contact_id, message, "lead")
+
+    # === STEP 4: CONVERSATION LOGIC (NO THREADING) ===
+    # We execute everything here to keep the Gunicorn worker alive until complete
     try:
-        # 1. Identity
+        # 1. Identity from Subscriber
         bot_first_name = subscriber['bot_first_name']
         crm_api_key = subscriber['crm_api_key']
         timezone = subscriber.get('timezone', 'America/Chicago')
-        user_id = subscriber.get('user_id')
-        location_id = subscriber.get('location_id')
-
-        # 2. CALL THE SALES DIRECTOR (The Whole Brain)
+        
+        # 2. CALL THE SALES DIRECTOR
         director_output = generate_strategic_directive(
             contact_id=contact_id,
             message=message,
@@ -142,12 +232,11 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
         current_stage = director_output["stage"]
         underwriting_ctx = director_output["underwriting_context"]
         known_facts = director_output["known_facts"]
-        company_ctx = director_output["company_context"]
         story_narrative = director_output["story_narrative"]
         recent_exchanges = director_output["recent_exchanges"]
         
         # 4. OPERATIONAL CHECKS
-        try: vibe = classify_vibe(message).value
+        try: vibe = classify_vibe(message).value if message else "neutral"
         except: vibe = "neutral"
         
         calendar_slots = ""
@@ -155,15 +244,16 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
             calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
             
         context_nudge = ""
-        if "covered" in message.lower(): context_nudge = "Lead claims coverage."
+        if message and "covered" in message.lower(): 
+            context_nudge = "Lead claims coverage."
         final_nudge = f"{context_nudge}\n{underwriting_ctx}".strip()
 
-        # Ghost Check (First Message logic)
+        # Ghost Check (Outreach / Initiation logic)
         initial_message = subscriber.get('initial_message', '').strip()
         assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
         
         reply = ""
-        if len(assistant_messages) == 0 and initial_message:
+        if not message and len(assistant_messages) == 0 and initial_message:
             reply = initial_message
         else:
             # 5. BUILD PROMPT
@@ -187,11 +277,13 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
             for msg in recent_exchanges:
                 role = "user" if msg["role"] == "lead" else "assistant"
                 grok_messages.append({"role": role, "content": msg["text"]})
-            grok_messages.append({"role": "user", "content": message})
+            
+            if message:
+                grok_messages.append({"role": "user", "content": message})
 
             try:
                 response = client.chat.completions.create(
-                    model="grok-4-1-fast-reasoning",
+                    model="grok-2-1212", # Ensure correct model name
                     messages=grok_messages,
                     temperature=0.7,
                     max_tokens=500
@@ -203,127 +295,22 @@ def process_conversation_logic(contact_id, message, subscriber, first_name, age,
 
         # 7. CLEANUP & SAVE
         reply = re.sub(r'<[^>]+>', '', reply).strip()
-        reply = reply.replace("—", ",").replace("–", ",").replace("−", ",")  # Catch Em, En, and Minus signs
+        reply = reply.replace("—", ",").replace("–", ",").replace("−", ",")
         reply = reply.replace("…", "...").replace("’", "'").replace("“", '"').replace("”", '"')
-        save_message(contact_id, reply, "assistant")
-
-        # 8. SEND VIA GHL (Only if not demo)
-        if not is_demo and crm_api_key != 'DEMO':
-            send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
-            logger.info(f"Background thread sent reply to {contact_id}")
         
-        return reply # Returned for Demo mode display
+        if reply:
+            save_message(contact_id, reply, "assistant")
+
+            # 8. SEND VIA GHL
+            if not is_demo and crm_api_key != 'DEMO':
+                send_sms_via_ghl(contact_id, reply, crm_api_key, location_id)
+                logger.info(f"Successfully sent reply to {contact_id}")
+
+        return jsonify({"status": "success", "reply": reply}), 200
 
     except Exception as e:
-        logger.error(f"Critical error in processing thread: {e}")
-        return None
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    # === STEP 1: INITIAL PAYLOAD & IDENTITY ===
-    payload = request.get_json(silent=True) or {}
-    logger.info(f"FULL PAYLOAD RECIEVED: {payload}")
-    if not payload:
-        return jsonify({"status": "error", "error": "No JSON payload"}), 400
-
-    location_id = payload.get("location", {}).get("id")
-    if not location_id:
-        logger.error("Identity not configured for location None")
-        return jsonify({"status": "error"}), 400
-    
-    is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY' or location_id == 'TEST_LOCATION_456')
-    contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
-    
-    if is_demo:
-        # Demo Identity
-        subscriber = {
-            'bot_first_name': 'Grok',
-            'crm_api_key': 'DEMO', 
-            'crm_user_id': '',
-            'calendar_id': '',
-            'timezone': 'America/Chicago',
-            'initial_message': "Hey! Quick question, are you still with that life insurance plan you mentioned before?",
-            'location_id': 'DEMO'
-        }
-        if contact_id == "unknown" and location_id != 'TEST_LOCATION_456':
-            return jsonify({"status": "error", "message": "Invalid demo session"}), 400
-    else:
-        # Production Identity
-        subscriber = get_subscriber_info(location_id)
-        if not subscriber or not subscriber.get('bot_first_name'):
-            logger.error(f"Identity not configured for location {location_id}")
-            return jsonify({"status": "error", "message": "Not configured"}), 404
-
-        # Security Check
-        provided_api_key = payload.get("apiKey") or payload.get("api_key") or payload.get("crm_api_key")
-        if provided_api_key and subscriber.get('crm_api_key') != provided_api_key:
-            logger.warning(f"API key mismatch for location {location_id}")
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
-
-    # === STEP 2: METADATA & PRE-LOAD FACTS ===
-    first_name = payload.get("first_name") or ""
-    dob_str = payload.get("age") or ""
-    address = payload.get("address") or ""
-    intent = payload.get("intent") or ""
-    lead_vendor = payload.get("lead_vendor", "")
-    location_id = payload.get("location_id")
-    age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
-
-    # Load initial knowledge into DB
-    initial_facts = []
-    if first_name: initial_facts.append(f"First name: {first_name}")
-    if age and age != "unknown": initial_facts.append(f"Age: {age}")
-    if address: initial_facts.append(f"Address: {address}")
-    if intent: initial_facts.append(f"Intent: {intent}")
-    
-    if initial_facts and contact_id != "unknown":
-        save_new_facts(contact_id, initial_facts)
-
-    # === STEP 3: MESSAGE EXTRACTION & IDEMPOTENCY ===
-    raw_message = payload.get("message", {})
-    message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
-    
-    if not message:
-        return jsonify({"status": "ignored", "reason": "empty message"}), 200
-
-    # Idempotency (Prevent duplicate processing)
-    if not is_demo:
-        message_id = payload.get("message_id") or payload.get("id")
-        if message_id:
-            conn = get_db_connection()
-            if conn:
-                try:
-                    cur = conn.cursor()
-                    cur.execute("SELECT 1 FROM processed_webhooks WHERE webhook_id = %s", (message_id,))
-                    if cur.fetchone():
-                        return jsonify({"status": "success", "message": "Already processed"}), 200
-                    cur.execute("INSERT INTO processed_webhooks (webhook_id) VALUES (%s)", (message_id,))
-                    conn.commit()
-                except Exception as e:
-                    logger.error(f"Idempotency error: {e}")
-                finally:
-                    conn.close()
-
-    # Save Lead Message (Synchronous - Critical)
-    save_message(contact_id, message, "lead")
-
-    # === STEP 4: ROUTING (THE FIRE & FORGET SPLIT) ===
-    if is_demo:
-        # DEMO MODE: Wait for result (Foreground)
-        reply = process_conversation_logic(
-            contact_id, message, subscriber, first_name, age, address, lead_vendor, True
-        )
-        return jsonify({"status": "success", "reply": reply})
-    else:
-        # LIVE MODE: Threading (Background) 
-        # 1. Spawn the worker thread
-        thread = Thread(target=process_conversation_logic, args=(
-            contact_id, message, subscriber, first_name, age, address, lead_vendor, False
-        ))
-        thread.start()
-        
-        # 2. Return 200 OK instantly to GHL so it doesn't timeout
-        return jsonify({"status": "processing", "message": "Bot is thinking..."})
+        logger.error(f"Critical error in processing: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
                     
 @app.route("/")
 def home():
