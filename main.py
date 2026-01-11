@@ -234,11 +234,11 @@ def webhook():
         subscriber = {
             'bot_first_name': 'Grok',
             'crm_api_key': 'DEMO', 
-            'crm_user_id': 'DEMO',
+            'crm_user_id': 'DEMO-User',
             'calendar_id': '',
             'timezone': 'America/Chicago',
             'initial_message': "Hey! Quick question, are you still with that life insurance plan you mentioned before?",
-            'location_id': ''
+            'location_id': 'DEMO'
         }
         if contact_id == "unknown" and user_id != 'TEST_LOCATION_456':
             return jsonify({"status": "error", "message": "Invalid demo session"}), 400
@@ -1809,7 +1809,8 @@ def test_page():
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
-                        UserId: 'TEST_LOCATION_456',
+                        user_id: 'TEST_LOCATION_456',
+                        location_id: 'TEST_LOCATION_456',
                         contact_id: TEST_CONTACT_ID,
                         first_name: 'Test User',
                         message: {{ body: msg }}
@@ -2247,7 +2248,7 @@ def oauth_callback():
                 try: return header_lower.index(n.lower())
                 except: return -1
 
-            user_idx = c_idx("user_id")
+            user_idx = c_idx("crm_user_id")
             code_idx = c_idx("confirmation_code")
             
             # Check if row exists for this location
