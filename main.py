@@ -646,133 +646,199 @@ def getting_started():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Launch Sequence | InsuranceGrokBot</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
-        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0f0f0f; --text-secondary: #aaa; --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4); }
-        body { background: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; line-height: 1.7; overflow-x: hidden; }
-        .navbar { background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #222; }
+        :root { 
+            --accent: #00ff88; 
+            --dark-bg: #000; 
+            --card-bg: #0a0a0a; 
+            --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4); 
+        }
+        
+        body { 
+            background: var(--dark-bg); 
+            color: #fff; 
+            font-family: 'Montserrat', sans-serif; 
+            line-height: 1.6; 
+        }
+
+        /* Paragraphs and List Text specifically White */
+        p, .step-text { 
+            color: #ffffff !important; 
+            font-size: 1.05rem;
+            letter-spacing: 0.2px;
+        }
+
+        /* HYBRID NAV */
+        .navbar { 
+            background: rgba(0,0,0,0.95); 
+            backdrop-filter: blur(10px); 
+            border-bottom: 1px solid #222; 
+        }
+        .navbar-brand { font-weight: 700; color: #fff !important; text-decoration: none; }
         .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
         
-        .hero-section { padding: 160px 20px 60px; text-align: center; background: radial-gradient(circle at top, #111 0%, #000 70%); }
-        .hero-section h1 { font-size: 4rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 20px; }
-        
-        .method-wrapper { padding: 40px 0 100px; }
-        .method-card { 
+        .nav-link { color: #fff !important; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; }
+        .nav-link:hover { color: var(--accent) !important; }
+
+        /* HAMBURGER MENU */
+        .auth-dropdown { 
+            background: transparent; 
+            border: none; 
+            color: var(--accent); 
+            cursor: pointer; 
+            padding: 0 10px; 
+            display: flex; 
+            align-items: center; 
+        }
+        .dropdown-menu-dark { 
+            background-color: #000 !important; 
+            border: 1px solid var(--accent) !important; 
+            box-shadow: var(--neon-glow); 
+            margin-top: 15px !important; 
+        }
+        .dropdown-item { color: #fff !important; text-transform: uppercase; font-weight: 700; font-size: 0.8rem; }
+        .dropdown-item:hover { background: #111 !important; color: var(--accent) !important; }
+
+        /* PATH CARDS */
+        .card-path { 
             background: var(--card-bg); 
-            border: 1px solid #1a1a1a; 
+            border: 2px solid #1a1a1a; 
             border-radius: 30px; 
             padding: 50px; 
             height: 100%; 
-            position: relative;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            transition: all 0.4s ease;
         }
-        .method-card:hover { border-color: var(--accent); transform: translateY(-10px); box-shadow: var(--neon-glow); }
-        
-        .badge-premium { position: absolute; top: -15px; right: 30px; background: var(--accent); color: #000; padding: 5px 20px; font-weight: 800; border-radius: 50px; font-size: 0.8rem; text-transform: uppercase; }
-        
-        .step-list { list-style: none; padding: 0; margin-top: 40px; }
-        .step-list li { margin-bottom: 25px; display: flex; align-items: center; font-size: 1.15rem; color: #eee; font-weight: 500; }
-        .step-number { 
-            background: #222; 
-            color: var(--accent); 
-            width: 35px; 
-            height: 35px; 
-            border-radius: 10px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+        .card-path:hover { 
+            border-color: var(--accent); 
+            box-shadow: var(--neon-glow);
+            transform: translateY(-5px);
+        }
+
+        .step-item { display: flex; align-items: flex-start; margin-bottom: 22px; }
+        .step-num { 
             font-weight: 800; 
-            margin-right: 20px; 
-            border: 1px solid #333;
-            flex-shrink: 0;
+            color: var(--accent); 
+            font-size: 1.2rem; 
+            min-width: 50px; 
+            font-family: monospace;
         }
-        
+
+        h3 { color: var(--accent); font-weight: 800; text-transform: uppercase; margin-bottom: 30px; }
+
+        /* BUTTONS */
         .btn-launch { 
-            display: inline-block; 
+            display: block; 
             width: 100%; 
             text-align: center; 
             padding: 20px; 
-            border-radius: 15px; 
+            border-radius: 50px; 
             font-weight: 800; 
-            font-size: 1.2rem;
             text-transform: uppercase; 
             text-decoration: none; 
-            margin-bottom: 35px; 
-            transition: all 0.3s;
+            transition: 0.3s; 
+            margin-top: 30px;
+            font-size: 1.1rem;
         }
-        .btn-marketplace { background: #fff; color: #000; }
-        .btn-marketplace:hover { background: var(--accent); box-shadow: var(--neon-glow); }
-        
-        .btn-website { background: var(--accent); color: #000; box-shadow: var(--neon-glow); }
-        .btn-website:hover { transform: scale(1.02); box-shadow: 0 0 50px rgba(0, 255, 136, 0.7); }
-
-        .footer-tagline { margin-top: 80px; font-size: 1.5rem; color: #555; font-weight: 600; text-align: center; }
+        .btn-mkt { background: #fff; color: #000; }
+        .btn-web { background: var(--accent); color: #000; box-shadow: var(--neon-glow); }
+        .btn-web:hover { transform: scale(1.03); }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="/" style="font-weight:700; color:#fff; text-decoration:none; font-size: 1.5rem;">
-                INSURANCE<span class="highlight">GROK</span>BOT
-            </a>
+            <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
+            <div class="d-flex align-items-center ms-auto">
+                <ul class="navbar-nav d-flex flex-row me-3">
+                    <li class="nav-item"><a href="/#features" class="nav-link px-3">Features</a></li>
+                    <li class="nav-item"><a href="/getting-started" class="nav-link px-3 highlight">Get Started</a></li>
+                </ul>
+
+                {% if current_user.is_authenticated %}
+                <div class="dropdown">
+                    <button class="auth-dropdown" type="button" id="authMenu" data-bs-toggle="dropdown">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                        <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
+                        <li><hr class="dropdown-divider" style="border-color: #333;"></li>
+                        <li><a class="dropdown-item text-danger" href="/logout">Logout</a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </nav>
 
-    <section class="hero-section">
-        <div class="container">
-            <h1 class="highlight">Pick Your Path to Automation</h1>
-            <p class="lead" style="color: #888; max-width: 700px; margin: 0 auto; font-size: 1.4rem;">
-                Whether you're a solo closer or a scaling agency, we've made deployment fast, simple, and lethal.
-            </p>
-        </div>
-    </section>
-
-    <div class="container method-wrapper">
+    <div class="container" style="padding-top: 160px; padding-bottom: 100px;">
+        <h1 class="text-center mb-5" style="font-weight: 800; font-size: 3.5rem; letter-spacing: -2px;">SELECT YOUR <span class="highlight">ENTRY</span></h1>
+        
         <div class="row g-5">
             <div class="col-lg-6">
-                <div class="method-card">
-                    <div class="badge-premium">Easiest Integration</div>
-                    <h2 style="font-weight: 700; margin-bottom: 10px;">The App Store Flow</h2>
-                    <p style="color: #666;">Deploy directly inside the GoHighLevel ecosystem.</p>
+                <div class="card-path">
+                    <h3>Marketplace Integration</h3>
+                    <p class="mb-5">Direct GHL authorization for agencies.</p>
                     
-                    <ul class="step-list">
-                        <li><span class="step-number">01</span> Portal into the <strong>GHL Marketplace</strong>.</li>
-                        <li><span class="step-number">02</span> Search & Acquire the <strong>Insurance Grok Bot</strong> app.</li>
-                        <li><span class="step-number">03</span> Hit <strong>Install</strong> to bridge your sub-account.</li>
-                        <li><span class="step-number">04</span> Secure your <strong>Activation Code</strong> from the install screen.</li>
-                        <li><span class="step-number">05</span> Create your identity and <strong>Register</strong> in seconds.</li>
-                        <li><span class="step-number">06</span> Fine-tune your Bot's voice in the <strong>Command Center</strong>.</li>
-                        <li><span class="step-number">07</span> Toggle the <strong>Workflow Action</strong> and watch the leads wake up.</li>
-                    </ul>
+                    <div class="step-item">
+                        <div class="step-num">01</div>
+                        <div class="step-text">Open the <strong>GHL Marketplace</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">02</div>
+                        <div class="step-text">Search for <strong>Insurance Grok Bot</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">03</div>
+                        <div class="step-text">Execute <strong>Install</strong> to bridge your sub-account.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">04</div>
+                        <div class="step-text">Secure your unique 8-digit <strong>Activation Code</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">05</div>
+                        <div class="step-text">Complete registration with your <strong>Email + Code</strong>.</div>
+                    </div>
                     
-                    <a href="https://marketplace.gohighlevel.com/" class="btn-launch btn-marketplace">Browse Marketplace</a>
+                    <a href="https://marketplace.gohighlevel.com/" class="btn-launch btn-mkt">Marketplace Setup</a>
                 </div>
             </div>
 
             <div class="col-lg-6">
-                <div class="method-card">
-                    <div class="badge-premium">Instant Access</div>
-                    <h2 style="font-weight: 700; margin-bottom: 10px;">The Direct Path</h2>
-                    <p style="color: #666;">Standard subscription for high-speed setup via the web.</p>
+                <div class="card-path">
+                    <h3>Direct Activation</h3>
+                    <p class="mb-5">Standard setup for independent high-volume closers.</p>
                     
-                    <ul class="step-list">
-                        <li><span class="step-number">01</span> Claim your spot via the <strong>Subscribe Now</strong> button.</li>
-                        <li><span class="step-number">02</span> Finalize your subscription securely via <strong>Stripe</strong>.</li>
-                        <li><span class="step-number">03</span> Forge your <strong>Secret Password</strong>.</li>
-                        <li><span class="step-number">04</span> Complete the <strong>Final Registration</strong> step.</li>
-                        <li><span class="step-number">05</span> Initialize the <strong>Intelligence Dashboard</strong>.</li>
-                        <li><span class="step-number">06</span> Sync your <strong>6 Essential GHL Keys</strong> to the bot.</li>
-                        <li><span class="step-number">07</span> Activate the <strong>Webhook Web</strong> to start the hunt.</li>
-                    </ul>
+                    <div class="step-item">
+                        <div class="step-num">01</div>
+                        <div class="step-text">Hit <strong>Subscribe Now</strong> to secure your license.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">02</div>
+                        <div class="step-text">Complete checkout via <strong>Stripe</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">03</div>
+                        <div class="step-text">Create your <strong>Secure Password</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">04</div>
+                        <div class="step-text">Access the <strong>Intelligence Dashboard</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">05</div>
+                        <div class="step-text">Input your <strong>CRM Keys</strong> to sync the bot.</div>
+                    </div>
                     
-                    <a href="/checkout" class="btn-launch btn-website">Start My Subscription</a>
+                    <a href="/checkout" class="btn-launch btn-web">Start Subscription</a>
                 </div>
             </div>
-        </div>
-
-        <p class="footer-tagline">Stop chasing leads. Start managing appointments.</p>
-        <div class="text-center mt-4">
-            <a href="/" style="color: #444; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">&larr; Return to HQ</a>
         </div>
     </div>
 </body>
