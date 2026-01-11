@@ -108,8 +108,8 @@ def sync_subscribers():
         # UPSERT
         upsert_query = """
             INSERT INTO subscribers (
-                location_id, bot_first_name, crm_api_key, timezone,
-                crm_user_id, calendar_id, initial_message
+                user_id, location_id, bot_first_name, crm_api_key, timezone, 
+                calendar_id, initial_message
             ) VALUES %s
             ON CONFLICT (location_id) DO UPDATE SET
                 bot_first_name = EXCLUDED.bot_first_name,

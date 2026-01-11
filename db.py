@@ -42,11 +42,11 @@ def init_db():
         # Subscribers table (GHL config)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
-                location_id TEXT PRIMARY KEY,
+                user_id TEXT PRIMARY KEY,
+                location_id TEXT,
                 bot_first_name TEXT DEFAULT 'Grok',
                 crm_api_key TEXT NOT NULL,
                 timezone TEXT DEFAULT 'America/Chicago',
-                crm_user_id TEXT,
                 calendar_id TEXT,
                 initial_message TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
