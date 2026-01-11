@@ -1120,21 +1120,21 @@ def run_demo_janitor():
             cur.execute("""
                 DELETE FROM contact_messages 
                 WHERE contact_id LIKE 'demo_%' 
-                AND created_at < NOW() - INTERVAL '2 hours';
+                AND created_at < NOW() - INTERVAL '30 minutes';
             """)
             
             # 2. Clean Facts (older than 2 hours)
             cur.execute("""
                 DELETE FROM contact_facts 
                 WHERE contact_id LIKE 'demo_%' 
-                AND created_at < NOW() - INTERVAL '2 hours';
+                AND created_at < NOW() - INTERVAL '30 minutes';
             """)
 
             # 3. Clean Narratives (older than 2 hours)
             cur.execute("""
                 DELETE FROM contact_narratives 
                 WHERE contact_id LIKE 'demo_%' 
-                AND updated_at < NOW() - INTERVAL '2 hours';
+                AND updated_at < NOW() - INTERVAL '30 minutes';
             """)
 
             conn.commit()
@@ -1182,13 +1182,17 @@ def demo_chat():
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Live AI Demo - InsuranceGrokBot</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; display: flex; overflow: hidden; }}
-        
+        :root {{ --accent: #00ff88; --safe-top: env(safe-area-inset-top, 20px); --safe-bottom: env(safe-area-inset-bottom, 20px); }}
+        body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; display: flex; flex-direction: column; overflow: hidden; }}
+        .main-wrapper {{ flex:1; display: flex; flex-direction: row; }}
         /* Left Column: The Phone */
         .chat-col {{ 
             flex: 1; 
@@ -1196,7 +1200,8 @@ def demo_chat():
             justify-content: center; 
             align-items: center; 
             background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%);
-            border-right: 1px solid #333;
+            padding: car(--safe-top) 10px var(--safe-bottom) 10px;
+            box-sizing: border-box;
         }}
         
         /* Right Column: The Brain */
@@ -1211,9 +1216,10 @@ def demo_chat():
         
         /* Phone UI */
         .phone {{ 
-            width: 380px; 
-            height: 800px; 
-            max-height: 90vh;
+            width: 100%;
+            max-width: 380px;
+            height: 90dvh; 
+            max-height: calc(90dvh - var(--safe-top) - var(--safe-bottom));
             background: #000; 
             border: 6px solid #333; 
             border-radius: 45px; 
@@ -1225,7 +1231,7 @@ def demo_chat():
         }}
         
         .notch {{
-            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            position: absolute; top: var(--safe-top); left: 50%; transform: translateX(-50%);
             width: 120px; height: 25px; background: #333; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;
             z-index: 10;
         }}
@@ -1351,10 +1357,11 @@ def demo_chat():
 
         /* Mobile */
         @media (max-width: 900px) {{
-            .log-col {{ display: none; }}
-            .chat-col {{ width: 100%; border: none; }}
+            .main-wrapper {{ flex-direction: column; }}
+            .log-col {{ display: none }}
+            .chat-col {{ height: 100dvh; padding: var(--safe-top) 0 var(--safe-bottom) 0; }}
             .phone {{ width: 100%; height: 100%; border: none; border-radius: 0; max-height: none; }}
-            .notch {{ display: none; }}
+            .notch {{ top: var(--safe-top); }}
         }}
     </style>
 </head>
@@ -1393,16 +1400,24 @@ def demo_chat():
             </svg>
             Download Log
         </a>
-        <button class="btn reset-btn" onclick="location.reload()">Reset Session</button>
+        <button class="btn reset-btn" onclick="resetSession();">Reset Session</button>
     </div>
 </div>
 
 <script>
+
     const CONTACT_ID = '{demo_contact_id}';
     const chat = document.getElementById('chat');
     const logs = document.getElementById('logs');
     const input = document.getElementById('msgInput');
     let lastLogCount = 0;
+
+    // Optional: Delete old data on every fresh load (extra safety)
+    fetch('/reset-demo', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{ contact_id: CONTACT_ID }})
+    }}).catch(err => console.log("Cleanup on load:", err));
 
     async function send() {{
         const text = input.value.trim();
@@ -1459,7 +1474,16 @@ def demo_chat():
             console.error("Log fetch error:", err);
         }}
     }}
-
+    async function resetSession() {{
+        if (confirm("Delete all data and start fresh?")) {{
+            await fetch('/reset-demo', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{ contact_id: CONTACT_ID }})
+            }});
+            window.location.reload();
+        }}
+    }}
     input.addEventListener('keypress', (e) => {{
         if (e.key === 'Enter') send();
     }});
