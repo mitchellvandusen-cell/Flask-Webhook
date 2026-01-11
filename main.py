@@ -1577,10 +1577,40 @@ def demo_chat():
         .btn {{ flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; }}
         .reset-btn {{ background: transparent; border: 1px solid #ff4444; color: #ff4444; }}
         .download-btn {{ background: #222; color: #fff; border: 1px solid #444; }}
-
         @media (max-width: 900px) {{
-            .log-col {{ display: none }}
-            .phone {{ height: 100vh; max-width: none; border: none; border-radius: 0; }}
+            /* Hide the brain activity logs on mobile to focus on the chat */
+            .log-col {{ 
+                display: none !important; 
+            }}
+
+            /* Main wrapper occupies the full dynamic height available */
+            .main-wrapper {{
+                height: 100dvh;
+                margin-top: 0;
+            }}
+
+            .chat-col {{
+                padding: 0;
+                height: 100dvh;
+            }}
+
+            /* THE CRITICAL FIX: Phone container respects safe areas */
+            .phone {{ 
+                width: 100%; 
+                max-width: none; 
+                border: none; 
+                border-radius: 0;
+                /* Dynamic height minus the top/bottom safe areas for Safari/Chrome */
+                height: calc(100dvh - var(--safe-top) - var(--safe-bottom)); 
+                margin-top: var(--safe-top);
+                margin-bottom: var(--safe-bottom);
+                box-shadow: none;
+            }}
+
+            /* Adjust the notch for mobile layout */
+            .notch {{ 
+                top: 0; 
+            }}
         }}
     </style>
 </head>
