@@ -75,7 +75,7 @@ def sync_subscribers():
                 cur.execute("ALTER TABLE subscribers RENAME COLUMN ghl_api_key TO crm_api_key;")
 
             cur.execute("ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_pkey;")
-            cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (location_id);")
+            cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (crm_user_id);")
 
             conn.commit()
             logger.info("Old column names and primary key fixed")
