@@ -570,6 +570,151 @@ def home():
     """
     return render_template_string(home_html)
 
+@app.route("/getting-started")
+def getting_started():
+    getting_started_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Launch Sequence | InsuranceGrokBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0f0f0f; --text-secondary: #aaa; --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4); }
+        body { background: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; line-height: 1.7; overflow-x: hidden; }
+        .navbar { background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #222; }
+        .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
+        
+        .hero-section { padding: 160px 20px 60px; text-align: center; background: radial-gradient(circle at top, #111 0%, #000 70%); }
+        .hero-section h1 { font-size: 4rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 20px; }
+        
+        .method-wrapper { padding: 40px 0 100px; }
+        .method-card { 
+            background: var(--card-bg); 
+            border: 1px solid #1a1a1a; 
+            border-radius: 30px; 
+            padding: 50px; 
+            height: 100%; 
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        .method-card:hover { border-color: var(--accent); transform: translateY(-10px); box-shadow: var(--neon-glow); }
+        
+        .badge-premium { position: absolute; top: -15px; right: 30px; background: var(--accent); color: #000; padding: 5px 20px; font-weight: 800; border-radius: 50px; font-size: 0.8rem; text-transform: uppercase; }
+        
+        .step-list { list-style: none; padding: 0; margin-top: 40px; }
+        .step-list li { margin-bottom: 25px; display: flex; align-items: center; font-size: 1.15rem; color: #eee; font-weight: 500; }
+        .step-number { 
+            background: #222; 
+            color: var(--accent); 
+            width: 35px; 
+            height: 35px; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 800; 
+            margin-right: 20px; 
+            border: 1px solid #333;
+            flex-shrink: 0;
+        }
+        
+        .btn-launch { 
+            display: inline-block; 
+            width: 100%; 
+            text-align: center; 
+            padding: 20px; 
+            border-radius: 15px; 
+            font-weight: 800; 
+            font-size: 1.2rem;
+            text-transform: uppercase; 
+            text-decoration: none; 
+            margin-bottom: 35px; 
+            transition: all 0.3s;
+        }
+        .btn-marketplace { background: #fff; color: #000; }
+        .btn-marketplace:hover { background: var(--accent); box-shadow: var(--neon-glow); }
+        
+        .btn-website { background: var(--accent); color: #000; box-shadow: var(--neon-glow); }
+        .btn-website:hover { transform: scale(1.02); box-shadow: 0 0 50px rgba(0, 255, 136, 0.7); }
+
+        .footer-tagline { margin-top: 80px; font-size: 1.5rem; color: #555; font-weight: 600; text-align: center; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/" style="font-weight:700; color:#fff; text-decoration:none; font-size: 1.5rem;">
+                INSURANCE<span class="highlight">GROK</span>BOT
+            </a>
+        </div>
+    </nav>
+
+    <section class="hero-section">
+        <div class="container">
+            <h1 class="highlight">Pick Your Path to Automation</h1>
+            <p class="lead" style="color: #888; max-width: 700px; margin: 0 auto; font-size: 1.4rem;">
+                Whether you're a solo closer or a scaling agency, we've made deployment fast, simple, and lethal.
+            </p>
+        </div>
+    </section>
+
+    <div class="container method-wrapper">
+        <div class="row g-5">
+            <div class="col-lg-6">
+                <div class="method-card">
+                    <div class="badge-premium">Easiest Integration</div>
+                    <h2 style="font-weight: 700; margin-bottom: 10px;">The App Store Flow</h2>
+                    <p style="color: #666;">Deploy directly inside the GoHighLevel ecosystem.</p>
+                    
+                    <ul class="step-list">
+                        <li><span class="step-number">01</span> Portal into the <strong>GHL Marketplace</strong>.</li>
+                        <li><span class="step-number">02</span> Search & Acquire the <strong>Insurance Grok Bot</strong> app.</li>
+                        <li><span class="step-number">03</span> Hit <strong>Install</strong> to bridge your sub-account.</li>
+                        <li><span class="step-number">04</span> Secure your <strong>Activation Code</strong> from the install screen.</li>
+                        <li><span class="step-number">05</span> Create your identity and <strong>Register</strong> in seconds.</li>
+                        <li><span class="step-number">06</span> Fine-tune your Bot's voice in the <strong>Command Center</strong>.</li>
+                        <li><span class="step-number">07</span> Toggle the <strong>Workflow Action</strong> and watch the leads wake up.</li>
+                    </ul>
+                    
+                    <a href="https://marketplace.gohighlevel.com/" class="btn-launch btn-marketplace">Browse Marketplace</a>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="method-card">
+                    <div class="badge-premium">Instant Access</div>
+                    <h2 style="font-weight: 700; margin-bottom: 10px;">The Direct Path</h2>
+                    <p style="color: #666;">Standard subscription for high-speed setup via the web.</p>
+                    
+                    <ul class="step-list">
+                        <li><span class="step-number">01</span> Claim your spot via the <strong>Subscribe Now</strong> button.</li>
+                        <li><span class="step-number">02</span> Finalize your subscription securely via <strong>Stripe</strong>.</li>
+                        <li><span class="step-number">03</span> Forge your <strong>Secret Password</strong>.</li>
+                        <li><span class="step-number">04</span> Complete the <strong>Final Registration</strong> step.</li>
+                        <li><span class="step-number">05</span> Initialize the <strong>Intelligence Dashboard</strong>.</li>
+                        <li><span class="step-number">06</span> Sync your <strong>6 Essential GHL Keys</strong> to the bot.</li>
+                        <li><span class="step-number">07</span> Activate the <strong>Webhook Web</strong> to start the hunt.</li>
+                    </ul>
+                    
+                    <a href="/checkout" class="btn-launch btn-website">Start My Subscription</a>
+                </div>
+            </div>
+        </div>
+
+        <p class="footer-tagline">Stop chasing leads. Start managing appointments.</p>
+        <div class="text-center mt-4">
+            <a href="/" style="color: #444; text-decoration: none; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">&larr; Return to HQ</a>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    return render_template_string(getting_started_html)
+
+
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
