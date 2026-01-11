@@ -365,8 +365,63 @@ def home():
         .sales-logic h3 { color: var(--accent); font-size: 2rem; margin-bottom: 20px; }
         .pricing-card { background: linear-gradient(135deg, #111, #000); border: 2px solid var(--accent); border-radius: 30px; padding: 60px; text-align: center; max-width: 600px; margin: 0 auto; box-shadow: 0 20px 60px rgba(0, 255, 136, 0.3); }
         .price { font-size: 6rem; font-weight: 700; color: var(--accent); text-shadow: var(--neon-glow); }
+        /* Hamburger Menu Styling */
+        .navbar-toggler { border: none; padding: 0; outline: none !important; }
+        .navbar-toggler-icon {
+            background-image: none !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 30px;
+            height: 24px;
+        }
+        .navbar-toggler-icon span {
+            display: block;
+            width: 100%;
+            height: 3px;
+            background-color: var(--accent);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        /* Custom Dropdown for Auth Users */
+        .auth-dropdown {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .dropdown-menu-dark {
+            background-color: #0a0a0a !important;
+            border: 1px solid #333 !important;
+            box-shadow: var(--neon-glow);
+            margin-top: 15px !important;
+        }
+
+        .dropdown-item {
+            color: #fff !important;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            padding: 10px 20px !important;
+        }
+
+        .dropdown-item:hover {
+            background-color: #111 !important;
+            color: var(--accent) !important;
+        }
         footer { padding: 80px 20px; text-align: center; color: var(--text-secondary); border-top: 1px solid #222; }
         @media (max-width: 768px) {
+            .navbar-collapse { background: #0a0a0a; padding: 20px; border-radius: 15px; border: 1px solid #222; margin-top: 15px; box-shadow: var(--neon-glow); }
+            .nav-item { width: 100%; text-align: center; margin: 10px 0; }
+            .navbar-nav { font-size: 0.7rem; }
+            .nav-link { padding: 0 5px !imporant; }
+            .nav-btn-group { flex-direction: column; width: 100% margin-left: 0; gap: 15px; }
+            .btn-nav { width: 100% !important; }
             .hero h1 { font-size: 2.8rem; }
             .hero p.lead { font-size: 1.4rem; }
             .btn-primary { font-size: 1.4rem; padding: 18px 40px; }
@@ -394,18 +449,29 @@ def home():
                     <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
                     <li class="nav-item"><a href="/getting-started" class="nav-link">Getting Started</a></li>
                     <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
-                    {% if current_user.is_authenticated %}
-                        <li class="nav-item"><a href="/dashboard" class="btn btn-outline-light me-2">Dashboard</a></li>
-                        <li class="nav-item"><a href="/logout" class="btn btn-outline-danger">Logout</a></li>
-                    {% else %}
-                        <li class="nav-item">
-                            <div class="nav-btn-group">
-                                <a href="/login" class="btn-nav btn-login-custom">Log In</a>
-                                <a href="/register" class="btn-nav btn-signup-custom">Sign Up</a>
-                            </div>
-                        </li>
-                    {% endif %}
                 </ul>
+
+                {% if current_user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="auth-dropdown" type="button" id="authMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" aria-labelledby=:authMenu">
+                            <li class="dropdown-item"><a href="/dashboard">Dashboard</a></li>
+                            <li><hr class="dropdown-divider" style="border-color: #222;"></li>
+                            <li class="dropdown-item"><a href="/logout">Logout</a></li>
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="nav-btn-group d-none d-sm-flex">
+                        <a href="/login" class="nav-link me-2" style="font-size: 0.8rem;">Log In</a>
+                        <a href="/register" class="btn-nav btn-signup-custom" style="padding: 5px 15px !important; height: 35px !important; font-size: 0.7rem !important;">Sign Up</a>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </nav>
