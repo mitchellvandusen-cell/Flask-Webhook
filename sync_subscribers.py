@@ -44,11 +44,11 @@ def sync_subscribers():
                 continue
 
             subscribers_to_sync.append((
-                crm_user_id,
                 location_id,
                 bot_name,
                 crm_api_key,
                 timezone,
+                crm_user_id,
                 calendar_id,
                 initial_message
             ))
@@ -75,7 +75,7 @@ def sync_subscribers():
                 cur.execute("ALTER TABLE subscribers RENAME COLUMN ghl_api_key TO crm_api_key;")
 
             cur.execute("ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_pkey;")
-            cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (crm_user_id);")
+            cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (location_id);")
 
             conn.commit()
             logger.info("Old column names and primary key fixed")
@@ -108,8 +108,8 @@ def sync_subscribers():
         # UPSERT
         upsert_query = """
             INSERT INTO subscribers (
-                user_id, location_id, bot_first_name, crm_api_key, timezone, 
-                calendar_id, initial_message
+                location_id, bot_first_name, crm_api_key, timezone, 
+                crm_user_id, calendar_id, initial_message
             ) VALUES %s
             ON CONFLICT (location_id) DO UPDATE SET
                 bot_first_name = EXCLUDED.bot_first_name,

@@ -225,8 +225,8 @@ def webhook():
     if not payload:
         return jsonify({"status": "error", "error": "No JSON payload"}), 400
 
-    user_id = payload.get("user.id") or payload.get("user_id")
-    is_demo = (user_id == 'DEMO_ACCOUNT_SALES_ONLY' or user_id == 'TEST_LOCATION_456')
+    location_id = payload.get("locationid") or payload.get("location_id")
+    is_demo = (location_id == 'DEMO_ACCOUNT_SALES_ONLY' or location_id == 'TEST_LOCATION_456')
     contact_id = payload.get("contact_id") or payload.get("contactid") or payload.get("contact", {}).get("id") or "unknown"
     
     if is_demo:
@@ -234,25 +234,25 @@ def webhook():
         subscriber = {
             'bot_first_name': 'Grok',
             'crm_api_key': 'DEMO', 
-            'crm_user_id': 'DEMO-User',
+            'crm_user_id': '',
             'calendar_id': '',
             'timezone': 'America/Chicago',
             'initial_message': "Hey! Quick question, are you still with that life insurance plan you mentioned before?",
             'location_id': 'DEMO'
         }
-        if contact_id == "unknown" and user_id != 'TEST_LOCATION_456':
+        if contact_id == "unknown" and location_id != 'TEST_LOCATION_456':
             return jsonify({"status": "error", "message": "Invalid demo session"}), 400
     else:
         # Production Identity
-        subscriber = get_subscriber_info(user_id)
+        subscriber = get_subscriber_info(location_id)
         if not subscriber or not subscriber.get('bot_first_name'):
-            logger.error(f"Identity not configured for location {user_id}")
+            logger.error(f"Identity not configured for location {location_id}")
             return jsonify({"status": "error", "message": "Not configured"}), 404
 
         # Security Check
         provided_api_key = payload.get("apiKey") or payload.get("api_key") or payload.get("crm_api_key")
         if provided_api_key and subscriber.get('crm_api_key') != provided_api_key:
-            logger.warning(f"API key mismatch for location {user_id}")
+            logger.warning(f"API key mismatch for location {location_id}")
             return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
     # === STEP 2: METADATA & PRE-LOAD FACTS ===
@@ -261,7 +261,7 @@ def webhook():
     address = payload.get("address") or ""
     intent = payload.get("intent") or ""
     lead_vendor = payload.get("lead_vendor", "")
-    user_id = payload.get("user_id")
+    location_id = payload.get("location_id")
     age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
     # Load initial knowledge into DB
@@ -1809,7 +1809,7 @@ def test_page():
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{
-                        user_id: 'TEST_LOCATION_456',
+                        user_id: '',
                         location_id: 'TEST_LOCATION_456',
                         contact_id: TEST_CONTACT_ID,
                         first_name: 'Test User',
@@ -2221,13 +2221,13 @@ def refresh_subscribers():
 
 @app.route("/oauth/callback")
 def oauth_callback():
-    user_id = request.args.get("userId") or request.args.get("user_id") or request.args.get("user.id")
     location_id = request.args.get("locationId") or request.args.get("location_id")
     api_key = request.args.get("apiKey") or request.args.get("api_key")
+    user_id = request.args.get("userId") or request.args.get("user_id") or request.args.get("user.id")
     calendar_id = request.args.get("calendarId") or request.args.get("calendar_id")
 
-    if not user_id:
-        return "Error: Missing UserID", 400
+    if not location_id:
+        return "Error: Missing LocationID", 400
 
     confirmation_code = str(uuid.uuid4())[:8].upper()
 
@@ -2248,14 +2248,14 @@ def oauth_callback():
                 try: return header_lower.index(n.lower())
                 except: return -1
 
-            user_idx = c_idx("crm_user_id")
+            loc_idx = c_idx("location_id")
             code_idx = c_idx("confirmation_code")
             
             # Check if row exists for this location
             row_num = None
-            if user_idx != -1:
+            if loc_idx != -1:
                 for i, row in enumerate(values[1:], start=2):
-                    if len(row) > user_idx and row[user_idx] == user_id:
+                    if len(row) > loc_idx and row[loc_idx] == location_id:
                         row_num = i
                         break
             
@@ -2263,9 +2263,10 @@ def oauth_callback():
             # In production, map indices carefully. Here we append if new.
             new_row = [""] * len(expected_headers)
             # Fill knowns...
-            if user_idx >= 0: new_row[user_idx] = user_id
+            if loc_idx >= 0: new_row[loc_idx] = location_id
             if c_idx("crm_api_key") >= 0: new_row[c_idx("crm_api_key")] = api_key or ""
             if c_idx("confirmation_code") >= 0: new_row[c_idx("confirmation_code")] = confirmation_code
+            if c_idx("crm_user_id") >=0: new_row[c_idx("crm_user_id")] = user_id
             if c_idx("code_used") >= 0: new_row[c_idx("code_used")] = "0"
 
             if row_num:

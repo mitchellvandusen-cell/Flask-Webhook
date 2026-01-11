@@ -42,11 +42,11 @@ def init_db():
         # Subscribers table (GHL config)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
-                user_id TEXT PRIMARY KEY,
-                location_id TEXT,
+                location_id TEXT PRIMARY KEY,
                 bot_first_name TEXT DEFAULT 'Grok',
                 crm_api_key TEXT NOT NULL,
                 timezone TEXT DEFAULT 'America/Chicago',
+                crm_user_id TEXT,
                 calendar_id TEXT,
                 initial_message TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -158,18 +158,18 @@ class User(UserMixin):
             cur.close()
             conn.close()
 
-def get_subscriber_info(user_id: str) -> dict | None:
+def get_subscriber_info(location_id: str) -> dict | None:
     """Get subscriber config by User ID"""
     conn = get_db_connection()
     if not conn:
         return None
     try:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM subscribers WHERE user_id = %s", (user_id,))
+        cur.execute("SELECT * FROM subscribers WHERE location_id = %s", (location_id,))
         row = cur.fetchone()
         return dict(row) if row else None
     except Exception as e:
-        logger.error(f"Error fetching subscriber {user_id}: {e}")
+        logger.error(f"Error fetching subscriber {location_id}: {e}")
         return None
     finally:
         cur.close()
