@@ -1420,26 +1420,15 @@ def run_demo_janitor():
 
 @app.route("/demo-chat")
 def demo_chat():
-    # --- STEP 1: RUN THE JANITOR ---
-    # Every time someone visits, we clean up yesterday's mess.
-    # We run this inside a "try" block or just call it so it doesn't block loading if it's slow.
     run_demo_janitor()
-    # 2. NUCLEAR OPTION: Always force a new ID
-    # We do NOT check "if in session". We overwrite it every time.
     new_id = str(uuid.uuid4())
     session['demo_session_id'] = new_id
-    
-    # This makes the user "demo_b8a9..." -> completely unique
     demo_contact_id = f"demo_{new_id}"
 
-    # 3. (Optional) Safety Wipe
-    # Since the ID is brand new, the DB is technically already empty for this ID.
-    # But we can run this just to be safe or to clean up if you re-use IDs later.
     conn = get_db_connection()
     if conn:
         try:
             cur = conn.cursor()
-            # Just making 100% sure this brand new ID has no baggage
             cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
             cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
             cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
@@ -1450,7 +1439,6 @@ def demo_chat():
             cur.close()
             conn.close()
 
-    # 4. The Interface
     demo_html = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -1464,8 +1452,11 @@ def demo_chat():
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{ --accent: #00ff88; --safe-top: env(safe-area-inset-top, 20px); --safe-bottom: env(safe-area-inset-bottom, 20px); }}
-        body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; display: flex; flex-direction: column; overflow: hidden; }}
-        .main-wrapper {{ flex:1; display: flex; flex-direction: row; }}
+        body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; overflow: hidden; }}
+        
+        /* Layout Wrapper */
+        .main-wrapper {{ display: flex; width: 100vw; height: 100vh; }}
+
         /* Left Column: The Phone */
         .chat-col {{ 
             flex: 1; 
@@ -1473,7 +1464,7 @@ def demo_chat():
             justify-content: center; 
             align-items: center; 
             background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%);
-            padding: car(--safe-top) 10px var(--safe-bottom) 10px;
+            padding: var(--safe-top) 10px var(--safe-bottom) 10px;
             box-sizing: border-box;
         }}
         
@@ -1485,16 +1476,16 @@ def demo_chat():
             flex-direction: column; 
             padding: 25px; 
             box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            border-left: 1px solid #222;
         }}
         
         /* Phone UI */
         .phone {{ 
             width: 100%;
             max-width: 380px;
-            height: 90dvh; 
-            max-height: calc(90dvh - var(--safe-top) - var(--safe-bottom));
+            height: 85vh; 
             background: #000; 
-            border: 6px solid #333; 
+            border: 8px solid #333; 
             border-radius: 45px; 
             display: flex; 
             flex-direction: column; 
@@ -1504,19 +1495,20 @@ def demo_chat():
         }}
         
         .notch {{
-            position: absolute; top: var(--safe-top); left: 50%; transform: translateX(-50%);
-            width: 120px; height: 25px; background: #333; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;
+            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 150px; height: 30px; background: #333; border-bottom-left-radius: 18px; border-bottom-right-radius: 18px;
             z-index: 10;
         }}
 
         .screen {{ 
             flex: 1; 
-            padding: 40px 20px 20px; 
+            padding: 45px 15px 20px; 
             overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
             gap: 12px; 
             scrollbar-width: none;
+            background: #000;
         }}
         .screen::-webkit-scrollbar {{ display: none; }}
 
@@ -1526,6 +1518,7 @@ def demo_chat():
             display: flex; 
             gap: 10px; 
             border-top: 1px solid #222;
+            z-index: 11;
         }}
         
         input {{ 
@@ -1547,16 +1540,16 @@ def demo_chat():
             color: #000;
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; 
-            transition: transform 0.1s;
         }}
-        button.send-btn:active {{ transform: scale(0.95); }}
         
         .msg {{ 
             padding: 12px 16px; 
             border-radius: 18px; 
             max-width: 85%; 
-            font-size: 15px; 
+            font-size: 14px; 
             line-height: 1.4; 
+            word-wrap: break-word; /* Fix for text wrapping */
+            white-space: pre-wrap; /* Fix for text wrapping */
             animation: popIn 0.3s ease-out;
         }}
         @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
@@ -1565,132 +1558,67 @@ def demo_chat():
         .user {{ background: #00ff88; align-self: flex-end; color: #000; border-bottom-right-radius: 4px; font-weight: 600; }}
         
         /* Log UI */
-        h3 {{ 
-            color: #00ff88; 
-            margin-top: 0; 
-            font-size: 14px; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            border-bottom: 1px solid #333;
-            padding-bottom: 15px;
-        }}
-        
-        #logs {{ 
-            flex: 1; 
-            overflow-y: auto; 
-            font-family: 'Courier New', monospace; 
-            font-size: 12px; 
-            padding-right: 10px;
-        }}
-        #logs::-webkit-scrollbar {{ width: 6px; }}
-        #logs::-webkit-scrollbar-thumb {{ background: #333; border-radius: 3px; }}
+        h3 {{ color: #00ff88; margin-top: 0; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 15px; }}
+        #logs {{ flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; }}
 
-        .log-entry {{ margin-bottom: 20px; border-left: 2px solid #333; padding-left: 15px; opacity: 0; animation: fadeIn 0.5s forwards; }}
-        @keyframes fadeIn {{ to {{ opacity: 1; }} }}
+        .log-entry {{ margin-bottom: 20px; border-left: 2px solid #333; padding-left: 15px; }}
+        .log-time {{ color: #666; font-size: 10px; }}
+        .log-type {{ color: #00ff88; font-weight: bold; }}
+        .log-content {{ color: #ccc; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }}
 
-        .log-time {{ color: #666; font-size: 10px; margin-bottom: 4px; }}
-        .log-type {{ color: #00ff88; font-weight: bold; margin-bottom: 4px; }}
-        .log-content {{ color: #ccc; line-height: 1.5; white-space: pre-wrap; }}
+        .controls {{ margin-top: 20px; display: flex; gap: 10px; }}
+        .btn {{ flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; }}
+        .reset-btn {{ background: transparent; border: 1px solid #ff4444; color: #ff4444; }}
+        .download-btn {{ background: #222; color: #fff; border: 1px solid #444; }}
 
-        /* Controls Area */
-        .controls {{
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }}
-
-        .btn {{
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            text-align: center;
-            text-decoration: none;
-            transition: all 0.2s;
-            display: flex; align-items: center; justify-content: center;
-        }}
-
-        .reset-btn {{
-            background: transparent;
-            border: 1px solid #ff4444;
-            color: #ff4444;
-        }}
-        .reset-btn:hover {{ background: #ff4444; color: #fff; }}
-
-        .download-btn {{
-            background: #222;
-            color: #fff;
-            border: 1px solid #444;
-        }}
-        .download-btn:hover {{ background: #333; border-color: #666; }}
-
-        /* Mobile */
         @media (max-width: 900px) {{
-            .main-wrapper {{ flex-direction: column; }}
             .log-col {{ display: none }}
-            .chat-col {{ height: 100dvh; padding: var(--safe-top) 0 var(--safe-bottom) 0; }}
-            .phone {{ width: 100%; height: 100%; border: none; border-radius: 0; max-height: none; }}
-            .notch {{ top: var(--safe-top); }}
+            .phone {{ height: 100vh; max-width: none; border: none; border-radius: 0; }}
         }}
     </style>
 </head>
 <body>
 
-<div class="chat-col">
-    <div class="phone">
-        <div class="notch"></div>
-        <div class="screen" id="chat">
-            <div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>
-        </div>
-        <div class="input-area">
-            <input type="text" id="msgInput" placeholder="Type your reply..." autofocus autocomplete="off">
-            <button class="send-btn" onclick="send()">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-            </button>
+<div class="main-wrapper">
+    <div class="chat-col">
+        <div class="phone">
+            <div class="notch"></div>
+            <div class="screen" id="chat">
+                <div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="msgInput" placeholder="Type your reply..." autofocus autocomplete="off">
+                <button class="send-btn" onclick="send()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
-<div class="log-col">
-    <h3>Live Brain Activity</h3>
-    <div id="logs">
-        <div style="color:#666; margin-top:20px;">Waiting for user input...</div>
-    </div>
-    
-    <div class="controls">
-        <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" class="btn download-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Download Log
-        </a>
-        <button class="btn reset-btn" onclick="resetSession();">Reset Session</button>
+    <div class="log-col">
+        <h3>Live Brain Activity</h3>
+        <div id="logs">
+            <div style="color:#666; margin-top:20px;">Waiting for user input...</div>
+        </div>
+        
+        <div class="controls">
+            <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" class="btn download-btn">
+                Download Log
+            </a>
+            <button class="btn reset-btn" onclick="resetSession();">Reset Session</button>
+        </div>
     </div>
 </div>
 
 <script>
-
     const CONTACT_ID = '{demo_contact_id}';
     const chat = document.getElementById('chat');
     const logs = document.getElementById('logs');
     const input = document.getElementById('msgInput');
     let lastLogCount = 0;
-
-    // Optional: Delete old data on every fresh load (extra safety)
-    fetch('/reset-demo', {{
-        method: 'POST',
-        headers: {{'Content-Type': 'application/json'}},
-        body: JSON.stringify({{ contact_id: CONTACT_ID }})
-    }}).catch(err => console.log("Cleanup on load:", err));
 
     async function send() {{
         const text = input.value.trim();
@@ -1718,9 +1646,8 @@ def demo_chat():
                 chat.scrollTop = chat.scrollHeight;
             }}
             fetchLogs();
-        }} catch (err) {{
+        } catch (err) {{
             console.error(err);
-            chat.innerHTML += `<div class="msg bot" style="color:#ff4444">Error connecting to bot.</div>`;
         }}
     }}
 
@@ -1747,6 +1674,7 @@ def demo_chat():
             console.error("Log fetch error:", err);
         }}
     }}
+
     async function resetSession() {{
         if (confirm("Delete all data and start fresh?")) {{
             await fetch('/reset-demo', {{
@@ -1757,13 +1685,13 @@ def demo_chat():
             window.location.reload();
         }}
     }}
+
     input.addEventListener('keypress', (e) => {{
         if (e.key === 'Enter') send();
     }});
 
     setInterval(fetchLogs, 2500);
 </script>
-
 </body>
 </html>
     """
