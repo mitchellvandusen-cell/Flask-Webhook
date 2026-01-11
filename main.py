@@ -366,15 +366,17 @@ def home():
         .pricing-card { background: linear-gradient(135deg, #111, #000); border: 2px solid var(--accent); border-radius: 30px; padding: 60px; text-align: center; max-width: 600px; margin: 0 auto; box-shadow: 0 20px 60px rgba(0, 255, 136, 0.3); }
         .price { font-size: 6rem; font-weight: 700; color: var(--accent); text-shadow: var(--neon-glow); }
         /* Hamburger Menu Styling */
-        .navbar-toggler { border: none; padding: 0; outline: none !important; }
+        .navbar-toggler { border: 1px solid var(--accent); padding: 8px !impportant; background: rgba(0, 255, 136, 0.1) !important; }
         .navbar-toggler-icon {
             background-image: none !important;
             display: flex;
             flex-direction: column;
             justify-content: space-around;
-            width: 30px;
-            height: 24px;
+            width: 25px;
+            height: 18px;
         }
+        .navbar-toggler-icon::before,
+        .navbar-toggler-icon::after,
         .navbar-toggler-icon span {
             display: block;
             width: 100%;
@@ -1547,7 +1549,8 @@ def demo_chat():
             border-radius: 18px; 
             max-width: 85%; 
             font-size: 14px; 
-            display: inline-block;
+            display: block;
+            width: auto;
             line-height: 1.4; 
             overflow-wrap: break-word;
             word-wrap: break-word; /* Fix for text wrapping */
