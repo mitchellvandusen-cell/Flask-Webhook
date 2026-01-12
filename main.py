@@ -2161,18 +2161,13 @@ def refresh_subscribers():
 @app.route("/oauth/callback")
 def oauth_callback():
     """
-    Standard GHL Marketplace OAuth Callback.
-    1. Receives 'code' from GHL.
-    2. Exchanges 'code' for access_token & refresh_token.
-    3. Saves to DB.
-    4. Generates a Confirmation Code for the user to register on your site.
+    Seamless GHL OAuth Callback.
+    Exchanges code for tokens and redirects user directly to registration.
     """
     code = request.args.get("code")
-    
     if not code:
         return "Error: No authorization code received.", 400
 
-    # Token Exchange
     token_url = "https://services.leadconnectorhq.com/oauth/token"
     payload = {
         "client_id": os.getenv("GHL_CLIENT_ID"),
@@ -2184,29 +2179,22 @@ def oauth_callback():
     }
 
     try:
+        # 1. Exchange Code for Tokens
         response = requests.post(token_url, data=payload)
         data = response.json()
         
         if 'access_token' not in data:
             logger.error(f"OAuth Exchange Failed: {data}")
-            return f"Error exchanging token: {data.get('error_description', 'Unknown error')}", 400
+            return f"Error: {data.get('error_description', 'Token exchange failed')}", 400
 
         access_token = data['access_token']
         refresh_token = data['refresh_token']
-        expires_in = data['expires_in'] # seconds
+        expires_in = data['expires_in']
         location_id = data.get('locationId')
-        
-        if not location_id:
-             return "Error: No Location ID returned in token response", 400
 
-        # Generate Confirmation Code for User Registration
-        confirmation_code = str(uuid.uuid4())[:8].upper()
-
-        # Update DB
+        # 2. Save to DB Immediately
         conn = get_db_connection()
         cur = conn.cursor()
-        
-        # Upsert Subscriber with Tokens
         cur.execute("""
             INSERT INTO subscribers (
                 location_id, access_token, refresh_token, token_expires_at, 
@@ -2218,25 +2206,29 @@ def oauth_callback():
                 access_token = EXCLUDED.access_token,
                 refresh_token = EXCLUDED.refresh_token,
                 token_expires_at = EXCLUDED.token_expires_at,
-                token_type = 'Bearer',
                 updated_at = NOW();
-        """, (location_id, access_token, refresh_token, expires_in, access_token)) # mirroring access to crm_api_key for legacy safety
-        
+        """, (location_id, access_token, refresh_token, expires_in, access_token))
         conn.commit()
         cur.close()
         conn.close()
         
-        # Write code to Sheet (if connected) so user can register
+        # 3. Write to Google Sheet (Seamless Mode)
+        # We put "OAUTH_AUTO" in the code column so the sheet structure stays valid
         if worksheet:
             try:
-                # [Simplified Sheet Logic - Append Row with Code]
+                # Headers: email, location_id, calendar_id, access_token, refresh_token, crm_user_id, bot_first_name, timezone, initial_message, stripe_id, code, code_used
                 worksheet.append_row([
-                    "", location_id, "", access_token, "", "Grok", "America/Chicago", "", "", confirmation_code, "0"
+                    "", location_id, "", access_token, refresh_token, "", "Grok", "America/Chicago", "", "", "OAUTH_AUTO", "1"
                 ])
             except Exception as e:
                 logger.error(f"Sheet append failed: {e}")
 
-        return render_template_string(f"""
+        # 4. Redirect directly to register (Passing location_id)
+        return redirect(url_for('register', location_id=location_id))
+
+    except Exception as e:
+        logger.error(f"OAuth Callback Error: {e}")
+        return "Internal Server Error during installation", 500(f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
