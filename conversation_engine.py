@@ -1,91 +1,138 @@
 # conversation_engine.py - The Logic Signal Processor (Left Brain)
+# "It's not about what you asked. It's about what they answered."
+
 from enum import Enum
 from dataclasses import dataclass
 from typing import List
 
 class ConversationStage(Enum):
     INITIAL_OUTREACH = "initial_outreach"
-    DISCOVERY = "discovery"
-    CONSEQUENCE = "consequence"
-    OBJECTION_HANDLING = "objection"
-    QUALIFICATION = "qualification"
-    CLOSING = "closing"
+    DISCOVERY = "discovery"          # NEPQ Situation / Gap Selling Current State
+    CONSEQUENCE = "consequence"      # NEPQ Consequence / Gap Selling Pain
+    RESISTANCE = "resistance"        # Chris Voss (Skepticism/Trust Issues)
+    OBJECTION = "objection"          # Straight Line (Smokescreens)
+    CLOSING = "closing"              # Booking the appointment
 
 @dataclass
 class LogicSignal:
     stage: ConversationStage
-    last_move_type: str  # "deflection", "agreement", "rejection", "question", "statement", "objection"
-    gap_signal: bool     # True if they admitted a problem/pain
-    voss_no_signal: bool # True if they answered "No" to a "No-Oriented Question"
+    last_move_type: str   # "deflection", "agreement", "rejection", "question", "statement", "pain_admission"
+    gap_signal: bool      # True if they admitted a problem
+    pain_score: int       # 0-3 (Intensity of pain words)
+    depth_score: int      # 0-5 (Quality/Length of their answer)
+    voss_no_signal: bool  # True if they answered "No" to a "No-Oriented Question"
 
 # === PATTERN LIBRARIES ===
-NO_ORIENTED_PATTERNS = ["opposed", "ridiculous", "bad idea", "give up", "too much", "impossible"]
-DEFLECTION_PATTERNS = ["how much", "cost", "price", "send info", "email me", "who are you", "is this free"]
-PROBLEM_INDICATORS = ["worried", "concerned", "afraid", "mortgage", "kids", "spouse", "debt", "expire", "no coverage"]
 
-# "Hard Out" triggers (The only things that stop us)
-DNC_PATTERNS = ["stop", "remove", "unsubscribe", "don't call", "wrong person", "spam", "cease"]
+# 1. CRITICAL PAIN (Gap Selling - The "Black Hole" Problems)
+CRITICAL_PAIN_PATTERNS = [
+    "homeless", "lose the house", "lose my home", "street", "devastated", 
+    "nothing left", "broke", "die", "death", "burial", "burden", "bankruptcy"
+]
 
-# "Soft Out" triggers (The start of the sale)
-OBJECTION_PATTERNS = ["not interested", "no thanks", "im good", "i'm good", "all set", "have insurance", "busy"]
+# 2. SOFT PAIN (Gap Selling - The "Worry" Problems)
+SOFT_PAIN_PATTERNS = [
+    "worried", "concerned", "afraid", "scared", "expire", "lapsing", 
+    "too expensive", "can't afford", "fixed income", "debt", "mortgage", 
+    "spouse", "kids", "family", "no coverage", "gap"
+]
+
+# 3. DEFLECTION (Straight Line - The "Off-Track" Moves)
+DEFLECTION_PATTERNS = [
+    "how much", "cost", "price", "quote", "send info", "email me", 
+    "send me something", "is this free", "just tell me"
+]
+
+# 4. NO-ORIENTED TRIGGERS (Chris Voss)
+NO_ORIENTED_PATTERNS = [
+    "opposed", "ridiculous", "bad idea", "give up", "too much", "impossible", "deferred"
+]
+
+# 5. HARD OUTS (DNC)
+DNC_PATTERNS = ["stop", "remove", "unsubscribe", "don't call", "wrong person", "cease"]
+
+# 6. SOFT OUTS (Objections)
+OBJECTION_PATTERNS = [
+    "not interested", "no thanks", "im good", "i'm good", "all set", 
+    "have insurance", "busy", "later", "pass"
+]
 
 def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     """
-    Pure logic analysis. Detects the mechanics of the conversation.
+    Analyzes the 'Mechanics' of the conversation based on the LEAD'S RESPONSE.
     """
     if not recent_exchanges:
-        return LogicSignal(ConversationStage.INITIAL_OUTREACH, "none", False, False)
+        return LogicSignal(ConversationStage.INITIAL_OUTREACH, "none", False, 0, 0, False)
 
-    # 1. Extract Raw Text
+    # 1. Extract Context
     lead_msgs = [m for m in recent_exchanges if m['role'] == 'lead']
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
     
     last_lead_text = lead_msgs[-1]['text'].lower() if lead_msgs else ""
     last_bot_text = bot_msgs[-1]['text'].lower() if bot_msgs else ""
     
-    # 2. Detect Bot's Last Move
-    bot_asked_no_oriented = any(p in last_bot_text for p in NO_ORIENTED_PATTERNS) and "?" in last_bot_text
+    # 2. Calculate Response Depth (Did they actually answer?)
+    # A short answer ("idk", "maybe") is low depth. A sentence is high depth.
+    words = last_lead_text.split()
+    depth_score = len(words)
+    if depth_score > 5: depth_score = 5 # Cap at 5
 
-    # 3. Detect Lead's Last Move
+    # 3. Analyze Lead's Move
     move_type = "statement"
     voss_no_signal = False
+    gap_signal = False
+    pain_score = 0
     
-    # PRIORITY 1: Check for DNC (Hard Stop)
-    if any(x in last_lead_text for x in DNC_PATTERNS):
-        move_type = "rejection" # Only true rejection
+    # --- STEP A: Pain Calculation ---
+    if any(p in last_lead_text for p in CRITICAL_PAIN_PATTERNS):
+        pain_score = 3 # Critical
+        gap_signal = True
+        move_type = "pain_admission"
+    elif any(p in last_lead_text for p in SOFT_PAIN_PATTERNS):
+        pain_score = 1 # Moderate
+        gap_signal = True
+        move_type = "pain_admission"
 
-    # PRIORITY 2: Check for Voss Agreement ("No" to "Are you opposed?")
-    elif bot_asked_no_oriented and ("no" in last_lead_text or "not " in last_lead_text or "nope" in last_lead_text):
+    # --- STEP B: Move Classification ---
+    
+    # Check for Voss Agreement ("No" to "Are you opposed?")
+    bot_asked_no_oriented = any(p in last_bot_text for p in NO_ORIENTED_PATTERNS) and "?" in last_bot_text
+    
+    if any(x in last_lead_text for x in DNC_PATTERNS):
+        move_type = "rejection" 
+
+    elif bot_asked_no_oriented and ("no" in last_lead_text or "not " in last_lead_text):
         move_type = "agreement"
         voss_no_signal = True
         
-    # PRIORITY 3: Check for Soft Objections ("Not Interested")
     elif any(x in last_lead_text for x in OBJECTION_PATTERNS):
         move_type = "objection"
 
-    # PRIORITY 4: Check for Deflection (Answering a question with a question)
     elif "?" in last_lead_text and any(p in last_lead_text for p in DEFLECTION_PATTERNS):
         move_type = "deflection"
         
-    # PRIORITY 5: Check for Explicit Agreement
     elif any(x in last_lead_text for x in ["yes", "sure", "ok", "sounds good", "book", "schedule"]):
         move_type = "agreement"
 
-    # 4. Detect Gap Signal
-    gap_signal = any(p in last_lead_text for p in PROBLEM_INDICATORS)
-
-    # 5. Determine Stage
+    # 4. Determine Conversation Stage
+    # Logic: The stage is determined by the QUALITY of the interaction, not just the count.
+    
     stage = ConversationStage.DISCOVERY # Default
     
     if move_type == "rejection":
-        stage = ConversationStage.OBJECTION_HANDLING # Actually an exit, but handled here logic-wise
+        stage = ConversationStage.OBJECTION_HANDLING
+        
     elif move_type == "objection" or move_type == "deflection":
         stage = ConversationStage.OBJECTION_HANDLING
+        
     elif move_type == "agreement" or any(k in last_lead_text for k in ["time", "call", "appointment"]):
         stage = ConversationStage.CLOSING
-    elif gap_signal:
+        
+    # CRITICAL: Only move to CONSEQUENCE stage if they admitted pain OR gave a thoughtful answer to a gap question
+    elif (gap_signal or pain_score > 0):
         stage = ConversationStage.CONSEQUENCE
+        
     elif not lead_msgs: 
         stage = ConversationStage.INITIAL_OUTREACH
 
-    return LogicSignal(stage, move_type, gap_signal, voss_no_signal)
+    return LogicSignal(stage, move_type, gap_signal, pain_score, depth_score, voss_no_signal)

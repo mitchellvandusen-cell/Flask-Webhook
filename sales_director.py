@@ -1,5 +1,5 @@
 # sales_director.py - The Executive Sales Brain (2026)
-# "Give a man a script, he closes one deal. Teach him the framework, he closes forever."
+# "Give the bot a script, it parrots. Give it a theory, it persuades."
 
 from conversation_engine import analyze_logic_flow, LogicSignal, ConversationStage
 from individual_profile import build_comprehensive_profile
@@ -8,10 +8,6 @@ from insurance_companies import get_company_context, find_company_in_message, no
 from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer
 
 def generate_strategic_directive(contact_id: str, message: str, first_name: str, age: str, address: str) -> dict:
-    """
-    The Master Function.
-    Synthesizes data to break loops and drive the 'Appointment Close'.
-    """
     
     # 1. GATHER INTELLIGENCE
     run_narrative_observer(contact_id, message)
@@ -36,116 +32,106 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         if normalized:
             company_ctx = get_company_context(normalized)
 
-    # 3. LOOP DETECTION & PAIN ANALYSIS
-    bot_last_moves = [m['text'] for m in recent_exchanges if m['role'] == 'assistant'][-3:]
-    loop_detected = any("worry" in m.lower() or "happen" in m.lower() or "gap" in m.lower() for m in bot_last_moves)
+    # 3. CONTEXTUAL ANALYSIS
+    bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+    last_bot_text = bot_msgs[-1]['text'].lower() if bot_msgs else ""
+    just_asked_consequence = any(x in last_bot_text for x in ["happen", "worry", "concern", "impact", "leave them"])
     
-    pain_keywords = ["homeless", "street", "lose the house", "devastated", "nothing left", "broke", "can't afford", "die"]
-    pain_confirmed = any(pk in message.lower() for pk in pain_keywords)
-
-    # 4. EXECUTIVE SYNTHESIS (STRATEGY SELECTION)
+    # 4. EXECUTIVE SYNTHESIS (THEORY SELECTION)
     directive = ""
     framework = "NEPQ"
     
-    # --- SCENARIO A: EMERGENCY BREAK (Pain Confirmed) ---
-    if pain_confirmed:
+    # --- LEVEL 1: IMMEDIATE CLOSING TRIGGERS ---
+    
+    # SCENARIO A: HIGH PAIN VALIDATED
+    if logic.pain_score >= 2:
         directive = (
             "CRITICAL PAIN ADMITTED. STOP DISCOVERY.\n"
-            "OBJECTIVE: Book the Appointment immediately to solve the pain.\n"
-            "TACTIC: 'Compassionate Close' (NEPQ).\n"
-            "DEFINITION: 1. Validate the emotion gently (e.g., 'That is a heavy weight to carry'). "
-            "2. Pivot immediately to the appointment as the specific relief to that pain. "
-            "Do NOT ask 'if' they want to meet. Ask 'when'."
+            "OBJECTIVE: Book the Appointment as the only logical relief to their pain.\n"
+            "THEORY: 'Compassionate Prescription' (NEPQ/Gap Selling).\n"
+            "DEFINITION: Acknowledge the emotional weight of their admission using a 'Label' (Voss). "
+            "Then, prescribe the appointment not as a sales call, but as a necessary 'triage' step to fix the specific problem they just admitted. "
+            "Do not ask IF they want to meet; tell them WHEN."
         )
         framework = "COMPASSIONATE CLOSE"
 
-    # --- SCENARIO B: LOOP BREAKER ---
-    elif loop_detected and logic.stage == ConversationStage.CONSEQUENCE:
+    # SCENARIO B: SUCCESSFUL CONSEQUENCE (Transition)
+    elif just_asked_consequence and logic.depth_score > 2:
         directive = (
-            "LOOP DETECTED. You are stuck in 'Problem Awareness'.\n"
-            "OBJECTIVE: Force a transition to the Solution (Appointment).\n"
-            "TACTIC: 'Transition Question' (NEPQ).\n"
-            "DEFINITION: A question that asks the lead if they are open to seeing how we can specifically eliminate [The Problem] we just discussed. "
-            "If they say yes, offer times immediately."
+            "GAP INTERNALIZED. The lead has visualized the negative future.\n"
+            "OBJECTIVE: Pivot from Problem Awareness to Solution Awareness.\n"
+            "THEORY: 'The Bridge Question' (NEPQ).\n"
+            "DEFINITION: Construct a question that asks for consent to discuss the solution. "
+            "Link their admitted 'Consequence' directly to the 'New Opportunity' (the appointment). "
+            "Psychological Goal: Move them from 'Dread' to 'Hope' without being pushy."
         )
         framework = "NEPQ (Transition)"
 
-    # --- SCENARIO C: VOSS PARADOX (Agreement via No) ---
+    # SCENARIO C: WEAK ANSWER (The Probe)
+    elif just_asked_consequence and logic.depth_score <= 2:
+        directive = (
+            "SURFACE LEVEL ANSWER. They are answering logically, not emotionally.\n"
+            "OBJECTIVE: Force them to visualize the reality.\n"
+            "THEORY: 'Clarifying Probe' (Gap Selling).\n"
+            "DEFINITION: Ask a question that demands specificity. Challenge their vague answer by asking 'What does that look like specifically?' or 'How would that physically affect [Family Member]?' "
+            "Psychological Goal: Move them from Intellectual understanding to Emotional realization."
+        )
+        framework = "GAP SELLING (Probe)"
+
+    # SCENARIO D: VOSS AGREEMENT
     elif logic.voss_no_signal:
         directive = (
-            "SUCCESS: Lead gave a 'Protective No' (e.g., 'No, I'm not opposed'). This is total agreement.\n"
-            "OBJECTIVE: Lock in the time.\n"
-            "TACTIC: 'Calibrated How' (Chris Voss).\n"
-            "DEFINITION: Ask a 'How' or 'What' question that presumes the appointment is happening. "
-            "Example logic: 'How does [Time 1] fit with your calendar?' or 'What is the best way to get this on the books?'"
+            "AGREEMENT SIGNAL RECEIVED.\n"
+            "OBJECTIVE: Secure the commitment without triggering 'Buyer's Remorse'.\n"
+            "THEORY: 'Illusion of Control' (Chris Voss).\n"
+            "DEFINITION: Ask a 'How' or 'What' question regarding the logistics of the meeting (e.g., timing). "
+            "This forces the lead to expend mental energy solving *your* scheduling problem, implicitly accepting the premise that the meeting is happening."
         )
         framework = "CHRIS VOSS (Closing)"
-        
-    # --- SCENARIO D: HIGH RESISTANCE / SKEPTICISM ---
-    elif profile_ctx.get("is_skeptical") and logic.stage != ConversationStage.CLOSING:
-        directive = (
-            "HIGH RESISTANCE DETECTED. Do not pitch. Do not close.\n"
-            "OBJECTIVE: Lower their guard.\n"
-            "TACTIC: 'Accusation Audit' (Chris Voss).\n"
-            "DEFINITION: List the worst things they are likely thinking about you (e.g., 'pushy', 'just wants a commission') "
-            "and say them out loud first to disarm the amygdala. Follow with a Label."
-        )
-        framework = "CHRIS VOSS (De-escalation)"
-        
-    # --- SCENARIO E: DEFLECTION (Straight Line) ---
-    elif logic.last_move_type == "deflection":
-        directive = (
-            "DEFLECTION DETECTED. The lead is avoiding the question to control the frame.\n"
-            "OBJECTIVE: Regain control and move toward the Appointment.\n"
-            "TACTIC: 'Straight Line Loop'.\n"
-            "DEFINITION: 1. Acknowledge their comment briefly (Deflect the deflection). "
-            "2. Pivot immediately back to the 'Intelligence Gathering' question you asked previously. "
-            "Keep the line straight toward the goal."
-        )
-        framework = "STRAIGHT LINE (Looping)"
-        
-    # --- SCENARIO F: "NOT INTERESTED" (Smokescreen) ---
-    elif logic.last_move_type == "objection":
-        directive = (
-            "OBJECTION DETECTED. They said 'No' but haven't given a reason.\n"
-            "OBJECTIVE: Crack the smokescreen.\n"
-            "TACTIC: 'Provoking Question' (Gap Selling).\n"
-            "DEFINITION: A question that challenges the lead's premise that they 'don't need this' without being aggressive. "
-            "Highlight the risk of their current status quo to provoke a realization."
-        )
-        framework = "GAP SELLING (Provoking)"
 
-    # --- SCENARIO G: GAP DISCOVERY (Standard Flow) ---
-    elif logic.gap_signal or (logic.stage == ConversationStage.CONSEQUENCE):
-        directive = (
-            "PAIN POINT IDENTIFIED.\n"
-            "OBJECTIVE: Make the pain real so they WANT the appointment.\n"
-            "TACTIC: 'Consequence Question' (NEPQ).\n"
-            "DEFINITION: A question that forces the lead to verbalize the *personal* or *financial* ramifications "
-            "of NOT solving the problem. Do not focus on the problem itself, but the *impact* of the problem on their family."
-        )
-        framework = "NEPQ (Consequence)"
-        
-    # --- SCENARIO H: CLOSING STAGE (THE APPOINTMENT) ---
+    # SCENARIO E: CLOSING STAGE
     elif logic.stage == ConversationStage.CLOSING:
         directive = (
-            "GREEN LIGHT. The Gap is established.\n"
-            "OBJECTIVE: Book the Appointment. (The Appointment IS the Close).\n"
-            "TACTIC: 'Double Bind' (Ericksonian Hypnosis / Straight Line).\n"
-            "DEFINITION: Offer two specific time slots. "
-            "Frame the choice not as 'Yes/No' to the meeting, but 'A or B' for the time. "
-            "Assume the sale."
+            "GREEN LIGHT.\n"
+            "OBJECTIVE: Finalize the time slot.\n"
+            "THEORY: 'The Double Bind' (Ericksonian Hypnosis / Straight Line).\n"
+            "DEFINITION: Present two distinct options (A or B) that both result in the desired outcome (The Appointment). "
+            "This bypasses the 'Yes/No' decision center of the brain and engages the 'Selection' center."
         )
         framework = "ASSUMPTIVE CLOSE"
-        
-    # --- SCENARIO I: DEFAULT DISCOVERY ---
+
+    # --- LEVEL 2: OBJECTION HANDLING ---
+
+    elif logic.last_move_type == "deflection":
+        directive = (
+            "DEFLECTION DETECTED.\n"
+            "OBJECTIVE: Maintain High Status and regain frame control.\n"
+            "THEORY: 'Deflect & Pivot' (Straight Line).\n"
+            "DEFINITION: Briefly acknowledge their statement to satisfy social norms (The Deflect), "
+            "then immediately ask a totally unrelated Intelligence Gathering question to pull them back to your line (The Pivot). "
+            "Do not justify or explain yourself."
+        )
+        framework = "STRAIGHT LINE (Looping)"
+
+    # --- LEVEL 3: DISCOVERY ---
+
+    elif logic.gap_signal:
+        directive = (
+            "GAP DETECTED.\n"
+            "OBJECTIVE: Future Pace the Pain.\n"
+            "THEORY: 'Consequence Question' (NEPQ).\n"
+            "DEFINITION: Ask a question that forces the lead to simulate a future where this problem remains unsolved. "
+            "Focus on the *Ramifications* of the problem, not the problem itself. Who else is affected? What financial ruin occurs?"
+        )
+        framework = "NEPQ (Consequence)"
+
     else:
         directive = (
             "DISCOVERY MODE.\n"
-            "OBJECTIVE: Find the Gap.\n"
-            "TACTIC: 'Situation Questions' (NEPQ) or 'Current State Probes' (Gap Selling).\n"
-            "DEFINITION: Questions designed to extract 'Literal and Physical Facts' about their current situation (Current Coverage, Family Structure). "
-            "Avoid emotional questions for now; focus on data gathering."
+            "OBJECTIVE: Establish the 'Current State'.\n"
+            "THEORY: 'Situation Question' (NEPQ).\n"
+            "DEFINITION: Ask a specific, neutral question about their current setup to gather objective data. "
+            "This builds the 'Baseline' against which you will later contrast the 'Gap'. Avoid emotional triggers yet."
         )
         framework = "NEPQ (Situation)"
 
