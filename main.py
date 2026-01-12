@@ -1263,7 +1263,7 @@ def demo_chat():
     session['demo_session_id'] = new_id
     demo_contact_id = f"demo_{new_id}"
 
-    # Reset DB for this session
+    # Reset DB for this session so it starts clean
     conn = get_db_connection()
     if conn:
         try:
@@ -1313,7 +1313,6 @@ def demo_chat():
         .user {{ background: #00ff88; align-self: flex-end; color: #000; border-bottom-right-radius: 4px; font-weight: 600; }}
         @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
 
-        /* Logs */
         h3 {{ color: #00ff88; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 15px; }}
         #logs {{ flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; }}
         .log-entry {{ margin-bottom: 20px; border-left: 2px solid #333; padding-left: 15px; }}
@@ -1372,20 +1371,20 @@ def demo_chat():
     const logs = document.getElementById('logs');
     const input = document.getElementById('msgInput');
     
-    // Track message count to know when to scroll
+    // Track message count to know when to update the screen
     let msgCount = 0;
 
     async function send() {{
         const text = input.value.trim();
         if (!text) return;
         
-        // Optimistically add user message
+        // 1. Show user message immediately
         chat.innerHTML += `<div class="msg user">${{text}}</div>`;
         input.value = '';
         chat.scrollTop = chat.scrollHeight;
 
         try {{
-            // Fire and forget (don't wait for reply, rely on polling)
+            // 2. Send to backend (Fire and Forget)
             await fetch('/webhook', {{
                 method: 'POST',
                 headers: {{'Content-Type': 'application/json'}},
@@ -1401,13 +1400,14 @@ def demo_chat():
         }}
     }}
 
+    // 3. THE FIX: Poll the DB every 2 seconds to see if Bot replied
     async function syncData() {{
         try {{
             const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
             const data = await res.json();
             
             if (data.logs && data.logs.length > 0) {{
-                // 1. Update Logs Column
+                // Update Logs Column
                 logs.innerHTML = data.logs.map(l => `
                     <div class="log-entry">
                         <div class="log-time">${{l.timestamp.split('T')[1]?.split('.')[0] || l.timestamp}}</div>
@@ -1416,10 +1416,10 @@ def demo_chat():
                     </div>
                 `).join('');
                 
-                // 2. Update Chat Phone UI
+                // Update Chat Screen
                 const messages = data.logs.filter(l => l.type.includes('Message'));
                 
-                // If new messages exist, update chat
+                // Only re-draw if there are NEW messages
                 if (messages.length > msgCount) {{
                     const initialMsg = `<div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>`;
                     
@@ -1453,7 +1453,7 @@ def demo_chat():
         if (e.key === 'Enter') send();
     }});
 
-    // Poll every 2 seconds to sync chat & logs
+    // Start Polling Loop
     setInterval(syncData, 2000);
 </script>
 </body>
