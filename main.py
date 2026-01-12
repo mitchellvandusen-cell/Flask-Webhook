@@ -882,23 +882,27 @@ def dashboard():
 
     form = ConfigForm()
 
-    # Get all values from sheet (safe)
+    # 1. Fetch Sheet Data & Headers
     values = worksheet.get_all_values() if worksheet else []
     if not values:
+        # If empty, initialize headers
         headers = ["email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used"]
         if worksheet:
             worksheet.append_row(headers)
         values = [headers]
 
-    header = values[0] if values else []
+    header = values[0]
     header_lower = [h.strip().lower() for h in header]
 
+    # Helper to find column index
     def col_index(name):
         try:
             return header_lower.index(name.lower())
         except ValueError:
             return -1
 
+    # 2. Map Column Indices
+    # Note: We map ALL columns we intend to read OR write
     email_idx = col_index("email")
     location_idx = col_index("location_id")
     calendar_idx = col_index("calendar_id")
@@ -909,42 +913,58 @@ def dashboard():
     initial_msg_idx = col_index("initial_message")
     stripe_idx = col_index("stripe_customer_id")
 
-    # Find user's row
+    # 3. Find Current User's Row
     user_row_num = None
     for i, row in enumerate(values[1:], start=2):
         if email_idx >= 0 and len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
             user_row_num = i
             break
 
+    # 4. Handle Form Submission (WRITE)
     if form.validate_on_submit() and worksheet:
-        data = [
-            current_user.email,
-            form.location_id.data or "",
-            form.calendar_id.data or "",
-            form.crm_api_key.data or "",
-            form.crm_user_id.data or "",
-            form.bot_name.data or "Grok",
-            form.timezone.data or "America/Chicago",
-            form.initial_message.data or "",
-            current_user.stripe_customer_id or ""
-        ]
-
         try:
+            # Prepare the row data
             if user_row_num:
-                # Update only the columns we manage, leaving others (like code) intact
-                # Note: This is simplified; in production, you'd map columns precisely
-                worksheet.update(f"A{user_row_num}:I{user_row_num}", [data])
+                # Get existing row to preserve data in columns we don't touch (like tokens/codes)
+                row_data = values[user_row_num - 1]
+                # Extend row if it's shorter than header
+                while len(row_data) < len(header):
+                    row_data.append("")
             else:
-                worksheet.append_row(data)
+                # New row: start with empty strings
+                row_data = [""] * len(header)
+
+            # Update specific indices dynamically
+            if email_idx >= 0: row_data[email_idx] = current_user.email
+            if location_idx >= 0: row_data[location_idx] = form.location_id.data or ""
+            if calendar_idx >= 0: row_data[calendar_idx] = form.calendar_id.data or ""
+            if api_key_idx >= 0: row_data[api_key_idx] = form.crm_api_key.data or ""
+            if user_id_idx >= 0: row_data[user_id_idx] = form.crm_user_id.data or ""
+            if bot_name_idx >= 0: row_data[bot_name_idx] = form.bot_name.data or "Grok"
+            if timezone_idx >= 0: row_data[timezone_idx] = form.timezone.data or "America/Chicago"
+            if initial_msg_idx >= 0: row_data[initial_msg_idx] = form.initial_message.data or ""
+            # Only update stripe if we have it locally, otherwise keep sheet value
+            if stripe_idx >= 0 and current_user.stripe_customer_id: 
+                row_data[stripe_idx] = current_user.stripe_customer_id
+
+            # Write back to sheet
+            if user_row_num:
+                # Update the specific row range
+                # Construct A1 notation (e.g., A5:K5)
+                # Note: This updates the whole row to ensure alignment
+                worksheet.update(f"A{user_row_num}", [row_data])
+            else:
+                worksheet.append_row(row_data)
+
             sync_subscribers()
-            flash("Settings saved and bot updated instantly!", "success")
+            flash("Settings saved!", "success")
         except Exception as e:
             logger.error(f"Sheet write failed: {e}")
             flash("Error saving settings", "error")
 
         return redirect("/dashboard")
 
-    # Pre-fill form
+    # 5. Pre-fill Form (READ)
     if user_row_num and values:
         row = values[user_row_num - 1]
         if location_idx >= 0 and len(row) > location_idx: form.location_id.data = row[location_idx]
@@ -955,6 +975,7 @@ def dashboard():
         if timezone_idx >= 0 and len(row) > timezone_idx: form.timezone.data = row[timezone_idx]
         if initial_msg_idx >= 0 and len(row) > initial_msg_idx: form.initial_message.data = row[initial_msg_idx]
 
+    # ... [Keep your existing HTML template render] ...
     return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
@@ -2288,7 +2309,7 @@ def oauth_callback():
     <h1>Installation Successful!</h1>
     <p>Please copy your confirmation code below to register your account:</p>
     <div class="box">
-        <div class="code">{confirmation_code}</div>
+        <div class="code">{location_id}</div>
     </div>
     <br><br>
     <a href="/register" style="font-size:1.5em;">Click here to Register</a>
