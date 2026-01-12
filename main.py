@@ -2290,35 +2290,7 @@ def oauth_callback():
 
     except Exception as e:
         logger.error(f"OAuth Callback Error: {e}")
-        return "Internal Server Error during installation", 500(f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Install Complete</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body {{ background:#000; color:#fff; font-family:'Montserrat',sans-serif; padding:50px; text-align:center; }}
-        .box {{ background:#111; padding:30px; border-radius:20px; display:inline-block; border:1px solid #333; }}
-        .code {{ font-size:3em; color:#00ff88; letter-spacing:5px; margin:20px 0; font-weight:bold; }}
-        a {{ color:#fff; text-decoration:underline; }}
-    </style>
-</head>
-<body>
-    <h1>Installation Successful!</h1>
-    <p>Please copy your confirmation code below to register your account:</p>
-    <div class="box">
-        <div class="code">{location_id}</div>
-    </div>
-    <br><br>
-    <a href="/register" style="font-size:1.5em;">Click here to Register</a>
-</body>
-</html>
-    """)
-    except Exception as e:
-        logger.error(f"OAuth Callback Error: {e}")
-        return "Internal Server Error during OAuth", 500
+        return "Internal Server Error during installation", 500
     
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
