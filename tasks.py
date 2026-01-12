@@ -200,14 +200,16 @@ def process_webhook_task(payload: dict):
         reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
         
         if reply:
-            save_message(contact_id, reply, "assistant")
             logger.info(f"📨 SENDING: '{reply[:30]}...'")
 
             if not is_demo:
                 sent = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
                 if sent:
+                    save_message(contact_id, reply, "assistant")
                     logger.info("✅ SUCCESS: Message sent to GHL")
             else:
+                # DEMO MODE: Save immediately
+                save_message(contact_id, reply, "assistant")
                 logger.info("⚠ DEMO MODE: Message saved internally")
 
     except Exception as e:

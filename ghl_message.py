@@ -22,34 +22,6 @@ def send_sms_via_ghl(contact_id: str, message: str, access_token: str, location_
         logger.warning(f"GHL_ACCESS_TOKEN or GHL_LOCATION_ID missing for location {location_id}, cannot send SMS")
         return False
 
-    # === DUPLICATE SAFETY CHECK ===
-    # We check 'contact_messages' (not nlp_memory) to align with db.py
-    conn = get_db_connection()
-    if conn:
-        try:
-            cur = conn.cursor()
-            # Check if we sent this exact message to this contact in the last 5 minutes
-            cur.execute("""
-                SELECT 1 FROM contact_messages
-                WHERE contact_id = %s
-                AND message_type = 'assistant'
-                AND created_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes'
-                AND message_text = %s
-                LIMIT 1
-            """, (contact_id, message.strip()))
-            
-            if cur.fetchone():
-                logger.info(f"Duplicate send prevented for {contact_id} — exact message sent recently")
-                cur.close()
-                conn.close()
-                return True  # Return True so the bot thinks it succeeded and moves on
-            
-            cur.close()
-            conn.close()
-        except Exception as e:
-            logger.warning(f"Duplicate check failed: {e}")
-            if conn: conn.close()
-
     # === SENDING LOGIC ===
     url = "https://services.leadconnectorhq.com/conversations/messages"
 

@@ -201,7 +201,6 @@ def sync_messages_to_db(contact_id, location_id, fetched_messages):
             cur.execute("""
                 INSERT INTO contact_messages (contact_id, message_type, message_text)
                 VALUES (%s, %s, %s)
-                ON CONFLICT DO NOTHING
             """, (contact_id, msg['role'], msg['text']))
         conn.commit()
     except Exception as e:
