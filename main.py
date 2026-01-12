@@ -2161,8 +2161,11 @@ def refresh_subscribers():
 @app.route("/oauth/callback")
 def oauth_callback():
     """
-    Seamless GHL OAuth Callback.
-    Exchanges code for tokens and redirects user directly to registration.
+    Seamless GHL OAuth Callback with Dynamic Sheet Mapping.
+    1. Exchanges code for tokens.
+    2. Saves to DB.
+    3. Maps data to Google Sheet based on ACTUAL headers (no fixed order required).
+    4. Redirects to Registration.
     """
     code = request.args.get("code")
     if not code:
@@ -2179,7 +2182,7 @@ def oauth_callback():
     }
 
     try:
-        # 1. Exchange Code for Tokens
+        # 1. Exchange Code
         response = requests.post(token_url, data=payload)
         data = response.json()
         
@@ -2192,7 +2195,7 @@ def oauth_callback():
         expires_in = data['expires_in']
         location_id = data.get('locationId')
 
-        # 2. Save to DB Immediately
+        # 2. Save to DB
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
@@ -2212,18 +2215,56 @@ def oauth_callback():
         cur.close()
         conn.close()
         
-        # 3. Write to Google Sheet (Seamless Mode)
-        # We put "OAUTH_AUTO" in the code column so the sheet structure stays valid
+        # 3. Dynamic Sheet Writing ( The Mapper )
         if worksheet:
             try:
-                # Headers: email, location_id, calendar_id, access_token, refresh_token, crm_user_id, bot_first_name, timezone, initial_message, stripe_id, code, code_used
-                worksheet.append_row([
-                    "", location_id, "", access_token, refresh_token, "", "Grok", "America/Chicago", "", "", "OAUTH_AUTO", "1"
-                ])
+                # Fetch all data to get headers
+                all_values = worksheet.get_all_values()
+                if not all_values:
+                    # If sheet is empty, init headers
+                    headers = ["email", "location_id", "access_token", "refresh_token", "bot_first_name", "timezone", "confirmation_code"]
+                    worksheet.append_row(headers)
+                    all_values = [headers]
+                
+                # Normalize headers to lowercase for matching
+                headers = [h.strip().lower() for h in all_values[0]]
+                
+                # Prepare the data we WANT to write
+                data_map = {
+                    "location_id": location_id,
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "bot_first_name": "Grok",
+                    "timezone": "America/Chicago",
+                    "confirmation_code": "OAUTH_AUTO", # Flag that this was auto-linked
+                    "code_used": "1"
+                }
+                
+                # Construct the row list based on the sheet's actual header order
+                row_to_append = [""] * len(headers) # Start with empty strings
+                
+                for col_name, value in data_map.items():
+                    # Find identifying part of header (e.g., 'access_token' in 'access_token')
+                    # We look for exact match or partial match if you have messy headers
+                    try:
+                        # Try exact match first
+                        if col_name in headers:
+                            idx = headers.index(col_name)
+                            row_to_append[idx] = value
+                        # Handle 'crm_api_key' legacy mapping to 'access_token'
+                        elif col_name == "access_token" and "crm_api_key" in headers:
+                            idx = headers.index("crm_api_key")
+                            row_to_append[idx] = value
+                    except ValueError:
+                        pass # Column not found, skip writing that field
+                
+                # Write the mapped row
+                worksheet.append_row(row_to_append)
+                
             except Exception as e:
                 logger.error(f"Sheet append failed: {e}")
 
-        # 4. Redirect directly to register (Passing location_id)
+        # 4. Redirect to Register (Seamless)
         return redirect(url_for('register', location_id=location_id))
 
     except Exception as e:
