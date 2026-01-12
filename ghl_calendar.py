@@ -27,18 +27,18 @@ def consolidated_calendar_op(
     first_name: str = None,
     selected_time: str = None
 ) -> any:
-    api_key = subscriber_data.get("crm_api_key")
+    access_token = subscriber_data.get("access_token") or subscriber_data.get("crm_api_key")
     location_id = subscriber_data.get("location_id")
     cal_id = subscriber_data.get("calendar_id")
     crm_user_id = subscriber_data.get("crm_user_id")
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
 
-    if not api_key or not cal_id:
+    if not access_token or not cal_id:
         logger.error(f"Missing credentials for calendar op (location {location_id})")
         return "let me look at my calendar" if operation == "fetch_slots" else False
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15",
         "Content-Type": "application/json"
     }

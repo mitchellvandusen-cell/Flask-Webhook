@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
 import uuid
 from flask_login import UserMixin
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,7 +45,10 @@ def init_db():
             CREATE TABLE IF NOT EXISTS subscribers (
                 location_id TEXT PRIMARY KEY,
                 bot_first_name TEXT DEFAULT 'Grok',
-                crm_api_key TEXT NOT NULL,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                token_expires_at TIMESTAMP,
+                token_type TEXT DEFAULT 'Bearer',
                 timezone TEXT DEFAULT 'America/Chicago',
                 crm_user_id TEXT,
                 calendar_id TEXT,
@@ -53,6 +57,17 @@ def init_db():
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        
+        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS access_token TEXT;")
+        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS refresh_token TEXT;")
+        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMP;")
+        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS token_type TEXT DEFAULT 'Bearer';")
+
+        # Backwards compatibility: If crm_api_key exists, copy to access_token if empty
+        try:
+            cur.execute("UPDATE subscribers SET access_token = crm_api_key WHERE access_token IS NULL AND crm_api_key IS NOT NULL")
+        except:
+            pass # Column might not exist in old schema, ignore
 
         # Conversation messages
         cur.execute("""
@@ -194,7 +209,7 @@ def sync_messages_to_db(contact_id, location_id, fetched_messages):
     finally:
         cur.close()
         conn.close()
-        
+
 def get_subscriber_info(location_id: str) -> dict | None:
     """Get subscriber config by location ID"""
     conn = get_db_connection()
@@ -208,6 +223,30 @@ def get_subscriber_info(location_id: str) -> dict | None:
     except Exception as e:
         logger.error(f"Error fetching subscriber {location_id}: {e}")
         return None
+    finally:
+        cur.close()
+        conn.close()
+
+def update_subscriber_token(location_id, access_token, refresh_token, expires_in):
+    """Updates the token info for a subscriber"""
+    conn = get_db_connection()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        # Calculate expiry timestamp
+        cur.execute("""
+            UPDATE subscribers 
+            SET access_token = %s, 
+                refresh_token = %s, 
+                token_expires_at = NOW() + interval '%s seconds',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (access_token, refresh_token, expires_in, location_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error updating token: {e}")
+        return False
     finally:
         cur.close()
         conn.close()

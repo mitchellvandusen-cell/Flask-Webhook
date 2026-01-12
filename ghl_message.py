@@ -8,7 +8,7 @@ from db import get_db_connection
 
 logger = logging.getLogger(__name__)
 
-def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: str):
+def send_sms_via_ghl(contact_id: str, message: str, access_token: str, location_id: str):
     """
     Sends an SMS via GoHighLevel API.
     Includes a safety check against the database to prevent duplicate messages
@@ -18,8 +18,8 @@ def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: s
         logger.warning("Invalid contact_id, cannot send SMS")
         return False
     
-    if not api_key or not location_id:
-        logger.warning(f"GHL_API_KEY or GHL_LOCATION_ID missing for location {location_id}, cannot send SMS")
+    if not access_token or not location_id:
+        logger.warning(f"GHL_ACCESS_TOKEN or GHL_LOCATION_ID missing for location {location_id}, cannot send SMS")
         return False
 
     # === DUPLICATE SAFETY CHECK ===
@@ -54,8 +54,8 @@ def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: s
     url = "https://services.leadconnectorhq.com/conversations/messages"
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Version": "2021-07-28",
+        "Authorization": f"Bearer {access_token}", # Was api_key, now access_token
+        "Version": "2021-04-15",
         "Content-Type": "application/json"
     }
 
