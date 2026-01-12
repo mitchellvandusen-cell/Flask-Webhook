@@ -1822,9 +1822,7 @@ def test_page():
 def get_logs():
     contact_id = request.args.get("contact_id")
 
-    # === FIX 1: Allow "demo_" IDs so the new page works ===
     if not contact_id or (not contact_id.startswith("test_") and not contact_id.startswith("demo_")):
-        # Just return empty logs instead of crashing or warning heavily
         return jsonify({"logs": []}) 
 
     conn = get_db_connection()
@@ -1846,10 +1844,16 @@ def get_logs():
         """, (contact_id,))
         messages = cur.fetchall()
 
-        for msg_type, text, created_at in messages:
+        for row in messages:
+            # === CRITICAL FIX START ===
+            # Your DB returns a Dictionary, so we must access by key!
+            msg_type = row['message_type']
+            text = row['message_text']
+            created_at = row['created_at']
+            # === CRITICAL FIX END ===
+
             role = "Lead" if msg_type == "lead" else "Bot"
             
-            # Handle Date vs String
             timestamp = "Unknown"
             if created_at:
                 if isinstance(created_at, str):
@@ -1873,7 +1877,6 @@ def get_logs():
 
         story_narrative = get_narrative(contact_id)
         
-        # Simple regex fallbacks
         name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
         if name_match: first_name = name_match.group(1).capitalize()
         
@@ -1883,7 +1886,6 @@ def get_logs():
         addr_match = re.search(r"address/location: (.*)", facts_text, re.IGNORECASE)
         if addr_match: address = addr_match.group(1).strip()
 
-        # Default text if build fails
         narrative_text = "Narrative pending..."
 
         try:
@@ -1895,7 +1897,6 @@ def get_logs():
                 address=address
             )
 
-            # Unpack Tuple if necessary
             if isinstance(profile_narrative, tuple):
                 narrative_text = profile_narrative[0]
             else:
@@ -1905,7 +1906,6 @@ def get_logs():
             logger.error(f"Profile build error in logs: {e}")
             narrative_text = f"Error building profile: {str(e)}"
 
-        # === FIX 2: Use 'narrative_text' (String) not 'profile_narrative' (Object) ===
         logs.append({
             "timestamp": datetime.now().isoformat(),
             "type": "Full Human Identity Narrative",
