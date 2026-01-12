@@ -170,9 +170,9 @@ def run_narrative_observer(contact_id: str, lead_message: str):
     
     TASK:
     Rewrite the narrative to include nuances, grey areas, and specific details.
-    - Extract entities (State Farm, 250k, Brother-in-law).
+    - Extract entities (Specific Insurance companies, Specific coverage Amount, Family members).
     - Capture "Hints": If they beat around the bush or mention family influence, include it.
-    - Capture Meaning: Don't just list words; apply meaning (e.g., 'Brother-in-law is a gatekeeper/influencer').
+    - Capture Meaning: Don't just list words; apply meaning.
     - Maintain a flowing, human-readable paragraph (max 150 words).
     - Keep it focused on the person's situation and story.
     
