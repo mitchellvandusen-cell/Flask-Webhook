@@ -7,6 +7,7 @@ import os
 import gspread
 import json
 import redis
+import requests
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
@@ -172,13 +173,10 @@ def home():
         .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
         .navbar-nav { align-items: center !important; gap 2px; }
         .nav-item, .btn-nav { height: 50px !important; display: flex; align-items: center; }
-        .nav-link { color: #ddd !important; font-weight: 700 !important; font-size: 0.8rem !important; text-transform: uppercase; letter-spacing: 0.5px; padding 0 12 px !important; height: 40px; white-space: nowrap !important; display: flex; align-items: center; transition: color 0.3s ease; border-radius: 4px; }
+        .nav-link { color: #ddd !important; font-weight: 700 !important; font-size: 0.8rem !important; text-transform: uppercase; letter-spacing: 0.5px; padding 0 12px !important; height: 40px; white-space: nowrap !important; display: flex; align-items: center; transition: color 0.3s ease; border-radius: 4px; }
         .nav-link:hover { color: var(--accent) !important; background: rgba(255, 255, 255, 0.05); text-shadow: var(--neon-glow); }
-        .nav-btn-group { display: flex; align-items: center; gap: 10px; margin-left: 15px; }
-        .btn-nav { width: 120px !important; !important; display: flex !important; align-items: center; justify-content: center; font-weight: 800 !important; text-transform: uppercase; font-size: 0.9rem !important; padding: 0 !important; text-decoration: none; border-radius: 4px !important; transition: all 0.3s ease; }
         .btn-login-custom:hover { background: #111; border: 1px solid #333; color: var(--accent) !important; }
-        .btn-login-custom { background: #000; border 1px solid #333; color: #fff !important; }
-        .btn-signup-custom { background: var(--accent); border 2px solid var(--accent); color: #000 !important; box-shadow: var(--neon-glow); }
+        .btn-signup-custom { background: var(--accent); border: 2px solid var(--accent); color: #000 !important; box-shadow: var(--neon-glow); padding: 5px 15px !important; height: 35px !important; font-size: 0.7rem !important; border-radius: 4px !important; font-weight: 800 !important; display:flex; align-items:center; justify-content:center; text-decoration:none; }
         .btn-signup-custom:hover { background: #00cc6a; border-color: #00cc6a; transform: translateY(-2px); box-shadow: 0 0 40px rhba(0, 255, 136, 0.6); }
         .btn-primary { display: inline-block; background: #00ff88; color: #000; font-weight: 700; font-size: 1.6rem; padding: 18px 50px; border-radius: 50px; box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3); text-decoration: none; transition: all 0.3s ease; border: none; letter-spacing: 0.5px; }
         .btn-primary:hover { background: #00ee80; box-shadow: 0 12px 30px rgba(0, 255, 136, 0.5); transform: translateY(-4px); }
@@ -201,65 +199,25 @@ def home():
         .sales-logic h3 { color: var(--accent); font-size: 2rem; margin-bottom: 20px; }
         .pricing-card { background: linear-gradient(135deg, #111, #000); border: 2px solid var(--accent); border-radius: 30px; padding: 60px; text-align: center; max-width: 600px; margin: 0 auto; box-shadow: 0 20px 60px rgba(0, 255, 136, 0.3); }
         .price { font-size: 6rem; font-weight: 700; color: var(--accent); text-shadow: var(--neon-glow); }
+        
         /* Hamburger Menu Styling */
-        .navbar-toggler { border: 1px solid var(--accent); padding: 8px !impportant; background: rgba(0, 255, 136, 0.1) !important; }
-        .navbar-toggler-icon {
-            background-image: none !important;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-around;
-            width: 25px;
-            height: 18px;
-        }
-        .navbar-toggler-icon::before,
-        .navbar-toggler-icon::after,
-        .navbar-toggler-icon span {
-            display: block;
-            width: 100%;
-            height: 3px;
-            background-color: var(--accent) !important;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-        /* Custom Dropdown for Auth Users */
-        .auth-dropdown {
-            background: transparent;
-            border: none;
-            color: var(--accent);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0 10px;
-            display: flex;
-            align-items: center;
-        }
-
-        .dropdown-menu-dark {
-            background-color: #0a0a0a !important;
-            border: 1px solid #333 !important;
-            box-shadow: var(--neon-glow);
-            margin-top: 15px !important;
-        }
-
-        .dropdown-item {
-            color: #fff !important;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            padding: 10px 20px !important;
-        }
-
-        .dropdown-item:hover {
-            background-color: #111 !important;
-            color: var(--accent) !important;
-        }
+        .navbar-toggler { border: 1px solid var(--accent); padding: 8px !important; background: rgba(0, 255, 136, 0.1) !important; }
+        .navbar-toggler-icon { background-image: none !important; display: flex; flex-direction: column; justify-content: space-around; width: 25px; height: 18px; }
+        .navbar-toggler-icon::before, .navbar-toggler-icon::after, .navbar-toggler-icon span { display: block; width: 100%; height: 3px; background-color: var(--accent) !important; border-radius: 10px; transition: all 0.3s ease; }
+        
+        .auth-dropdown { background: transparent; border: none; color: var(--accent); font-size: 1.5rem; cursor: pointer; padding: 0 10px; display: flex; align-items: center; }
+        .dropdown-menu-dark { background-color: #0a0a0a !important; border: 1px solid #333 !important; box-shadow: var(--neon-glow); margin-top: 15px !important; }
+        .dropdown-item { color: #fff !important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; padding: 10px 20px !important; }
+        .dropdown-item:hover { background-color: #111 !important; color: var(--accent) !important; }
         footer { padding: 80px 20px; text-align: center; color: var(--text-secondary); border-top: 1px solid #222; }
-        @media (max-width: 768px) {
+        
+        /* Responsive Tweaks */
+        @media (max-width: 991px) {
             .navbar-collapse { background: #111; padding: 20px; border-radius: 15px; border: 1px solid var(--accent); margin-top: 15px; box-shadow: var(--neon-glow); }
             .nav-item { width: 100%; text-align: center; margin: 10px 0; border-bottom: 1px solid #222; }
-            .navbar-nav { font-size: 0.7rem; }
-            .nav-link { padding: 0 5px !imporant; }
-            .nav-btn-group { flex-direction: column; width: 100% margin-left: 0; gap: 15px; }
-            .btn-nav { width: 100% !important; }
+            .navbar-nav { font-size: 0.8rem; width:100%; }
+            .nav-link { padding: 10px !important; justify-content:center; }
+            .btn-signup-custom { display: block; width: 100%; margin-top: 15px; }
             .hero h1 { font-size: 2.8rem; }
             .hero p.lead { font-size: 1.4rem; }
             .btn-primary { font-size: 1.4rem; padding: 18px 40px; }
@@ -280,17 +238,26 @@ def home():
                 <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav align-items-center">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item"><a href="#features" class="nav-link">Features</a></li>
                     <li class="nav-item"><a href="#comparison" class="nav-link">Why GrokBot Wins</a></li>
                     <li class="nav-item"><a href="#logic" class="nav-link">Sales Logic</a></li>
                     <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
                     <li class="nav-item"><a href="/getting-started" class="nav-link">Getting Started</a></li>
                     <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
+                    
+                    {% if not current_user.is_authenticated %}
+                        <li class="nav-item d-lg-none" style="margin-top:20px;">
+                            <a href="/login" class="nav-link" style="border:1px solid #333; border-radius:4px; margin-bottom:10px;">Log In</a>
+                        </li>
+                        <li class="nav-item d-lg-none">
+                            <a href="/register" class="btn-signup-custom" style="color:#000 !important; background:var(--accent);">Sign Up</a>
+                        </li>
+                    {% endif %}
                 </ul>
 
                 {% if current_user.is_authenticated %}
-                    <div class="dropdown">
+                    <div class="dropdown ms-3">
                         <button class="auth-dropdown" type="button" id="authMenu" data-bs-toggle="dropdown" aria-expanded="false">
                             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -298,16 +265,16 @@ def home():
                                 <line x1="3" y1="18" x2="21" y2="18"></line>
                             </svg>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" aria-labelledby=:authMenu">
+                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" aria-labelledby="authMenu">
                             <li class="dropdown-item"><a href="/dashboard">Dashboard</a></li>
                             <li><hr class="dropdown-divider" style="border-color: #222;"></li>
                             <li class="dropdown-item"><a href="/logout">Logout</a></li>
                         </ul>
                     </div>
                 {% else %}
-                    <div class="nav-btn-group d-none d-sm-flex">
-                        <a href="/login" class="nav-link me-2" style="font-size: 0.8rem;">Log In</a>
-                        <a href="/register" class="btn-nav btn-signup-custom" style="padding: 5px 15px !important; height: 35px !important; font-size: 0.7rem !important;">Sign Up</a>
+                    <div class="d-none d-lg-flex align-items-center ms-3 gap-3">
+                        <a href="/login" class="nav-link" style="font-size: 0.8rem;">Log In</a>
+                        <a href="/register" class="btn-signup-custom">Sign Up</a>
                     </div>
                 {% endif %}
             </div>
@@ -321,9 +288,7 @@ def home():
             <div class="text-center mt-5">
                 <a href="/checkout" class="btn-primary">Subscribe Now $100/mth</a>
                 <p class="mt-3">
-                    <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:1.4rem;">
-                        Or try the live demo first →
-                    </a>
+                    <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:1.4rem;">Or try the live demo first →</a>
                 </p>
                 <p class="mt-3 text-secondary"><small>No contract. Cancel anytime. Instant activation.</small></p>
             </div>
@@ -1287,20 +1252,47 @@ def demo_chat():
     <title>Live AI Demo - InsuranceGrokBot</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {{ --accent: #00ff88; --safe-top: env(safe-area-inset-top, 20px); --safe-bottom: env(safe-area-inset-bottom, 20px); }}
+        :root {{ 
+            --accent: #00ff88; 
+            --safe-top: env(safe-area-inset-top, 20px); 
+            --safe-bottom: env(safe-area-inset-bottom, 20px); 
+        }}
         body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; overflow: hidden; }}
         
         .main-wrapper {{ display: flex; width: 100vw; height: 100vh; }}
         
-        /* Left Column: Phone */
         .chat-col {{ flex: 1; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%); padding: var(--safe-top) 10px var(--safe-bottom) 10px; }}
         
-        /* Right Column: Logs */
-        .log-col {{ width: 450px; background: #0a0a0a; display: flex; flex-direction: column; padding: 25px; border-left: 1px solid #222; }}
-        
-        .phone {{ width: 100%; max-width: 380px; height: 85vh; background: #000; border: 8px solid #333; border-radius: 45px; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1); }}
+        /* 90% Screen Height Fix for Mobile */
+        .phone {{ 
+            width: 100%; 
+            max-width: 380px; 
+            height: 90dvh; 
+            max-height: 850px; 
+            background: #000; 
+            border: 8px solid #333; 
+            border-radius: 40px; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            overflow: hidden; 
+            box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1);
+        }}
         .notch {{ position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 150px; height: 30px; background: #333; border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; z-index: 10; }}
         
+        @media (max-width: 600px) {{
+            .chat-col {{ padding: 0; background: #000; }}
+            .phone {{ 
+                height: 100dvh; 
+                max-height: none; 
+                border: none; 
+                border-radius: 0; 
+                padding-top: var(--safe-top);
+                padding-bottom: var(--safe-bottom);
+            }}
+            .notch {{ display: none; }}
+        }}
+
         .screen {{ flex: 1; padding: 45px 15px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scrollbar-width: none; background: #000; }}
         .screen::-webkit-scrollbar {{ display: none; }}
 
@@ -1312,14 +1304,11 @@ def demo_chat():
         .bot {{ background: #262626; align-self: flex-start; color: #e0e0e0; border-bottom-left-radius: 4px; }}
         .user {{ background: #00ff88; align-self: flex-end; color: #000; border-bottom-right-radius: 4px; font-weight: 600; }}
         @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-
-        h3 {{ color: #00ff88; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 15px; }}
+        
+        /* Desktop Logs Column (Optional) */
+        .log-col {{ width: 450px; background: #0a0a0a; display: flex; flex-direction: column; padding: 25px; border-left: 1px solid #222; }}
         #logs {{ flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; }}
         .log-entry {{ margin-bottom: 20px; border-left: 2px solid #333; padding-left: 15px; }}
-        .log-time {{ color: #666; font-size: 10px; }}
-        .log-type {{ color: #00ff88; font-weight: bold; }}
-        .log-content {{ color: #ccc; }}
-
         .controls {{ margin-top: 20px; display: flex; gap: 10px; }}
         .btn {{ flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; }}
         .reset-btn {{ background: transparent; border: 1px solid #ff4444; color: #ff4444; }}
@@ -1327,8 +1316,6 @@ def demo_chat():
 
         @media (max-width: 900px) {{
             .log-col {{ display: none !important; }}
-            .phone {{ height: calc(100vh - var(--safe-top) - var(--safe-bottom)); border: none; border-radius: 0; margin-top: var(--safe-top); }}
-            .notch {{ top: 0; }}
         }}
     </style>
 </head>
@@ -1354,7 +1341,7 @@ def demo_chat():
     </div>
 
     <div class="log-col">
-        <h3>Live Brain Activity</h3>
+        <h3 style="color:#00ff88; text-transform:uppercase; border-bottom:1px solid #333; padding-bottom:15px; margin-top:0;">Live Brain Activity</h3>
         <div id="logs">
             <div style="color:#666; margin-top:20px;">Waiting for user input...</div>
         </div>
@@ -1370,21 +1357,17 @@ def demo_chat():
     const chat = document.getElementById('chat');
     const logs = document.getElementById('logs');
     const input = document.getElementById('msgInput');
-    
-    // Track message count to know when to update the screen
     let msgCount = 0;
 
     async function send() {{
         const text = input.value.trim();
         if (!text) return;
         
-        // 1. Show user message immediately
         chat.innerHTML += `<div class="msg user">${{text}}</div>`;
         input.value = '';
         chat.scrollTop = chat.scrollHeight;
 
         try {{
-            // 2. Send to backend (Fire and Forget)
             await fetch('/webhook', {{
                 method: 'POST',
                 headers: {{'Content-Type': 'application/json'}},
@@ -1400,29 +1383,26 @@ def demo_chat():
         }}
     }}
 
-    // 3. THE FIX: Poll the DB every 2 seconds to see if Bot replied
     async function syncData() {{
         try {{
             const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
             const data = await res.json();
             
             if (data.logs && data.logs.length > 0) {{
-                // Update Logs Column
-                logs.innerHTML = data.logs.map(l => `
-                    <div class="log-entry">
-                        <div class="log-time">${{l.timestamp.split('T')[1]?.split('.')[0] || l.timestamp}}</div>
-                        <div class="log-type">${{l.type}}</div>
-                        <div class="log-content">${{l.content}}</div>
-                    </div>
-                `).join('');
+                if (logs) {{
+                    logs.innerHTML = data.logs.map(l => `
+                        <div class="log-entry">
+                            <div style="color:#666; font-size:10px;">${{l.timestamp.split('T')[1]?.split('.')[0] || l.timestamp}}</div>
+                            <div style="color:#00ff88; font-weight:bold;">${{l.type}}</div>
+                            <div style="color:#ccc;">${{l.content}}</div>
+                        </div>
+                    `).join('');
+                }}
                 
-                // Update Chat Screen
                 const messages = data.logs.filter(l => l.type.includes('Message'));
                 
-                // Only re-draw if there are NEW messages
                 if (messages.length > msgCount) {{
                     const initialMsg = `<div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>`;
-                    
                     const dynamicMsgs = messages.map(msg => {{
                        const isBot = msg.type.includes('Bot');
                        return `<div class="msg ${{isBot ? 'bot' : 'user'}}">${{msg.content}}</div>`;
@@ -1433,9 +1413,7 @@ def demo_chat():
                     msgCount = messages.length;
                 }}
             }}
-        }} catch (err) {{
-            console.error("Sync error:", err);
-        }}
+        }} catch (err) {{}}
     }}
 
     async function resetSession() {{
@@ -1453,7 +1431,6 @@ def demo_chat():
         if (e.key === 'Enter') send();
     }});
 
-    // Start Polling Loop
     setInterval(syncData, 2000);
 </script>
 </body>
@@ -2183,66 +2160,83 @@ def refresh_subscribers():
 
 @app.route("/oauth/callback")
 def oauth_callback():
-    location_id = request.args.get("locationId") or request.args.get("location_id")
-    api_key = request.args.get("apiKey") or request.args.get("api_key")
-    user_id = request.args.get("userId") or request.args.get("user_id") or request.args.get("user.id")
-    calendar_id = request.args.get("calendarId") or request.args.get("calendar_id")
+    """
+    Standard GHL Marketplace OAuth Callback.
+    1. Receives 'code' from GHL.
+    2. Exchanges 'code' for access_token & refresh_token.
+    3. Saves to DB.
+    4. Generates a Confirmation Code for the user to register on your site.
+    """
+    code = request.args.get("code")
+    
+    if not code:
+        return "Error: No authorization code received.", 400
 
-    if not location_id:
-        return "Error: Missing LocationID", 400
+    # Token Exchange
+    token_url = "https://services.leadconnectorhq.com/oauth/token"
+    payload = {
+        "client_id": os.getenv("GHL_CLIENT_ID"),
+        "client_secret": os.getenv("GHL_CLIENT_SECRET"),
+        "grant_type": "authorization_code",
+        "code": code,
+        "user_type": "Location",
+        "redirect_uri": f"{YOUR_DOMAIN}/oauth/callback" 
+    }
 
-    confirmation_code = str(uuid.uuid4())[:8].upper()
+    try:
+        response = requests.post(token_url, data=payload)
+        data = response.json()
+        
+        if 'access_token' not in data:
+            logger.error(f"OAuth Exchange Failed: {data}")
+            return f"Error exchanging token: {data.get('error_description', 'Unknown error')}", 400
 
-    if worksheet:
-        try:
-            values = worksheet.get_all_values()
-            if not values: values = []
-            
-            # Ensure headers exist
-            expected_headers = ["email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used"]
-            if not values or values[0] != expected_headers:
-                worksheet.update('A1:K1', [expected_headers])
-                values = [expected_headers] + values
+        access_token = data['access_token']
+        refresh_token = data['refresh_token']
+        expires_in = data['expires_in'] # seconds
+        location_id = data.get('locationId')
+        
+        if not location_id:
+             return "Error: No Location ID returned in token response", 400
 
-            header = values[0]
-            header_lower = [h.strip().lower() for h in header]
-            def c_idx(n): 
-                try: return header_lower.index(n.lower())
-                except: return -1
+        # Generate Confirmation Code for User Registration
+        confirmation_code = str(uuid.uuid4())[:8].upper()
 
-            loc_idx = c_idx("location_id")
-            code_idx = c_idx("confirmation_code")
-            
-            # Check if row exists for this location
-            row_num = None
-            if loc_idx != -1:
-                for i, row in enumerate(values[1:], start=2):
-                    if len(row) > loc_idx and row[loc_idx] == location_id:
-                        row_num = i
-                        break
-            
-            # Prepare row data (simplified mapping for brevity)
-            # In production, map indices carefully. Here we append if new.
-            new_row = [""] * len(expected_headers)
-            # Fill knowns...
-            if loc_idx >= 0: new_row[loc_idx] = location_id
-            if c_idx("crm_api_key") >= 0: new_row[c_idx("crm_api_key")] = api_key or ""
-            if c_idx("confirmation_code") >= 0: new_row[c_idx("confirmation_code")] = confirmation_code
-            if c_idx("crm_user_id") >=0: new_row[c_idx("crm_user_id")] = user_id
-            if c_idx("code_used") >= 0: new_row[c_idx("code_used")] = "0"
+        # Update DB
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Upsert Subscriber with Tokens
+        cur.execute("""
+            INSERT INTO subscribers (
+                location_id, access_token, refresh_token, token_expires_at, 
+                token_type, crm_api_key
+            ) VALUES (
+                %s, %s, %s, NOW() + interval '%s seconds', 'Bearer', %s
+            )
+            ON CONFLICT (location_id) DO UPDATE SET
+                access_token = EXCLUDED.access_token,
+                refresh_token = EXCLUDED.refresh_token,
+                token_expires_at = EXCLUDED.token_expires_at,
+                token_type = 'Bearer',
+                updated_at = NOW();
+        """, (location_id, access_token, refresh_token, expires_in, access_token)) # mirroring access to crm_api_key for legacy safety
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        # Write code to Sheet (if connected) so user can register
+        if worksheet:
+            try:
+                # [Simplified Sheet Logic - Append Row with Code]
+                worksheet.append_row([
+                    "", location_id, "", access_token, "", "Grok", "America/Chicago", "", "", confirmation_code, "0"
+                ])
+            except Exception as e:
+                logger.error(f"Sheet append failed: {e}")
 
-            if row_num:
-                # Update specific cells to preserve other data? 
-                # For safety in this context, we overwrite the code to ensure the user sees the new one.
-                worksheet.update_cell(row_num, code_idx+1, confirmation_code)
-            else:
-                worksheet.append_row(new_row)
-
-            sync_subscribers()
-        except Exception as e:
-            logger.error(f"OAuth Sheet Error: {e}")
-
-    return render_template_string(f"""
+        return render_template_string(f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2268,6 +2262,9 @@ def oauth_callback():
 </body>
 </html>
     """)
-
+    except Exception as e:
+        logger.error(f"OAuth Callback Error: {e}")
+        return "Internal Server Error during OAuth", 500
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
