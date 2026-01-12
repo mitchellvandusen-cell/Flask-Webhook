@@ -4,7 +4,7 @@ import re
 import os
 import time
 from openai import OpenAI
-from db import get_subscriber_info, get_db_connection
+from db import get_subscriber_info, get_db_connection, get_message_count, sync_messages_to_db
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -12,7 +12,7 @@ from prompt import build_system_prompt
 from outcome_learning import classify_vibe
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
-
+from ghl_api import fetch_targeted_ghl_history
 # === LOGGING SETUP ===
 # This ensures logs show up in the Railway "Worker" tab
 logger = logging.getLogger('rq.worker')
@@ -86,6 +86,19 @@ def process_webhook_task(payload: dict):
         
         if initial_facts and contact_id != "unknown":
             save_new_facts(contact_id, initial_facts)
+        db_count = get_message_count(contact_id)
+        crm_api_key = subscriber['crm_api_key']
+
+        if not is_demo and crm_api_key != 'DEMO':
+            # Logic: If DB is wiped (0) fetch 50. If new/possible gap (1) fetch 10.
+            if db_count == 0:
+                logger.info(f"🚨 DB WIPED/EMPTY for {contact_id}. Fetching full context...")
+                ghl_history = fetch_targeted_ghl_history(contact_id, location_id, crm_api_key, limit=50)
+                sync_messages_to_db(contact_id, location_id, ghl_history)
+            elif db_count == 1:
+                logger.info(f"🧐 Possible memory gap for {contact_id}. Syncing last 10...")
+                ghl_history = fetch_targeted_ghl_history(contact_id, location_id, crm_api_key, limit=10)
+                sync_messages_to_db(contact_id, location_id, ghl_history)
 
         # === STEP 3: MESSAGE EXTRACTION & IDEMPOTENCY ===
         raw_message = payload.get("message", {})

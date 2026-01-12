@@ -158,8 +158,45 @@ class User(UserMixin):
             cur.close()
             conn.close()
 
+def get_message_count(contact_id: str) -> int:
+    """Get total message count for a contact to detect empty/wiped DB."""
+    conn = get_db_connection()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM contact_messages WHERE contact_id = %s", (contact_id,))
+        count = cur.fetchone()['count']
+        return count
+    except Exception as e:
+        logger.error(f"Error counting messages: {e}")
+        return 0
+    finally:
+        cur.close()
+        conn.close()
+
+def sync_messages_to_db(contact_id, location_id, fetched_messages):
+    """Validates and fills gaps in the DB. Prevents duplicates."""
+    conn = get_db_connection()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        for msg in fetched_messages:
+            # We use a UNIQUE check on contact_id, message_text, and message_type 
+            # to ensure we don't double-entry history.
+            cur.execute("""
+                INSERT INTO contact_messages (contact_id, message_type, message_text)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, (contact_id, msg['role'], msg['text']))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Error syncing history: {e}")
+    finally:
+        cur.close()
+        conn.close()
+        
 def get_subscriber_info(location_id: str) -> dict | None:
-    """Get subscriber config by User ID"""
+    """Get subscriber config by location ID"""
     conn = get_db_connection()
     if not conn:
         return None
