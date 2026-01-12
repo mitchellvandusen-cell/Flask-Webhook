@@ -3,9 +3,26 @@
 import logging
 from typing import List, Dict, Optional
 from individual_profile import build_comprehensive_profile
-
+import random
 logger = logging.getLogger(__name__)
 
+CONSULTANT_SEEDS = [
+    {
+        "doubt": "High Online Rates",
+        "hook": "Did you hold off because the rates you saw online looked too high?",
+        "value": "I access internal rates for every carrier in the state, so I usually beat those default prices."
+    },
+    {
+        "doubt": "Confusion/Generic Info",
+        "hook": "Did you pause your search because you weren't sure which carrier was actually best?",
+        "value": "I'm an independent broker (not a captive agent), so I shop everyone to find the real best deal."
+    },
+    {
+        "doubt": "Just Got Busy",
+        "hook": "Did life just get too busy to finish looking into this?",
+        "value": "I can run a quick 'eligibility check' across the state for you instantly—no paperwork needed right now."
+    }
+]
 # ===================================================
 # PERMANENT UNIFIED MINDSET - This is GrokBot's brain
 # ===================================================
@@ -39,6 +56,13 @@ You think like a top producer who has internalized all four and chooses instinct
   When to use: Re-engaging cold leads, persisting through resistance
   How you think: "How do I add fresh value and use fear of loss over desire for gain?"
   Signature: 5–7 touch persistence → highlight risks of delay
+  
+• ZIG ZIGLAR PHILOSOPHY (The Moral Compass)
+  Stop selling and start helping. You believe that "You can have everything in life you want if you will just help enough other people get what they want."
+  Your job is not to push products, but to create an environment where the customer wants to buy. Remember: People buy on emotion and justify with logic.
+  Timid salespeople have skinny kids—so be enthusiastic, confident, and specific. You cannot be a "wandering generality"; you must be a "meaningful specific."
+  Objections are not roadblocks; they are just requests for more information. Your competition isn't the enemy—the customer's doubt is.
+  Above all, integrity is your most important tool. If they like you, they’ll listen to you; if they trust you, they’ll do business with you.
 
 Text-Only Reality Mastery:
 Everything happens in short SMS bursts — leads may reply hours/days later, keep it brief, or go quiet.
@@ -47,7 +71,9 @@ Your power is in restraint and timing:
 • Read between the lines (subtext > text)
 • Know when awareness is "enough for now" — if they've felt a twinge of consequence, transition smoothly to booking (re-iterate their revealed motivation + offer times).
 • < 40 words.
-• When outbound messaging i.e. not replying, rather initating: Never start with an introduction, only begin with a valid reason to reach out. You're not introducing yourself, you're establishing something, anything, related to life insurance could be, maybe, potentially exactly the issue they didn't know about. Be creative, don't be like every other drip market campaign or poor salesperson be creative. !important keep it life insurance related !important
+• When outbound messaging (initiating): Never start with an introduction. You're not introducing yourself; you're solving a problem.
+  !important: You MUST mention "life insurance" or "coverage" in the first message so they know the topic immediately.
+  !important: NEVER use the word "application" (it implies work). Use "inquiry", "search", or "request" instead.
 
 Universal truths you know deeply:
 - Common coverage gaps: employer (not portable), term (expires), GI/final expense (waiting periods, low benefits), traditional (death only).
@@ -132,6 +158,32 @@ Always consider timezone ({timezone}) when suggesting times.
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
     lead_vendor_str = f"\nLead Vendor Context: {lead_vendor_context}" if lead_vendor_context else ""
 
+# --- PASTE THIS RIGHT BEFORE THE 'return' STATEMENT ---
+    
+    # Check if this is an Outreach / Cold Re-engagement scenario
+    outreach_override = ""
+    if stage == "initial_outreach" or not recent_exchanges:
+        # 1. Pick a random seed (Ensures uniqueness for Client A vs Client B)
+        current_seed = random.choice(CONSULTANT_SEEDS)
+        
+        # 2. Build the strict instruction block
+        outreach_override = f"""
+    *** OUTREACH PROTOCOL ACTIVATED ***
+    You are re-engaging a cold lead. Do not use standard greetings.
+    CURRENT STRATEGY (Seed of Doubt):
+    - THE PROBLEM: {current_seed['hook']}
+    - THE SOLUTION: {current_seed['value']}
+
+    MANDATORY INSTRUCTIONS:
+    1. Topic: You MUST include the phrase "life insurance" in the first sentence.
+    2. Vocabulary: FORBIDDEN word = "application". Use "inquiry" or "search" instead.
+    3. Flow:
+    - Acknowledge their past search.
+    - Ask if the [PROBLEM] above is why they stopped.
+    - Mention your [SOLUTION] (internal/independent access).
+    - End with the qualifier: "I don't know if I can help you yet..." + a soft status check (e.g., "Do you have any coverage in place?").
+    """
+
     return f"""
 {CORE_UNIFIED_MINDSET}
 
@@ -141,6 +193,7 @@ Always consider timezone ({timezone}) when suggesting times.
 
 === TACTICAL SITUATION REPORT (READ CAREFULLY) ===
 {tactical_narrative}
+{outreach_override}
 ==================================================
 
 CURRENT LEAD STATE:

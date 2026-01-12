@@ -212,7 +212,7 @@ def process_webhook_task(payload: dict):
                 response = client.chat.completions.create(
                     model="grok-4-1-fast-reasoning", # Ensure correct model name
                     messages=grok_messages,
-                    temperature=0.7,
+                    temperature=0.9,
                     max_tokens=500
                 )
                 reply = response.choices[0].message.content.strip()

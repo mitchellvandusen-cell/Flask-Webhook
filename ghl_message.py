@@ -4,10 +4,16 @@ import requests
 import time as time_module
 from datetime import datetime, date, time, timedelta, timezone
 import psycopg2
+from db import get_db_connection
 
 logger = logging.getLogger(__name__)
 
 def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: str):
+    """
+    Sends an SMS via GoHighLevel API.
+    Includes a safety check against the database to prevent duplicate messages
+    from being sent within a 5-minute window.
+    """
     if not contact_id or contact_id == "unknown":
         logger.warning("Invalid contact_id, cannot send SMS")
         return False
@@ -16,33 +22,35 @@ def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: s
         logger.warning(f"GHL_API_KEY or GHL_LOCATION_ID missing for location {location_id}, cannot send SMS")
         return False
 
-    # Check for duplicate send (last 5 min)
-    conn = None
-    try:
-        conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT 1 FROM nlp_memory
-            WHERE contact_id = %s
-            AND role = 'assistant'
-            AND created_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes'
-            LIMIT 1
-        """, (contact_id,))
-        
-        if cur.fetchone():
-            logger.info(f"Duplicate send prevented for {contact_id} — recent message sent")
+    # === DUPLICATE SAFETY CHECK ===
+    # We check 'contact_messages' (not nlp_memory) to align with db.py
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            # Check if we sent this exact message to this contact in the last 5 minutes
+            cur.execute("""
+                SELECT 1 FROM contact_messages
+                WHERE contact_id = %s
+                AND message_type = 'assistant'
+                AND created_at > CURRENT_TIMESTAMP - INTERVAL '5 minutes'
+                AND message_text = %s
+                LIMIT 1
+            """, (contact_id, message.strip()))
+            
+            if cur.fetchone():
+                logger.info(f"Duplicate send prevented for {contact_id} — exact message sent recently")
+                cur.close()
+                conn.close()
+                return True  # Return True so the bot thinks it succeeded and moves on
+            
             cur.close()
             conn.close()
-            return True  # Treat as success to avoid retry
-        
-        cur.close()
-    except Exception as e:
-        logger.warning(f"Duplicate check failed: {e}")
-    finally:
-        if conn:
-            conn.close()
+        except Exception as e:
+            logger.warning(f"Duplicate check failed: {e}")
+            if conn: conn.close()
 
-    # SMS Sending Logic
+    # === SENDING LOGIC ===
     url = "https://services.leadconnectorhq.com/conversations/messages"
 
     headers = {
@@ -60,9 +68,10 @@ def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: s
 
     max_retries = 3
     retry_delay = 5  # seconds
+    
     for attempt in range(max_retries):
         try:
-            # Short timeout to prevent the whole bot from hanging
+            # Short timeout (15s) to prevent the worker from hanging indefinitely
             response = requests.post(url, json=payload, headers=headers, timeout=15)
             
             if response.status_code in [200, 201]:
@@ -70,10 +79,11 @@ def send_sms_via_ghl(contact_id: str, message: str, api_key: str, location_id: s
                 return True
             else:
                 logger.error(f"GHL SMS failed on attempt {attempt + 1}: {response.status_code} {response.text}")
+        
         except Exception as e:
             logger.error(f"SMS send exception on attempt {attempt + 1}: {e}")
 
-        # Only sleep if we have retries left
+        # Wait before retrying (unless it's the last attempt)
         if attempt < max_retries - 1:
             time_module.sleep(retry_delay)
 
