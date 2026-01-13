@@ -1,23 +1,28 @@
+# ghl_calendar.py - Calendar Slots & Booking (Flawless 2026)
+import logging
+import os
+import requests
+import time as time_module
 from datetime import datetime, timedelta, timezone, time
 from zoneinfo import ZoneInfo
 import re
-import requests
-import logging
-import time as time_module  # ← Correct alias for sleep()
 
 logger = logging.getLogger(__name__)
 
-CACHE_TTL = 1800  # 30 minutes
-cache = {}
+GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+GHL_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
-def get_cached_data(key):
+CACHE_TTL = 1800  # 30 minutes
+cache = {}  # Simple in-memory cache — fine for single-worker RQ
+
+def get_cached_data(key: str):
     if key in cache:
         cached = cache[key]
         if (datetime.now(timezone.utc) - cached['time']) < timedelta(seconds=CACHE_TTL):
             return cached['data']
     return None
 
-def set_cache(key, data):
+def set_cache(key: str, data):
     cache[key] = {'data': data, 'time': datetime.now(timezone.utc)}
 
 def consolidated_calendar_op(
@@ -27,6 +32,11 @@ def consolidated_calendar_op(
     first_name: str = None,
     selected_time: str = None
 ) -> any:
+    """
+    Unified calendar operation: fetch slots or book appointment.
+    Returns formatted string (slots) or bool (booking success).
+    Demo-safe: returns placeholder on demo mode.
+    """
     access_token = subscriber_data.get("access_token") or subscriber_data.get("crm_api_key")
     location_id = subscriber_data.get("location_id")
     cal_id = subscriber_data.get("calendar_id")
@@ -34,8 +44,16 @@ def consolidated_calendar_op(
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
 
     if not access_token or not cal_id:
-        logger.error(f"Missing credentials for calendar op (location {location_id})")
+        logger.error(f"Missing credentials for calendar op (loc={location_id})")
         return "let me look at my calendar" if operation == "fetch_slots" else False
+
+    # Demo mode short-circuit
+    if access_token == 'DEMO':
+        if operation == "fetch_slots":
+            return "I've got tomorrow morning or afternoon — let me know what works!"
+        if operation == "book":
+            logger.info(f"DEMO MODE: Simulated booking for {contact_id}")
+            return True
 
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -51,24 +69,23 @@ def consolidated_calendar_op(
         slots = get_cached_data(slots_key)
 
         if not slots:
-            url = f"https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-
+            url = GHL_CALENDAR_URL.format(cal_id=cal_id)
             now_utc = datetime.now(timezone.utc)
-            start_ts = int(now_utc.timestamp() * 1000)  # ← Milliseconds!
+            start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
 
             params = {
                 "startDate": start_ts,
                 "endDate": end_ts,
-                "timezone": local_tz_str  # ← Fixed: actual string, not 'str'
+                "timezone": local_tz_str
             }
             if crm_user_id:
                 params["userId"] = crm_user_id
 
             try:
-                response = requests.get(url, headers=headers, params=params, timeout=20)
-                response.raise_for_status()
-                data = response.json()
+                resp = requests.get(url, headers=headers, params=params, timeout=20)
+                resp.raise_for_status()
+                data = resp.json()
 
                 slots = []
                 if isinstance(data, dict):
@@ -81,7 +98,7 @@ def consolidated_calendar_op(
                     slots = data
 
                 set_cache(slots_key, slots)
-                logger.info(f"Fetched {len(slots)} calendar slots")
+                logger.info(f"Fetched {len(slots)} slots for {cal_id}")
             except Exception as e:
                 logger.error(f"Calendar fetch error: {e}")
                 slots = []
@@ -96,6 +113,7 @@ def consolidated_calendar_op(
                     start_str = slot.get("startTime") or slot.get("start") or (slot if isinstance(slot, str) else None)
                     if not start_str:
                         continue
+                    # Normalize timezone suffixes
                     if start_str.endswith("Z"):
                         start_str = start_str.replace("Z", "+00:00")
                     dt = datetime.fromisoformat(start_str).astimezone(local_tz)
@@ -120,7 +138,7 @@ def consolidated_calendar_op(
                 for s in slots_list[1:]:
                     if len(picked) >= max_picks:
                         break
-                    if (s - picked[-1]).total_seconds() >= 3600:
+                    if (s - picked[-1]).total_seconds() >= 3600:  # 1-hour spread
                         picked.append(s)
                 return picked
 
@@ -167,7 +185,7 @@ def consolidated_calendar_op(
         end_dt = start_dt + timedelta(minutes=30)
 
         if start_dt.date() > (now_local + timedelta(days=2)).date():
-            logger.info("Booking too far ahead")
+            logger.warning("Booking request too far ahead")
             return False
 
         payload = {
@@ -181,14 +199,13 @@ def consolidated_calendar_op(
             "selectedTimezone": local_tz_str,
         }
 
-        url = "https://services.leadconnectorhq.com/calendars/events/appointments"
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            if response.status_code in [200, 201]:
-                logger.info(f"Appointment booked: {contact_id} at {start_dt}")
+            resp = requests.post(GHL_BOOK_URL, json=payload, headers=headers, timeout=30)
+            if resp.status_code in [200, 201]:
+                logger.info(f"Appointment booked for {contact_id} at {start_dt}")
                 return True
             else:
-                logger.error(f"Booking failed: {response.status_code} {response.text}")
+                logger.error(f"Booking failed ({resp.status_code}): {resp.text}")
                 return False
         except Exception as e:
             logger.error(f"Booking exception: {e}")

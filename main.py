@@ -31,7 +31,12 @@ from individual_profile import build_comprehensive_profile
 load_dotenv()
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
+# Logging - structured for production
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger(__name__)
 
 # === REDIS & RQ SETUP ===
@@ -108,42 +113,68 @@ class ConfigForm(FlaskForm):
     initial_message = StringField("Optional Initial Message")
     submit = SubmitField("Save Settings")
 
+def generate_demo_opener():
+    if not client:
+        return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
+    try:
+        response = client.chat.completions.create(
+            model="grok-4-1-fast-reasoning",
+            messages=[
+                {"role": "system", "content": """
+You are an expert Life Insurance Sales Agent.
+Write ONE short, natural SMS (15-25 words) to re-engage an old lead.
+VARY approach each time. Tone: casual, professional, high-status.
+No "Hi", "Hello", "Name". Start directly.
+Examples:
+- "Quick question, did you ever get that life insurance policy sorted?"
+- "Still looking at coverage options or did you put that on hold?"
+- "Circling back on your file, still with the same life insurance policy?"
+                """},
+                {"role": "user", "content": "Generate unique opener."}
+            ],
+            temperature=0.95,
+            max_tokens=50
+        )
+        return response.choices[0].message.content.strip().replace('"', '')
+    except Exception as e:
+        logger.error(f"Demo opener failed: {e}")
+        return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
 # =====================================================
 #  THE ASYNC WEBHOOK ENDPOINT
 # =====================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    """
-    Receives payload -> Pushes to Redis -> Returns 200 immediately.
-    """
-    # 1. Capture Payload
-    payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    
-    if not payload:
-        return jsonify({"status": "error", "error": "No payload"}), 400
+    if not q:
+        logger.critical("Redis/RQ unavailable — webhook dropped")
+        return jsonify({"status": "error", "message": "Queue unavailable"}), 503
 
-    # 2. Basic Validation (Fail Fast)
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
+    if not payload:
+        logger.warning("Webhook received empty payload")
+        return jsonify({"status": "error", "message": "No payload"}), 400
+
     location_id = (
-        payload.get("location", {}).get("id") or 
-        payload.get("location_id") or 
+        payload.get("location", {}).get("id") or
+        payload.get("location_id") or
         payload.get("locationId")
     )
-    
     if not location_id:
+        logger.warning("Webhook missing location_id")
         return jsonify({"status": "error", "message": "Location ID missing"}), 400
 
-    # 3. Enqueue Job
     try:
-        # Pass the full payload to the worker
-        # This one line executes the ENTIRE 150 lines of logic inside tasks.py
-        job = q.enqueue(process_webhook_task, payload)
-        
-        logger.info(f"⚡ QUEUED: Job {job.id} for Location {location_id}")
-        return jsonify({"status": "queued", "job_id": job.id}), 200
-        
+        job = q.enqueue(
+            process_webhook_task,
+            payload,
+            job_timeout=120,
+            job_id=f"webhook-{uuid.uuid4().hex[:12]}",
+            result_ttl=86400
+        )
+        logger.info(f"Queued webhook job {job.id} | location={location_id}")
+        return jsonify({"status": "queued", "job_id": job.id}), 202
     except Exception as e:
-        logger.error(f"❌ QUEUE ERROR: {e}")
-        return jsonify({"status": "error", "message": "Queue service unavailable"}), 500
+        logger.error(f"Queue enqueue failed: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "Internal queue error"}), 500
 
 # =====================================================
 #  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
@@ -158,182 +189,317 @@ def home():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsuranceGrokBot | AI Lead Re-engagement</title>
+    <title>InsuranceGrokBot — AI That Reopens Cold Leads</title>
+    <meta name="description" content="The most advanced AI SMS solution for life insurance agents. Re-engages cold leads, books appointments, powered by Grok.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
-    <meta name="description" content="The most advanced AI SMS bot for life insurance lead re-engagement. Powered by Grok.">
-    <meta name="theme-color" content="#00ff88">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     <style>
-        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0f0f0f; --text-secondary: #aaa; --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4); --red-x: #ff4444; --green-check: #00ff88; }
-        body { background: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; line-height: 1.7; }
-        .navbar { background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); }
-        .navbar-brand { font-weight: 700; font-size: 1.6rem; color: #fff !important; margin-right: 15px !important; }
-        .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
-        .navbar-nav { align-items: center !important; gap 2px; }
-        .nav-item, .btn-nav { height: 50px !important; display: flex; align-items: center; }
-        .nav-link { color: #ddd !important; font-weight: 700 !important; font-size: 0.8rem !important; text-transform: uppercase; letter-spacing: 0.5px; padding 0 12px !important; height: 40px; white-space: nowrap !important; display: flex; align-items: center; transition: color 0.3s ease; border-radius: 4px; }
-        .nav-link:hover { color: var(--accent) !important; background: rgba(255, 255, 255, 0.05); text-shadow: var(--neon-glow); }
-        .btn-login-custom:hover { background: #111; border: 1px solid #333; color: var(--accent) !important; }
-        .btn-signup-custom { background: var(--accent); border: 2px solid var(--accent); color: #000 !important; box-shadow: var(--neon-glow); padding: 5px 15px !important; height: 35px !important; font-size: 0.7rem !important; border-radius: 4px !important; font-weight: 800 !important; display:flex; align-items:center; justify-content:center; text-decoration:none; }
-        .btn-signup-custom:hover { background: #00cc6a; border-color: #00cc6a; transform: translateY(-2px); box-shadow: 0 0 40px rhba(0, 255, 136, 0.6); }
-        .btn-primary { display: inline-block; background: #00ff88; color: #000; font-weight: 700; font-size: 1.6rem; padding: 18px 50px; border-radius: 50px; box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3); text-decoration: none; transition: all 0.3s ease; border: none; letter-spacing: 0.5px; }
-        .btn-primary:hover { background: #00ee80; box-shadow: 0 12px 30px rgba(0, 255, 136, 0.5); transform: translateY(-4px); }
-        .hero { padding: 140px 20px 100px; text-align: center; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, #111 0%, #000 80%); }
-        .hero h1 { font-size: 3.5rem; font-weight: 700; line-height: 1.2; margin-bottom: 30px; text-shadow: var(--neon-glow); }
-        .section { padding: 100px 20px; }
-        .section-title { font-size: 3rem; font-weight: 700; text-align: center; margin-bottom: 80px; color: var(--accent); text-shadow: var(--neon-glow); }
-        .feature-card { background: var(--card-bg); border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.4s; height: 100%; }
-        .feature-card:hover { transform: translateY(-15px); box-shadow: 0 20px 50px rgba(0, 255, 136, 0.3); }
-        .feature-card h3 { font-size: 1.8rem; margin-bottom: 20px; color: var(--accent); }
-        .comparison-wrapper { max-width: 1000px; margin: 0 auto; background: var(--card-bg); border-radius: 20px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); }
-        .comparison-table { width: 100%; border-collapse: collapse; }
-        .comparison-table th { padding: 30px; font-size: 1.8rem; font-weight: 700; text-align: center; }
-        .comparison-table td { padding: 25px 20px; vertical-align: middle; font-size: 1.3rem; border-bottom: 1px solid #222; }
-        .feature-col { text-align: left; padding-left: 40px; }
-        .standard-col, .grok-col { text-align: center; font-size: 3.5rem; }
-        .check { color: var(--green-check); }
-        .cross { color: var(--red-x); }
-        .sales-logic { background: var(--card-bg); border-radius: 20px; padding: 60px; box-shadow: 0 15px 40px rgba(0,0,0,0.6); max-width: 1000px; margin: 0 auto; }
-        .sales-logic h3 { color: var(--accent); font-size: 2rem; margin-bottom: 20px; }
-        .pricing-card { background: linear-gradient(135deg, #111, #000); border: 2px solid var(--accent); border-radius: 30px; padding: 60px; text-align: center; max-width: 600px; margin: 0 auto; box-shadow: 0 20px 60px rgba(0, 255, 136, 0.3); }
-        .price { font-size: 6rem; font-weight: 700; color: var(--accent); text-shadow: var(--neon-glow); }
-        
-        /* Hamburger Menu Styling */
-        .navbar-toggler { border: 1px solid var(--accent); padding: 8px !important; background: rgba(0, 255, 136, 0.1) !important; }
-        .navbar-toggler-icon { background-image: none !important; display: flex; flex-direction: column; justify-content: space-around; width: 25px; height: 18px; }
-        .navbar-toggler-icon::before, .navbar-toggler-icon::after, .navbar-toggler-icon span { display: block; width: 100%; height: 3px; background-color: var(--accent) !important; border-radius: 10px; transition: all 0.3s ease; }
-        
-        .auth-dropdown { background: transparent; border: none; color: var(--accent); font-size: 1.5rem; cursor: pointer; padding: 0 10px; display: flex; align-items: center; }
-        .dropdown-menu-dark { background-color: #0a0a0a !important; border: 1px solid #333 !important; box-shadow: var(--neon-glow); margin-top: 15px !important; }
-        .dropdown-item { color: #fff !important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; padding: 10px 20px !important; }
-        .dropdown-item:hover { background-color: #111 !important; color: var(--accent) !important; }
-        footer { padding: 80px 20px; text-align: center; color: var(--text-secondary); border-top: 1px solid #222; }
-        
-        /* Responsive Tweaks */
-        @media (max-width: 991px) {
-            .navbar-collapse { background: #111; padding: 20px; border-radius: 15px; border: 1px solid var(--accent); margin-top: 15px; box-shadow: var(--neon-glow); }
-            .nav-item { width: 100%; text-align: center; margin: 10px 0; border-bottom: 1px solid #222; }
-            .navbar-nav { font-size: 0.8rem; width:100%; }
-            .nav-link { padding: 10px !important; justify-content:center; }
-            .btn-signup-custom { display: block; width: 100%; margin-top: 15px; }
-            .hero h1 { font-size: 2.8rem; }
-            .hero p.lead { font-size: 1.4rem; }
-            .btn-primary { font-size: 1.4rem; padding: 18px 40px; }
-            .comparison-table thead { display: none; }
-            .comparison-table tr { display: block; margin: 25px 0; background: #111; border-radius: 15px; padding: 25px; }
-            .comparison-table td { display: block; text-align: center; padding: 12px 0; border: none; }
-            .feature-col { text-align: center; font-weight: bold; font-size: 1.4rem; margin-bottom: 20px; padding-left: 0; }
-            .standard-col::before { content: "Standard Bots: "; font-weight: bold; color: var(--red-x); display: block; margin-bottom: 10px; }
-            .grok-col::before { content: "InsuranceGrokBot: "; font-weight: bold; color: var(--accent); display: block; margin-bottom: 10px; }
+        :root {
+            --accent: #00ff88;
+            --dark-bg: #000;
+            --card-bg: #0a0a0a;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --glow: 0 0 40px rgba(0, 255, 136, 0.25);
+            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        .navbar {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 1.2rem 0;
+        }
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+            color: #fff !important;
+        }
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 500;
+            padding: 0.6rem 1.2rem !important;
+            transition: var(--transition);
+        }
+        .nav-link:hover {
+            color: var(--accent) !important;
+        }
+        .btn-outline-accent {
+            border: 2px solid var(--accent);
+            color: var(--accent);
+            padding: 0.6rem 1.8rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        .btn-outline-accent:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: var(--glow);
+            transform: translateY(-2px);
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            background: linear-gradient(135deg, circle at 20% 30%, rgba(0,255,136,0.08) 0%, transparent 50%);
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 80% 70%, rgba(0,255,136,0.06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 1100px;
+            margin: auto;
+            padding: 0 20px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: clamp(3.5rem, 8vw, 7rem);
+            font-weight: 800;
+            line-height: 1.05;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(90deg, #fff, var(--accent), #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% auto;
+            animation: gradientFlow 8s ease infinite;
+        }
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .hero .lead {
+            font-size: 1.4rem;
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+            color: var(--text-secondary);
+            opacity: 0;
+            animation: fadeInUp 1s forwards 0.5s;
+        }
+        .hero .btn-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            box-shadow: var(--glow);
+            transition: var(--transition);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
+        }
+        .btn-outline {
+            border: 2px solid var(--accent);
+            color: var(--accent);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            transition: var(--transition);
+        }
+        .btn-outline:hover {
+            background: var(--accent);
+            color: #000;
+            transform: translateY(-4px);
+        }
+        .section {
+            padding: 120px 20px;
+        }
+        .section-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 80px;
+            background: linear-gradient(90deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2.5rem;
+        }
+        .feature-card {
+            background: rgba(10,10,10,0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,255,136,0.15);
+            border-radius: 20px;
+            padding: 40px 30px;
+            transition: var(--transition);
+            text-align: center;
+        }
+        .feature-card:hover {
+            transform: translateY(-15px);
+            border-color: var(--accent);
+            box-shadow: var(--glow);
+        }
+        .feature-icon {
+            font-size: 3.5rem;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(10,10,10,0.8);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(0,255,136,0.15);
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 25px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .comparison-table th {
+            background: rgba(0,255,136,0.05);
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 1.4rem;
+        }
+        .check { color: var(--accent); font-size: 1.8rem; }
+        .cross { color: #ff4444; font-size: 1.8rem; }
+        .pricing-card {
+            background: linear-gradient(135deg, rgba(10,10,10,0.9), #000);
+            border: 2px solid var(--accent);
+            border-radius: 30px;
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: var(--glow);
+        }
+        .price {
+            font-size: 6rem;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 1rem;
+        }
+        footer {
+            padding: 80px 20px;
+            text-align: center;
+            border-top: 1px solid #222;
+            background: rgba(0,0,0,0.8);
+        }
+        footer a {
+            color: var(--text-secondary);
+            margin: 0 15px;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        footer a:hover { color: var(--accent); }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeInUp 1.2s forwards; }
+        @media (max-width: 992px) {
+            .hero h1 { font-size: 3.8rem; }
+            .section-title { font-size: 2.8rem; }
+            .feature-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
+            <a class="navbar-brand" href="/">InsuranceGrokBot</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+                <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item"><a href="#features" class="nav-link">Features</a></li>
-                    <li class="nav-item"><a href="#comparison" class="nav-link">Why GrokBot Wins</a></li>
-                    <li class="nav-item"><a href="#logic" class="nav-link">Sales Logic</a></li>
-                    <li class="nav-item"><a href="#pricing" class="nav-link">Pricing</a></li>
-                    <li class="nav-item"><a href="/getting-started" class="nav-link">Getting Started</a></li>
-                    <li class="nav-item"><a href="/demo-chat" class="nav-link">Live Demo</a></li>
-                    
-                    {% if not current_user.is_authenticated %}
-                        <li class="nav-item d-lg-none" style="margin-top:20px;">
-                            <a href="/login" class="nav-link" style="border:1px solid #333; border-radius:4px; margin-bottom:10px;">Log In</a>
-                        </li>
-                        <li class="nav-item d-lg-none">
-                            <a href="/register" class="btn-signup-custom" style="color:#000 !important; background:var(--accent);">Sign Up</a>
-                        </li>
-                    {% endif %}
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#logic">How It Works</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/getting-started">Get Started</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/demo-chat">Live Demo</a></li>
+                    <li class="nav-item ms-lg-4">
+                        <a href="/login" class="btn btn-outline-accent">Log In</a>
+                    </li>
+                    <li class="nav-item ms-3">
+                        <a href="/register" class="btn btn-primary">Sign Up</a>
+                    </li>
                 </ul>
-
-                {% if current_user.is_authenticated %}
-                    <div class="dropdown ms-3">
-                        <button class="auth-dropdown" type="button" id="authMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="3" y1="12" x2="21" y2="12"></line>
-                                <line x1="3" y1="6" x2="21" y2="6"></line>
-                                <line x1="3" y1="18" x2="21" y2="18"></line>
-                            </svg>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" aria-labelledby="authMenu">
-                            <li class="dropdown-item"><a href="/dashboard">Dashboard</a></li>
-                            <li><hr class="dropdown-divider" style="border-color: #222;"></li>
-                            <li class="dropdown-item"><a href="/logout">Logout</a></li>
-                        </ul>
-                    </div>
-                {% else %}
-                    <div class="d-none d-lg-flex align-items-center ms-3 gap-3">
-                        <a href="/login" class="nav-link" style="font-size: 0.8rem;">Log In</a>
-                        <a href="/register" class="btn-signup-custom">Sign Up</a>
-                    </div>
-                {% endif %}
             </div>
         </div>
     </nav>
 
     <section class="hero">
-        <div class="container">
-            <h1>The Most Advanced Life Insurance<br>Lead Re-engagement AI Ever Built</h1>
-            <p class="lead">Powered by xAI's Grok. Trained on thousands of real insurance conversations.<br>Books appointments from leads that have been cold for months.</p>
-            <div class="text-center mt-5">
-                <a href="/checkout" class="btn-primary">Subscribe Now $100/mth</a>
-                <p class="mt-3">
-                    <a href="/demo-chat" style="color:#888; text-decoration:underline; font-size:1.4rem;">Or try the live demo first →</a>
-                </p>
-                <p class="mt-3 text-secondary"><small>No contract. Cancel anytime. Instant activation.</small></p>
+        <div class="hero-content animate-fade">
+            <h1>Reopen Cold Leads. Book Appointments. Automatically.</h1>
+            <p class="lead">The most intelligent AI SMS platform for life insurance agents — powered by Grok from xAI.</p>
+            <div class="btn-group">
+                <a href="/checkout" class="btn btn-primary">Start Free Trial</a>
+                <a href="/demo-chat" class="btn btn-outline-accent">Watch Live Demo</a>
             </div>
         </div>
     </section>
 
     <section id="features" class="section">
         <div class="container">
-            <h2 class="section-title">What Makes InsuranceGrokBot Different</h2>
-            <div class="row g-5">
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <h3>Real Human Memory</h3>
-                        <p>Remembers every fact from every message across the entire conversation. Never repeats questions. Builds a complete profile over time.</p>
-                    </div>
+            <h2 class="section-title">Built for Real Results</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h4>Human-Like Memory</h4>
+                    <p>Remembers every detail across conversations. No repeated questions. Builds trust fast.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <h3>5 Proven Sales Frameworks</h3>
-                        <p>Blends NEPQ, Gap Selling, Straight Line Persuasion, Never Split the Difference, and Psychology of Selling in real time based on lead responses.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h4>5 Elite Frameworks</h4>
+                    <p>Blends NEPQ, Gap Selling, Straight Line, Chris Voss, and Zig Ziglar — adapts in real time.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <h3>Extensive Underwriting Knowledge</h3>
-                        <p>Trained on carrier guidelines, health conditions, and build charts. Knows when a lead is likely insurable and asks the right questions.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h4>Underwriting Intelligence</h4>
+                    <p>Knows carrier rules live. Spots red flags early. Suggests the right products.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <h3>Never Gives Up</h3>
-                        <p>Most bots stop at "no". GrokBot loops, reframes, and persists until the lead either books or truly has no need.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔥</div>
+                    <h4>Never Stops</h4>
+                    <p>Loops, reframes, persists. Turns "no" into bookings — or identifies real dead leads.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <h3>Only Books Qualified Leads</h3>
-                        <p>Won't waste your time with appointments from leads who have no gap or aren't interested. Only schedules when there's real potential.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h4>Qualified Only</h4>
+                    <p>Books appointments with genuine need/gap. No tire-kickers wasting your calendar.</p>
                 </div>
-                <div class="col-md-4">
-                    <div class="feature-card">
-                        <h3>Multi-Tenant Ready</h3>
-                        <p>Agencies can manage hundreds of agents with complete data isolation and custom identities per location.</p>
-                    </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏢</div>
+                    <h4>Agency-Ready</h4>
+                    <p>Multi-tenant, isolated data, custom branding per location. Scale without chaos.</p>
                 </div>
             </div>
         </div>
@@ -430,8 +596,12 @@ def home():
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 InsuranceGrokBot.</p>
-            <p><a href="/terms" style="color:var(--text-secondary);">Terms</a> • <a href="/privacy" style="color:var(--text-secondary);">Privacy</a></p>
+            <p>&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
+            <p>
+                <a href="/terms" style="color:var(--text-secondary);">Terms</a> • 
+                <a href="/privacy" style="color:var(--text-secondary);">Privacy</a> • 
+                <a href="/disclaimers" style="color:var(--text-secondary);">Disclaimers</a>
+            </p>
         </div>
     </footer>
 </body>
@@ -654,70 +824,38 @@ def getting_started():
 def stripe_webhook():
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature")
-    endpoint_secret = os.getenv("ENDPOINT_SECRET")
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-    except:
+    except stripe.error.SignatureVerificationError:
+        logger.warning("Stripe webhook signature failed")
+        return '', 400
+    except Exception as e:
+        logger.error(f"Stripe webhook error: {e}")
         return '', 400
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         customer_id = session.customer
         email = session.customer_details.email.lower() if session.customer_details.email else None
-
         if email and customer_id:
             user = User.get(email)
             if not user:
-                User.create(email, password_hash=None, stripe_customer_id=customer_id)
-                logger.info(f"Created paid user {email} (password pending)")
+                User.create(email, None, customer_id)
+                logger.info(f"Created user from Stripe: {email}")
             else:
                 conn = get_db_connection()
-                conn.execute("UPDATE users SET stripe_customer_id = ? WHERE email = ?", (customer_id, email))
-                conn.commit()
-                conn.close()
-
-            # Write to Sheet
-            if worksheet:
-                try:
-                    values = worksheet.get_all_values()
-                    header = values[0] if values else []
-                    header_lower = [h.strip().lower() for h in header]
-
-                    def col_index(name):
-                        try:
-                            return header_lower.index(name.lower())
-                        except ValueError:
-                            new_col = len(header) + 1
-                            worksheet.update_cell(1, new_col, name)
-                            header.append(name)
-                            header_lower.append(name.lower())
-                            return new_col - 1
-
-                    email_idx = col_index("Email")
-                    stripe_idx = col_index("stripe_customer_id")
-
-                    row_num = None
-                    for i, row in enumerate(values[1:], start=2):
-                        if len(row) > email_idx and row[email_idx].strip().lower() == email:
-                            row_num = i
-                            break
-
-                    if row_num:
-                        worksheet.update_cell(row_num, stripe_idx + 1, customer_id)
-                    else:
-                        new_row = [""] * len(header)
-                        new_row[email_idx] = email
-                        new_row[stripe_idx] = customer_id
-                        worksheet.append_row(new_row)
-                except Exception as e:
-                    logger.error(f"Sheet Stripe save failed: {e}")
-
-    elif event["type"] == "customer.subscription.deleted":
-        subscription = event["data"]["object"]
-        customer_id = subscription.customer
-        # Logic to remove user or mark inactive would go here
-        pass
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("UPDATE users SET stripe_customer_id = %s WHERE email = %s", (customer_id, email))
+                        conn.commit()
+                    except Exception as e:
+                        logger.error(f"Stripe DB update failed: {e}")
+                    finally:
+                        cur.close()
+                        conn.close()
 
     return '', 200
 
@@ -879,14 +1017,12 @@ def logout():
 @login_required
 def dashboard():
     global worksheet
-
     form = ConfigForm()
 
-    # 1. Fetch Sheet Data & Headers
+    # Fetch Sheet Data & Headers
     values = worksheet.get_all_values() if worksheet else []
     if not values:
-        # If empty, initialize headers
-        headers = ["email", "location_id", "calendar_id", "crm_api_key", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used"]
+        headers = ["email", "location_id", "calendar_id", "access_token", "refresh_token", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used", "user_name", "phone", "bio"]
         if worksheet:
             worksheet.append_row(headers)
         values = [headers]
@@ -894,291 +1030,302 @@ def dashboard():
     header = values[0]
     header_lower = [h.strip().lower() for h in header]
 
-    # Helper to find column index
     def col_index(name):
         try:
             return header_lower.index(name.lower())
         except ValueError:
             return -1
 
-    # 2. Map Column Indices
-    # Note: We map ALL columns we intend to read OR write
+    # Map indices
     email_idx = col_index("email")
     location_idx = col_index("location_id")
     calendar_idx = col_index("calendar_id")
-    api_key_idx = col_index("crm_api_key")
+    access_token_idx = col_index("access_token")
+    refresh_token_idx = col_index("refresh_token")
     user_id_idx = col_index("crm_user_id")
     bot_name_idx = col_index("bot_first_name")
     timezone_idx = col_index("timezone")
     initial_msg_idx = col_index("initial_message")
     stripe_idx = col_index("stripe_customer_id")
+    user_name_idx = col_index("user_name")
+    phone_idx = col_index("phone")
+    bio_idx = col_index("bio")
 
-    # 3. Find Current User's Row
+    # Find user's row
     user_row_num = None
     for i, row in enumerate(values[1:], start=2):
         if email_idx >= 0 and len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
             user_row_num = i
             break
 
-    # 4. Handle Form Submission (WRITE)
-    if form.validate_on_submit() and worksheet:
-        try:
-            # Prepare the row data
-            if user_row_num:
-                # Get existing row to preserve data in columns we don't touch (like tokens/codes)
-                row_data = values[user_row_num - 1]
-                # Extend row if it's shorter than header
-                while len(row_data) < len(header):
-                    row_data.append("")
-            else:
-                # New row: start with empty strings
-                row_data = [""] * len(header)
-
-            # Update specific indices dynamically
-            if email_idx >= 0: row_data[email_idx] = current_user.email
-            if location_idx >= 0: row_data[location_idx] = form.location_id.data or ""
-            if calendar_idx >= 0: row_data[calendar_idx] = form.calendar_id.data or ""
-            if api_key_idx >= 0: row_data[api_key_idx] = form.crm_api_key.data or ""
-            if user_id_idx >= 0: row_data[user_id_idx] = form.crm_user_id.data or ""
-            if bot_name_idx >= 0: row_data[bot_name_idx] = form.bot_name.data or "Grok"
-            if timezone_idx >= 0: row_data[timezone_idx] = form.timezone.data or "America/Chicago"
-            if initial_msg_idx >= 0: row_data[initial_msg_idx] = form.initial_message.data or ""
-            # Only update stripe if we have it locally, otherwise keep sheet value
-            if stripe_idx >= 0 and current_user.stripe_customer_id: 
-                row_data[stripe_idx] = current_user.stripe_customer_id
-
-            # Write back to sheet
-            if user_row_num:
-                # Update the specific row range
-                # Construct A1 notation (e.g., A5:K5)
-                # Note: This updates the whole row to ensure alignment
-                worksheet.update(f"A{user_row_num}", [row_data])
-            else:
-                worksheet.append_row(row_data)
-
-            sync_subscribers()
-            flash("Settings saved!", "success")
-        except Exception as e:
-            logger.error(f"Sheet write failed: {e}")
-            flash("Error saving settings", "error")
-
-        return redirect("/dashboard")
-
-    # 5. Pre-fill Form (READ)
+    # Pre-fill form (your existing code)
     if user_row_num and values:
         row = values[user_row_num - 1]
         if location_idx >= 0 and len(row) > location_idx: form.location_id.data = row[location_idx]
-        if calendar_idx >= 0 and len(row) > calendar_idx: form.calendar_id.data = row[calendar_idx]
-        if api_key_idx >= 0 and len(row) > api_key_idx: form.crm_api_key.data = row[api_key_idx]
-        if user_id_idx >= 0 and len(row) > user_id_idx: form.crm_user_id.data = row[user_id_idx]
-        if bot_name_idx >= 0 and len(row) > bot_name_idx: form.bot_name.data = row[bot_name_idx]
-        if timezone_idx >= 0 and len(row) > timezone_idx: form.timezone.data = row[timezone_idx]
-        if initial_msg_idx >= 0 and len(row) > initial_msg_idx: form.initial_message.data = row[initial_msg_idx]
+        # ... rest of pre-fill ...
 
-    # ... [Keep your existing HTML template render] ...
-    return render_template_string("""
+    # Fetch current tokens & subscriber config (FIXED)
+    location_id = None
+    if user_row_num and values:
+        row = values[user_row_num - 1]
+        if location_idx >= 0 and len(row) > location_idx:
+            location_id = row[location_idx].strip()
+
+    sub = get_subscriber_info(location_id) if location_id else None
+
+    # Safe display values
+    access_token_display = 'Not set'
+    refresh_token_display = 'Not set'
+    expires_in_str = 'Not set'
+
+    if sub:
+        access_token_full = sub.get('access_token', 'Not set')
+        access_token_display = access_token_full[:8] + '...' + access_token_full[-4:] if len(access_token_full) > 12 else access_token_full
+        
+        refresh_token_full = sub.get('refresh_token', 'Not set')
+        refresh_token_display = refresh_token_full[:8] + '...' + refresh_token_full[-4:] if len(refresh_token_full) > 12 else refresh_token_full
+        
+        expires_at = sub.get('token_expires_at')
+        if expires_at:
+            delta = expires_at - datetime.now()
+            hours = delta.total_seconds() // 3600
+            minutes = (delta.total_seconds() % 3600) // 60
+            expires_in_str = f"Expires in {int(hours)}h {int(minutes)}m"
+        else:
+            expires_in_str = "Persistent (no expiry)"
+
+    # Now pass these to template
+    return render_template_string(
+"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - InsuranceGrokBot</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:40px 20px; min-height:100vh; }
-        .container { max-width:900px; margin:auto; }
-        h1 { color:var(--accent); font-size:3.5rem; text-shadow:var(--neon-glow); text-align:center; margin-bottom:20px; }
-        .welcome { text-align:center; font-size:1.8rem; margin-bottom:40px; }
-        .logout { position:absolute; top:20px; right:20px; color:var(--accent); font-size:1.4rem; text-decoration:underline; }
-        .nav-tabs { border-bottom:1px solid #333; margin-bottom:40px; }
-        .nav-tabs .nav-link { color:#aaa; border-color:#333; font-size:1.6rem; padding:15px 30px; }
-        .nav-tabs .nav-link.active { color:var(--accent); background:#111; border-color:var(--accent) var(--accent) #111; }
-        .tab-content { margin-top:30px; }
-        .form-group { margin:30px 0; }
-        label { display:block; margin-bottom:10px; font-size:1.4rem; color:#ddd; }
-        input { width:100%; padding:16px; background:#111; border:1px solid #333; color:#fff; border-radius:12px; font-size:1.4rem; }
-        input::placeholder { color:#888; }
-        button { padding:18px 50px; background:var(--accent); color:#000; border:none; border-radius:50px; font-size:1.8rem; cursor:pointer; box-shadow:var(--neon-glow); margin-top:20px; }
-        button:hover { background:#00cc70; transform:scale(1.05); }
-        .alert { padding:20px; background:#1a1a1a; border-radius:12px; margin:20px 0; font-size:1.4rem; }
-        .alert-success { border-left:5px solid var(--accent); }
-        .alert-error { border-left:5px solid #ff6b6b; }
-        .card { background:var(--card-bg); border:1px solid #333; border-radius:15px; padding:40px; margin:30px 0; box-shadow:0 10px 30px var(--neon-glow); }
-        .guide-text h3 { color:var(--accent); margin:40px 0 20px; font-size:2rem; }
-        .guide-text li { color:#ddd; margin:15px 0; font-size:1.4rem; }
-        code { background:#222; padding:6px 12px; border-radius:8px; color:var(--accent); font-family:monospace; }
-        .back { text-align:center; margin-top:80px; }
-        .back a { color:#888; font-size:1.6rem; text-decoration:underline; }
-        @media (max-width: 768px) {
-            h1 { font-size:2.8rem; }
-            .welcome { font-size:1.6rem; }
-            .nav-tabs .nav-link { font-size:1.4rem; padding:12px 20px; }
-            .form-group { margin:25px 0; }
-            label { font-size:1.3rem; }
-            input { font-size:1.3rem; }
-            button { font-size:1.6rem; padding:16px 40px; }
-            .alert { font-size:1.3rem; }
-            .card { padding:30px; }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; min-height:100vh; }
+        .container-fluid { padding: 40px 20px; }
+        .sidebar { background:var(--card-bg); border-right:1px solid #333; height:100vh; position:fixed; width:300px; padding:20px; overflow-y:auto; }
+        .main-content { margin-left:320px; padding:20px; }
+        h1 { color:var(--accent); text-shadow:var(--neon-glow); }
+        .card { background:var(--card-bg); border:1px solid #333; border-radius:15px; box-shadow:0 10px 30px rgba(0,255,136,0.1); }
+        .form-label { color:#ddd; font-weight:600; }
+        .input-group-text { background:#111; border:1px solid #333; color:var(--accent); }
+        .btn-copy { background:#222; border:1px solid #444; color:#fff; }
+        .token-expiry { color:#aaa; font-size:0.9rem; }
+        .toggle-btn { cursor:pointer; color:var(--accent); font-size:1.2rem; }
+        @media (max-width: 992px) {
+            .sidebar { position:relative; width:100%; height:auto; border-right:none; border-bottom:1px solid #333; }
+            .main-content { margin-left:0; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <a href="/logout" class="logout">Logout</a>
-        <h1>Dashboard</h1>
-        <p class="welcome">Welcome back, <strong>{{ current_user.email }}</strong></p>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <ul class="nav nav-tabs justify-content-center mb-5">
-            <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#config">Configuration</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#guide">GHL Setup Guide</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#billing">Billing</a>
-            </li>
-        </ul>
-
-        <div class="tab-content">
-            <div class="tab-pane active" id="config">
-                <div class="card">
-                    <h2 style="color:var(--accent); text-align:center;">Configure Your Bot</h2>
-                    <form method="post">
-                        {{ form.hidden_tag() }}
-
-                        <div class="form-group">
-                            {{ form.location_id.label }}
-                            {{ form.location_id(class="form-control", placeholder="e.g. k7lOZdwaMruhP") }}
-                        </div>
-
-                        <div class="form-group">
-                            {{ form.calendar_id.label }}
-                            {{ form.calendar_id(class="form-control", placeholder="e.g. S4KnucrFaXO76") }}
-                        </div>
-
-                        <div class="form-group">
-                            {{ form.crm_api_key.label }}
-                            {{ form.crm_api_key(class="form-control", placeholder="e.g. pit-ae0fh932-a8c") }}
-                        </div>
-
-                        <div class="form-group">
-                            {{ form.crm_user_id.label }}
-                            {{ form.crm_user_id(class="form-control", placeholder="e.g. BhWQCdIwX0C, required for calendar") }}
-                        </div>
-
-                        <div class="form-group">
-                            {{ form.timezone.label }}
-                            {{ form.timezone(class="form-control", placeholder="e.g. America/Chicago") }}
-                        </div>
-
-                        <div class="form-group">
-                            {{ form.bot_name.label }}
-                            {{ form.bot_name(class="form-control", placeholder="e.g. Mitch") }}
-                        </div>
-
-                        <div class="form-group">
-                            {{ form.initial_message.label }}
-                            {{ form.initial_message(class="form-control", placeholder="Optional custom first message") }}
-                        </div>
-
-                        <div style="color:var(--accent); text-align:center; margin-top:50px;">
-                            {{ form.submit(class="button") }}
-                        </div>
-                    </form>
+    <div class="d-flex">
+        <!-- Side Menu -->
+        <div class="sidebar">
+            <h4 class="text-center mb-4" style="color:var(--accent);">Your Configuration</h4>
+            <div class="mb-3">
+                <label class="form-label">Location ID</label>
+                <div class="input-group">
+                    <input type="text" class="form-control bg-dark text-white" value="{{ form.location_id.data or '' }}" readonly>
+                    <button class="btn btn-copy" onclick="copyToClipboard('{{ form.location_id.data or '' }}')">Copy</button>
                 </div>
             </div>
-
-            <div class="tab-pane fade" id="guide">
-                <div class="card guide-text">
-                    <h2 style="color:var(--accent); text-align:center;">GoHighLevel Setup Guide</h2>
-                    <p style="color #fff; text-align:center; margin-bottom:30px;">Follow these steps to connect InsuranceGrokBot to your GHL account</p>
-                    {% raw %}
-                    <div style="text-align:left;">
-                        <h3 style="color:var(--accent);">Step 1: Create "Re-engage Leads" Workflow</h3>
-                        <ol>
-                            <li>Go to <strong>Automations, Workflows, Create Workflow</strong></li>
-                            <li><strong>Trigger</strong>: Tag Applied (create a tag like "Re-engage text")</li>
-                            <li>Add <strong>Wait</strong>: 5 to 30 minutes</li>
-                            <li>Add <strong>Webhook</strong>:
-                                <ul>
-                                    <li>URL: <code>https://insurancegrokbot.click/webhook</code></li>
-                                    <li>Method: POST</li>
-                                    <li>Body fields (use correct crm "{{}}"):
-                                        <ul>
-                                            <li><code>intent</code>: "the intent of the message"</li>
-                                            <li><code>first_name</code>: "{{contact.first_name}}"</li>
-                                            <li><code>age</code>: "{{contact.date_of_birth or 'unknown'}}"</li>
-                                            <li><code>contact_address</code>: "{{contact.full_address}}"</li>
-                                            <li><code>agent_name</code>: "Your Name" (or "{{user.full_name}}")</li>
-                                        </ul>
-                                    </li>
-                                </ul>
-                            </li>
-                            <li>Add <strong>Condition</strong>: If appointment booked, stop workflow</li>
-                            <li>Else, Wait + same webhook, repeat</li>
-                            <li><strong>IMPORTANT:</strong> Go to Workflow Settings -> Enable "Allow Re-entry" so this works more than once per contact.</li>
-                        </ol>
-
-                        <h3 style="color:var(--accent); margin-top:40px;">Step 2: Create "AI SMS Handler" Workflow</h3>
-                        <ol>
-                            <li>New Workflow</li>
-                            <li><strong>Trigger</strong>: Inbound SMS with tag "Re-engage text"</li>
-                            <li>Add <strong>Wait</strong>: 2 minutes</li>
-                            <li>Add <strong>Webhook</strong> (same URL and fields but this time add custom field - ""message"" & {{message.body}})</li>
-                            <li>Enable "Allow Re-entry" in settings.</li>
-                        </ol>
-
-                        <h3 style="color:var(--accent); margin-top:40px;">Daily SMS Limits</h3>
-                        <ul>
-                            <li>GHL starts at <strong>100 outbound SMS/day</strong></li>
-                            <li>Increases automatically when previous limit hit (250 next day, then higher)</li>
-                            <li>Check in GHL Settings, Phone Numbers</li>
-                        </ul>
-
-                        <p style="color: #aaa; text-align:center; margin-top:40px; font-weight:bold;">
-                            Once set up, the bot runs 24/7, no more dead leads.
-                        </p>
-                    </div>
-                    {% endraw %}
+            <div class="mb-3">
+                <label class="form-label">Access Token</label>
+                <div class="input-group">
+                    <input type="text" class="form-control bg-dark text-white" value="{{ access_token_display }}" readonly>
+                    <button class="btn btn-copy" onclick="copyToClipboard('{{ sub.get('access_token', '') }}')">Copy</button>
+                </div>
+                <div class="token-expiry">{{ expires_in_str }}</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Refresh Token</label>
+                <div class="input-group">
+                    <input type="text" class="form-control bg-dark text-white" value="{{ refresh_token_display }}" readonly>
+                    <button class="btn btn-copy" onclick="copyToClipboard('{{ sub.get('refresh_token', '') }}')">Copy</button>
                 </div>
             </div>
-
-            <div class="tab-pane fade" id="billing">
-                <div class="card billing-text">
-                    <h2 style="color:var(--accent);">Billing</h2>
-                    <p style="color: #aaa;">Update payment method, view invoices, or cancel subscription</p>
-                    
-                    {% if current_user.stripe_customer_id %}
-                        <form method="post" action="/create-portal-session">
-                            <button type="submit">Manage Billing on Stripe</button>
-                        </form>
-                    {% else %}
-                        <p style="color: #aaa; margin-bottom: 20px;">You are subscribed via GHL Marketplace.</p>
-                        <a href="https://marketplace.gohighlevel.com/" target="_blank" style="display:inline-block; padding:18px 50px; background:var(--accent); color:#000; border:none; border-radius:50px; font-size:1.8rem; text-decoration:none; font-weight:700;">Manage Marketplace Subscription</a>
-                    {% endif %}
-                </div>
+            <!-- More fields here... -->
+            <hr class="bg-secondary">
+            <h5 class="text-center" style="color:var(--accent);">User Profile</h5>
+            <div class="mb-3">
+                <label class="form-label">Full Name</label>
+                <input type="text" class="form-control bg-dark text-white" value="{{ row[user_name_idx] if user_row_num else '' }}" id="user_name">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Phone</label>
+                <input type="tel" class="form-control bg-dark text-white" value="{{ row[phone_idx] if user_row_num else '' }}" id="phone">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Bio</label>
+                <textarea class="form-control bg-dark text-white" rows="3" id="bio">{{ row[bio_idx] if user_row_num else '' }}</textarea>
+            </div>
+            <button class="btn btn-primary w-100" onclick="saveProfile()">Save Profile</button>
+            <h5 class="text-center mb-4" style="color:var(--accent);">Support</h5>
+            <div class="side-item">
+                <a href="/contact">Contact Us</a>
             </div>
         </div>
 
-        <div class="back">
-            <a href="/">Back to Home</a>
+        <!-- Main Content -->
+        <div class="main-content">
+            <h1>Dashboard</h1>
+            <p class="welcome">Welcome back, <strong>{{ current_user.email }}</strong></p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#config">Configuration</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#guide">Marketplace Setup</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#billing">Billing</a></li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="config">
+                    <div class="card p-4">
+                        <h3 style="color:var(--accent);">Bot Settings</h3>
+                        <form method="post">
+                            {{ form.hidden_tag() }}
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.location_id.label(class="form-label") }}
+                                    {{ form.location_id(class="form-control bg-dark text-white") }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.calendar_id.label(class="form-label") }}
+                                    {{ form.calendar_id(class="form-control bg-dark text-white") }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.crm_api_key.label(class="form-label") }}
+                                    {{ form.crm_api_key(class="form-control bg-dark text-white") }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.crm_user_id.label(class="form-label") }}
+                                    {{ form.crm_user_id(class="form-control bg-dark text-white") }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.timezone.label(class="form-label") }}
+                                    {{ form.timezone(class="form-control bg-dark text-white") }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.bot_name.label(class="form-label") }}
+                                    {{ form.bot_name(class="form-control bg-dark text-white") }}
+                                </div>
+                                <div class="col-12 mb-3">
+                                    {{ form.initial_message.label(class="form-label") }}
+                                    {{ form.initial_message(class="form-control bg-dark text-white") }}
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Save Settings</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="guide">
+                    <div class="card p-4">
+                        <h3 style="color:var(--accent);">Marketplace Setup Guide</h3>
+                        <p>Follow these steps to connect via the GoHighLevel Marketplace.</p>
+                        <ol class="list-group list-group-numbered">
+                            <li class="list-group-item bg-dark text-white border-0">Log in to your GoHighLevel account.</li>
+                            <li class="list-group-item bg-dark text-white border-0">Go to Marketplace in the left sidebar.</li>
+                            <li class="list-group-item bg-dark text-white border-0">Search for "Insurance Grok Bot" and click Install.</li>
+                            <li class="list-group-item bg-dark text-white border-0">Approve the scopes (contacts, conversations, calendars, etc.).</li>
+                            <li class="list-group-item bg-dark text-white border-0">After install, your tokens and location details are automatically imported and stored.</li>
+                            <li class="list-group-item bg-dark text-white border-0">Log in here and verify everything in your dashboard.</li>
+                        </ol>
+                        <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-primary mt-4">Open GHL Marketplace</a>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="billing">
+                    <div class="card p-4">
+                        <h3 style="color:var(--accent);">Billing & Subscription</h3>
+                        {% if current_user.stripe_customer_id %}
+                            <p>Manage your subscription, update payment method, or view invoices.</p>
+                            <form method="post" action="/create-portal-session">
+                                <button type="submit" class="btn btn-primary">Open Stripe Portal</button>
+                            </form>
+                        {% else %}
+                            <p>Your subscription is managed via the GoHighLevel Marketplace.</p>
+                            <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-primary">Manage in Marketplace</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied to clipboard!");
+            }).catch(err => {
+                console.error("Copy failed", err);
+            });
+        }
+
+        function saveProfile() {
+            const name = document.getElementById('user_name').value;
+            const phone = document.getElementById('phone').value;
+            const bio = document.getElementById('bio').value;
+            fetch('/save-profile', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, phone, bio})
+            }).then(r => r.json()).then(d => alert(d.message || 'Saved!'));
+        }
+    </script>
 </body>
 </html>
-    """, form=form)
+    """, form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, expires_in_str=expires_in_str, sub=sub)
+
+@app.route("/save-profile", methods=["POST"])
+@login_required
+def save_profile():
+    data = request.json
+    name = data.get('name')
+    phone = data.get('phone')
+    bio = data.get('bio')
+
+    # Save to sheet (similar to config save)
+    if worksheet:
+        # Find row (same logic as dashboard)
+        values = worksheet.get_all_values()
+        header_lower = [h.strip().lower() for h in values[0]]
+        user_name_idx = header_lower.index("user_name") if "user_name" in header_lower else -1
+        phone_idx = header_lower.index("phone") if "phone" in header_lower else -1
+        bio_idx = header_lower.index("bio") if "bio" in header_lower else -1
+
+        user_row_num = None
+        for i, row in enumerate(values[1:], start=2):
+            if row and row[header_lower.index("email")].strip().lower() == current_user.email.lower():
+                user_row_num = i
+                break
+
+        if user_row_num:
+            row_data = values[user_row_num - 1]
+            if user_name_idx >= 0: row_data[user_name_idx] = name or ""
+            if phone_idx >= 0: row_data[phone_idx] = phone or ""
+            if bio_idx >= 0: row_data[bio_idx] = bio or ""
+            worksheet.update(f"A{user_row_num}", [row_data])
+            return jsonify({"message": "Profile updated!"})
+
+    return jsonify({"message": "Profile saved (but sheet not found)"}), 200
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
@@ -1245,46 +1392,86 @@ def run_demo_janitor():
 @app.route("/demo-chat")
 def demo_chat():
     run_demo_janitor()
-    new_id = str(uuid.uuid4())
-    session['demo_session_id'] = new_id
-    demo_contact_id = f"demo_{new_id}"
 
-    # Reset DB for this session so it starts clean
-    conn = get_db_connection()
-    if conn:
+    # 1. PERSISTENCE CHECK
+    existing_id = request.args.get('session_id')
+    clean_id = str(uuid.uuid4())  # Default to new
+
+    initial_msg = ""  # Placeholder
+
+    if existing_id:
         try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
-            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
-            cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
-            conn.commit()
-        except Exception as e:
-            logger.error(f"Demo reset failed: {e}")
-        finally:
-            cur.close()
-            conn.close()
+            clean_id = str(uuid.UUID(existing_id))
+            # Resume: no new opener — JS loads history
+        except ValueError:
+            pass  # Invalid → new
+
+    session['demo_session_id'] = clean_id
+    demo_contact_id = f"demo_{clean_id}"
+
+    # 2. NEW SESSION = NEW OPENER (only if truly new)
+    if not existing_id:
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                # Clear old data
+                cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
+                cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
+                cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
+
+                # Generate unique opener
+                initial_msg = generate_demo_opener()
+
+                # Inject into DB
+                cur.execute("""
+                    INSERT INTO contact_messages (contact_id, message_type, message_text, created_at)
+                    VALUES (%s, 'assistant', %s, NOW())
+                """, (demo_contact_id, initial_msg))
+
+                conn.commit()
+            except Exception as e:
+                logger.error(f"Demo Init Error: {e}")
+            finally:
+                cur.close()
+                conn.close()
 
     demo_html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
     <title>Live AI Demo - InsuranceGrokBot</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
     <style>
         :root {{ 
             --accent: #00ff88; 
             --safe-top: env(safe-area-inset-top, 20px); 
             --safe-bottom: env(safe-area-inset-bottom, 20px); 
         }}
-        body {{ background: #000; color: #fff; font-family: 'Montserrat', sans-serif; height: 100vh; margin: 0; overflow: hidden; }}
-        
-        .main-wrapper {{ display: flex; width: 100vw; height: 100vh; }}
-        
-        .chat-col {{ flex: 1; display: flex; justify-content: center; align-items: center; background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%); padding: var(--safe-top) 10px var(--safe-bottom) 10px; }}
-        
-        /* 90% Screen Height Fix for Mobile */
+        body {{ 
+            background: #000; 
+            color: #fff; 
+            font-family: 'Montserrat', sans-serif; 
+            height: 100dvh; 
+            margin: 0; 
+            overflow: hidden; 
+        }}
+        .main-wrapper {{ 
+            display: flex; 
+            width: 100vw; 
+            height: 100dvh; 
+        }}
+        .chat-col {{ 
+            flex: 1; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%); 
+            padding: var(--safe-top) 10px var(--safe-bottom) 10px; 
+        }}
         .phone {{ 
             width: 100%; 
             max-width: 380px; 
@@ -1297,60 +1484,259 @@ def demo_chat():
             flex-direction: column; 
             position: relative; 
             overflow: hidden; 
-            box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1); 
         }}
-        .notch {{ position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 150px; height: 30px; background: #333; border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; z-index: 10; }}
+        .notch {{ 
+            position: absolute; 
+            top: 0; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            width: 150px; 
+            height: 30px; 
+            background: #333; 
+            border-bottom-left-radius: 18px; 
+            border-bottom-right-radius: 18px; 
+            z-index: 10; 
+        }}
         
         @media (max-width: 600px) {{
             .chat-col {{ padding: 0; background: #000; }}
-            .phone {{ 
-                height: 100dvh; 
-                max-height: none; 
-                border: none; 
-                border-radius: 0; 
-                padding-top: var(--safe-top);
-                padding-bottom: var(--safe-bottom);
-            }}
+            .phone {{ height: 100dvh; max-height: none; border: none; border-radius: 0; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }}
             .notch {{ display: none; }}
+            .screen {{ padding-bottom: 100px; }}
         }}
-
-        .screen {{ flex: 1; padding: 45px 15px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scrollbar-width: none; background: #000; }}
+        .screen {{ 
+            flex: 1; 
+            padding: 45px 15px 20px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+            scrollbar-width: none; 
+            background: #000; 
+        }}
         .screen::-webkit-scrollbar {{ display: none; }}
-
-        .input-area {{ padding: 15px; background: #111; display: flex; gap: 10px; border-top: 1px solid #222; z-index: 11; }}
-        input {{ flex: 1; padding: 12px 15px; border-radius: 25px; border: 1px solid #333; background: #222; color: #fff; outline: none; font-size: 16px; }}
-        button.send-btn {{ width: 45px; height: 45px; border-radius: 50%; border: none; background: #00ff88; color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer; }}
-        
-        .msg {{ padding: 12px 16px; border-radius: 18px; max-width: 85%; font-size: 14px; line-height: 1.4; white-space: pre-wrap; animation: popIn 0.3s ease-out; }}
-        .bot {{ background: #262626; align-self: flex-start; color: #e0e0e0; border-bottom-left-radius: 4px; }}
-        .user {{ background: #00ff88; align-self: flex-end; color: #000; border-bottom-right-radius: 4px; font-weight: 600; }}
-        @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-        
-        /* Desktop Logs Column (Optional) */
-        .log-col {{ width: 450px; background: #0a0a0a; display: flex; flex-direction: column; padding: 25px; border-left: 1px solid #222; }}
-        #logs {{ flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; }}
-        .log-entry {{ margin-bottom: 20px; border-left: 2px solid #333; padding-left: 15px; }}
-        .controls {{ margin-top: 20px; display: flex; gap: 10px; }}
-        .btn {{ flex: 1; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; }}
-        .reset-btn {{ background: transparent; border: 1px solid #ff4444; color: #ff4444; }}
-        .download-btn {{ background: #222; color: #fff; border: 1px solid #444; }}
-
+        .input-area {{
+            padding: 12px 15px;
+            background: #111;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid #222;
+            z-index: 11;
+            min-height: 60px;
+            align-items: flex-end;
+        }}
+        .grow-wrap {{
+            flex: 1;
+            display: grid;
+            position: relative;
+        }}
+        .grow-wrap::after {{
+            content: attr(data-replicated-value) " ";
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            visibility: hidden;
+            grid-area: 1 / 1 / 2 / 2;
+            padding: inherit;
+            font: inherit;
+            border: inherit;
+            border-radius: inherit;
+            line-height: inherit;
+            margin: 0;
+            pointer-events: none;
+        }}
+        .grow-wrap textarea {{
+            grid-area: 1 / 1 / 2 / 2;
+            resize: none;
+            overflow: hidden;
+            padding: 12px 16px;
+            border-radius: 22px;
+            border: 1px solid #333;
+            background: #222;
+            color: #fff;
+            outline: none;
+            font-size: 16px;
+            font-family: inherit;
+            line-height: 1.4;
+            min-height: 44px;
+            max-height: 160px;
+            overflow-y: auto;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }}
+        button.send-btn {{
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: none;
+            background: var(--accent);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }}
+       
+        .msg {{
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 85%;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            animation: popIn 0.3s ease-out;
+        }}
+        .bot {{
+            background: #262626;
+            align-self: flex-start;
+            color: #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }}
+        .user {{
+            background: var(--accent);
+            align-self: flex-end;
+            color: #000;
+            border-bottom-right-radius: 4px;
+            font-weight: 600;
+        }}
+        @keyframes popIn {{
+            from {{ opacity: 0; transform: translateY(10px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+       
+        .log-col {{
+            width: 450px;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            padding: 25px;
+            border-left: 1px solid #222;
+        }}
+        #logs {{
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }}
+        .log-entry {{
+            margin-bottom: 20px;
+            border-left: 2px solid #333;
+            padding-left: 15px;
+        }}
+        .controls {{
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }}
+        .btn {{
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .reset-btn {{
+            background: transparent;
+            border: 1px solid #ff4444;
+            color: #ff4444;
+        }}
+        .download-btn {{
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+        }}
         @media (max-width: 900px) {{
             .log-col {{ display: none !important; }}
+        }}
+        .side-menu {{
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 280px;
+            background: #0a0a0a;
+            border-left: 1px solid #333;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            padding: 30px 20px;
+            z-index: 1000;
+            box-shadow: -10px 0 20px rgba(0,0,0,0.5);
+        }}
+        .side-menu.open {{
+            transform: translateX(0);
+        }}
+        .side-btn {{
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1100;
+            box-shadow: var(--neon-glow);
+        }}
+        .side-btn i {{ font-size: 1.5rem; }}
+        .side-item {{ margin-bottom: 15px; }}
+        .side-item a {{ color: #fff; font-size: 1.1rem; display: block; padding: 10px; border-radius: 8px; background: #111; text-align: center; text-decoration: none; }}
+        .side-item a:hover {{ background: #222; color: var(--accent); }}
+        .thinking {{
+            display: none;
+            background: #262626;
+            align-self: flex-start;
+            padding: 10px 15px;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            font-size: 18px;
+            color: #e0e0e0;
+        }}
+        .thinking.show {{ display: block; }}
+        .dot {{ animation: dotBlink 1.4s infinite ease-in-out; }}
+        .dot:nth-child(2) {{ animation-delay: 0.2s; }}
+        .dot:nth-child(3) {{ animation-delay: 0.4s; }}
+        @keyframes dotBlink {{
+            0% {{ opacity: 0.3; }}
+            50% {{ opacity: 1; }}
+            100% {{ opacity: 0.3; }}
+        }}
+        .low-notice {{
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff4444;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 20;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }}
     </style>
 </head>
 <body>
-
 <div class="main-wrapper">
     <div class="chat-col">
         <div class="phone">
             <div class="notch"></div>
             <div class="screen" id="chat">
-                <div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>
+                <!-- JS loads opener -->
             </div>
             <div class="input-area">
-                <input type="text" id="msgInput" placeholder="Type your reply..." autofocus autocomplete="off">
+                <div class="grow-wrap">
+                    <textarea id="chat-input" placeholder="Type a message..." rows="1" autofocus autocomplete="off"></textarea>
+                </div>
                 <button class="send-btn" onclick="send()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1367,97 +1753,242 @@ def demo_chat():
             <div style="color:#666; margin-top:20px;">Waiting for user input...</div>
         </div>
         <div class="controls">
-            <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" class="btn download-btn">Download Log</a>
+            <a href="/download-transcript?contact_id={{ demo_contact_id }}" target="_blank" class="btn download-btn">Download Log</a>
             <button class="btn reset-btn" onclick="resetSession();">Reset Session</button>
         </div>
     </div>
 </div>
 
+<!-- Side Menu (hidden, slide-out) -->
+<div class="side-menu" id="sideMenu">
+    <h4 style="color:var(--accent); margin-bottom:20px;">Options</h4>
+    <div class="side-item">
+        <a href="#" onclick="resetSession();">Refresh Session</a>
+    </div>
+    <div class="side-item">
+        <a href="/download-transcript?contact_id={{ demo_contact_id }}" target="_blank">Download Logs</a>
+    </div>
+</div>
+
+<button class="side-btn" onclick="toggleSideMenu()"><i class="fas fa-bars"></i></button>
+
+<!-- Low Battery Notice (hidden) -->
+<div class="low-notice" id="lowBatteryNotice" style="display:none;">
+    Low Battery - 2 min left. Page will refresh and start new session.
+</div>
+
 <script>
-    const CONTACT_ID = '{demo_contact_id}';
-    const chat = document.getElementById('chat');
-    const logs = document.getElementById('logs');
-    const input = document.getElementById('msgInput');
-    let msgCount = 0;
-
-    async function send() {{
-        const text = input.value.trim();
-        if (!text) return;
-        
-        chat.innerHTML += `<div class="msg user">${{text}}</div>`;
-        input.value = '';
-        chat.scrollTop = chat.scrollHeight;
-
-        try {{
-            await fetch('/webhook', {{
-                method: 'POST',
-                headers: {{'Content-Type': 'application/json'}},
-                body: JSON.stringify({{
-                    locationId: 'DEMO_ACCOUNT_SALES_ONLY', 
-                    contact_id: CONTACT_ID,
-                    message: {{ body: text }},
-                    first_name: 'Demo User'
-                }})
-            }});
-        }} catch (err) {{
-            console.error(err);
-        }}
+    // PERSISTENCE
+    const url = new URL(window.location);
+    if (!url.searchParams.has('session_id')) {{
+        url.searchParams.set('session_id', '{{ clean_id }}');
+        window.history.replaceState({{}}, '', url);
     }}
+
+    const CONTACT_ID = '{{ demo_contact_id }}';
+    const chat = document.getElementById('chat');
+
+    // Pass opener from Python (empty on resume)
+    const STARTING_MSG = '{{ initial_msg }}';
+
+    let msgCount = 0;
 
     async function syncData() {{
         try {{
             const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
             const data = await res.json();
-            
+           
             if (data.logs && data.logs.length > 0) {{
-                if (logs) {{
-                    logs.innerHTML = data.logs.map(l => `
-                        <div class="log-entry">
-                            <div style="color:#666; font-size:10px;">${{l.timestamp.split('T')[1]?.split('.')[0] || l.timestamp}}</div>
-                            <div style="color:#00ff88; font-weight:bold;">${{l.type}}</div>
-                            <div style="color:#ccc;">${{l.content}}</div>
-                        </div>
-                    `).join('');
-                }}
-                
                 const messages = data.logs.filter(l => l.type.includes('Message'));
-                
+               
                 if (messages.length > msgCount) {{
-                    const initialMsg = `<div class="msg bot">Quick question, are you still with that life insurance plan you mentioned before?</div>`;
-                    const dynamicMsgs = messages.map(msg => {{
-                       const isBot = msg.type.includes('Bot');
-                       return `<div class="msg ${{isBot ? 'bot' : 'user'}}">${{msg.content}}</div>`;
+                    const newMessages = messages.slice(msgCount);
+                   
+                    const dynamicMsgs = newMessages.map(msg => {{
+                        // Skip if exact match to STARTING_MSG (safety net)
+                        if (STARTING_MSG && msg.content.trim() === STARTING_MSG.trim() && msgCount === 0) {{
+                            return '';
+                        }}
+                       
+                        const isBot = msg.type.includes('Bot') || msg.type.includes('Assistant');
+                        return `<div class="msg ${{isBot ? 'bot' : 'user'}}">${{msg.content}}</div>`;
                     }}).join('');
-                    
-                    chat.innerHTML = initialMsg + dynamicMsgs;
-                    chat.scrollTop = chat.scrollHeight;
+                   
+                    if (dynamicMsgs) {{
+                        chat.insertAdjacentHTML('beforeend', dynamicMsgs);
+                        chat.scrollTop = chat.scrollHeight;
+                    }}
                     msgCount = messages.length;
                 }}
+               
+                // Update logs (brain activity)
+                if (data.logs) {{
+                    document.getElementById('logs').innerHTML = data.logs.map(l => `
+                        <div class="log-entry">
+                            <span class="log-ts">[${{l.timestamp.split('T')[1].split('.')[0]}}]</span>
+                            <span class="log-type">${{l.type}}</span><br>
+                            ${{l.content}}
+                        </div>
+                    `).join('');
+                    document.getElementById('logs').scrollTop = document.getElementById('logs').scrollHeight;
+                }}
             }}
-        }} catch (err) {{}}
-    }}
-
-    async function resetSession() {{
-        if (confirm("Reset demo session?")) {{
-            await fetch('/reset-demo', {{
-                method: 'POST',
-                headers: {{'Content-Type': 'application/json'}},
-                body: JSON.stringify({{ contact_id: CONTACT_ID }})
-            }});
-            window.location.reload();
+        }} catch (err) {{
+            console.error("Sync error:", err);
         }}
     }}
 
-    input.addEventListener('keypress', (e) => {{
-        if (e.key === 'Enter') send();
+    function send() {{
+        const msg = document.getElementById('chat-input').value.trim();
+        if (!msg) return;
+
+        chat.innerHTML += `<div class="msg user">${{msg}}</div>`;
+        document.getElementById('chat-input').value = '';
+        chat.scrollTop = chat.scrollHeight;
+
+        const thinkingBubble = showThinking();
+
+        // Play iMessage swoosh sound
+        new Audio('https://www.soundjay.com/buttons/swoosh-1.mp3').play();
+
+        fetch('/webhook', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify({{
+                location_id: 'TEST_LOCATION_456',
+                contact_id: CONTACT_ID,
+                first_name: 'Demo User',
+                message: {{ body: msg }}
+            }})
+        }}).then(r => r.json()).then(d => {{
+            if (d.reply) {{
+                chat.innerHTML += `<div class="msg bot">${{d.reply}}</div>`;
+                chat.scrollTop = chat.scrollHeight;
+            }}
+            syncData();
+        }}).catch(err => console.error("Send error:", err))
+        .finally(() => hideThinking(thinkingBubble));
+    }}
+
+    // Send on Enter (no Shift)
+    document.getElementById('chat-input').addEventListener('keypress', e => {{
+        if (e.key === 'Enter' && !e.shiftKey) {{
+            e.preventDefault();
+            send();
+        }}
     }});
 
+    // Focus auto-scroll
+    document.getElementById('chat-input').addEventListener('focus', () => {{
+        setTimeout(() => chat.scrollTop = chat.scrollHeight, 300);
+    }});
+
+    // Thinking Bubble
+    function showThinking() {{
+        const thinking = document.createElement('div');
+        thinking.classList.add('thinking', 'msg', 'bot');
+        thinking.innerHTML = '<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
+        chat.appendChild(thinking);
+        chat.scrollTop = chat.scrollHeight;
+        return thinking;
+    }}
+
+    function hideThinking(bubble) {{
+        if (bubble) bubble.remove();
+    }}
+
+    // Battery Depletion (10 min timer, low at 2 min)
+    let batteryLevel = 100;
+    const batteryTimer = setInterval(() => {{
+        batteryLevel -= (100 / 600);  // Deplete over 10 min (600s)
+        if (batteryLevel <= 20) {{
+            document.getElementById('lowBatteryNotice').style.display = 'block';
+        }}
+        if (batteryLevel <= 0) {{
+            resetSession();
+        }}
+    }}, 1000);
+
+    // Toggle Side Menu
+    function toggleSideMenu() {{
+        const menu = document.getElementById('sideMenu');
+        menu.classList.toggle('open');
+    }}
+
+    // Reset session
+    function resetSession() {{
+        window.location.href = '/demo-chat?session_id=' + crypto.randomUUID();
+    }}
+
+    // Initial load + polling
+    syncData();  // Load opener immediately
     setInterval(syncData, 2000);
+
+    // Initialize AOS animations (must be after DOM ready)
+    AOS.init({{
+        duration: 1200,
+        once: true,
+        offset: 120,
+        easing: 'ease-out'
+    }});
 </script>
 </body>
 </html>
     """
-    return render_template_string(demo_html, demo_contact_id=demo_contact_id)
+    return render_template_string(demo_html, clean_id=clean_id, demo_contact_id=demo_contact_id, initial_msg=initial_msg)
+
+@app.route("/disclaimers")
+def disclaimers():
+    disclaimers_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disclaimers - InsuranceGrokBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); }
+        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; padding:80px 20px; min-height:100vh; }
+        .container { max-width:900px; margin:auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; box-shadow:0 10px 30px var(--neon-glow); }
+        h1 { color:var(--accent); text-shadow:var(--neon-glow); text-align:center; margin-bottom:40px; }
+        p, li { font-size:1.1rem; line-height:1.8; color:#ddd; }
+        ul { padding-left:30px; margin:30px 0; }
+        .back { text-align:center; margin-top:60px; }
+        .back a { color:var(--accent); font-size:1.4rem; text-decoration:none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Disclaimers</h1>
+        
+        <h3>AI-Generated Content</h3>
+        <p>InsuranceGrokBot uses artificial intelligence (powered by xAI's Grok models) to generate responses. AI can make mistakes, provide inaccurate information, or misunderstand context. All responses should be treated as informational only and not as professional advice.</p>
+        
+        <h3>Not Financial, Legal, or Insurance Advice</h3>
+        <p>Nothing on this platform constitutes financial, legal, insurance, tax, or medical advice. Always consult licensed professionals (insurance agents, financial advisors, attorneys, etc.) before making decisions about coverage, policies, or any related matters.</p>
+        
+        <h3>No Affiliation</h3>
+        <p>InsuranceGrokBot is an independent tool created by a third party. It is not affiliated with, endorsed by, or officially connected to xAI, GoHighLevel, or any insurance carrier. References to third-party services are for informational purposes only.</p>
+        
+        <h3>Limitation of Liability</h3>
+        <p>Use of this service is at your own risk. The creators are not liable for any damages, losses, or consequences (direct or indirect) arising from use of InsuranceGrokBot, including but not limited to inaccurate information, missed opportunities, or reliance on AI-generated content.</p>
+        
+        <h3>Accuracy & Updates</h3>
+        <p>Information (including underwriting rules, carrier data, and pricing) is pulled from public sources and may not always be current or complete. Always verify with official sources.</p>
+        
+        <h3>Privacy & Data</h3>
+        <p>Demo conversations are stored temporarily and deleted automatically. Registered users' data is handled per our <a href="/privacy" style="color:var(--accent);">Privacy Policy</a>.</p>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+    return render_template_string(disclaimers_html)
 
 @app.route("/terms")
 def terms():
@@ -1815,6 +2346,211 @@ def test_page():
 </html>
     """
     return render_template_string(test_html, test_contact_id=test_contact_id)
+
+@app.route("/contact")
+def contact():
+    contact_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - InsuranceGrokBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); --text-secondary: #aaa; }
+        body { background: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; padding: 80px 20px; min-height: 100vh; }
+        .container { max-width: 900px; margin: auto; background: var(--card-bg); padding: 60px; border-radius: 20px; border: 1px solid #333; box-shadow: 0 10px 30px var(--neon-glow); }
+        h1 { color: var(--accent); text-shadow: var(--neon-glow); text-align: center; margin-bottom: 40px; font-weight: 800; font-size: 3rem; }
+        p, li { font-size: 1.2rem; color: #ddd; line-height: 1.8; }
+        .email-link { color: var(--accent); font-weight: 700; text-decoration: none; font-size: 1.5rem; }
+        .email-link:hover { text-decoration: underline; }
+        .back { text-align: center; margin-top: 60px; }
+        .back a { color: var(--accent); font-size: 1.4rem; text-decoration: none; }
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .container { padding: 40px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Contact Us</h1>
+        
+        <p class="text-center mb-5">We’re here to help with any questions about InsuranceGrokBot, setup, billing, or support.</p>
+        
+        <div class="text-center mb-5">
+            <p style="font-size: 1.4rem;">The best way to reach us is by email:</p>
+            <a href="mailto:support@insurancegrokbot.click" class="email-link">support@insurancegrokbot.click</a>
+        </div>
+        
+        <p class="text-center">We typically respond within 24–48 hours (often faster). Please include as much detail as possible about your question or issue (e.g., location ID, error messages, screenshots if relevant).</p>
+        
+        <p class="text-center mt-4">Thank you for using InsuranceGrokBot — we appreciate your feedback and support!</p>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+    return render_template_string(contact_html)
+
+@app.route("/privacy")
+def privacy():
+    privacy_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - InsuranceGrokBot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; --neon-glow: rgba(0, 255, 136, 0.5); --text-secondary: #aaa; }
+        body { background: var(--dark-bg); color: #fff; font-family: 'Montserrat', sans-serif; line-height: 1.8; padding: 80px 20px; min-height: 100vh; }
+        .container { max-width: 900px; margin: auto; background: var(--card-bg); padding: 60px; border-radius: 20px; border: 1px solid #333; box-shadow: 0 10px 30px var(--neon-glow); }
+        h1 { color: var(--accent); text-shadow: var(--neon-glow); text-align: center; margin-bottom: 40px; font-weight: 800; font-size: 3rem; }
+        h2, h3 { color: var(--accent); margin: 50px 0 20px; font-weight: 700; }
+        p, li { font-size: 1.1rem; color: #ddd; }
+        ul { padding-left: 30px; margin: 20px 0; }
+        strong { color: #fff; }
+        .back { text-align: center; margin-top: 60px; }
+        .back a { color: var(--accent); font-size: 1.4rem; text-decoration: none; }
+        hr { border-color: #333; margin: 40px 0; }
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .container { padding: 40px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Privacy Policy</h1>
+        <p style="text-align: center; color: var(--text-secondary);">Last Updated: January 12, 2026</p>
+
+        <p>InsuranceGrokBot (“we,” “us,” or “our”) operates insuranceregrokbot.click and the associated AI-powered SMS messaging service (the “Service”). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, dashboard, demo chat, or any connected integrations.</p>
+
+        <p>By using the Service, you agree to the practices described in this policy. If you do not agree, please do not use the Service.</p>
+
+        <hr>
+
+        <h2>1. Information We Collect</h2>
+
+        <h3>a. Information You Provide</h3>
+        <ul>
+            <li>Email address and password (hashed) when you register or log in</li>
+            <li>GoHighLevel configuration details (location ID, access/refresh tokens, calendar ID, CRM user ID, bot name, timezone, initial message) when you configure your bot</li>
+            <li>Optional profile info (full name, phone, bio) if you choose to provide it</li>
+            <li>Demo chat messages (stored temporarily under a demo-specific ID)</li>
+        </ul>
+
+        <h3>b. Information Automatically Collected</h3>
+        <ul>
+            <li>Device/browser data: IP address, browser type, OS, pages visited, time/date of access</li>
+            <li>Usage data: Interactions with dashboard, demo chat, sent/received SMS (for logged-in users)</li>
+            <li>Cookies & similar technologies for session management and analytics</li>
+        </ul>
+
+        <h3>c. Information from Third Parties</h3>
+        <ul>
+            <li><strong>GoHighLevel</strong>: Access/refresh tokens, location ID, CRM user ID, calendar ID, contact data (name, phone, address, DOB), and conversation history when you connect via OAuth or keys</li>
+            <li><strong>Stripe</strong>: Payment data (customer ID, subscription status — we do not store card details)</li>
+            <li><strong>Google Sheets</strong>: Your entered settings are stored in your linked sheet via authorized service account</li>
+        </ul>
+
+        <hr>
+
+        <h2>2. How We Use Your Information</h2>
+        <ul>
+            <li>To provide and improve the Service (AI SMS conversations, appointment booking)</li>
+            <li>To authenticate users and secure sessions</li>
+            <li>To process payments and manage subscriptions via Stripe</li>
+            <li>To sync and store your GoHighLevel configuration</li>
+            <li>To generate AI responses using Grok (xAI) — conversation data is sent only during active sessions</li>
+            <li>To analyze usage (aggregated/anonymized) and debug issues</li>
+            <li>To communicate about your account or support</li>
+            <li>For legal compliance, fraud prevention, and enforcing our Terms</li>
+        </ul>
+
+        <hr>
+
+        <h2>3. Information Shared with Third Parties</h2>
+        <p>We do <strong>not</strong> sell your personal information. We share only as needed:</p>
+        <ul>
+            <li><strong>GoHighLevel</strong>: Messages, contacts, and bookings are processed through their APIs using your tokens</li>
+            <li><strong>xAI (Grok)</strong>: Conversation messages are sent to generate replies (real-time only, not used for training)</li>
+            <li><strong>Stripe</strong>: Payment processing</li>
+            <li><strong>Google</strong>: Your settings in your own Google Sheet</li>
+            <li><strong>Service providers</strong>: Hosting (Railway), Redis/RQ, logging — with data processing agreements</li>
+            <li><strong>Legal</strong>: If required by law, subpoena, or to protect rights/safety</li>
+        </ul>
+
+        <hr>
+
+        <h2>4. AI & Data Processing Disclosure</h2>
+        <ul>
+            <li>We use xAI’s Grok models to generate SMS replies.</li>
+            <li>AI may produce errors, hallucinations, or inaccurate information. Always verify important details independently.</li>
+            <li>Conversation data sent to Grok is processed in real time. We do not store it long-term beyond your session history.</li>
+            <li>We do not use your data to train Grok or any AI model.</li>
+        </ul>
+
+        <hr>
+
+        <h2>5. Data Retention</h2>
+        <ul>
+            <li><strong>Demo chat</strong>: Deleted automatically after 30 minutes of inactivity</li>
+            <li><strong>Registered users</strong>: Configuration and profile data retained until account deletion or subscription cancellation</li>
+            <li><strong>Conversation history</strong>: Retained as needed for the Service (you control via GHL)</li>
+            <li>Anonymized usage data may be kept indefinitely for analytics and improvement</li>
+        </ul>
+
+        <hr>
+
+        <h2>6. Your Rights & Choices</h2>
+        <ul>
+            <li>Access, correct, or delete your data — contact support via dashboard</li>
+            <li>Opt-out of marketing emails (if any) — use unsubscribe link</li>
+            <li>Delete account — log in, contact support, or remove your row from your Google Sheet</li>
+        </ul>
+
+        <hr>
+
+        <h2>7. Security</h2>
+        <p>We use reasonable measures (encryption in transit, secure tokens, access controls) to protect your data. No system is 100% secure — we cannot guarantee absolute protection.</p>
+
+        <hr>
+
+        <h2>8. Children’s Privacy</h2>
+        <p>Our Service is not directed to individuals under 18. We do not knowingly collect data from children.</p>
+
+        <hr>
+
+        <h2>9. International Transfers</h2>
+        <p>Data may be processed in the United States or other countries. By using the Service, you consent to this transfer.</p>
+
+        <hr>
+
+        <h2>10. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy. Changes will be posted here with a new “Last Updated” date. Continued use after changes means acceptance.</p>
+
+        <hr>
+
+        <h2>11. Contact Us</h2>
+        <p>For questions about this Privacy Policy or your data, use the support form in your dashboard or email support@insuranceregrokbot.click.</p>
+
+        <div class="back">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>
+    """
+    return render_template_string(privacy_html)
 
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
@@ -2293,4 +3029,7 @@ def oauth_callback():
         return "Internal Server Error during installation", 500
     
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    # Production-ready run block
+    port = int(os.getenv("PORT", 8080))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

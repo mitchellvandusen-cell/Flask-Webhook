@@ -1,32 +1,68 @@
+# ghl_message.py - Send SMS via GoHighLevel (Flawless 2026)
 import logging
 import os
-import requests
 import time as time_module
-from datetime import datetime, date, time, timedelta, timezone
-import psycopg2
+import requests
+from datetime import datetime, timedelta
 from db import get_db_connection
 
 logger = logging.getLogger(__name__)
 
-def send_sms_via_ghl(contact_id: str, message: str, access_token: str, location_id: str):
+GHL_MESSAGES_URL = "https://services.leadconnectorhq.com/conversations/messages"
+
+def send_sms_via_ghl(
+    contact_id: str,
+    message: str,
+    access_token: str,
+    location_id: str,
+    max_retries: int = 3,
+    retry_delay: int = 5
+) -> bool:
     """
-    Sends an SMS via GoHighLevel API.
-    Includes a safety check against the database to prevent duplicate messages
-    from being sent within a 5-minute window.
+    Sends an SMS via GoHighLevel Conversations API.
+    - Uses modern OAuth Bearer token (access_token)
+    - Includes duplicate prevention (5-min window via DB check)
+    - Retries on transient failures
+    - Demo-safe: returns True without sending if access_token == 'DEMO'
     """
     if not contact_id or contact_id == "unknown":
-        logger.warning("Invalid contact_id, cannot send SMS")
-        return False
-    
-    if not access_token or not location_id:
-        logger.warning(f"GHL_ACCESS_TOKEN or GHL_LOCATION_ID missing for location {location_id}, cannot send SMS")
+        logger.warning("Cannot send SMS: invalid contact_id")
         return False
 
-    # === SENDING LOGIC ===
-    url = "https://services.leadconnectorhq.com/conversations/messages"
+    if not access_token or not location_id:
+        logger.warning(f"Cannot send SMS: missing token or location_id for {contact_id}")
+        return False
+
+    # Demo mode short-circuit
+    if access_token == 'DEMO':
+        logger.info(f"DEMO MODE: Simulated SMS send to {contact_id} | msg='{message[:50]}...'")
+        # In demo, we still save the message (handled in tasks.py), so return success
+        return True
+
+    # Duplicate prevention: check if same message sent in last 5 min
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT 1 FROM contact_messages
+                WHERE contact_id = %s
+                  AND message_type = 'assistant'
+                  AND message_text = %s
+                  AND created_at > NOW() - INTERVAL '5 minutes'
+                LIMIT 1
+            """, (contact_id, message.strip()))
+            if cur.fetchone():
+                logger.warning(f"SKIP DUPLICATE SMS: same message sent recently to {contact_id}")
+                return True  # Treat as success (already sent)
+        except Exception as e:
+            logger.error(f"Duplicate check failed: {e}")
+        finally:
+            cur.close()
+            conn.close()
 
     headers = {
-        "Authorization": f"Bearer {access_token}", # Was api_key, now access_token
+        "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15",
         "Content-Type": "application/json"
     }
@@ -34,30 +70,31 @@ def send_sms_via_ghl(contact_id: str, message: str, access_token: str, location_
     payload = {
         "type": "SMS",
         "contactId": contact_id,
-        "message": message,
+        "message": message.strip(),
         "locationId": location_id
     }
 
-    max_retries = 3
-    retry_delay = 5  # seconds
-    
-    for attempt in range(max_retries):
+    for attempt in range(1, max_retries + 1):
         try:
-            # Short timeout (15s) to prevent the worker from hanging indefinitely
-            response = requests.post(url, json=payload, headers=headers, timeout=15)
-            
-            if response.status_code in [200, 201]:
-                logger.info(f"SMS sent successfully to {contact_id} on attempt {attempt + 1}")
-                return True
-            else:
-                logger.error(f"GHL SMS failed on attempt {attempt + 1}: {response.status_code} {response.text}")
-        
-        except Exception as e:
-            logger.error(f"SMS send exception on attempt {attempt + 1}: {e}")
+            resp = requests.post(GHL_MESSAGES_URL, json=payload, headers=headers, timeout=15)
+            resp.raise_for_status()
 
-        # Wait before retrying (unless it's the last attempt)
-        if attempt < max_retries - 1:
-            time_module.sleep(retry_delay)
+            logger.info(f"SMS sent successfully to {contact_id} on attempt {attempt}")
+            return True
+
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response else 0
+            logger.warning(f"GHL SMS attempt {attempt} failed ({status}): {e.response.text if e.response else 'No response'}")
+            if status == 429:  # Rate limit — longer wait
+                time_module.sleep(10)
+            elif status in (401, 403):  # Auth issue — don't retry
+                logger.error(f"Auth failure — aborting retries")
+                break
+        except requests.RequestException as e:
+            logger.warning(f"GHL SMS attempt {attempt} network error: {e}")
+        
+        if attempt < max_retries:
+            time_module.sleep(retry_delay * attempt)  # Exponential backoff feel
 
     logger.error(f"Failed to send SMS to {contact_id} after {max_retries} attempts")
     return False

@@ -1,10 +1,10 @@
 # conversation_engine.py - The Logic Signal Processor (Left Brain)
 # "It's not about what you asked. It's about what they answered."
-
+import logging
 from enum import Enum
 from dataclasses import dataclass
 from typing import List
-
+logger = logging.getLogger(__name__)
 class ConversationStage(Enum):
     INITIAL_OUTREACH = "initial_outreach"
     DISCOVERY = "discovery"          # NEPQ Situation / Gap Selling Current State
@@ -59,7 +59,8 @@ OBJECTION_PATTERNS = [
 
 def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     """
-    Analyzes the 'Mechanics' of the conversation based on the LEAD'S RESPONSE.
+    Analyzes the 'Mechanics' of the conversation based on the LEAD'S RESPONSE,
+    with subtext inference and loop breaking to avoid rigid stage locking.
     """
     if not recent_exchanges:
         return LogicSignal(ConversationStage.INITIAL_OUTREACH, "none", False, 0, 0, False)
@@ -71,68 +72,85 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     last_lead_text = lead_msgs[-1]['text'].lower() if lead_msgs else ""
     last_bot_text = bot_msgs[-1]['text'].lower() if bot_msgs else ""
     
-    # 2. Calculate Response Depth (Did they actually answer?)
-    # A short answer ("idk", "maybe") is low depth. A sentence is high depth.
+    # 2. Response Depth and Subtext Inference
     words = last_lead_text.split()
-    depth_score = len(words)
-    if depth_score > 5: depth_score = 5 # Cap at 5
+    depth_score = min(len(words), 5)  # cleaner cap
 
-    # 3. Analyze Lead's Move
+    subtext_score = 0
+    if not last_lead_text.strip():           # empty/minimal
+        subtext_score = -1                   # infer disinterest → advance faster
+    elif len(words) < 3:                     # very short reply
+        subtext_score = 1                    # infer impatience → signal to move on
+
+    # 3. Loop Detection (broadened slightly for safety)
+    recent_bot_questions = [m['text'].lower() for m in bot_msgs[-4:] if '?' in m['text']]
+    is_looping = (
+        len(recent_bot_questions) >= 2 and
+        any(word in " ".join(recent_bot_questions) for word in [
+            "worry", "concern", "afraid", "scared", "happen if", "impact", "what happens", "how would"
+        ])
+    )
+
+    # 4. Analyze Lead's Move (unchanged — your classification is solid)
     move_type = "statement"
     voss_no_signal = False
     gap_signal = False
     pain_score = 0
     
-    # --- STEP A: Pain Calculation ---
     if any(p in last_lead_text for p in CRITICAL_PAIN_PATTERNS):
-        pain_score = 3 # Critical
+        pain_score = 3
         gap_signal = True
         move_type = "pain_admission"
     elif any(p in last_lead_text for p in SOFT_PAIN_PATTERNS):
-        pain_score = 1 # Moderate
+        pain_score = 1
         gap_signal = True
         move_type = "pain_admission"
 
-    # --- STEP B: Move Classification ---
-    
-    # Check for Voss Agreement ("No" to "Are you opposed?")
     bot_asked_no_oriented = any(p in last_bot_text for p in NO_ORIENTED_PATTERNS) and "?" in last_bot_text
     
     if any(x in last_lead_text for x in DNC_PATTERNS):
-        move_type = "rejection" 
-
+        move_type = "rejection"
     elif bot_asked_no_oriented and ("no" in last_lead_text or "not " in last_lead_text):
         move_type = "agreement"
         voss_no_signal = True
-        
     elif any(x in last_lead_text for x in OBJECTION_PATTERNS):
         move_type = "objection"
-
     elif "?" in last_lead_text and any(p in last_lead_text for p in DEFLECTION_PATTERNS):
         move_type = "deflection"
-        
     elif any(x in last_lead_text for x in ["yes", "sure", "ok", "sounds good", "book", "schedule"]):
         move_type = "agreement"
 
-    # 4. Determine Conversation Stage
-    # Logic: The stage is determined by the QUALITY of the interaction, not just the count.
-    
-    stage = ConversationStage.DISCOVERY # Default
-    
+    # 5. Determine Conversation Stage (Gemini fix applied — fallback at end)
+    stage = ConversationStage.DISCOVERY  # true default
+
     if move_type == "rejection":
         stage = ConversationStage.OBJECTION_HANDLING
-        
     elif move_type == "objection" or move_type == "deflection":
         stage = ConversationStage.OBJECTION_HANDLING
-        
     elif move_type == "agreement" or any(k in last_lead_text for k in ["time", "call", "appointment"]):
         stage = ConversationStage.CLOSING
-        
-    # CRITICAL: Only move to CONSEQUENCE stage if they admitted pain OR gave a thoughtful answer to a gap question
-    elif (gap_signal or pain_score > 0):
+    
+    elif is_looping:
+        stage = ConversationStage.RESISTANCE  # force empathy pivot
+    
+    elif (gap_signal or pain_score > 0 or (depth_score > 1 and subtext_score >= 0)) and not is_looping:
         stage = ConversationStage.CONSEQUENCE
-        
-    elif not lead_msgs: 
+    
+    elif subtext_score < 0: 
+        stage = ConversationStage.RESISTANCE  # safer than direct CLOSING on silent leads
+    
+    # Final fallback: no real engagement yet → outreach
+    if not lead_msgs or len(lead_msgs) == 0:
         stage = ConversationStage.INITIAL_OUTREACH
+
+    # Optional debug log (uncomment when testing)
+    contact_id = recent_exchanges[0].get('contact_id', 'unknown') if recent_exchanges else 'unknown'
+    logger.debug(
+        f"analyze_logic_flow | contact_id=unknown | "  # add contact_id if passed in future
+        f"stage={stage.value} | move={move_type} | "
+        f"pain={pain_score} | depth={depth_score} | subtext={subtext_score} | "
+        f"looping={is_looping} | lead_msgs_count={len(lead_msgs)} | "
+        f"last_lead_text='{last_lead_text[:50]}...'"
+    )
 
     return LogicSignal(stage, move_type, gap_signal, pain_score, depth_score, voss_no_signal)
