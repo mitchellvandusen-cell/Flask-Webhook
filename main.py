@@ -231,10 +231,15 @@ def home():
             backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255,255,255,0.05);
             padding: 1rem 0;
+            position: fixed;
+            width: 100%;
+            z-index: 1000;
         }
         .navbar-brand {
             font-weight: 800;
             font-size: 1.6rem;
+            letter-spacing: -0.5px;
+            color: #fff !important;
         }
         .nav-link {
             color: var(--text-secondary) !important;
@@ -246,12 +251,15 @@ def home():
         .nav-link:hover {
             color: var(--accent) !important;
         }
+        .navbar-nav {
+            gap: 1.5rem;  /* Even spacing */
+        }
         .btn-outline-accent, .btn-primary {
             padding: 0.5rem 1.4rem;
             font-size: 0.9rem;
             border-radius: 50px;
             font-weight: 600;
-            min-width: 110px;
+            min-width: 110px;  /* Same width for both buttons */
             text-align: center;
         }
         .btn-outline-accent {
@@ -275,7 +283,7 @@ def home():
         }
         .hero {
             min-height: calc(100vh - 70px);
-            padding-top: 100px;
+            padding-top: 100px;  /* Space for fixed nav - no overlap */
             display: flex;
             align-items: center;
             position: relative;
@@ -361,36 +369,27 @@ def home():
             color: var(--accent);
             margin-bottom: 1.5rem;
         }
-        .comparison-teaser {
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
             background: rgba(10,10,10,0.8);
-            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            overflow: hidden;
             border: 1px solid rgba(0,255,136,0.15);
-            border-radius: 24px;
-            padding: 60px 40px;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 25px;
             text-align: center;
-            margin: 0 auto;
-            max-width: 800px;
-            transition: var(--transition);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .comparison-teaser:hover {
-            transform: translateY(-10px);
-            box-shadow: var(--glow);
-        }
-        .comparison-btn {
-            background: var(--accent);
-            color: #000;
-            padding: 1rem 2.5rem;
-            border-radius: 50px;
+        .comparison-table th {
+            background: rgba(0,255,136,0.05);
+            color: var(--accent);
             font-weight: 700;
-            font-size: 1.2rem;
-            border: none;
-            box-shadow: var(--glow);
-            transition: var(--transition);
+            font-size: 1.4rem;
         }
-        .comparison-btn:hover {
-            transform: translateY(-4px) scale(1.03);
-            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
-        }
+        .check { color: var(--accent); font-size: 1.8rem; }
+        .cross { color: #ff4444; font-size: 1.8rem; }
         .pricing-card {
             background: linear-gradient(135deg, rgba(10,10,10,0.9), #000);
             border: 2px solid var(--accent);
@@ -425,6 +424,75 @@ def home():
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade { animation: fadeInUp 1.2s forwards; }
+        /* Mobile Hamburger Menu */
+        .navbar-toggler {
+            border: none;
+            padding: 0.5rem;
+        }
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%2300ff88' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+        .navbar-collapse {
+            background: rgba(10,10,10,0.95);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(0,255,136,0.15);
+            height: 100vh;
+            width: 280px;
+            position: fixed;
+            top: 0;
+            right: 0;
+            transform: translateX(100%);
+            transition: transform 0.4s ease;
+            padding: 80px 30px 30px;
+            z-index: 9999;
+        }
+        .navbar-collapse.show {
+            transform: translateX(0);
+        }
+        .navbar-nav {
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .nav-item {
+            width: 100%;
+            text-align: center;
+        }
+        .nav-link {
+            font-size: 1.1rem;
+            padding: 1rem 0;
+        }
+        .btn-group-mobile {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+        }
+        .btn-group-mobile .btn {
+            width: 100%;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+        @media (min-width: 992px) {
+            .navbar-collapse {
+                position: static;
+                transform: none;
+                height: auto;
+                width: auto;
+                background: transparent;
+                backdrop-filter: none;
+                border: none;
+                padding: 0;
+            }
+            .navbar-nav {
+                flex-direction: row;
+                gap: 1.5rem;
+            }
+            .btn-group-mobile {
+                display: none;
+            }
+        }
         @media (max-width: 992px) {
             .hero {
                 padding-top: 100px;
@@ -432,14 +500,6 @@ def home():
             }
             .hero h1 { font-size: 3.2rem; }
             .hero .lead { font-size: 1.2rem; }
-            .navbar-nav {
-                gap: 1rem;
-                text-align: center;
-                padding: 1rem 0;
-            }
-            .nav-item {
-                margin: 0.8rem 0;
-            }
             .btn-group {
                 flex-direction: column;
                 gap: 1rem;
