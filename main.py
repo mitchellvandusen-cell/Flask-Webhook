@@ -229,7 +229,6 @@ def home():
 
         body {
             background-color: var(--dark-bg);
-            /* Subtle moving background blobs to make the glass effect visible */
             background-image: 
                 radial-gradient(circle at 15% 50%, rgba(0, 255, 136, 0.08), transparent 25%),
                 radial-gradient(circle at 85% 30%, rgba(0, 100, 255, 0.05), transparent 25%);
@@ -256,6 +255,11 @@ def home():
             color: #fff !important;
             letter-spacing: -0.5px;
         }
+        /* New helper for the Grok Green Text */
+        .text-accent {
+            color: var(--accent);
+        }
+
         .nav-link {
             color: var(--text-secondary) !important;
             font-weight: 500;
@@ -264,9 +268,15 @@ def home():
         }
         .nav-link:hover { color: var(--accent) !important; }
 
-        /* --- Buttons (Fixed Colors) --- */
+        /* --- Buttons --- */
         .btn { border-radius: 50px; font-weight: 700; padding: 0.6rem 1.5rem; transition: var(--transition); }
         
+        /* Nav specific button sizing to match widths */
+        .nav-btn {
+            min-width: 140px; /* Ensures both buttons are same width */
+            text-align: center;
+        }
+
         /* Force Primary to be Green */
         .btn-primary {
             background-color: var(--accent) !important;
@@ -274,7 +284,7 @@ def home():
             color: #000 !important;
         }
         .btn-primary:hover {
-            background-color: #fff !important; /* Flash White on Hover */
+            background-color: #fff !important;
             border-color: #fff !important;
             color: #000 !important;
             box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
@@ -303,8 +313,6 @@ def home():
             padding-top: 80px;
             overflow: hidden;
         }
-        
-        /* Hero Glow Orb */
         .hero::after {
             content: '';
             position: absolute;
@@ -346,7 +354,7 @@ def home():
         }
         .section-title span { color: var(--accent); }
 
-        /* --- Glass Cards (Features & Pricing) --- */
+        /* --- Glass Cards --- */
         .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
@@ -359,8 +367,6 @@ def home():
             position: relative;
             overflow: hidden;
         }
-        
-        /* Hover Effect for Cards */
         .glass-card:hover {
             transform: translateY(-10px);
             border-color: rgba(0, 255, 136, 0.3);
@@ -379,7 +385,7 @@ def home():
         .feature-card h4 { font-size: 1.4rem; font-weight: 700; margin-bottom: 15px; color: #fff; }
         .feature-card p { color: #999; font-size: 0.95rem; }
 
-        /* --- Comparison Teaser Block (The Cool Portal) --- */
+        /* --- Comparison Teaser --- */
         .glass-banner {
             background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(0,255,136,0.02) 100%);
             backdrop-filter: blur(20px);
@@ -401,13 +407,13 @@ def home():
         }
         .grok-icon i { font-size: 2.2rem; color: var(--accent); filter: drop-shadow(0 0 10px var(--accent)); }
         
-        /* --- Pricing Card (The Showstopper) --- */
+        /* --- Pricing Card --- */
         .pricing-section { position: relative; overflow: hidden; }
         .pricing-card {
             max-width: 500px;
             margin: 0 auto;
             text-align: center;
-            background: rgba(10, 10, 10, 0.6); /* Slightly darker for contrast */
+            background: rgba(10, 10, 10, 0.6);
             border: 1px solid var(--glass-border);
             padding: 60px 40px;
         }
@@ -415,7 +421,6 @@ def home():
             border-color: var(--accent);
             box-shadow: 0 0 60px rgba(0, 255, 136, 0.15);
         }
-        
         .price-tag {
             font-size: 4.5rem;
             font-weight: 800;
@@ -468,6 +473,7 @@ def home():
             .section-title { font-size: 2.2rem; }
             .glass-banner { padding: 40px 20px; text-align: center; }
             .feature-grid { grid-template-columns: 1fr; }
+            .navbar-nav { margin: 20px 0; }
         }
     </style>
 </head>
@@ -475,20 +481,23 @@ def home():
 
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="/">InsuranceGrokBot</a>
+            <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
+            
             <button class="navbar-toggler navbar-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                <ul class="navbar-nav align-items-center gap-4">
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto align-items-center gap-4">
                     <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
                     <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
                     <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
                 </ul>
-                <div class="d-flex gap-3 ms-lg-4 mt-3 mt-lg-0">
-                    <a href="/login" class="btn btn-outline-accent btn-sm">Log In</a>
-                    <a href="/register" class="btn btn-primary btn-sm">Get Started</a>
+                
+                <div class="d-flex gap-3 mt-3 mt-lg-0">
+                    <a href="/login" class="btn btn-outline-accent btn-sm nav-btn">Log In</a>
+                    <a href="/register" class="btn btn-primary btn-sm nav-btn">Get Started</a>
                 </div>
             </div>
         </div>
@@ -608,7 +617,7 @@ def home():
 
     <footer>
         <div class="container">
-            <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">InsuranceGrokBot</p>
+            <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
             <p class="mb-4">The future of insurance sales automation.</p>
             <div>
                 <a href="/terms">Terms</a>
@@ -1793,25 +1802,28 @@ def run_demo_janitor():
 
 @app.route("/demo-chat")
 def demo_chat():
-    run_demo_janitor()
+    # Ensure background tasks are running
+    try:
+        run_demo_janitor()
+    except:
+        pass
 
     # 1. PERSISTENCE CHECK
     existing_id = request.args.get('session_id')
     clean_id = str(uuid.uuid4())  # Default to new
 
-    initial_msg = ""  # Placeholder
+    initial_msg = "" 
 
     if existing_id:
         try:
             clean_id = str(uuid.UUID(existing_id))
-            # Resume: no new opener — JS loads history
         except ValueError:
-            pass  # Invalid → new
+            pass 
 
     session['demo_session_id'] = clean_id
     demo_contact_id = f"demo_{clean_id}"
 
-    # 2. NEW SESSION = NEW OPENER (only if truly new)
+    # 2. NEW SESSION LOGIC
     if not existing_id:
         conn = get_db_connection()
         if conn:
@@ -1843,574 +1855,507 @@ def demo_chat():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-    <title>Live AI Demo - InsuranceGrokBot</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Demo | InsuranceGrokBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        :root {{ 
-            --accent: #00ff88; 
-            --safe-top: env(safe-area-inset-top, 20px); 
-            --safe-bottom: env(safe-area-inset-bottom, 20px); 
-            --glow: 0 0 30px rgba(0, 255, 136, 0.4);
+        :root {{
+            --accent: #00ff88;
+            --accent-dim: rgba(0, 255, 136, 0.1);
+            --bg-dark: #050505;
+            --phone-bezel: #1c1c1e;
+            --phone-screen: #000000;
+            --bubble-user: #00ff88;
+            --bubble-bot: #262626;
+            --text-user: #000;
+            --text-bot: #fff;
+            --terminal-bg: #0a0a0a;
         }}
-        body {{ 
-            background: #000; 
-            color: #fff; 
-            font-family: 'Montserrat', sans-serif; 
-            height: 100dvh; 
-            margin: 0; 
-            overflow: hidden; 
-        }}
-        .main-wrapper {{ 
-            display: flex; 
-            width: 100vw; 
-            height: 100dvh; 
-        }}
-        .chat-col {{ 
-            flex: 1; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            background: radial-gradient(circle at center, #1a1a1a 0%, #000 70%); 
-            padding: var(--safe-top) 10px var(--safe-bottom) 10px; 
-        }}
-        .phone {{ 
-            width: 100%; 
-            max-width: 380px; 
-            height: 90dvh; 
-            max-height: 850px; 
-            background: #000; 
-            border: 8px solid #333; 
-            border-radius: 40px; 
-            display: flex; 
-            flex-direction: column; 
-            position: relative; 
-            overflow: hidden; 
-            box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1); 
-        }}
-        .status-bar {{
-            position: absolute;
-            top: 8px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            font-size: 12px;
+
+        * {{ box-sizing: border-box; }}
+
+        body {{
+            background-color: var(--bg-dark);
+            /* Grid Pattern Background */
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
             color: #fff;
-            z-index: 20;
-            pointer-events: none;
-        }}
-        .time {{ font-weight: 600; }}
-        .icons {{ display: flex; align-items: center; gap: 8px; }}
-        .battery {{
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
             display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
         }}
-        .battery-icon {{
-            width: 24px;
-            height: 11px;
-            border: 2px solid #fff;
-            border-radius: 3px;
-            position: relative;
-        }}
-        .battery-level {{
-            background: #fff;
-            height: 100%;
+
+        /* --- LAYOUT --- */
+        .container {{
+            display: flex;
+            gap: 60px;
             width: 100%;
-            transition: width 0.3s;
-            border-radius: 1px;
+            max-width: 1400px;
+            height: 90vh;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
         }}
-        .battery-tip {{
-            width: 3px;
-            height: 7px;
-            background: #fff;
-            position: absolute;
-            right: -3px;
-            top: 2px;
-            border-radius: 0 2px 2px 0;
+
+        /* --- PHONE CHASSIS (The "Pop") --- */
+        .phone-wrapper {{
+            position: relative;
+            width: 400px;
+            height: 820px;
+            background: var(--phone-bezel);
+            border-radius: 55px;
+            /* Multi-layered shadow for realistic bezel depth */
+            box-shadow: 
+                0 0 0 4px #333,
+                0 0 0 7px #111,
+                0 30px 60px rgba(0,0,0,0.6),
+                inset 0 0 20px rgba(0,0,0,0.8);
+            padding: 15px;
+            flex-shrink: 0;
+            animation: floatPhone 6s ease-in-out infinite;
         }}
-        .low-battery .battery-level {{ background: #ff4444; }}
-        .low-notice {{
+        
+        @keyframes floatPhone {{
+            0% {{ transform: translateY(0px); }}
+            50% {{ transform: translateY(-10px); }}
+            100% {{ transform: translateY(0px); }}
+        }}
+
+        .phone-screen {{
+            background: var(--phone-screen);
+            width: 100%;
+            height: 100%;
+            border-radius: 42px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #222; /* Inner screen border */
+        }}
+
+        /* Dynamic Island / Notch */
+        .notch-area {{
             position: absolute;
-            top: 50px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background: #ff4444;
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 12px;
+            width: 120px;
+            height: 35px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        /* Status Bar */
+        .status-bar {{
+            display: flex;
+            justify-content: space-between;
+            padding: 18px 25px 10px;
             font-size: 14px;
-            z-index: 30;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            display: none;
+            font-weight: 600;
+            z-index: 90;
         }}
-        .notch {{ 
-            position: absolute; 
-            top: 0; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            width: 140px; 
-            height: 28px; 
-            background: #333; 
-            border-bottom-left-radius: 18px; 
-            border-bottom-right-radius: 18px; 
-            z-index: 10; 
-        }}
-        .status-bar .signal, .status-bar .wifi {{
-            font-size: 14px;
-        }}
-        @media (max-width: 600px) {{
-            .chat-col {{ padding: 0; background: #000; }}
-            .phone {{ height: 100dvh; max-height: none; border: none; border-radius: 0; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }}
-            .notch {{ display: none; }}
-            .screen {{ padding-bottom: 100px; }}
-            .status-bar {{ padding: 0 15px; font-size: 11px; }}
-        }}
-        .screen {{ 
-            flex: 1; 
-            padding: 45px 15px 20px; 
-            overflow-y: auto; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            scrollbar-width: none; 
-            background: #000; 
-        }}
-        .screen::-webkit-scrollbar {{ display: none; }}
-        .input-area {{ 
-            padding: 12px 15px; 
-            background: #111; 
-            display: flex; 
-            gap: 10px; 
-            border-top: 1px solid #222; 
-            z-index: 11; 
-            min-height: 60px; 
-            align-items: flex-end; 
-        }}
-        .grow-wrap {{
+
+        /* Chat Area */
+        .chat-area {{
             flex: 1;
-            display: grid;
-            position: relative;
-        }}
-        .grow-wrap::after {{
-            content: attr(data-replicated-value) " ";
-            white-space: pre-wrap;
-            overflow-wrap: break-word;
-            visibility: hidden;
-            grid-area: 1 / 1 / 2 / 2;
-            padding: inherit;
-            font: inherit;
-            border: inherit;
-            border-radius: inherit;
-            line-height: inherit;
-            margin: 0;
-            pointer-events: none;
-        }}
-        .grow-wrap textarea {{
-            grid-area: 1 / 1 / 2 / 2;
-            resize: none;
-            overflow: hidden;
-            padding: 12px 16px;
-            border-radius: 22px;
-            border: 1px solid #333;
-            background: #222;
-            color: #fff;
-            outline: none;
-            font-size: 16px;
-            font-family: inherit;
-            line-height: 1.4;
-            min-height: 44px;
-            max-height: 160px;
+            padding: 20px;
             overflow-y: auto;
-            overflow-wrap: break-word;
-            white-space: pre-wrap;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
         }}
-        button.send-btn {{
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
+        
+        /* Hide scrollbar */
+        .chat-area::-webkit-scrollbar {{ display: none; }}
+
+        /* Bubbles */
+        .msg {{
+            max-width: 80%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            position: relative;
+            animation: messagePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            word-wrap: break-word;
+        }}
+
+        @keyframes messagePop {{
+            from {{ opacity: 0; transform: translateY(20px) scale(0.9); }}
+            to {{ opacity: 1; transform: translateY(0) scale(1); }}
+        }}
+
+        .msg.bot {{
+            align-self: flex-start;
+            background: var(--bubble-bot);
+            color: var(--text-bot);
+            border-bottom-left-radius: 5px;
+        }}
+
+        .msg.user {{
+            align-self: flex-end;
+            background: var(--bubble-user);
+            color: var(--text-user);
+            border-bottom-right-radius: 5px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.2);
+        }}
+
+        /* Input Area */
+        .input-area {{
+            padding: 15px 20px 25px; /* Extra padding bottom for home bar area */
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }}
+
+        .input-field {{
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 25px;
+            padding: 12px 15px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            resize: none;
+            max-height: 100px;
+            min-height: 44px;
+            outline: none;
+        }}
+
+        .send-btn {{
             background: var(--accent);
             color: #000;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
         }}
-        button.send-btn:hover {{ transform: scale(1.1); }}
-       
-        .msg {{
-            padding: 12px 16px;
-            border-radius: 18px;
-            max-width: 85%;
-            font-size: 14px;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            animation: popIn 0.3s ease-out;
-        }}
-        .bot {{
-            background: #262626;
-            align-self: flex-start;
-            color: #e0e0e0;
-            border-bottom-left-radius: 4px;
-        }}
-        .user {{
-            background: var(--accent);
-            align-self: flex-end;
-            color: #000;
-            border-bottom-right-radius: 4px;
-            font-weight: 600;
-        }}
-        @keyframes popIn {{
-            from {{ opacity: 0; transform: translateY(10px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
-        }}
-       
-        .log-col {{
-            width: 450px;
-            background: #0a0a0a;
+        .send-btn:hover {{ transform: scale(1.1); box-shadow: 0 0 25px rgba(0, 255, 136, 0.5); }}
+        .send-btn:active {{ transform: scale(0.9); }}
+
+        /* --- TERMINAL (Right Side) --- */
+        .terminal-col {{
+            flex: 1;
+            height: 100%;
+            max-width: 600px;
+            background: var(--terminal-bg);
+            border: 1px solid #333;
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
-            padding: 25px;
-            border-left: 1px solid #222;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
         }}
-        #logs {{
+
+        /* Scanline effect */
+        .terminal-col::after {{
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 10;
+        }}
+
+        .terminal-header {{
+            background: #1a1a1a;
+            padding: 10px 15px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .live-dot {{
+            width: 10px; height: 10px; background: #ff4444; border-radius: 50%;
+            display: inline-block; margin-right: 8px;
+            box-shadow: 0 0 10px #ff4444;
+            animation: pulseRed 1.5s infinite;
+        }}
+        @keyframes pulseRed {{ 0% {{opacity: 0.5;}} 50% {{opacity: 1;}} 100% {{opacity: 0.5;}} }}
+
+        .log-content {{
             flex: 1;
+            padding: 20px;
             overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #ccc;
         }}
-        .log-entry {{
-            margin-bottom: 20px;
-            border-left: 2px solid #333;
-            padding-left: 15px;
-        }}
-        .controls {{
-            margin-top: 20px;
+
+        .log-entry {{ margin-bottom: 15px; opacity: 0; animation: fadeIn 0.3s forwards; }}
+        @keyframes fadeIn {{ to {{ opacity: 1; }} }}
+        
+        .log-ts {{ color: #666; margin-right: 10px; }}
+        .log-type {{ color: var(--accent); font-weight: bold; text-transform: uppercase; }}
+
+        .terminal-controls {{
+            padding: 15px;
+            border-top: 1px solid #333;
+            background: #111;
             display: flex;
             gap: 10px;
+            z-index: 20;
         }}
-        .btn {{
+
+        .btn-term {{
             flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }}
-        .reset-btn {{
+            padding: 10px;
             background: transparent;
-            border: 1px solid #ff4444;
-            color: #ff4444;
-        }}
-        .download-btn {{
-            background: #222;
-            color: #fff;
             border: 1px solid #444;
-        }}
-        @media (max-width: 900px) {{
-            .log-col {{ display: none !important; }}
-        }}
-        .side-menu {{
-            position: fixed;
-            top: 0;
-            right: 0;
-            height: 100vh;
-            width: 280px;
-            background: #0a0a0a;
-            border-left: 1px solid #333;
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
-            padding: 80px 30px 30px;
-            z-index: 1000;
-            box-shadow: -10px 0 20px rgba(0,0,0,0.5);
-        }}
-        .side-menu.open {{
-            transform: translateX(0);
-        }}
-        .side-btn {{
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--accent);
-            color: #000;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            color: #fff;
+            border-radius: 6px;
             cursor: pointer;
-            z-index: 1100;
-            box-shadow: var(--glow);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: 0.3s;
         }}
-        .side-btn i {{ font-size: 1.5rem; }}
-        .side-item {{ margin-bottom: 15px; }}
-        .side-item a {{ color: #fff; font-size: 1.1rem; display: block; padding: 12px; border-radius: 8px; background: #111; text-align: center; text-decoration: none; }}
-        .side-item a:hover {{ background: #222; color: var(--accent); }}
-        .thinking {{
-            display: none;
-            background: #262626;
-            align-self: flex-start;
-            padding: 10px 15px;
-            border-radius: 18px;
-            border-bottom-left-radius: 4px;
-            font-size: 18px;
-            color: #e0e0e0;
+        .btn-term:hover {{ border-color: var(--accent); color: var(--accent); }}
+
+        /* --- MOBILE --- */
+        @media (max-width: 900px) {{
+            .container {{ flex-direction: column; height: 100vh; padding: 0; gap: 0; }}
+            .phone-wrapper {{ 
+                width: 100%; height: 100%; border-radius: 0; border: none; box-shadow: none; animation: none; 
+            }}
+            .phone-screen {{ border-radius: 0; border: none; }}
+            .terminal-col {{ display: none; }} /* Hide terminal on mobile */
         }}
-        .thinking.show {{ display: block; }}
-        .dot {{ animation: dotBlink 1.4s infinite ease-in-out; }}
+
+        /* Typing Dots */
+        .typing {{ display: flex; gap: 4px; padding: 10px 15px; align-self: flex-start; background: var(--bubble-bot); border-radius: 20px; border-bottom-left-radius: 5px; }}
+        .dot {{ width: 6px; height: 6px; background: #888; border-radius: 50%; animation: bounce 1.4s infinite; }}
         .dot:nth-child(2) {{ animation-delay: 0.2s; }}
         .dot:nth-child(3) {{ animation-delay: 0.4s; }}
-        @keyframes dotBlink {{
-            0% {{ opacity: 0.3; }}
-            50% {{ opacity: 1; }}
-            100% {{ opacity: 0.3; }}
-        }}
+        @keyframes bounce {{ 0%, 100% {{ transform: translateY(0); }} 50% {{ transform: translateY(-5px); }} }}
+
     </style>
 </head>
 <body>
-<div class="main-wrapper">
-    <div class="chat-col">
-        <div class="phone">
+
+<div class="container">
+    
+    <div class="phone-wrapper">
+        <div style="position: absolute; left: -3px; top: 100px; width: 3px; height: 25px; background: #333; border-radius: 2px;"></div>
+        <div style="position: absolute; left: -3px; top: 150px; width: 3px; height: 45px; background: #333; border-radius: 2px;"></div>
+        <div style="position: absolute; left: -3px; top: 205px; width: 3px; height: 45px; background: #333; border-radius: 2px;"></div>
+        <div style="position: absolute; right: -3px; top: 160px; width: 3px; height: 70px; background: #333; border-radius: 2px;"></div>
+
+        <div class="phone-screen">
+            <div class="notch-area"></div>
+            
             <div class="status-bar">
-                <span class="time" id="currentTime"></span>
-                <div class="icons">
-                    <span class="signal">5G</span>
-                    <span class="wifi"><i class="fas fa-wifi"></i></span>
-                    <div class="battery">
-                        <div class="battery-icon">
-                            <div class="battery-level" id="batteryLevel"></div>
-                        </div>
-                        <span id="batteryPercent">100%</span>
-                    </div>
+                <span id="clock">10:00</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <i class="fas fa-signal"></i>
+                    <i class="fas fa-wifi"></i>
+                    <i class="fas fa-battery-full" id="batteryIcon"></i>
                 </div>
             </div>
-            <div class="notch"></div>
-            <div class="screen" id="chat">
-                <!-- JS loads opener -->
-            </div>
+
+            <div class="chat-area" id="chat">
+                </div>
+
             <div class="input-area">
-                <div class="grow-wrap">
-                    <textarea id="chat-input" placeholder="Type a message..." rows="1" autofocus autocomplete="off"></textarea>
-                </div>
-                <button class="send-btn" onclick="send()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
+                <textarea id="msgInput" class="input-field" placeholder="Message..." rows="1"></textarea>
+                <button class="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="log-col">
-        <h3 style="color:#00ff88; text-transform:uppercase; border-bottom:1px solid #333; padding-bottom:15px; margin-top:0;">Live Brain Activity</h3>
-        <div id="logs">
-            <div style="color:#666; margin-top:20px;">Waiting for user input...</div>
+    <div class="terminal-col">
+        <div class="terminal-header">
+            <span><span class="live-dot"></span>LIVE BRAIN ACTIVITY</span>
+            <span style="font-family:'JetBrains Mono'; font-size:12px; color:#666;">SESSION: {clean_id[:8]}</span>
         </div>
-        <div class="controls">
-            <a href="/download-transcript?contact_id={{ demo_contact_id }}" target="_blank" class="btn download-btn">Download Log</a>
-            <button class="btn reset-btn" onclick="resetSession();">Reset Session</button>
+        <div class="log-content" id="logWindow">
+            <div style="color:#555;">> Connecting to neural engine...</div>
+            <div style="color:#555;">> Ready for input.</div>
+        </div>
+        <div class="terminal-controls">
+            <button class="btn-term" onclick="resetSession()">Reset Session</button>
+            <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" class="btn-term" style="text-align:center; text-decoration:none;">Download Logs</a>
         </div>
     </div>
+
 </div>
 
-<!-- Side Menu (hidden, slide-out) -->
-<div class="side-menu" id="sideMenu">
-    <h4 style="color:var(--accent); margin-bottom:20px;">Options</h4>
-    <div class="side-item">
-        <a href="#" onclick="resetSession();">Refresh Session</a>
-    </div>
-    <div class="side-item">
-        <a href="/download-transcript?contact_id={{ demo_contact_id }}" target="_blank">Download Logs</a>
-    </div>
-</div>
-
-<button class="side-btn" onclick="toggleSideMenu()"><i class="fas fa-bars"></i></button>
-
-<!-- Low Battery Notice (hidden) -->
-<div class="low-notice" id="lowBatteryNotice" style="display:none;">
-    Low Battery - 2 min left. Page will refresh and start new session.
-</div>
+<audio id="snd-send" src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"></audio>
+<audio id="snd-receive" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
 
 <script>
-    // PERSISTENCE
-    const url = new URL(window.location);
-    if (!url.searchParams.has('session_id')) {{
-        url.searchParams.set('session_id', '{{ clean_id }}');
-        window.history.replaceState({{}}, '', url);
+    const CONTACT_ID = '{demo_contact_id}';
+    const OPENER = '{initial_msg}';
+    let lastMsgCount = 0;
+    
+    // UI Elements
+    const chat = document.getElementById('chat');
+    const logs = document.getElementById('logWindow');
+    const input = document.getElementById('msgInput');
+
+    // 1. Initial Load
+    function init() {{
+        // Clock
+        setInterval(() => {{
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit'}});
+        }}, 1000);
+
+        // Auto-resize Textarea
+        input.addEventListener('input', function() {{
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        }});
+
+        // Enter key
+        input.addEventListener('keypress', function(e) {{
+            if(e.key === 'Enter' && !e.shiftKey) {{
+                e.preventDefault();
+                sendMessage();
+            }}
+        }});
+
+        syncData();
+        setInterval(syncData, 2000); // Poll every 2s
     }}
 
-    const CONTACT_ID = '{{ demo_contact_id }}';
-    const chat = document.getElementById('chat');
-
-    // Pass opener from Python (empty on resume)
-    const STARTING_MSG = '{{ initial_msg }}';
-
-    let msgCount = 0;
-
+    // 2. Sync Logic
     async function syncData() {{
         try {{
             const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
             const data = await res.json();
-           
-            if (data.logs && data.logs.length > 0) {{
-                const messages = data.logs.filter(l => l.type.includes('Message'));
-               
-                if (messages.length > msgCount) {{
-                    const newMessages = messages.slice(msgCount);
-                   
-                    const dynamicMsgs = newMessages.map(msg => {{
-                        // Skip if exact match to STARTING_MSG (safety net)
-                        if (STARTING_MSG && msg.content.trim() === STARTING_MSG.trim() && msgCount === 0) {{
-                            return '';
-                        }}
-                       
-                        const isBot = msg.type.includes('Bot') || msg.type.includes('Assistant');
-                        return `<div class="msg ${{isBot ? 'bot' : 'user'}}">${{msg.content}}</div>`;
-                    }}).join('');
-                   
-                    if (dynamicMsgs) {{
-                        chat.insertAdjacentHTML('beforeend', dynamicMsgs);
-                        chat.scrollTop = chat.scrollHeight;
+
+            // Handle Chat Messages
+            const messages = data.logs.filter(l => l.type.includes('Message'));
+            
+            // If new messages found
+            if (messages.length > lastMsgCount) {{
+                // Only play receive sound if it's not the very first load and it's an incoming msg
+                if (lastMsgCount > 0) {{
+                    const lastMsg = messages[messages.length - 1];
+                    if (lastMsg.type.includes('Bot') || lastMsg.type.includes('Assistant')) {{
+                        document.getElementById('snd-receive').play().catch(e => {{}});
                     }}
-                    msgCount = messages.length;
                 }}
-               
-                // Update logs (brain activity)
-                if (data.logs) {{
-                    document.getElementById('logs').innerHTML = data.logs.map(l => `
+
+                // Render Messages
+                const newSlice = messages.slice(lastMsgCount);
+                newSlice.forEach(msg => {{
+                    // De-duplicate opener if needed
+                    if(lastMsgCount === 0 && msg.content.trim() === OPENER.trim() && OPENER !== "") return;
+                    
+                    const isBot = msg.type.includes('Bot') || msg.type.includes('Assistant');
+                    addBubble(msg.content, isBot);
+                }});
+
+                lastMsgCount = messages.length;
+                
+                // Remove typing indicator if bot replied
+                const typing = document.getElementById('typing-indicator');
+                if(typing) typing.remove();
+            }}
+
+            // Handle Terminal Logs
+            if (data.logs) {{
+                logs.innerHTML = '';
+                data.logs.forEach(l => {{
+                    const time = l.timestamp.split('T')[1].split('.')[0];
+                    const row = `
                         <div class="log-entry">
-                            <span class="log-ts">[${{l.timestamp.split('T')[1].split('.')[0]}}]</span>
+                            <span class="log-ts">[${{time}}]</span>
                             <span class="log-type">${{l.type}}</span><br>
                             ${{l.content}}
                         </div>
-                    `).join('');
-                    document.getElementById('logs').scrollTop = document.getElementById('logs').scrollHeight;
-                }}
+                    `;
+                    logs.insertAdjacentHTML('beforeend', row);
+                }});
+                logs.scrollTop = logs.scrollHeight;
             }}
-        }} catch (err) {{
-            console.error("Sync error:", err);
-        }}
+
+        }} catch (e) {{ console.error(e); }}
     }}
 
-    function send() {{
-        const msg = document.getElementById('chat-input').value.trim();
-        if (!msg) return;
-
-        chat.innerHTML += `<div class="msg user">${{msg}}</div>`;
-        document.getElementById('chat-input').value = '';
+    function addBubble(text, isBot) {{
+        const div = document.createElement('div');
+        div.className = `msg ${{isBot ? 'bot' : 'user'}}`;
+        div.innerText = text;
+        chat.appendChild(div);
         chat.scrollTop = chat.scrollHeight;
+    }}
 
-        const thinkingBubble = showThinking();
+    function showTyping() {{
+        if(document.getElementById('typing-indicator')) return;
+        const div = document.createElement('div');
+        div.id = 'typing-indicator';
+        div.className = 'typing';
+        div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }}
 
-        // Play iMessage swoosh sound
-        new Audio('https://www.soundjay.com/buttons/swoosh-1.mp3').play();
+    async function sendMessage() {{
+        const txt = input.value.trim();
+        if(!txt) return;
 
-        fetch('/webhook', {{
-            method: 'POST',
-            headers: {{ 'Content-Type': 'application/json' }},
-            body: JSON.stringify({{
-                location_id: 'TEST_LOCATION_456',
-                contact_id: CONTACT_ID,
-                first_name: 'Demo User',
-                message: {{ body: msg }}
-            }})
-        }}).then(r => r.json()).then(d => {{
-            if (d.reply) {{
-                chat.innerHTML += `<div class="msg bot">${{d.reply}}</div>`;
-                chat.scrollTop = chat.scrollHeight;
-            }}
+        // UI Updates
+        addBubble(txt, false);
+        input.value = '';
+        input.style.height = 'auto';
+        document.getElementById('snd-send').play().catch(e => {{}});
+        showTyping();
+
+        // API Call
+        try {{
+            await fetch('/webhook', {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{
+                    location_id: 'DEMO_LOC',
+                    contact_id: CONTACT_ID,
+                    first_name: 'Demo User',
+                    message: {{ body: txt }}
+                }})
+            }});
+            // Sync will handle the reply
             syncData();
-        }}).catch(err => console.error("Send error:", err))
-        .finally(() => hideThinking(thinkingBubble));
-    }}
-
-    // Send on Enter (no Shift)
-    document.getElementById('chat-input').addEventListener('keypress', e => {{
-        if (e.key === 'Enter' && !e.shiftKey) {{
-            e.preventDefault();
-            send();
+        }} catch(e) {{
+            console.error("Send failed", e);
         }}
-    }});
-
-    // Focus auto-scroll
-    document.getElementById('chat-input').addEventListener('focus', () => {{
-        setTimeout(() => chat.scrollTop = chat.scrollHeight, 300);
-    }});
-
-    // Thinking Bubble
-    function showThinking() {{
-        const thinking = document.createElement('div');
-        thinking.classList.add('thinking', 'msg', 'bot');
-        thinking.innerHTML = '<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';
-        chat.appendChild(thinking);
-        chat.scrollTop = chat.scrollHeight;
-        return thinking;
     }}
 
-    function hideThinking(bubble) {{
-        if (bubble) bubble.remove();
-    }}
-
-    // Battery Depletion (10 min timer, low at 2 min)
-    let batteryLevel = 100;
-    const batteryTimer = setInterval(() => {{
-        batteryLevel -= (100 / 600);  // Deplete over 10 min (600s)
-        document.getElementById('batteryLevel').style.width = batteryLevel + '%';
-        document.getElementById('batteryPercent').textContent = Math.round(batteryLevel) + '%';
-        if (batteryLevel <= 20) {{
-            document.getElementById('batteryLevel').classList.add('low-battery');
-            document.getElementById('lowBatteryNotice').style.display = 'block';
-        }}
-        if (batteryLevel <= 0) {{
-            resetSession();
-        }}
-    }}, 1000);
-
-    // Update current time
-    function updateTime() {{
-        const now = new Date();
-        const timeString = now.toLocaleTimeString([], {{ hour: '2-digit', minute: '2-digit' }});
-        document.getElementById('currentTime').textContent = timeString;
-    }}
-    setInterval(updateTime, 60000);
-    updateTime();  // Initial call
-
-    // Toggle Side Menu
-    function toggleSideMenu() {{
-        const menu = document.getElementById('sideMenu');
-        menu.classList.toggle('open');
-    }}
-
-    // Reset session
     function resetSession() {{
         window.location.href = '/demo-chat?session_id=' + crypto.randomUUID();
     }}
 
-    // Initial load + polling
-    syncData();  // Load opener immediately
-    setInterval(syncData, 2000);
-
-    // Initialize AOS animations
-    AOS.init({{
-        duration: 1200,
-        once: true,
-        offset: 120,
-        easing: 'ease-out'
-    }});
+    init();
 </script>
 </body>
 </html>
