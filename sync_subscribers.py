@@ -75,7 +75,6 @@ def sync_subscribers() -> bool:
         conn = psycopg2.connect(
             DATABASE_URL,
             connect_timeout=10,
-            options="-c search_path=public"
         )
         conn.autocommit = False
         cur = conn.cursor()

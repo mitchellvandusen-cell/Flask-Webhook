@@ -23,7 +23,6 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
             DATABASE_URL,
             connect_timeout=10,
             cursor_factory=RealDictCursor,
-            options="-c search_path=public"
         )
     except psycopg2.Error as e:
         logger.error(f"Database connection failed: {e}", exc_info=True)
