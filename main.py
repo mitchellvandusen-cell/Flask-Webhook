@@ -8,6 +8,7 @@ import gspread
 import json
 import redis
 import requests
+import httpx
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
@@ -2655,8 +2656,8 @@ def get_logs():
             "type": "Full Human Identity Narrative",
             "content": narrative_text 
         })
-        safe_logs = make_json_serializable
-        return flask_jsonify({"logs: safe_logs})"})
+        safe_logs = make_json_serializable(logs)
+        return flask_jsonify({"logs": safe_logs})
     except Exception as e:
         logger.error(f"Error in get_logs: {e}")
         logs.append({"error": str(e)}), 500
