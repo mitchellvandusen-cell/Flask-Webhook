@@ -2239,6 +2239,9 @@ def dashboard():
         <div class="config-group">
             <div class="config-label">System Params</div>
             
+        <div class="config-group">
+            <div class="config-label">System Params</div>
+            
             <div class="tech-readout">
                 <span class="tech-label">LOCATION ID</span>
                 <div class="tech-value-row">
@@ -2250,8 +2253,20 @@ def dashboard():
             <div class="tech-readout no-select">
                 <span class="tech-label">ACCESS TOKEN (SECURE)</span>
                 <div class="tech-value-row">
-                    <span class="tech-value token-locked">{{ access_token_display }}</span>
-                    <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
+                    <input type="text" 
+                           name="manual_access_token" 
+                           value="{{ access_token_display }}" 
+                           placeholder="Paste Token..."
+                           form="main-config-form"
+                           class="tech-value token-locked"
+                           style="background:transparent; border:none; width:100%; color: inherit;"
+                           {{ token_readonly }}>
+                    
+                    {% if token_readonly == 'readonly' %}
+                        <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
+                    {% else %}
+                        <i class="fa-solid fa-pen text-muted" style="font-size:0.8rem;"></i>
+                    {% endif %}
                 </div>
                 <div style="font-size:0.65rem; color:#555; margin-top:4px;">{{ expires_in_str }}</div>
             </div>
@@ -2259,8 +2274,20 @@ def dashboard():
             <div class="tech-readout no-select">
                 <span class="tech-label">REFRESH TOKEN (SECURE)</span>
                 <div class="tech-value-row">
-                    <span class="tech-value token-locked">{{ refresh_token_display }}</span>
-                    <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
+                    <input type="text" 
+                           name="manual_refresh_token" 
+                           value="{{ refresh_token_display }}" 
+                           placeholder="Paste Token..."
+                           form="main-config-form"
+                           class="tech-value token-locked"
+                           style="background:transparent; border:none; width:100%; color: inherit;"
+                           {{ token_readonly }}>
+
+                    {% if token_readonly == 'readonly' %}
+                        <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
+                    {% else %}
+                        <i class="fa-solid fa-pen text-muted" style="font-size:0.8rem;"></i>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -2424,6 +2451,7 @@ def dashboard():
 </body>
 </html>
 """, form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, token_readonly=token_field_state, expires_in_str=expires_in_str, sub=sub, row=row if user_row_num else [], user_row_num=user_row_num, user_name_idx=user_name_idx, phone_idx=phone_idx, bio_idx=bio_idx)
+
 @app.route("/save-profile", methods=["POST"])
 @login_required
 def save_profile():
