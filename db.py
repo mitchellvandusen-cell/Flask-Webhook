@@ -128,7 +128,7 @@ def init_db() -> bool:
             CREATE TABLE IF NOT EXISTS contact_narratives (
                 contact_id TEXT PRIMARY KEY,
                 story_narrative TEXT DEFAULT '',
-                location_id TEXT,  -- ← fixed: no misplaced DEFAULT
+                location_id TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
