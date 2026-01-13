@@ -53,7 +53,6 @@ def main():
                 queues,
                 name=f"insurance-grok-worker-{os.getpid()}",
                 default_worker_ttl=600,       # 10 min TTL for stuck jobs
-                default_job_result_ttl=86400  # 1 day result retention
             )
 
             logger.info(f"Worker listening on queues: {', '.join(LISTEN_QUEUES)}")
