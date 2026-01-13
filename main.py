@@ -779,7 +779,7 @@ def home():
             </div>
             <div class="pricing-card glass-card" data-aos="flip-up">
                 <span class="pricing-badge">Agency Starter</span>
-                <div class="price-tag">$600<span>/mo</span></div>
+                <div class="price-tag">$800<span>/mo</span></div>
                 <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
                 
                 <ul class="pricing-features">
