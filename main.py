@@ -3000,7 +3000,7 @@ def demo_chat():
 <audio id="snd-receive" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
 
 <script>
-    const CONTACT_ID = '{demo_contact_id}';
+    let currentContactId = '{demo_contact_id}';
     let lastMsgCount = 0;
     
     // Helper to safely extract text from JSON strings
@@ -3036,7 +3036,7 @@ def demo_chat():
 
     async function syncData() {{
         try {{
-            const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
+            const res = await fetch(`/get-logs?contact_id=${{currentContactId}}`);
             const data = await res.json();
             const messages = data.logs.filter(l => l.type.includes('Message'));
 
@@ -3116,69 +3116,58 @@ def demo_chat():
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{
                     location_id: 'DEMO_LOC',
-                    contact_id: CONTACT_ID,
+                    contact_id: currentContactId,
                     first_name: 'Demo User',
                     message: {{ body: txt }}
                 }})
             }});
             syncData();
         }} catch(e) {{ console.error(e); }}
-    }}
-
-    let currentSessionId = crypto.randomUUID(); 
+    }} 
 
     async function resetSession() {{
-        const chatBox = document.getElementById('chat-box'); 
+        const chatBox = document.getElementById('chat'); 
         
         // 1. Clear the visual chat history
         chatBox.innerHTML = ''; 
 
         // 2. Add a temporary "Typing..." bubble so it feels alive
         const loadingDiv = document.createElement('div');
-        loadingDiv.className = 'message bot-message typing-indicator'; // Ensure you have CSS for this or standard styling
-        loadingDiv.innerText = 'Agent is typing...';
+        loadingDiv.className = 'typing'; 
+        loadingDiv.innerText = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
         chatBox.appendChild(loadingDiv);
 
         try {{
             // 3. Update the Session ID so the bot knows it's a new person
-            currentSessionId = crypto.randomUUID();
+            const newSessionId = crypto.randomUUID();
 
             // 4. Hit the Python endpoint we made to get the Opener
-            const response = await fetch('/api/demo/reset', {{ 
+            const response = 'demo_' + newSessionId;
+            
+            lastMstgCount = 0; // Reset message count for new session
+
+            const response = await fetct('/api/demo-reset', {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
-                body: JSON.stringify({{ session_id: currentSessionId }}) 
-            }});
-            
+                body: JSON.stringify({{ session_id: newSessionId }})
+
             const data = await response.json();
 
             // 5. Remove "Typing..." and show the real bold AI message
-            chatBox.removeChild(loadingDiv);
-            addMessage(data.message, 'bot'); // This uses your existing message display logic
+            lodadingDiv.remove();
+            addBubble(data.message, true);
 
         }} catch (error) {{
             console.error('Error:', error);
-            loadingDiv.innerText = "Error connecting to bot.";
+            loadingDiv.remove();
+             addBubble("System: Connection lost. Please refresh.", true);
         }}
     }}
 
     // 6. AUTO-START: Run this immediately when the page loads!
     window.onload = function() {{
-        resetSession();
+        init();
     }};
-    function addMessage(text, sender) {{
-    const chatBox = document.getElementById('chat-box');
-    const msgDiv = document.createElement('div');
-    
-    // Assign CSS classes based on who is talking
-    msgDiv.className = sender === 'bot' ? 'message bot-message' : 'message user-message';
-    msgDiv.innerText = text;
-    
-    chatBox.appendChild(msgDiv);
-    // Auto-scroll to the bottom
-    chatBox.scrollTop = chatBox.scrollHeight;
-    }}
-    init();
 </script>
 </body>
 </html>
