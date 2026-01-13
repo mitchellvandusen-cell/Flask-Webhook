@@ -396,6 +396,146 @@ def home():
             overflow: hidden;
             transition: var(--transition);
         }
+        /* Overlay Backdrop */
+        .popup-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); /* Dark dim */
+            backdrop-filter: blur(8px); /* Blurs the website behind it */
+            z-index: 9999;
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        /* The Glass Card */
+        .popup-card {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            background: rgba(20, 20, 20, 0.75); /* Semi-transparent black */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: translateY(30px) scale(0.95);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        /* Entrance Animation State */
+        .popup-overlay.active {
+            opacity: 1;
+        }
+        .popup-overlay.active .popup-card {
+            transform: translateY(0) scale(1);
+        }
+
+        /* Typography & Elements */
+        .badge {
+            background: rgba(0, 255, 136, 0.15);
+            color: #00ff88;
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border: 1px solid rgba(0, 255, 136, 0.2);
+        }
+
+        .popup-content h2 {
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem;
+            margin: 20px 0 10px;
+            font-weight: 700;
+        }
+
+        .popup-content p {
+            color: #a0a0a0;
+            font-size: 1rem;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        /* The "7 Days Free" Box */
+        .offer-box {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+        }
+
+        .big-text {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .sub-text {
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            color: #00ff88; /* Your accent green */
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* The CTA Button */
+        .elite-btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: #00ff88;
+            color: #000;
+            font-weight: 700;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .elite-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .no-commitment {
+            font-size: 0.8rem !important;
+            margin-top: 15px;
+            opacity: 0.6;
+        }
+
+        /* Close Button */
+        .close-btn {
+            position: absolute;
+            top: 20px; right: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 2rem;
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .close-btn:hover { opacity: 1; }
+
+        /* Ambient Glow Background */
+        .glow-effect {
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.08), transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
         .glass-banner:hover { border-color: rgba(0, 255, 136, 0.3); transform: translateY(-2px); }
         
         .vs-visual-container {
@@ -628,6 +768,62 @@ def home():
         </div>
     </footer>
 
+    <div id="elite-popup-overlay" class="popup-overlay">
+        <div class="popup-card">
+            <button class="close-btn" onclick="closePopup()">&times;</button>
+            <div class="popup-content">
+                <div class="glow-effect"></div>
+                <span class="badge">LIMITED OFFER</span>
+                <h2>Experience True Intelligence</h2>
+                <p>Unlock the full potential of InsuranceGrokBot. Zero limits. Zero cost for the first week.</p>
+                <div class="offer-box">
+                    <span class="big-text">7 DAYS</span>
+                    <span class="sub-text">FREE TRIAL</span>
+                </div>
+                <a href="/register" class="elite-btn">Start My Free Trial</a>
+                <p class="no-commitment">No commitment. Cancel anytime.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const popup = document.getElementById("elite-popup-overlay");
+            const LAST_CLOSED_KEY = "grok_popup_last_closed";
+            const COOLDOWN_HOURS = 4;
+
+            function shouldShowPopup() {
+                const lastClosed = localStorage.getItem(LAST_CLOSED_KEY);
+                if (!lastClosed) return true; 
+
+                const now = new Date().getTime();
+                const timePassed = now - parseInt(lastClosed);
+                const hoursPassed = timePassed / (1000 * 60 * 60);
+
+                return hoursPassed >= COOLDOWN_HOURS;
+            }
+
+            function showPopup() {
+                popup.style.display = "flex";
+                setTimeout(() => {
+                    popup.classList.add("active");
+                }, 10);
+            }
+
+            window.closePopup = function() {
+                popup.classList.remove("active");
+                setTimeout(() => {
+                    popup.style.display = "none";
+                }, 500);
+                localStorage.setItem(LAST_CLOSED_KEY, new Date().getTime().toString());
+            };
+
+            if (shouldShowPopup()) {
+                setTimeout(showPopup, 2000);
+            }
+        });
+    </script>
+
     <script>
         AOS.init({
             duration: 1000,
@@ -635,26 +831,6 @@ def home():
             offset: 50
         });
     </script>
-    <div id="elite-popup-overlay" class="popup-overlay">
-    <div class="popup-card">
-        <button class="close-btn" onclick="closePopup()">&times;</button>
-        
-        <div class="popup-content">
-            <div class="glow-effect"></div>
-            <span class="badge">LIMITED OFFER</span>
-            <h2>Experience True Intelligence</h2>
-            <p>Unlock the full potential of InsuranceGrokBot. Zero limits. Zero cost for the first week.</p>
-            
-            <div class="offer-box">
-                <span class="big-text">7 DAYS</span>
-                <span class="sub-text">FREE TRIAL</span>
-            </div>
-
-            <a href="/register" class="elite-btn">Start My Free Trial</a>
-            <p class="no-commitment">No commitment. Cancel anytime.</p>
-        </div>
-    </div>
-</div>
 </body>
 </html>
     """
