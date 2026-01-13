@@ -775,9 +775,9 @@ def home():
 
     <section id="pricing" class="section pricing-section">
         <div class="row">
-            <span class="pricing-badge">Early Adapter Special</span>
             <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
             <div class="pricing-card glass-card" data-aos="flip-up">
+                <span class="pricing-badge">Early Adapter Special</span
                 <span class="pricing-badge">Individual</span>
                 <div class="price-tag">$100<span>/mo</span></div>
                 <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
