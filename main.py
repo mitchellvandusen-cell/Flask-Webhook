@@ -497,110 +497,134 @@ def agency_dashboard():
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
-    global worksheet
+    global worksheet  # This is the "Subscribers" sheet (sh.sheet1)
+
     form = ConfigForm()
 
-    # --- 1. FETCH DATA ---
-    values = worksheet.get_all_values() if worksheet else []
-    if not values:
+    # --- 1. FETCH DATA FROM BOTH SHEETS ---
+    # Subscribers sheet (technical: location_id, tokens, etc.)
+    values_subscribers = worksheet.get_all_values() if worksheet else []
+    if not values_subscribers:
         headers = ["email", "location_id", "calendar_id", "access_token", "refresh_token", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used", "user_name", "phone", "bio"]
         if worksheet:
             worksheet.append_row(headers)
-        values = [headers]
+        values_subscribers = [headers]
 
-    header = values[0]
-    header_lower = [h.strip().lower() for h in header]
+    # Users sheet (personal profile: name, phone, bio)
+    values_users = []
+    try:
+        # Open the "Users" sheet specifically
+        user_sheet = sh.worksheet("Users")
+        values_users = user_sheet.get_all_values()
+        logger.info("Successfully loaded Users sheet for profile data")
+    except gspread.exceptions.WorksheetNotFound:
+        logger.warning("Users sheet not found - falling back to Subscribers for profile")
+        values_users = values_subscribers  # Fallback
+    except Exception as e:
+        logger.error(f"Error loading Users sheet: {e}")
+        values_users = values_subscribers  # Fallback on error
 
-    def col_index(name):
+    # --- 2. HEADER MAPPING ---
+    header_sub_lower = [h.strip().lower() for h in values_subscribers[0]]
+    header_user_lower = [h.strip().lower() for h in values_users[0]]
+
+    def col_index(headers_lower, name):
         try:
-            return header_lower.index(name.lower())
+            return headers_lower.index(name.lower())
         except ValueError:
             return -1
 
-    # Map Column Indices
-    email_idx = col_index("email")
-    location_idx = col_index("location_id")
-    calendar_idx = col_index("calendar_id")
-    user_id_idx = col_index("crm_user_id")
-    bot_name_idx = col_index("bot_first_name")
-    timezone_idx = col_index("timezone")
-    initial_msg_idx = col_index("initial_message")
-    
-    # Profile Indices
-    user_name_idx = col_index("user_name")
-    phone_idx = col_index("phone")
-    bio_idx = col_index("bio")
+    # Technical columns (from Subscribers sheet)
+    email_idx_sub = col_index(header_sub_lower, "email")
+    location_idx = col_index(header_sub_lower, "location_id")
+    calendar_idx = col_index(header_sub_lower, "calendar_id")
+    user_id_idx = col_index(header_sub_lower, "crm_user_id")
+    bot_name_idx = col_index(header_sub_lower, "bot_first_name")
+    timezone_idx = col_index(header_sub_lower, "timezone")
+    initial_msg_idx = col_index(header_sub_lower, "initial_message")
 
-    # Find User Row
+    # Profile columns (prefer Users sheet)
+    user_name_idx = col_index(header_user_lower, "user_name")
+    phone_idx = col_index(header_user_lower, "phone")
+    bio_idx = col_index(header_user_lower, "bio")
+
+    # --- 3. FIND USER ROW (prefer Users sheet, fallback to Subscribers) ---
     user_row_num = None
-    for i, row in enumerate(values[1:], start=2):
-        if email_idx >= 0 and len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
+    row = []  # Default empty
+
+    # First try Users sheet
+    for i, r in enumerate(values_users[1:], start=2):
+        if email_idx_sub >= 0 and len(r) > email_idx_sub and r[email_idx_sub].strip().lower() == current_user.email.lower():
             user_row_num = i
+            row = r
+            logger.debug(f"Profile found in Users sheet - row {i}")
             break
 
-    # --- 2. PRE-FILL FORM (Your Updated Logic) ---
+    # If not found in Users, fallback to Subscribers
+    if not user_row_num:
+        for i, r in enumerate(values_subscribers[1:], start=2):
+            if email_idx_sub >= 0 and len(r) > email_idx_sub and r[email_idx_sub].strip().lower() == current_user.email.lower():
+                user_row_num = i
+                row = r
+                logger.debug(f"Profile fallback to Subscribers sheet - row {i}")
+                break
+
+    # --- 4. PRE-FILL FORM (technical fields from Subscribers) ---
     location_id = None
-    if user_row_num and values:
-        row = values[user_row_num - 1]
-        
-        if location_idx >= 0 and len(row) > location_idx:
-            location_id = row[location_idx].strip()
-
-        # Helper to safely get data
+    if user_row_num and row:
         def get_val(idx):
-            return row[idx] if idx >= 0 and len(row) > idx else ""
+            return row[idx].strip() if idx >= 0 and idx < len(row) else ""
 
-        # Map Sheet Data -> Form Fields
-        form.location_id.data = get_val(location_idx)
+        location_id = get_val(location_idx)
+
+        form.location_id.data = location_id
         form.calendar_id.data = get_val(calendar_idx)
         form.crm_user_id.data = get_val(user_id_idx)
         form.bot_name.data = get_val(bot_name_idx)
         form.timezone.data = get_val(timezone_idx)
         form.initial_message.data = get_val(initial_msg_idx)
 
-    # --- 3. FETCH SUBSCRIBER INFO (Tokens) ---
+    # --- 5. PROFILE DATA (from Users sheet or fallback) ---
+    profile = {
+        'user_name': '',
+        'phone': '',
+        'bio': ''
+    }
+    if user_row_num and row:
+        profile['user_name'] = row[user_name_idx] if user_name_idx >= 0 and user_name_idx < len(row) else 'Admin'
+        profile['phone'] = row[phone_idx] if phone_idx >= 0 and phone_idx < len(row) else ''
+        profile['bio'] = row[bio_idx] if bio_idx >= 0 and bio_idx < len(row) else ''
+
+    # --- 6. TOKEN DISPLAY (from Subscribers hybrid) ---
     sub = get_subscriber_info_hybrid(location_id) if location_id else None
 
-    # Safe display values (Masked)
-# Defaults: Assume we need to input them (Editable / Empty)
     access_token_display = ''
     refresh_token_display = ''
     expires_in_str = ''
-    token_field_state = ''  # If empty, HTML input is editable. If "readonly", it's locked.
-    
-    # LOGIC: Check if we actually have a token
+    token_field_state = ''
+
     if sub and sub.get('access_token'):
-        # CONDITION MET: Token exists -> Lock the field
         token_field_state = 'readonly'
-        
-        # Mask tokens visually (e.g., "pit-ae0f...2ce3")
         at = sub.get('access_token', '')
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-        
         rt = sub.get('refresh_token', '')
         refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
         
         expires_at = sub.get('token_expires_at')
         if expires_at:
             if isinstance(expires_at, str):
-                # Handle case where it might be loaded as string from JSON
                 try:
                     expires_at = datetime.fromisoformat(expires_at)
                 except:
-                    expires_at = datetime.now() # Fallback
-
+                    expires_at = datetime.now()
             delta = expires_at - datetime.now()
             hours = delta.total_seconds() // 3600
             minutes = (delta.total_seconds() % 3600) // 60
             expires_in_str = f"Expires in {int(hours)}h {int(minutes)}m"
         else:
             expires_in_str = "Persistent"
-    else:
-        # CONDITION NOT MET: No token -> Editable
-        # We leave access_token_display as '' so the placeholder shows
-        pass
 
-    # Count agency seats (from SQL or hybrid)
+    # --- 7. Agency seats count ---
     agency_seats_count = 0
     if current_user.role == 'agency_owner':
         conn = get_db_connection()
@@ -615,8 +639,17 @@ def dashboard():
                 if cur: cur.close()
                 if conn: conn.close()
 
-    return render_template('dashboard.html', form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, token_readonly=token_field_state, expires_in_str=expires_in_str, sub=sub, row=row if user_row_num else [], user_row_num=user_row_num, user_name_idx=user_name_idx, phone_idx=phone_idx, bio_idx=bio_idx)
-
+    # --- Render ---
+    return render_template('dashboard.html',
+        form=form,
+        access_token_display=access_token_display,
+        refresh_token_display=refresh_token_display,
+        token_readonly=token_field_state,
+        expires_in_str=expires_in_str,
+        sub=sub,
+        profile=profile,  # <-- NEW: pass profile dict
+        agency_seats_count=agency_seats_count
+    )
 @app.route("/save-profile", methods=["POST"])
 @login_required
 def save_profile():
