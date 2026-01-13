@@ -11,9 +11,10 @@ import requests
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
-from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify, session, make_response
+from flask import Flask, render_template_string, request, redirect, url_for, flash, session, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
+from flask import jsonify as flask_jsonify
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -27,6 +28,7 @@ from sync_subscribers import sync_subscribers
 from tasks import process_webhook_task  
 from memory import get_known_facts, get_narrative, get_recent_messages 
 from individual_profile import build_comprehensive_profile 
+from utils import make_json_serializable
 
 load_dotenv()
 
@@ -38,6 +40,9 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+
+def safe_jsonify(data):
+    return flask_jsonify(make_json_serializable)
 
 # === REDIS & RQ SETUP ===
 # This connects to the Redis service via the variable you added in Railway
@@ -146,12 +151,12 @@ Examples:
 def webhook():
     if not q:
         logger.critical("Redis/RQ unavailable — webhook dropped")
-        return jsonify({"status": "error", "message": "Queue unavailable"}), 503
+        return flask_jsonify({"status": "error", "message": "Queue unavailable"}), 503
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
     if not payload:
         logger.warning("Webhook received empty payload")
-        return jsonify({"status": "error", "message": "No payload"}), 400
+        return flask_jsonify({"status": "error", "message": "No payload"}), 400
 
     location_id = (
         payload.get("location", {}).get("id") or
@@ -160,7 +165,7 @@ def webhook():
     )
     if not location_id:
         logger.warning("Webhook missing location_id")
-        return jsonify({"status": "error", "message": "Location ID missing"}), 400
+        return flask_jsonify({"status": "error", "message": "Location ID missing"}), 400
 
     try:
         job = q.enqueue(
@@ -171,10 +176,10 @@ def webhook():
             result_ttl=86400
         )
         logger.info(f"Queued webhook job {job.id} | location={location_id}")
-        return jsonify({"status": "queued", "job_id": job.id}), 202
+        return flask_jsonify({"status": "queued", "job_id": job.id}), 202
     except Exception as e:
         logger.error(f"Queue enqueue failed: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "Internal queue error"}), 500
+        return flask_jsonify({"status": "error", "message": "Internal queue error"}), 500
 
 # =====================================================
 #  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
@@ -1323,9 +1328,9 @@ def save_profile():
             if phone_idx >= 0: row_data[phone_idx] = phone or ""
             if bio_idx >= 0: row_data[bio_idx] = bio or ""
             worksheet.update(f"A{user_row_num}", [row_data])
-            return jsonify({"message": "Profile updated!"})
+            return flask_jsonify({"message": "Profile updated!"})
 
-    return jsonify({"message": "Profile saved (but sheet not found)"}), 200
+    return flask_jsonify({"message": "Profile saved (but sheet not found)"}), 200
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
@@ -2557,12 +2562,12 @@ def get_logs():
     contact_id = request.args.get("contact_id")
 
     if not contact_id or (not contact_id.startswith("test_") and not contact_id.startswith("demo_")):
-        return jsonify({"logs": []}) 
+        return flask_jsonify({"logs": []}) 
 
     conn = get_db_connection()
     if not conn:
         logger.error("Database connection failed in get_logs")
-        return jsonify({"error": "Database connection failed"}), 500
+        return flask_jsonify({"error": "Database connection failed"}), 500
 
     logs = []
 
@@ -2645,15 +2650,16 @@ def get_logs():
             "type": "Full Human Identity Narrative",
             "content": narrative_text 
         })
-
+        safe_logs = make_json_serializable
+        return flask_jsonify({"logs: safe_logs})"})
     except Exception as e:
         logger.error(f"Error in get_logs: {e}")
-        logs.append({"timestamp": datetime.now().isoformat(), "type": "Error", "content": str(e)})
+        logs.append({"error": str(e)}), 500
     finally:
         cur.close()
         conn.close()
 
-    return jsonify({"logs": logs})
+    return flask_jsonify({"logs": logs})
 
 @app.route("/reset-test", methods=["GET"])
 def reset_test():
@@ -2662,12 +2668,12 @@ def reset_test():
     # Security: Only allow test_ prefixed contacts
     if not contact_id or not contact_id.startswith("test_"):
         logger.warning(f"Invalid reset attempt: {contact_id}")
-        return jsonify({"error": "Invalid test contact ID"}), 400
+        return flask_jsonify({"error": "Invalid test contact ID"}), 400
 
     conn = get_db_connection()
     if not conn:
         logger.error("Database connection failed during reset")
-        return jsonify({"error": "Database connection failed"}), 500
+        return flask_jsonify({"error": "Database connection failed"}), 500
 
     try:
         cur = conn.cursor()
@@ -2681,7 +2687,7 @@ def reset_test():
         
         logger.info(f"Successfully reset test contact {contact_id}")
         
-        return jsonify({
+        return flask_jsonify({
             "status": "reset success",
             "message": f"Test session {contact_id} cleared",
             "cleared_contact": contact_id
@@ -2690,7 +2696,7 @@ def reset_test():
     except Exception as e:
         conn.rollback()  # Important: rollback on error
         logger.error(f"Reset failed for {contact_id}: {e}")
-        return jsonify({"error": "Failed to reset test data"}), 500
+        return flask_jsonify({"error": "Failed to reset test data"}), 500
         
     finally:
         cur.close()
@@ -2700,7 +2706,7 @@ def reset_test():
 def download_transcript():
     contact_id = request.args.get("contact_id")
     if not contact_id or not contact_id.startswith("test_"):
-        return jsonify({"error": "Invalid test contact"}), 400
+        return flask_jsonify({"error": "Invalid test contact"}), 400
 
     # Fetch data from DB
     messages = get_recent_messages(contact_id, limit=50)
