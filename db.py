@@ -163,7 +163,6 @@ def init_db() -> bool:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        upgrade_db_for_agency()
 
         conn.commit()
         logger.info("All database tables initialized successfully")
@@ -435,39 +434,6 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
         logger.error(f"sync_messages_to_db failed for {contact_id}: {e}")
         conn.rollback()
         return 0
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-# Add these columns to your existing 'users' and 'subscribers' tables
-def upgrade_db_for_agency():
-    conn = get_db_connection()
-    if not conn:
-        logger.error("Database connection failed during agency upgrade.")
-        return False
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            UPDATE users
-            SET role = 'individual',
-                subscription_tier = 'individual'
-            WHERE role IS NULL OR subscription_tier IS NULL;
-        """)
-        cur.execute("""
-            UPDATE subscribers
-            SET subscription_tier = 'individual'
-            WHERE subscription_tier IS NULL;
-        """)
-        conn.commit()
-        logger.info(f"Agency & subscription schema upgraded.")
-        return True
-    
-    except psycopg2.Error as e:
-        logger.error(f"Agency Upgrade failed: {e}", exc_info=True)
-        conn.rollback()
-        return False
     finally:
         if cur:
             cur.close()
