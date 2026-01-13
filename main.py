@@ -1957,9 +1957,9 @@ def login():
         user = User.get(form.email.data.lower())
         if user and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
-            if user.role in ['individual_user', 'individual', 'user']:
+            if user.role in ['individual_user', 'individual', 'user', 'Admin']:
                 return redirect("/dashboard")
-            elif user.role == 'agency_owner':
+            elif user.role in ['agency_owner', 'Admin']:
                 return redirect("/agency-dashboard")
             flash("Invalid credentials", "error")
 
