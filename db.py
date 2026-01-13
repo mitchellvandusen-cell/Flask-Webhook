@@ -54,6 +54,7 @@ def init_db() -> bool:
     """Initialize all required tables — idempotent and safe."""
     conn = get_db_connection()
     if not conn:
+        logger.critical("Cannot initialize DB: connection failed")
         return False
 
     try:
@@ -148,7 +149,9 @@ def init_db() -> bool:
 
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
-        conn.rollback()
+        if conn:
+            conn.rollback()
+        logger.warning("App continuing despite DB init failure")
         return False
     finally:
         if conn:
@@ -213,8 +216,10 @@ class User(UserMixin):
             return None
         
         finally:
-            cur.close()
-            conn.close()
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
 
     @staticmethod
     def create(
@@ -246,8 +251,10 @@ class User(UserMixin):
             conn.rollback()
             return False
         finally:
-            cur.close()
-            conn.close()
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
 
 
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
@@ -369,8 +376,9 @@ def get_message_count(contact_id: str) -> int:
         logger.error(f"get_message_count failed for {contact_id}: {e}")
         return 0
     finally:
-        if conn:
+        if cur:
             cur.close()
+        if conn:
             conn.close()
 
 def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: list) -> int:
@@ -406,8 +414,9 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
         conn.rollback()
         return 0
     finally:
-        if conn:
+        if cur:
             cur.close()
+        if conn:
             conn.close()
 
 # Add these columns to your existing 'users' and 'subscribers' tables
@@ -476,6 +485,7 @@ def update_subscriber_token(
         conn.rollback()
         return False
     finally:
-        if conn:
+        if cur:
             cur.close()
+        if conn:
             conn.close()
