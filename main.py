@@ -151,7 +151,9 @@ Write ONE natural SMS to re-engage a very old lead.
 VARY approach each time. Tone: casual, professional helper, high-status.
 No "Hi", "Hello", "Hey", or "This is [Name]".
 Start with a general problem, issue, or confusion around their policy, seed doubts about coverage, or hint at new benefits.
-You're first message is meant to get a response, not to sell right away.
+You're first message is meant to get a response, not to sell right away, so avoid hard CTAs. 
+ASK OPEN ENDED QUESTIONS to encourage replies.
+NO CLOSING ATTEMPTS. !important!
 Trust yourself and be bold.
                 """},
                 {"role": "user", "content": "Generate unique opener."}
