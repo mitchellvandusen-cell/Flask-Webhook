@@ -263,14 +263,14 @@
 
 <script>
     // GLOBAL VARIABLES
-    let currentContactId = { demo_contact_id }
+    let currentContactId = "{{ demo_contact_id }}";
     let lastMsgCount = 0;
-    
+
     window.onload = function() {
-    const initial = `{{ initial_msg }}`;
-    if(initial) addBubble(initial, true);
-    init();
-};
+        const initial = `{{ initial_msg }}`;
+        if(initial) addBubble(initial, true);
+        init();
+    };
     // HELPERS
     function cleanContent(raw) {
         if (!raw) return "";

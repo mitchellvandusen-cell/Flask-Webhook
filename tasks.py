@@ -45,7 +45,7 @@ def process_webhook_task(payload: dict):
             logger.error("❌ ABORT: No location_id")
             return {"status": "error", "reason": "missing location_id"}
 
-        is_demo = location_id in {'DEMO', 'DEMO_LOC' 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
+        is_demo = location_id in {'DEMO', 'DEMO_LOC', 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
         
         if is_demo:
             subscriber = {
@@ -146,10 +146,17 @@ def process_webhook_task(payload: dict):
 
         recent_exchanges = director_output["recent_exchanges"]
 
-        # Calendar fetch only when needed
+# ... inside process_webhook_task ...
+
+        # Calendar fetch logic
         calendar_slots = ""
-        if not is_demo and director_output["stage"] == "closing":
-            calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
+        if director_output["stage"] == "closing":
+            if is_demo:
+                # INJECT FAKE SLOTS FOR DEMO
+                calendar_slots = "Tomrorow at 2:00 PM, Tomorrow at 4:30 PM, or Friday at 10:00 AM"
+            else:
+                # Real GHL Fetch
+                calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
 
         context_nudge = ""
         if message and "covered" in message.lower():

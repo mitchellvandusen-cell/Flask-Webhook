@@ -180,36 +180,44 @@ NEVER ASK TWO QUESTIONS IN A SINGLE RESPONSE. !IMPORTANT! reformulate reply to h
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if not q:
-        logger.critical("Redis/RQ unavailable — webhook dropped")
-        return flask_jsonify({"status": "error", "message": "Queue unavailable"}), 503
+        logger.critical("Redis/RQ unavailable")
+        return flask_jsonify({"status": "error"}), 503
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    if not payload:
-        logger.warning("Webhook received empty payload")
-        return flask_jsonify({"status": "error", "message": "No payload"}), 400
+    location_id = payload.get("location_id") or payload.get("location", {}).get("id")
+    contact_id = payload.get("contact_id")
+    message_body = payload.get("message", {}).get("body") or payload.get("message")
 
-    location_id = (
-        payload.get("location", {}).get("id") or
-        payload.get("location_id") or
-        payload.get("locationId")
-    )
-    if not location_id:
-        logger.warning("Webhook missing location_id")
-        return flask_jsonify({"status": "error", "message": "Location ID missing"}), 400
+    # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
+    # This ensures the UI updates instantly when they hit send.
+    if location_id in ['DEMO_LOC', 'DEMO'] and contact_id and message_body:
+        try:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO contact_messages (contact_id, message_type, message_text)
+                    VALUES (%s, 'lead', %s)
+                    ON CONFLICT DO NOTHING
+                """, (contact_id, message_body))
+                conn.commit()
+                cur.close()
+                conn.close()
+        except Exception as e:
+            logger.error(f"Instant demo write failed: {e}")
 
+    # 2. Enqueue the Brain
     try:
         job = q.enqueue(
             process_webhook_task,
             payload,
             job_timeout=120,
-            job_id=f"webhook-{uuid.uuid4().hex[:12]}",
             result_ttl=86400
         )
-        logger.info(f"Queued webhook job {job.id} | location={location_id}")
         return flask_jsonify({"status": "queued", "job_id": job.id}), 202
     except Exception as e:
-        logger.error(f"Queue enqueue failed: {e}", exc_info=True)
-        return flask_jsonify({"status": "error", "message": "Internal queue error"}), 500
+        logger.error(f"Queue failed: {e}")
+        return flask_jsonify({"status": "error"}), 500
 
 # =====================================================
 #  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
