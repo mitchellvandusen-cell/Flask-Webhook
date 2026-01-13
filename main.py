@@ -1802,7 +1802,6 @@ def run_demo_janitor():
 
 @app.route("/demo-chat")
 def demo_chat():
-    # Ensure background tasks are running
     try:
         run_demo_janitor()
     except:
@@ -1810,7 +1809,7 @@ def demo_chat():
 
     # 1. PERSISTENCE CHECK
     existing_id = request.args.get('session_id')
-    clean_id = str(uuid.uuid4())  # Default to new
+    clean_id = str(uuid.uuid4())
 
     initial_msg = "" 
 
@@ -1829,20 +1828,16 @@ def demo_chat():
         if conn:
             try:
                 cur = conn.cursor()
-                # Clear old data
                 cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
                 cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
                 cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
 
-                # Generate unique opener
                 initial_msg = generate_demo_opener()
 
-                # Inject into DB
                 cur.execute("""
                     INSERT INTO contact_messages (contact_id, message_type, message_text, created_at)
                     VALUES (%s, 'assistant', %s, NOW())
                 """, (demo_contact_id, initial_msg))
-
                 conn.commit()
             except Exception as e:
                 logger.error(f"Demo Init Error: {e}")
@@ -1855,7 +1850,7 @@ def demo_chat():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Live Demo | InsuranceGrokBot</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1863,7 +1858,6 @@ def demo_chat():
     <style>
         :root {{
             --accent: #00ff88;
-            --accent-dim: rgba(0, 255, 136, 0.1);
             --bg-dark: #050505;
             --phone-bezel: #1c1c1e;
             --phone-screen: #000000;
@@ -1873,47 +1867,52 @@ def demo_chat():
             --text-bot: #fff;
             --terminal-bg: #0a0a0a;
             
-            /* SAFE AREAS RESTORED */
-            --safe-top: env(safe-area-inset-top, 60px);     /* Default 60px for notch clearance */
-            --safe-bottom: env(safe-area-inset-bottom, 30px); /* Default 30px for home bar */
+            /* DYNAMIC SAFE AREAS */
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
         }}
 
         * {{ box-sizing: border-box; }}
 
         body {{
             background-color: var(--bg-dark);
-            /* Grid Pattern Background */
             background-image: 
                 linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
             background-size: 40px 40px;
             color: #fff;
             font-family: 'Outfit', sans-serif;
-            height: 100vh;
+            
+            /* 2. THE MASTER LOCKS */
+            height: 100dvh;        /* Dynamic height fits screen perfectly */
+            width: 100vw;          /* Lock width */
+            overflow: hidden;      /* KILL all body scrolling */
+            overscroll-behavior: none; /* KILL the "rubber band" bounce on iOS */
+            
             margin: 0;
-            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
         }}
 
-        /* --- LAYOUT --- */
         .container {{
             display: flex;
-            gap: 60px;
+            gap: 40px;
             width: 100%;
             max-width: 1400px;
-            height: 90vh;
+            height: 100%;
             padding: 20px;
             align-items: center;
             justify-content: center;
         }}
 
-        /* --- PHONE CHASSIS --- */
+        /* --- PHONE CHASSIS (Desktop) --- */
         .phone-wrapper {{
             position: relative;
-            width: 400px;
-            height: 820px;
+            width: 100%;
+            max-width: 400px;
+            height: 95%;
+            max-height: 850px;
             background: var(--phone-bezel);
             border-radius: 55px;
             box-shadow: 
@@ -1921,118 +1920,94 @@ def demo_chat():
                 0 0 0 7px #111,
                 0 30px 60px rgba(0,0,0,0.6),
                 inset 0 0 20px rgba(0,0,0,0.8);
-            padding: 15px;
+            padding: 15px; 
             flex-shrink: 0;
-            animation: floatPhone 6s ease-in-out infinite;
-        }}
-        
-        @keyframes floatPhone {{
-            0% {{ transform: translateY(0px); }}
-            50% {{ transform: translateY(-10px); }}
-            100% {{ transform: translateY(0px); }}
+            z-index: 10;
         }}
 
         .phone-screen {{
             background: var(--phone-screen);
             width: 100%;
             height: 100%;
-            border-radius: 42px;
+            border-radius: 42px; 
             position: relative;
-            overflow: hidden;
+            overflow: hidden; 
             display: flex;
             flex-direction: column;
             border: 2px solid #222;
         }}
 
-        /* Dynamic Island / Notch */
+        /* --- UI ELEMENTS --- */
         .notch-area {{
             position: absolute;
-            top: 10px;
+            top: 0;
             left: 50%;
             transform: translateX(-50%);
             width: 120px;
             height: 35px;
             background: #000;
-            border-radius: 20px;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
             z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }}
         
-        /* Status Bar */
         .status-bar {{
-            position: absolute;
-            top: 0;
-            left: 0;
+            height: auto;
+            min-height: 50px;
             width: 100%;
             display: flex;
             justify-content: space-between;
+            align-items: center; /* Center icons vertically */
             padding: 15px 25px;
             font-size: 14px;
             font-weight: 600;
             z-index: 90;
-            pointer-events: none;
+            flex-shrink: 0;
+            /* On Desktop, this sits under the fake notch. On mobile, we adjust. */
         }}
 
-        /* Chat Area - UPDATED WITH SAFE TOP */
         .chat-area {{
-            flex: 1;
-            padding: 20px;
-            /* Pushes content down so it doesn't hit the Dynamic Island */
-            padding-top: var(--safe-top); 
-            overflow-y: auto;
+            flex: 1; 
+            width: 100%;
+            min-height: 0; /* Prevents overflow blowout */
+            overflow-y: auto; 
+            padding: 10px 20px;
             display: flex;
             flex-direction: column;
             gap: 15px;
             scroll-behavior: smooth;
         }}
-        
         .chat-area::-webkit-scrollbar {{ display: none; }}
 
-        /* Bubbles */
-        .msg {{
-            max-width: 80%;
-            padding: 12px 18px;
-            border-radius: 20px;
-            font-size: 0.95rem;
-            line-height: 1.4;
-            position: relative;
-            animation: messagePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            word-wrap: break-word;
-        }}
-
-        @keyframes messagePop {{
-            from {{ opacity: 0; transform: translateY(20px) scale(0.9); }}
-            to {{ opacity: 1; transform: translateY(0) scale(1); }}
-        }}
-
-        .msg.bot {{
-            align-self: flex-start;
-            background: var(--bubble-bot);
-            color: var(--text-bot);
-            border-bottom-left-radius: 5px;
-        }}
-
-        .msg.user {{
-            align-self: flex-end;
-            background: var(--bubble-user);
-            color: var(--text-user);
-            border-bottom-right-radius: 5px;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.2);
-        }}
-
-        /* Input Area - UPDATED WITH SAFE BOTTOM */
         .input-area {{
-            /* Pushes input up so it doesn't hit the bottom curve */
-            padding: 15px 20px var(--safe-bottom) 20px; 
+            width: 100%;
+            /* 3. INPUT PROTECTION: Ensure it sits above the home bar */
+            padding: 15px 20px calc(15px + var(--safe-bottom)) 20px;
             background: rgba(20, 20, 20, 0.95);
             backdrop-filter: blur(10px);
             display: flex;
             gap: 10px;
             align-items: flex-end;
+            border-top: 1px solid #222;
+            flex-shrink: 0;
+            z-index: 20;
         }}
+
+        /* --- BUBBLES --- */
+        .msg {{
+            max-width: 85%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            position: relative;
+            animation: popIn 0.3s ease-out;
+            word-wrap: break-word;
+        }}
+        @keyframes popIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+
+        .msg.bot {{ align-self: flex-start; background: var(--bubble-bot); color: var(--text-bot); border-bottom-left-radius: 4px; }}
+        .msg.user {{ align-self: flex-end; background: var(--bubble-user); color: var(--text-user); border-bottom-right-radius: 4px; font-weight: 600; }}
 
         .input-field {{
             flex: 1;
@@ -2049,128 +2024,49 @@ def demo_chat():
         }}
 
         .send-btn {{
-            background: var(--accent);
-            color: #000;
-            border: none;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
-            flex-shrink: 0;
+            background: var(--accent); color: #000; border: none; width: 44px; height: 44px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; box-shadow: 0 0 15px rgba(0,255,136,0.2);
         }}
-        .send-btn:hover {{ transform: scale(1.1); box-shadow: 0 0 25px rgba(0, 255, 136, 0.5); }}
-        .send-btn:active {{ transform: scale(0.9); }}
 
-        /* --- TERMINAL (Right Side) --- */
+        /* --- TERMINAL (Desktop Only) --- */
         .terminal-col {{
-            flex: 1;
-            height: 100%;
-            max-width: 600px;
+            flex: 1; height: 95%; max-height: 850px;
             background: var(--terminal-bg);
-            border: 1px solid #333;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            border: 1px solid #333; border-radius: 20px;
+            display: flex; flex-direction: column; overflow: hidden;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
             position: relative;
         }}
+        .log-content {{ flex: 1; padding: 20px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #ccc; }}
+        .log-entry {{ margin-bottom: 15px; padding-left:10px; border-left: 2px solid #333; }}
 
-        .terminal-col::after {{
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-            z-index: 10;
-        }}
-
-        .terminal-header {{
-            background: #1a1a1a;
-            padding: 10px 15px;
-            border-bottom: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }}
-        
-        .live-dot {{
-            width: 10px; height: 10px; background: #ff4444; border-radius: 50%;
-            display: inline-block; margin-right: 8px;
-            box-shadow: 0 0 10px #ff4444;
-            animation: pulseRed 1.5s infinite;
-        }}
-        @keyframes pulseRed {{ 0% {{opacity: 0.5;}} 50% {{opacity: 1;}} 100% {{opacity: 0.5;}} }}
-
-        .log-content {{
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            color: #ccc;
-        }}
-
-        .log-entry {{ margin-bottom: 15px; opacity: 0; animation: fadeIn 0.3s forwards; }}
-        @keyframes fadeIn {{ to {{ opacity: 1; }} }}
-        
-        .log-ts {{ color: #666; margin-right: 10px; }}
-        .log-type {{ color: var(--accent); font-weight: bold; text-transform: uppercase; }}
-
-        .terminal-controls {{
-            padding: 15px;
-            border-top: 1px solid #333;
-            background: #111;
-            display: flex;
-            gap: 10px;
-            z-index: 20;
-        }}
-
-        .btn-term {{
-            flex: 1;
-            padding: 10px;
-            background: transparent;
-            border: 1px solid #444;
-            color: #fff;
-            border-radius: 6px;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            text-transform: uppercase;
-            transition: 0.3s;
-        }}
-        .btn-term:hover {{ border-color: var(--accent); color: var(--accent); }}
-
-        /* --- MOBILE --- */
+        /* --- 4. MOBILE SPECIFIC LOCKS --- */
         @media (max-width: 900px) {{
-            .container {{ flex-direction: column; height: 100vh; padding: 0; gap: 0; }}
+            .container {{ padding: 0; height: 100dvh; }}
+            .terminal-col {{ display: none; }}
+            
             .phone-wrapper {{ 
-                width: 100%; height: 100%; border-radius: 0; border: none; box-shadow: none; animation: none; 
+                width: 100%; max-width: none; height: 100%; max-height: none;
+                border-radius: 0; border: none; box-shadow: none; padding: 0;
             }}
             .phone-screen {{ border-radius: 0; border: none; }}
-            .terminal-col {{ display: none; }} 
             
-            /* On actual mobile, use environment variables */
-            :root {{
-                --safe-top: env(safe-area-inset-top, 50px);
-                --safe-bottom: env(safe-area-inset-bottom, 20px);
+            /* HIDE FAKE NOTCH ON MOBILE (Use real phone notch) */
+            .notch-area {{ display: none; }} 
+            
+            /* PUSH STATUS BAR DOWN (To clear real notch) */
+            .status-bar {{
+                padding-top: calc(15px + var(--safe-top));
             }}
         }}
 
         /* Typing Dots */
-        .typing {{ display: flex; gap: 4px; padding: 10px 15px; align-self: flex-start; background: var(--bubble-bot); border-radius: 20px; border-bottom-left-radius: 5px; }}
+        .typing {{ display: flex; gap: 4px; padding: 15px; align-self: flex-start; background: var(--bubble-bot); border-radius: 20px; border-bottom-left-radius: 4px; }}
         .dot {{ width: 6px; height: 6px; background: #888; border-radius: 50%; animation: bounce 1.4s infinite; }}
         .dot:nth-child(2) {{ animation-delay: 0.2s; }}
         .dot:nth-child(3) {{ animation-delay: 0.4s; }}
         @keyframes bounce {{ 0%, 100% {{ transform: translateY(0); }} 50% {{ transform: translateY(-5px); }} }}
-
     </style>
 </head>
 <body>
@@ -2178,11 +2074,6 @@ def demo_chat():
 <div class="container">
     
     <div class="phone-wrapper">
-        <div style="position: absolute; left: -3px; top: 100px; width: 3px; height: 25px; background: #333; border-radius: 2px;"></div>
-        <div style="position: absolute; left: -3px; top: 150px; width: 3px; height: 45px; background: #333; border-radius: 2px;"></div>
-        <div style="position: absolute; left: -3px; top: 205px; width: 3px; height: 45px; background: #333; border-radius: 2px;"></div>
-        <div style="position: absolute; right: -3px; top: 160px; width: 3px; height: 70px; background: #333; border-radius: 2px;"></div>
-
         <div class="phone-screen">
             <div class="notch-area"></div>
             
@@ -2191,34 +2082,30 @@ def demo_chat():
                 <div style="display:flex; gap:8px; align-items:center;">
                     <i class="fas fa-signal"></i>
                     <i class="fas fa-wifi"></i>
-                    <i class="fas fa-battery-full" id="batteryIcon"></i>
+                    <i class="fas fa-battery-full"></i>
                 </div>
             </div>
 
-            <div class="chat-area" id="chat">
-                </div>
+            <div class="chat-area" id="chat"></div>
 
             <div class="input-area">
                 <textarea id="msgInput" class="input-field" placeholder="Message..." rows="1"></textarea>
-                <button class="send-btn" onclick="sendMessage()">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </div>
 
     <div class="terminal-col">
-        <div class="terminal-header">
-            <span><span class="live-dot"></span>LIVE BRAIN ACTIVITY</span>
-            <span style="font-family:'JetBrains Mono'; font-size:12px; color:#666;">SESSION: {clean_id[:8]}</span>
+        <div style="padding:15px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:#fff; font-weight:700;"><span style="color:var(--accent); margin-right:8px;">●</span>LIVE BRAIN ACTIVITY</span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; color:#555;">ID: {clean_id[:6]}</span>
         </div>
         <div class="log-content" id="logWindow">
-            <div style="color:#555;">> Connecting to neural engine...</div>
-            <div style="color:#555;">> Ready for input.</div>
+            <div style="color:#555;">> Initializing neural connection...</div>
         </div>
-        <div class="terminal-controls">
-            <button class="btn-term" onclick="resetSession()">Reset Session</button>
-            <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" class="btn-term" style="text-align:center; text-decoration:none;">Download Logs</a>
+        <div style="padding:15px; border-top:1px solid #333; display:flex; gap:10px;">
+            <button onclick="resetSession()" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; cursor:pointer;">Reset</button>
+            <a href="/download-transcript?contact_id={demo_contact_id}" target="_blank" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; text-align:center; text-decoration:none; font-size:13px;">Download Logs</a>
         </div>
     </div>
 
@@ -2229,89 +2116,77 @@ def demo_chat():
 
 <script>
     const CONTACT_ID = '{demo_contact_id}';
-    const OPENER = '{initial_msg}';
     let lastMsgCount = 0;
     
-    // UI Elements
-    const chat = document.getElementById('chat');
-    const logs = document.getElementById('logWindow');
-    const input = document.getElementById('msgInput');
+    // Helper to safely extract text from JSON strings
+    function cleanContent(raw) {{
+        if (!raw) return "";
+        try {{           
+            if (raw.trim().startsWith(String.fromCharCode(123))) {{
+                const parsed = JSON.parse(raw);
+                return parsed.body || parsed.message || parsed.text || raw;
+            }}
+        }} catch (e) {{}}
+        return raw;
+    }}
 
-    // 1. Initial Load
     function init() {{
-        // Clock
         setInterval(() => {{
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit'}});
         }}, 1000);
 
-        // Auto-resize Textarea
+        const input = document.getElementById('msgInput');
         input.addEventListener('input', function() {{
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
         }});
-
-        // Enter key
         input.addEventListener('keypress', function(e) {{
-            if(e.key === 'Enter' && !e.shiftKey) {{
-                e.preventDefault();
-                sendMessage();
-            }}
+            if(e.key === 'Enter' && !e.shiftKey) {{ e.preventDefault(); sendMessage(); }}
         }});
 
         syncData();
-        setInterval(syncData, 2000); // Poll every 2s
+        setInterval(syncData, 2000);
     }}
 
-    // 2. Sync Logic
     async function syncData() {{
         try {{
             const res = await fetch(`/get-logs?contact_id=${{CONTACT_ID}}`);
             const data = await res.json();
-
-            // Handle Chat Messages
             const messages = data.logs.filter(l => l.type.includes('Message'));
-            
-            // If new messages found
+
             if (messages.length > lastMsgCount) {{
-                // Only play receive sound if it's not the very first load
+                // Only play sound if it's NOT the very first load
                 if (lastMsgCount > 0) {{
                     const lastMsg = messages[messages.length - 1];
-                    if (lastMsg.type.includes('Bot') || lastMsg.type.includes('Assistant')) {{
-                        document.getElementById('snd-receive').play().catch(e => {{}});
+                    if (lastMsg.type.toLowerCase().includes('bot') || lastMsg.type.toLowerCase().includes('assistant')) {{
+                         document.getElementById('snd-receive').play().catch(e=>{{}});
                     }}
                 }}
 
-                // Render Messages
                 const newSlice = messages.slice(lastMsgCount);
                 newSlice.forEach(msg => {{
-                    // De-duplicate opener if needed
-                    if(lastMsgCount === 0 && msg.content.trim() === OPENER.trim() && OPENER !== "") return;
-                    
-                    const isBot = msg.type.includes('Bot') || msg.type.includes('Assistant');
-                    addBubble(msg.content, isBot);
+                    const text = cleanContent(msg.content);
+                    const isBot = msg.type.toLowerCase().includes('bot') || msg.type.toLowerCase().includes('assistant');
+                    addBubble(text, isBot);
                 }});
 
                 lastMsgCount = messages.length;
-                
-                // Remove typing indicator if bot replied
                 const typing = document.getElementById('typing-indicator');
                 if(typing) typing.remove();
             }}
 
-            // Handle Terminal Logs
             if (data.logs) {{
+                const logs = document.getElementById('logWindow');
                 logs.innerHTML = '';
                 data.logs.forEach(l => {{
                     const time = l.timestamp.split('T')[1].split('.')[0];
-                    const row = `
+                    logs.insertAdjacentHTML('beforeend', `
                         <div class="log-entry">
-                            <span class="log-ts">[${{time}}]</span>
-                            <span class="log-type">${{l.type}}</span><br>
-                            ${{l.content}}
-                        </div>
-                    `;
-                    logs.insertAdjacentHTML('beforeend', row);
+                            <span style="color:#666">[${{time}}]</span> 
+                            <span style="color:var(--accent); font-weight:700;">${{l.type}}</span><br>
+                            ${{cleanContent(l.content)}}
+                        </div>`);
                 }});
                 logs.scrollTop = logs.scrollHeight;
             }}
@@ -2320,6 +2195,7 @@ def demo_chat():
     }}
 
     function addBubble(text, isBot) {{
+        const chat = document.getElementById('chat');
         const div = document.createElement('div');
         div.className = `msg ${{isBot ? 'bot' : 'user'}}`;
         div.innerText = text;
@@ -2329,6 +2205,7 @@ def demo_chat():
 
     function showTyping() {{
         if(document.getElementById('typing-indicator')) return;
+        const chat = document.getElementById('chat');
         const div = document.createElement('div');
         div.id = 'typing-indicator';
         div.className = 'typing';
@@ -2338,17 +2215,16 @@ def demo_chat():
     }}
 
     async function sendMessage() {{
+        const input = document.getElementById('msgInput');
         const txt = input.value.trim();
         if(!txt) return;
 
-        // UI Updates
         addBubble(txt, false);
         input.value = '';
         input.style.height = 'auto';
-        document.getElementById('snd-send').play().catch(e => {{}});
+        document.getElementById('snd-send').play().catch(e=>{{}});
         showTyping();
 
-        // API Call
         try {{
             await fetch('/webhook', {{
                 method: 'POST',
@@ -2360,11 +2236,8 @@ def demo_chat():
                     message: {{ body: txt }}
                 }})
             }});
-            // Sync will handle the reply
             syncData();
-        }} catch(e) {{
-            console.error("Send failed", e);
-        }}
+        }} catch(e) {{ console.error(e); }}
     }}
 
     function resetSession() {{
