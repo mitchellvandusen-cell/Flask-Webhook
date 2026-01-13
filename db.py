@@ -128,7 +128,7 @@ def init_db() -> bool:
             CREATE TABLE IF NOT EXISTS contact_narratives (
                 contact_id TEXT PRIMARY KEY,
                 story_narrative TEXT DEFAULT '',
-                location_id TEXT, DEFAULT '',
+                location_id TEXT,  -- ← fixed: no misplaced DEFAULT
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -191,8 +191,9 @@ class User(UserMixin):
             print ("[DEBUG] Executing SQL query to fetch user")
             cur.execute("""
                 SELECT email, password_hash, stripe_customer_id, role, subscription_tier
-                FROM users WHERE email = %s",
-            """,  (email,))
+                FROM users 
+                WHERE email = %s
+            """, (email,))
             row = cur.fetchone()
             if row:
                 print(f"[DEBUG] Full row: {dict(row)}")
@@ -230,9 +231,9 @@ class User(UserMixin):
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO users (email, password_hash, stripe_customer_id, role) \
+                INSERT INTO users (email, password_hash, stripe_customer_id, role)
                 VALUES (%s, %s, %s, %s)
-                """
+                """,
                 (email, password_hash, stripe_customer_id, role)
             )
             conn.commit()
@@ -262,7 +263,7 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         cur = conn.cursor()
         cur.execute("""
             SELECT
-                location_id, calendar_id, access_token, refresh_token
+                location_id, calendar_id, access_token, refresh_token,
                 crm_user_id, bot_first_name, timezone, email, initial_message,
                 confirmation_code, stripe_customer_id, parent_agency_email,
                 subscription_tier
@@ -270,7 +271,6 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
             WHERE location_id = %s
             LIMIT 1
         """, (location_id,))
-        
         row = cur.fetchone()
         return dict(row) if row else None
 
@@ -437,7 +437,7 @@ def upgrade_db_for_agency():
             WHERE subscription_tier IS NULL;
         """)
         conn.commit()
-        logger.infor(f"Agency & subscription schema upgraded.")
+        logger.info(f"Agency & subscription schema upgraded.")
         return True
     
     except psycopg2.Error as e:
