@@ -155,9 +155,6 @@
         <div class="config-group">
             <div class="config-label">System Params</div>
             
-        <div class="config-group">
-            <div class="config-label">System Params</div>
-            
             <div class="tech-readout">
                 <span class="tech-label">LOCATION ID</span>
                 <div class="tech-value-row">
@@ -212,15 +209,17 @@
 
         <div class="config-group">
             <div class="config-label">Operator Profile</div>
-            <input type="text" class="profile-input" id="user_name" placeholder="Full Name" value="{{ row[user_name_idx] if user_row_num else '' }}">
-            <input type="tel" class="profile-input" id="phone" placeholder="Phone Number" value="{{ row[phone_idx] if user_row_num else '' }}">
-            <textarea class="profile-input" id="bio" rows="2" placeholder="Agent Bio / Notes">{{ row[bio_idx] if user_row_num else '' }}</textarea>
+            
+            <input type="text" class="profile-input" id="user_name" placeholder="Full Name" value="{{ profile.full_name or '' }}" readonly>
+            
+            <input type="tel" class="profile-input" id="phone" placeholder="Phone Number" value="{{ profile.phone or '' }}" readonly>
+            
+            <textarea class="profile-input" id="bio" rows="2" placeholder="Agent Bio / Notes">{{ profile.bio or '' }}</textarea>
             
             <button class="btn btn-outline-light btn-sm w-100 mt-2" onclick="saveProfile()" style="border-radius:20px;">
                 <i class="fa-solid fa-floppy-disk me-2"></i> Save Profile
             </button>
         </div>
-
         <div style="margin-top:auto;">
             <div class="d-grid gap-2">
                 <a href="/logout" class="btn btn-dark btn-sm" style="border:1px solid #333;">Sign Out</a>

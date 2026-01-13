@@ -180,13 +180,16 @@ def init_db() -> bool:
             conn.close()
 
 class User(UserMixin):
-    def __init__(self, email: str, password_hash: Optional[str] = None, stripe_customer_id: Optional[str] = None, role: str = 'individual', subscription_tier: str = 'individual'):
+    def __init__(self, email: str, password_hash: Optional[str] = None, stripe_customer_id: Optional[str] = None, role: str = 'individual', subscription_tier: str = 'individual', full_name: Optional[str] = None, phone: Optional[str] = None, bio: Optional[str] = None):
         self.id = email
         self.email = email
         self.password_hash = password_hash
         self.stripe_customer_id = stripe_customer_id
         self.role = role
         self.subscription_tier = subscription_tier
+        self.full_name = full_name
+        self.phone = phone
+        self.bio = bio
     @property
     def is_agency_owner(self) -> bool:
         return self.role == 'agency_owner'
@@ -226,7 +229,10 @@ class User(UserMixin):
                     password_hash=row['password_hash'],
                     stripe_customer_id=row['stripe_customer_id'],
                     role=row.get('role', 'individual'),
-                    subscription_tier=row.get('subscription_tier', 'individual')
+                    subscription_tier=row.get('subscription_tier', 'individual'),
+                    full_name=row.get('full_name'),
+                    phone=row.get('phone'),
+                    bio=row.get('bio')
                 )
             else:
                 print(f"[DEBUG] No user found for email: '{email}'")
@@ -237,7 +243,7 @@ class User(UserMixin):
             return None
         
         finally:
-            if cur:
+            if cur in locals():
                 cur.close()
             if conn:
                 conn.close()

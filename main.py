@@ -494,146 +494,189 @@ def agency_dashboard():
     current_user=current_user
     )
 
+def save_profile():
+    data = request.get_json()
+    if not data:
+        return flask_jsonify({"error": "No data provided"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database error"}), 500
+
+    try:
+        cur = conn.cursor()
+        
+        # Update the User table
+        cur.execute("""
+            UPDATE users 
+            SET user_name = %s,
+                phone = %s,
+                bio = %s
+            WHERE email = %s
+        """, (
+            data.get('name'), 
+            data.get('phone'), 
+            data.get('bio'), 
+            current_user.email
+        ))
+        
+        conn.commit()
+        return flask_jsonify({"status": "success", "message": "Profile updated"})
+        
+    except Exception as e:
+        conn.rollback()
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
-    global worksheet  # This is the "Subscribers" sheet (sh.sheet1)
-
     form = ConfigForm()
+    conn = get_db_connection()
+    
+    # If DB is down, fail gracefully
+    if not conn:
+        flash("Database connection failed", "error")
+        return render_template('dashboard.html', form=form, profile={}, sub={})
 
-    # --- 1. FETCH DATA FROM BOTH SHEETS ---
-    # Subscribers sheet (technical: location_id, tokens, etc.)
-    values_subscribers = worksheet.get_all_values() if worksheet else []
-    if not values_subscribers:
-        headers = ["email", "location_id", "calendar_id", "access_token", "refresh_token", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used", "user_name", "phone", "bio"]
-        if worksheet:
-            worksheet.append_row(headers)
-        values_subscribers = [headers]
-
-    # Users sheet (personal profile: name, phone, bio)
-    values_users = []
     try:
-        # Open the "Users" sheet specifically
-        user_sheet = sh.worksheet("Users")
-        values_users = user_sheet.get_all_values()
-        logger.info("Successfully loaded Users sheet for profile data")
-    except gspread.exceptions.WorksheetNotFound:
-        logger.warning("Users sheet not found - falling back to Subscribers for profile")
-        values_users = values_subscribers  # Fallback
-    except Exception as e:
-        logger.error(f"Error loading Users sheet: {e}")
-        values_users = values_subscribers  # Fallback on error
+        cur = conn.cursor()
 
-    # --- 2. HEADER MAPPING ---
-    header_sub_lower = [h.strip().lower() for h in values_subscribers[0]]
-    header_user_lower = [h.strip().lower() for h in values_users[0]]
+        # --- 1. HANDLE CONFIG FORM SUBMISSION (POST) ---
+        if form.validate_on_submit():
+            try:
+                # Check if this user already has a subscriber row
+                cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+                existing_sub = cur.fetchone()
 
-    def col_index(headers_lower, name):
-        try:
-            return headers_lower.index(name.lower())
-        except ValueError:
-            return -1
+                if existing_sub:
+                    # UPDATE existing row
+                    # Note: We update location_id last just in case it changes (it's the PK)
+                    cur.execute("""
+                        UPDATE subscribers 
+                        SET calendar_id = %s,
+                            crm_user_id = %s,
+                            bot_first_name = %s,
+                            timezone = %s,
+                            initial_message = %s,
+                            location_id = %s,
+                            updated_at = NOW()
+                        WHERE email = %s
+                    """, (
+                        form.calendar_id.data,
+                        form.crm_user_id.data,
+                        form.bot_name.data,
+                        form.timezone.data,
+                        form.initial_message.data,
+                        form.location_id.data,
+                        current_user.email
+                    ))
+                else:
+                    # INSERT new row
+                    cur.execute("""
+                        INSERT INTO subscribers (
+                            email, location_id, calendar_id, crm_user_id, 
+                            bot_first_name, timezone, initial_message
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        current_user.email,
+                        form.location_id.data,
+                        form.calendar_id.data,
+                        form.crm_user_id.data,
+                        form.bot_name.data,
+                        form.timezone.data,
+                        form.initial_message.data
+                    ))
+                
+                conn.commit()
+                flash("Configuration saved successfully!", "success")
+                return redirect(url_for('dashboard'))
 
-    # Technical columns (from Subscribers sheet)
-    email_idx_sub = col_index(header_sub_lower, "email")
-    location_idx = col_index(header_sub_lower, "location_id")
-    calendar_idx = col_index(header_sub_lower, "calendar_id")
-    user_id_idx = col_index(header_sub_lower, "crm_user_id")
-    bot_name_idx = col_index(header_sub_lower, "bot_first_name")
-    timezone_idx = col_index(header_sub_lower, "timezone")
-    initial_msg_idx = col_index(header_sub_lower, "initial_message")
+            except Exception as e:
+                conn.rollback()
+                flash(f"Error saving configuration: {str(e)}", "error")
 
-    # Profile columns (prefer Users sheet)
-    user_name_idx = col_index(header_user_lower, "user_name")
-    phone_idx = col_index(header_user_lower, "phone")
-    bio_idx = col_index(header_user_lower, "bio")
-
-    # --- 3. FIND USER ROW (prefer Users sheet, fallback to Subscribers) ---
-    user_row_num = None
-    row = []  # Default empty
-
-    # First try Users sheet
-    for i, r in enumerate(values_users[1:], start=2):
-        if email_idx_sub >= 0 and len(r) > email_idx_sub and r[email_idx_sub].strip().lower() == current_user.email.lower():
-            user_row_num = i
-            row = r
-            logger.debug(f"Profile found in Users sheet - row {i}")
-            break
-
-    # If not found in Users, fallback to Subscribers
-    if not user_row_num:
-        for i, r in enumerate(values_subscribers[1:], start=2):
-            if email_idx_sub >= 0 and len(r) > email_idx_sub and r[email_idx_sub].strip().lower() == current_user.email.lower():
-                user_row_num = i
-                row = r
-                logger.debug(f"Profile fallback to Subscribers sheet - row {i}")
-                break
-
-    # --- 4. PRE-FILL FORM (technical fields from Subscribers) ---
-    location_id = None
-    if user_row_num and row:
-        def get_val(idx):
-            return row[idx].strip() if idx >= 0 and idx < len(row) else ""
-
-        location_id = get_val(location_idx)
-
-        form.location_id.data = location_id
-        form.calendar_id.data = get_val(calendar_idx)
-        form.crm_user_id.data = get_val(user_id_idx)
-        form.bot_name.data = get_val(bot_name_idx)
-        form.timezone.data = get_val(timezone_idx)
-        form.initial_message.data = get_val(initial_msg_idx)
-
-    # --- 5. PROFILE DATA (from Users sheet or fallback) ---
-    profile = {
-        'user_name': '',
-        'phone': '',
-        'bio': ''
-    }
-    if user_row_num and row:
-        profile['user_name'] = row[user_name_idx] if user_name_idx >= 0 and user_name_idx < len(row) else 'Admin'
-        profile['phone'] = row[phone_idx] if phone_idx >= 0 and phone_idx < len(row) else ''
-        profile['bio'] = row[bio_idx] if bio_idx >= 0 and bio_idx < len(row) else ''
-
-    # --- 6. TOKEN DISPLAY (from Subscribers hybrid) ---
-    sub = get_subscriber_info_hybrid(location_id) if location_id else None
-
-    access_token_display = ''
-    refresh_token_display = ''
-    expires_in_str = ''
-    token_field_state = ''
-
-    if sub and sub.get('access_token'):
-        token_field_state = 'readonly'
-        at = sub.get('access_token', '')
-        access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-        rt = sub.get('refresh_token', '')
-        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
+        # --- 2. FETCH DATA FOR DISPLAY (GET) ---
         
-        expires_at = sub.get('token_expires_at')
-        if expires_at:
-            if isinstance(expires_at, str):
-                try:
-                    expires_at = datetime.fromisoformat(expires_at)
-                except:
-                    expires_at = datetime.now()
-            delta = expires_at - datetime.now()
-            hours = delta.total_seconds() // 3600
-            minutes = (delta.total_seconds() % 3600) // 60
-            expires_in_str = f"Expires in {int(hours)}h {int(minutes)}m"
-        else:
-            expires_in_str = "Persistent"
+        # Fetch Subscriber Config linked to this user's email
+        cur.execute("""
+            SELECT * FROM subscribers 
+            WHERE email = %s 
+            LIMIT 1
+        """, (current_user.email,))
+        sub = cur.fetchone() # Returns a RealDict or None
 
-    # --- Render ---
-    return render_template('dashboard.html',
-        form=form,
-        access_token_display=access_token_display,
-        refresh_token_display=refresh_token_display,
-        token_readonly=token_field_state,
-        expires_in_str=expires_in_str,
-        sub=sub,
-        profile=profile,  # <-- NEW: pass profile dict
-    )
+        # Pre-fill the form if data exists and form wasn't just submitted
+        if sub and request.method == 'GET':
+            form.location_id.data = sub.get('location_id')
+            form.calendar_id.data = sub.get('calendar_id')
+            form.crm_user_id.data = sub.get('crm_user_id')
+            form.bot_name.data = sub.get('bot_first_name')
+            form.timezone.data = sub.get('timezone')
+            form.initial_message.data = sub.get('initial_message')
+
+        # --- 3. TOKEN EXPIRY LOGIC ---
+        access_token_display = ''
+        refresh_token_display = ''
+        expires_in_str = ''
+        token_field_state = ''
+
+        if sub and sub.get('access_token'):
+            token_field_state = 'readonly'
+            
+            # Mask Tokens
+            at = sub['access_token']
+            access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
+            
+            rt = sub.get('refresh_token') or ''
+            refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
+            
+            # Calculate Expiry
+            expires_at = sub.get('token_expires_at')
+            if expires_at:
+                # If it's already a datetime object (Psycopg2 handles this usually)
+                if not isinstance(expires_at, datetime):
+                    try:
+                        expires_at = datetime.fromisoformat(str(expires_at))
+                    except:
+                        expires_at = datetime.now()
+                
+                delta = expires_at - datetime.now()
+                if delta.total_seconds() > 0:
+                    hours = int(delta.total_seconds() // 3600)
+                    minutes = int((delta.total_seconds() % 3600) // 60)
+                    expires_in_str = f"Expires in {hours}h {minutes}m"
+                else:
+                    expires_in_str = "Token Expired"
+            else:
+                expires_in_str = "Persistent"
+
+        # --- 4. PROFILE DATA ---
+        # We pass the current_user object directly as it has the properties we need
+        # The template expects a 'profile' dict based on your old code, 
+        # but we can map it here for compatibility
+        profile = {
+            'user_name': current_user.full_name or '',
+            'phone': current_user.phone or '',
+            'bio': current_user.bio or ''
+        }
+
+        return render_template('dashboard.html',
+            form=form,
+            access_token_display=access_token_display,
+            refresh_token_display=refresh_token_display,
+            token_readonly=token_field_state,
+            expires_in_str=expires_in_str,
+            sub=sub,
+            profile=profile
+        )
+
+    finally:
+        cur.close()
+        conn.close()
+
 @app.route("/save-profile", methods=["POST"])
 @login_required
 def save_profile():
