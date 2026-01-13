@@ -4511,7 +4511,7 @@ def checkout():
         """), 500
     
 @app.route("/checkout/agency-starter")
-def checkout():
+def checkout_agency_starter():
     try:
         # Pre-fill email if user is logged in
         customer_email = current_user.email if current_user.is_authenticated else None
@@ -4523,11 +4523,20 @@ def checkout():
                 "price": os.getenv("STRIPE_AGENCY_STARTER_PRICE_ID"),
                 "quantity": 1,
             }],
-            allow_promotion_codes=True,
-            customer_email=customer_email,  # Pre-fill email here
+            customer_email=customer_email,
+            # IMPORTANT: This metadata is sent back to your webhook
+            metadata={
+                "user_email": customer_email,
+                "target_role": "agency_owner",
+                "target_tier": "agency_starter"
+            },
+
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {
+                    "user_email": customer_email,
+                    "target_role": "agency_owner",
+                    "target_tier": "agency_starter",
                     "source": "website"
                 }
             },
@@ -4803,7 +4812,7 @@ def cancel():
     return render_template_string(cancel_html)
 
 @app.route("/checkout/agency-pro")
-def checkout():
+def checkout_agency_pro():
     try:
         # Pre-fill email if user is logged in
         customer_email = current_user.email if current_user.is_authenticated else None
@@ -4817,9 +4826,17 @@ def checkout():
             }],
             allow_promotion_codes=True,
             customer_email=customer_email,  # Pre-fill email here
+            metadata={
+                "user_email": customer_email,
+                "target_role": "agency_owner",
+                "target_tier": "pro"
+            },
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {
+                    "user_email": customer_email,
+                    "target_role": "agency_owner",
+                    "target_tier": "pro",
                     "source": "website"
                 }
             },
