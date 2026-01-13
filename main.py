@@ -3122,6 +3122,10 @@ def demo_chat():
         const txt = input.value.trim();
         if(!txt) return;
 
+        addBubble(txt, false);
+
+        lastMsgCount++;
+
         input.value = '';
         input.style.height = 'auto';
         document.getElementById('snd-send').play().catch(e=>{{}});
@@ -3138,8 +3142,10 @@ def demo_chat():
                     message: {{ body: txt }}
                 }})
             }});
-            syncData();
-        }} catch(e) {{ console.error(e); }}
+           
+        }} catch(e)
+          {{ console.error(e); }}
+          addBubble("System: Connection lost. Please refresh.", true);
     }}
 
     // --- RESET LOGIC (FIXED) ---
