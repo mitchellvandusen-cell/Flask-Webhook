@@ -8,6 +8,7 @@ import gspread
 import json
 import redis
 import requests
+import secrets
 import httpx
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
@@ -638,6 +639,7 @@ def home():
                 <ul class="navbar-nav mx-auto align-items-center gap-4">
                     <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
                     <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/getting-started">Getting Started</a></li>
                     <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
                 </ul>
@@ -770,6 +772,7 @@ def home():
                 <a href="/terms">Terms</a>
                 <a href="/privacy">Privacy</a>
                 <a href="/disclaimers">Disclaimers</a>
+                <a href="/contact">Contact Us</a>
             </div>
             <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
         </div>
@@ -1232,207 +1235,312 @@ def getting_started():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Launch Sequence | InsuranceGrokBot</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
     <style>
-        :root { 
-            --accent: #00ff88; 
-            --dark-bg: #000; 
-            --card-bg: #0a0a0a; 
-            --neon-glow: 0 0 30px rgba(0, 255, 136, 0.4); 
+        :root {
+            --accent: #00ff88;
+            --accent-glow: rgba(0, 255, 136, 0.4);
+            --dark-bg: #050505;
+            --card-glass: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+            --transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 15% 0%, rgba(0, 255, 136, 0.05), transparent 30%),
+                radial-gradient(circle at 85% 100%, rgba(0, 100, 255, 0.05), transparent 30%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+
+        /* --- NAVIGATION --- */
+        .navbar {
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--card-border);
+            padding: 1rem 0;
+        }
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: #fff !important;
+            letter-spacing: -0.5px;
+        }
+        .text-accent { color: var(--accent); }
+        .nav-link {
+            color: var(--text-muted) !important;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.3s;
+        }
+        .nav-link:hover, .nav-link.active { color: #fff !important; }
+
+        /* --- AUTH DROPDOWN --- */
+        .auth-dropdown {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--accent);
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+        }
+        .auth-dropdown:hover {
+            background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent-glow);
+        }
+        .dropdown-menu-dark {
+            background: #0a0a0a; border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* --- HERO HEADER --- */
+        .header-section {
+            padding: 120px 0 60px;
+            text-align: center;
+            position: relative;
+        }
+        .main-title {
+            font-size: 3.5rem; font-weight: 800; margin-bottom: 10px;
+            background: linear-gradient(135deg, #fff 50%, #888);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 1.2rem; color: var(--text-muted); max-width: 600px; margin: 0 auto;
+        }
+
+        /* --- GLASS CARDS --- */
+        .path-card {
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px;
+            height: 100%;
+            position: relative;
+            transition: var(--transition);
+            overflow: hidden;
+        }
+        .path-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(0, 255, 136, 0.3);
+            box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 255, 136, 0.05);
         }
         
-        body { 
-            background: var(--dark-bg); 
-            color: #fff; 
-            font-family: 'Montserrat', sans-serif; 
-            line-height: 1.6; 
+        /* Top accent line */
+        .path-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0; transition: 0.4s;
+        }
+        .path-card:hover::before { opacity: 1; }
+
+        .card-icon {
+            font-size: 2.5rem; margin-bottom: 25px;
+            color: var(--accent);
+            width: 60px; height: 60px;
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
         }
 
-        /* Paragraphs and List Text specifically White */
-        p, .step-text { 
-            color: #ffffff !important; 
-            font-size: 1.05rem;
-            letter-spacing: 0.2px;
-        }
+        .card-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; color: #fff; }
+        .card-desc { color: var(--text-muted); margin-bottom: 40px; min-height: 50px; }
 
-        /* HYBRID NAV */
-        .navbar { 
-            background: rgba(0,0,0,0.95); 
-            backdrop-filter: blur(10px); 
-            border-bottom: 1px solid #222; 
+        /* --- STEPS LIST --- */
+        .steps-container { margin-bottom: 40px; }
+        .step-item {
+            display: flex; gap: 15px; margin-bottom: 20px;
+            opacity: 0.8; transition: 0.2s;
         }
-        .navbar-brand { font-weight: 700; color: #fff !important; text-decoration: none; }
-        .highlight { color: var(--accent); text-shadow: var(--neon-glow); }
+        .step-item:hover { opacity: 1; transform: translateX(5px); }
         
-        .nav-link { color: #fff !important; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; }
-        .nav-link:hover { color: var(--accent) !important; }
+        .step-num {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700; font-size: 0.9rem;
+            color: #000; background: var(--accent);
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 2px;
+        }
+        .step-text { color: #ccc; font-size: 0.95rem; line-height: 1.5; }
+        .step-text strong { color: #fff; }
 
-        /* HAMBURGER MENU */
-        .auth-dropdown { 
-            background: transparent; 
-            border: none; 
-            color: var(--accent); 
-            cursor: pointer; 
-            padding: 0 10px; 
-            display: flex; 
-            align-items: center; 
+        /* --- BUTTONS --- */
+        .btn-launch {
+            display: block; width: 100%; text-align: center; padding: 16px;
+            border-radius: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; text-decoration: none; transition: 0.3s;
+            font-family: 'Outfit', sans-serif;
         }
-        .dropdown-menu-dark { 
-            background-color: #000 !important; 
-            border: 1px solid var(--accent) !important; 
-            box-shadow: var(--neon-glow); 
-            margin-top: 15px !important; 
+        
+        .btn-primary-glow {
+            background: var(--accent); color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
         }
-        .dropdown-item { color: #fff !important; text-transform: uppercase; font-weight: 700; font-size: 0.8rem; }
-        .dropdown-item:hover { background: #111 !important; color: var(--accent) !important; }
-
-        /* PATH CARDS */
-        .card-path { 
-            background: var(--card-bg); 
-            border: 2px solid #1a1a1a; 
-            border-radius: 30px; 
-            padding: 50px; 
-            height: 100%; 
-            transition: all 0.4s ease;
-        }
-        .card-path:hover { 
-            border-color: var(--accent); 
-            box-shadow: var(--neon-glow);
-            transform: translateY(-5px);
+        .btn-primary-glow:hover {
+            background: #fff; color: #000;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.5); transform: translateY(-3px);
         }
 
-        .step-item { display: flex; align-items: flex-start; margin-bottom: 22px; }
-        .step-num { 
-            font-weight: 800; 
-            color: var(--accent); 
-            font-size: 1.2rem; 
-            min-width: 50px; 
-            font-family: monospace;
+        .btn-outline-glow {
+            background: transparent; color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .btn-outline-glow:hover {
+            border-color: #fff; background: rgba(255,255,255,0.05); color: #fff;
+            transform: translateY(-3px);
         }
 
-        h3 { color: var(--accent); font-weight: 800; text-transform: uppercase; margin-bottom: 30px; }
-
-        /* BUTTONS */
-        .btn-launch { 
-            display: block; 
-            width: 100%; 
-            text-align: center; 
-            padding: 20px; 
-            border-radius: 50px; 
-            font-weight: 800; 
-            text-transform: uppercase; 
-            text-decoration: none; 
-            transition: 0.3s; 
-            margin-top: 30px;
-            font-size: 1.1rem;
+        @media (max-width: 991px) {
+            .header-section { padding: 100px 0 40px; }
+            .main-title { font-size: 2.5rem; }
         }
-        .btn-mkt { background: #fff; color: #000; }
-        .btn-web { background: var(--accent); color: #000; box-shadow: var(--neon-glow); }
-        .btn-web:hover { transform: scale(1.03); }
     </style>
 </head>
 <body>
+
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="/">INSURANCE<span class="highlight">GROK</span>BOT</a>
-            <div class="d-flex align-items-center ms-auto">
-                <ul class="navbar-nav d-flex flex-row me-3">
-                    <li class="nav-item"><a href="/#features" class="nav-link px-3">Features</a></li>
-                    <li class="nav-item"><a href="/getting-started" class="nav-link px-3 highlight">Get Started</a></li>
+            <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
+            
+            <button class="navbar-toggler navbar-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center gap-4">
+                    <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/getting-started" style="color:#fff !important;">Get Started</a></li>
+                    
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="auth-dropdown" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fa-regular fa-user"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                            <li><a class="dropdown-item text-white" href="/dashboard"><i class="fa-solid fa-gauge me-2"></i> Dashboard</a></li>
+                            <li><hr class="dropdown-divider bg-secondary"></li>
+                            <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i> Logout</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a href="/login" class="nav-link">Log In</a>
+                    </li>
+                    {% endif %}
                 </ul>
-
-                {% if current_user.is_authenticated %}
-                <div class="dropdown">
-                    <button class="auth-dropdown" type="button" id="authMenu" data-bs-toggle="dropdown">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
-                        <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
-                        <li><hr class="dropdown-divider" style="border-color: #333;"></li>
-                        <li><a class="dropdown-item text-danger" href="/logout">Logout</a></li>
-                    </ul>
-                </div>
-                {% endif %}
             </div>
         </div>
     </nav>
 
-    <div class="container" style="padding-top: 160px; padding-bottom: 100px;">
-        <h1 class="text-center mb-5" style="font-weight: 800; font-size: 3.5rem; letter-spacing: -2px;">SELECT YOUR <span class="highlight">ENTRY</span></h1>
-        
-        <div class="row g-5">
-            <div class="col-lg-6">
-                <div class="card-path">
-                    <h3>Marketplace Integration</h3>
-                    <p class="mb-5">Direct GHL authorization for agencies.</p>
+    <div class="container">
+        <div class="header-section">
+            <h1 class="main-title">Initialize Protocol</h1>
+            <p class="subtitle">Select your deployment method below. Agencies should use the Marketplace integration, while independent users can subscribe directly.</p>
+        </div>
+
+        <div class="row g-4 justify-content-center pb-5">
+            
+            <div class="col-lg-5 col-md-6">
+                <div class="path-card">
+                    <div class="card-icon">
+                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                    </div>
+                    <h3 class="card-title">Marketplace Sync</h3>
+                    <p class="card-desc">For agencies wanting deep integration. Install directly into your GoHighLevel sub-account.</p>
                     
-                    <div class="step-item">
-                        <div class="step-num">01</div>
-                        <div class="step-text">Open the <strong>GHL Marketplace</strong>.</div>
+                    <div class="steps-container">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-text">Open <strong>GHL Marketplace</strong> tab.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">2</div>
+                            <div class="step-text">Search for <strong>"Insurance Grok Bot"</strong>.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">3</div>
+                            <div class="step-text">Click <strong>Install</strong> & approve permissions.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">4</div>
+                            <div class="step-text">Wait for <strong>Auto-Redirect</strong> to system.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">5</div>
+                            <div class="step-text">Create account (Code is pre-loaded).</div>
+                        </div>
                     </div>
-                    <div class="step-item">
-                        <div class="step-num">02</div>
-                        <div class="step-text">Search for <strong>Insurance Grok Bot</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">03</div>
-                        <div class="step-text">Execute <strong>Install</strong> to bridge your sub-account.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">04</div>
-                        <div class="step-text">Secure your unique 8-digit <strong>Activation Code</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">05</div>
-                        <div class="step-text">Complete registration with your <strong>Email + Code</strong>.</div>
-                    </div>
-                    
-                    <a href="https://marketplace.gohighlevel.com/" class="btn-launch btn-mkt">Marketplace Setup</a>
+
+                    <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn-launch btn-outline-glow">
+                        Open Marketplace <i class="fa-solid fa-external-link-alt ms-2"></i>
+                    </a>
                 </div>
             </div>
 
-            <div class="col-lg-6">
-                <div class="card-path">
-                    <h3>Direct Activation</h3>
-                    <p class="mb-5">Standard setup for independent high-volume closers.</p>
+            <div class="col-lg-5 col-md-6">
+                <div class="path-card" style="border-color: rgba(0,255,136,0.3);">
+                    <div class="card-icon" style="background:var(--accent); color:#000;">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <h3 class="card-title">Direct Activation</h3>
+                    <p class="card-desc">Fast-track setup for independent agents. Secure your license and start immediately.</p>
                     
-                    <div class="step-item">
-                        <div class="step-num">01</div>
-                        <div class="step-text">Hit <strong>Subscribe Now</strong> to secure your license.</div>
+                    <div class="steps-container">
+                        <div class="step-item">
+                            <div class="step-num">1</div>
+                            <div class="step-text">Click <strong>Subscribe Now</strong> below.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">2</div>
+                            <div class="step-text">Complete secure checkout via <strong>Stripe</strong>.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">3</div>
+                            <div class="step-text">Create your <strong>Secure Password</strong>.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">4</div>
+                            <div class="step-text">Access the <strong>Intelligence Dashboard</strong>.</div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-num">5</div>
+                            <div class="step-text">Input CRM Keys to sync logic.</div>
+                        </div>
                     </div>
-                    <div class="step-item">
-                        <div class="step-num">02</div>
-                        <div class="step-text">Complete checkout via <strong>Stripe</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">03</div>
-                        <div class="step-text">Create your <strong>Secure Password</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">04</div>
-                        <div class="step-text">Access the <strong>Intelligence Dashboard</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">05</div>
-                        <div class="step-text">Input your <strong>CRM Keys</strong> to sync the bot.</div>
-                    </div>
-                    
-                    <a href="/checkout" class="btn-launch btn-web">Start Subscription</a>
+
+                    <a href="/checkout" class="btn-launch btn-primary-glow">
+                        Start Subscription <i class="fa-solid fa-arrow-right ms-2"></i>
+                    </a>
                 </div>
             </div>
+
         </div>
     </div>
+
 </body>
 </html>
 """
     return render_template_string(getting_started_html)
-
 
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
@@ -1476,6 +1584,16 @@ def stripe_webhook():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm()
+    
+    # --- SEAMLESS PRE-FILL ---
+    # If sent here by OAuth, grab the code from the URL
+    if request.method == "GET":
+        url_code = request.args.get('code')
+        if url_code:
+            form.code.data = url_code
+            # Optional: You can flash a message saying "Connected! Create your account."
+            flash("GoHighLevel connected successfully. Complete setup below.", "success")
+
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
         code = form.code.data.upper().strip() if form.code.data else ""
@@ -1501,15 +1619,22 @@ def register():
                 
                 if code_idx != -1:
                     for i, row in enumerate(values[1:], start=2):
+                        # Verify Code Matches
                         if len(row) > code_idx and row[code_idx].strip().upper() == code:
+                            # Verify Not Used
                             if used_idx != -1 and len(row) > used_idx and row[used_idx] == "1":
                                 flash("Code already used.", "error")
                                 return redirect("/register")
+                            
                             used_code_row = i
                             is_valid = True
                             break
+                    
                     if is_valid and used_code_row and used_idx != -1:
+                        # MARK AS USED
                         worksheet.update_cell(used_code_row, used_idx + 1, "1")
+                        
+                        # SAVE EMAIL TO SHEET
                         if email_idx == -1: 
                             new_col = len(values[0]) + 1
                             worksheet.update_cell(1, new_col, "email")
@@ -1529,6 +1654,8 @@ def register():
         else:
             flash("Creation failed.", "error")
 
+    # The HTML template remains exactly the same
+    # because form.code.data is now pre-filled by the GET logic above
     return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
@@ -1564,7 +1691,6 @@ def register():
             margin: 0;
         }
 
-        /* Ambient Animation */
         .ambient-glow {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -1572,10 +1698,9 @@ def register():
             z-index: -1;
         }
 
-        /* The Glass Card */
         .register-card {
             width: 100%;
-            max-width: 480px; /* Slightly wider than login for extra fields */
+            max-width: 480px;
             background: var(--card-glass);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -1612,7 +1737,6 @@ def register():
             text-align: center; color: var(--text-muted); font-size: 0.95rem; margin-bottom: 30px;
         }
 
-        /* Form Styling */
         .form-label { color: #ccc; font-size: 0.85rem; font-weight: 600; margin-left: 5px; }
 
         .input-group-text {
@@ -1691,7 +1815,7 @@ def register():
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Confirmation Code <span style="opacity:0.5; font-weight:400;">(From GHL)</span></label>
+                <label class="form-label">Confirmation Code <span style="opacity:0.5; font-weight:400;">(Auto-filled)</span></label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-ticket"></i></span>
                     {{ form.code(class="form-control", placeholder="XXXX-XXXX") }}
@@ -4358,57 +4482,48 @@ def oauth_callback():
         cur.close()
         conn.close()
         
-        # 3. Dynamic Sheet Writing ( The Mapper )
+        # 3. Dynamic Sheet Writing (Seamless Logic)
+        unique_code = secrets.token_hex(4).upper() # Generates 'A1B2C3D4'
+
         if worksheet:
             try:
-                # Fetch all data to get headers
                 all_values = worksheet.get_all_values()
                 if not all_values:
-                    # If sheet is empty, init headers
-                    headers = ["email", "location_id", "access_token", "refresh_token", "bot_first_name", "timezone", "confirmation_code"]
+                    headers = ["email", "location_id", "access_token", "refresh_token", "bot_first_name", "timezone", "confirmation_code", "code_used"]
                     worksheet.append_row(headers)
                     all_values = [headers]
                 
-                # Normalize headers to lowercase for matching
                 headers = [h.strip().lower() for h in all_values[0]]
                 
-                # Prepare the data we WANT to write
                 data_map = {
                     "location_id": location_id,
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "bot_first_name": "Grok",
                     "timezone": "America/Chicago",
-                    "confirmation_code": "OAUTH_AUTO", # Flag that this was auto-linked
-                    "code_used": "1"
+                    "confirmation_code": unique_code, # <--- REAL CODE
+                    "code_used": "0" # <--- NOT USED YET
                 }
                 
-                # Construct the row list based on the sheet's actual header order
-                row_to_append = [""] * len(headers) # Start with empty strings
-                
+                row_to_append = [""] * len(headers)
                 for col_name, value in data_map.items():
-                    # Find identifying part of header (e.g., 'access_token' in 'access_token')
-                    # We look for exact match or partial match if you have messy headers
                     try:
-                        # Try exact match first
                         if col_name in headers:
                             idx = headers.index(col_name)
                             row_to_append[idx] = value
-                        # Handle 'crm_api_key' legacy mapping to 'access_token'
                         elif col_name == "access_token" and "crm_api_key" in headers:
                             idx = headers.index("crm_api_key")
                             row_to_append[idx] = value
                     except ValueError:
-                        pass # Column not found, skip writing that field
+                        pass
                 
-                # Write the mapped row
                 worksheet.append_row(row_to_append)
                 
             except Exception as e:
                 logger.error(f"Sheet append failed: {e}")
 
-        # 4. Redirect to Register (Seamless)
-        return redirect(url_for('register', location_id=location_id))
+        # 4. Redirect to Register with the Code
+        return redirect(url_for('register', code=unique_code))
 
     except Exception as e:
         logger.error(f"OAuth Callback Error: {e}")
