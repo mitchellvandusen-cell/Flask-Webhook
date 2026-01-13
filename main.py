@@ -132,6 +132,12 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
+@app.route('/api/demo/reset', methods=['POST'])
+def demo_reset():
+    # Call the bold function we just built
+    opener = generate_demo_opener()
+    return flask_jsonify({"message": opener})
+
 def generate_demo_opener():
     if not client:
         return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
@@ -3119,10 +3125,59 @@ def demo_chat():
         }} catch(e) {{ console.error(e); }}
     }}
 
-    function resetSession() {{
-        window.location.href = '/demo-chat?session_id=' + crypto.randomUUID();
+    let currentSessionId = crypto.randomUUID(); 
+
+    async function resetSession() {{
+        const chatBox = document.getElementById('chat-box'); 
+        
+        // 1. Clear the visual chat history
+        chatBox.innerHTML = ''; 
+
+        // 2. Add a temporary "Typing..." bubble so it feels alive
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message bot-message typing-indicator'; // Ensure you have CSS for this or standard styling
+        loadingDiv.innerText = 'Agent is typing...';
+        chatBox.appendChild(loadingDiv);
+
+        try {{
+            // 3. Update the Session ID so the bot knows it's a new person
+            currentSessionId = crypto.randomUUID();
+
+            // 4. Hit the Python endpoint we made to get the Opener
+            const response = await fetch('/api/demo/reset', {{ 
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ session_id: currentSessionId }}) 
+            }});
+            
+            const data = await response.json();
+
+            // 5. Remove "Typing..." and show the real bold AI message
+            chatBox.removeChild(loadingDiv);
+            addMessage(data.message, 'bot'); // This uses your existing message display logic
+
+        }} catch (error) {{
+            console.error('Error:', error);
+            loadingDiv.innerText = "Error connecting to bot.";
+        }}
     }}
 
+    // 6. AUTO-START: Run this immediately when the page loads!
+    window.onload = function() {{
+        resetSession();
+    }};
+    function addMessage(text, sender) {{
+    const chatBox = document.getElementById('chat-box');
+    const msgDiv = document.createElement('div');
+    
+    // Assign CSS classes based on who is talking
+    msgDiv.className = sender === 'bot' ? 'message bot-message' : 'message user-message';
+    msgDiv.innerText = text;
+    
+    chatBox.appendChild(msgDiv);
+    // Auto-scroll to the bottom
+    chatBox.scrollTop = chatBox.scrollHeight;
+    }}
     init();
 </script>
 </body>
