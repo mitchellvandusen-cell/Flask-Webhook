@@ -1487,6 +1487,7 @@ def register():
         is_valid = False
         used_code_row = None
 
+        # Logic: Check Stripe OR Check Sheet Code
         if current_user.is_authenticated and current_user.stripe_customer_id:
             is_valid = True
         elif code and worksheet:
@@ -1509,8 +1510,7 @@ def register():
                             break
                     if is_valid and used_code_row and used_idx != -1:
                         worksheet.update_cell(used_code_row, used_idx + 1, "1")
-                        # LINK EMAIL TO ROW: This bridges the GHL gap
-                        if email_idx == -1: # Add column if missing
+                        if email_idx == -1: 
                             new_col = len(values[0]) + 1
                             worksheet.update_cell(1, new_col, "email")
                             email_idx = new_col - 1
@@ -1519,12 +1519,12 @@ def register():
                 logger.error(f"Code validation error: {e}")
 
         if not is_valid:
-            flash("Invalid code or no subscription.", "error")
+            flash("Invalid code or no subscription found.", "error")
             return redirect("/register")
 
         password_hash = generate_password_hash(form.password.data)
         if User.create(email, password_hash):
-            flash("Account created! Log in.", "success")
+            flash("Account created successfully! Please log in.", "success")
             return redirect("/login")
         else:
             flash("Creation failed.", "error")
@@ -1535,38 +1535,195 @@ def register():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <title>Register | InsuranceGrokBot</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
-        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; }
-        .container { max-width:600px; margin:0 auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; }
-        h1 { color:var(--accent); margin-bottom:40px; }
-        input { width:100%; padding:20px; margin:10px 0; background:#111; border:1px solid #333; color:#fff; border-radius:12px; }
-        button { padding:20px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; cursor:pointer; margin-top:20px; }
-        .flash { padding:15px; margin-bottom:20px; background:#222; border-left:5px solid var(--accent); }
+        :root {
+            --accent: #00ff88;
+            --bg-dark: #050505;
+            --card-glass: rgba(20, 20, 20, 0.6);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 85% 15%, rgba(0, 255, 136, 0.08), transparent 25%),
+                radial-gradient(circle at 15% 85%, rgba(0, 100, 255, 0.05), transparent 25%);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        /* Ambient Animation */
+        .ambient-glow {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            z-index: -1;
+        }
+
+        /* The Glass Card */
+        .register-card {
+            width: 100%;
+            max-width: 480px; /* Slightly wider than login for extra fields */
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .register-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .brand-logo {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            text-align: center; color: var(--text-muted); font-size: 0.95rem; margin-bottom: 30px;
+        }
+
+        /* Form Styling */
+        .form-label { color: #ccc; font-size: 0.85rem; font-weight: 600; margin-left: 5px; }
+
+        .input-group-text {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: none; color: var(--text-muted);
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: none; color: #fff; padding: 12px; font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            background: rgba(0, 0, 0, 0.3); border-color: var(--accent);
+            box-shadow: none; color: #fff;
+        }
+        
+        .input-group:focus-within .input-group-text {
+            border-color: var(--accent); color: var(--accent); background: rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-glow {
+            width: 100%; background: var(--accent); color: #000; font-weight: 700;
+            padding: 14px; border-radius: 12px; border: none; font-size: 1rem;
+            margin-top: 20px; transition: all 0.3s ease;
+        }
+
+        .btn-glow:hover {
+            transform: translateY(-2px); box-shadow: 0 0 25px rgba(0, 255, 136, 0.4); color: #000;
+        }
+
+        .links { text-align: center; margin-top: 25px; font-size: 0.9rem; }
+        .links a { color: var(--text-muted); text-decoration: none; transition: 0.3s; }
+        .links a:hover { color: var(--accent); }
+
+        .divider { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 25px 0; }
+
+        .alert {
+            background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.2);
+            color: #ff4444; font-size: 0.9rem; border-radius: 10px; padding: 10px 15px;
+            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Create Account</h1>
+
+    <div class="ambient-glow"></div>
+
+    <div class="register-card">
+        <div class="brand-logo">
+            Insurance<span style="color:var(--accent);">Grok</span>Bot
+        </div>
+        <p class="subtitle">Initialize your agent account</p>
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="flash">{{ message }}</div>
+                    <div class="alert" style="{{ 'border-color:rgba(0,255,136,0.3); color:#00ff88; background:rgba(0,255,136,0.05);' if category == 'success' else '' }}">
+                        <i class="fa-solid {{ 'fa-check-circle' if category == 'success' else 'fa-circle-exclamation' }}"></i> {{ message }}
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
         <form method="post">
             {{ form.hidden_tag() }}
-            {{ form.email(placeholder="Email") }}
-            {{ form.code(placeholder="Confirmation Code (if from GHL)") }}
-            {{ form.password(placeholder="Password") }}
-            {{ form.confirm(placeholder="Confirm Password") }}
-            {{ form.submit() }}
+            
+            <div class="mb-3">
+                <label class="form-label">Email Address</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
+                    {{ form.email(class="form-control", placeholder="name@agency.com") }}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Confirmation Code <span style="opacity:0.5; font-weight:400;">(From GHL)</span></label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-ticket"></i></span>
+                    {{ form.code(class="form-control", placeholder="XXXX-XXXX") }}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
+                    {{ form.password(class="form-control", placeholder="••••••••") }}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Confirm Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
+                    {{ form.confirm(class="form-control", placeholder="••••••••") }}
+                </div>
+            </div>
+
+            {{ form.submit(class="btn-glow", value="Create Account") }}
         </form>
-        <p style="margin-top:30px;"><a href="/login" style="color:var(--accent);">Already have an account? Log in</a></p>
+
+        <div class="links">
+            <p>Already registered? <a href="/login" style="color:var(--accent); font-weight:600;">Log In</a></p>
+            <div class="divider"></div>
+            <a href="/" style="font-size:0.85rem;"><i class="fa-solid fa-arrow-left me-1"></i> Back to Website</a>
+        </div>
     </div>
+
 </body>
 </html>
     """, form=form)
@@ -1587,36 +1744,227 @@ def login():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <title>Login | InsuranceGrokBot</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
-        :root { --accent: #00ff88; --dark-bg: #000; --card-bg: #0a0a0a; }
-        body { background:var(--dark-bg); color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:60px 20px; }
-        .container { max-width:600px; margin:0 auto; background:var(--card-bg); padding:60px; border-radius:20px; border:1px solid #333; }
-        h1 { color:var(--accent); margin-bottom:40px; }
-        input { width:100%; padding:20px; margin:10px 0; background:#111; border:1px solid #333; color:#fff; border-radius:12px; }
-        button { padding:20px 60px; background:var(--accent); color:#000; font-weight:700; border:none; border-radius:50px; cursor:pointer; margin-top:20px; }
-        .flash { padding:15px; margin-bottom:20px; background:#222; border-left:5px solid #ff4444; }
+        :root {
+            --accent: #00ff88;
+            --bg-dark: #050505;
+            --card-glass: rgba(20, 20, 20, 0.6);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 255, 136, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(0, 100, 255, 0.05), transparent 25%);
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        /* Ambient Animation */
+        .ambient-glow {
+            position: absolute;
+            width: 100%; height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            z-index: -1;
+        }
+
+        /* The Glass Card */
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Top Accent Line */
+        .login-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .brand-logo {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 30px;
+        }
+
+        /* Form Styling */
+        .form-label {
+            color: #ccc;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .input-group-text {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: none;
+            color: var(--text-muted);
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: none;
+            color: #fff;
+            padding: 12px;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: var(--accent);
+            box-shadow: none;
+            color: #fff;
+        }
+        
+        /* Focus state for the whole group */
+        .input-group:focus-within .input-group-text {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-glow {
+            width: 100%;
+            background: var(--accent);
+            color: #000;
+            font-weight: 700;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1rem;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.4);
+            color: #000;
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 0.9rem;
+        }
+        
+        .links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: 0.3s;
+        }
+        .links a:hover { color: var(--accent); }
+
+        .divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 25px 0;
+        }
+
+        /* Alerts */
+        .alert {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Log In</h1>
+
+    <div class="ambient-glow"></div>
+
+    <div class="login-card">
+        <div class="brand-logo">
+            Insurance<span style="color:var(--accent);">Grok</span>Bot
+        </div>
+        <p class="subtitle">Access your command center</p>
+
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="flash">{{ message }}</div>
+                    <div class="alert">
+                        <i class="fa-solid fa-circle-exclamation"></i> {{ message }}
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
         <form method="post">
             {{ form.hidden_tag() }}
-            {{ form.email(placeholder="Email") }}
-            {{ form.password(placeholder="Password") }}
-            {{ form.submit() }}
+            
+            <div class="mb-3">
+                <label class="form-label">Email Address</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
+                    {{ form.email(class="form-control", placeholder="name@agency.com") }}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
+                    {{ form.password(class="form-control", placeholder="••••••••") }}
+                </div>
+            </div>
+
+            {{ form.submit(class="btn-glow", value="Sign In") }}
         </form>
-        <p style="color: #aaa; margin-top:30px;"><a href="/register" style="color:var(--accent);">Need an account? Register</a></p>
+
+        <div class="links">
+            <p>New here? <a href="/register" style="color:var(--accent); font-weight:600;">Create an Account</a></p>
+            <div class="divider"></div>
+            <a href="/" style="font-size:0.85rem;"><i class="fa-solid fa-arrow-left me-1"></i> Back to Website</a>
+        </div>
     </div>
+
 </body>
 </html>
     """, form=form)
@@ -3457,13 +3805,123 @@ def checkout():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Payment Error</title>
-    <style>body{font-family:sans-serif;text-align:center;padding:50px;background:#000;color:#fff;} h1{color:#ff6b6b;}</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Error | InsuranceGrokBot</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --danger: #ff4444; /* High Alert Red */
+            --bg-dark: #050505;
+            --card-glass: rgba(20, 20, 20, 0.6);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            /* Red pulse background */
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(255, 68, 68, 0.08), transparent 60%);
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Ambient Noise Texture */
+        .ambient-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        /* The Glass Card */
+        .error-card {
+            width: 100%;
+            max-width: 450px;
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 50px 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            position: relative;
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        /* Danger Top Border */
+        .error-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--danger), transparent);
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .icon-circle {
+            width: 80px; height: 80px;
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 30px auto;
+            color: var(--danger);
+            font-size: 2rem;
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.15);
+        }
+
+        h1 { color: #fff; font-weight: 700; font-size: 1.8rem; margin-bottom: 10px; }
+        p { color: var(--text-muted); margin-bottom: 40px; font-size: 1rem; line-height: 1.5; }
+
+        .btn-outline {
+            display: inline-block; width: 100%; text-decoration: none;
+            background: transparent; color: #fff; font-weight: 600;
+            padding: 14px; border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1rem; transition: all 0.3s ease;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05); border-color: #fff;
+            transform: translateY(-2px);
+        }
+        
+        .tech-details {
+            margin-top: 20px; font-size: 0.75rem; color: #555; font-family: monospace;
+        }
+    </style>
 </head>
 <body>
-    <h1>Payment Initialization Error</h1>
-    <p>Please try again or contact support.</p>
-    <a href="/" style="color:#00ff88;">Back to Home</a>
+
+    <div class="ambient-glow"></div>
+
+    <div class="error-card">
+        <div class="icon-circle">
+            <i class="fa-solid fa-server"></i>
+        </div>
+        
+        <h1>Gateway Error</h1>
+        <p>We couldn't initialize the secure payment portal. This is likely a temporary connection issue with the payment processor.</p>
+
+        <a href="/" class="btn-outline">
+            <i class="fa-solid fa-rotate-left me-2"></i> Return Home & Try Again
+        </a>
+        
+        <div class="tech-details">Error Code: 500 | Stripe Handshake Failed</div>
+    </div>
+
 </body>
 </html>
         """), 500
@@ -3476,18 +3934,132 @@ def cancel():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout Canceled</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <title>Process Aborted | InsuranceGrokBot</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
-        body { background:#000; color:#fff; font-family:'Montserrat',sans-serif; text-align:center; padding:100px 20px; }
-        h1 { color:#00ff88; margin-bottom:20px; }
-        a { color:#aaa; text-decoration:underline; }
+        :root {
+            --accent: #00ff88;
+            --alert: #ff4444; /* Soft Crimson for Cancel */
+            --bg-dark: #050505;
+            --card-glass: rgba(20, 20, 20, 0.6);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            /* A slightly red-tinted ambient glow for visual context */
+            background-image: 
+                radial-gradient(circle at 50% 10%, rgba(255, 68, 68, 0.05), transparent 40%),
+                radial-gradient(circle at 85% 90%, rgba(0, 255, 136, 0.02), transparent 40%);
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Ambient Noise Texture */
+        .ambient-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        /* The Glass Card */
+        .cancel-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 50px 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            position: relative;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        /* Red top border instead of green */
+        .cancel-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--alert), transparent);
+        }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .icon-circle {
+            width: 80px; height: 80px;
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 30px auto;
+            color: var(--alert);
+            font-size: 2rem;
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.15);
+        }
+
+        h1 { color: #fff; font-weight: 700; font-size: 1.8rem; margin-bottom: 10px; }
+        p { color: var(--text-muted); margin-bottom: 40px; font-size: 1rem; line-height: 1.5; }
+
+        .btn-outline {
+            display: inline-block;
+            width: 100%;
+            text-decoration: none;
+            background: transparent;
+            color: #fff;
+            font-weight: 600;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: #fff;
+            transform: translateY(-2px);
+        }
+
+        .sub-link {
+            display: block;
+            margin-top: 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+        .sub-link:hover { color: #fff; }
     </style>
 </head>
 <body>
-    <h1>Checkout Canceled</h1>
-    <p>No charges were made.</p>
-    <a href="/">Return Home</a>
+
+    <div class="ambient-glow"></div>
+
+    <div class="cancel-card">
+        <div class="icon-circle">
+            <i class="fa-solid fa-xmark"></i>
+        </div>
+        
+        <h1>Checkout Canceled</h1>
+        <p>The transaction was aborted. No charges were made to your card and your subscription remains inactive.</p>
+
+        <a href="/" class="btn-outline">
+            <i class="fa-solid fa-arrow-left me-2"></i> Return to Homepage
+        </a>
+        
+        <a href="/#pricing" class="sub-link">Changed your mind? View Pricing</a>
+    </div>
+
 </body>
 </html>
     """
@@ -3505,8 +4077,7 @@ def success():
         except Exception as e:
             logger.error(f"Stripe session retrieve failed: {e}")
 
-    # If we have an email, check if user exists. 
-    # If they exist but have no password (created via webhook), show set password.
+    # SCENARIO 1: User exists but needs a password (created via Webhook)
     if email:
         user = User.get(email)
         if user and not user.password_hash:
@@ -3516,39 +4087,139 @@ def success():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Set Password</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <title>Secure Account | InsuranceGrokBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {{ background:#000; color:#fff; font-family:'Montserrat',sans-serif; padding:50px; text-align:center; }}
-        input {{ padding:15px; width:300px; margin:10px; border-radius:10px; border:none; }}
-        button {{ padding:15px 40px; background:#00ff88; border:none; border-radius:50px; font-weight:bold; cursor:pointer; }}
+        :root {{ --accent: #00ff88; --bg-dark: #050505; --card-glass: rgba(20, 20, 20, 0.6); --text-muted: #8892b0; }}
+        body {{
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at 50% 10%, rgba(0, 255, 136, 0.1), transparent 40%);
+            font-family: 'Outfit', sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0;
+        }}
+        .ambient-glow {{
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }}
+        .glass-card {{
+            width: 100%; max-width: 450px; background: var(--card-glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); position: relative;
+        }}
+        .glass-card::before {{
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }}
+        @keyframes slideUp {{ from {{ opacity: 0; transform: translateY(30px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+        h1 {{ color: #fff; font-weight: 700; font-size: 1.8rem; margin-bottom: 10px; }}
+        p {{ color: var(--text-muted); margin-bottom: 30px; font-size: 0.95rem; }}
+        .form-control {{
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff; padding: 12px; border-radius: 10px; margin-bottom: 15px;
+        }}
+        .form-control:focus {{ background: rgba(0,0,0,0.3); border-color: var(--accent); box-shadow: none; color: #fff; }}
+        .btn-glow {{
+            width: 100%; background: var(--accent); color: #000; font-weight: 700;
+            padding: 14px; border-radius: 12px; border: none; font-size: 1rem; margin-top: 10px;
+            transition: all 0.3s ease;
+        }}
+        .btn-glow:hover {{ transform: translateY(-2px); box-shadow: 0 0 25px rgba(0, 255, 136, 0.4); }}
+        .email-badge {{
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 15px; border-radius: 50px; display: inline-block; margin-bottom: 25px;
+            color: #fff; font-size: 0.9rem;
+        }}
     </style>
 </head>
 <body>
-    <h1>Set Your Password</h1>
-    <p>For account: {email}</p>
-    <form action="/set-password" method="post">
-        <input type="hidden" name="email" value="{email}">
-        <input type="password" name="password" placeholder="New Password" required><br>
-        <input type="password" name="confirm" placeholder="Confirm Password" required><br>
-        <button type="submit">Save & Login</button>
-    </form>
+    <div class="ambient-glow"></div>
+    <div class="glass-card">
+        <div style="font-size:3rem; color:var(--accent); margin-bottom:20px;">
+            <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h1>Secure Your Account</h1>
+        <p>Your subscription is active. Please set a password to access your dashboard.</p>
+        
+        <div class="email-badge"><i class="fa-regular fa-envelope me-2"></i> {email}</div>
+
+        <form action="/set-password" method="post">
+            <input type="hidden" name="email" value="{email}">
+            <input type="password" name="password" class="form-control" placeholder="New Password" required>
+            <input type="password" name="confirm" class="form-control" placeholder="Confirm Password" required>
+            <button type="submit" class="btn-glow">Save & Access Dashboard</button>
+        </form>
+    </div>
 </body>
 </html>
             """)
 
+    # SCENARIO 2: Generic Success (Already has password or just viewing receipt)
     return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Success</title>
-    <style>body{background:#000;color:#fff;font-family:sans-serif;text-align:center;padding:100px;}</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Success | InsuranceGrokBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root { --accent: #00ff88; --bg-dark: #050505; --card-glass: rgba(20, 20, 20, 0.6); --text-muted: #8892b0; }
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at 50% 10%, rgba(0, 255, 136, 0.15), transparent 50%);
+            font-family: 'Outfit', sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0;
+        }
+        .ambient-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .glass-card {
+            width: 100%; max-width: 450px; background: var(--card-glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 50px 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); position: relative;
+        }
+        .glass-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .success-icon {
+            width: 80px; height: 80px; background: rgba(0, 255, 136, 0.1);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 30px auto; color: var(--accent); font-size: 2.5rem;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+        }
+        
+        h1 { color: #fff; font-weight: 700; font-size: 2rem; margin-bottom: 10px; }
+        p { color: var(--text-muted); margin-bottom: 40px; font-size: 1.1rem; }
+        
+        .btn-glow {
+            display: inline-block; width: 100%; text-decoration: none;
+            background: var(--accent); color: #000; font-weight: 700;
+            padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        .btn-glow:hover { transform: translateY(-2px); box-shadow: 0 0 25px rgba(0, 255, 136, 0.4); color: #000; }
+    </style>
 </head>
 <body>
-    <h1>Payment Successful!</h1>
-    <p>Your account is active.</p>
-    <a href="/login" style="color:#00ff88;">Click here to Log In</a>
+    <div class="ambient-glow"></div>
+    <div class="glass-card">
+        <div class="success-icon">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <h1>Payment Confirmed</h1>
+        <p>Your subscription is officially active. Welcome to the future of insurance automation.</p>
+        <a href="/login" class="btn-glow">Launch Dashboard</a>
+    </div>
 </body>
 </html>
     """)
