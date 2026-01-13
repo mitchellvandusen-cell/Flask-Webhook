@@ -1,40 +1,40 @@
 # Core web framework & utilities
-flask==3.0.3
-gunicorn==22.0.0
-werkzeug==3.0.3
-requests==2.32.3
-python-dotenv==1.0.1
+flask
+gunicorn
+werkzeug
+requests
+python-dotenv
 
 # Database & ORM
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.31
-flask-sqlalchemy==3.1.1
+psycopg2-binary
+sqlalchemy
+flask-sqlalchemy
 
 # Authentication & forms
-flask-login==0.6.3
-flask-wtf==1.2.1
-wtforms==3.1.2
-email-validator==2.2.0
+flask-login
+flask-wtf
+wtforms
+email-validator
 
 # AI & NLP
-openai==1.18
-spacy==3.8.0
+openai
+spacy
 en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
-dateparser==1.2.0
+dateparser
 
 # Google Sheets & OAuth
-gspread==6.1.2
-google-auth==2.34.0
-google-auth-oauthlib==1.2.1
-google-auth-httplib2==0.2.0
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
 oauth2client==4.1.3  # Legacy but still needed for some GHL flows
 
 # Stripe payments
-stripe==10.6.0
+stripe
 
 # Background jobs & Redis
-redis==5.0.8
-rq==1.16.2
+redis
+rq
 
 # Optional (only if you use outcome_learning / classify_vibe)
-scikit-learn==1.5.1  # Uncomment if needed for ML-based vibe classification
+scikit-learn
