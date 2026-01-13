@@ -4802,7 +4802,7 @@ def cancel():
     """
     return render_template_string(cancel_html)
 
-@app.route("/checkout")
+@app.route("/checkout/agency-pro")
 def checkout():
     try:
         # Pre-fill email if user is logged in
