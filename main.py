@@ -2043,26 +2043,43 @@ def dashboard():
     sub = get_subscriber_info(location_id) if location_id else None
 
     # Safe display values (Masked)
-    access_token_display = 'Not set'
-    refresh_token_display = 'Not set'
-    expires_in_str = 'Not set'
-
-    if sub:
+# Defaults: Assume we need to input them (Editable / Empty)
+    access_token_display = ''
+    refresh_token_display = ''
+    expires_in_str = ''
+    token_field_state = ''  # If empty, HTML input is editable. If "readonly", it's locked.
+    
+    # LOGIC: Check if we actually have a token
+    if sub and sub.get('access_token'):
+        # CONDITION MET: Token exists -> Lock the field
+        token_field_state = 'readonly'
+        
         # Mask tokens visually (e.g., "pit-ae0f...2ce3")
-        at = sub.get('access_token', 'Not set')
+        at = sub.get('access_token', '')
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
         
-        rt = sub.get('refresh_token', 'Not set')
+        rt = sub.get('refresh_token', '')
         refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
         
         expires_at = sub.get('token_expires_at')
         if expires_at:
+            if isinstance(expires_at, str):
+                # Handle case where it might be loaded as string from JSON
+                try:
+                    expires_at = datetime.fromisoformat(expires_at)
+                except:
+                    expires_at = datetime.now() # Fallback
+
             delta = expires_at - datetime.now()
             hours = delta.total_seconds() // 3600
             minutes = (delta.total_seconds() % 3600) // 60
             expires_in_str = f"Expires in {int(hours)}h {int(minutes)}m"
         else:
             expires_in_str = "Persistent"
+    else:
+        # CONDITION NOT MET: No token -> Editable
+        # We leave access_token_display as '' so the placeholder shows
+        pass
 
     return render_template_string(
 """
@@ -2406,7 +2423,7 @@ def dashboard():
     </script>
 </body>
 </html>
-""", form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, expires_in_str=expires_in_str, sub=sub, row=row if user_row_num else [], user_row_num=user_row_num, user_name_idx=user_name_idx, phone_idx=phone_idx, bio_idx=bio_idx)
+""", form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, token_readonly=token_field_state, expires_in_str=expires_in_str, sub=sub, row=row if user_row_num else [], user_row_num=user_row_num, user_name_idx=user_name_idx, phone_idx=phone_idx, bio_idx=bio_idx)
 @app.route("/save-profile", methods=["POST"])
 @login_required
 def save_profile():
