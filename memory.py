@@ -12,7 +12,15 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
+
+client = None
+if XAI_API_KEY:
+    client = OpenAI(
+        api_key=XAI_API_KEY,
+        base_url="https://api.x.ai/v1",
+        # No proxies — not needed and breaks newer versions
+        # If you ever need proxies, use: http_client=httpx.Client(proxies=...)
+    )
 
 # ===================================
 # MESSAGE STORAGE & RETRIEVAL
