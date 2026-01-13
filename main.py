@@ -3120,7 +3120,6 @@ def demo_chat():
         const txt = input.value.trim();
         if(!txt) return;
 
-        addBubble(txt, false);
         input.value = '';
         input.style.height = 'auto';
         document.getElementById('snd-send').play().catch(e=>{{}});
