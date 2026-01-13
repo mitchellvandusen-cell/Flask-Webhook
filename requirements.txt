@@ -18,7 +18,7 @@ email-validator==2.2.0
 
 # AI & NLP
 openai==1.40.0
-spacy==3.8.0
+spacy==3.7.6
 en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl
 dateparser==1.2.0
 
