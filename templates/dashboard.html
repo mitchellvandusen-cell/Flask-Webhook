@@ -210,11 +210,11 @@
         <div class="config-group">
             <div class="config-label">Operator Profile</div>
             
-            <input type="text" class="profile-input" id="user_name" placeholder="Full Name" value="{{ profile.full_name or '' }}" readonly>
+            <input type="text" class="profile-input" id="user_name" placeholder="Full Name" value="{{ profile.user_name }}">
             
             <input type="tel" class="profile-input" id="phone" placeholder="Phone Number" value="{{ profile.phone or '' }}" readonly>
             
-            <textarea class="profile-input" id="bio" rows="2" placeholder="Agent Bio / Notes">{{ profile.bio or '' }}</textarea>
+            <textarea class="profile-input" id="bio" rows="2" placeholder="Agent Bio / Notes">{{ profile.bio }}</textarea>
             
             <button class="btn btn-outline-light btn-sm w-100 mt-2" onclick="saveProfile()" style="border-radius:20px;">
                 <i class="fa-solid fa-floppy-disk me-2"></i> Save Profile
