@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Live Demo | InsuranceGrokBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --accent: #00ff88;
+            --bg-dark: #050505;
+            --phone-bezel: #1c1c1e;
+            --phone-screen: #000000;
+            --bubble-user: #00ff88;
+            --bubble-bot: #262626;
+            --text-user: #000;
+            --text-bot: #fff;
+            --terminal-bg: #0a0a0a;
+            
+            /* DYNAMIC SAFE AREAS */
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            overscroll-behavior: none;
+            
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            display: flex;
+            gap: 40px;
+            width: 100%;
+            max-width: 1400px;
+            height: 100%;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- PHONE CHASSIS (Desktop) --- */
+        .phone-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            height: 95%;
+            max-height: 850px;
+            background: var(--phone-bezel);
+            border-radius: 55px;
+            box-shadow: 
+                0 0 0 4px #333,
+                0 0 0 7px #111,
+                0 30px 60px rgba(0,0,0,0.6),
+                inset 0 0 20px rgba(0,0,0,0.8);
+            padding: 15px; 
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .phone-screen {
+            background: var(--phone-screen);
+            width: 100%;
+            height: 100%;
+            border-radius: 42px; 
+            position: relative;
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #222;
+        }
+
+        /* --- UI ELEMENTS --- */
+        .notch-area {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 35px;
+            background: #000;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            z-index: 100;
+        }
+        
+        .status-bar {
+            height: auto;
+            min-height: 50px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 90;
+            flex-shrink: 0;
+        }
+
+        .chat-area {
+            flex: 1; 
+            width: 100%;
+            min-height: 0;
+            overflow-y: auto; 
+            padding: 10px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+        .chat-area::-webkit-scrollbar { display: none; }
+
+        .input-area {
+            width: 100%;
+            padding: 15px 20px calc(15px + var(--safe-bottom)) 20px;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            border-top: 1px solid #222;
+            flex-shrink: 0;
+            z-index: 20;
+        }
+
+        /* --- BUBBLES --- */
+        .msg {
+            max-width: 85%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            position: relative;
+            animation: popIn 0.3s ease-out;
+            word-wrap: break-word;
+        }
+        @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .msg.bot { align-self: flex-start; background: var(--bubble-bot); color: var(--text-bot); border-bottom-left-radius: 4px; }
+        .msg.user { align-self: flex-end; background: var(--bubble-user); color: var(--text-user); border-bottom-right-radius: 4px; font-weight: 600; }
+
+        .input-field {
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 25px;
+            padding: 12px 15px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            resize: none;
+            max-height: 100px;
+            min-height: 44px;
+            outline: none;
+        }
+
+        .send-btn {
+            background: var(--accent); color: #000; border: none; width: 44px; height: 44px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; box-shadow: 0 0 15px rgba(0,255,136,0.2);
+        }
+
+        /* --- TERMINAL (Desktop Only) --- */
+        .terminal-col {
+            flex: 1; height: 95%; max-height: 850px;
+            background: var(--terminal-bg);
+            border: 1px solid #333; border-radius: 20px;
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .log-content { flex: 1; padding: 20px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #ccc; }
+        .log-entry { margin-bottom: 15px; padding-left:10px; border-left: 2px solid #333; }
+
+        /* --- MOBILE SPECIFIC LOCKS --- */
+        @media (max-width: 900px) {
+            .container { padding: 0; height: 100dvh; }
+            .terminal-col { display: none; }
+            
+            .phone-wrapper { 
+                width: 100%; max-width: none; height: 100%; max-height: none;
+                border-radius: 0; border: none; box-shadow: none; padding: 0;
+            }
+            .phone-screen { border-radius: 0; border: none; }
+            
+            .notch-area { display: none; } 
+            
+            .status-bar {
+                padding-top: calc(15px + var(--safe-top));
+            }
+        }
+
+        /* Typing Dots */
+        .typing { display: flex; gap: 4px; padding: 15px; align-self: flex-start; background: var(--bubble-bot); border-radius: 20px; border-bottom-left-radius: 4px; }
+        .dot { width: 6px; height: 6px; background: #888; border-radius: 50%; animation: bounce 1.4s infinite; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="phone-wrapper">
+        <div class="phone-screen">
+            <div class="notch-area"></div>
+            
+            <div class="status-bar">
+                <span id="clock">10:00</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <i class="fas fa-signal"></i>
+                    <i class="fas fa-wifi"></i>
+                    <i class="fas fa-battery-full"></i>
+                </div>
+            </div>
+
+            <div class="chat-area" id="chat"></div>
+
+            <div class="input-area">
+                <textarea id="msgInput" class="input-field" placeholder="Message..." rows="1"></textarea>
+                <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="terminal-col">
+        <div style="padding:15px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:#fff; font-weight:700;"><span style="color:var(--accent); margin-right:8px;">●</span>LIVE BRAIN ACTIVITY</span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; color:#555;">ID: [clean_id_placeholder]</span>
+        </div>
+        <div class="log-content" id="logWindow">
+            <div style="color:#555;">> Initializing neural connection...</div>
+        </div>
+        <div style="padding:15px; border-top:1px solid #333; display:flex; gap:10px;">
+            <button onclick="resetSession()" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; cursor:pointer;">Reset</button>
+            <a href="/download-transcript?contact_id=demo_contact_placeholder" target="_blank" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; text-align:center; text-decoration:none; font-size:13px;">Download Logs</a>
+        </div>
+    </div>
+
+</div>
+
+<audio id="snd-send" src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"></audio>
+<audio id="snd-receive" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
+
+<script>
+    // GLOBAL VARIABLES
+    let currentContactId = 'demo_contact_placeholder';  // Replace with real value from backend
+    let lastMsgCount = 0;
+    
+    // HELPERS
+    function cleanContent(raw) {
+        if (!raw) return "";
+        try {           
+            if (raw.trim().startsWith('{')) {
+                const parsed = JSON.parse(raw);
+                return parsed.body || parsed.message || parsed.text || raw;
+            }
+        } catch (e) {}
+        return raw;
+    }
+
+    function init() {
+        // Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        }, 1000);
+
+        // Input auto-expand
+        const input = document.getElementById('msgInput');
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+        input.addEventListener('keypress', function(e) {
+            if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        });
+
+        // Start syncing
+        syncData();
+        setInterval(syncData, 2000);
+    }
+
+    // MAIN SYNC LOOP
+    async function syncData() {
+        try {
+            const res = await fetch(`/get-logs?contact_id=${currentContactId}`);
+            const data = await res.json();
+            const messages = data.logs.filter(l => l.type.includes('Message'));
+
+            if (messages.length > lastMsgCount) {
+                if (lastMsgCount > 0) {
+                    const lastMsg = messages[messages.length - 1];
+                    if (lastMsg.type.toLowerCase().includes('bot') || lastMsg.type.toLowerCase().includes('assistant')) {
+                        document.getElementById('snd-receive').play().catch(e=>{});
+                    }
+                }
+
+                const newSlice = messages.slice(lastMsgCount);
+                newSlice.forEach(msg => {
+                    const text = cleanContent(msg.content);
+                    const isBot = msg.type.toLowerCase().includes('bot') || msg.type.toLowerCase().includes('assistant');
+                    addBubble(text, isBot);
+                });
+
+                lastMsgCount = messages.length;
+                
+                const typing = document.getElementById('typing-indicator');
+                if (typing) typing.remove();
+            }
+
+            if (data.logs) {
+                const logs = document.getElementById('logWindow');
+                logs.innerHTML = '';
+                data.logs.forEach(l => {
+                    const time = l.timestamp.split('T')[1].split('.')[0];
+                    logs.insertAdjacentHTML('beforeend', `
+                        <div class="log-entry">
+                            <span style="color:#666">[${time}]</span> 
+                            <span style="color:var(--accent); font-weight:700;">${l.type}</span><br>
+                            ${cleanContent(l.content)}
+                        </div>`);
+                });
+                logs.scrollTop = logs.scrollHeight;
+            }
+
+        } catch (e) { console.error(e); }
+    }
+
+    // UI HELPERS
+    function addBubble(text, isBot) {
+        const chat = document.getElementById('chat');
+        const div = document.createElement('div');
+        div.className = `msg ${isBot ? 'bot' : 'user'}`;
+        div.innerText = text;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function showTyping() {
+        if (document.getElementById('typing-indicator')) return;
+        const chat = document.getElementById('chat');
+        const div = document.createElement('div');
+        div.id = 'typing-indicator';
+        div.className = 'typing';
+        div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    // SEND MESSAGE
+    async function sendMessage() {
+        const input = document.getElementById('msgInput');
+        const txt = input.value.trim();
+        if (!txt) return;
+
+        addBubble(txt, false);
+
+        lastMsgCount++;
+
+        input.value = '';
+        input.style.height = 'auto';
+        document.getElementById('snd-send').play().catch(e=>{});
+        showTyping();
+
+        try {
+            await fetch('/webhook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    location_id: 'DEMO_LOC',
+                    contact_id: currentContactId,
+                    first_name: 'Demo User',
+                    message: { body: txt }
+                })
+            });
+        } catch(e) {
+            console.error(e);
+            addBubble("System: Connection lost. Please refresh.", true);
+        }
+    }
+
+    // RESET SESSION
+    async function resetSession() {
+        const chatBox = document.getElementById('chat'); 
+        
+        chatBox.innerHTML = ''; 
+
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'typing'; 
+        loadingDiv.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+        chatBox.appendChild(loadingDiv);
+
+        try {
+            const newSessionId = crypto.randomUUID();
+            
+            currentContactId = 'demo_' + newSessionId;
+            lastMsgCount = 0;
+
+            const response = await fetch('/api/demo/reset', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: newSessionId }) 
+            });
+
+            const data = await response.json();
+
+            loadingDiv.remove();
+            addBubble(data.message, true);
+
+        } catch (error) {
+            console.error('Error:', error);
+            loadingDiv.remove();
+        }
+    }
+
+    // AUTO-START
+    window.onload = function() {
+        init();
+    };
+</script>
+</body>
+</html>

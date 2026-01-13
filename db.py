@@ -59,6 +59,7 @@ def init_db() -> bool:
     try:
         cur = conn.cursor()
 
+
         # Users table (auth + Stripe)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -127,6 +128,7 @@ def init_db() -> bool:
             CREATE TABLE IF NOT EXISTS contact_narratives (
                 contact_id TEXT PRIMARY KEY,
                 story_narrative TEXT DEFAULT '',
+                location_id TEXT, DEFAULT '',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -138,6 +140,7 @@ def init_db() -> bool:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        upgrade_db_for_agency()
 
         conn.commit()
         logger.info("All database tables initialized successfully")
@@ -153,11 +156,28 @@ def init_db() -> bool:
             conn.close()
 
 class User(UserMixin):
-    def __init__(self, email: str, password_hash: Optional[str] = None, stripe_customer_id: Optional[str] = None):
+    def __init__(self, email: str, password_hash: Optional[str] = None, stripe_customer_id: Optional[str] = None, role: str = 'individual', subscription_tier: str = 'individual'):
         self.id = email
         self.email = email
         self.password_hash = password_hash
         self.stripe_customer_id = stripe_customer_id
+        self.role = role
+        self.subscription_tier = subscription_tier
+    @property
+    def is_agency_owner(self) -> bool:
+        return self.role == 'agency_owner'
+    @property
+    def is_individual(self) -> bool:
+        return self.role == 'individual'
+    @property
+    def plan_name(self) -> str:
+        if self.subscription_tier == 'individual':
+            return "Individual" 
+        elif self.subscription_tier == 'agency_starter':
+            return "Agency Starter"
+        elif self.subscription_tier == 'agency_pro':
+            return "Agency Pro"
+        return self.subscription_tier
 
     @staticmethod
     def get(email: str) -> Optional['User']:
@@ -166,21 +186,34 @@ class User(UserMixin):
             return None
         try:
             cur = conn.cursor()
-            cur.execute("SELECT email, password_hash, stripe_customer_id FROM users WHERE email = %s", (email,))
+            cur.execute("""
+                SELECT email, password_hash, stripe_customer_id, role, subscription_tier
+                FROM users WHERE email = %s",
+            """,  (email,))
             row = cur.fetchone()
             if row:
-                return User(row['email'], row['password_hash'], row['stripe_customer_id'])
+                return User(
+                    email=row['email'],
+                    password_hash=row['password_hash'],
+                    stripe_customer_id=row['stripe_customer_id'],
+                    role=row.get('role', 'individual'),
+                    subscription_tier=row.get('subscription_tier', 'individual')
+                )
             return None
         except psycopg2.Error as e:
             logger.error(f"User.get failed for {email}: {e}")
             return None
         finally:
-            if conn:
-                cur.close()
-                conn.close()
+            cur.close()
+            conn.close()
 
     @staticmethod
-    def create(email: str, password: Optional[str] = None, stripe_customer_id: Optional[str] = None) -> bool:
+    def create(
+        email: str,
+        password: Optional[str] = None,
+        stripe_customer_id: Optional[str] = None,
+        role: str = 'user'
+    ) -> bool:
         password_hash = generate_password_hash(password) if password else None
         conn = get_db_connection()
         if not conn:
@@ -188,22 +221,24 @@ class User(UserMixin):
         try:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO users (email, password_hash, stripe_customer_id) VALUES (%s, %s, %s)",
-                (email, password_hash, stripe_customer_id)
+                """
+                INSERT INTO users (email, password_hash, stripe_customer_id, role) \
+                VALUES (%s, %s, %s, %s)
+                """
+                (email, password_hash, stripe_customer_id, role)
             )
             conn.commit()
             return True
         except psycopg2.IntegrityError:
-            logger.warning(f"User.create: duplicate email {email}")
+            logger.warning(f"User.create duplicate email {email}")
             return False
         except psycopg2.Error as e:
             logger.error(f"User.create failed for {email}: {e}")
             conn.rollback()
             return False
         finally:
-            if conn:
-                cur.close()
-                conn.close()
+            cur.close()
+            conn.close()
 
 
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
@@ -218,7 +253,12 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         # Note: We don't need to pass cursor_factory here if it's in the connection
         cur = conn.cursor()
         cur.execute("""
-            SELECT * FROM subscribers 
+            SELECT
+                location_id, calendar_id, access_token, refresh_token
+                crm_user_id, bot_first_name, timezone, email, initial_message,
+                confirmation_code, stripe_customer_id, parent_agency_email,
+                subscription_tier
+            FROM subscribers
             WHERE location_id = %s
             LIMIT 1
         """, (location_id,))
@@ -227,7 +267,7 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         return dict(row) if row else None
 
     except Exception as e:
-        logger.error(f"SQL subscriber lookup failed for {location_id}: {e}")
+        logger.error(f"SQL subscriber lookup failed for {location_id}: {e}", exc_info=True)
         return None
     finally:
         if 'cur' in locals(): cur.close()
@@ -246,7 +286,11 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
 
     # 2. Fallback path: Google Sheets
     # Lazy import to avoid circular dependency with main.py
-    from main import gc, sheet_url 
+    try:
+        from main import gc, sheet_url
+    except ImportError:
+        logger.warning("Sheets recovery unavailable: Credenitals or URL missing.")
+        return None
     
     if not gc or not sheet_url:
         logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
@@ -266,11 +310,18 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
         expected_headers = [
             "location_id", "calendar_id", "access_token", "refresh_token",
             "crm_user_id", "bot_first_name", "timezone", "email", "initial_message",
-            "confirmation_code", "stripe_customer_id", "parent_agency_email", "role"
+            "confirmation_code", "stripe_customer_id", "parent_agency_email", "subscription_tier"
         ]
 
         # Map header names to their column index (0-based)
-        col_map = {hdr: headers.index(hdr) for hdr in expected_headers if hdr in headers}
+        col_map ={}
+        for hdr in expected_headers:
+            try:
+                col_map[hdr] = headers.index(hdr)
+            except ValueError:
+                if hdr != "subscription_tier":  # Allow missing subscription_tier
+                    logger.warning(f"Expected header '{hdr}' not found in Subscribers sheet.")
+            
         
         if "location_id" not in col_map:
             logger.error("Critical: 'location_id' column not found in Subscribers sheet.")
@@ -279,21 +330,20 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
         # Optimization: Use .find() for a targeted search
         # find() is 1-based, so we add 1 to the index
         cell = worksheet.find(location_id, in_column=col_map["location_id"] + 1)
+        if not cell:
+            logger.warning(f"Location {location_id} not found in Google Sheets.")
+            return None
         
-        if cell:
-            row_data = worksheet.row_values(cell.row)
-            
-            # Build the subscriber dictionary based on your specific columns
-            subscriber = {}
-            for hdr, idx in col_map.items():
-                if idx < len(row_data):
-                    subscriber[hdr] = row_data[idx]
-            
-            logger.info(f"Sheets recovery success for {location_id} (Relational Sync Active)")
-            return subscriber
-
-        logger.warning(f"Location {location_id} not found in SQL or Google Sheets.")
-        return None
+        row_data = worksheet.row_values(cell.row)
+        # Build the subscriber dictionary based on your specific columns
+        subscriber = {}
+        for hdr, col_idx in col_map.items():
+            if col_idx < len(row_data):
+                value = row_data[col_idx]
+                subscriber[hdr] = None if value == "" else value
+        
+        logger.info(f"Sheets recovery success for {location_id} (Relational Sync Active)")
+        return subscriber
 
     except Exception as e:
         logger.error(f"Sheets recovery failed for {location_id}: {e}", exc_info=True)
@@ -356,15 +406,41 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
 # Add these columns to your existing 'users' and 'subscribers' tables
 def upgrade_db_for_agency():
     conn = get_db_connection()
-    cur = conn.cursor()
-    # Track who is an Agency Owner vs a Standard User
-    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';") # 'user' or 'agency_owner'
+    if not conn:
+        logger.error("Database connection failed during agency upgrade.")
+        return False
+    try:
+        cur = conn.cursor()
+        # Track who is an Agency Owner vs a Standard User
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'individual';") # 'user' or 'agency_owner'
+        
+        # Link subscribers to an Agency Owner
+        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS parent_agency_email TEXT;")
+        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'individual';") # 'individual', 'starter', 'pro'
+        cur.execute("""
+            UPDATE users
+            SET role = 'individual',
+                subscription_tier = 'individual'
+            WHERE role IS NULL OR subscription_tier IS NULL;
+        """)
+        cur.execute("""
+            UPDATE subscribers
+            SET subscription_tier = 'individual'
+            WHERE subscription_tier IS NULL;
+        """)
+        conn.commit()
+        logger.infor(f"Agency & subscription schema upgraded.")
+        return True
     
-    # Link subscribers to an Agency Owner
-    cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS parent_agency_email TEXT;")
-    cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'individual';") # 'individual', 'starter', 'pro'
-    conn.commit()
-    cur.close()
+    except psycopg2.Error as e:
+        logger.error(f"Agency Upgrade failed: {e}", exc_info=True)
+        conn.rollback()
+        return False
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 def update_subscriber_token(
     location_id: str,

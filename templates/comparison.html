@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsuranceGrokBot vs. The Rest</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #00ff88;
+            --primary-glow: rgba(0, 255, 136, 0.4);
+            --dark-bg: #050505;
+            --card-glass: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 50% 10%, rgba(0, 255, 136, 0.05), transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(66, 133, 244, 0.05), transparent 40%);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* --- Typography --- */
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+        
+        .main-header {
+            text-align: center;
+            margin: 60px 0 40px;
+        }
+
+        .main-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 30%, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        /* --- THE HERO CARD (Top Position) --- */
+        .hero-card {
+            background: linear-gradient(180deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.95) 100%);
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 50px rgba(0, 255, 136, 0.08);
+            border-radius: 24px;
+            padding: 3rem;
+            position: relative;
+            margin-bottom: 60px; /* Space between Hero and Competitors */
+            overflow: hidden;
+        }
+
+        /* Top shimmer line */
+        .hero-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            animation: shimmer 2.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--primary);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border: 1px solid rgba(0, 255, 136, 0.2);
+        }
+
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        /* --- New Grid Layout for Hero Features --- */
+        .hero-features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 Columns strictly */
+            gap: 30px 40px; /* Row gap 30px, Col gap 40px */
+            margin-top: 40px;
+        }
+
+        .hero-feature-item {
+            display: flex;
+            align-items: flex-start; /* Align to top so icon stays up if text wraps */
+            gap: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .hero-feature-item:last-child, 
+        .hero-feature-item:nth-last-child(2) {
+            border-bottom: none; /* Remove border for last row */
+        }
+
+        .icon-box {
+            background: var(--primary);
+            color: #000;
+            min-width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            margin-top: 2px; /* Visual tweak to align with text cap height */
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+        }
+
+        .text-content {
+            display: flex;
+            flex-direction: column; /* Stacks Title on top of Desc */
+        }
+
+        .feature-title {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .feature-desc {
+            font-size: 0.95rem;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        /* --- Competitor Grid (Bottom) --- */
+        .competitor-section-title {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.5rem;
+            color: #fff;
+            opacity: 0.8;
+        }
+
+        .competitor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .glass-card {
+            background: var(--card-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .competitor-card .card-logo {
+            height: 40px;
+            margin-bottom: 20px;
+            filter: grayscale(100%) opacity(0.6);
+            transition: all 0.3s;
+        }
+        .competitor-card:hover .card-logo {
+            filter: grayscale(0%) opacity(1);
+        }
+
+        .competitor-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+        
+        .competitor-list li {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .icon-cross { color: #555; }
+        .icon-check-mute { color: #444; }
+
+        /* --- Footer --- */
+        .cta-container { margin: 80px 0; text-align: center; }
+        .glow-btn {
+            background: var(--primary);
+            color: #000;
+            padding: 16px 45px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: var(--transition);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+            display: inline-block;
+        }
+        .glow-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.6);
+            color: #000;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .hero-features-grid { grid-template-columns: 1fr; gap: 20px; }
+            .hero-card { padding: 2rem; }
+            .hero-title { font-size: 2.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" style="max-width: 1200px;">
+        
+        <div class="main-header" data-aos="fade-down">
+            <h1 class="main-title">The Choice is Clear</h1>
+            <p class="subtitle">See why agencies are switching to specialized AI.</p>
+        </div>
+
+        <div class="hero-card" data-aos="zoom-in">
+            <span class="hero-badge">Recommended Choice</span>
+            <h2 class="hero-title">InsuranceGrokBot</h2>
+            <p style="color: #bbb; font-size: 1.15rem; max-width: 600px;">
+                The only AI built specifically to re-engage dead leads and book appointments automatically.
+            </p>
+            
+            <div class="hero-features-grid">
+                
+                <div class="hero-feature-item">
+                    <div class="icon-box"><i class="fa-solid fa-check"></i></div>
+                    <div class="text-content">
+                        <span class="feature-title">Deep Insurance Knowledge</span>
+                        <span class="feature-desc">Understands underwriting, policy types, and specific insurance terminology out of the box.</span>
+                    </div>
+                </div>
+
+                <div class="hero-feature-item">
+                    <div class="icon-box"><i class="fa-solid fa-check"></i></div>
+                    <div class="text-content">
+                        <span class="feature-title">5 Sales Methodologies</span>
+                        <span class="feature-desc">Blends NEPQ, Gap Selling, Voss, Ziglar, and Straight Line for maximum persuasion.</span>
+                    </div>
+                </div>
+
+                <div class="hero-feature-item">
+                    <div class="icon-box"><i class="fa-solid fa-check"></i></div>
+                    <div class="text-content">
+                        <span class="feature-title">Persistent Memory</span>
+                        <span class="feature-desc">Remembers client details forever. It never asks for the same information twice.</span>
+                    </div>
+                </div>
+
+                <div class="hero-feature-item">
+                    <div class="icon-box"><i class="fa-solid fa-check"></i></div>
+                    <div class="text-content">
+                        <span class="feature-title">Auto-Booking Engine</span>
+                        <span class="feature-desc">Integrates directly with calendars to book appointments without human intervention.</span>
+                    </div>
+                </div>
+
+                <div class="hero-feature-item">
+                    <div class="icon-box"><i class="fa-solid fa-check"></i></div>
+                    <div class="text-content">
+                        <span class="feature-title">Agency Multi-Tenancy</span>
+                        <span class="feature-desc">Scale effortlessly across multiple teams and sub-accounts from one dashboard.</span>
+                    </div>
+                </div>
+
+                <div class="hero-feature-item">
+                    <div class="icon-box"><i class="fa-solid fa-check"></i></div>
+                    <div class="text-content">
+                        <span class="feature-title">Emotional Intelligence</span>
+                        <span class="feature-desc">Detects hesitation and handles objections naturally rather than using robotic scripts.</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <h3 class="competitor-section-title" data-aos="fade-up">Compare with Others</h3>
+        
+        <div class="competitor-grid">
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="100">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1200px-ChatGPT_logo.svg.png" alt="ChatGPT" class="card-logo">
+                <h4>ChatGPT</h4>
+                <ul class="competitor-list">
+                    <li><i class="fa-solid fa-check icon-check-mute"></i> Great conversation</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No sales frameworks</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No underwriting logic</li>
+                </ul>
+            </div>
+
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="200">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Logo_Grok_AI_%28xAI%29_2025.png/1200px-Logo_Grok_AI_%28xAI%29_2025.png" alt="Grok" class="card-logo">
+                <h4>Grok</h4>
+                <ul class="competitor-list">
+                    <li><i class="fa-solid fa-check icon-check-mute"></i> High intelligence</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Generic knowledge</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No persistent memory</li>
+                </ul>
+            </div>
+
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="300">
+                <img src="https://1000logos.net/wp-content/uploads/2024/02/Gemini-Logo.png" alt="Gemini" class="card-logo">
+                <h4>Gemini</h4>
+                <ul class="competitor-list">
+                    <li><i class="fa-solid fa-check icon-check-mute"></i> Data analysis</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No insurance workflows</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Session based only</li>
+                </ul>
+            </div>
+
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="400">
+                <div style="font-size: 2rem; color: #555; margin-bottom: 20px;"><i class="fa-solid fa-robot"></i></div>
+                <h4>Basic Bots</h4>
+                <ul class="competitor-list">
+                    <li><i class="fa-solid fa-check icon-check-mute"></i> Cheap</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Zero reasoning</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Robotic responses</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="cta-container" data-aos="fade-up">
+            <a href="/" class="glow-btn">Back to Home</a>
+        </div>
+        
+        <p style="text-align: center; color: #444; font-size: 0.8rem; margin-bottom: 40px;">
+            * Comparison reflects features as of Jan 2026.
+        </p>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    <script>
+        AOS.init({ duration: 800, once: true });
+    </script>
+</body>
+</html>
