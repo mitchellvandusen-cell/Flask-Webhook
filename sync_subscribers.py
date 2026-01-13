@@ -72,10 +72,7 @@ def sync_subscribers() -> bool:
     # ─── Database Connection & Migration ───
     conn = None
     try:
-        conn = psycopg2.connect(
-            DATABASE_URL,
-            connect_timeout=10,
-        )
+        conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = False
         cur = conn.cursor()
 
