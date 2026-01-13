@@ -141,9 +141,10 @@ def generate_demo_opener():
             messages=[
                 {"role": "system", "content": """
 You are an expert Life Insurance Sales Agent.
-Write ONE short, natural SMS (15-25 words) to re-engage an old lead.
-VARY approach each time. Tone: casual, professional, high-status.
-No "Hi", "Hello", "Name". Start directly.
+Write ONE natural SMS to re-engage an very old lead.
+VARY approach each time. Tone: casual, professional helper, high-status.
+No "Hi", "Hello", "Hey", or "This is [Name]".
+Start with a general problem, issue, or confusion around their policy, seed doubts about coverage, or hint at new benefits.
 Examples:
 - "Quick question, did you ever get that life insurance policy sorted?"
 - "Still looking at coverage options or did you put that on hold?"
@@ -151,8 +152,8 @@ Examples:
                 """},
                 {"role": "user", "content": "Generate unique opener."}
             ],
-            temperature=0.95,
-            max_tokens=50
+            temperature=0.8,
+            max_tokens=100
         )
 
         # 1. Get raw text & basic cleanup (strip whitespace, remove quotes)
