@@ -3,6 +3,7 @@ import logging
 import re
 import os
 import time
+import httpx
 from openai import OpenAI
 from db import get_subscriber_info, get_db_connection, get_message_count, sync_messages_to_db
 from memory import save_message, save_new_facts
@@ -44,7 +45,7 @@ def process_webhook_task(payload: dict):
             logger.error("❌ ABORT: No location_id")
             return {"status": "error", "reason": "missing location_id"}
 
-        is_demo = location_id in {'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
+        is_demo = location_id in {'DEMO', 'DEMO_LOC' 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
         
         if is_demo:
             subscriber = {
@@ -160,7 +161,7 @@ def process_webhook_task(payload: dict):
         assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
 
         reply = ""
-        if not message and len(assistant_messages) == 0 and initial_message:
+        if not message and len(assistant_messages) == 0 and initial_message and not is_demo:
             reply = initial_message
             logger.info("👻 GHOST MODE: Sending initial outreach")
         else:

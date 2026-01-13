@@ -15,8 +15,8 @@ def get_valid_token(location_id: str) -> str | None:
     Returns a valid Bearer access token or None on failure.
     Refreshes if expired (5-min buffer). Falls back to persistent token if no refresh_token.
     """
-    if location_id in {'DEMO', 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}:
-        logger.debug(f"Demo mode: returning 'DEMO' token for {location_id}")
+    if location_id in {'DEMO', 'DEMO_LOC', 'TEST_LOCATION_456'}:
+        print(f"ℹ️ Internal Mode: Skipping auth for {location_id}")
         return 'DEMO'
 
     sub = get_subscriber_info(location_id)
@@ -86,7 +86,9 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         if not access_token:
             logger.error(f"No valid token for history fetch {location_id}/{contact_id}")
             return []
-
+    if access_token == 'DEMO':
+        return []
+    
     headers = {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
 
     try:
