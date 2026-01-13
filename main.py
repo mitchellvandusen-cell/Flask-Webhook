@@ -1664,11 +1664,14 @@ def demo_chat():
     <title>Live AI Demo - InsuranceGrokBot</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     <style>
         :root {{ 
             --accent: #00ff88; 
             --safe-top: env(safe-area-inset-top, 20px); 
             --safe-bottom: env(safe-area-inset-bottom, 20px); 
+            --glow: 0 0 30px rgba(0, 255, 136, 0.4);
         }}
         body {{ 
             background: #000; 
@@ -1705,24 +1708,85 @@ def demo_chat():
             overflow: hidden; 
             box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1); 
         }}
+        .status-bar {{
+            position: absolute;
+            top: 8px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 12px;
+            color: #fff;
+            z-index: 20;
+            pointer-events: none;
+        }}
+        .time {{ font-weight: 600; }}
+        .icons {{ display: flex; align-items: center; gap: 8px; }}
+        .battery {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
+        .battery-icon {{
+            width: 24px;
+            height: 11px;
+            border: 2px solid #fff;
+            border-radius: 3px;
+            position: relative;
+        }}
+        .battery-level {{
+            background: #fff;
+            height: 100%;
+            width: 100%;
+            transition: width 0.3s;
+            border-radius: 1px;
+        }}
+        .battery-tip {{
+            width: 3px;
+            height: 7px;
+            background: #fff;
+            position: absolute;
+            right: -3px;
+            top: 2px;
+            border-radius: 0 2px 2px 0;
+        }}
+        .low-battery .battery-level {{ background: #ff4444; }}
+        .low-notice {{
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff4444;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            z-index: 30;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: none;
+        }}
         .notch {{ 
             position: absolute; 
             top: 0; 
             left: 50%; 
             transform: translateX(-50%); 
-            width: 150px; 
-            height: 30px; 
+            width: 140px; 
+            height: 28px; 
             background: #333; 
             border-bottom-left-radius: 18px; 
             border-bottom-right-radius: 18px; 
             z-index: 10; 
         }}
-        
+        .status-bar .signal, .status-bar .wifi {{
+            font-size: 14px;
+        }}
         @media (max-width: 600px) {{
             .chat-col {{ padding: 0; background: #000; }}
             .phone {{ height: 100dvh; max-height: none; border: none; border-radius: 0; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }}
             .notch {{ display: none; }}
             .screen {{ padding-bottom: 100px; }}
+            .status-bar {{ padding: 0 15px; font-size: 11px; }}
         }}
         .screen {{ 
             flex: 1; 
@@ -1735,15 +1799,15 @@ def demo_chat():
             background: #000; 
         }}
         .screen::-webkit-scrollbar {{ display: none; }}
-        .input-area {{
-            padding: 12px 15px;
-            background: #111;
-            display: flex;
-            gap: 10px;
-            border-top: 1px solid #222;
-            z-index: 11;
-            min-height: 60px;
-            align-items: flex-end;
+        .input-area {{ 
+            padding: 12px 15px; 
+            background: #111; 
+            display: flex; 
+            gap: 10px; 
+            border-top: 1px solid #222; 
+            z-index: 11; 
+            min-height: 60px; 
+            align-items: flex-end; 
         }}
         .grow-wrap {{
             flex: 1;
@@ -1784,8 +1848,8 @@ def demo_chat():
             white-space: pre-wrap;
         }}
         button.send-btn {{
-            width: 45px;
-            height: 45px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             border: none;
             background: var(--accent);
@@ -1794,7 +1858,9 @@ def demo_chat():
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            transition: all 0.2s;
         }}
+        button.send-btn:hover {{ transform: scale(1.1); }}
        
         .msg {{
             padding: 12px 16px;
@@ -1882,7 +1948,7 @@ def demo_chat():
             border-left: 1px solid #333;
             transform: translateX(100%);
             transition: transform 0.3s ease;
-            padding: 30px 20px;
+            padding: 80px 30px 30px;
             z-index: 1000;
             box-shadow: -10px 0 20px rgba(0,0,0,0.5);
         }}
@@ -1904,11 +1970,11 @@ def demo_chat():
             justify-content: center;
             cursor: pointer;
             z-index: 1100;
-            box-shadow: var(--neon-glow);
+            box-shadow: var(--glow);
         }}
         .side-btn i {{ font-size: 1.5rem; }}
         .side-item {{ margin-bottom: 15px; }}
-        .side-item a {{ color: #fff; font-size: 1.1rem; display: block; padding: 10px; border-radius: 8px; background: #111; text-align: center; text-decoration: none; }}
+        .side-item a {{ color: #fff; font-size: 1.1rem; display: block; padding: 12px; border-radius: 8px; background: #111; text-align: center; text-decoration: none; }}
         .side-item a:hover {{ background: #222; color: var(--accent); }}
         .thinking {{
             display: none;
@@ -1929,25 +1995,25 @@ def demo_chat():
             50% {{ opacity: 1; }}
             100% {{ opacity: 0.3; }}
         }}
-        .low-notice {{
-            position: absolute;
-            top: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #ff4444;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 20;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }}
     </style>
 </head>
 <body>
 <div class="main-wrapper">
     <div class="chat-col">
         <div class="phone">
+            <div class="status-bar">
+                <span class="time" id="currentTime"></span>
+                <div class="icons">
+                    <span class="signal">5G</span>
+                    <span class="wifi"><i class="fas fa-wifi"></i></span>
+                    <div class="battery">
+                        <div class="battery-icon">
+                            <div class="battery-level" id="batteryLevel"></div>
+                        </div>
+                        <span id="batteryPercent">100%</span>
+                    </div>
+                </div>
+            </div>
             <div class="notch"></div>
             <div class="screen" id="chat">
                 <!-- JS loads opener -->
@@ -2120,13 +2186,25 @@ def demo_chat():
     let batteryLevel = 100;
     const batteryTimer = setInterval(() => {{
         batteryLevel -= (100 / 600);  // Deplete over 10 min (600s)
+        document.getElementById('batteryLevel').style.width = batteryLevel + '%';
+        document.getElementById('batteryPercent').textContent = Math.round(batteryLevel) + '%';
         if (batteryLevel <= 20) {{
+            document.getElementById('batteryLevel').classList.add('low-battery');
             document.getElementById('lowBatteryNotice').style.display = 'block';
         }}
         if (batteryLevel <= 0) {{
             resetSession();
         }}
     }}, 1000);
+
+    // Update current time
+    function updateTime() {{
+        const now = new Date();
+        const timeString = now.toLocaleTimeString([], {{ hour: '2-digit', minute: '2-digit' }});
+        document.getElementById('currentTime').textContent = timeString;
+    }}
+    setInterval(updateTime, 60000);
+    updateTime();  // Initial call
 
     // Toggle Side Menu
     function toggleSideMenu() {{
@@ -2143,7 +2221,7 @@ def demo_chat():
     syncData();  // Load opener immediately
     setInterval(syncData, 2000);
 
-    // Initialize AOS animations (must be after DOM ready)
+    // Initialize AOS animations
     AOS.init({{
         duration: 1200,
         once: true,
