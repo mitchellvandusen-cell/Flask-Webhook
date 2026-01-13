@@ -150,7 +150,9 @@ Trust yourself and be bold.
                 {"role": "user", "content": "Generate unique opener."}
             ],
             temperature=0.8,
-            max_tokens=250
+            frequency_penalty=0.7,
+            presence_penalty=0.6,
+            max_tokens=130
         )
 
         # 1. Get raw text & basic cleanup (strip whitespace, remove quotes)
