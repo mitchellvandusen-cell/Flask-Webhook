@@ -17,11 +17,8 @@ client = None
 if XAI_API_KEY:
     client = OpenAI(
         api_key=XAI_API_KEY,
-        base_url="https://api.x.ai/v1",
-        # No proxies — not needed and breaks newer versions
-        # If you ever need proxies, use: http_client=httpx.Client(proxies=...)
+        base_url="https://api.x.ai/v1"
     )
-
 # ===================================
 # MESSAGE STORAGE & RETRIEVAL
 # ===================================

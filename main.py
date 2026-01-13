@@ -67,8 +67,7 @@ client = None
 if XAI_API_KEY:
     client = OpenAI(
         api_key=XAI_API_KEY,
-        base_url="https://api.x.ai/v1",
-        # No proxies kwarg — not needed, and newer versions don't like it injected
+        base_url="https://api.x.ai/v1"
     )
 
 # == STRIPE & DOMAIN ==
