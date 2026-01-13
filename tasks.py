@@ -192,10 +192,7 @@ def process_webhook_task(payload: dict):
                     model="grok-4-1-fast-reasoning",
                     messages=grok_messages,
                     temperature=0.85,  # Higher for natural variability
-                    max_tokens=150,    # SMS-length limit
-                    frequency_penalty=0.65,
-                    presence_penalty=0.4,
-                    timeout=15.0       # Prevent hanging
+                    max_tokens=200,    # SMS-length limit
                 )
                 reply = response.choices[0].message.content.strip()
             except Exception as e:
