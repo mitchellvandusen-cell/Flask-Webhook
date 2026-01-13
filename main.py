@@ -663,230 +663,341 @@ def comparison():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsuranceGrokBot vs. Competitors</title>
+    <title>InsuranceGrokBot vs. The Rest</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         :root {
-            --accent: #00ff88;
-            --dark-bg: #000;
-            --card-bg: #0a0a0a;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0a0;
-            --glow: 0 0 40px rgba(0, 255, 136, 0.25);
-            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            --primary: #00ff88;
+            --primary-glow: rgba(0, 255, 136, 0.4);
+            --dark-bg: #050505;
+            --card-glass: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            background: var(--dark-bg);
-            color: var(--text-primary);
+            background-color: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 255, 136, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(66, 133, 244, 0.08), transparent 25%);
             font-family: 'Inter', sans-serif;
-            line-height: 1.6;
+            color: var(--text-main);
+            overflow-x: hidden;
+            min-height: 100vh;
         }
-        .container { max-width: 1400px; padding: 0 20px; }
-        h1 {
-            font-size: 3.5rem;
+
+        /* --- Typography --- */
+        h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; }
+        
+        .main-title {
+            font-size: 4rem;
             font-weight: 800;
             text-align: center;
-            margin: 80px 0 40px;
-            background: linear-gradient(90deg, #fff, var(--accent));
+            margin-top: 80px;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 30%, var(--primary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            position: relative;
+            display: inline-block;
         }
-        .intro {
+        
+        .subtitle {
             text-align: center;
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin-bottom: 60px;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .comparison-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 80px;
-        }
-        .comparison-card {
-            background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 24px;
-            padding: 40px 30px;
-            transition: var(--transition);
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        }
-        .comparison-card:hover {
-            transform: translateY(-10px);
-            box-shadow: var(--glow);
-            border-color: var(--accent);
-        }
-        .card-logo {
-            max-height: 60px;
-            margin-bottom: 20px;
-            object-fit: contain;
-        }
-        .card-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-        .vs-title {
             font-size: 1.2rem;
-            color: var(--text-secondary);
-            margin: 1.5rem 0;
-            font-style: italic;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 80px auto;
+            line-height: 1.6;
         }
+
+        /* --- Grid Layouts --- */
+        .competitor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+            padding: 0 10px;
+        }
+
+        /* --- Card Styles --- */
+        .glass-card {
+            background: var(--card-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
+        }
+
+        /* Competitor specific tweaks */
+        .competitor-card {
+            opacity: 0.9;
+        }
+        .competitor-card .card-logo {
+            height: 50px;
+            margin-bottom: 15px;
+            filter: grayscale(100%); /* Makes them look duller compared to yours */
+            transition: filter 0.3s;
+            opacity: 0.7;
+        }
+        .competitor-card:hover .card-logo {
+            filter: grayscale(0%);
+            opacity: 1;
+        }
+
+        /* --- THE HERO CARD (Yours) --- */
+        .hero-card {
+            background: linear-gradient(145deg, rgba(0, 255, 136, 0.05) 0%, rgba(0,0,0,0.6) 100%);
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+            grid-column: 1 / -1; /* Spans full width if in grid */
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 3rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Animated border effect for Hero */
+        .hero-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .hero-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        
+        .hero-badge {
+            display: inline-block;
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--primary);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        /* --- Feature Lists --- */
         .feature-list {
             list-style: none;
             padding: 0;
+            margin-top: 20px;
             text-align: left;
-            max-width: 600px;
-            margin: 0 auto;
         }
+        
         .feature-list li {
-            margin: 1.2rem 0;
-            font-size: 1.1rem;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            color: #ccc;
             display: flex;
-            align-items: center;
-            gap: 1rem;
+            align-items: flex-start;
+            gap: 12px;
         }
-        .feature-list li::before {
-            content: "✓";
-            color: var(--accent);
-            font-weight: bold;
-            font-size: 1.3rem;
+
+        .hero-card .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem 3rem;
         }
-        .asterisk {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            text-align: center;
-            margin: 40px auto 60px;
-            max-width: 900px;
+        
+        .hero-card .feature-list li {
+            font-size: 1.1rem;
+            color: #fff;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 10px;
         }
-        .back-btn {
-            background: var(--accent);
+
+        /* Icons */
+        .icon-check { color: var(--primary); min-width: 20px; margin-top: 4px; }
+        .icon-cross { color: #555; min-width: 20px; margin-top: 4px; }
+        .hero-card .icon-check { 
+            background: var(--primary); 
+            color: #000; 
+            width: 24px; 
+            height: 24px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        /* --- Button --- */
+        .cta-container { margin: 60px 0; text-align: center; }
+        .glow-btn {
+            background: var(--primary);
             color: #000;
-            padding: 1rem 2.5rem;
+            padding: 18px 40px;
             border-radius: 50px;
             font-weight: 700;
-            font-size: 1.2rem;
-            border: none;
-            transition: var(--transition);
-            display: inline-block;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
         }
-        .back-btn:hover {
-            transform: translateY(-4px) scale(1.03);
-            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
+        .glow-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.6);
+            color: #000;
         }
-        @media (max-width: 992px) {
-            h1 { font-size: 2.8rem; margin: 60px 0 30px; }
-            .comparison-grid { gap: 1.5rem; }
-            .comparison-card { padding: 30px 20px; }
+
+        .disclaimer {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.3);
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto 40px;
+            line-height: 1.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-title { font-size: 2.5rem; }
+            .hero-card { padding: 2rem 1.5rem; }
+            .hero-card .feature-list { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <section class="section">
-        <div class="container">
-            <h1 data-aos="fade-up">InsuranceGrokBot vs. Competitors</h1>
-            <p class="intro" data-aos="fade-up" data-aos-delay="100">
-                A detailed look at how InsuranceGrokBot stands out in the AI SMS lead re-engagement space.
+
+    <div class="container">
+        <div class="text-center">
+            <h1 class="main-title" data-aos="fade-down">The Choice is Clear</h1>
+            <p class="subtitle" data-aos="fade-up" data-aos-delay="100">
+                General AI is amazing, but it wasn't built for insurance sales.<br>
+                See how <strong>InsuranceGrokBot</strong> outclasses the competition.
             </p>
+        </div>
 
-            <div class="comparison-grid">
-                <div class="comparison-card" data-aos="fade-up" data-aos-delay="100">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1200px-ChatGPT_logo.svg.png" alt="ChatGPT" class="card-logo">
-                    <h4 class="card-title">ChatGPT</h4>
-                    <p class="vs-title">General-purpose AI chatbot</p>
-                    <ul class="feature-list">
-                        <li>Strong general conversation</li>
-                        <li>Limited insurance-specific knowledge</li>
-                        <li>No built-in sales frameworks</li>
-                        <li>No appointment booking integration</li>
-                        <li>No persistent memory across sessions</li>
-                    </ul>
-                </div>
-
-                <div class="comparison-card" data-aos="fade-up" data-aos-delay="200">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Logo_Grok_AI_%28xAI%29_2025.png/1200px-Logo_Grok_AI_%28xAI%29_2025.png" alt="Grok" class="card-logo">
-                    <h4 class="card-title">Grok</h4>
-                    <p class="vs-title">xAI's conversational AI</p>
-                    <ul class="feature-list">
-                        <li>Excellent reasoning capabilities</li>
-                        <li>General-purpose, not insurance-focused</li>
-                        <li>No built-in sales methodologies</li>
-                        <li>No direct calendar/booking integration</li>
-                        <li>Session memory is limited</li>
-                    </ul>
-                </div>
-
-                <div class="comparison-card" data-aos="fade-up" data-aos-delay="300">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Google_Gemini_logo.svg/1200px-Google_Gemini_logo.svg.png" alt="Gemini" class="card-logo">
-                    <h4 class="card-title">Gemini</h4>
-                    <p class="vs-title">Google's multimodal AI</p>
-                    <ul class="feature-list">
-                        <li>Strong in data analysis & multimodality</li>
-                        <li>Lacks specialized insurance workflows</li>
-                        <li>No persistent memory across sessions</li>
-                        <li>No built-in sales frameworks</li>
-                        <li>No appointment booking integration</li>
-                    </ul>
-                </div>
-
-                <div class="comparison-card" data-aos="fade-up" data-aos-delay="400">
-                    <div class="card-logo" style="font-size: 3rem; color: var(--text-secondary);">Standard</div>
-                    <h4 class="card-title">Standard Bots</h4>
-                    <p class="vs-title">Generic SMS automation tools</p>
-                    <ul class="feature-list">
-                        <li>Basic scripting or rule-based</li>
-                        <li>No AI reasoning or adaptation</li>
-                        <li>Limited objection handling</li>
-                        <li>No underwriting knowledge</li>
-                        <li>No persistent memory</li>
-                    </ul>
-                </div>
-
-                <div class="comparison-card highlight-card" data-aos="fade-up" data-aos-delay="500">
-                    <div class="card-logo">
-                        Insurance<span style="color:var(--accent);">Grok</span>Bot
-                    </div>
-                    <h4 class="card-title">InsuranceGrokBot</h4>
-                    <p class="vs-title">Specialized insurance lead re-engagement AI</p>
-                    <ul class="feature-list">
-                        <li>Insurance-specific knowledge & underwriting</li>
-                        <li>5 blended sales methodologies (NEPQ, Gap Selling, Straight Line, Voss, Ziglar)</li>
-                        <li>Persistent memory & narrative observer</li>
-                        <li>Books appointments automatically into calendar</li>
-                        <li>Handles emotional objections intelligently</li>
-                        <li>Agency-ready with multi-tenant support</li>
-                        <li>Unlimited conversations per subscription</li>
-                        <li>Responds accurately with real-time adaptation</li>
-                    </ul>
-                </div>
+        <div class="competitor-grid">
+            
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="200">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1200px-ChatGPT_logo.svg.png" alt="ChatGPT" class="card-logo">
+                <h4>ChatGPT</h4>
+                <p class="text-muted small">General AI Chatbot</p>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check icon-check"></i> Great conversation</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No sales frameworks</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No underwriting logic</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Cannot book calendar</li>
+                </ul>
             </div>
 
-            <p class="asterisk" data-aos="fade-up" data-aos-delay="600">
-                * Based on capabilities as of January 2026. Standard bots refer to generic SMS automation tools. All claims are based on InsuranceGrokBot's integrated features vs. standalone AI models or basic bots. Logos are used for identification purposes only and are property of their respective owners.
-            </p>
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="300">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Logo_Grok_AI_%28xAI%29_2025.png/1200px-Logo_Grok_AI_%28xAI%29_2025.png" alt="Grok" class="card-logo">
+                <h4>Grok</h4>
+                <p class="text-muted small">xAI Reasoning Engine</p>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check icon-check"></i> High intelligence</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Generic knowledge base</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No persistent memory</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No integration tools</li>
+                </ul>
+            </div>
 
-            <div class="text-center" data-aos="fade-up" data-aos-delay="700">
-                <a href="/" class="back-btn">Back to Home</a>
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="400">
+                <img src="https://1000logos.net/wp-content/uploads/2024/02/Gemini-Logo.png" alt="Gemini" class="card-logo">
+                <h4>Gemini</h4>
+                <p class="text-muted small">Google Multimodal</p>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check icon-check"></i> Data analysis</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No insurance workflows</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> No objection handling</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Session based only</li>
+                </ul>
+            </div>
+
+            <div class="glass-card competitor-card" data-aos="fade-up" data-aos-delay="500">
+                <div style="font-size: 2rem; color: #555; margin-bottom: 15px;"><i class="fa-solid fa-robot"></i></div>
+                <h4>Basic Bots</h4>
+                <p class="text-muted small">Standard SMS Tools</p>
+                <ul class="feature-list">
+                    <li><i class="fa-solid fa-check icon-check"></i> Cheap/Simple</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Zero reasoning</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Keyword based only</li>
+                    <li><i class="fa-solid fa-xmark icon-cross"></i> Robot-like responses</li>
+                </ul>
             </div>
         </div>
-    </section>
 
+        <div class="glass-card hero-card" data-aos="zoom-in-up" data-aos-delay="600">
+            <span class="hero-badge">The Clear Winner</span>
+            <h2 class="hero-title">InsuranceGrokBot</h2>
+            <p style="color: #bbb; margin-bottom: 30px; font-size: 1.1rem;">
+                Built specifically to re-engage dead leads and book appointments.
+            </p>
+            
+            <ul class="feature-list">
+                <li><i class="fa-solid fa-check icon-check"></i> <strong>Deep Insurance Knowledge</strong> (Underwriting & Policy Types)</li>
+                <li><i class="fa-solid fa-check icon-check"></i> <strong>5 Sales Methodologies</strong> (NEPQ, Gap, Voss, etc.)</li>
+                <li><i class="fa-solid fa-check icon-check"></i> <strong>Persistent Memory</strong> (Remembers context forever)</li>
+                <li><i class="fa-solid fa-check icon-check"></i> <strong>Auto-Booking</strong> (Directly inserts into calendar)</li>
+                <li><i class="fa-solid fa-check icon-check"></i> <strong>Agency Multi-Tenancy</strong> (Scale across teams)</li>
+                <li><i class="fa-solid fa-check icon-check"></i> <strong>Emotional Intelligence</strong> (Handles objections naturally)</li>
+            </ul>
+        </div>
+
+        <div class="cta-container" data-aos="fade-up" data-aos-delay="700">
+            <a href="/" class="glow-btn">
+                Back to Home <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <p class="disclaimer">
+            * Comparison based on feature sets available as of January 2026. Trademarks and logos belong to their respective owners.
+        </p>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     <script>
-        AOS.init({ duration: 1200, once: true });
+        AOS.init({
+            duration: 1000,
+            once: true,
+            offset: 50
+        });
     </script>
 </body>
 </html>
     """
-    return render_template_string(comparison_html)
+    return comparison_html
 
 @app.route("/getting-started")
 def getting_started():
