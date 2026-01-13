@@ -624,21 +624,6 @@ def dashboard():
         else:
             expires_in_str = "Persistent"
 
-    # --- 7. Agency seats count ---
-    agency_seats_count = 0
-    if current_user.role == 'agency_owner':
-        conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("SELECT COUNT(*) FROM subscribers WHERE parent_agency_email = %s", (current_user.email,))
-                agency_seats_count = cur.fetchone()[0]
-            except Exception as e:
-                logger.error(f"Agency seat count failed: {e}")
-            finally:
-                if cur: cur.close()
-                if conn: conn.close()
-
     # --- Render ---
     return render_template('dashboard.html',
         form=form,
@@ -648,7 +633,6 @@ def dashboard():
         expires_in_str=expires_in_str,
         sub=sub,
         profile=profile,  # <-- NEW: pass profile dict
-        agency_seats_count=agency_seats_count
     )
 @app.route("/save-profile", methods=["POST"])
 @login_required
