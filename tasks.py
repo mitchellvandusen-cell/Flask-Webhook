@@ -5,7 +5,7 @@ import os
 import time
 import httpx
 from openai import OpenAI
-from db import get_subscriber_info, get_db_connection, get_message_count, sync_messages_to_db
+from db import get_subscriber_info_hybrid, get_db_connection, get_message_count, sync_messages_to_db
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -59,7 +59,7 @@ def process_webhook_task(payload: dict):
             }
             auth_token = 'DEMO'
         else:
-            subscriber = get_subscriber_info(location_id)
+            subscriber = get_subscriber_info_hybrid(location_id)
             if not subscriber:
                 logger.error(f"❌ ABORT: No subscriber config for {location_id}")
                 return {"status": "error", "reason": "no subscriber config"}

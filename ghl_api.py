@@ -3,7 +3,7 @@ import requests
 import logging
 import os
 from datetime import datetime, timedelta
-from db import get_subscriber_info, update_subscriber_token
+from db import get_subscriber_info_hybrid, update_subscriber_token
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ def get_valid_token(location_id: str) -> str | None:
         print(f"ℹ️ Internal Mode: Skipping auth for {location_id}")
         return 'DEMO'
 
-    sub = get_subscriber_info(location_id)
+    sub = get_subscriber_info_hybrid(location_id)
     if not sub:
         logger.error(f"No subscriber config for {location_id}")
         return None
