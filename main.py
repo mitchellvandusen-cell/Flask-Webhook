@@ -228,6 +228,8 @@ def comparison():
 def getting_started():
     return render_template('getting-started.html')
 
+import uuid # Make sure this is imported at top of file
+
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
@@ -248,9 +250,8 @@ def stripe_webhook():
         customer_id = session.customer
         email = session.customer_details.email.lower() if session.customer_details.email else None
         
-        # 1. EXTRACT AGENCY METADATA
-        # These keys must match exactly what you put in the session.create metadata
-        target_role = session.metadata.get("target_role", "user")
+        # 1. EXTRACT METADATA
+        target_role = session.metadata.get("target_role", "individual")
         target_tier = session.metadata.get("target_tier", "individual")
 
         if email and customer_id:
@@ -259,22 +260,27 @@ def stripe_webhook():
                 try:
                     cur = conn.cursor()
                     
-                    # 2. PROVISION USER (IDEMPOTENT)
-                    # This creates the user if they don't exist OR updates them to 'agency_owner' if they just upgraded
+                    # 2. PROVISION SUBSCRIBER (The "Merged" Table)
+                    # We generate a temp ID because 'location_id' cannot be null
+                    temp_id = f"temp_{uuid.uuid4().hex[:8]}"
+                    
                     cur.execute("""
-                        INSERT INTO users (email, stripe_customer_id, role)
-                        VALUES (%s, %s, %s)
+                        INSERT INTO subscribers (
+                            location_id, email, stripe_customer_id, role, subscription_tier
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
                         ON CONFLICT (email) DO UPDATE SET
                             stripe_customer_id = EXCLUDED.stripe_customer_id,
-                            role = EXCLUDED.role;
-                    """, (email, customer_id, target_role))
+                            role = EXCLUDED.role,
+                            subscription_tier = EXCLUDED.subscription_tier;
+                    """, (temp_id, email, customer_id, target_role, target_tier))
                     
                     # 3. SYNC TO AGENCY BILLING TABLE (Optional Redundancy)
-                    # If you have an agency_billing table in SQL, initialize it here
                     if target_role == "agency_owner":
                         max_seats = 10 if target_tier == "starter" else 9999
+                        # Fixed column name from 'tier' to 'subscription_tier' to match your DB schema
                         cur.execute("""
-                            INSERT INTO agency_billing (agency_email, tier, max_seats, active_seats)
+                            INSERT INTO agency_billing (agency_email, subscription_tier, max_seats, active_seats)
                             VALUES (%s, %s, %s, 0)
                             ON CONFLICT (agency_email) DO UPDATE SET
                                 subscription_tier = EXCLUDED.subscription_tier,
@@ -284,21 +290,16 @@ def stripe_webhook():
                     conn.commit()
                     logger.info(f"✅ Provisioned {target_tier.upper()} {target_role} account for: {email}")
 
-                    # 4. REDUNDANT SYNC TO GOOGLE SHEETS
-                    from main import gc, sheet_url
-                    if gc and sheet_url:
-                        try:
+                    # 4. REDUNDANT SYNC TO GOOGLE SHEETS (Optional Backup)
+                    # You can keep this block if you still want the backup
+                    try:
+                        from main import gc, sheet_url
+                        if gc and sheet_url:
                             sh = gc.open_by_url(sheet_url)
-                            # Update 'Users' tab
-                            user_sheet = sh.worksheet("Users")
+                            user_sheet = sh.worksheet("Users") # You might want to rename this tab to 'Subscribers' in sheets too later
                             user_sheet.append_row([email, "", "", "", "", target_role, customer_id, datetime.now().isoformat()])
-                            
-                            # Update 'Agency' tab if applicable
-                            if target_role == "agency_owner":
-                                agency_sheet = sh.worksheet("Agency")
-                                agency_sheet.append_row([email, max_seats, 0, target_tier, "TBD"])
-                        except Exception as sheet_err:
-                            logger.error(f"Sheet redundant sync failed: {sheet_err}")
+                    except Exception as sheet_err:
+                        logger.warning(f"Sheet redundant sync skipped: {sheet_err}")
 
                 except Exception as e:
                     logger.error(f"Post-checkout database sync failed: {e}")
@@ -308,7 +309,6 @@ def stripe_webhook():
                     conn.close()
 
     return '', 200
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm()
@@ -428,72 +428,104 @@ def logout():
 @app.route("/agency-dashboard")
 @login_required
 def agency_dashboard():
+    # 1. Security Check
     if current_user.role != 'agency_owner':
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
 
-    # === 1. Fetch sub-accounts (hybrid SQL + Sheets fallback) ===
-    sub_accounts = []
     conn = get_db_connection()
-    
-    if conn:
-        try:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("""
-                SELECT 
-                    location_id,
-                    bot_first_name,
-                    timezone,
-                    access_token,
-                    refresh_token,
-                    tier,
-                    parent_agency_email,
-                    calendar_id,
-                    crm_user_id,
-                    initial_message,
-                    token_expires_at
-                FROM subscribers 
-                WHERE parent_agency_email = %s
-                ORDER BY created_at DESC
-            """, (current_user.email,))
-            sub_accounts = cur.fetchall()
-            cur.close()
-        except Exception as e:
-            logger.error(f"Agency SQL fetch failed: {e}", exc_info=True)
+    if not conn:
+        flash("System error: Database unavailable.", "error")
+        return redirect("/dashboard")
 
-    # === 2. Sheets fallback if SQL empty ===
-    if not sub_accounts and worksheet:
-        try:
-            all_values = worksheet.get_all_values()
-            if all_values and len(all_values) > 1:
-                headers = [h.strip().lower() for h in all_values[0]]
-                try:
-                    parent_idx = headers.index("parent_agency_email")
-                    for row in all_values[1:]:
-                        if len(row) > parent_idx and row[parent_idx].strip().lower() == current_user.email.lower():
-                            sub_dict = dict(zip(headers, row))
-                            sub_accounts.append({
-                                'location_id': sub_dict.get('location_id', 'N/A'),
-                                'bot_first_name': sub_dict.get('bot_first_name', 'Not set'),
-                                'timezone': sub_dict.get('timezone', 'Not set'),
-                                'access_token': sub_dict.get('access_token', ''),
-                                'refresh_token': sub_dict.get('refresh_token', ''),
-                                'tier': sub_dict.get('tier', 'individual'),
-                                'calendar_id': sub_dict.get('calendar_id', ''),
-                                'crm_user_id': sub_dict.get('crm_user_id', ''),
-                                'initial_message': sub_dict.get('initial_message', ''),
-                                'token_expires_at': sub_dict.get('token_expires_at', None)
-                            })
-                except ValueError:
-                    logger.debug("No parent_agency_email column in Sheets")
-        except Exception as e:
-            logger.error(f"Sheets fallback failed for agency dashboard: {e}")
+    # Data Containers
+    sub_accounts = []
+    agency_stats = {
+        'max_seats': 10,       # Default fallback
+        'active_seats': 0,
+        'tier': 'Agency Starter'
+    }
 
-    return render_template('agency-dashboard.html',
-    sub_accounts=sub_accounts,
-    current_user=current_user
-    )
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
 
+        # 2. Fetch Agency Billing Specs (The Limits)
+        cur.execute("""
+            SELECT subscription_tier, max_seats 
+            FROM agency_billing 
+            WHERE agency_email = %s
+        """, (current_user.email,))
+        billing_row = cur.fetchone()
+        
+        if billing_row:
+            agency_stats['max_seats'] = billing_row['max_seats']
+            agency_stats['tier'] = billing_row['subscription_tier'].replace('_', ' ').title()
+
+        # 3. Fetch All Sub-Accounts (The Agents)
+        # We grab everything needed to display the list and status
+        cur.execute("""
+            SELECT 
+                location_id,
+                full_name,          -- This holds the Location Name (from onboarding)
+                email,              -- Agent Email
+                bot_first_name,
+                timezone,
+                access_token,       -- Used to check connection status
+                subscription_tier,
+                token_expires_at,
+                created_at
+            FROM subscribers 
+            WHERE parent_agency_email = %s
+            ORDER BY created_at DESC
+        """, (current_user.email,))
+        
+        raw_subs = cur.fetchall()
+        
+        # 4. Process for Display (Robust Status Checking)
+        current_time = datetime.now()
+        
+        for sub in raw_subs:
+            # Determine if the bot is actually active for this location
+            # Logic: Must have an access token AND it shouldn't be expired (if expiry exists)
+            is_connected = False
+            if sub['access_token']:
+                if sub['token_expires_at']:
+                    # Convert string to datetime if needed (psycopg2 usually handles this)
+                    expires = sub['token_expires_at']
+                    if isinstance(expires, str):
+                        try: expires = datetime.fromisoformat(expires)
+                        except: expires = datetime.now() # Fail safe
+                    
+                    is_connected = expires > current_time
+                else:
+                    is_connected = True # Persistent token
+            
+            sub_accounts.append({
+                'name': sub['full_name'] or 'Unnamed Location',
+                'location_id': sub['location_id'],
+                'email': sub['email'] or 'No Email Assigned',
+                'status': 'Active' if is_connected else 'Pending Auth',
+                'status_class': 'success' if is_connected else 'warning',
+                'tier': sub['subscription_tier'].replace('_', ' ').title(),
+                'bot_name': sub['bot_first_name'],
+                'timezone': sub['timezone']
+            })
+
+        # 5. Self-Healing Stats
+        # Instead of trusting the counter in the billing table, we count the REAL rows.
+        agency_stats['active_seats'] = len(sub_accounts)
+
+    except Exception as e:
+        logger.error(f"Agency Dashboard Error: {e}")
+        flash("Error loading agency data.", "error")
+    finally:
+        cur.close()
+        conn.close()
+
+    return render_template('agency_dashboard.html', 
+                           sub_accounts=sub_accounts, 
+                           stats=agency_stats, 
+                           user=current_user)
 def save_profile():
     data = request.get_json()
     if not data:
@@ -1221,149 +1253,172 @@ def oauth_callback():
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
+    # 1. Exchange Code for Token (The "Entry Key")
     token_url = "https://services.leadconnectorhq.com/oauth/token"
     payload = {
         "client_id": os.getenv("GHL_CLIENT_ID"),
         "client_secret": os.getenv("GHL_CLIENT_SECRET"),
         "grant_type": "authorization_code",
         "code": code,
-        "user_type": "Location",  # or "Agency" if needed
-        "redirect_uri": f"{YOUR_DOMAIN}/oauth/callback"
+        "user_type": "Location", 
+        "redirect_uri": f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
     }
 
     try:
         response = requests.post(token_url, data=payload, timeout=15)
         response.raise_for_status()
         data = response.json()
-
-        if 'access_token' not in data:
-            flash(f"Token exchange failed: {data.get('error_description', 'Unknown error')}", "danger")
-            return redirect(url_for('register'))
-
-        location_id = data.get('locationId')
+        
+        # This is the location the User actually selected during install
+        primary_location_id = data.get('locationId')
         access_token = data['access_token']
         refresh_token = data.get('refresh_token')
         expires_in = data.get('expires_in', 86400)
 
-        # ── 1. Determine if this is an Agency Owner or Sub-account ──
         headers = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
-        # Fetch current user's info (owner of this location)
+        # 2. Identify the User (Who is installing this?)
         me_resp = requests.get("https://services.leadconnectorhq.com/users/me", headers=headers, timeout=10)
-        me_resp.raise_for_status()
-        me_data = me_resp.json()
-        owner_email = me_data.get('email')
-        owner_id = me_data.get('id')
-
-        # Check if this user has agency-level access (has sub-accounts)
+        me_data = me_resp.json() if me_resp.ok else {}
+        
+        user_email = me_data.get('email')
+        user_name = me_data.get('name', 'Agency Admin')
+        
+        # 3. Detect Agency Status (Are they the Boss?)
+        # We try to list agencies. If we can, they are likely an Agency Admin/Owner.
         agency_resp = requests.get("https://services.leadconnectorhq.com/agencies/", headers=headers, timeout=10)
-        is_agency_owner = agency_resp.status_code == 200 and len(agency_resp.json().get('agencies', [])) > 0
-
-        # Fetch ALL sub-accounts this token can access (full porting)
+        agencies = agency_resp.json().get('agencies', [])
+        is_agency_owner = len(agencies) > 0
+        
+        # 4. FETCH ALL SUB-ACCOUNTS (The "Scan")
+        # This pulls every location this user has access to.
         locations_resp = requests.get("https://services.leadconnectorhq.com/locations/", headers=headers, timeout=15)
-        locations_resp.raise_for_status()
         sub_accounts = locations_resp.json().get('locations', [])
-
         num_subs = len(sub_accounts)
 
-        # ── 2. Enforce plan restrictions based on agency size ──
+        # 5. Determine Tier based on Size
         plan_tier = 'individual'
         if is_agency_owner:
-            if num_subs > 99:
-                plan_tier = 'agency_pro'
-            elif num_subs > 10:
-                plan_tier = 'agency_starter'
+            if num_subs >= 10:
+                plan_tier = 'agency_pro'  # 10+ accounts
             else:
-                plan_tier = 'agency_starter'  # or 'individual' — your choice
+                plan_tier = 'agency_starter' # 1-9 accounts
 
-        # If user is logged in → this is adding a sub-account to existing agency
-        parent_email = None
-        if current_user.is_authenticated:
-            parent_email = current_user.email
-            # Inherit tier from agency owner (override individual)
-            plan_tier = current_user.subscription_tier or plan_tier
-
-        # ── 3. Save Owner (if agency owner) ──
-        if is_agency_owner and owner_email:
-            User.create(
-                email=owner_email,
-                role='agency_owner',
-                subscription_tier=plan_tier
-            )
-
-        # ── 4. Save ALL sub-accounts (full porting) ──
+        # 6. DATABASE OPERATIONS (The "Onboarding")
         conn = get_db_connection()
         if conn:
-            cur = conn.cursor()
-            for sub in sub_accounts:
-                sub_loc_id = sub['id']
-                # Fetch more details if needed (e.g. calendar_id, users)
-                sub_details_resp = requests.get(f"https://services.leadconnectorhq.com/locations/{sub_loc_id}", headers=headers, timeout=10)
-                sub_details = sub_details_resp.json() if sub_details_resp.ok else {}
-
-                cur.execute("""
-                    INSERT INTO subscribers (
-                        location_id, access_token, refresh_token, token_expires_at,
-                        parent_agency_email, subscription_tier, bot_first_name,
-                        timezone, crm_user_id, calendar_id, initial_message
-                    ) VALUES (%s, %s, %s, NOW() + interval '%s seconds', %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (location_id) DO UPDATE SET
-                        access_token = EXCLUDED.access_token,
-                        refresh_token = EXCLUDED.refresh_token,
-                        token_expires_at = EXCLUDED.token_expires_at,
-                        parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
-                        subscription_tier = EXCLUDED.subscription_tier,
-                        updated_at = NOW();
-                """, (
-                    sub_loc_id, access_token, refresh_token, expires_in,
-                    parent_email or owner_email,
-                    plan_tier,
-                    sub_details.get('bot_first_name', 'Grok'),
-                    sub_details.get('timezone', 'America/Chicago'),
-                    sub_details.get('crm_user_id'),
-                    sub_details.get('calendar_id'),
-                    sub_details.get('initial_message', '')
-                ))
-            conn.commit()
-            cur.close()
-            conn.close()
-
-        # ── 5. Parallel / fallback Sheet write (redundancy) ──
-        if worksheet:
             try:
-                # Append or update each sub-account row
-                for sub in sub_accounts:
-                    row_data = {
-                        "location_id": sub['id'],
-                        "parent_agency_email": parent_email or owner_email,
-                        "subscription_tier": plan_tier,
-                        "access_token": access_token[:10] + "...",  # partial for security
-                        "refresh_token": refresh_token[:10] + "..." if refresh_token else "",
-                        # Add more fields from sub_details
-                    }
-                    # Find existing row or append (your existing logic)
-                    # ...
-            except Exception as sheet_err:
-                logger.error(f"Sheet sync failed: {sheet_err}")
+                cur = conn.cursor()
 
-        # ── 6. Redirect based on context ──
-        flash(f"Connected {num_subs} location{'s' if num_subs != 1 else ''} successfully.", "success")
-        if parent_email or is_agency_owner:
+                # --- A. Setup Agency Billing Record ---
+                # This ensures the Agency Dashboard works immediately
+                if is_agency_owner and user_email:
+                    max_seats = 9999 if plan_tier == 'agency_pro' else 10
+                    cur.execute("""
+                        INSERT INTO agency_billing (agency_email, subscription_tier, max_seats, active_seats)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (agency_email) DO UPDATE SET
+                            subscription_tier = EXCLUDED.subscription_tier,
+                            active_seats = %s; 
+                    """, (user_email, plan_tier, max_seats, num_subs, num_subs))
+
+                # --- B. Onboard Every Single Sub-Account ---
+                for sub in sub_accounts:
+                    sub_id = sub['id']
+                    sub_name = sub.get('name', 'Unknown Location')
+                    sub_timezone = sub.get('timezone', 'America/Chicago')
+                    
+                    # TOKEN LOGIC:
+                    # If this is the Primary Location (the one selected at install), we have the token!
+                    # If this is a Sub-Account, we DO NOT have a token yet (unless Agency OAuth is used).
+                    # We still create the row so it shows in the dashboard.
+                    is_primary = (sub_id == primary_location_id)
+                    
+                    # We try to find the specific User ID for this location map
+                    # (This is the specific request you wanted to keep)
+                    crm_user_id = None
+                    if is_primary:
+                        # We can only reliably fetch this for the primary location with the current token
+                        crm_user_id = me_data.get('id')
+
+                    # UPSERT into Subscribers Table
+                    cur.execute("""
+                        INSERT INTO subscribers (
+                            location_id, 
+                            email, 
+                            full_name,
+                            role, 
+                            subscription_tier,
+                            parent_agency_email,
+                            access_token, 
+                            refresh_token, 
+                            token_expires_at,
+                            bot_first_name, 
+                            timezone,
+                            crm_user_id,
+                            created_at,
+                            updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, 
+                            CASE WHEN %s THEN NOW() + interval '%s seconds' ELSE NULL END,
+                            'Grok', %s, %s, NOW(), NOW()
+                        )
+                        ON CONFLICT (location_id) DO UPDATE SET
+                            -- Always update these:
+                            parent_agency_email = EXCLUDED.parent_agency_email,
+                            subscription_tier = EXCLUDED.subscription_tier,
+                            timezone = EXCLUDED.timezone,
+                            
+                            -- Only update Auth Info if this is the Primary location we just authenticated
+                            access_token = CASE WHEN %s THEN EXCLUDED.access_token ELSE subscribers.access_token END,
+                            refresh_token = CASE WHEN %s THEN EXCLUDED.refresh_token ELSE subscribers.refresh_token END,
+                            token_expires_at = CASE WHEN %s THEN EXCLUDED.token_expires_at ELSE subscribers.token_expires_at END,
+                            crm_user_id = CASE WHEN %s THEN EXCLUDED.crm_user_id ELSE subscribers.crm_user_id END,
+                            updated_at = NOW();
+                    """, (
+                        sub_id,
+                        user_email, # All subs linked to owner initially
+                        sub_name,   # Store Location Name as 'Full Name' initially
+                        'agency_owner' if is_primary else 'individual',
+                        plan_tier,
+                        user_email, # Parent Agency Email
+                        access_token if is_primary else None,
+                        refresh_token if is_primary else None,
+                        is_primary, expires_in,
+                        sub_timezone,
+                        crm_user_id,
+                        
+                        # Conditional parameters for the ON CONFLICT checks
+                        is_primary, is_primary, is_primary, is_primary
+                    ))
+
+                conn.commit()
+                logger.info(f"🚀 Fully Onboarded Agency {user_email} with {num_subs} locations.")
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"SQL Error during Onboarding: {e}")
+                flash("Error setting up agency database.", "danger")
+            finally:
+                cur.close()
+                conn.close()
+
+        # 7. Redundant Backup (Google Sheets) - Only if you still want it
+        # ... (Your existing sheet logic here) ...
+
+        # 8. Redirect Logic
+        flash(f"Success! {num_subs} locations connected.", "success")
+        if is_agency_owner:
             return redirect("/agency-dashboard")
-        return redirect(url_for('register', code=secrets.token_hex(4).upper()))
+        return redirect("/dashboard")
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}")
-        flash("Connection issue with GoHighLevel. Please try again.", "danger")
-        return redirect(url_for('register'))
+        flash("Connection to GoHighLevel failed.", "danger")
+        return redirect(url_for('home'))
     except Exception as e:
-        logger.error(f"OAuth callback failed: {e}", exc_info=True)
-        flash("An unexpected error occurred. Support has been notified.", "danger")
-        return redirect(url_for('home')), 500
-
-@app.route("/faq")
-def faq():
-    return render_template('faq.html')
+        logger.error(f"OAuth callback critical failure: {e}", exc_info=True)
+        return redirect(url_for('home'))
 
 # =====================================================
 # AGENCY LOGIN - FULL UNIFIED IMPLEMENTATION

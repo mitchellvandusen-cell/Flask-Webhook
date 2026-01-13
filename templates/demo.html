@@ -263,9 +263,14 @@
 
 <script>
     // GLOBAL VARIABLES
-    let currentContactId = 'demo_contact_placeholder';  // Replace with real value from backend
+    let currentContactId = { demo_contact_id }
     let lastMsgCount = 0;
     
+    window.onload = function() {
+    const initial = `{{ initial_msg }}`;
+    if(initial) addBubble(initial, true);
+    init();
+};
     // HELPERS
     function cleanContent(raw) {
         if (!raw) return "";
