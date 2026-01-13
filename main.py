@@ -642,6 +642,7 @@ def home():
                     <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
                     <li class="nav-item"><a class="nav-link" href="/getting-started">Getting Started</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/faq">F.A.Q</a></li>
                 </ul>
                 
                 <div class="d-flex gap-3 mt-3 mt-lg-0">
@@ -4528,6 +4529,330 @@ def oauth_callback():
     except Exception as e:
         logger.error(f"OAuth Callback Error: {e}")
         return "Internal Server Error during installation", 500
+
+@app.route("/faq")
+def faq():
+    faq_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ | InsuranceGrokBot</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+
+    <style>
+        :root {
+            --accent: #00ff88;
+            --accent-hover: #ffffff;
+            --dark-bg: #050505;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 255, 136, 0.05), transparent 40%),
+                radial-gradient(circle at 10% 90%, rgba(0, 100, 255, 0.05), transparent 40%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+
+        /* --- Navbar --- */
+        .navbar {
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 0;
+        }
+        .navbar-brand { font-weight: 800; font-size: 1.5rem; color: #fff !important; }
+        .text-accent { color: var(--accent); }
+        .nav-link { color: var(--text-secondary) !important; transition: 0.3s; }
+        .nav-link:hover { color: var(--accent) !important; }
+
+        /* --- Hero Section --- */
+        .header-section {
+            padding: 140px 0 80px;
+            text-align: center;
+        }
+        .main-title {
+            font-size: 3.5rem; font-weight: 800; margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff 40%, var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 1.2rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto;
+        }
+
+        /* --- FAQ ACCORDION STYLING --- */
+        .accordion {
+            --bs-accordion-bg: transparent;
+            --bs-accordion-border-color: transparent;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .accordion-item {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px !important;
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .accordion-item:hover {
+            border-color: rgba(0, 255, 136, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .accordion-header { margin-bottom: 0; }
+
+        .accordion-button {
+            background: transparent;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 1.2rem;
+            padding: 25px 30px;
+            box-shadow: none !important;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background: rgba(0, 255, 136, 0.05);
+            color: var(--accent);
+        }
+
+        /* Custom Icon Rotation */
+        .accordion-button::after {
+            filter: invert(1);
+            transition: transform 0.3s ease;
+        }
+        .accordion-button:not(.collapsed)::after {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2300ff88'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+            transform: rotate(-180deg);
+        }
+
+        .accordion-body {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            padding: 0 30px 30px 30px;
+        }
+
+        .accordion-body strong { color: #fff; }
+
+        /* --- Footer --- */
+        footer {
+            margin-top: 100px;
+            border-top: 1px solid #111;
+            padding: 60px 0;
+            background: #020202;
+            text-align: center;
+            color: #555;
+        }
+        footer a { color: #777; text-decoration: none; margin: 0 10px; transition: 0.3s; }
+        footer a:hover { color: var(--accent); }
+
+        .btn-cta {
+            background: var(--accent); color: #000; font-weight: 700;
+            padding: 12px 30px; border-radius: 50px; text-decoration: none;
+            display: inline-block; margin-top: 15px; transition: 0.3s;
+        }
+        .btn-cta:hover { background: #fff; transform: translateY(-3px); box-shadow: 0 0 20px rgba(0,255,136,0.4); }
+
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
+            <button class="navbar-toggler navbar-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center gap-4">
+                    <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/getting-started">Get Started</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header-section" data-aos="fade-down">
+            <h1 class="main-title">Frequently Asked Questions</h1>
+            <p class="subtitle">Deep dive into the architecture of the world's first autonomous insurance agent.</p>
+        </div>
+
+        <div class="accordion" id="faqAccordion" data-aos="fade-up" data-aos-delay="100">
+            
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        What exactly is InsuranceGrokBot?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        It is an <strong>autonomous sales agent</strong> built specifically for the life insurance industry. Unlike traditional chatbots that simply scan for keywords, this system utilizes advanced AI reasoning combined with specialized insurance knowledge. It is designed to revive cold leads, handle objections naturally, and book qualified appointments on your calendar, operating completely in the background so you can focus on closing deals.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        How does it actually work?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        The bot integrates directly with your CRM to monitor incoming leads. When a lead responds, the system analyzes the entire conversation history to understand context, intent, and emotional tone. It then references a database of sales strategies and insurance rules to formulate the perfect response. This allows it to hold a fluid, human-like conversation that gently guides the prospect toward booking an appointment, rather than just sending generic auto-responses.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                        How is this different from other AI bots?
+                    </button>
+                </h2>
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Most bots are reactive and repetitive—they often get stuck in loops or fail when a human asks a complex question. InsuranceGrokBot is proactive. It possesses "Emotional Intelligence" that detects if a lead is skeptical, analytical, or ready to buy, and adjusts its tone accordingly. Furthermore, it understands actual underwriting logic, meaning it can intelligently discuss health conditions and coverage types without sounding robotic or misinformed.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                        Can I trust it to book me appointments?
+                    </button>
+                </h2>
+                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Absolutely. The system features a dedicated calendar integration that reads your real-time availability. It will never offer a time that is already booked, and it is programmed to verify the prospect's intent before confirming the slot. It acts as a gatekeeper, ensuring that only qualified meetings land on your schedule.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                        How do I set it up?
+                    </button>
+                </h2>
+                <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        We have streamlined the process into a simple, few-click installation. You can authorize the app directly through your CRM marketplace or our website. The system automatically syncs your location and settings, so you can be live and engaging leads in minutes without needing any technical coding skills.
+                        <br><br>
+                        <a href="/getting-started" class="btn-cta">View Setup Guide <i class="fa-solid fa-arrow-right ms-2"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                        Who created InsuranceGrokBot?
+                    </button>
+                </h2>
+                <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        This tool was created by <strong>active life insurance agents</strong> who understood the pain of wasting time on dead leads. We built this solution to solve our own problem: how to maintain high-quality communication with thousands of old contacts while focusing our energy on new, high-intent clients. It is built by agents, for agents.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                        Is it only for life insurance leads?
+                    </button>
+                </h2>
+                <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <strong>Currently, yes.</strong> The AI models are specifically trained on life insurance products (Term, Whole Life, IUL, Final Expense) and medical underwriting logic. While the technology is powerful, applying it to other industries like Solar or Real Estate would result in lower quality performance because it is optimized to think like an insurance underwriter.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq8">
+                        Does it only work in HighLevel (GHL)?
+                    </button>
+                </h2>
+                <div id="faq8" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <strong>Right now, yes.</strong> We have built a deep, native integration with GoHighLevel to ensure the fastest and most reliable performance. This integration allows the bot to seamlessly manage conversations, update contact fields, and trigger automation workflows directly within your existing CRM environment.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq9">
+                        Are you associated with xAI?
+                    </button>
+                </h2>
+                <div id="faq9" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <strong>Emphatically, No.</strong> We utilize the Grok API provided by xAI to power the advanced reasoning capabilities of our bot, but we are an independent software provider. We are not affiliated with, endorsed by, or officially connected to xAI corporate in any way.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
+            <p class="mb-4">The future of insurance sales automation.</p>
+            <div>
+                <a href="/terms">Terms</a>
+                <a href="/privacy">Privacy</a>
+                <a href="/disclaimers">Disclaimers</a>
+                <a href="/contact">Contact Us</a>
+            </div>
+            <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        AOS.init({
+            duration: 800,
+            once: true,
+            offset: 50
+        });
+    </script>
+</body>
+</html>
+    """
+    return render_template_string(faq_html)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
