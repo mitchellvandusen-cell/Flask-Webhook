@@ -217,7 +217,7 @@ class User(UserMixin):
             cur = conn.cursor()
             print ("[DEBUG] Executing SQL query to fetch user")
             cur.execute("""
-                SELECT email, password_hash, stripe_customer_id, role, subscription_tier
+                SELECT email, password_hash, stripe_customer_id, role, subscription_tier, full_name, phone, bio
                 FROM users 
                 WHERE email = %s
             """, (email,))
