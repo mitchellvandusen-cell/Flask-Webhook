@@ -3184,7 +3184,6 @@ def demo_chat():
         }} catch (error) {{
             console.error('Error:', error);
             loadingDiv.remove();
-            addBubble("System: Connection lost. Please refresh.", true);
         }}
     }}
 
