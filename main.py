@@ -63,7 +63,13 @@ app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
 
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
-client = OpenAI(base_url="https://api.x.ai/v1", api_key=XAI_API_KEY) if XAI_API_KEY else None
+client = None
+if XAI_API_KEY:
+    client = OpenAI(
+        api_key=XAI_API_KEY,
+        base_url="https://api.x.ai/v1",
+        # No proxies kwarg — not needed, and newer versions don't like it injected
+    )
 
 # == STRIPE & DOMAIN ==
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
