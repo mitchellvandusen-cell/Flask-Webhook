@@ -66,6 +66,10 @@ def init_db() -> bool:
             CREATE TABLE IF NOT EXISTS users (
                 email TEXT PRIMARY KEY,
                 password_hash TEXT,
+                user_name TEXT,
+                phone TEXT,
+                bio TEXT,
+                role TEXT DEFAULT 'individual',
                 stripe_customer_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
