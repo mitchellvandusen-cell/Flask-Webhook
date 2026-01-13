@@ -2,7 +2,7 @@
 import os
 import redis
 import logging
-from rq import Worker, Queue, Connection
+from rq import Worker, Queue, connection
 from dotenv import load_dotenv
 from rq.logutils import setup_loghandlers
 
@@ -48,7 +48,7 @@ def main():
         queues = [Queue(name, connection=redis_conn) for name in LISTEN_QUEUES]
 
         # Start worker with connection context
-        with Connection(redis_conn):
+        with connection(redis_conn):
             worker = Worker(
                 queues,
                 name=f"insurance-grok-worker-{os.getpid()}",
