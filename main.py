@@ -3038,9 +3038,6 @@ def oauth_callback():
     except Exception as e:
         logger.error(f"OAuth Callback Error: {e}")
         return "Internal Server Error during installation", 500
-    
+
 if __name__ == "__main__":
-    # Production-ready run block
-    port = int(os.getenv("PORT", 8080))
-    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    app.run(host="0.0.0.0", port=8080)
