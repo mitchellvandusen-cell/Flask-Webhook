@@ -200,7 +200,7 @@ def home():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsuranceGrokBot — AI That Reopens Cold Leads</title>
+    <title>InsuranceGrokBot — Reengage Cold Leads Like Never Before</title>
     <meta name="description" content="The most advanced AI SMS solution for life insurance agents. Re-engages cold leads, books appointments, powered by Grok.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='70' font-size='80' text-anchor='middle' x='50' fill='%2300ff88'>G</text></svg>" type="image/svg+xml">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -230,30 +230,33 @@ def home():
             background: rgba(0,0,0,0.85);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding: 1.2rem 0;
+            padding: 1rem 0;
         }
         .navbar-brand {
             font-weight: 800;
-            font-size: 1.8rem;
-            letter-spacing: -0.5px;
-            color: #fff !important;
+            font-size: 1.6rem;
         }
         .nav-link {
             color: var(--text-secondary) !important;
             font-weight: 500;
-            padding: 0.6rem 1.2rem !important;
+            padding: 0.6rem 1.1rem !important;
+            font-size: 0.95rem;
             transition: var(--transition);
         }
         .nav-link:hover {
             color: var(--accent) !important;
         }
+        .btn-outline-accent, .btn-primary {
+            padding: 0.5rem 1.4rem;
+            font-size: 0.9rem;
+            border-radius: 50px;
+            font-weight: 600;
+            min-width: 110px;
+            text-align: center;
+        }
         .btn-outline-accent {
             border: 2px solid var(--accent);
             color: var(--accent);
-            padding: 0.6rem 1.8rem;
-            border-radius: 50px;
-            font-weight: 600;
-            transition: var(--transition);
         }
         .btn-outline-accent:hover {
             background: var(--accent);
@@ -261,19 +264,29 @@ def home():
             box-shadow: var(--glow);
             transform: translateY(-2px);
         }
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
+        }
         .hero {
-            min-height: 100vh;
+            min-height: calc(100vh - 70px);
+            padding-top: 100px;
             display: flex;
             align-items: center;
             position: relative;
-            background: linear-gradient(135deg, circle at 20% 30%, rgba(0,255,136,0.08) 0%, transparent 50%);
+            background: linear-gradient(135deg, #0a0a0a 0%, #000 100%);
             overflow: hidden;
         }
         .hero::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle at 80% 70%, rgba(0,255,136,0.06) 0%, transparent 50%);
+            background: radial-gradient(circle at 20% 30%, rgba(0,255,136,0.08) 0%, transparent 50%);
             pointer-events: none;
         }
         .hero-content {
@@ -281,19 +294,19 @@ def home():
             z-index: 2;
             max-width: 1100px;
             margin: auto;
-            padding: 0 20px;
+            padding: 0 30px;
             text-align: center;
         }
         .hero h1 {
-            font-size: clamp(3.5rem, 8vw, 7rem);
-            font-weight: 800;
+            font-size: clamp(2.8rem, 7vw, 6rem);
+            font-weight: 900;
             line-height: 1.05;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.2rem;
             background: linear-gradient(90deg, #fff, var(--accent), #fff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-size: 200% auto;
-            animation: gradientFlow 8s ease infinite;
+            animation: gradientFlow 12s ease infinite;
         }
         @keyframes gradientFlow {
             0% { background-position: 0% 50%; }
@@ -301,47 +314,16 @@ def home():
             100% { background-position: 0% 50%; }
         }
         .hero .lead {
-            font-size: 1.4rem;
-            max-width: 700px;
+            font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+            max-width: 720px;
             margin: 0 auto 2.5rem;
             color: var(--text-secondary);
-            opacity: 0;
-            animation: fadeInUp 1s forwards 0.5s;
         }
-        .hero .btn-group {
+        .btn-group {
             display: flex;
-            gap: 1.5rem;
+            gap: 1.2rem;
             justify-content: center;
             flex-wrap: wrap;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: #000;
-            padding: 1rem 2.5rem;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 1.2rem;
-            box-shadow: var(--glow);
-            transition: var(--transition);
-            border: none;
-        }
-        .btn-primary:hover {
-            transform: translateY(-4px) scale(1.03);
-            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
-        }
-        .btn-outline {
-            border: 2px solid var(--accent);
-            color: var(--accent);
-            padding: 1rem 2.5rem;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 1.2rem;
-            transition: var(--transition);
-        }
-        .btn-outline:hover {
-            background: var(--accent);
-            color: #000;
-            transform: translateY(-4px);
         }
         .section {
             padding: 120px 20px;
@@ -379,27 +361,36 @@ def home():
             color: var(--accent);
             margin-bottom: 1.5rem;
         }
-        .comparison-table {
-            width: 100%;
-            border-collapse: collapse;
+        .comparison-teaser {
             background: rgba(10,10,10,0.8);
-            border-radius: 20px;
-            overflow: hidden;
+            backdrop-filter: blur(10px);
             border: 1px solid rgba(0,255,136,0.15);
-        }
-        .comparison-table th, .comparison-table td {
-            padding: 25px;
+            border-radius: 24px;
+            padding: 60px 40px;
             text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin: 0 auto;
+            max-width: 800px;
+            transition: var(--transition);
         }
-        .comparison-table th {
-            background: rgba(0,255,136,0.05);
-            color: var(--accent);
+        .comparison-teaser:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--glow);
+        }
+        .comparison-btn {
+            background: var(--accent);
+            color: #000;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
             font-weight: 700;
-            font-size: 1.4rem;
+            font-size: 1.2rem;
+            border: none;
+            box-shadow: var(--glow);
+            transition: var(--transition);
         }
-        .check { color: var(--accent); font-size: 1.8rem; }
-        .cross { color: #ff4444; font-size: 1.8rem; }
+        .comparison-btn:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
+        }
         .pricing-card {
             background: linear-gradient(135deg, rgba(10,10,10,0.9), #000);
             border: 2px solid var(--accent);
@@ -435,9 +426,29 @@ def home():
         }
         .animate-fade { animation: fadeInUp 1.2s forwards; }
         @media (max-width: 992px) {
-            .hero h1 { font-size: 3.8rem; }
-            .section-title { font-size: 2.8rem; }
-            .feature-grid { grid-template-columns: 1fr; }
+            .hero {
+                padding-top: 100px;
+                min-height: auto;
+            }
+            .hero h1 { font-size: 3.2rem; }
+            .hero .lead { font-size: 1.2rem; }
+            .navbar-nav {
+                gap: 1rem;
+                text-align: center;
+                padding: 1rem 0;
+            }
+            .nav-item {
+                margin: 0.8rem 0;
+            }
+            .btn-group {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .btn-primary, .btn-outline-accent {
+                width: 100%;
+                max-width: 300px;
+                margin: 0 auto;
+            }
         }
     </style>
 </head>
@@ -448,32 +459,30 @@ def home():
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav align-items-center gap-4">
                     <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
                     <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
                     <li class="nav-item"><a class="nav-link" href="#logic">How It Works</a></li>
                     <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/getting-started">Get Started</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/demo-chat">Live Demo</a></li>
-                    <li class="nav-item ms-lg-4">
-                        <a href="/login" class="btn btn-outline-accent">Log In</a>
-                    </li>
-                    <li class="nav-item ms-3">
-                        <a href="/register" class="btn btn-primary">Sign Up</a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/demo-chat">Use the Demo</a></li>
                 </ul>
+                <div class="d-lg-flex gap-3 ms-lg-4">
+                    <a href="/login" class="btn btn-outline-accent btn-sm">Log In</a>
+                    <a href="/register" class="btn btn-primary btn-sm">Sign Up</a>
+                </div>
             </div>
         </div>
     </nav>
 
     <section class="hero">
-        <div class="hero-content animate-fade">
-            <h1>Reopen Cold Leads. Book Appointments. Automatically.</h1>
+        <div class="hero-content">
+            <h1>Reopen Cold Leads.<br>Book Appointments.<br>Automatically.</h1>
             <p class="lead">The most intelligent AI SMS platform for life insurance agents — powered by Grok from xAI.</p>
             <div class="btn-group">
-                <a href="/checkout" class="btn btn-primary">Start Free Trial</a>
-                <a href="/demo-chat" class="btn btn-outline-accent">Watch Live Demo</a>
+                <a href="/checkout" class="btn btn-primary">Subscribe Now $100/mth</a>
+                <a href="/demo-chat" class="btn btn-outline-accent">Use the Demo</a>
             </div>
         </div>
     </section>
@@ -516,50 +525,16 @@ def home():
         </div>
     </section>
 
-    <section id="comparison" class="section bg-black">
+    <!-- Teaser Block for Comparison -->
+    <section class="section bg-black">
         <div class="container">
-            <h2 class="section-title">Why InsuranceGrokBot Dominates</h2>
-            <div class="table-responsive">
-                <table class="comparison-table">
-                    <thead>
-                        <tr>
-                            <th class="feature-col">Feature</th>
-                            <th class="standard-col">Standard Bots</th>
-                            <th class="grok-col">InsuranceGrokBot</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="feature-col">Real-time reasoning with Grok</td>
-                            <td class="standard-col"><span class="cross">✗</span></td>
-                            <td class="grok-col"><span class="check">✓</span></td>
-                        </tr>
-                        <tr>
-                            <td class="feature-col">5 blended sales frameworks (NEPQ, Gap Selling, etc.)</td>
-                            <td class="standard-col"><span class="cross">✗</span></td>
-                            <td class="grok-col"><span class="check">✓</span></td>
-                        </tr>
-                        <tr>
-                            <td class="feature-col">Full underwriting & health knowledge</td>
-                            <td class="standard-col"><span class="cross">✗</span></td>
-                            <td class="grok-col"><span class="check">✓</span></td>
-                        </tr>
-                        <tr>
-                            <td class="feature-col">Persistent memory & Narrative Observer</td>
-                            <td class="standard-col">Limited</td>
-                            <td class="grok-col">Complete</td>
-                        </tr>
-                        <tr>
-                            <td class="feature-col">Handles complex objections emotionally</td>
-                            <td class="standard-col"><span class="cross">✗</span></td>
-                            <td class="grok-col"><span class="check">✓</span></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="comparison-teaser" data-aos="fade-up">
+                <h2 class="section-title mb-4">Curious How We Stack Up?</h2>
+                <p class="lead mb-5">See why InsuranceGrokBot outperforms standard bots in real-world lead re-engagement.</p>
+                <a href="/comparison" class="btn comparison-btn">See How We Compare</a>
             </div>
         </div>
     </section>
-
     <section id="logic" class="section">
         <div class="container">
             <h2 class="section-title">Master-Level Sales Logic Built In</h2>
@@ -619,6 +594,239 @@ def home():
 </html>
     """
     return render_template_string(home_html)
+
+@app.route("/comparison")
+def comparison():
+    comparison_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsuranceGrokBot vs. Competitors</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    <style>
+        :root {
+            --accent: #00ff88;
+            --dark-bg: #000;
+            --card-bg: #0a0a0a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --glow: 0 0 40px rgba(0, 255, 136, 0.25);
+            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+        }
+        .container { max-width: 1400px; padding: 0 20px; }
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            text-align: center;
+            margin: 80px 0 40px;
+            background: linear-gradient(90deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .intro {
+            text-align: center;
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 60px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 80px;
+        }
+        .comparison-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 24px;
+            padding: 40px 30px;
+            transition: var(--transition);
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .comparison-card:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--glow);
+            border-color: var(--accent);
+        }
+        .card-logo {
+            max-height: 60px;
+            margin-bottom: 20px;
+            object-fit: contain;
+        }
+        .card-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .vs-title {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin: 1.5rem 0;
+            font-style: italic;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .feature-list li {
+            margin: 1.2rem 0;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .feature-list li::before {
+            content: "✓";
+            color: var(--accent);
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+        .asterisk {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: center;
+            margin: 40px auto 60px;
+            max-width: 900px;
+        }
+        .back-btn {
+            background: var(--accent);
+            color: #000;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            border: none;
+            transition: var(--transition);
+            display: inline-block;
+        }
+        .back-btn:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 20px 60px rgba(0,255,136,0.4);
+        }
+        @media (max-width: 992px) {
+            h1 { font-size: 2.8rem; margin: 60px 0 30px; }
+            .comparison-grid { gap: 1.5rem; }
+            .comparison-card { padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <section class="section">
+        <div class="container">
+            <h1 data-aos="fade-up">InsuranceGrokBot vs. Competitors</h1>
+            <p class="intro" data-aos="fade-up" data-aos-delay="100">
+                A detailed look at how InsuranceGrokBot stands out in the AI SMS lead re-engagement space.
+            </p>
+
+            <div class="comparison-grid">
+                <div class="comparison-card" data-aos="fade-up" data-aos-delay="100">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/1200px-ChatGPT_logo.svg.png" alt="ChatGPT" class="card-logo">
+                    <h4 class="card-title">ChatGPT</h4>
+                    <p class="vs-title">General-purpose AI chatbot</p>
+                    <ul class="feature-list">
+                        <li>Strong general conversation</li>
+                        <li>Limited insurance-specific knowledge</li>
+                        <li>No built-in sales frameworks</li>
+                        <li>No appointment booking integration</li>
+                        <li>No persistent memory across sessions</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card" data-aos="fade-up" data-aos-delay="200">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Logo_Grok_AI_%28xAI%29_2025.png/1200px-Logo_Grok_AI_%28xAI%29_2025.png" alt="Grok" class="card-logo">
+                    <h4 class="card-title">Grok</h4>
+                    <p class="vs-title">xAI's conversational AI</p>
+                    <ul class="feature-list">
+                        <li>Excellent reasoning capabilities</li>
+                        <li>General-purpose, not insurance-focused</li>
+                        <li>No built-in sales methodologies</li>
+                        <li>No direct calendar/booking integration</li>
+                        <li>Session memory is limited</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card" data-aos="fade-up" data-aos-delay="300">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Google_Gemini_logo.svg/1200px-Google_Gemini_logo.svg.png" alt="Gemini" class="card-logo">
+                    <h4 class="card-title">Gemini</h4>
+                    <p class="vs-title">Google's multimodal AI</p>
+                    <ul class="feature-list">
+                        <li>Strong in data analysis & multimodality</li>
+                        <li>Lacks specialized insurance workflows</li>
+                        <li>No persistent memory across sessions</li>
+                        <li>No built-in sales frameworks</li>
+                        <li>No appointment booking integration</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card" data-aos="fade-up" data-aos-delay="400">
+                    <div class="card-logo" style="font-size: 3rem; color: var(--text-secondary);">Standard</div>
+                    <h4 class="card-title">Standard Bots</h4>
+                    <p class="vs-title">Generic SMS automation tools</p>
+                    <ul class="feature-list">
+                        <li>Basic scripting or rule-based</li>
+                        <li>No AI reasoning or adaptation</li>
+                        <li>Limited objection handling</li>
+                        <li>No underwriting knowledge</li>
+                        <li>No persistent memory</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card highlight-card" data-aos="fade-up" data-aos-delay="500">
+                    <div class="card-logo">
+                        Insurance<span style="color:var(--accent);">Grok</span>Bot
+                    </div>
+                    <h4 class="card-title">InsuranceGrokBot</h4>
+                    <p class="vs-title">Specialized insurance lead re-engagement AI</p>
+                    <ul class="feature-list">
+                        <li>Insurance-specific knowledge & underwriting</li>
+                        <li>5 blended sales methodologies (NEPQ, Gap Selling, Straight Line, Voss, Ziglar)</li>
+                        <li>Persistent memory & narrative observer</li>
+                        <li>Books appointments automatically into calendar</li>
+                        <li>Handles emotional objections intelligently</li>
+                        <li>Agency-ready with multi-tenant support</li>
+                        <li>Unlimited conversations per subscription</li>
+                        <li>Responds accurately with real-time adaptation</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p class="asterisk" data-aos="fade-up" data-aos-delay="600">
+                * Based on capabilities as of January 2026. Standard bots refer to generic SMS automation tools. All claims are based on InsuranceGrokBot's integrated features vs. standalone AI models or basic bots. Logos are used for identification purposes only and are property of their respective owners.
+            </p>
+
+            <div class="text-center" data-aos="fade-up" data-aos-delay="700">
+                <a href="/" class="back-btn">Back to Home</a>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        AOS.init({ duration: 1200, once: true });
+    </script>
+</body>
+</html>
+    """
+    return render_template_string(comparison_html)
 
 @app.route("/getting-started")
 def getting_started():
