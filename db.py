@@ -14,8 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-
-# Google Sheets Setup
+# --- Google Sheets Setup (Legacy / Backup) ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
 
@@ -51,7 +50,7 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
         return None
 
 def init_db() -> bool:
-    """Initialize all required tables — idempotent and safe."""
+    """Initialize the MASTER subscribers table."""
     conn = get_db_connection()
     if not conn:
         logger.critical("Cannot initialize DB: connection failed")
@@ -60,25 +59,18 @@ def init_db() -> bool:
     try:
         cur = conn.cursor()
 
-
-        # Users table (auth + Stripe)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                email TEXT PRIMARY KEY,
-                password_hash TEXT,
-                user_name TEXT,
-                phone TEXT,
-                bio TEXT,
-                role TEXT DEFAULT 'individual',
-                stripe_customer_id TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-
-        # Subscribers table (per-location GHL config)
+        # 1. THE MASTER TABLE (Merged Users + Subscribers)
+        # Note: We added password_hash, full_name, phone, bio, role here directly.
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
                 location_id TEXT PRIMARY KEY,
+                email TEXT UNIQUE,
+                password_hash TEXT,
+                full_name TEXT,
+                phone TEXT,
+                bio TEXT,
+                role TEXT DEFAULT 'individual',
+                
                 bot_first_name TEXT DEFAULT 'Grok',
                 access_token TEXT,
                 refresh_token TEXT,
@@ -90,25 +82,15 @@ def init_db() -> bool:
                 initial_message TEXT,
                 parent_agency_email TEXT,
                 subscription_tier TEXT DEFAULT 'individual',
-                email TEXT,
                 confirmation_code TEXT,
                 stripe_customer_id TEXT,
+                
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
 
-        # Add missing OAuth columns (safe ALTER)
-        for col in ['access_token', 'refresh_token', 'token_expires_at', 'token_type']:
-            cur.execute(f"ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS {col} TEXT;")
-
-        # Legacy migration (one-time)
-        try:
-            cur.execute("UPDATE subscribers SET access_token = crm_api_key WHERE access_token IS NULL AND crm_api_key IS NOT NULL")
-        except psycopg2.Error:
-            pass  # Column may not exist
-
-        # Messages (with type constraint)
+        # 2. Messages Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_messages (
                 id SERIAL PRIMARY KEY,
@@ -119,9 +101,8 @@ def init_db() -> bool:
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_contact_id ON contact_messages (contact_id);")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_created ON contact_messages (contact_id, created_at DESC);")
 
-        # Facts (unique per contact)
+        # 3. Facts Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_facts (
                 id SERIAL PRIMARY KEY,
@@ -131,32 +112,8 @@ def init_db() -> bool:
                 UNIQUE(contact_id, fact_text)
             );
         """)
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_facts_contact_id ON contact_facts (contact_id);")
 
-        # Narrative (one per contact)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS contact_narratives (
-                contact_id TEXT PRIMARY KEY,
-                story_narrative TEXT DEFAULT '',
-                location_id TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-
-        # 7. Agency billing (create it here so ALTERs aren't needed later)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS agency_billing (
-                agency_email TEXT PRIMARY KEY,
-                max_seats INTEGER DEFAULT 10,
-                active_seats INTEGER DEFAULT 0,
-                subscription_tier TEXT DEFAULT 'starter',
-                next_billing_date TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-
-        # Webhook deduplication
+        # 4. Webhook Deduplication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS processed_webhooks (
                 webhook_id TEXT PRIMARY KEY,
@@ -165,14 +122,12 @@ def init_db() -> bool:
         """)
 
         conn.commit()
-        logger.info("All database tables initialized successfully")
+        logger.info("Database initialized: Subscribers table is now the Master table.")
         return True
 
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
-        if conn:
-            conn.rollback()
-        logger.warning("App continuing despite DB init failure")
+        if conn: conn.rollback()
         return False
     finally:
         if conn:
@@ -180,141 +135,113 @@ def init_db() -> bool:
             conn.close()
 
 class User(UserMixin):
-    def __init__(self, email: str, password_hash: Optional[str] = None, stripe_customer_id: Optional[str] = None, role: str = 'individual', subscription_tier: str = 'individual', full_name: Optional[str] = None, phone: Optional[str] = None, bio: Optional[str] = None):
-        self.id = email
-        self.email = email
-        self.password_hash = password_hash
-        self.stripe_customer_id = stripe_customer_id
-        self.role = role
-        self.subscription_tier = subscription_tier
-        self.full_name = full_name
-        self.phone = phone
-        self.bio = bio
+    def __init__(self, data: dict):
+        # Maps columns from the SUBSCRIBERS table
+        self.id = data.get('email')  # Flask-Login ID
+        self.email = data.get('email')
+        self.password_hash = data.get('password_hash')
+        self.location_id = data.get('location_id')
+        
+        # Profile Data
+        self.full_name = data.get('full_name')
+        self.phone = data.get('phone')
+        self.bio = data.get('bio')
+        self.role = data.get('role', 'individual')
+        self.stripe_customer_id = data.get('stripe_customer_id')
+        self.subscription_tier = data.get('subscription_tier', 'individual')
+        
+        # Bot Config Data
+        self.calendar_id = data.get('calendar_id')
+        self.bot_first_name = data.get('bot_first_name')
+        self.timezone = data.get('timezone')
+        self.initial_message = data.get('initial_message')
+        self.access_token = data.get('access_token')
+        self.token_expires_at = data.get('token_expires_at')
+
     @property
     def is_agency_owner(self) -> bool:
         return self.role == 'agency_owner'
-    @property
-    def is_individual(self) -> bool:
-        return self.role == 'individual'
-    @property
-    def plan_name(self) -> str:
-        if self.subscription_tier == 'individual':
-            return "Individual" 
-        elif self.subscription_tier == 'agency_starter':
-            return "Agency Starter"
-        elif self.subscription_tier == 'agency_pro':
-            return "Agency Pro"
-        return self.subscription_tier
 
     @staticmethod
     def get(email: str) -> Optional['User']:
-        print(f"[DEBUG] User.get called with email: '{email}' (length: {len(email)})")
         conn = get_db_connection()
-        if not conn:
-            print("[DEBUG] DB connection failed - returning None")
-            return None
+        if not conn: return None
         try:
             cur = conn.cursor()
-            print ("[DEBUG] Executing SQL query to fetch user")
-            cur.execute("""
-                SELECT email, password_hash, stripe_customer_id, role, subscription_tier, full_name, phone, bio
-                FROM users 
-                WHERE email = %s
-            """, (email,))
+            # Correctly queries the subscribers table
+            cur.execute("SELECT * FROM subscribers WHERE email = %s", (email,))
             row = cur.fetchone()
             if row:
-                print(f"[DEBUG] Full row: {dict(row)}")
-                return User(
-                    email=row['email'],
-                    password_hash=row['password_hash'],
-                    stripe_customer_id=row['stripe_customer_id'],
-                    role=row.get('role', 'individual'),
-                    subscription_tier=row.get('subscription_tier', 'individual'),
-                    full_name=row.get('full_name'),
-                    phone=row.get('phone'),
-                    bio=row.get('bio')
-                )
-            else:
-                print(f"[DEBUG] No user found for email: '{email}'")
+                return User(dict(row))
             return None
-        
-        except psycopg2.Error as e:
-            logger.error(f"User.get failed for {email}: {e}")
+        except Exception as e:
+            logger.error(f"User.get failed: {e}")
             return None
-        
         finally:
-            if cur in locals():
-                cur.close()
-            if conn:
-                conn.close()
+            if 'conn' in locals(): conn.close()
 
     @staticmethod
     def create(
         email: str,
         password: Optional[str] = None,
         stripe_customer_id: Optional[str] = None,
-        role: str = 'user'
+        role: str = 'individual',
+        location_id: Optional[str] = None 
     ) -> bool:
+        """
+        Creates a new user in the subscribers table.
+        NOTE: Since location_id is PK, we generate a temp one if none provided.
+        """
         password_hash = generate_password_hash(password) if password else None
+        
+        # If no location_id is provided (e.g. manual signup), generate a temporary one
+        # to satisfy the database Primary Key constraint.
+        if not location_id:
+            location_id = f"temp_{uuid.uuid4().hex[:8]}"
+
         conn = get_db_connection()
-        if not conn:
-            return False
+        if not conn: return False
         try:
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO users (email, password_hash, stripe_customer_id, role)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO subscribers (email, password_hash, stripe_customer_id, role, location_id)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
-                (email, password_hash, stripe_customer_id, role)
+                (email, password_hash, stripe_customer_id, role, location_id)
             )
             conn.commit()
             return True
         except psycopg2.IntegrityError:
-            logger.warning(f"User.create duplicate email {email}")
+            logger.warning(f"User.create duplicate email/location for {email}")
+            conn.rollback()
             return False
         except psycopg2.Error as e:
             logger.error(f"User.create failed for {email}: {e}")
             conn.rollback()
             return False
         finally:
-            if cur:
-                cur.close()
             if conn:
+                cur.close()
                 conn.close()
 
+# --- Helper Functions (Updated to use DB connection) ---
 
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Fast PostgreSQL lookup for subscriber info.
-    """
     conn = get_db_connection()
-    if not conn:
-        return None
-
+    if not conn: return None
     try:
-        # Note: We don't need to pass cursor_factory here if it's in the connection
         cur = conn.cursor()
-        cur.execute("""
-            SELECT
-                location_id, calendar_id, access_token, refresh_token,
-                crm_user_id, bot_first_name, timezone, email, initial_message,
-                confirmation_code, stripe_customer_id, parent_agency_email,
-                subscription_tier
-            FROM subscribers
-            WHERE location_id = %s
-            LIMIT 1
-        """, (location_id,))
+        cur.execute("SELECT * FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
         row = cur.fetchone()
         return dict(row) if row else None
-
     except Exception as e:
-        logger.error(f"SQL subscriber lookup failed for {location_id}: {e}", exc_info=True)
+        logger.error(f"SQL lookup failed: {e}")
         return None
     finally:
-        if 'cur' in locals(): cur.close()
         if 'conn' in locals(): conn.close()
 
+        
 def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
     """
     Hybrid Fetcher:

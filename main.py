@@ -536,179 +536,130 @@ def dashboard():
     form = ConfigForm()
     conn = get_db_connection()
     
-    # If DB is down, fail gracefully
-    if not conn:
-        flash("Database connection failed", "error")
-        return render_template('dashboard.html', form=form, profile={}, sub={})
-
-    try:
-        cur = conn.cursor()
-
-        # --- 1. HANDLE CONFIG FORM SUBMISSION (POST) ---
-        if form.validate_on_submit():
+    # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if form.validate_on_submit():
+        if not conn:
+            flash("Database connection failed", "error")
+        else:
             try:
-                # Check if this user already has a subscriber row
-                cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
-                existing_sub = cur.fetchone()
-
-                if existing_sub:
-                    # UPDATE existing row
-                    # Note: We update location_id last just in case it changes (it's the PK)
-                    cur.execute("""
-                        UPDATE subscribers 
-                        SET calendar_id = %s,
-                            crm_user_id = %s,
-                            bot_first_name = %s,
-                            timezone = %s,
-                            initial_message = %s,
-                            location_id = %s,
-                            updated_at = NOW()
-                        WHERE email = %s
-                    """, (
-                        form.calendar_id.data,
-                        form.crm_user_id.data,
-                        form.bot_name.data,
-                        form.timezone.data,
-                        form.initial_message.data,
-                        form.location_id.data,
-                        current_user.email
-                    ))
-                else:
-                    # INSERT new row
-                    cur.execute("""
-                        INSERT INTO subscribers (
-                            email, location_id, calendar_id, crm_user_id, 
-                            bot_first_name, timezone, initial_message
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        current_user.email,
-                        form.location_id.data,
-                        form.calendar_id.data,
-                        form.crm_user_id.data,
-                        form.bot_name.data,
-                        form.timezone.data,
-                        form.initial_message.data
-                    ))
-                
+                cur = conn.cursor()
+                # Update the SUBSCRIBERS table
+                cur.execute("""
+                    UPDATE subscribers 
+                    SET location_id = %s,
+                        calendar_id = %s,
+                        crm_user_id = %s,
+                        bot_first_name = %s,
+                        timezone = %s,
+                        initial_message = %s,
+                        updated_at = NOW()
+                    WHERE email = %s
+                """, (
+                    form.location_id.data,
+                    form.calendar_id.data,
+                    form.crm_user_id.data,
+                    form.bot_name.data,
+                    form.timezone.data,
+                    form.initial_message.data,
+                    current_user.email
+                ))
                 conn.commit()
-                flash("Configuration saved successfully!", "success")
+                flash("Settings saved successfully!", "success")
                 return redirect(url_for('dashboard'))
-
             except Exception as e:
                 conn.rollback()
-                flash(f"Error saving configuration: {str(e)}", "error")
+                flash(f"Error saving settings: {str(e)}", "error")
+            finally:
+                cur.close()
+                conn.close()
 
-        # --- 2. FETCH DATA FOR DISPLAY (GET) ---
+    # --- 2. PRE-FILL FORM (GET) ---
+    # Since current_user is now loaded from 'subscribers', we can use it directly
+    if request.method == 'GET':
+        form.location_id.data = current_user.location_id
+        form.calendar_id.data = current_user.calendar_id
+        form.crm_user_id.data = current_user.crm_user_id
+        form.bot_name.data = current_user.bot_first_name
+        form.timezone.data = current_user.timezone
+        form.initial_message.data = current_user.initial_message
+
+    # --- 3. TOKEN LOGIC ---
+    # We can read this directly from current_user now too!
+    access_token_display = ''
+    refresh_token_display = ''
+    expires_in_str = ''
+    token_field_state = ''
+
+    if current_user.access_token:
+        token_field_state = 'readonly'
+        at = current_user.access_token
+        access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
         
-        # Fetch Subscriber Config linked to this user's email
-        cur.execute("""
-            SELECT * FROM subscribers 
-            WHERE email = %s 
-            LIMIT 1
-        """, (current_user.email,))
-        sub = cur.fetchone() # Returns a RealDict or None
-
-        # Pre-fill the form if data exists and form wasn't just submitted
-        if sub and request.method == 'GET':
-            form.location_id.data = sub.get('location_id')
-            form.calendar_id.data = sub.get('calendar_id')
-            form.crm_user_id.data = sub.get('crm_user_id')
-            form.bot_name.data = sub.get('bot_first_name')
-            form.timezone.data = sub.get('timezone')
-            form.initial_message.data = sub.get('initial_message')
-
-        # --- 3. TOKEN EXPIRY LOGIC ---
-        access_token_display = ''
-        refresh_token_display = ''
-        expires_in_str = ''
-        token_field_state = ''
-
-        if sub and sub.get('access_token'):
-            token_field_state = 'readonly'
-            
-            # Mask Tokens
-            at = sub['access_token']
-            access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-            
-            rt = sub.get('refresh_token') or ''
-            refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
-            
-            # Calculate Expiry
-            expires_at = sub.get('token_expires_at')
-            if expires_at:
-                # If it's already a datetime object (Psycopg2 handles this usually)
-                if not isinstance(expires_at, datetime):
-                    try:
-                        expires_at = datetime.fromisoformat(str(expires_at))
-                    except:
-                        expires_at = datetime.now()
+        # Calculate Expiry
+        if current_user.token_expires_at:
+            expires_at = current_user.token_expires_at
+            # Handle string vs datetime object just in case
+            if isinstance(expires_at, str):
+                try: expires_at = datetime.fromisoformat(expires_at)
+                except: expires_at = datetime.now()
                 
-                delta = expires_at - datetime.now()
-                if delta.total_seconds() > 0:
-                    hours = int(delta.total_seconds() // 3600)
-                    minutes = int((delta.total_seconds() % 3600) // 60)
-                    expires_in_str = f"Expires in {hours}h {minutes}m"
-                else:
-                    expires_in_str = "Token Expired"
+            delta = expires_at - datetime.now()
+            if delta.total_seconds() > 0:
+                expires_in_str = f"Expires in {int(delta.total_seconds() // 3600)}h {int((delta.total_seconds() % 3600) // 60)}m"
             else:
-                expires_in_str = "Persistent"
+                expires_in_str = "Token Expired"
+        else:
+            expires_in_str = "Persistent"
 
-        # --- 4. PROFILE DATA ---
-        # We pass the current_user object directly as it has the properties we need
-        # The template expects a 'profile' dict based on your old code, 
-        # but we can map it here for compatibility
-        profile = {
-            'user_name': current_user.full_name or '',
-            'phone': current_user.phone or '',
-            'bio': current_user.bio or ''
-        }
+    # --- 4. PROFILE DATA ---
+    profile = {
+        'full_name': current_user.full_name or '',
+        'phone': current_user.phone or '',
+        'bio': current_user.bio or ''
+    }
 
-        return render_template('dashboard.html',
-            form=form,
-            access_token_display=access_token_display,
-            refresh_token_display=refresh_token_display,
-            token_readonly=token_field_state,
-            expires_in_str=expires_in_str,
-            sub=sub,
-            profile=profile
-        )
-
-    finally:
-        cur.close()
-        conn.close()
-
+    # Pass 'sub' as current_user because the template might expect a dict-like object
+    return render_template('dashboard.html',
+        form=form,
+        access_token_display=access_token_display,
+        refresh_token_display=refresh_token_display,
+        token_readonly=token_field_state,
+        expires_in_str=expires_in_str,
+        sub=current_user, 
+        profile=profile
+    )
 @app.route("/save-profile", methods=["POST"])
 @login_required
 def save_profile():
-    data = request.json
-    name = data.get('name')
-    phone = data.get('phone')
-    bio = data.get('bio')
+    data = request.get_json()
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database error"}), 500
 
-    # Save to sheet (similar to config save)
-    if worksheet:
-        # Find row (same logic as dashboard)
-        values = worksheet.get_all_values()
-        header_lower = [h.strip().lower() for h in values[0]]
-        user_name_idx = header_lower.index("user_name") if "user_name" in header_lower else -1
-        phone_idx = header_lower.index("phone") if "phone" in header_lower else -1
-        bio_idx = header_lower.index("bio") if "bio" in header_lower else -1
-
-        user_row_num = None
-        for i, row in enumerate(values[1:], start=2):
-            if row and row[header_lower.index("email")].strip().lower() == current_user.email.lower():
-                user_row_num = i
-                break
-
-        if user_row_num:
-            row_data = values[user_row_num - 1]
-            if user_name_idx >= 0: row_data[user_name_idx] = name or ""
-            if phone_idx >= 0: row_data[phone_idx] = phone or ""
-            if bio_idx >= 0: row_data[bio_idx] = bio or ""
-            worksheet.update(f"A{user_row_num}", [row_data])
-            return flask_jsonify({"message": "Profile updated!"})
-
-    return flask_jsonify({"message": "Profile saved (but sheet not found)"}), 200
+    try:
+        cur = conn.cursor()
+        # Update SUBSCRIBERS instead of users
+        cur.execute("""
+            UPDATE subscribers 
+            SET full_name = %s,
+                phone = %s,
+                bio = %s,
+                updated_at = NOW()
+            WHERE email = %s
+        """, (
+            data.get('name'), 
+            data.get('phone'), 
+            data.get('bio'), 
+            current_user.email
+        ))
+        conn.commit()
+        return flask_jsonify({"status": "success", "message": "Profile updated"})
+    except Exception as e:
+        conn.rollback()
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
