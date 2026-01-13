@@ -1957,8 +1957,12 @@ def login():
         user = User.get(form.email.data.lower())
         if user and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
-            return redirect("/dashboard")
-        flash("Invalid credentials", "error")
+            if user.role in ['individual_user', 'individual', 'user']:
+                return redirect("/dashboard")
+            elif user.role == 'agency_owner':
+                return redirect("/agency-dashboard")
+            flash("Invalid credentials", "error")
+
 
     return render_template_string("""
 <!DOCTYPE html>
