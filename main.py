@@ -764,21 +764,6 @@ def home():
         <div class="row">
             <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
             <div class="pricing-card glass-card" data-aos="flip-up">
-                <span class="pricing-badge">Individual</span>
-                <div class="price-tag">$100<span>/mo</span></div>
-                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
-                
-                <ul class="pricing-features">
-                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
-                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
-                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
-                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
-                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
-                </ul>
-
-                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
-            </div>
-            <div class="pricing-card glass-card" data-aos="flip-up">
                 <span class="pricing-badge">Agency Starter</span>
                 <div class="price-tag">$800<span>/mo</span></div>
                 <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
@@ -796,6 +781,21 @@ def home():
                 </ul>
 
                 <a href="/checkout/agency-starter" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
+            </div>
+            <div class="pricing-card glass-card" data-aos="flip-up">
+                <span class="pricing-badge">Individual</span>
+                <div class="price-tag">$100<span>/mo</span></div>
+                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
+                
+                <ul class="pricing-features">
+                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
+                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
+                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
+                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
+                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                </ul>
+
+                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
             </div>
             <div class="pricing-card glass-card" data-aos="flip-up">
                 <span class="pricing-badge">Agency Pro</span>
