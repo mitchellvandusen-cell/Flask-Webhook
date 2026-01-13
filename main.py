@@ -1872,6 +1872,10 @@ def demo_chat():
             --text-user: #000;
             --text-bot: #fff;
             --terminal-bg: #0a0a0a;
+            
+            /* SAFE AREAS RESTORED */
+            --safe-top: env(safe-area-inset-top, 60px);     /* Default 60px for notch clearance */
+            --safe-bottom: env(safe-area-inset-bottom, 30px); /* Default 30px for home bar */
         }}
 
         * {{ box-sizing: border-box; }}
@@ -1905,14 +1909,13 @@ def demo_chat():
             justify-content: center;
         }}
 
-        /* --- PHONE CHASSIS (The "Pop") --- */
+        /* --- PHONE CHASSIS --- */
         .phone-wrapper {{
             position: relative;
             width: 400px;
             height: 820px;
             background: var(--phone-bezel);
             border-radius: 55px;
-            /* Multi-layered shadow for realistic bezel depth */
             box-shadow: 
                 0 0 0 4px #333,
                 0 0 0 7px #111,
@@ -1938,7 +1941,7 @@ def demo_chat():
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            border: 2px solid #222; /* Inner screen border */
+            border: 2px solid #222;
         }}
 
         /* Dynamic Island / Notch */
@@ -1959,18 +1962,25 @@ def demo_chat():
         
         /* Status Bar */
         .status-bar {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
             display: flex;
             justify-content: space-between;
-            padding: 18px 25px 10px;
+            padding: 15px 25px;
             font-size: 14px;
             font-weight: 600;
             z-index: 90;
+            pointer-events: none;
         }}
 
-        /* Chat Area */
+        /* Chat Area - UPDATED WITH SAFE TOP */
         .chat-area {{
             flex: 1;
             padding: 20px;
+            /* Pushes content down so it doesn't hit the Dynamic Island */
+            padding-top: var(--safe-top); 
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -1978,7 +1988,6 @@ def demo_chat():
             scroll-behavior: smooth;
         }}
         
-        /* Hide scrollbar */
         .chat-area::-webkit-scrollbar {{ display: none; }}
 
         /* Bubbles */
@@ -2014,9 +2023,10 @@ def demo_chat():
             box-shadow: 0 4px 15px rgba(0, 255, 136, 0.2);
         }}
 
-        /* Input Area */
+        /* Input Area - UPDATED WITH SAFE BOTTOM */
         .input-area {{
-            padding: 15px 20px 25px; /* Extra padding bottom for home bar area */
+            /* Pushes input up so it doesn't hit the bottom curve */
+            padding: 15px 20px var(--safe-bottom) 20px; 
             background: rgba(20, 20, 20, 0.95);
             backdrop-filter: blur(10px);
             display: flex;
@@ -2051,6 +2061,7 @@ def demo_chat():
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+            flex-shrink: 0;
         }}
         .send-btn:hover {{ transform: scale(1.1); box-shadow: 0 0 25px rgba(0, 255, 136, 0.5); }}
         .send-btn:active {{ transform: scale(0.9); }}
@@ -2070,7 +2081,6 @@ def demo_chat():
             position: relative;
         }}
 
-        /* Scanline effect */
         .terminal-col::after {{
             content: " ";
             display: block;
@@ -2145,7 +2155,13 @@ def demo_chat():
                 width: 100%; height: 100%; border-radius: 0; border: none; box-shadow: none; animation: none; 
             }}
             .phone-screen {{ border-radius: 0; border: none; }}
-            .terminal-col {{ display: none; }} /* Hide terminal on mobile */
+            .terminal-col {{ display: none; }} 
+            
+            /* On actual mobile, use environment variables */
+            :root {{
+                --safe-top: env(safe-area-inset-top, 50px);
+                --safe-bottom: env(safe-area-inset-bottom, 20px);
+            }}
         }}
 
         /* Typing Dots */
@@ -2258,7 +2274,7 @@ def demo_chat():
             
             // If new messages found
             if (messages.length > lastMsgCount) {{
-                // Only play receive sound if it's not the very first load and it's an incoming msg
+                // Only play receive sound if it's not the very first load
                 if (lastMsgCount > 0) {{
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type.includes('Bot') || lastMsg.type.includes('Assistant')) {{
