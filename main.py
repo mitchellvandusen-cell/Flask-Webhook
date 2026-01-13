@@ -4413,11 +4413,21 @@ def checkout():
             }],
             allow_promotion_codes=True,
             customer_email=customer_email,  # Pre-fill email here
+
+            metadata={
+                "user_email": customer_email,
+                "target_role": "individual_user",
+                "target_tier": "individual",
+                "source": "website"
+            },
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {
-                    "source": "website"
-                }
+                "user_email": customer_email,
+                "target_role": "individual_user",
+                "target_tier": "individual"
+                },
+
             },
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{YOUR_DOMAIN}/cancel",
