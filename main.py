@@ -523,6 +523,20 @@ def home():
             font-size: 1.1rem;
             transition: transform 0.2s, box-shadow 0.2s;
         }
+        
+        .pricing-badge {
+            display: inline-block;
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--primary);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border: 1px solid rgba(0, 255, 136, 0.2);
+        }
 
         .elite-btn:hover {
             transform: translateY(-2px);
@@ -761,9 +775,10 @@ def home():
 
     <section id="pricing" class="section pricing-section">
         <div class="container">
+            <span class="pricing-badge">Early Adapter Special</span>
             <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
             <div class="pricing-card glass-card" data-aos="flip-up">
-                <span class="pricing-badge">Early Adopter Rate</span>
+                <span class="pricing-badge">Individual</span>
                 <div class="price-tag">$100<span>/mo</span></div>
                 <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
                 
@@ -774,6 +789,36 @@ def home():
                     <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
                     <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
                 </ul>
+
+                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
+            </div>
+            <div class="pricing-card glass-card" data-aos="flip-up">
+                <span class="pricing-badge">Agency Starter</span>
+                <div class="price-tag">$600<span>/mo</span></div>
+                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
+                
+                <ul class="pricing-features">
+                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
+                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
+                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
+                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
+                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                </ul>
+                <div class="pricing-card glass-card" data-aos="flip-up">
+                <span class="pricing-badge">Agency Pro</span>
+                <div class="price-tag">$1600<span>/mo</span></div>
+                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
+                
+                <ul class="pricing-features">
+                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
+                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
+                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
+                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
+                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                </ul>
+
+                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
+            </div>
 
                 <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
             </div>
