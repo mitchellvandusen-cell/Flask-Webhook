@@ -1430,7 +1430,7 @@ def dashboard():
     global worksheet
     form = ConfigForm()
 
-    # --- DATA FETCHING LOGIC (Preserved) ---
+    # --- 1. FETCH DATA ---
     values = worksheet.get_all_values() if worksheet else []
     if not values:
         headers = ["email", "location_id", "calendar_id", "access_token", "refresh_token", "crm_user_id", "bot_first_name", "timezone", "initial_message", "stripe_customer_id", "confirmation_code", "code_used", "user_name", "phone", "bio"]
@@ -1447,47 +1447,62 @@ def dashboard():
         except ValueError:
             return -1
 
-    # Map indices
+    # Map Column Indices
     email_idx = col_index("email")
     location_idx = col_index("location_id")
-    # ... (Mapping logic kept implicitly by using col_index below) ...
+    calendar_idx = col_index("calendar_id")
+    user_id_idx = col_index("crm_user_id")
+    bot_name_idx = col_index("bot_first_name")
+    timezone_idx = col_index("timezone")
+    initial_msg_idx = col_index("initial_message")
+    
+    # Profile Indices
     user_name_idx = col_index("user_name")
     phone_idx = col_index("phone")
     bio_idx = col_index("bio")
 
-    # Find user's row
+    # Find User Row
     user_row_num = None
     for i, row in enumerate(values[1:], start=2):
         if email_idx >= 0 and len(row) > email_idx and row[email_idx].strip().lower() == current_user.email.lower():
             user_row_num = i
             break
 
-    # Pre-fill form
-    if user_row_num and values:
-        row = values[user_row_num - 1]
-        if location_idx >= 0 and len(row) > location_idx: form.location_id.data = row[location_idx]
-        # (Assuming other pre-fills happen here via form instantiation or similar logic from your original code)
-
-    # Fetch subscriber info
+    # --- 2. PRE-FILL FORM (Your Updated Logic) ---
     location_id = None
     if user_row_num and values:
         row = values[user_row_num - 1]
+        
         if location_idx >= 0 and len(row) > location_idx:
             location_id = row[location_idx].strip()
 
+        # Helper to safely get data
+        def get_val(idx):
+            return row[idx] if idx >= 0 and len(row) > idx else ""
+
+        # Map Sheet Data -> Form Fields
+        form.location_id.data = get_val(location_idx)
+        form.calendar_id.data = get_val(calendar_idx)
+        form.crm_user_id.data = get_val(user_id_idx)
+        form.bot_name.data = get_val(bot_name_idx)
+        form.timezone.data = get_val(timezone_idx)
+        form.initial_message.data = get_val(initial_msg_idx)
+
+    # --- 3. FETCH SUBSCRIBER INFO (Tokens) ---
     sub = get_subscriber_info(location_id) if location_id else None
 
-    # Safe display values
+    # Safe display values (Masked)
     access_token_display = 'Not set'
     refresh_token_display = 'Not set'
     expires_in_str = 'Not set'
 
     if sub:
-        access_token_full = sub.get('access_token', 'Not set')
-        access_token_display = access_token_full[:8] + '...' + access_token_full[-4:] if len(access_token_full) > 12 else access_token_full
+        # Mask tokens visually (e.g., "pit-ae0f...2ce3")
+        at = sub.get('access_token', 'Not set')
+        access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
         
-        refresh_token_full = sub.get('refresh_token', 'Not set')
-        refresh_token_display = refresh_token_full[:8] + '...' + refresh_token_full[-4:] if len(refresh_token_full) > 12 else refresh_token_full
+        rt = sub.get('refresh_token', 'Not set')
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
         
         expires_at = sub.get('token_expires_at')
         if expires_at:
@@ -1496,9 +1511,8 @@ def dashboard():
             minutes = (delta.total_seconds() % 3600) // 60
             expires_in_str = f"Expires in {int(hours)}h {int(minutes)}m"
         else:
-            expires_in_str = "Persistent (no expiry)"
+            expires_in_str = "Persistent"
 
-    # --- THE "MILLION DOLLAR" DASHBOARD HTML ---
     return render_template_string(
 """
 <!DOCTYPE html>
@@ -1534,177 +1548,113 @@ def dashboard():
             overflow-x: hidden;
         }
 
-        /* --- SIDEBAR (The Control Panel) --- */
+        /* --- SECURITY CSS: PREVENT COPYING --- */
+        .no-select {
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none;    /* Firefox */
+            -ms-user-select: none;     /* IE10+/Edge */
+            user-select: none;         /* Standard */
+            cursor: default;
+        }
+
+        /* --- SIDEBAR --- */
         .sidebar {
-            position: fixed;
-            top: 0; left: 0; bottom: 0;
-            width: var(--sidebar-width);
-            background: rgba(10, 10, 10, 0.8);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid var(--border-glass);
-            padding: 30px;
-            overflow-y: auto;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
+            position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width);
+            background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-glass); padding: 30px;
+            overflow-y: auto; z-index: 100; display: flex; flex-direction: column;
         }
 
         .brand-area {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 40px;
-            letter-spacing: -0.5px;
-            display: flex; align-items: center; gap: 10px;
+            font-size: 1.5rem; font-weight: 700; margin-bottom: 40px;
+            letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px;
         }
 
         .config-group { margin-bottom: 30px; }
         .config-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--text-muted);
-            margin-bottom: 15px;
-            font-weight: 700;
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--text-muted); margin-bottom: 15px; font-weight: 700;
         }
 
-        /* Tech-style Readouts */
         .tech-readout {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border-glass);
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin-bottom: 12px;
-            position: relative;
+            background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass);
+            border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
             transition: all 0.2s;
         }
-        .tech-readout:hover {
-            border-color: var(--accent);
-            background: rgba(0, 255, 136, 0.02);
-        }
-        .tech-label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            display: block;
-        }
-        .tech-value-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .tech-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; display: block; }
+        .tech-value-row { display: flex; justify-content: space-between; align-items: center; }
+        
         .tech-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #fff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 200px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;
         }
+        
+        /* Locked style for tokens */
+        .token-locked {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
         .btn-mini-copy {
             background: none; border: none; color: var(--text-muted);
-            font-size: 0.9rem; cursor: pointer; transition: 0.2s;
-            padding: 4px;
+            font-size: 0.9rem; cursor: pointer; transition: 0.2s; padding: 4px;
         }
         .btn-mini-copy:hover { color: var(--accent); }
 
-        /* Profile Inputs */
         .profile-input {
-            background: transparent;
-            border: none;
-            border-bottom: 1px solid var(--border-glass);
-            color: #fff;
-            width: 100%;
-            padding: 8px 0;
-            font-family: 'Outfit', sans-serif;
-            margin-bottom: 15px;
-            transition: 0.3s;
+            background: transparent; border: none; border-bottom: 1px solid var(--border-glass);
+            color: #fff; width: 100%; padding: 8px 0; font-family: 'Outfit', sans-serif;
+            margin-bottom: 15px; transition: 0.3s;
         }
-        .profile-input:focus {
-            outline: none;
-            border-bottom-color: var(--accent);
-        }
+        .profile-input:focus { outline: none; border-bottom-color: var(--accent); }
 
         /* --- MAIN CONTENT --- */
-        .main-wrapper {
-            margin-left: var(--sidebar-width);
-            padding: 40px 60px;
-            min-height: 100vh;
-        }
-
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 40px;
-        }
+        .main-wrapper { margin-left: var(--sidebar-width); padding: 40px 60px; min-height: 100vh; }
+        
+        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
         .welcome-text h1 { font-weight: 700; margin: 0; font-size: 2.5rem; }
         .welcome-text p { color: var(--text-muted); margin: 0; font-size: 1.1rem; }
 
-        /* Custom Tabs */
         .nav-tabs { border-bottom: 1px solid var(--border-glass); gap: 20px; margin-bottom: 30px; }
         .nav-link {
-            background: transparent !important;
-            border: none !important;
-            color: var(--text-muted) !important;
-            font-size: 1rem;
-            font-weight: 500;
-            padding: 10px 0;
-            position: relative;
+            background: transparent !important; border: none !important;
+            color: var(--text-muted) !important; font-size: 1rem; font-weight: 500;
+            padding: 10px 0; position: relative;
         }
         .nav-link.active { color: #fff !important; }
-        .nav-link::after {
-            content: ''; position: absolute; bottom: -1px; left: 0; width: 0%; height: 2px;
-            background: var(--accent); transition: 0.3s;
+        .nav-link.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--accent);
         }
-        .nav-link.active::after { width: 100%; }
 
-        /* Glass Cards */
         .glass-panel {
-            background: var(--card-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+            background: var(--card-glass); border: 1px solid var(--border-glass);
+            border-radius: 20px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
         }
 
-        /* Form Styling */
         .form-label { color: #ccc; font-weight: 500; margin-bottom: 8px; }
         .form-control {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid #333;
-            color: #fff;
-            border-radius: 10px;
-            padding: 12px 15px;
+            background: rgba(0,0,0,0.3); border: 1px solid #333; color: #fff;
+            border-radius: 10px; padding: 12px 15px;
         }
         .form-control:focus {
-            background: rgba(0,0,0,0.5);
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.2);
-            color: #fff;
+            background: rgba(0,0,0,0.5); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.2); color: #fff;
         }
         
         .btn-primary {
-            background: var(--accent); border: none; color: #000;
-            font-weight: 700; padding: 12px 30px; border-radius: 50px;
-            transition: 0.3s;
+            background: var(--accent); border: none; color: #000; font-weight: 700;
+            padding: 12px 30px; border-radius: 50px; transition: 0.3s;
         }
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
-            background: #fff; color: #000;
+            transform: translateY(-2px); box-shadow: 0 0 20px rgba(0, 255, 136, 0.4); background: #fff; color: #000;
         }
 
-        /* Status Badge */
         .status-badge {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 5px 12px; border-radius: 20px;
-            font-size: 0.8rem; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+            border-radius: 20px; font-size: 0.8rem; font-weight: 700;
             background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.2); color: var(--accent);
         }
         .dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 8px var(--accent); }
 
-        /* Responsive */
         @media (max-width: 992px) {
             .sidebar { position: relative; width: 100%; height: auto; border-right: none; border-bottom: 1px solid #333; }
             .main-wrapper { margin-left: 0; padding: 20px; }
@@ -1730,20 +1680,20 @@ def dashboard():
                 </div>
             </div>
 
-            <div class="tech-readout">
-                <span class="tech-label">ACCESS TOKEN</span>
+            <div class="tech-readout no-select">
+                <span class="tech-label">ACCESS TOKEN (SECURE)</span>
                 <div class="tech-value-row">
-                    <span class="tech-value">{{ access_token_display }}</span>
-                    <button class="btn-mini-copy" onclick="copyToClipboard('{{ sub.get('access_token', '') }}')"><i class="fa-regular fa-copy"></i></button>
+                    <span class="tech-value token-locked">{{ access_token_display }}</span>
+                    <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
                 </div>
-                <div style="font-size:0.65rem; color:#666; margin-top:4px;">{{ expires_in_str }}</div>
+                <div style="font-size:0.65rem; color:#555; margin-top:4px;">{{ expires_in_str }}</div>
             </div>
 
-             <div class="tech-readout">
-                <span class="tech-label">REFRESH TOKEN</span>
+            <div class="tech-readout no-select">
+                <span class="tech-label">REFRESH TOKEN (SECURE)</span>
                 <div class="tech-value-row">
-                    <span class="tech-value">{{ refresh_token_display }}</span>
-                    <button class="btn-mini-copy" onclick="copyToClipboard('{{ sub.get('refresh_token', '') }}')"><i class="fa-regular fa-copy"></i></button>
+                    <span class="tech-value token-locked">{{ refresh_token_display }}</span>
+                    <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
                 </div>
             </div>
         </div>
@@ -1767,16 +1717,13 @@ def dashboard():
     </div>
 
     <div class="main-wrapper">
-        
         <div class="dashboard-header">
             <div class="welcome-text">
                 <h1>Command Center</h1>
                 <p>Logged in as <span style="color:var(--accent);">{{ current_user.email }}</span></p>
             </div>
             <div>
-                <div class="status-badge">
-                    <div class="dot"></div> System Active
-                </div>
+                <div class="status-badge"><div class="dot"></div> System Active</div>
             </div>
         </div>
 
@@ -1819,10 +1766,6 @@ def dashboard():
                                 {{ form.calendar_id(class="form-control") }}
                             </div>
                             <div class="col-md-6">
-                                {{ form.crm_api_key.label(class="form-label") }}
-                                {{ form.crm_api_key(class="form-control") }}
-                            </div>
-                            <div class="col-md-6">
                                 {{ form.crm_user_id.label(class="form-label") }}
                                 {{ form.crm_user_id(class="form-control") }}
                             </div>
@@ -1854,44 +1797,31 @@ def dashboard():
                         </div>
                         <h3 class="m-0" style="font-weight:700;">Connect GoHighLevel</h3>
                     </div>
-                    
                     <div class="list-group list-group-flush mb-4" style="border-radius:12px; overflow:hidden;">
                         <div class="list-group-item bg-dark text-white border-secondary p-3">1. Log in to your GoHighLevel account.</div>
                         <div class="list-group-item bg-dark text-white border-secondary p-3">2. Navigate to the <strong>Marketplace</strong> tab.</div>
                         <div class="list-group-item bg-dark text-white border-secondary p-3">3. Search for <strong>"Insurance Grok Bot"</strong> and Install.</div>
                         <div class="list-group-item bg-dark text-white border-secondary p-3">4. Approve permissions (Conversations, Contacts, etc).</div>
-                        <div class="list-group-item bg-dark text-white border-secondary p-3">5. Your tokens will automatically sync to this dashboard.</div>
                     </div>
-
-                    <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-outline-light">
-                        Launch Marketplace <i class="fa-solid fa-external-link-alt ms-2"></i>
-                    </a>
+                    <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-outline-light">Launch Marketplace <i class="fa-solid fa-external-link-alt ms-2"></i></a>
                 </div>
             </div>
 
             <div class="tab-pane fade" id="billing" role="tabpanel">
                 <div class="glass-panel text-center py-5">
-                    <div style="font-size:3rem; color:var(--accent); margin-bottom:20px;">
-                        <i class="fa-solid fa-credit-card"></i>
-                    </div>
+                    <div style="font-size:3rem; color:var(--accent); margin-bottom:20px;"><i class="fa-solid fa-credit-card"></i></div>
                     <h3 class="mb-3">Subscription Management</h3>
-                    
                     {% if current_user.stripe_customer_id %}
-                        <p class="text-muted mb-4" style="max-width:400px; margin:0 auto;">
-                            You are currently subscribed. Use the secure portal to update payment methods or view invoices.
-                        </p>
+                        <p class="text-muted mb-4" style="max-width:400px; margin:0 auto;">Use the secure portal to update payment methods or view invoices.</p>
                         <form method="post" action="/create-portal-session">
                             <button type="submit" class="btn btn-primary px-5">Open Stripe Portal</button>
                         </form>
                     {% else %}
-                        <p class="text-muted mb-4">
-                            You do not have an active Stripe subscription linked to this account.
-                        </p>
+                        <p class="text-muted mb-4">You do not have an active Stripe subscription.</p>
                         <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-primary px-5">Manage via Marketplace</a>
                     {% endif %}
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -1899,7 +1829,6 @@ def dashboard():
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                // Could add a toast notification here
                 const el = document.activeElement;
                 const originalHTML = el.innerHTML;
                 el.innerHTML = '<i class="fa-solid fa-check"></i>';
@@ -1911,8 +1840,6 @@ def dashboard():
             const name = document.getElementById('user_name').value;
             const phone = document.getElementById('phone').value;
             const bio = document.getElementById('bio').value;
-            
-            // Show loading state
             const btn = document.querySelector('button[onclick="saveProfile()"]');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
@@ -1924,16 +1851,12 @@ def dashboard():
             }).then(r => r.json()).then(d => {
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
                 setTimeout(() => btn.innerHTML = originalText, 2000);
-            }).catch(e => {
-                btn.innerHTML = 'Error';
-            });
+            }).catch(e => { btn.innerHTML = 'Error'; });
         }
     </script>
 </body>
 </html>
-"""
-    , form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, expires_in_str=expires_in_str, sub=sub, row=row if user_row_num else [], user_row_num=user_row_num, user_name_idx=user_name_idx, phone_idx=phone_idx, bio_idx=bio_idx)
-
+""", form=form, access_token_display=access_token_display, refresh_token_display=refresh_token_display, expires_in_str=expires_in_str, sub=sub, row=row if user_row_num else [], user_row_num=user_row_num, user_name_idx=user_name_idx, phone_idx=phone_idx, bio_idx=bio_idx)
 @app.route("/save-profile", methods=["POST"])
 @login_required
 def save_profile():
