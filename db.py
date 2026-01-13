@@ -2,6 +2,9 @@
 import os
 import logging
 import uuid
+import gspread
+import json
+from oauth2client.service_account import ServiceAccountCredentials
 from typing import Optional, Dict, Any
 from datetime import datetime
 import psycopg2
@@ -11,7 +14,25 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-from main import worksheet 
+
+# Google Sheets Setup
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
+
+worksheet = None
+if creds_dict:
+    try:
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        gc = gspread.authorize(creds)
+        sheet_url = os.getenv("SUBSCRIBER_SHEET_EDIT_URL")
+        if sheet_url:
+            sh = gc.open_by_url(sheet_url)
+            worksheet = sh.sheet1
+            logger.info("Google Sheet connected")
+    except Exception as e:
+        logger.error(f"Google Sheet connection failed: {e}")
+
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection() -> Optional[psycopg2.extensions.connection]:
