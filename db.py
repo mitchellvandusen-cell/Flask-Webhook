@@ -84,6 +84,11 @@ def init_db() -> bool:
                 crm_user_id TEXT,
                 calendar_id TEXT,
                 initial_message TEXT,
+                parent_agency_email TEXT,
+                subscription_tier TEXT DEFAULT 'individual',
+                email TEXT,
+                confirmation_code TEXT,
+                stripe_customer_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
