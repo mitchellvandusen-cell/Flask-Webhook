@@ -158,7 +158,7 @@ Trust yourself and be bold.
                 """},
                 {"role": "user", "content": "Generate unique opener."}
             ],
-            temperature=0.8,
+            temperature=0.3,
             max_tokens=130
         )
 
