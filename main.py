@@ -222,11 +222,11 @@ def home():
 
 @app.route("/comparison")
 def comparison():
-    return render_template('comparison_html')
+    return render_template('comparison.html')
 
 @app.route("/getting-started")
 def getting_started():
-    return render_template('getting-started-html')
+    return render_template('getting-started.html')
 
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
