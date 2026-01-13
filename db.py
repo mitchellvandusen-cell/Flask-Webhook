@@ -322,14 +322,13 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
         ]
 
         # Map header names to their column index (0-based)
-        col_map ={}
+        col_map = {}
         for hdr in expected_headers:
             try:
                 col_map[hdr] = headers.index(hdr)
             except ValueError:
-                if hdr != "subscription_tier":  # Allow missing subscription_tier
+                if hdr != "subscription_tier":
                     logger.warning(f"Expected header '{hdr}' not found in Subscribers sheet.")
-            
         
         if "location_id" not in col_map:
             logger.error("Critical: 'location_id' column not found in Subscribers sheet.")
