@@ -79,6 +79,7 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
     """
     Fetches messages for the specific contact's conversation.
     Returns list of {'role': str, 'text': str, 'timestamp': str} or empty on failure.
+    Handles malformed API responses gracefully (e.g., strings instead of dicts).
     """
     if not access_token:
         access_token = get_valid_token(location_id)
@@ -106,20 +107,33 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         msg_res = requests.get(msg_url, headers=headers, timeout=10)
         msg_res.raise_for_status()
 
-        messages = []
-        for m in msg_res.json().get("messages", []):
-            role = "assistant" if m.get("direction") == "outbound" else "lead"
-            messages.append({
+        raw_messages = msg_res.json().get("messages", [])
+        formatted_history = []
+
+        for m in raw_messages:
+            # Safety: skip if not a dict
+            if not isinstance(m, dict):
+                logger.warning(f"Skipping invalid message item (not dict): {m}")
+                continue
+
+            # Safe key access
+            direction = m.get("direction", "inbound")
+            message_text = m.get("body", m.get("text", "[No text]"))
+            timestamp = m.get("dateAdded", m.get("created_at", "Unknown"))
+
+            role = "assistant" if direction == "outbound" else "lead"
+            formatted_history.append({
                 "role": role,
-                "text": m.get("body", "[Non-text]"),
-                "timestamp": m.get("dateAdded", "")
+                "text": str(message_text).strip(),
+                "timestamp": timestamp
             })
 
-        return messages[::-1]  # oldest first
+        logger.info(f"Fetched {len(formatted_history)} valid messages for {contact_id}")
+        return formatted_history[::-1]  # oldest first
 
     except requests.RequestException as e:
         logger.error(f"GHL history fetch failed {location_id}/{contact_id}: {e}")
         return []
     except Exception as e:
-        logger.error(f"Unexpected history error: {e}", exc_info=True)
+        logger.error(f"Unexpected history error {location_id}/{contact_id}: {e}", exc_info=True)
         return []
