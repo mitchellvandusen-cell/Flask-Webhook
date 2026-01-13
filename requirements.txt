@@ -37,4 +37,4 @@ redis==5.0.8
 rq==1.16.2
 
 # Optional (only if you use outcome_learning / classify_vibe)
-# scikit-learn==1.5.1  # Uncomment if needed for ML-based vibe classification
+scikit-learn==1.5.1  # Uncomment if needed for ML-based vibe classification
