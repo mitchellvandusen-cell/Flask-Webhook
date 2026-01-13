@@ -17,7 +17,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, fla
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from flask import jsonify as flask_jsonify
-from wtforms import StringField, PasswordField, SubmitField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -124,6 +124,13 @@ class ConfigForm(FlaskForm):
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
     initial_message = StringField("Optional Initial Message")
     submit = SubmitField("Save Settings")
+
+class ReviewForm(FlaskForm):
+    name = StringField("Full Name", validators=[DataRequired()])
+    role = StringField("Job Title", validators=[DataRequired()])
+    text = TextAreaField("Your Experience", validators=[DataRequired()])
+    stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
+    submit = SubmitField("Submit Review")
 
 def generate_demo_opener():
     if not client:
@@ -4853,6 +4860,283 @@ def faq():
 </html>
     """
     return render_template_string(faq_html)
+
+@app.route("/reviews", methods=["GET", "POST"])
+def reviews():
+    form = ReviewForm()
+
+    # --- HANDLE FORM SUBMISSION ---
+    if form.validate_on_submit():
+        # In a real app, save to DB here.
+        # For now, we simulate success.
+        flash("Thank you! Your review has been submitted for approval.", "success")
+        return redirect(url_for('reviews'))
+
+    # --- MOCK DATABASE ---
+    all_reviews = [
+        {"name": "Sarah Jenkins", "role": "Agency Owner", "text": "This bot literally saved my business. I went from booking 2 appointments a week to 15.", "stars": 5},
+        {"name": "Mike Ross", "role": "Solo Agent", "text": "It works okay, but I had some issues with the setup.", "stars": 3},
+        {"name": "David K.", "role": "Life Insurance Broker", "text": "I was skeptical about the AI, but it handles objections better than my human setters.", "stars": 5},
+        {"name": "Emily Chen", "role": "Marketing Director", "text": "Good tool, decent price. Not perfect though.", "stars": 4},
+        {"name": "Marcus T.", "role": "GHL Admin", "text": "The integration is seamless. It feels native to GoHighLevel.", "stars": 5},
+        {"name": "Jason V.", "role": "Independent Agent", "text": "I've tried every bot on the market. This is the only one that understands underwriting.", "stars": 5}
+    ]
+
+    # Filter: Show only 5-star reviews
+    visible_reviews = [r for r in all_reviews if r['stars'] == 5]
+
+    reviews_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Success Stories | InsuranceGrokBot</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+
+    <style>
+        :root {
+            --accent: #00ff88;
+            --dark-bg: #050505;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            background-image: 
+                radial-gradient(circle at 20% 10%, rgba(0, 255, 136, 0.05), transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(0, 100, 255, 0.05), transparent 40%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+
+        /* --- Navbar --- */
+        .navbar {
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 0;
+        }
+        .navbar-brand { font-weight: 800; font-size: 1.5rem; color: #fff !important; }
+        .text-accent { color: var(--accent); }
+        .nav-link { color: var(--text-secondary) !important; transition: 0.3s; }
+        .nav-link:hover { color: var(--accent) !important; }
+
+        /* --- Hero --- */
+        .header-section {
+            padding: 140px 0 60px;
+            text-align: center;
+        }
+        .main-title {
+            font-size: 3.5rem; font-weight: 800; margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff 40%, var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        /* --- REVIEW GRID --- */
+        .review-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            padding-bottom: 60px;
+        }
+
+        .glass-review {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 35px;
+            transition: var(--transition);
+            position: relative;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .glass-review:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 255, 136, 0.3);
+            box-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .stars { color: #FFD700; font-size: 1.1rem; margin-bottom: 20px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+        .review-text { font-size: 1.05rem; color: #ddd; font-style: italic; line-height: 1.6; margin-bottom: 25px; }
+        
+        .author {
+            display: flex; align-items: center; gap: 15px; margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;
+        }
+        .avatar-circle {
+            width: 45px; height: 45px; background: linear-gradient(135deg, #222, #333);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; color: var(--accent); border: 1px solid rgba(255,255,255,0.1);
+        }
+        .author-info h5 { margin: 0; font-size: 1rem; font-weight: 700; color: #fff; }
+        .author-info span { font-size: 0.85rem; color: var(--text-secondary); }
+
+        /* --- BUTTONS & MODAL --- */
+        .btn-glow {
+            background: var(--accent); color: #000; font-weight: 700;
+            padding: 12px 30px; border-radius: 50px; border: none;
+            transition: 0.3s; box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+        }
+        .btn-glow:hover {
+            background: #fff; transform: translateY(-3px);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+        }
+
+        /* Glass Modal */
+        .modal-content {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            color: #fff;
+        }
+        .modal-header { border-bottom: 1px solid var(--glass-border); }
+        .modal-footer { border-top: 1px solid var(--glass-border); }
+        .btn-close { filter: invert(1); }
+        
+        .form-control, .form-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff; border-radius: 12px; padding: 12px;
+        }
+        .form-control:focus, .form-select:focus {
+            background: rgba(0,0,0,0.5);
+            border-color: var(--accent);
+            color: #fff; box-shadow: none;
+        }
+        label { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 5px; font-weight: 600; }
+
+        /* Flash Messages */
+        .alert {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
+            <button class="navbar-toggler navbar-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center gap-4">
+                    <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/reviews">Reviews</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/getting-started">Get Started</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header-section" data-aos="fade-down">
+            <h1 class="main-title">Agent Success Stories</h1>
+            <p class="subtitle mb-4">Join hundreds of agents who have automated their outreach.</p>
+            
+            <button type="button" class="btn-glow" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                <i class="fa-solid fa-pen-nib me-2"></i> Leave a Review
+            </button>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert text-center mb-5" role="alert">
+                        <i class="fa-solid fa-circle-check me-2"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="review-grid">
+            {% for review in reviews %}
+            <div class="glass-review" data-aos="fade-up" data-aos-delay="100">
+                <div class="stars">
+                    {% for i in range(review.stars) %}
+                        <i class="fa-solid fa-star"></i>
+                    {% endfor %}
+                </div>
+                <p class="review-text">"{{ review.text }}"</p>
+                <div class="author">
+                    <div class="avatar-circle">{{ review.name[0] }}</div>
+                    <div class="author-info">
+                        <h5>{{ review.name }}</h5>
+                        <span>{{ review.role }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center mt-4"><p style="color:#666; font-size:0.9rem;">
+            <i class="fa-solid fa-filter me-2"></i>Displaying 5-Star Reviews Only
+        </p></div>
+    </div>
+
+    <div class="modal fade" id="reviewModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" style="font-weight:700;">Share Your Experience</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ form.name.label }}
+                            {{ form.name(class="form-control", placeholder="John Doe") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.role.label }}
+                            {{ form.role(class="form-control", placeholder="Agency Owner") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.stars.label }}
+                            {{ form.stars(class="form-select") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.text.label }}
+                            {{ form.text(class="form-control", rows="4", placeholder="How has the bot helped you?") }}
+                        </div>
+                        <div class="d-grid mt-4">
+                            {{ form.submit(class="btn-glow") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        AOS.init({ duration: 800, once: true, offset: 50 });
+    </script>
+</body>
+</html>
+    """
+    return render_template_string(reviews_html, reviews=visible_reviews, form=form)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
