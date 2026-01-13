@@ -639,9 +639,9 @@ def home():
                 <ul class="navbar-nav mx-auto align-items-center gap-4">
                     <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
                     <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/getting-started">Getting Started</a></li>
                     <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/getting-started">Getting Started</a></li>
                 </ul>
                 
                 <div class="d-flex gap-3 mt-3 mt-lg-0">
