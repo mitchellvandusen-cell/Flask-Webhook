@@ -149,13 +149,13 @@ def generate_demo_opener():
 You are an expert Life Insurance Sales Agent.
 Write ONE natural SMS to re-engage a 2 month - 12 month old lead.
 Tone: casual, professional helper, high-status.
+CRITICAL RULES:
 No "Hi", "Hello", "Hey", or "This is [Name]".
 Start with a general problem, issue, or confusion around their policy, seed general doubts about coverage, or hint at new benefits.
 You're first message is meant to get a response, not to sell right away, so avoid hard CTAs. 
 ASK OPEN ENDED QUESTIONS to encourage replies.
 NO CLOSING ATTEMPTS. !important!
 NEVER ASK TWO QUESTIONS IN A ROW. !IMPORTANT! reformulate reply to have a single open-ended question. may include a statement but must have only one question.!important!
-Trust yourself and be bold.
                 """},
                 {"role": "user", "content": "Generate unique opener."}
             ],
