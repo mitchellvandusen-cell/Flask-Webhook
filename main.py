@@ -1617,23 +1617,65 @@ def stripe_webhook():
         session = event["data"]["object"]
         customer_id = session.customer
         email = session.customer_details.email.lower() if session.customer_details.email else None
+        
+        # 1. EXTRACT AGENCY METADATA
+        # These keys must match exactly what you put in the session.create metadata
+        target_role = session.metadata.get("target_role", "user")
+        target_tier = session.metadata.get("target_tier", "individual")
+
         if email and customer_id:
-            user = User.get(email)
-            if not user:
-                User.create(email, None, customer_id)
-                logger.info(f"Created user from Stripe: {email}")
-            else:
-                conn = get_db_connection()
-                if conn:
-                    try:
-                        cur = conn.cursor()
-                        cur.execute("UPDATE users SET stripe_customer_id = %s WHERE email = %s", (customer_id, email))
-                        conn.commit()
-                    except Exception as e:
-                        logger.error(f"Stripe DB update failed: {e}")
-                    finally:
-                        cur.close()
-                        conn.close()
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    
+                    # 2. PROVISION USER (IDEMPOTENT)
+                    # This creates the user if they don't exist OR updates them to 'agency_owner' if they just upgraded
+                    cur.execute("""
+                        INSERT INTO users (email, stripe_customer_id, role)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (email) DO UPDATE SET
+                            stripe_customer_id = EXCLUDED.stripe_customer_id,
+                            role = EXCLUDED.role;
+                    """, (email, customer_id, target_role))
+                    
+                    # 3. SYNC TO AGENCY BILLING TABLE (Optional Redundancy)
+                    # If you have an agency_billing table in SQL, initialize it here
+                    if target_role == "agency_owner":
+                        max_seats = 10 if target_tier == "starter" else 9999
+                        cur.execute("""
+                            INSERT INTO agency_billing (agency_email, tier, max_seats, active_seats)
+                            VALUES (%s, %s, %s, 0)
+                            ON CONFLICT (agency_email) DO UPDATE SET
+                                subscription_tier = EXCLUDED.subscription_tier,
+                                max_seats = EXCLUDED.max_seats;
+                        """, (email, target_tier, max_seats))
+
+                    conn.commit()
+                    logger.info(f"✅ Provisioned {target_tier.upper()} {target_role} account for: {email}")
+
+                    # 4. REDUNDANT SYNC TO GOOGLE SHEETS
+                    from main import gc, sheet_url
+                    if gc and sheet_url:
+                        try:
+                            sh = gc.open_by_url(sheet_url)
+                            # Update 'Users' tab
+                            user_sheet = sh.worksheet("Users")
+                            user_sheet.append_row([email, "", "", "", "", target_role, customer_id, datetime.now().isoformat()])
+                            
+                            # Update 'Agency' tab if applicable
+                            if target_role == "agency_owner":
+                                agency_sheet = sh.worksheet("Agency")
+                                agency_sheet.append_row([email, max_seats, 0, target_tier, "TBD"])
+                        except Exception as sheet_err:
+                            logger.error(f"Sheet redundant sync failed: {sheet_err}")
+
+                except Exception as e:
+                    logger.error(f"Post-checkout database sync failed: {e}")
+                    conn.rollback()
+                finally:
+                    cur.close()
+                    conn.close()
 
     return '', 200
 
@@ -5565,6 +5607,219 @@ def faq():
 </html>
     """
     return render_template_string(faq_html)
+
+# =====================================================
+# AGENCY LOGIN - FULL UNIFIED IMPLEMENTATION
+# =====================================================
+
+@app.route("/agency-login", methods=["GET", "POST"])
+def agency_login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.get(form.email.data.lower())
+        if user and check_password_hash(user.password_hash, form.password.data):
+            # SECURITY CHECK: Restrict access to Agency Owners only
+            if user.role == 'agency_owner':
+                login_user(user)
+                return redirect("/agency-dashboard")
+            else:
+                flash("Access Denied: Standard account detected. Please use the agent portal.", "error")
+                return redirect("/login")
+        
+        flash("Invalid credentials", "error")
+
+    # Unified HTML/CSS and Backend Logic
+    return render_template_string("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agency Command | InsuranceGrokBot</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --accent: #00ff88;
+            --agency-blue: #007AFF;
+            --bg-dark: #050505;
+            --card-glass: rgba(20, 20, 20, 0.6);
+            --text-main: #ffffff;
+            --text-muted: #8892b0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 122, 255, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 50%, rgba(0, 255, 136, 0.05), transparent 25%);
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .ambient-glow {
+            position: absolute;
+            width: 100%; height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            z-index: -1;
+        }
+
+        .agency-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 45px 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .agency-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--agency-blue), transparent);
+        }
+
+        .badge-agency {
+            display: inline-block;
+            background: rgba(0, 122, 255, 0.1);
+            color: var(--agency-blue);
+            padding: 6px 14px;
+            border-radius: 50px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            border: 1px solid rgba(0, 122, 255, 0.2);
+            margin-bottom: 15px;
+        }
+
+        h2 { font-weight: 800; font-size: 2rem; color: #fff; margin-bottom: 30px; letter-spacing: -0.5px; }
+
+        .form-label { color: var(--text-muted); font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; margin-left: 5px; }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: var(--agency-blue);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+            color: #fff;
+        }
+
+        .btn-agency {
+            background: var(--agency-blue);
+            color: #fff;
+            font-weight: 700;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            width: 100%;
+            font-size: 1rem;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+
+        .btn-agency:hover {
+            transform: translateY(-2px);
+            background: #fff;
+            color: var(--agency-blue);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: 0.3s;
+        }
+        .back-link:hover { color: #fff; }
+
+        .alert {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            font-size: 0.85rem;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-glow"></div>
+
+    <div class="agency-card">
+        <div class="text-center">
+            <span class="badge-agency">Command Center</span>
+            <h2>Agency Login</h2>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert text-start">
+                        <i class="fa-solid fa-circle-exclamation me-2"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="post">
+            {{ form.hidden_tag() }}
+            
+            <div class="mb-3 text-start">
+                <label class="form-label">Admin Email</label>
+                {{ form.email(class="form-control", placeholder="admin@agency.com") }}
+            </div>
+
+            <div class="mb-4 text-start">
+                <label class="form-label">Secure Password</label>
+                {{ form.password(class="form-control", placeholder="••••••••") }}
+            </div>
+
+            <button type="submit" class="btn-agency">Initialize System</button>
+        </form>
+
+        <div class="text-center">
+            <a href="/login" class="back-link">
+                <i class="fa-solid fa-arrow-left me-1"></i> Return to Agent Portal
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>
+""", form=form)
 
 @app.route("/reviews", methods=["GET", "POST"])
 def reviews():
