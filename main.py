@@ -156,6 +156,7 @@ You're first message is meant to get a response, not to sell right away, so avoi
 ASK OPEN ENDED QUESTIONS to encourage replies.
 NO CLOSING ATTEMPTS. !important!
 NEVER ASK TWO QUESTIONS IN A ROW. !IMPORTANT! reformulate reply to have a single open-ended question. may include a statement but must have only one question.!important!
+Avoid "corporate-speak" words like: finalized, regarding, touching base, updated, or tailored.
                 """},
                 {"role": "user", "content": "Generate unique opener."}
             ],
