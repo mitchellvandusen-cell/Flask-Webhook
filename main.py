@@ -774,7 +774,7 @@ def home():
     </section>
 
     <section id="pricing" class="section pricing-section">
-        <div class="container">
+        <div class="row">
             <span class="pricing-badge">Early Adapter Special</span>
             <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
             <div class="pricing-card glass-card" data-aos="flip-up">
@@ -804,7 +804,9 @@ def home():
                     <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
                     <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
                 </ul>
-                <div class="pricing-card glass-card" data-aos="flip-up">
+                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
+            </div>
+            <div class="pricing-card glass-card" data-aos="flip-up">
                 <span class="pricing-badge">Agency Pro</span>
                 <div class="price-tag">$1600<span>/mo</span></div>
                 <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
@@ -816,9 +818,6 @@ def home():
                     <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
                     <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
                 </ul>
-
-                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
-            </div>
 
                 <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
             </div>
