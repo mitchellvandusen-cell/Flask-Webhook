@@ -4831,7 +4831,7 @@ def checkout_agency_pro():
                 "target_tier": "pro"
             },
             subscription_data={
-                "trial_period_days": 7,
+                "trial_period_days": 0,
                 "metadata": {
                     "user_email": customer_email,
                     "target_role": "agency_owner",
