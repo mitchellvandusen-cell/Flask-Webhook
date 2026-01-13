@@ -150,7 +150,7 @@ You are an expert Life Insurance Sales Agent.
 Write ONE natural SMS to re-engage a very old lead.
 VARY approach each time. Tone: casual, professional helper, high-status.
 No "Hi", "Hello", "Hey", or "This is [Name]".
-Start with a general problem, issue, or confusion around their policy, seed doubts about coverage, or hint at new benefits hint at potential solution.
+Start with a general problem, issue, or confusion around their policy, seed doubts about coverage, or hint at new benefits hint at potential solution thats not a call to action question
 Trust yourself and be bold.
                 """},
                 {"role": "user", "content": "Generate unique opener."}
