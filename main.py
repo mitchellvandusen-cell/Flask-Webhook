@@ -147,7 +147,7 @@ def generate_demo_opener():
             messages=[
                 {"role": "system", "content": """
 You are an expert Life Insurance Sales Agent.
-Write ONE natural SMS to re-engage a very old lead.
+Write ONE natural SMS to re-engage a 2 month - 12 month old lead.
 VARY approach each time. Tone: casual, professional helper, high-status.
 No "Hi", "Hello", "Hey", or "This is [Name]".
 Start with a general problem, issue, or confusion around their policy, seed doubts about coverage, or hint at new benefits.
