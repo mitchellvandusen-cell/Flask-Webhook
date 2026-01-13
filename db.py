@@ -449,12 +449,6 @@ def upgrade_db_for_agency():
         return False
     try:
         cur = conn.cursor()
-        # Track who is an Agency Owner vs a Standard User
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'individual';") # 'user' or 'agency_owner'
-        
-        # Link subscribers to an Agency Owner
-        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS parent_agency_email TEXT;")
-        cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS subscription_tier TEXT DEFAULT 'individual';") # 'individual', 'starter', 'pro'
         cur.execute("""
             UPDATE users
             SET role = 'individual',
