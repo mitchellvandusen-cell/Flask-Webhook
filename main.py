@@ -3000,10 +3000,12 @@ def demo_chat():
 <audio id="snd-receive" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
 
 <script>
+    // 1. GLOBAL VARIABLES
+    // Note: Single braces here because this IS a Python variable
     let currentContactId = '{demo_contact_id}';
     let lastMsgCount = 0;
     
-    // Helper to safely extract text from JSON strings
+    // --- HELPER FUNCTIONS ---
     function cleanContent(raw) {{
         if (!raw) return "";
         try {{           
@@ -3016,11 +3018,13 @@ def demo_chat():
     }}
 
     function init() {{
+        // Clock
         setInterval(() => {{
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit'}});
         }}, 1000);
 
+        // Input Auto-expand
         const input = document.getElementById('msgInput');
         input.addEventListener('input', function() {{
             this.style.height = 'auto';
@@ -3030,25 +3034,31 @@ def demo_chat():
             if(e.key === 'Enter' && !e.shiftKey) {{ e.preventDefault(); sendMessage(); }}
         }});
 
+        // Start Syncing
         syncData();
         setInterval(syncData, 2000);
     }}
 
+    // --- MAIN SYNC LOOP ---
     async function syncData() {{
         try {{
+            // Use currentContactId so we follow the active session
+            // Note: f-string formatting requires variable interpolation inside JS to be careful
+            // We use the JS variable currentContactId, not a python one here.
             const res = await fetch(`/get-logs?contact_id=${{currentContactId}}`);
             const data = await res.json();
             const messages = data.logs.filter(l => l.type.includes('Message'));
 
             if (messages.length > lastMsgCount) {{
-                // Only play sound if it's NOT the very first load
+                // Sound effect
                 if (lastMsgCount > 0) {{
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type.toLowerCase().includes('bot') || lastMsg.type.toLowerCase().includes('assistant')) {{
-                         document.getElementById('snd-receive').play().catch(e=>{{}});
+                          document.getElementById('snd-receive').play().catch(e=>{{}});
                     }}
                 }}
 
+                // Add new bubbles
                 const newSlice = messages.slice(lastMsgCount);
                 newSlice.forEach(msg => {{
                     const text = cleanContent(msg.content);
@@ -3057,10 +3067,13 @@ def demo_chat():
                 }});
 
                 lastMsgCount = messages.length;
+                
+                // Remove typing indicator if it exists
                 const typing = document.getElementById('typing-indicator');
                 if(typing) typing.remove();
             }}
 
+            // Update Log Window
             if (data.logs) {{
                 const logs = document.getElementById('logWindow');
                 logs.innerHTML = '';
@@ -3079,6 +3092,7 @@ def demo_chat():
         }} catch (e) {{ console.error(e); }}
     }}
 
+    // --- UI HELPERS ---
     function addBubble(text, isBot) {{
         const chat = document.getElementById('chat');
         const div = document.createElement('div');
@@ -3099,6 +3113,7 @@ def demo_chat():
         chat.scrollTop = chat.scrollHeight;
     }}
 
+    // --- SEND LOGIC ---
     async function sendMessage() {{
         const input = document.getElementById('msgInput');
         const txt = input.value.trim();
@@ -3116,55 +3131,57 @@ def demo_chat():
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{
                     location_id: 'DEMO_LOC',
-                    contact_id: currentContactId,
+                    contact_id: currentContactId, // Uses global var
                     first_name: 'Demo User',
                     message: {{ body: txt }}
                 }})
             }});
             syncData();
         }} catch(e) {{ console.error(e); }}
-    }} 
+    }}
 
+    // --- RESET LOGIC (FIXED) ---
     async function resetSession() {{
         const chatBox = document.getElementById('chat'); 
         
-        // 1. Clear the visual chat history
+        // 1. Clear screen
         chatBox.innerHTML = ''; 
 
-        // 2. Add a temporary "Typing..." bubble so it feels alive
+        // 2. Show Typing Indicator
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'typing'; 
-        loadingDiv.innerText = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+        loadingDiv.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
         chatBox.appendChild(loadingDiv);
 
         try {{
-            // 3. Update the Session ID so the bot knows it's a new person
+            // 3. Generate New Session
             const newSessionId = crypto.randomUUID();
-
-            // 4. Hit the Python endpoint we made to get the Opener
-            const response = 'demo_' + newSessionId;
             
-            lastMstgCount = 0; // Reset message count for new session
+            // 4. Update Global Variables
+            currentContactId = 'demo_' + newSessionId;
+            lastMsgCount = 0; // Reset counter so we don't sync old messages
 
-            const response = await fetct('/api/demo-reset', {{
+            // 5. Call Python Backend
+            const response = await fetch('/api/demo/reset', {{ 
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
-                body: JSON.stringify({{ session_id: newSessionId }})
+                body: JSON.stringify({{ session_id: newSessionId }}) 
+            }});
 
             const data = await response.json();
 
-            // 5. Remove "Typing..." and show the real bold AI message
-            lodadingDiv.remove();
+            // 6. Update UI
+            loadingDiv.remove();
             addBubble(data.message, true);
 
         }} catch (error) {{
             console.error('Error:', error);
             loadingDiv.remove();
-             addBubble("System: Connection lost. Please refresh.", true);
+            addBubble("System: Connection lost. Please refresh.", true);
         }}
     }}
 
-    // 6. AUTO-START: Run this immediately when the page loads!
+    // AUTO-START
     window.onload = function() {{
         init();
     }};
