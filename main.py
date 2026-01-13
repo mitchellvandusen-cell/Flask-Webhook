@@ -792,7 +792,6 @@ def home():
                     <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
                     <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
                     <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
-                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
                 </ul>
 
                 <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
