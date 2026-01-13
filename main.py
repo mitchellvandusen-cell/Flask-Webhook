@@ -24,7 +24,7 @@ from datetime import datetime
 from rq import Queue
 
 # === IMPORTS ===
-from db import get_subscriber_info, get_db_connection, init_db, User
+from db import get_subscriber_info_hybrid, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
 # CRITICAL IMPORT: This connects main.py to the logic in tasks.py
 from tasks import process_webhook_task  
@@ -524,20 +524,6 @@ def home():
             transition: transform 0.2s, box-shadow 0.2s;
         }
         
-        .pricing-badge {
-            display: inline-block;
-            background: rgba(0, 255, 136, 0.1);
-            color: var(--primary);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            border: 1px solid rgba(0, 255, 136, 0.2);
-        }
-
         .elite-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
@@ -777,7 +763,6 @@ def home():
         <div class="row">
             <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
             <div class="pricing-card glass-card" data-aos="flip-up">
-                <span class="pricing-badge">Early Adapter Special</span
                 <span class="pricing-badge">Individual</span>
                 <div class="price-tag">$100<span>/mo</span></div>
                 <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
@@ -803,7 +788,12 @@ def home():
                     <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
                     <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
                     <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                    <li><i class="fa-solid fa-check"></i> Up to 10 Agent Sub-Accounts</li>
+                    <li><i class="fa-solid fa-check"></i> Centralized Command Center</li>
+                    <li><i class="fa-solid fa-check"></i> Shared Agency Memory</li>
+                    <li><i class="fa-solid fa-check"></i> Priority Support</li>
                 </ul>
+
                 <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
             </div>
             <div class="pricing-card glass-card" data-aos="flip-up">
@@ -817,6 +807,12 @@ def home():
                     <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
                     <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
                     <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                    <li><i class="fa-solid fa-check"></i> Unlimited Sub-Accounts</li>
+                    <li><i class="fa-solid fa-check"></i> Centralized Command Center</li>
+                    <li><i class="fa-solid fa-check"></i> Shared Agency Memory</li>
+                    <li><i class="fa-solid fa-check"></i> Priority Support</li>
+                    <li><i class="fa-solid fa-check"></i> High-Speed Dedicated Queue</li>
+                    <li><i class="fa-solid fa-check"></i> Enterpise Seat Management</li>
                 </ul>
 
                 <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
@@ -2147,6 +2143,13 @@ def login():
             <div class="divider"></div>
             <a href="/" style="font-size:0.85rem;"><i class="fa-solid fa-arrow-left me-1"></i> Back to Website</a>
         </div>
+        <div class="links">
+            <p>Standard Agent? Log in above.</p>
+            <div class="divider"></div>
+            <a href="/agency-login" class="btn btn-outline-accent w-100" style="border-radius:12px;">
+                <i class="fa-solid fa-building-shield me-2"></i> Agency Log In? Click Here
+            </a>
+        </div>
     </div>
 
 </body>
@@ -2158,6 +2161,274 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
+
+@app.route("/agency-dashboard")
+@login_required
+def agency_dashboard():
+    if current_user.role != 'agency_owner':
+        flash("Access restricted to agency owners only.", "error")
+        return redirect("/dashboard")
+
+    # === 1. Fetch sub-accounts (hybrid SQL + Sheets fallback) ===
+    sub_accounts = []
+    conn = get_db_connection()
+    
+    if conn:
+        try:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT 
+                    location_id,
+                    bot_first_name,
+                    timezone,
+                    access_token,
+                    refresh_token,
+                    tier,
+                    parent_agency_email,
+                    calendar_id,
+                    crm_user_id,
+                    initial_message,
+                    token_expires_at
+                FROM subscribers 
+                WHERE parent_agency_email = %s
+                ORDER BY created_at DESC
+            """, (current_user.email,))
+            sub_accounts = cur.fetchall()
+            cur.close()
+        except Exception as e:
+            logger.error(f"Agency SQL fetch failed: {e}", exc_info=True)
+
+    # === 2. Sheets fallback if SQL empty ===
+    if not sub_accounts and worksheet:
+        try:
+            all_values = worksheet.get_all_values()
+            if all_values and len(all_values) > 1:
+                headers = [h.strip().lower() for h in all_values[0]]
+                try:
+                    parent_idx = headers.index("parent_agency_email")
+                    for row in all_values[1:]:
+                        if len(row) > parent_idx and row[parent_idx].strip().lower() == current_user.email.lower():
+                            sub_dict = dict(zip(headers, row))
+                            sub_accounts.append({
+                                'location_id': sub_dict.get('location_id', 'N/A'),
+                                'bot_first_name': sub_dict.get('bot_first_name', 'Not set'),
+                                'timezone': sub_dict.get('timezone', 'Not set'),
+                                'access_token': sub_dict.get('access_token', ''),
+                                'refresh_token': sub_dict.get('refresh_token', ''),
+                                'tier': sub_dict.get('tier', 'individual'),
+                                'calendar_id': sub_dict.get('calendar_id', ''),
+                                'crm_user_id': sub_dict.get('crm_user_id', ''),
+                                'initial_message': sub_dict.get('initial_message', ''),
+                                'token_expires_at': sub_dict.get('token_expires_at', None)
+                            })
+                except ValueError:
+                    logger.debug("No parent_agency_email column in Sheets")
+        except Exception as e:
+            logger.error(f"Sheets fallback failed for agency dashboard: {e}")
+
+    return render_template_string(
+    """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Agency Dashboard | InsuranceGrokBot</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        <style>
+            :root {
+                --accent: #00ff88;
+                --dark-bg: #000;
+                --card-bg: #0a0a0a;
+                --text-primary: #ffffff;
+                --text-secondary: #cccccc;
+                --glow: 0 0 30px rgba(0, 255, 136, 0.25);
+                --transition: all 0.3s ease;
+            }
+            body {
+                background: var(--dark-bg);
+                color: var(--text-primary);
+                font-family: 'Inter', sans-serif;
+                min-height: 100vh;
+                padding-top: 80px;
+            }
+            .navbar { 
+                background: rgba(0,0,0,0.9); 
+                backdrop-filter: blur(12px); 
+                border-bottom: 1px solid rgba(255,255,255,0.05); 
+            }
+            .main-title {
+                font-weight: 900;
+                background: linear-gradient(90deg, #fff, var(--accent));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                text-shadow: var(--glow);
+                text-align: center;
+                margin-bottom: 40px;
+            }
+            .glass-card {
+                background: rgba(255,255,255,0.03);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 16px;
+                overflow: hidden;
+                transition: var(--transition);
+            }
+            .glass-card:hover {
+                transform: translateY(-8px);
+                box-shadow: var(--glow);
+            }
+            .accordion-button {
+                background: transparent !important;
+                color: #fff !important;
+                font-weight: 600;
+            }
+            .accordion-button:not(.collapsed) {
+                background: rgba(0,255,136,0.08) !important;
+                color: var(--accent) !important;
+            }
+            .badge-tier {
+                background: rgba(0,255,136,0.15);
+                color: var(--accent);
+                border: 1px solid var(--accent);
+            }
+            .tech-readout {
+                background: #111;
+                border: 1px solid #222;
+                border-radius: 8px;
+                padding: 10px;
+                font-family: 'Courier New', monospace;
+                font-size: 0.9rem;
+                word-break: break-all;
+            }
+            .no-data {
+                text-align: center;
+                padding: 80px 20px;
+                background: var(--card-bg);
+                border-radius: 16px;
+                border: 1px dashed rgba(0,255,136,0.3);
+            }
+            .add-btn {
+                background: var(--accent);
+                color: #000;
+                border: none;
+                padding: 0.8rem 2rem;
+                border-radius: 50px;
+                font-weight: 700;
+                box-shadow: var(--glow);
+                transition: var(--transition);
+            }
+            .add-btn:hover {
+                transform: translateY(-3px) scale(1.03);
+                box-shadow: 0 15px 40px rgba(0,255,136,0.3);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="main-title">Agency Command Center</h1>
+            <p class="text-center text-secondary mb-5">
+                Managing {{ sub_accounts|length }} Agent {{ 'Seat' if sub_accounts|length == 1 else 'Seats' }}
+            </p>
+
+            {% if sub_accounts %}
+                <div class="accordion mt-4" id="agencyAccordion">
+                    {% for sub in sub_accounts %}
+                        <div class="accordion-item glass-card mb-3">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapse{{ loop.index }}">
+                                    <i class="fa-solid fa-user-tie me-3" style="color:var(--accent);"></i>
+                                    Location: {{ sub.location_id }}
+                                    <span class="badge badge-tier ms-3">{{ sub.tier|upper|default('INDIVIDUAL') }}</span>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion">
+                                <div class="accordion-body">
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <label class="small text-muted mb-1">Bot Name</label>
+                                            <div class="tech-readout">{{ sub.bot_first_name|default('Not set') }}</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="small text-muted mb-1">Timezone</label>
+                                            <div class="tech-readout">{{ sub.timezone|default('Not set') }}</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="small text-muted mb-1">Access Token</label>
+                                            <div class="tech-readout">
+                                                {% if sub.access_token %}
+                                                    {{ sub.access_token[:12] }}...{{ sub.access_token[-6:] }}
+                                                {% else %}
+                                                    Not connected
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="small text-muted mb-1">Refresh Token</label>
+                                            <div class="tech-readout">
+                                                {% if sub.refresh_token %}
+                                                    {{ sub.refresh_token[:12] }}...{{ sub.refresh_token[-6:] }}
+                                                {% else %}
+                                                    Not connected
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4 text-center">
+                                        <a href="/impersonate/{{ sub.location_id }}" class="btn btn-sm btn-outline-accent me-2">
+                                            <i class="fas fa-sign-in-alt me-1"></i> Enter Agent Dashboard
+                                        </a>
+                                        <a href="/demo-chat?location_id={{ sub.location_id }}" target="_blank" class="btn btn-sm btn-outline-accent me-2">
+                                            <i class="fas fa-history me-1"></i> View Logs
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="resetLocation('{{ sub.location_id }}')">
+                                            <i class="fas fa-trash me-1"></i> Reset
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-data">
+                    <h4 class="mb-4">No Agent Seats Yet</h4>
+                    <p class="text-secondary mb-4">
+                        Install InsuranceGrokBot on new GoHighLevel locations to add them to your agency.
+                    </p>
+                    <a href="/getting-started" class="btn add-btn">
+                        Add New Location Now
+                    </a>
+                </div>
+            {% endif %}
+
+            <div class="text-center mt-5">
+                <a href="/dashboard" class="btn btn-outline-accent">
+                    Back to Personal Dashboard
+                </a>
+            </div>
+        </div>
+
+        <script>
+            function resetLocation(locId) {
+                if (confirm(`Reset ALL data for location ${locId}? This cannot be undone.`)) {
+                    fetch(`/reset-location/${locId}`, { method: 'POST' })
+                        .then(r => r.json())
+                        .then(d => alert(d.message || 'Reset complete'))
+                        .catch(() => alert('Reset failed — check logs'));
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """,
+    sub_accounts=sub_accounts,
+    current_user=current_user
+    )
 
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
@@ -2224,7 +2495,7 @@ def dashboard():
         form.initial_message.data = get_val(initial_msg_idx)
 
     # --- 3. FETCH SUBSCRIBER INFO (Tokens) ---
-    sub = get_subscriber_info(location_id) if location_id else None
+    sub = get_subscriber_info_hybrid(location_id) if location_id else None
 
     # Safe display values (Masked)
 # Defaults: Assume we need to input them (Editable / Empty)
@@ -2264,6 +2535,21 @@ def dashboard():
         # CONDITION NOT MET: No token -> Editable
         # We leave access_token_display as '' so the placeholder shows
         pass
+
+    # Count agency seats (from SQL or hybrid)
+    agency_seats_count = 0
+    if current_user.role == 'agency_owner':
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM subscribers WHERE parent_agency_email = %s", (current_user.email,))
+                agency_seats_count = cur.fetchone()[0]
+            except Exception as e:
+                logger.error(f"Agency seat count failed: {e}")
+            finally:
+                if cur: cur.close()
+                if conn: conn.close()
 
     return render_template_string(
 """
@@ -2562,6 +2848,15 @@ def dashboard():
                             <div class="col-12 text-end mt-4">
                                 <button type="submit" class="btn btn-primary px-5">Save Configuration</button>
                             </div>
+                            <!-- Agency Management Button - Only visible to agency owners -->
+                            {% if current_user.role == 'agency_owner' %}
+                                <div class="col-12 text-end mt-4">
+                                    <a href="/agency-dashboard" class="btn btn-outline-accent px-5">
+                                        <i class="fas fa-users-cog me-2"></i>
+                                        Manage Agency ({{ agency_seats_count }} {{ 'seat' if agency_seats_count == 1 else 'seats' }})
+                                    </a>
+                                </div>
+                            {% endif %}
                         </div>
                     </form>
                 </div>
@@ -4546,13 +4841,6 @@ def refresh_subscribers():
 
 @app.route("/oauth/callback")
 def oauth_callback():
-    """
-    Seamless GHL OAuth Callback with Dynamic Sheet Mapping.
-    1. Exchanges code for tokens.
-    2. Saves to DB.
-    3. Maps data to Google Sheet based on ACTUAL headers (no fixed order required).
-    4. Redirects to Registration.
-    """
     code = request.args.get("code")
     if not code:
         return "Error: No authorization code received.", 400
@@ -4568,85 +4856,68 @@ def oauth_callback():
     }
 
     try:
-        # 1. Exchange Code
         response = requests.post(token_url, data=payload)
         data = response.json()
         
         if 'access_token' not in data:
-            logger.error(f"OAuth Exchange Failed: {data}")
             return f"Error: {data.get('error_description', 'Token exchange failed')}", 400
 
-        access_token = data['access_token']
-        refresh_token = data['refresh_token']
-        expires_in = data['expires_in']
         location_id = data.get('locationId')
+        
+        # Determine Agency Context
+        parent_email = None
+        current_tier = 'individual'
+        if current_user.is_authenticated:
+            parent_email = current_user.email
+            # Logic: Pull tier from current_user's subscription metadata
+            current_tier = getattr(current_user, 'subscription_tier', 'individual')
 
-        # 2. Save to DB
+        # 1. Save to PostgreSQL (High-Speed Priority)
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO subscribers (
                 location_id, access_token, refresh_token, token_expires_at, 
-                token_type, crm_api_key
-            ) VALUES (
-                %s, %s, %s, NOW() + interval '%s seconds', 'Bearer', %s
-            )
+                parent_agency_email, tier
+            ) VALUES (%s, %s, %s, NOW() + interval '%s seconds', %s, %s)
             ON CONFLICT (location_id) DO UPDATE SET
                 access_token = EXCLUDED.access_token,
                 refresh_token = EXCLUDED.refresh_token,
-                token_expires_at = EXCLUDED.token_expires_at,
+                parent_agency_email = COALESCE(EXCLUDED.parent_agency_email, subscribers.parent_agency_email),
                 updated_at = NOW();
-        """, (location_id, access_token, refresh_token, expires_in, access_token))
+        """, (location_id, data['access_token'], data['refresh_token'], data['expires_in'], parent_email, current_tier))
         conn.commit()
         cur.close()
-        conn.close()
-        
-        # 3. Dynamic Sheet Writing (Seamless Logic)
-        unique_code = secrets.token_hex(4).upper() # Generates 'A1B2C3D4'
 
+        # 2. Parallel Sync to Sheets (Redundancy)
+        unique_code = secrets.token_hex(4).upper()
         if worksheet:
+            # Note: We run this in a 'try' so if Sheets is slow, it doesn't block the redirect
             try:
                 all_values = worksheet.get_all_values()
-                if not all_values:
-                    headers = ["email", "location_id", "access_token", "refresh_token", "bot_first_name", "timezone", "confirmation_code", "code_used"]
-                    worksheet.append_row(headers)
-                    all_values = [headers]
-                
                 headers = [h.strip().lower() for h in all_values[0]]
-                
-                data_map = {
+                row_data = {
                     "location_id": location_id,
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "bot_first_name": "Grok",
-                    "timezone": "America/Chicago",
-                    "confirmation_code": unique_code, # <--- REAL CODE
-                    "code_used": "0" # <--- NOT USED YET
+                    "access_token": data['access_token'],
+                    "parent_agency": parent_email or "N/A",
+                    "tier": current_tier,
+                    "confirmation_code": unique_code
                 }
-                
-                row_to_append = [""] * len(headers)
-                for col_name, value in data_map.items():
-                    try:
-                        if col_name in headers:
-                            idx = headers.index(col_name)
-                            row_to_append[idx] = value
-                        elif col_name == "access_token" and "crm_api_key" in headers:
-                            idx = headers.index("crm_api_key")
-                            row_to_append[idx] = value
-                    except ValueError:
-                        pass
-                
-                worksheet.append_row(row_to_append)
-                
+                new_row = [row_data.get(h, "") for h in headers]
+                worksheet.append_row(new_row)
             except Exception as e:
-                logger.error(f"Sheet append failed: {e}")
+                logger.error(f"Redundant Sheet Write Failed: {e}")
 
-        # 4. Redirect to Register with the Code
+        # If already logged in as Agency, return to Agency Dashboard
+        if parent_email:
+            flash(f"Location {location_id} added to agency.", "success")
+            return redirect("/agency-dashboard")
+        
         return redirect(url_for('register', code=unique_code))
 
     except Exception as e:
         logger.error(f"OAuth Callback Error: {e}")
-        return "Internal Server Error during installation", 500
+        return "Internal Server Error", 500
 
 @app.route("/faq")
 def faq():

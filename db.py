@@ -183,6 +183,62 @@ class User(UserMixin):
                 cur.close()
                 conn.close()
 
+def get_subscriber_info_sql(location_id: str):
+    """Internal SQL-only helper (the logic from your existing get_subscriber_info)"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE location_id = %s", (location_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"SQL lookup failed for {location_id}: {e}")
+        return None
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
+
+def get_subscriber_info_hybrid(location_id: str):
+    """
+    Simultaneous Pull Logic:
+    1. Check PostgreSQL first (High speed)
+    2. Fallback to Google Sheets (Redundancy)
+    """
+    # 1. Immediate SQL check
+    sql_data = get_subscriber_info_sql(location_id)
+    if sql_data:
+        return sql_data
+        
+    # 2. Fallback to Sheets if SQL is empty/down
+    # We import 'worksheet' here to avoid circular dependencies with main.py
+    from main import worksheet 
+    
+    if worksheet:
+        try:
+            logger.info(f"SQL Miss for {location_id}, attempting Sheets Recovery...")
+            # Optimization: Use .find() to only pull the ONE row you need
+            cell = worksheet.find(location_id, in_column=2) # Assuming location_id is column B
+            if cell:
+                row_data = worksheet.row_values(cell.row)
+                all_rows = worksheet.get_all_values() # Still need headers
+                headers = [h.strip().lower() for h in all_rows[0]]
+                return dict(zip(headers, row_data))
+                
+            headers = [h.strip().lower() for h in all_rows[0]]
+            loc_idx = headers.index("location_id")
+            
+            for row in all_rows[1:]:
+                if row[loc_idx] == location_id:
+                    # Convert row list back into a dictionary matching your DB structure
+                    return dict(zip(headers, row))
+        except Exception as e:
+            logger.error(f"Sheets recovery failed: {e}")
+    
+    return None
+
 def get_message_count(contact_id: str) -> int:
     """Count messages for a contact (detect empty/wiped DB)."""
     conn = get_db_connection()
@@ -237,23 +293,18 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
             cur.close()
             conn.close()
 
-def get_subscriber_info(location_id: str) -> Optional[Dict[str, Any]]:
-    """Fetch full subscriber config by location_id."""
+# Add these columns to your existing 'users' and 'subscribers' tables
+def upgrade_db_for_agency():
     conn = get_db_connection()
-    if not conn:
-        return None
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM subscribers WHERE location_id = %s", (location_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-    except psycopg2.Error as e:
-        logger.error(f"get_subscriber_info failed for {location_id}: {e}")
-        return None
-    finally:
-        if conn:
-            cur.close()
-            conn.close()
+    cur = conn.cursor()
+    # Track who is an Agency Owner vs a Standard User
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';") # 'user' or 'agency_owner'
+    
+    # Link subscribers to an Agency Owner
+    cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS parent_agency_email TEXT;")
+    cur.execute("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'individual';") # 'individual', 'starter', 'pro'
+    conn.commit()
+    cur.close()
 
 def update_subscriber_token(
     location_id: str,
