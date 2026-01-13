@@ -1861,7 +1861,6 @@ def dashboard():
 
     <div class="sidebar">
         <div class="brand-area">
-            <i class="fa-solid fa-robot" style="color:var(--accent);"></i>
             <span>Insurance<span style="color:var(--accent);">Grok</span>Bot</span>
         </div>
 
