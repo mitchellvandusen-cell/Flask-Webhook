@@ -181,17 +181,21 @@ class User(UserMixin):
 
     @staticmethod
     def get(email: str) -> Optional['User']:
+        print(f"[DEBUG] User.get called with email: '{email}' (length: {len(email)})")
         conn = get_db_connection()
         if not conn:
+            print("[DEBUG] DB connection failed - returning None")
             return None
         try:
             cur = conn.cursor()
+            print ("[DEBUG] Executing SQL query to fetch user")
             cur.execute("""
                 SELECT email, password_hash, stripe_customer_id, role, subscription_tier
                 FROM users WHERE email = %s",
             """,  (email,))
             row = cur.fetchone()
             if row:
+                print(f"[DEBUG] Full row: {dict(row)}")
                 return User(
                     email=row['email'],
                     password_hash=row['password_hash'],
@@ -199,10 +203,14 @@ class User(UserMixin):
                     role=row.get('role', 'individual'),
                     subscription_tier=row.get('subscription_tier', 'individual')
                 )
+            else:
+                print(f"[DEBUG] No user found for email: '{email}'")
             return None
+        
         except psycopg2.Error as e:
             logger.error(f"User.get failed for {email}: {e}")
             return None
+        
         finally:
             cur.close()
             conn.close()
