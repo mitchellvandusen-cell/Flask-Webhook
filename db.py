@@ -134,6 +134,19 @@ def init_db() -> bool:
             );
         """)
 
+        # 7. Agency billing (create it here so ALTERs aren't needed later)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS agency_billing (
+                agency_email TEXT PRIMARY KEY,
+                max_seats INTEGER DEFAULT 10,
+                active_seats INTEGER DEFAULT 0,
+                subscription_tier TEXT DEFAULT 'starter',
+                next_billing_date TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
         # Webhook deduplication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS processed_webhooks (
