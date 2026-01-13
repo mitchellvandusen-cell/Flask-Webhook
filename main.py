@@ -635,6 +635,26 @@ def home():
             offset: 50
         });
     </script>
+    <div id="elite-popup-overlay" class="popup-overlay">
+    <div class="popup-card">
+        <button class="close-btn" onclick="closePopup()">&times;</button>
+        
+        <div class="popup-content">
+            <div class="glow-effect"></div>
+            <span class="badge">LIMITED OFFER</span>
+            <h2>Experience True Intelligence</h2>
+            <p>Unlock the full potential of InsuranceGrokBot. Zero limits. Zero cost for the first week.</p>
+            
+            <div class="offer-box">
+                <span class="big-text">7 DAYS</span>
+                <span class="sub-text">FREE TRIAL</span>
+            </div>
+
+            <a href="/register" class="elite-btn">Start My Free Trial</a>
+            <p class="no-commitment">No commitment. Cancel anytime.</p>
+        </div>
+    </div>
+</div>
 </body>
 </html>
     """
