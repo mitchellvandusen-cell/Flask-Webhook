@@ -29,7 +29,7 @@ from sync_subscribers import sync_subscribers
 from tasks import process_webhook_task  
 from memory import get_known_facts, get_narrative, get_recent_messages 
 from individual_profile import build_comprehensive_profile 
-from utils import make_json_serializable
+from utils import make_json_serializable, clean_ai_reply
 
 load_dotenv()
 
@@ -146,7 +146,14 @@ Examples:
             temperature=0.95,
             max_tokens=50
         )
-        return response.choices[0].message.content.strip().replace('"', '')
+
+        # 1. Get raw text & basic cleanup (strip whitespace, remove quotes)
+        raw_text = response.choices[0].message.content.strip().replace('"', '')
+        
+        # 2. Run your specific cleaner
+        cleaned_content = clean_ai_reply(raw_text)
+        
+        return cleaned_content
     except Exception as e:
         logger.error(f"Demo opener failed: {e}")
         return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
