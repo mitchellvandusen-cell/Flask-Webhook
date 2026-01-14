@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Success | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="success-ambient-glow"></div>
+
+    <div class="success-card">
+        <div class="success-icon">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        
+        <h1 style="color: #fff; font-weight: 700; font-size: 2rem; margin-bottom: 10px;">Payment Confirmed</h1>
+        <p style="color: var(--text-muted); margin-bottom: 40px; font-size: 1.1rem;">
+            Your subscription is officially active. Welcome to the future of insurance automation.
+        </p>
+        
+        <a href="/login" class="btn btn-primary w-100 py-3">Launch Dashboard</a>
+    </div>
+</div>
+{% endblock %}

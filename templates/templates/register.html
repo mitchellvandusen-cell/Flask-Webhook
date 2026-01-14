@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Login | InsuranceGrokBot{% endblock %}
+{% block title %}Register | InsuranceGrokBot{% endblock %}
 
 {% block content %}
 <div class="auth-wrapper">
@@ -8,12 +8,13 @@
         <div class="auth-logo">
             Insurance<span class="text-accent">Grok</span>Bot
         </div>
-        <p class="auth-subtitle">Access your command center</p>
+        <p class="auth-subtitle">Initialize your agent account</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
                     <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="font-size: 0.9rem;">
+                        <i class="fa-solid {{ 'fa-check-circle' if category == 'success' else 'fa-circle-exclamation' }} me-2"></i>
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
@@ -32,7 +33,15 @@
                 </div>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-3">
+                <label class="form-label">Confirmation Code <span class="text-muted fw-normal small">(Auto-filled)</span></label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-ticket"></i></span>
+                    {{ form.code(class="form-control", placeholder="XXXX-XXXX") }}
+                </div>
+            </div>
+
+            <div class="mb-3">
                 <label class="form-label">Password</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
@@ -40,21 +49,24 @@
                 </div>
             </div>
 
-            {{ form.submit(class="btn btn-primary w-100 py-3", value="Sign In") }}
+            <div class="mb-4">
+                <label class="form-label">Confirm Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
+                    {{ form.confirm(class="form-control", placeholder="••••••••") }}
+                </div>
+            </div>
+
+            {{ form.submit(class="btn btn-primary w-100 py-3", value="Create Account") }}
         </form>
 
         <div class="text-center mt-4">
             <p style="color:#888; font-size:0.9rem;">
-                New here? <a href="/register" class="text-accent" style="text-decoration:none; font-weight:600;">Create an Account</a>
+                Already registered? <a href="/login" class="text-accent" style="text-decoration:none; font-weight:600;">Log In</a>
             </p>
             <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 25px 0;"></div>
-            
-            <a href="/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem; display:block; margin-bottom: 20px;">
+            <a href="/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">
                 <i class="fa-solid fa-arrow-left me-1"></i> Back to Website
-            </a>
-
-            <a href="/agency-login" class="btn btn-outline-accent w-100" style="border-radius:12px; font-size:0.9rem;">
-                <i class="fa-solid fa-building-shield me-2"></i> Agency Log In
             </a>
         </div>
     </div>

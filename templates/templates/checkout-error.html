@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}System Error | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="cancel-ambient-glow"></div>
+
+    <div class="error-card">
+        <div class="icon-circle-red">
+            <i class="fa-solid fa-server"></i>
+        </div>
+        
+        <h1 style="color: #fff; font-weight: 700; font-size: 1.8rem; margin-bottom: 10px;">Gateway Error</h1>
+        <p style="color: var(--text-muted); margin-bottom: 40px; font-size: 1rem; line-height: 1.5;">
+            We couldn't initialize the secure payment portal. This is likely a temporary connection issue with the payment processor.
+        </p>
+
+        <a href="/" class="btn-outline">
+            <i class="fa-solid fa-rotate-left me-2"></i> Return Home & Try Again
+        </a>
+        
+        <div class="tech-details">Error Code: 500 | Stripe Handshake Failed</div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Launch Sequence | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="launch-header-section">
+        <h1 class="launch-main-title">Initialize Protocol</h1>
+        <p class="subtitle">Select your deployment method below. Agencies should use the Marketplace integration, while independent users can subscribe directly.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center pb-5">
+        
+        <div class="col-lg-5 col-md-6">
+            <div class="path-card">
+                <div class="card-icon">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                </div>
+                <h3 class="card-title">Marketplace Sync</h3>
+                <p class="card-desc">For agencies wanting deep integration. Install directly into your GoHighLevel sub-account.</p>
+                
+                <div class="steps-container">
+                    <div class="step-item">
+                        <div class="step-num">1</div>
+                        <div class="step-text">Open <strong>GHL Marketplace</strong> tab.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">2</div>
+                        <div class="step-text">Search for <strong>"Insurance Grok Bot"</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">3</div>
+                        <div class="step-text">Click <strong>Install</strong> & approve permissions.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">4</div>
+                        <div class="step-text">Wait for <strong>Auto-Redirect</strong> to system.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">5</div>
+                        <div class="step-text">Create account (Code is pre-loaded).</div>
+                    </div>
+                </div>
+
+                <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn-launch btn-outline-glow">
+                    Open Marketplace <i class="fa-solid fa-external-link-alt ms-2"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="col-lg-5 col-md-6">
+            <div class="path-card" style="border-color: rgba(0,255,136,0.3);">
+                <div class="card-icon" style="background:var(--accent); color:#000;">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <h3 class="card-title">Direct Activation</h3>
+                <p class="card-desc">Fast-track setup for independent agents. Secure your license and start immediately.</p>
+                
+                <div class="steps-container">
+                    <div class="step-item">
+                        <div class="step-num">1</div>
+                        <div class="step-text">Click <strong>Subscribe Now</strong> below.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">2</div>
+                        <div class="step-text">Complete secure checkout via <strong>Stripe</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">3</div>
+                        <div class="step-text">Create your <strong>Secure Password</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">4</div>
+                        <div class="step-text">Access the <strong>Intelligence Dashboard</strong>.</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-num">5</div>
+                        <div class="step-text">Input CRM Keys to sync logic.</div>
+                    </div>
+                </div>
+
+                <a href="/checkout" class="btn-launch btn-primary-glow">
+                    Start Subscription <i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

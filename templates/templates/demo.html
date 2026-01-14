@@ -245,14 +245,14 @@
     <div class="terminal-col">
         <div style="padding:15px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
             <span style="color:#fff; font-weight:700;"><span style="color:var(--accent); margin-right:8px;">●</span>LIVE BRAIN ACTIVITY</span>
-            <span style="font-family:'JetBrains Mono'; font-size:11px; color:#555;">ID: [clean_id_placeholder]</span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; color:#555;">ID: {{ demo_contact_id }}</span>
         </div>
         <div class="log-content" id="logWindow">
             <div style="color:#555;">> Initializing neural connection...</div>
         </div>
         <div style="padding:15px; border-top:1px solid #333; display:flex; gap:10px;">
             <button onclick="resetSession()" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; cursor:pointer;">Reset</button>
-            <a href="/download-transcript?contact_id=demo_contact_placeholder" target="_blank" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; text-align:center; text-decoration:none; font-size:13px;">Download Logs</a>
+            <a href="/download-transcript?contact_id={{ demo_contact_id }}" target="_blank" style="flex:1; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:8px; text-align:center; text-decoration:none; font-size:13px;">Download Logs</a>
         </div>
     </div>
 
@@ -271,10 +271,11 @@
         if(initial) addBubble(initial, true);
         init();
     };
+    
     // HELPERS
     function cleanContent(raw) {
         if (!raw) return "";
-        try {           
+        try {          
             if (raw.trim().startsWith('{')) {
                 const parsed = JSON.parse(raw);
                 return parsed.body || parsed.message || parsed.text || raw;
@@ -437,11 +438,6 @@
             loadingDiv.remove();
         }
     }
-
-    // AUTO-START
-    window.onload = function() {
-        init();
-    };
 </script>
 </body>
 </html>

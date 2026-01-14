@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}InsuranceGrokBot — Reengage Cold Leads Like Never Before{% endblock %}
+
+{% block content %}
+    <section class="hero">
+        <div class="container text-center" style="position: relative; z-index: 2;">
+            <div data-aos="fade-up">
+                <span style="color:var(--accent); font-weight:700; letter-spacing:1px; text-transform:uppercase; font-size:0.9rem;">Powered by xAI's Grok</span>
+                <h1>Reopen Cold Leads.<br>Book Appointments.</h1>
+                <p class="lead">
+                    Stop chasing dead leads manually. Let the AI handle the objections, re-spark the interest, and put meetings on your calendar.
+                </p>
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="/checkout" class="btn btn-primary btn-lg">Subscribe Now ($100/mo)</a>
+                    <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="section">
+        <div class="container">
+            <h2 class="section-title" data-aos="fade-up">Built for <span>Results</span></h2>
+            <div class="row g-4">
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+                    <div class="glass-card feature-card">
+                        <div class="feature-icon"><i class="fa-solid fa-brain"></i></div>
+                        <h4>Human-Like Memory</h4>
+                        <p>It remembers everything about your client. No awkward repeated questions. It builds trust instantly.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+                    <div class="feature-card glass-card">
+                        <div class="feature-icon"><i class="fa-solid fa-bolt"></i></div>
+                        <h4>5 Elite Sales Frameworks</h4>
+                        <p>Blends NEPQ, Gap Selling, and Chris Voss tactics to overcome objections and close the gap.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="300">
+                    <div class="feature-card glass-card">
+                        <div class="feature-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                        <h4>Auto-Booking</h4>
+                        <p>It doesn't just chat; it converts. The bot integrates with your calendar to book qualified appointments.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="400">
+                    <div class="feature-card glass-card">
+                        <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h4>Underwriting Logic</h4>
+                        <p>Smart enough to know carrier rules. It asks the right health questions before you ever get on the phone.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="500">
+                    <div class="feature-card glass-card">
+                        <div class="feature-icon"><i class="fa-solid fa-infinity"></i></div>
+                        <h4>Unlimited Conversations</h4>
+                        <p>Scale without limits. Whether you have 100 leads or 10,000, the bot handles them all simultaneously.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="600">
+                    <div class="feature-card glass-card">
+                        <div class="feature-icon"><i class="fa-solid fa-building-user"></i></div>
+                        <h4>Agency Ready</h4>
+                        <p>Multi-tenant support allows you to manage multiple agents or sub-accounts from one master dashboard.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <div class="glass-banner" data-aos="zoom-in">
+                <div class="row align-items-center">
+                    <div class="col-lg-7 mb-4 mb-lg-0">
+                        <h2 style="font-size: 2.5rem; font-weight:700; color:#fff;">Curious how we stack up?</h2>
+                        <p style="color:#aaa; font-size:1.1rem;">
+                            Don't settle for generic bots. See exactly why <span style="color:var(--accent);">InsuranceGrokBot</span> outperforms ChatGPT and standard automation.
+                        </p>
+                    </div>
+                    <div class="col-lg-5 text-center position-relative">
+                        <div class="vs-visual-container">
+                            <div style="font-size:1.5rem; color:#555;"><i class="fa-solid fa-robot"></i></div>
+                            <div class="vs-circle">VS</div>
+                            <div class="grok-icon"><i class="fa-solid fa-bolt"></i></div>
+                        </div>
+                        <a href="/comparison" class="btn btn-primary">
+                            See the Breakdown <i class="fa-solid fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="section pricing-section">
+        <div class="container text-center">
+            <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
+            
+            <div class="carousel-container">
+                <div class="pricing-card prev" onclick="selectCard(0)">
+                    <span class="pricing-badge">Individual</span>
+                    <div class="price-tag">$100<span>/mo</span></div>
+                    <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
+                        <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
+                        <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
+                        <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
+                    </ul>
+
+                    <a href="/checkout" class="btn btn-outline-accent w-100 py-3">Start Individual</a>
+                </div>
+
+                <div class="pricing-card active" onclick="selectCard(1)">
+                    <span class="pricing-badge" style="background:rgba(0,255,136,0.3); border:1px solid #00ff88;">Most Popular</span>
+                    <h3 style="color:#fff; margin-top:10px;">Agency Starter</h3>
+                    <div class="price-tag">$800<span>/mo</span></div>
+                    <p style="color:#888; margin-top:10px;">For Growing Agencies</p>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Everything in Individual</li>
+                        <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                        <li><i class="fa-solid fa-check"></i> 10 Sub-Accounts Included</li>
+                        <li><i class="fa-solid fa-check"></i> Shared Agency Memory</li>
+                        <li><i class="fa-solid fa-check"></i> Priority Support</li>
+                    </ul>
+
+                    <a href="/checkout/agency-starter" class="btn btn-primary w-100 py-3">Start Agency Starter</a>
+                </div>
+
+                <div class="pricing-card next" onclick="selectCard(2)">
+                    <span class="pricing-badge">Agency Pro</span>
+                    <div class="price-tag">$1600<span>/mo</span></div>
+                    <p style="color:#888; margin-top:10px;">For Large Teams</p>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Everything in Starter</li>
+                        <li><i class="fa-solid fa-check"></i> Unlimited Sub-Accounts</li>
+                        <li><i class="fa-solid fa-check"></i> Dedicated High-Speed Queue</li>
+                        <li><i class="fa-solid fa-check"></i> Enterprise Seat Management</li>
+                        <li><i class="fa-solid fa-check"></i> White Glove Onboarding</li>
+                    </ul>
+
+                    <a href="/checkout/agency-pro" class="btn btn-outline-accent w-100 py-3">Start Agency Pro</a>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

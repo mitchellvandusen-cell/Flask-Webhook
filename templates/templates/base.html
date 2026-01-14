@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}InsuranceGrokBot{% endblock %}</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
+            <button class="navbar-toggler navbar-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto align-items-center gap-4">
+                    <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
+                </ul>
+                <div class="d-flex gap-3 mt-3 mt-lg-0">
+                    <a href="/login" class="btn btn-outline-accent btn-sm nav-btn">Log In</a>
+                    <a href="/register" class="btn btn-primary btn-sm nav-btn">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer>
+        <div class="container">
+            <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
+            <div class="mb-4">
+                <a href="/terms">Terms</a>
+                <a href="/privacy">Privacy</a>
+                <a href="/disclaimers">Disclaimers</a>
+                <a href="/contact">Contact</a>
+            </div>
+            <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <div class="chat-widget-container">
+        <div class="chat-callout" id="chatCallout">Ask about me</div>
+        <div class="chat-window" id="chatWindow">
+            <div class="chat-header">
+                <div class="bot-identity">
+                    <div class="bot-avatar"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="bot-info">
+                        <h5>Grok Assistant</h5>
+                        <div class="bot-status">Online</div>
+                    </div>
+                </div>
+                <button onclick="toggleChat()" style="background:none; border:none; color:#777; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="msg bot">
+                    Hello! I'm the AI Assistant for this website. I can explain how our tech works or recommend the best plan for your agency. What's on your mind?
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+            </div>
+            <div class="chat-footer">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything..." onkeypress="handleEnter(event)">
+                <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+        <div class="chat-toggle-btn" onclick="toggleChat()">
+            <div class="pulse-ring"></div>
+            <i class="fa-solid fa-robot"></i>
+        </div>
+    </div>
+
+    <div id="elite-popup-overlay" class="popup-overlay">
+        <div class="popup-card">
+            <button class="close-btn" onclick="closePopup()">&times;</button>
+            <div class="popup-content">
+                <div class="glow-effect"></div>
+                <span class="badge">LIMITED OFFER</span>
+                <h2>Experience True Intelligence</h2>
+                <p>Unlock the full potential of InsuranceGrokBot. Zero limits. Zero cost for the first week.</p>
+                <div class="offer-box">
+                    <span class="big-text">7 DAYS</span>
+                    <span class="sub-text">FREE TRIAL</span>
+                </div>
+                <a href="/register" class="elite-btn">Start My Free Trial</a>
+                <p class="no-commitment">No commitment. Cancel anytime.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // --- CAROUSEL LOGIC ---
+            const cards = document.querySelectorAll('.pricing-card');
+            
+            if (cards.length > 0) {
+                let activeIndex = 1; 
+                let autoRotateInterval;
+
+                window.selectCard = function(index) {
+                    if (window.innerWidth < 992) return; 
+                    activeIndex = index;
+                    updateCarousel();
+                    resetTimer(); 
+                };
+
+                function updateCarousel() {
+                    cards.forEach((card, i) => {
+                        card.className = 'pricing-card'; 
+                        if (i === activeIndex) {
+                            card.classList.add('active');
+                        } else if (i === (activeIndex - 1 + 3) % 3) {
+                            card.classList.add('prev');
+                        } else {
+                            card.classList.add('next');
+                        }
+                    });
+                }
+
+                function nextCard() {
+                    activeIndex = (activeIndex + 1) % 3;
+                    updateCarousel();
+                }
+
+                function startTimer() {
+                    autoRotateInterval = setInterval(nextCard, 5000); 
+                }
+
+                function resetTimer() {
+                    clearInterval(autoRotateInterval);
+                    startTimer();
+                }
+
+                updateCarousel(); 
+                startTimer();
+
+                const container = document.querySelector('.carousel-container');
+                if (container) {
+                    container.addEventListener('mouseenter', () => clearInterval(autoRotateInterval));
+                    container.addEventListener('mouseleave', startTimer);
+                }
+            }
+
+            // --- POPUP LOGIC ---
+            const popup = document.getElementById("elite-popup-overlay");
+            const LAST_CLOSED_KEY = "grok_popup_last_closed";
+            const COOLDOWN_HOURS = 4;
+
+            function shouldShowPopup() {
+                const lastClosed = localStorage.getItem(LAST_CLOSED_KEY);
+                if (!lastClosed) return true; 
+                const now = new Date().getTime();
+                const timePassed = now - parseInt(lastClosed);
+                const hoursPassed = timePassed / (1000 * 60 * 60);
+                return hoursPassed >= COOLDOWN_HOURS;
+            }
+
+            function showPopup() {
+                if(popup) {
+                    popup.style.display = "flex";
+                    setTimeout(() => { popup.classList.add("active"); }, 10);
+                }
+            }
+
+            window.closePopup = function() {
+                if(popup) {
+                    popup.classList.remove("active");
+                    setTimeout(() => { popup.style.display = "none"; }, 500);
+                    localStorage.setItem(LAST_CLOSED_KEY, new Date().getTime().toString());
+                }
+            };
+
+            if (shouldShowPopup()) {
+                setTimeout(showPopup, 2000);
+            }
+
+            // --- CHAT WIDGET LOGIC ---
+            let chatSessionId = localStorage.getItem('grok_chat_session_id');
+            if (!chatSessionId) {
+                chatSessionId = 'demo_web_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('grok_chat_session_id', chatSessionId);
+            }
+
+            const chatWindow = document.getElementById('chatWindow');
+            const chatCallout = document.getElementById('chatCallout');
+            const chatBody = document.getElementById('chatBody');
+            const chatInput = document.getElementById('chatInput');
+            const typingIndicator = document.getElementById('typingIndicator');
+            let isChatOpen = false;
+            let lastLogCount = 0; 
+
+            window.toggleChat = function() {
+                isChatOpen = !isChatOpen;
+                if (isChatOpen) {
+                    chatWindow.classList.add('open');
+                    chatCallout.classList.add('hidden');
+                    scrollToBottom();
+                    startPolling(); 
+                } else {
+                    chatWindow.classList.remove('open');
+                    setTimeout(() => chatCallout.classList.remove('hidden'), 500);
+                }
+            };
+
+            window.handleEnter = function(e) {
+                if (e.key === 'Enter') sendMessage();
+            };
+
+            window.sendMessage = function() {
+                const text = chatInput.value.trim();
+                if (!text) return;
+
+                addMessage(text, 'user');
+                chatInput.value = '';
+                showTyping();
+
+                fetch('/website-bot-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contact_id: chatSessionId,
+                        message: text
+                    })
+                }).catch(err => console.error("Chat Error:", err));
+            };
+
+            function addMessage(text, type) {
+                const div = document.createElement('div');
+                div.className = `msg ${type}`;
+                div.textContent = text;
+                chatBody.insertBefore(div, typingIndicator);
+                scrollToBottom();
+            }
+
+            function showTyping() {
+                typingIndicator.style.display = 'flex';
+                scrollToBottom();
+            }
+
+            function hideTyping() {
+                typingIndicator.style.display = 'none';
+            }
+
+            function scrollToBottom() {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+
+            let pollInterval;
+            function startPolling() {
+                if (pollInterval) return;
+                pollInterval = setInterval(async () => {
+                    if (!isChatOpen) { clearInterval(pollInterval); pollInterval = null; return; }
+
+                    try {
+                        const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
+                        const data = await res.json();
+                        
+                        if (data.logs && data.logs.length > lastLogCount) {
+                            const newLogs = data.logs.slice(lastLogCount);
+                            
+                            newLogs.forEach(log => {
+                                if (log.type === "Bot Message") {
+                                    hideTyping();
+                                    addMessage(log.content, 'bot');
+                                }
+                            });
+                            
+                            lastLogCount = data.logs.length;
+                        }
+                    } catch (e) { }
+                }, 2000); 
+            }
+        });
+    </script>
+
+    <script>
+        AOS.init({ duration: 1000, once: true, offset: 50 });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

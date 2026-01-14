@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Agency Command Center | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
+    
+    <div class="text-center mb-5">
+        <h1 style="font-weight: 900; font-size: 3rem; margin-bottom: 10px;">
+            Agency <span class="text-accent">Command Center</span>
+        </h1>
+        <p class="text-secondary" style="font-size: 1.1rem;">
+            Managing {{ sub_accounts|length }} Agent {{ 'Seat' if sub_accounts|length == 1 else 'Seats' }}
+        </p>
+    </div>
+
+    {% if sub_accounts %}
+        <div class="accordion mt-4" id="agencyAccordion">
+            {% for sub in sub_accounts %}
+                <div class="accordion-item glass-card mb-3 p-0"> <h2 class="accordion-header">
+                        <button class="accordion-button collapsed p-4" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapse{{ loop.index }}">
+                            <i class="fa-solid fa-user-tie me-3 text-accent"></i>
+                            <span style="font-family:'JetBrains Mono'; margin-right: 15px;">{{ sub.location_id }}</span>
+                            <span style="font-weight:700;">{{ sub.name }}</span>
+                            <span class="badge badge-tier ms-auto">{{ sub.tier|upper|default('INDIVIDUAL') }}</span>
+                        </button>
+                    </h2>
+                    <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion">
+                        <div class="accordion-body p-4 border-top border-secondary">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-1">Bot Name</label>
+                                    <div class="tech-readout">{{ sub.bot_first_name|default('Not set') }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-1">Timezone</label>
+                                    <div class="tech-readout">{{ sub.timezone|default('Not set') }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-1">Access Token</label>
+                                    <div class="tech-readout text-truncate">
+                                        {% if sub.access_token %}
+                                            {{ sub.access_token[:12] }}...{{ sub.access_token[-6:] }}
+                                        {% else %}
+                                            <span class="text-danger">Not connected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small text-muted mb-1">Refresh Token</label>
+                                    <div class="tech-readout text-truncate">
+                                        {% if sub.refresh_token %}
+                                            {{ sub.refresh_token[:12] }}...{{ sub.refresh_token[-6:] }}
+                                        {% else %}
+                                            <span class="text-danger">Not connected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 text-end">
+                                <a href="/impersonate/{{ sub.location_id }}" class="btn btn-sm btn-outline-accent me-2">
+                                    <i class="fas fa-sign-in-alt me-1"></i> Enter Dashboard
+                                </a>
+                                
+                                <a href="/demo-chat?location_id={{ sub.location_id }}" target="_blank" class="btn btn-sm btn-outline-light me-2">
+                                    <i class="fas fa-history me-1"></i> View Logs
+                                </a>
+                                
+                                <button class="btn btn-sm btn-outline-danger" onclick="resetLocation('{{ sub.location_id }}')">
+                                    <i class="fas fa-trash me-1"></i> Reset Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-data">
+            <h4 class="mb-4 text-white">No Agent Seats Yet</h4>
+            <p class="text-secondary mb-4">
+                Install InsuranceGrokBot on new GoHighLevel locations to add them to your agency.
+            </p>
+            <a href="/getting-started" class="add-btn">
+                Add New Location Now
+            </a>
+        </div>
+    {% endif %}
+
+    <div class="text-center mt-5">
+        <a href="/dashboard" class="btn btn-outline-light">
+            Back to Personal Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function resetLocation(locId) {
+        if (confirm(`Reset ALL data for location ${locId}? This cannot be undone.`)) {
+            // Note: Ensure /reset-location route exists in main.py
+            fetch(`/reset-location/${locId}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    alert(d.message || 'Reset complete');
+                    window.location.reload();
+                })
+                .catch(() => alert('Reset failed — check console logs'));
+        }
+    }
+</script>
+{% endblock %}

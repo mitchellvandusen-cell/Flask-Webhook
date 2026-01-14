@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Process Aborted | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="cancel-ambient-glow"></div>
+
+    <div class="cancel-card">
+        <div class="icon-circle-red">
+            <i class="fa-solid fa-xmark"></i>
+        </div>
+        
+        <h1 style="color: #fff; font-weight: 700; font-size: 1.8rem; margin-bottom: 10px;">Checkout Canceled</h1>
+        <p style="color: var(--text-muted); margin-bottom: 40px; font-size: 1rem; line-height: 1.5;">
+            The transaction was aborted. No charges were made to your card and your subscription remains inactive.
+        </p>
+
+        <a href="/" class="btn-outline">
+            <i class="fa-solid fa-arrow-left me-2"></i> Return to Homepage
+        </a>
+        
+        <a href="/#pricing" class="sub-link">Changed your mind? View Pricing</a>
+    </div>
+</div>
+{% endblock %}
