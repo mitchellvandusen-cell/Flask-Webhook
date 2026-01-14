@@ -205,7 +205,17 @@ class User(UserMixin):
                     subscription_tier=row.get('subscription_tier', 'individual'),
                     full_name=row.get('full_name'),
                     phone=row.get('phone'),
-                    bio=row.get('bio')
+                    bio=row.get('bio'),
+                    updated_at=row.get('updated_at'),
+                    initial_message=row.get('initial_message'),
+                    access_token=row.get('access_token'),
+                    refresh_token=row.get('refresh_token'),
+                    token_expires_at=row.get('token_expires_at'),
+                    token_type=row.get('token_type'),
+                    confirmation_code=row.get('confirmation_code'),
+                    stripe_status=row.get('stripe_status'),
+                    parent_agency_email=row.get('parent_agency_email'),
+                    tier=row.get('tier'),
                     # add more fields if you have them in subscribers
                 )
             else:
