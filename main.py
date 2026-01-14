@@ -48,11 +48,14 @@ def safe_jsonify(data):
     return flask_jsonify(make_json_serializable)
 
 # === REDIS & RQ SETUP ===
-# This connects to the Redis service via the variable you added in Railway
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
 try:
     conn = redis.from_url(redis_url)
-    q = Queue(connection=conn)
+    
+    # Create TWO queues
+    q_production = Queue('production', connection=conn) # High Priority
+    q_demo       = Queue('demo',       connection=conn) # Low Priority
+    
     logger.info("✅ Redis Connection Successful")
 except Exception as e:
     logger.error(f"❌ Redis Connection Failed: {e}")
@@ -200,18 +203,25 @@ def webhook():
         except Exception as e:
             logger.error(f"Instant demo write failed: {e}")
 
-    # 2. Enqueue the Brain
+
+#   2. Enqueue the Brain
     try:
-        job = q.enqueue(
+        # CHECK IF DEMO
+        is_demo = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
+        
+        # Select the appropriate queue
+        target_queue = q_demo if is_demo else q_production
+        
+        job = target_queue.enqueue(
             process_webhook_task,
             payload,
             job_timeout=120,
             result_ttl=86400
         )
-        return flask_jsonify({"status": "queued", "job_id": job.id}), 202
+        return safe_jsonify({"status": "queued", "job_id": job.id, "queue": target_queue.name}), 202
     except Exception as e:
         logger.error(f"Queue failed: {e}")
-        return flask_jsonify({"status": "error"}), 500
+        return safe_jsonify({"status": "error"}), 500
 
 # =====================================================
 #  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
