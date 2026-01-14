@@ -937,7 +937,6 @@ def get_logs():
             conn.close()
 
     
-
 @app.route("/reset-test", methods=["GET"])
 def reset_test():
     contact_id = request.args.get("contact_id")

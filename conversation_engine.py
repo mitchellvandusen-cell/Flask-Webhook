@@ -1,16 +1,17 @@
 # conversation_engine.py - The Logic Signal Processor (Left Brain)
-# "It's not about what you asked. It's about what they answered."
 import logging
 from enum import Enum
 from dataclasses import dataclass
 from typing import List
+
 logger = logging.getLogger(__name__)
+
 class ConversationStage(Enum):
     INITIAL_OUTREACH = "initial_outreach"
     DISCOVERY = "discovery"          # NEPQ Situation / Gap Selling Current State
     CONSEQUENCE = "consequence"      # NEPQ Consequence / Gap Selling Pain
     RESISTANCE = "resistance"        # Chris Voss (Skepticism/Trust Issues)
-    OBJECTION = "objection"          # Straight Line (Smokescreens)
+    OBJECTION_HANDLING = "objection" # FIXED: Mapped to "objection" value, matches logic usage
     CLOSING = "closing"              # Booking the appointment
 
 @dataclass
@@ -27,12 +28,17 @@ class LogicSignal:
 # 1. CRITICAL PAIN (Gap Selling - The "Black Hole" Problems)
 CRITICAL_PAIN_PATTERNS = [
     "homeless", "lose the house", "lose my home", "street", "devastated", 
-    "nothing left", "broke", "die", "death", "burial", "burden", "bankruptcy"
-    "lose everything", "financial ruin", "financially ruined", "can't pay", "unable to pay", "struggle to pay", "hard time paying", "insufficient funds", "no money left",
-    "spouse left alone", "kids left alone", "family left alone", "children left alone", "no income", "no support", "no help", "no backup", "no safety net",
-    "crippled", "disabled", "paralyzed", "serious injury", "critical illness", "terminal illness", "long term care", "Financially devastated", "financial devastation",
-    "medical bills", "medical debt", "overwhelming debt", "unmanageable debt", "drowning in debt", "financial hardship", "financially struggling", "lost my job", "fired from my job",
-    "only I work", "wife stays home", "stay at home mom", "kids would have to move schools", "that would be awful", "I dont want them to pay anything", "spouse would have to be a stripper",
+    "nothing left", "broke", "die", "death", "burial", "burden", "bankruptcy",
+    "lose everything", "financial ruin", "financially ruined", "can't pay", "unable to pay", 
+    "struggle to pay", "hard time paying", "insufficient funds", "no money left",
+    "spouse left alone", "kids left alone", "family left alone", "children left alone", 
+    "no income", "no support", "no help", "no backup", "no safety net",
+    "crippled", "disabled", "paralyzed", "serious injury", "critical illness", "terminal illness", 
+    "long term care", "Financially devastated", "financial devastation",
+    "medical bills", "medical debt", "overwhelming debt", "unmanageable debt", "drowning in debt", 
+    "financial hardship", "financially struggling", "lost my job", "fired from my job",
+    "only I work", "wife stays home", "stay at home mom", "kids would have to move schools", 
+    "that would be awful", "I dont want them to pay anything", "spouse would have to be a stripper",
     "I dont want to think about that", "no savings", "no 401k", "lost pension", "no survivorship"
 ]
 
@@ -41,12 +47,18 @@ SOFT_PAIN_PATTERNS = [
     "I dont think its enough coverage", "it might not be enough", "not sure if it's enough","never thought about that",
     "I dont want my kids to struggle...", "what if something happens...", "ive thought about that...", "I was looking because...",
     "could lose my job", "could get sick", "could get hurt", "what if i...", "i worry about...", "i'm concerned about...",
-    "i'm afraid that...", "if something happens...", "i don't want to burden...", "i don't want to leave my family...", "i want to make sure...", "i want to protect...",
-    "they would struggle", "they would have a hard time", "they would be stressed", "they would have to sell the house", "they would have to move",
-    "she/he would have to...", "my family would...", "my kids would...", "my spouse would...", "I need insurance because...", "Im looking for insurance because...", 
-    "my current plan doesn't", "my current plan is not", "i don't have enough", "my coverage is about to expire", "I have grand kids", "i want to leave something", "i want to provide for", "i want to make sure they are taken care of",
-    "I just bought a house", "new baby", "getting married", "newlywed", "recently married", "just had a baby", "just got married", "I just had a child", "I got divorced",
-    "recently divorced", "my spouse just...", "my partner just...", "my wife just...", "my husband just...", "my ex just...", "my kids are growing up", "my children are growing up",
+    "i'm afraid that...", "if something happens...", "i don't want to burden...", "i don't want to leave my family...", 
+    "i want to make sure...", "i want to protect...", "they would struggle", "they would have a hard time", 
+    "they would be stressed", "they would have to sell the house", "they would have to move",
+    "she/he would have to...", "my family would...", "my kids would...", "my spouse would...", 
+    "I need insurance because...", "Im looking for insurance because...", 
+    "my current plan doesn't", "my current plan is not", "i don't have enough", 
+    "my coverage is about to expire", "I have grand kids", "i want to leave something", 
+    "i want to provide for", "i want to make sure they are taken care of",
+    "I just bought a house", "new baby", "getting married", "newlywed", "recently married", 
+    "just had a baby", "just got married", "I just had a child", "I got divorced",
+    "recently divorced", "my spouse just...", "my partner just...", "my wife just...", 
+    "my husband just...", "my ex just...", "my kids are growing up", "my children are growing up",
     "i want to plan ahead"
 ]
 
@@ -62,10 +74,9 @@ DEFLECTION_PATTERNS = [
 # 4. NO-ORIENTED TRIGGERS (Chris Voss)
 NO_ORIENTED_PATTERNS = [
     "opposed", "ridiculous", "would it be a bad idea", "Would you be against", "is it a bad time",
-    "do you disagree", "are you against", "would you be opposed", "You'll think im crazy but...", "is it silly to think",
-    "any reason this wouldn't make sense?", "Is is unreasonable to..."
+    "do you disagree", "are you against", "would you be opposed", "You'll think im crazy but...", 
+    "is it silly to think", "any reason this wouldn't make sense?", "Is is unreasonable to..."
 ]
-
 
 # 6. SOFT OUTS (Objections)
 OBJECTION_PATTERNS = [
@@ -73,18 +84,18 @@ OBJECTION_PATTERNS = [
     "take me off your list", "I already have it", "too expensive", "not a priority", "call me later", "send me info",
     "i'm good", "i'm covered", "i'm fine", "i'm set", "i'm okay", "no thanks", "spouse won't agree", "no money", "Im young",
     "i don't need it", "i do not need it", "call me back", "not the right time", "i have a policy", "i have coverage", "i'm covered",
-    "im not making any decisions right now", "I need to talk to my lawyer", "i need to talk to my financial advisor", "my son/daughter handles it", 
-    "I don't have the budget", "i don't have time", "i'm not interested", "no thanks", "insurance is a scam", "i don't trust insurance", "i hate salespeople",
-    "i'm just looking", "i'm shopping around", "i'm comparing options", "I just wanted a quote", "Last guy was pushy", "i don't like pressure", "i'm skeptical", 
-    "I dont need this right now", "not in a position to decide", "i'm not ready", "i need more time", "whats ethos", "Who did?", "Who are you?", "I didn't say you could text me",
+    "im not making any decisions right now", "I need to talk to my lawyer", "i need to talk to my financial advisor", 
+    "my son/daughter handles it", "I don't have the budget", "i don't have time", "i'm not interested", "no thanks", 
+    "insurance is a scam", "i don't trust insurance", "i hate salespeople",
+    "i'm just looking", "i'm shopping around", "i'm comparing options", "I just wanted a quote", "Last guy was pushy", 
+    "i don't like pressure", "i'm skeptical", "I dont need this right now", "not in a position to decide", "i'm not ready", 
+    "i need more time", "whats ethos", "Who did?", "Who are you?", "I didn't say you could text me",
     "lose my number", "I need to do that, call me later"
 ]
 
-
 def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     """
-    Analyzes the 'Mechanics' of the conversation based on the LEAD'S RESPONSE,
-    with subtext inference and loop breaking to avoid rigid stage locking.
+    Analyzes the 'Mechanics' of the conversation based on the LEAD'S RESPONSE.
     """
     if not recent_exchanges:
         return LogicSignal(ConversationStage.INITIAL_OUTREACH, "none", False, 0, 0, False)
@@ -98,24 +109,26 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     
     # 2. Response Depth and Subtext Inference
     words = last_lead_text.split()
-    depth_score = min(len(words), 2)  # cleaner cap
+    depth_score = min(len(words), 2)
 
     subtext_score = 0
-    if not last_lead_text.strip():           # empty/minimal
-        subtext_score = -1                   # infer disinterest → advance faster
+    if not last_lead_text.strip():
+        subtext_score = -1
 
-    # 3. Loop Detection (broadened slightly for safety)
+    # 3. Loop Detection (FIXED: Added commas)
     recent_bot_questions = [m['text'].lower() for m in bot_msgs[-4:] if '?' in m['text']]
     is_looping = (
         len(recent_bot_questions) >= 2 and
         any(word in " ".join(recent_bot_questions) for word in [
-            "worry", "concern", "afraid", "scared", "happen if", "impact", "what happens", "how would", "how would you handle?", "what would that do to your family?",
-            "what would that mean", "would it be important to you?", "gap", "check gap", "good rates", "got it", "understood on that", "how would..." "...would it be...", "...check for...",
-            "...are you opposed to...", "...is that okay...", "...what would that mean for...", "...how would you handle..."
+            "worry", "concern", "afraid", "scared", "happen if", "impact", "what happens", "how would", 
+            "how would you handle?", "what would that do to your family?", "what would that mean", 
+            "would it be important to you?", "gap", "check gap", "good rates", "got it", "understood on that", 
+            "how would...", "...would it be...", "...check for...", "...are you opposed to...", 
+            "...is that okay...", "...what would that mean for...", "...how would you handle..."
         ])
     )
 
-    # 4. Analyze Lead's Move (unchanged — your classification is solid)
+    # 4. Analyze Lead's Move
     move_type = "statement"
     voss_no_signal = False
     gap_signal = False
@@ -132,7 +145,7 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
 
     bot_asked_no_oriented = any(p in last_bot_text for p in NO_ORIENTED_PATTERNS) and "?" in last_bot_text
     
-    if any(x in last_lead_text for x in  ["yes", "sure", "ok", "sounds good", "book", "schedule"]):
+    if any(x in last_lead_text for x in ["yes", "sure", "ok", "sounds good", "book", "schedule"]):
         move_type = "agreement"
     elif bot_asked_no_oriented and ("no" in last_lead_text or "not " in last_lead_text):
         move_type = "agreement"
@@ -142,8 +155,7 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     elif "?" in last_lead_text and any(p in last_lead_text for p in DEFLECTION_PATTERNS):
         move_type = "deflection"
 
-
-    # 5. Determine Conversation Stage (Gemini fix applied — fallback at end)
+    # 5. Determine Conversation Stage
     stage = ConversationStage.DISCOVERY  # true default
 
     if move_type == "rejection":
@@ -154,47 +166,17 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
         stage = ConversationStage.CLOSING
     
     elif is_looping:
-        stage = ConversationStage.RESISTANCE  # force empathy pivot
+        stage = ConversationStage.RESISTANCE 
     
     elif (gap_signal or pain_score > 0 or (depth_score > 1 and subtext_score >= 0)) and not is_looping:
         stage = ConversationStage.CONSEQUENCE
     
     elif subtext_score < 0: 
-        stage = ConversationStage.RESISTANCE  # safer than direct CLOSING on silent leads
+        stage = ConversationStage.RESISTANCE 
     
-    # Final fallback: no real engagement yet → outreach
     if not lead_msgs or len(lead_msgs) == 0:
         stage = ConversationStage.INITIAL_OUTREACH
 
-    # Optional debug log (uncomment when testing)
-    contact_id = recent_exchanges[0].get('contact_id', 'unknown') if recent_exchanges else 'unknown'
-    logger.debug(
-        f"analyze_logic_flow | contact_id=unknown | "  # add contact_id if passed in future
-        f"stage={stage.value} | move={move_type} | "
-        f"pain={pain_score} | depth={depth_score} | subtext={subtext_score} | "
-        f"looping={is_looping} | lead_msgs_count={len(lead_msgs)} | "
-        f"last_lead_text='{last_lead_text[:50]}...'"
-    )
-    # Track stage history (simple: count consecutive same stage)
-    stage_history = []
-    max_history = 5
-    start_idx = max(0, len(recent_exchanges) - max_history)
-    for i in range(start_idx, len(recent_exchanges)):
-        subset = recent_exchanges[:i+1]
-        subset_stage = ConversationStage.DISCOVERY
-        stage_history.append(subset_stage)
+    # LOGIC FIX: Removed the "Fake History Loop" that was forcing RESISTANCE mode incorrectly.
     
-    consecutive_same = 1   
-    for i in range(1, len(stage_history)):
-        if stage_history[i] == stage_history[i-1]:
-            consecutive_same += 1
-        else:
-            consecutive_same = 1
-    if consecutive_same >= 3:
-        stage = ConversationStage.RESISTANCE  # Or CLOSING if pain_score >0
-        logger.warning(f"STUCK STAGE TRIGGERED | contact=unknown | stage={stage.value} | consecutive={consecutive_same}")
-
-    # Stronger subtext override
-    if subtext_score <= -1 and depth_score < 3:
-        stage = ConversationStage.RESISTANCE
     return LogicSignal(stage, move_type, gap_signal, pain_score, depth_score, voss_no_signal)
