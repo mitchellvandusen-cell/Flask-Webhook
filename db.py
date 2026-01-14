@@ -164,21 +164,63 @@ class User(UserMixin):
 
     @staticmethod
     def get(email: str) -> Optional['User']:
+        """
+        Fetch user from the merged 'subscribers' table.
+        Returns User object or None if no match.
+        """
+        print(f"[DEBUG] User.get called for email: '{email}'")
+        
         conn = get_db_connection()
-        if not conn: return None
+        if not conn:
+            print("[DEBUG] DB connection failed")
+            return None
+        
         try:
-            cur = conn.cursor()
-            # Correctly queries the subscribers table
-            cur.execute("SELECT * FROM subscribers WHERE email = %s", (email,))
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            print("[DEBUG] Querying subscribers table...")
+            
+            cur.execute("""
+                SELECT 
+                    email, 
+                    password_hash, 
+                    stripe_customer_id, 
+                    role, 
+                    subscription_tier,
+                    full_name,          -- if you added this
+                    phone,              -- if added
+                    bio                 -- if added
+                FROM subscribers 
+                WHERE email = %s
+                LIMIT 1
+            """, (email,))
+            
             row = cur.fetchone()
             if row:
-                return User(dict(row))
+                print(f"[DEBUG] Found user in subscribers: {dict(row)}")
+                return User(
+                    email=row['email'],
+                    password_hash=row['password_hash'],
+                    stripe_customer_id=row['stripe_customer_id'],
+                    role=row.get('role', 'individual'),
+                    subscription_tier=row.get('subscription_tier', 'individual'),
+                    full_name=row.get('full_name'),
+                    phone=row.get('phone'),
+                    bio=row.get('bio')
+                    # add more fields if you have them in subscribers
+                )
+            else:
+                print(f"[DEBUG] No match in subscribers for '{email}'")
             return None
-        except Exception as e:
-            logger.error(f"User.get failed: {e}")
+        
+        except psycopg2.Error as e:
+            print(f"[DEBUG] DB error in User.get: {e}")
             return None
+        
         finally:
-            if 'conn' in locals(): conn.close()
+            if 'cur' in locals():
+                cur.close()
+            if conn:
+                conn.close()
 
     @staticmethod
     def create(
@@ -241,7 +283,7 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
     finally:
         if 'conn' in locals(): conn.close()
 
-        
+
 def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
     """
     Hybrid Fetcher:
