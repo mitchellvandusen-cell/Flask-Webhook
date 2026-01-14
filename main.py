@@ -400,28 +400,33 @@ def login():
     
     if form.validate_on_submit():
         email = form.email.data.strip().lower()
-        user = User.get(email)
+        print(f"[LOGIN DEBUG] Attempting login for: '{email}'")
+        
+        # Fetch user from subscribers table (merged data)
+        user = User.get_from_subscribers(email)
         
         if not user:
+            print("[LOGIN DEBUG] No user found in subscribers table")
             flash("No account found with that email.", "error")
-            return render_template("login.html", form=form)  # or whatever your template is
+            return render_template("login.html", form=form)
         
         if not check_password_hash(user.password_hash, form.password.data):
+            print("[LOGIN DEBUG] Incorrect password")
             flash("Incorrect password.", "error")
             return render_template("login.html", form=form)
         
-        # Password is correct → log in
+        # Password correct → log in
+        print("[LOGIN DEBUG] Login successful - role:", user.role)
         login_user(user)
         
-        # Normalize role checks (pick one convention)
-        role = user.role.lower() if user.role else 'individual'
+        # Normalize role checks
+        role = (user.role or 'individual').lower()
         
         if role in ['individual', 'individual_user', 'user']:
-            return redirect(url_for("dashboard"))  # use url_for - safer
-        elif role in ['agency_owner', 'admin']:     # 'Admin' → 'admin' for consistency
-            return redirect(url_for("agency_dashboard"))  # assume route name
+            return redirect(url_for("dashboard"))
+        elif role in ['agency_owner', 'admin']:
+            return redirect(url_for("agency_dashboard"))
         else:
-            # Unknown role → still log in, but send somewhere safe
             flash("Your account role is not configured correctly. Contact support.", "warning")
             return redirect(url_for("dashboard"))
 
