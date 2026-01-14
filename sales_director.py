@@ -35,6 +35,7 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
 
     # 3. CONTEXTUAL ANALYSIS
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+    lead_msgs = [m for m in recent_exchanges if m['role'] == 'lead']  # Added: Define lead_msgs for use in anti-loop
     last_bot_text = bot_msgs[-1]['text'].lower() if bot_msgs else ""
     just_asked_consequence = any(x in last_bot_text for x in ["happen", "worry", "concern", "impact", "leave them"])
     
@@ -116,7 +117,7 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         prev_qs = bot_recent_questions[:-1]
 
         similar_count = sum(
-            SequenceMatcher(None, last_q, prev).ratio() > 0.75
+            SequenceMatcher(None, last_q, prev).ratio() > 0.65
             for prev in prev_qs
         )
 
@@ -135,13 +136,14 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         # Bonus: Keyword-based escape hatches for very common loop patterns
         elif any(word in " ".join(bot_recent_questions) for word in [
             "worry", "concern", "afraid", "scared", "happen if", "impact", "leave them",
-            "what happens", "how would", "tell me more about"
+            "what happens", "how would", "tell me more about", "opposed", "gap", "protect"  # Expanded for Grok persistence
         ]) and len(bot_recent_questions) >= 3:
             directive = (
                 "MULTIPLE EMOTIONAL PROBES DETECTED — risk of discovery fatigue. "
                 "Assume partial gap awareness already exists. "
                 "Reframe known pain points empathetically, then guide toward next step "
-                "(solution discussion or soft booking validation)."
+                "(solution discussion or soft booking validation). "
+                "For Grok-4-1: Prioritize concise, non-repetitive reframes to break persistence loops."
             )
             framework = "ANTI-LOOP EMOTIONAL FATIGUE PIVOT"
             logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=emotional_probes x{len(bot_recent_questions)}")
@@ -151,9 +153,35 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         if len(lead_recent) >= 3 and all(len(txt.split()) <= 3 for txt in lead_recent[-3:]):
             directive += (
                 "\nLEAD REPLIES VERY SHORT — possible fatigue or disinterest. "
-                "Keep next message ultra-brief, empathetic, and action-oriented."
+                "Keep next message ultra-brief, empathetic, and action-oriented. "
+                "No questions unless Voss-style for closure."
             )
             logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=short_replies (last 3 words: {[len(t.split()) for t in lead_recent[-3:]]})")
+
+        # New: Theme repetition (beyond phrasing)
+        theme_keywords = ["gap", "worry", "concern", "family", "expire", "protect", "coverage", "opposed", "annoy", "frustrat"]  # Expanded to catch annoyance loops
+        theme_count = sum(any(kw in q for kw in theme_keywords) for q in bot_recent_questions)
+        if theme_count >= len(bot_recent_questions) * 0.6:  # 60%+ questions hit themes
+            directive = (
+                "THEME REPETITION DETECTED — bot stuck on gaps/worries. "
+                "Do NOT ask questions. Use a neutral statement to reframe value or disengage softly. "
+                "For Grok-4-1: Use fast reasoning to detect subtext and pivot decisively."
+            )
+            framework = "ANTI-LOOP THEME PIVOT"
+            logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=theme_count={theme_count}")
+
+        # New: Cumulative resistance
+        lead_recent_moves = [analyze_logic_flow([m]).last_move_type for m in lead_msgs[-5:]]  # Optimized: Only get move_type, not full signal
+        resistance_count = sum(1 for move in lead_recent_moves if move in ["rejection", "objection", "deflection"])
+        if resistance_count >= 3:
+            directive = (
+                "HIGH RESISTANCE — lead showing repeated disinterest. "
+                "Acknowledge, provide value opt-in, and disengage. No questions. "
+                "Set stage to RESISTANCE for prompt override."
+            )
+            framework = "DISENGAGE"
+            logic.stage = ConversationStage.RESISTANCE  # Override stage to force prompt handling
+            logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=resistance_count={resistance_count}")
     else:
         # No significant question history → no loop risk, skip checks
         pass
