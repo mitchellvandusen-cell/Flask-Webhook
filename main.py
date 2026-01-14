@@ -143,10 +143,15 @@ def generate_demo_opener():
     if not client:
         return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
     try:
+        system_content = (
+            CORE_UNIFIED_MINDSET.format(bot_first_name="DEMOGROKBOT")
+            + "\n\n"
+            + DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
+        )
         response = client.chat.completions.create(
             model="grok-4-1-fast-reasoning",
             messages=[
-                {"role": "system", "content": CORE_UNIFIED_MINDSET + DEMO_OPENER_ADDITIONAL_INSTRUCTIONS},
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": "Generate unique opener."}
             ],
             temperature=0.8,
