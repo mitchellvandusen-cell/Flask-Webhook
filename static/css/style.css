@@ -327,7 +327,7 @@ footer a:hover { color: var(--accent); }
 @keyframes ringPulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2); opacity: 0; } }
 
 .chat-callout {
-    position: absolute; right: 75px; top: 10px;
+    position: absolute; right: 75px; top: 50%x;
     background: rgba(0, 255, 136, 0.1); backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border); color: #fff;
     padding: 8px 15px; border-radius: 20px 20px 4px 20px;
@@ -344,6 +344,8 @@ footer a:hover { color: var(--accent); }
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     transform-origin: bottom right; transform: scale(0); opacity: 0;
     transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+    position: absolute;
+    pointer-events: none;
 }
 .chat-window.open { transform: scale(1); opacity: 1; }
 
