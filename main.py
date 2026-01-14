@@ -929,7 +929,7 @@ def get_logs():
         
     except Exception as e:
         logger.error(f"Error in get_logs: {e}")
-        logs.append({"logs": []})
+        return flask_jsonify({"logs": []})
     finally:
         if 'cur' in locals() and cur:
             cur.close()
