@@ -141,28 +141,53 @@ from WEBSITE_ASSISTANT.tasks import process_saas_webhook
 
 # main.py
 
+
 @app.route("/website-bot-webhook", methods=["POST"])
 def website_bot_webhook():
-    # 1. Safety Check
-    if not q_demo:
-        logger.critical("Redis/RQ unavailable for Website Bot")
-        return flask_jsonify({"status": "error", "reason": "Redis unavailable"}), 503
-
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
     
-    # 2. Enqueue to DEMO Queue (Same worker as the demo-chat)
-    try:
-        job = q_demo.enqueue(
-            process_saas_webhook,
-            payload,
-            job_timeout=60,       # shorter timeout for website chat
-            result_ttl=3600       # keep result for 1 hour
-        )
-        return flask_jsonify({"status": "queued", "job_id": job.id, "queue": "demo"}), 202
+    contact_id = payload.get('contact_id')
+    user_message = payload.get('message')
+
+    if not contact_id or not user_message:
+        return jsonify({"status": "error", "reason": "Missing data"}), 400
+
+    # 1. Save User Message to Global Log
+    if contact_id not in conversation_logs:
+        conversation_logs[contact_id] = []
         
+    conversation_logs[contact_id].append({
+        "role": "user",
+        "type": "User Message", 
+        "content": user_message,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    # 2. Call xAI Directly (Synchronous)
+    try:
+        # Assuming you have your 'client' initialized globally or here
+        completion = client.chat.completions.create(
+            model="grok-4-1-fast-reasoning", 
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant for InsuranceGrokBot. Keep answers short and sales-focused."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        bot_reply = completion.choices[0].message.content
+
+        # 3. Save Bot Reply to Global Log (So frontend can see it)
+        conversation_logs[contact_id].append({
+            "role": "assistant",
+            "type": "Bot Message",
+            "content": bot_reply,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
+        return jsonify({"status": "success", "reply": bot_reply}), 200
+
     except Exception as e:
-        logger.error(f"Website Bot Queue failed: {e}")
-        return flask_jsonify({"status": "error"}), 500
+        print(f"Error generating reply: {e}")
+        return jsonify({"status": "error", "reason": str(e)}), 500
     
 
 @app.route('/api/demo/reset', methods=['POST'])
