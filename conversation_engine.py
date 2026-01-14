@@ -176,8 +176,15 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
         f"last_lead_text='{last_lead_text[:50]}...'"
     )
     # Track stage history (simple: count consecutive same stage)
-    stage_history = [analyze_logic_flow(recent_exchanges[:i+1]).stage for i in range(max(0, len(recent_exchanges)-5), len(recent_exchanges))]
-    consecutive_same = 1
+    stage_history = []
+    max_history = 5
+    start_idx = max(0, len(recent_exchanges) - max_history)
+    for i in range(start_idx, len(recent_exchanges)):
+        subset = recent_exchanges[:i+1]
+        subset_stage = ConversationStage.DISCOVERY
+        stage_history.append(subset_stage)
+    
+    consecutive_same = 1   
     for i in range(1, len(stage_history)):
         if stage_history[i] == stage_history[i-1]:
             consecutive_same += 1
