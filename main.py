@@ -925,7 +925,7 @@ def get_logs():
             "content": narrative_text 
         })
         safe_logs = make_json_serializable(logs)
-        return flask_jsonify({"logs": safe_logs})
+        return flask_jsonify({"logs": []})
     except Exception as e:
         logger.error(f"Error in get_logs: {e}")
         logs.append({"error": str(e)}), 500
@@ -933,7 +933,7 @@ def get_logs():
         cur.close()
         conn.close()
 
-    return flask_jsonify({"logs": logs})
+    
 
 @app.route("/reset-test", methods=["GET"])
 def reset_test():
