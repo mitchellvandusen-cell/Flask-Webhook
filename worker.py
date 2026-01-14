@@ -2,6 +2,7 @@
 import os
 import redis
 import logging
+import uuid
 from rq import Worker, Queue
 
 # Setup logging
@@ -24,12 +25,9 @@ def main():
         logger.critical(f"Redis connection failed: {e}", exc_info=True)
         raise SystemExit(1)
 
-    # 2. Get unique worker name from env var (set in Railway)
-    # Example value: insurance-grok-worker-abc123-deploy-a1b2c3d
-    worker_name = os.getenv(
-        'RQ_WORKER_NAME',
-        f"insurance-grok-worker-default-{os.getpid()}"  # fallback
-    )
+    unique_id = uuid.uuid4().hex[:8]
+    worker_name = os.getenv('RQ_WORKER_NAME', f"worker-{unique_id}")
+    
     logger.info(f"Worker name: {worker_name}")
 
     # 3. Create queues
