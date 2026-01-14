@@ -128,7 +128,7 @@ def process_webhook_task(payload: dict):
             save_message(contact_id, message, "lead")
 
         # Skip trivial messages (save Grok cost)
-        if not message or len(message.strip()) < 5 or message.strip().lower() in {"ok", "yes", ".", "k", "cool", "thanks"}:
+        if not message or message.strip().lower() in {".", ",", "k"}:
             logger.debug(f"Skipping Grok call — trivial message: {message[:50]}")
             return {"status": "skipped", "reason": "trivial message"}
 
