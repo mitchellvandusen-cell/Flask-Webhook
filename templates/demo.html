@@ -310,7 +310,7 @@
         try {
             const res = await fetch(`/get-logs?contact_id=${currentContactId}`);
             const data = await res.json();
-            const messages = data.logs.filter(l => l.type.includes('Message'));
+            const messages = data.logs.filter(l => l && l.type && l.type.includes('Message'));
 
             if (messages.length > lastMsgCount) {
                 if (lastMsgCount > 0) {
