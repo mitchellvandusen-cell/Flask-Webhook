@@ -846,7 +846,7 @@ def get_logs():
     logs = []
 
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
 
         # === 1. Messages with real timestamps ===
         cur.execute("""
