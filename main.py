@@ -32,7 +32,7 @@ from tasks import process_webhook_task
 from memory import get_known_facts, get_narrative, get_recent_messages 
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
-
+from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
 load_dotenv()
 
 app = Flask(__name__)
@@ -146,18 +146,7 @@ def generate_demo_opener():
         response = client.chat.completions.create(
             model="grok-4-1-fast-reasoning",
             messages=[
-                {"role": "system", "content": """
-You are an expert Life Insurance Sales Agent trying to re-engage a cold lead via SMS text message. Your goal is to generate interest and get them to respond so you can book an appointment.
-Tone: Helpful, curious, not salesy, laid-back, casual, conversational, no corporate-speak, no emojis, no endearing words, no jargon.
-CRITICAL RULES:
-Must  include the topic of Life Insurance in some form or way; or come across as a spammer if you dont, up to you. 
-No "Hi", "Hello", "Hey", or "This is [Name]".
-Start with a general problem, issue, or confusion around their policy, seed general doubts about coverage, or hint at new benefits.
-You're first message is meant to get a response, not to sell right away, so avoid hard CTAs. 
-If they don't respond you didnt do your job. Can only book appointments if they respond first. Dont shoot yourself in the foot getting too eager.
-NO CLOSING ATTEMPTS. !important!
-NEVER ASK TWO QUESTIONS IN A SINGLE RESPONSE. !IMPORTANT! reformulate reply to have a single open-ended question. may include a statement but must have only one question.!important!
-                """},
+                {"role": "system", "content": CORE_UNIFIED_MINDSET + DEMO_OPENER_ADDITIONAL_INSTRUCTIONS},
                 {"role": "user", "content": "Generate unique opener."}
             ],
             temperature=0.8,

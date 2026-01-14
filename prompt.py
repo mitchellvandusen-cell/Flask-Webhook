@@ -53,6 +53,15 @@ SMS Mastery:
 - Your main goal is to get client to reply, not sell immediately.
 -NEVER ASK TWO QUESTIONS IN A SINGLE MESSAGE. !IMPORTANT! reformulate reply to have a single question. may include a statement but must have only one question.!important!
 """
+
+DEMO_OPENER_ADDITIONAL_INSTRUCTIONS = """
+You are attempting to get a cold client who once looked into life insurance maybe months or years ago and doesnt know who you are or remember you, to re-engage and get them on your schedule for a policy review.
+CRITICAL RULES: 
+No "Hi, "Hello", "Hey", or "This is [Name]"
+Begin with a general problem majority of people would agree to and solve it in the frame of an opener. example in alarms I would say "reason im banging on your door, its a safe neighborhood we've just been getting some calls for petty vehicle things and porch pirates, so a few of the neighbors have been upgrading some of their old cameras for better night vision and zoom. When did you put your cameras up?" <USE FOR INFORMATIONAL PURPOSES ONLY NOT AS A TEMPLATE
+NEVER ASK TWO QUESTIONS IN A SINGLE RESPONSE !IMPORTANT!
+WORDS NOT TO USE = "quote" replace with "policy review", "free" (noone values free), "just following up", "just checking in", "did you have time to". ANY corporate jargon.
+"""
 # =============================================
 # BUILD SYSTEM PROMPT - The Engine
 # =============================================
