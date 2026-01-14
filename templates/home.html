@@ -58,10 +58,7 @@
             color: #fff !important;
             letter-spacing: -0.5px;
         }
-        /* New helper for the Grok Green Text */
-        .text-accent {
-            color: var(--accent);
-        }
+        .text-accent { color: var(--accent); }
 
         .nav-link {
             color: var(--text-secondary) !important;
@@ -73,14 +70,8 @@
 
         /* --- Buttons --- */
         .btn { border-radius: 50px; font-weight: 700; padding: 0.6rem 1.5rem; transition: var(--transition); }
-        
-        /* Nav specific button sizing to match widths */
-        .nav-btn {
-            min-width: 140px; /* Ensures both buttons are same width */
-            text-align: center;
-        }
+        .nav-btn { min-width: 140px; text-align: center; }
 
-        /* Force Primary to be Green */
         .btn-primary {
             background-color: var(--accent) !important;
             border: 2px solid var(--accent) !important;
@@ -174,8 +165,7 @@
         .glass-card:hover {
             transform: translateY(-10px);
             border-color: rgba(0, 255, 136, 0.3);
-            box-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.5), 
-                        inset 0 0 20px rgba(0, 255, 136, 0.05);
+            box-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 255, 136, 0.05);
         }
         
         .feature-icon {
@@ -201,146 +191,6 @@
             overflow: hidden;
             transition: var(--transition);
         }
-        /* Overlay Backdrop */
-        .popup-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.6); /* Dark dim */
-            backdrop-filter: blur(8px); /* Blurs the website behind it */
-            z-index: 9999;
-            display: none; /* Hidden by default */
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-        }
-
-        /* The Glass Card */
-        .popup-card {
-            position: relative;
-            width: 100%;
-            max-width: 450px;
-            background: rgba(20, 20, 20, 0.75); /* Semi-transparent black */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            transform: translateY(30px) scale(0.95);
-            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-            overflow: hidden;
-        }
-
-        /* Entrance Animation State */
-        .popup-overlay.active {
-            opacity: 1;
-        }
-        .popup-overlay.active .popup-card {
-            transform: translateY(0) scale(1);
-        }
-
-        /* Typography & Elements */
-        .badge {
-            background: rgba(0, 255, 136, 0.15);
-            color: #00ff88;
-            padding: 6px 12px;
-            border-radius: 50px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            border: 1px solid rgba(0, 255, 136, 0.2);
-        }
-
-        .popup-content h2 {
-            color: #fff;
-            font-family: 'Outfit', sans-serif;
-            font-size: 2rem;
-            margin: 20px 0 10px;
-            font-weight: 700;
-        }
-
-        .popup-content p {
-            color: #a0a0a0;
-            font-size: 1rem;
-            line-height: 1.5;
-            margin-bottom: 30px;
-        }
-
-        /* The "7 Days Free" Box */
-        .offer-box {
-            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
-            border: 1px solid rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 30px;
-        }
-
-        .big-text {
-            display: block;
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: #fff;
-            line-height: 1;
-        }
-
-        .sub-text {
-            font-size: 0.9rem;
-            letter-spacing: 2px;
-            color: #00ff88; /* Your accent green */
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-
-        /* The CTA Button */
-        .elite-btn {
-            display: block;
-            width: 100%;
-            padding: 16px;
-            background: #00ff88;
-            color: #000;
-            font-weight: 700;
-            text-decoration: none;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .elite-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
-        }
-
-        .no-commitment {
-            font-size: 0.8rem !important;
-            margin-top: 15px;
-            opacity: 0.6;
-        }
-
-        /* Close Button */
-        .close-btn {
-            position: absolute;
-            top: 20px; right: 20px;
-            background: none;
-            border: none;
-            color: #fff;
-            font-size: 2rem;
-            cursor: pointer;
-            line-height: 1;
-            opacity: 0.5;
-            transition: opacity 0.2s;
-        }
-        .close-btn:hover { opacity: 1; }
-
-        /* Ambient Glow Background */
-        .glow-effect {
-            position: absolute;
-            top: -50%; left: -50%;
-            width: 200%; height: 200%;
-            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.08), transparent 60%);
-            pointer-events: none;
-            z-index: -1;
-        }
         .glass-banner:hover { border-color: rgba(0, 255, 136, 0.3); transform: translateY(-2px); }
         
         .vs-visual-container {
@@ -351,28 +201,93 @@
             display: flex; align-items: center; justify-content: center; font-weight: 800; border: 1px solid #333;
         }
         .grok-icon i { font-size: 2.2rem; color: var(--accent); filter: drop-shadow(0 0 10px var(--accent)); }
-        
-        /* --- Pricing Card --- */
-        .pricing-section { position: relative; overflow: hidden; }
-        .pricing-card {
-            max-width: 500px;
+
+        /* --- CAROUSEL PRICING LOGIC --- */
+        .pricing-section {
+            position: relative;
+            overflow: hidden;
+            min-height: 800px; /* Ensure height for absolute positioning */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
             margin: 0 auto;
-            text-align: center;
-            background: rgba(10, 10, 10, 0.6);
+            height: 600px; /* Height of the tallest card */
+            display: flex;
+            justify-content: center;
+            perspective: 1000px; /* Essential for 3D effect */
+        }
+
+        .pricing-card {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            max-width: 400px; /* Base width */
+            background: rgba(10, 10, 10, 0.9); /* Darker opacity to hide overlap */
             border: 1px solid var(--glass-border);
-            padding: 60px 40px;
+            padding: 40px 30px;
+            border-radius: 24px;
+            text-align: center;
+            transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+            cursor: pointer;
+            /* Default state (hidden center) */
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            opacity: 0;
+            z-index: 0;
         }
-        .pricing-card:hover {
+
+        /* --- CAROUSEL STATES --- */
+        
+        /* CENTER (Active) */
+        .pricing-card.active {
+            transform: translateX(-50%) scale(1.1); /* Make it BIG */
+            z-index: 10;
+            opacity: 1;
             border-color: var(--accent);
-            box-shadow: 0 0 60px rgba(0, 255, 136, 0.15);
+            box-shadow: 0 0 50px rgba(0, 255, 136, 0.15);
+            filter: blur(0);
         }
+
+        /* LEFT (Previous) */
+        .pricing-card.prev {
+            transform: translateX(-120%) scale(0.85) rotateY(15deg); /* Move left, shrink, tilt */
+            z-index: 5;
+            opacity: 0.5;
+            filter: blur(1px);
+            border-color: var(--glass-border);
+        }
+
+        /* RIGHT (Next) */
+        .pricing-card.next {
+            transform: translateX(20%) scale(0.85) rotateY(-15deg); /* Move right, shrink, tilt */
+            z-index: 5;
+            opacity: 0.5;
+            filter: blur(1px);
+            border-color: var(--glass-border);
+        }
+
+        /* Hovering on side cards brings them slightly into focus */
+        .pricing-card.prev:hover, .pricing-card.next:hover {
+            opacity: 0.8;
+            filter: blur(0);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
         .price-tag {
-            font-size: 4.5rem;
+            font-size: 4rem;
             font-weight: 800;
             color: #fff;
             line-height: 1;
+            margin: 20px 0;
         }
-        .price-tag span { font-size: 1.5rem; color: var(--text-secondary); font-weight: 400; }
+        .price-tag span { font-size: 1.2rem; color: var(--text-secondary); font-weight: 400; }
+        
         .pricing-badge {
             background: rgba(0, 255, 136, 0.1);
             color: var(--accent);
@@ -383,23 +298,45 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             display: inline-block;
-            margin-bottom: 20px;
         }
+
         .pricing-features {
             list-style: none;
             padding: 0;
-            margin: 40px 0;
+            margin: 30px 0;
             text-align: left;
         }
         .pricing-features li {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: #ccc;
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 1.1rem;
+            gap: 10px;
+            font-size: 0.95rem;
         }
         .pricing-features li i { color: var(--accent); }
+
+        /* Mobile Reset: Stack them normally on small screens */
+        @media (max-width: 991px) {
+            .pricing-section { height: auto; padding: 60px 20px; }
+            .carousel-container { 
+                height: auto; 
+                flex-direction: column; 
+                gap: 30px; 
+                perspective: none; 
+            }
+            .pricing-card {
+                position: relative;
+                left: auto;
+                transform: none !important;
+                opacity: 1 !important;
+                z-index: 1 !important;
+                filter: none !important;
+                width: 100%;
+                margin: 0 auto 30px;
+                max-width: 100%;
+            }
+        }
 
         /* --- Footer --- */
         footer {
@@ -412,13 +349,51 @@
         footer a { color: #777; text-decoration: none; margin: 0 10px; transition: 0.3s; }
         footer a:hover { color: var(--accent); }
 
-        /* Mobile Adjustments */
-        @media (max-width: 991px) {
-            .hero h1 { font-size: 3rem; }
-            .section-title { font-size: 2.2rem; }
-            .glass-banner { padding: 40px 20px; text-align: center; }
-            .feature-grid { grid-template-columns: 1fr; }
-            .navbar-nav { margin: 20px 0; }
+        /* Popup Styles */
+        .popup-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px);
+            z-index: 9999; display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.5s ease;
+        }
+        .popup-overlay.active { opacity: 1; }
+        .popup-card {
+            position: relative; width: 100%; max-width: 450px;
+            background: rgba(20, 20, 20, 0.75); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px; padding: 40px; text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: translateY(30px) scale(0.95); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .popup-overlay.active .popup-card { transform: translateY(0) scale(1); }
+        .badge {
+            background: rgba(0, 255, 136, 0.15); color: #00ff88; padding: 6px 12px;
+            border-radius: 50px; font-size: 0.75rem; font-weight: 700;
+            letter-spacing: 1px; border: 1px solid rgba(0, 255, 136, 0.2);
+        }
+        .popup-content h2 { color: #fff; font-family: 'Outfit', sans-serif; font-size: 2rem; margin: 20px 0 10px; font-weight: 700; }
+        .popup-content p { color: #a0a0a0; font-size: 1rem; line-height: 1.5; margin-bottom: 30px; }
+        .offer-box {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; margin-bottom: 30px;
+        }
+        .big-text { display: block; font-size: 2.5rem; font-weight: 800; color: #fff; line-height: 1; }
+        .sub-text { font-size: 0.9rem; letter-spacing: 2px; color: #00ff88; text-transform: uppercase; font-weight: 600; }
+        .elite-btn {
+            display: block; width: 100%; padding: 16px; background: #00ff88; color: #000;
+            font-weight: 700; text-decoration: none; border-radius: 12px; font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .elite-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3); }
+        .no-commitment { font-size: 0.8rem !important; margin-top: 15px; opacity: 0.6; }
+        .close-btn {
+            position: absolute; top: 20px; right: 20px; background: none; border: none;
+            color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; opacity: 0.5; transition: opacity 0.2s;
+        }
+        .close-btn:hover { opacity: 1; }
+        .glow-effect {
+            position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.08), transparent 60%);
+            pointer-events: none; z-index: -1;
         }
     </style>
 </head>
@@ -542,61 +517,57 @@
     </section>
 
     <section id="pricing" class="section pricing-section">
-        <div class="row">
+        <div class="container text-center">
             <h2 class="section-title" data-aos="fade-up">Simple <span>Pricing</span></h2>
-            <div class="pricing-card glass-card" data-aos="flip-up">
-                <span class="pricing-badge">Agency Starter</span>
-                <div class="price-tag">$800<span>/mo</span></div>
-                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
-                
-                <ul class="pricing-features">
-                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
-                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
-                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
-                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
-                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
-                    <li><i class="fa-solid fa-check"></i> Up to 10 Agent Sub-Accounts</li>
-                    <li><i class="fa-solid fa-check"></i> Centralized Command Center</li>
-                    <li><i class="fa-solid fa-check"></i> Shared Agency Memory</li>
-                    <li><i class="fa-solid fa-check"></i> Priority Support</li>
-                </ul>
+            
+            <div class="carousel-container">
+                <div class="pricing-card prev" onclick="selectCard(0)">
+                    <span class="pricing-badge">Individual</span>
+                    <div class="price-tag">$100<span>/mo</span></div>
+                    <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
+                        <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
+                        <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
+                        <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
+                    </ul>
 
-                <a href="/checkout/agency-starter" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
-            </div>
-            <div class="pricing-card glass-card" data-aos="flip-up">
-                <span class="pricing-badge">Individual</span>
-                <div class="price-tag">$100<span>/mo</span></div>
-                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
-                
-                <ul class="pricing-features">
-                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
-                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
-                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
-                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
-                </ul>
+                    <a href="/checkout" class="btn btn-outline-accent w-100 py-3">Start Individual</a>
+                </div>
 
-                <a href="/checkout" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
-            </div>
-            <div class="pricing-card glass-card" data-aos="flip-up">
-                <span class="pricing-badge">Agency Pro</span>
-                <div class="price-tag">$1600<span>/mo</span></div>
-                <p style="color:#888; margin-top:10px;">Cancel anytime. No contracts.</p>
-                
-                <ul class="pricing-features">
-                    <li><i class="fa-solid fa-check"></i> Unlimited Lead Re-engagement</li>
-                    <li><i class="fa-solid fa-check"></i> Full Narrative Memory</li>
-                    <li><i class="fa-solid fa-check"></i> All 5 Sales Methodologies</li>
-                    <li><i class="fa-solid fa-check"></i> Calendar Auto-Booking</li>
-                    <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
-                    <li><i class="fa-solid fa-check"></i> Unlimited Sub-Accounts</li>
-                    <li><i class="fa-solid fa-check"></i> Centralized Command Center</li>
-                    <li><i class="fa-solid fa-check"></i> Shared Agency Memory</li>
-                    <li><i class="fa-solid fa-check"></i> Priority Support</li>
-                    <li><i class="fa-solid fa-check"></i> High-Speed Dedicated Queue</li>
-                    <li><i class="fa-solid fa-check"></i> Enterpise Seat Management</li>
-                </ul>
+                <div class="pricing-card active" onclick="selectCard(1)">
+                    <span class="pricing-badge" style="background:rgba(0,255,136,0.3); border:1px solid #00ff88;">Most Popular</span>
+                    <h3 style="color:#fff; margin-top:10px;">Agency Starter</h3>
+                    <div class="price-tag">$800<span>/mo</span></div>
+                    <p style="color:#888; margin-top:10px;">For Growing Agencies</p>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Everything in Individual</li>
+                        <li><i class="fa-solid fa-check"></i> Multi-Tenant Dashboard</li>
+                        <li><i class="fa-solid fa-check"></i> 10 Sub-Accounts Included</li>
+                        <li><i class="fa-solid fa-check"></i> Shared Agency Memory</li>
+                        <li><i class="fa-solid fa-check"></i> Priority Support</li>
+                    </ul>
 
-                <a href="/checkout/agency-pro" class="btn btn-primary w-100 py-3">Start Your Subscription</a>
+                    <a href="/checkout/agency-starter" class="btn btn-primary w-100 py-3">Start Agency Starter</a>
+                </div>
+
+                <div class="pricing-card next" onclick="selectCard(2)">
+                    <span class="pricing-badge">Agency Pro</span>
+                    <div class="price-tag">$1600<span>/mo</span></div>
+                    <p style="color:#888; margin-top:10px;">For Large Teams</p>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fa-solid fa-check"></i> Everything in Starter</li>
+                        <li><i class="fa-solid fa-check"></i> Unlimited Sub-Accounts</li>
+                        <li><i class="fa-solid fa-check"></i> Dedicated High-Speed Queue</li>
+                        <li><i class="fa-solid fa-check"></i> Enterprise Seat Management</li>
+                        <li><i class="fa-solid fa-check"></i> White Glove Onboarding</li>
+                    </ul>
+
+                    <a href="/checkout/agency-pro" class="btn btn-outline-accent w-100 py-3">Start Agency Pro</a>
+                </div>
             </div>
         </div>
     </section>
@@ -635,6 +606,58 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            // --- CAROUSEL LOGIC ---
+            const cards = document.querySelectorAll('.pricing-card');
+            let activeIndex = 1; // Start with the middle card (Agency Starter) active
+            let autoRotateInterval;
+
+            window.selectCard = function(index) {
+                if (window.innerWidth < 992) return; // Disable on mobile where they stack naturally
+                
+                activeIndex = index;
+                updateCarousel();
+                resetTimer(); // Reset auto-rotation on user click
+            };
+
+            function updateCarousel() {
+                cards.forEach((card, i) => {
+                    card.className = 'pricing-card'; // Reset classes
+                    
+                    if (i === activeIndex) {
+                        card.classList.add('active');
+                    } else if (i === (activeIndex - 1 + 3) % 3) {
+                        card.classList.add('prev');
+                    } else {
+                        card.classList.add('next');
+                    }
+                });
+            }
+
+            function nextCard() {
+                activeIndex = (activeIndex + 1) % 3;
+                updateCarousel();
+            }
+
+            function startTimer() {
+                autoRotateInterval = setInterval(nextCard, 5000); // Rotate every 5 seconds
+            }
+
+            function resetTimer() {
+                clearInterval(autoRotateInterval);
+                startTimer();
+            }
+
+            // Start loop
+            updateCarousel(); // Ensure initial state
+            startTimer();
+
+            // Pause on hover
+            const container = document.querySelector('.carousel-container');
+            container.addEventListener('mouseenter', () => clearInterval(autoRotateInterval));
+            container.addEventListener('mouseleave', startTimer);
+
+
+            // --- POPUP LOGIC ---
             const popup = document.getElementById("elite-popup-overlay");
             const LAST_CLOSED_KEY = "grok_popup_last_closed";
             const COOLDOWN_HOURS = 4;
