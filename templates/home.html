@@ -206,7 +206,7 @@
         .pricing-section {
             position: relative;
             overflow: hidden;
-            min-height: 800px; /* Ensure height for absolute positioning */
+            min-height: 800px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -217,25 +217,24 @@
             width: 100%;
             max-width: 1200px;
             margin: 0 auto;
-            height: 600px; /* Height of the tallest card */
+            height: 600px;
             display: flex;
             justify-content: center;
-            perspective: 1000px; /* Essential for 3D effect */
+            perspective: 1000px;
         }
 
         .pricing-card {
             position: absolute;
             top: 0;
             width: 100%;
-            max-width: 400px; /* Base width */
-            background: rgba(10, 10, 10, 0.9); /* Darker opacity to hide overlap */
+            max-width: 400px;
+            background: rgba(10, 10, 10, 0.9);
             border: 1px solid var(--glass-border);
             padding: 40px 30px;
             border-radius: 24px;
             text-align: center;
             transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
             cursor: pointer;
-            /* Default state (hidden center) */
             left: 50%;
             transform: translateX(-50%) scale(0.8);
             opacity: 0;
@@ -243,10 +242,8 @@
         }
 
         /* --- CAROUSEL STATES --- */
-        
-        /* CENTER (Active) */
         .pricing-card.active {
-            transform: translateX(-50%) scale(1.1); /* Make it BIG */
+            transform: translateX(-50%) scale(1.1);
             z-index: 10;
             opacity: 1;
             border-color: var(--accent);
@@ -254,25 +251,22 @@
             filter: blur(0);
         }
 
-        /* LEFT (Previous) */
         .pricing-card.prev {
-            transform: translateX(-120%) scale(0.85) rotateY(15deg); /* Move left, shrink, tilt */
+            transform: translateX(-120%) scale(0.85) rotateY(15deg);
             z-index: 5;
             opacity: 0.5;
             filter: blur(1px);
             border-color: var(--glass-border);
         }
 
-        /* RIGHT (Next) */
         .pricing-card.next {
-            transform: translateX(20%) scale(0.85) rotateY(-15deg); /* Move right, shrink, tilt */
+            transform: translateX(20%) scale(0.85) rotateY(-15deg);
             z-index: 5;
             opacity: 0.5;
             filter: blur(1px);
             border-color: var(--glass-border);
         }
 
-        /* Hovering on side cards brings them slightly into focus */
         .pricing-card.prev:hover, .pricing-card.next:hover {
             opacity: 0.8;
             filter: blur(0);
@@ -316,7 +310,6 @@
         }
         .pricing-features li i { color: var(--accent); }
 
-        /* Mobile Reset: Stack them normally on small screens */
         @media (max-width: 991px) {
             .pricing-section { height: auto; padding: 60px 20px; }
             .carousel-container { 
@@ -394,6 +387,164 @@
             position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
             background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.08), transparent 60%);
             pointer-events: none; z-index: -1;
+        }
+
+        /* --- FUTURISTIC GLASS CHAT WIDGET --- */
+        .chat-widget-container {
+            position: fixed; bottom: 30px; right: 30px; z-index: 10000;
+            display: flex; flex-direction: column; align-items: flex-end;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Floating Trigger Button */
+        .chat-toggle-btn {
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            background: rgba(10, 10, 10, 0.6);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--accent);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3), inset 0 0 10px rgba(0, 255, 136, 0.1);
+            color: var(--accent);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .chat-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.6);
+            background: var(--accent);
+            color: #000;
+        }
+        .pulse-ring {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            border: 2px solid var(--accent); opacity: 0;
+            animation: ringPulse 2s infinite; pointer-events: none;
+        }
+        @keyframes ringPulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .chat-callout {
+            position: absolute; right: 75px; top: 10px;
+            background: rgba(0, 255, 136, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: #fff; padding: 8px 15px; border-radius: 20px 20px 4px 20px;
+            font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+            opacity: 1; transition: opacity 0.5s; pointer-events: none;
+        }
+        .chat-callout.hidden { opacity: 0; }
+
+        /* The Chat Window */
+        .chat-window {
+            width: 380px; height: 600px;
+            max-height: 80vh;
+            background: rgba(5, 5, 5, 0.85);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            margin-bottom: 20px;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transform-origin: bottom right;
+            transform: scale(0); opacity: 0;
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            position: relative;
+        }
+        .chat-window.open { transform: scale(1); opacity: 1; }
+        
+        /* Header */
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .bot-identity { display: flex; align-items: center; gap: 12px; }
+        .bot-avatar {
+            width: 40px; height: 40px; border-radius: 12px;
+            background: rgba(0, 255, 136, 0.1); border: 1px solid var(--accent);
+            display: flex; align-items: center; justify-content: center; color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+        }
+        .bot-info h5 { margin: 0; font-size: 1rem; color: #fff; font-weight: 700; }
+        .bot-status { font-size: 0.75rem; color: var(--accent); display: flex; align-items: center; gap: 5px; }
+        .bot-status::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 5px var(--accent); }
+        
+        /* Messages Area */
+        .chat-body {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 15px;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+        
+        .msg { max-width: 85%; padding: 12px 16px; font-size: 0.95rem; line-height: 1.5; position: relative; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Bot Bubble */
+        .msg.bot {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 18px 18px 18px 4px;
+            color: #e0e0e0;
+        }
+        .msg.bot::before {
+            content: ''; position: absolute; left: -5px; bottom: 0;
+            width: 10px; height: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-left: 1px solid rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
+            clip-path: polygon(0 100%, 100% 100%, 100% 0);
+        }
+
+        /* User Bubble */
+        .msg.user {
+            align-self: flex-end;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--accent);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.1);
+            border-radius: 18px 18px 4px 18px;
+            color: #fff;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            align-self: flex-start; display: none; gap: 4px; padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.02); border-radius: 18px;
+        }
+        .dot { width: 6px; height: 6px; background: #666; border-radius: 50%; animation: typing 1.4s infinite ease-in-out; }
+        .dot:nth-child(1) { animation-delay: 0s; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+        /* Input Area */
+        .chat-footer {
+            padding: 15px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.2);
+            display: flex; gap: 10px;
+        }
+        .chat-input {
+            flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50px; padding: 12px 20px; color: #fff; outline: none; transition: 0.3s;
+        }
+        .chat-input:focus { border-color: var(--accent); background: rgba(0,0,0,0.3); }
+        .send-btn {
+            width: 45px; height: 45px; border-radius: 50%; border: none;
+            background: var(--accent); color: #000; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s;
+        }
+        .send-btn:hover { transform: scale(1.1); box-shadow: 0 0 15px var(--accent); }
+
+        @media (max-width: 480px) {
+            .chat-window { width: calc(100vw - 40px); height: 80vh; bottom: 80px; right: 20px; }
+            .chat-widget-container { right: 20px; bottom: 20px; }
         }
     </style>
 </head>
@@ -586,6 +737,42 @@
         </div>
     </footer>
 
+    <div class="chat-widget-container">
+        <div class="chat-callout" id="chatCallout">Ask about me</div>
+
+        <div class="chat-window" id="chatWindow">
+            <div class="chat-header">
+                <div class="bot-identity">
+                    <div class="bot-avatar"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="bot-info">
+                        <h5>Grok Assistant</h5>
+                        <div class="bot-status">Online</div>
+                    </div>
+                </div>
+                <button onclick="toggleChat()" style="background:none; border:none; color:#777; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="chat-body" id="chatBody">
+                <div class="msg bot">
+                    Hello! I'm the AI Assistant for this website. I can explain how our tech works or recommend the best plan for your agency. What's on your mind?
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+            </div>
+
+            <div class="chat-footer">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything..." onkeypress="handleEnter(event)">
+                <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <div class="chat-toggle-btn" onclick="toggleChat()">
+            <div class="pulse-ring"></div>
+            <i class="fa-solid fa-robot"></i>
+        </div>
+    </div>
+
     <div id="elite-popup-overlay" class="popup-overlay">
         <div class="popup-card">
             <button class="close-btn" onclick="closePopup()">&times;</button>
@@ -613,7 +800,6 @@
 
             window.selectCard = function(index) {
                 if (window.innerWidth < 992) return; // Disable on mobile where they stack naturally
-                
                 activeIndex = index;
                 updateCarousel();
                 resetTimer(); // Reset auto-rotation on user click
@@ -622,7 +808,6 @@
             function updateCarousel() {
                 cards.forEach((card, i) => {
                     card.className = 'pricing-card'; // Reset classes
-                    
                     if (i === activeIndex) {
                         card.classList.add('active');
                     } else if (i === (activeIndex - 1 + 3) % 3) {
@@ -665,31 +850,131 @@
             function shouldShowPopup() {
                 const lastClosed = localStorage.getItem(LAST_CLOSED_KEY);
                 if (!lastClosed) return true; 
-
                 const now = new Date().getTime();
                 const timePassed = now - parseInt(lastClosed);
                 const hoursPassed = timePassed / (1000 * 60 * 60);
-
                 return hoursPassed >= COOLDOWN_HOURS;
             }
 
             function showPopup() {
                 popup.style.display = "flex";
-                setTimeout(() => {
-                    popup.classList.add("active");
-                }, 10);
+                setTimeout(() => { popup.classList.add("active"); }, 10);
             }
 
             window.closePopup = function() {
                 popup.classList.remove("active");
-                setTimeout(() => {
-                    popup.style.display = "none";
-                }, 500);
+                setTimeout(() => { popup.style.display = "none"; }, 500);
                 localStorage.setItem(LAST_CLOSED_KEY, new Date().getTime().toString());
             };
 
             if (shouldShowPopup()) {
                 setTimeout(showPopup, 2000);
+            }
+
+            // --- CHAT WIDGET LOGIC ---
+            // Generate or retrieve session ID
+            let chatSessionId = localStorage.getItem('grok_chat_session_id');
+            if (!chatSessionId) {
+                chatSessionId = 'demo_web_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('grok_chat_session_id', chatSessionId);
+            }
+
+            const chatWindow = document.getElementById('chatWindow');
+            const chatCallout = document.getElementById('chatCallout');
+            const chatBody = document.getElementById('chatBody');
+            const chatInput = document.getElementById('chatInput');
+            const typingIndicator = document.getElementById('typingIndicator');
+            let isChatOpen = false;
+            let lastLogCount = 0; // To track new messages
+
+            window.toggleChat = function() {
+                isChatOpen = !isChatOpen;
+                if (isChatOpen) {
+                    chatWindow.classList.add('open');
+                    chatCallout.classList.add('hidden');
+                    scrollToBottom();
+                    startPolling(); // Start listening for replies
+                } else {
+                    chatWindow.classList.remove('open');
+                    setTimeout(() => chatCallout.classList.remove('hidden'), 500);
+                }
+            };
+
+            window.handleEnter = function(e) {
+                if (e.key === 'Enter') sendMessage();
+            };
+
+            window.sendMessage = function() {
+                const text = chatInput.value.trim();
+                if (!text) return;
+
+                // UI Update
+                addMessage(text, 'user');
+                chatInput.value = '';
+                showTyping();
+
+                // API Call to your queue
+                fetch('/website-bot-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contact_id: chatSessionId,
+                        message: text
+                    })
+                }).catch(err => console.error("Chat Error:", err));
+            };
+
+            function addMessage(text, type) {
+                const div = document.createElement('div');
+                div.className = `msg ${type}`;
+                div.textContent = text;
+                chatBody.insertBefore(div, typingIndicator);
+                scrollToBottom();
+            }
+
+            function showTyping() {
+                typingIndicator.style.display = 'flex';
+                scrollToBottom();
+            }
+
+            function hideTyping() {
+                typingIndicator.style.display = 'none';
+            }
+
+            function scrollToBottom() {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+
+            // --- SMART POLLING (Connects to your Async Queue) ---
+            // Since the response is queued, we poll /get-logs to find the answer
+            let pollInterval;
+            function startPolling() {
+                if (pollInterval) return;
+                pollInterval = setInterval(async () => {
+                    if (!isChatOpen) { clearInterval(pollInterval); pollInterval = null; return; }
+
+                    try {
+                        const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
+                        const data = await res.json();
+                        
+                        // If we have new logs we haven't seen
+                        if (data.logs && data.logs.length > lastLogCount) {
+                            // Filter only BOT messages that are new
+                            const newLogs = data.logs.slice(lastLogCount);
+                            
+                            newLogs.forEach(log => {
+                                if (log.type === "Bot Message") {
+                                    hideTyping();
+                                    addMessage(log.content, 'bot');
+                                }
+                            });
+                            
+                            lastLogCount = data.logs.length;
+                        }
+                    } catch (e) {
+                        // Silent fail on poll error
+                    }
+                }, 2000); // Check every 2 seconds
             }
         });
     </script>

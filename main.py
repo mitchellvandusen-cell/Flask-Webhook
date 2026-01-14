@@ -33,6 +33,7 @@ from memory import get_known_facts, get_narrative, get_recent_messages
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
+from WEBSITE_ASSISTANT.tasks import process_saas_webhook
 load_dotenv()
 
 app = Flask(__name__)
@@ -136,6 +137,34 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
+from WEBSITE_ASSISTANT.tasks import process_saas_webhook
+
+# main.py
+
+@app.route("/website-bot-webhook", methods=["POST"])
+def website_bot_webhook():
+    # 1. Safety Check
+    if not q_demo:
+        logger.critical("Redis/RQ unavailable for Website Bot")
+        return flask_jsonify({"status": "error", "reason": "Redis unavailable"}), 503
+
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
+    
+    # 2. Enqueue to DEMO Queue (Same worker as the demo-chat)
+    try:
+        job = q_demo.enqueue(
+            process_saas_webhook,
+            payload,
+            job_timeout=60,       # shorter timeout for website chat
+            result_ttl=3600       # keep result for 1 hour
+        )
+        return flask_jsonify({"status": "queued", "job_id": job.id, "queue": "demo"}), 202
+        
+    except Exception as e:
+        logger.error(f"Website Bot Queue failed: {e}")
+        return flask_jsonify({"status": "error"}), 500
+    
+
 @app.route('/api/demo/reset', methods=['POST'])
 def demo_reset():
     # Call the bold function we just built
@@ -176,7 +205,7 @@ def generate_demo_opener():
 # =====================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    if not q:
+    if not q_production or not q_demo:
         logger.critical("Redis/RQ unavailable")
         return flask_jsonify({"status": "error"}), 503
 
