@@ -925,13 +925,16 @@ def get_logs():
             "content": narrative_text 
         })
         safe_logs = make_json_serializable(logs)
-        return flask_jsonify({"logs": []})
+        return flask_jsonify({"logs": safe_logs})
+        
     except Exception as e:
         logger.error(f"Error in get_logs: {e}")
-        logs.append({"error": str(e)}), 500
+        logs.append({"logs": []})
     finally:
-        cur.close()
-        conn.close()
+        if 'cur' in locals() and cur:
+            cur.close()
+        if conn:
+            conn.close()
 
     
 
