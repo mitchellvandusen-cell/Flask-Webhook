@@ -165,6 +165,7 @@ class User(UserMixin):
         self.role = data.get('role', 'agency_owner' if 'agency_email' in data else 'individual')
         self.stripe_customer_id = data.get('stripe_customer_id')
         self.subscription_tier = data.get('subscription_tier', 'individual')
+        self.crm_user_id    = data.get('crm_user_id')
        
         # Bot Config Data
         self.calendar_id = data.get('calendar_id')
