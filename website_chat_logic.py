@@ -97,10 +97,10 @@ def process_async_chat_task(payload):
     # 3. Generate AI Response
     try:
         response = client.chat.completions.create(
-            model="grok-2-latest",
+            model="grok-4-1-fast-reasoning",
             messages=messages_payload,
             temperature=0.7,
-            max_tokens=350 
+            max_tokens=120 
         )
         bot_reply = response.choices[0].message.content
 
