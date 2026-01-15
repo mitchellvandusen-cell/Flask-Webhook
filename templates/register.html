@@ -29,20 +29,20 @@
                 <label class="form-label">Email Address</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-envelope"></i></span>
-                    {{ form.email(class="form-control", placeholder="name@agency.com") }}
+                    {{ form.email(class="form-control", placeholder="name@agency.com", readonly=True) }}
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Confirmation Code <span class="text-muted fw-normal small">(Auto-filled)</span></label>
+                <label class="form-label">Location ID <span class="text-muted fw-normal small">(GHL Identifier)</span></label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="fa-solid fa-ticket"></i></span>
-                    {{ form.code(class="form-control", placeholder="XXXX-XXXX") }}
+                    <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
+                    {{ form.location_id(class="form-control", placeholder="GHL Location ID", readonly=True) }}
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Password</label>
+                <label class="form-label">Create Password</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-lock"></i></span>
                     {{ form.password(class="form-control", placeholder="••••••••") }}
