@@ -107,8 +107,8 @@
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            AOS.init({ duration: 1000, once: true, offset: 50 });
+    document.addEventListener("DOMContentLoaded", function() {
+        AOS.init({ duration: 1000, once: true, offset: 50 });
 
             // 1. CAROUSEL
             const cards = document.querySelectorAll('.pricing-card');
@@ -145,7 +145,7 @@
                 localStorage.setItem("grok_popup_last_closed", Date.now());
             };
 
-            // 3. CHAT WIDGET
+           // CHAT WIDGET - FIXED VERSION
             const chatBody = document.getElementById('chatBody');
             const chatWindow = document.getElementById('chatWindow');
             const chatInput = document.getElementById('chatInput');
@@ -159,9 +159,10 @@
 
             window.toggleChat = function() {
                 chatWindow.classList.toggle('active');
-                // Initiate if opened for the first time and empty
                 if (chatWindow.classList.contains('active') && chatBody.innerHTML.trim() === "") {
-                    window.sendMessage("INIT_CHAT", true);
+                    // Start chat on first open
+                    appendMessageHTML('assistant', 'Thinking...');
+                    sendMessage("INIT_CHAT", true);
                 }
             };
 
@@ -176,7 +177,7 @@
                     chatInput.value = '';
                 }
 
-                typingIndicator.style.display = 'block';
+                typingIndicator.style.display = 'flex';  // Show typing
 
                 fetch('/website-bot-webhook', {
                     method: 'POST',
@@ -185,27 +186,32 @@
                 })
                 .then(res => res.json())
                 .then(data => {
-                    typingIndicator.style.display = 'none';
-                    if (data.text) {
-                        appendMessageHTML('assistant', data.text, data.options);
+                    // Handle instant replies (buttons, redirects, text)
+                    if (data.text || data.redirect || data.options) {
+                        typingIndicator.style.display = 'none';
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        }
+                        if (data.text) {
+                            appendMessageHTML('assistant', data.text, data.options);
+                        }
                     }
-                    if (data.redirect) {
-                        setTimeout(() => window.location.href = data.redirect, 1200);
-                    }
+                    // For async processing, polling will handle the reply
                 })
                 .catch(err => {
                     typingIndicator.style.display = 'none';
+                    appendMessageHTML('assistant', 'Sorry, something went wrong. Try again!');
                     console.error("Chat Error:", err);
                 });
             };
 
             function appendMessageHTML(role, text, options = null) {
-                // De-duplication: Check if message already exists
-                const existing = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
-                if (existing.includes(text.trim())) return;
+                // Simple de-duplication: don't add if text already exists
+                const existingTexts = Array.from(chatBody.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
+                if (existingTexts.includes(text.trim())) return;
 
                 const div = document.createElement('div');
-                div.className = `msg ${role}-msg mb-3`;
+                div.className = `msg ${role}`;
                 div.innerHTML = `<div class="msg-content p-3" style="border-radius:15px; background:${role==='user'?'var(--accent)':'#222'}; color:#fff; display:inline-block; max-width:80%;">${text}</div>`;
                 chatBody.appendChild(div);
 
@@ -226,25 +232,34 @@
                     });
                     chatBody.appendChild(btnWrap);
                 }
+
+                scrollToBottom();
+            }
+
+            function scrollToBottom() {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }
 
-            // Polling Loop for Async Messages (Worker cleanup)
+            // Polling for Async Replies (every 2 seconds when chat is open)
             setInterval(async () => {
                 if (!chatWindow.classList.contains('active')) return;
                 try {
                     const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
                     const data = await res.json();
-                    if (data.logs) {
-                        data.logs.forEach(log => {
-                            // Only append if it's a Bot Message that isn't already there
-                            if (log.type && log.type.includes('Bot')) {
-                                appendMessageHTML('assistant', log.content);
-                            }
-                        });
+                    if (data.logs && data.logs.length > 0) {
+                        // Get the latest log
+                        const lastLog = data.logs[data.logs.length - 1];
+                        
+                        // Only add if it's a bot message
+                        if (lastLog.type && lastLog.type.includes('Bot')) {
+                            typingIndicator.style.display = 'none';
+                            appendMessageHTML('assistant', lastLog.content, lastLog.options);
+                        }
                     }
-                } catch(e) {}
-            }, 4000);
+                } catch(e) {
+                    console.error("Polling error:", e);
+                }
+            }, 2000);  // Poll every 2 seconds
         });
     </script>
     {% block scripts %}{% endblock %}
