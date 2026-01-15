@@ -981,12 +981,13 @@ def privacy():
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
     contact_id = request.args.get("contact_id")
-    if not contact_id: return flask_jsonify({"logs": []}) 
+    if not contact_id:
+        return flask_jsonify({"logs": []})
 
-    # 1. REDIS CHECK (Fast Lane for Active Chats)
-    # We check Redis first. If logs exist here, it's a website visitor.
-    # This avoids touching the SQL database for simple chat widgets.
-    if conn:
+    is_demo = contact_id.startswith(('demo_', 'test_'))
+
+    # 1. REDIS CHECK — only for NON-demo sessions (fast real-time website chat)
+    if not is_demo and conn:
         try:
             redis_key = f"chat_logs:{contact_id}"
             if conn.exists(redis_key):
@@ -996,26 +997,26 @@ def get_logs():
                     try:
                         d = json.loads(x)
                         logs.append(d)
-                    except: continue
-                if logs: return safe_jsonify({"logs": logs})
+                    except:
+                        continue
+                if logs:
+                    return safe_jsonify({"logs": logs})
         except Exception as e:
-            # Non-blocking error: log it and proceed to SQL
             logger.warning(f"Redis lookup failed in get_logs: {e}")
 
-    # 2. SQL FALLBACK (Heavy Lane for Demo/Analysis)
-    # If Redis was empty, we assume this is a stored Demo/Test session.
-    # We apply strict security here to protect real lead data.
-    if not contact_id.startswith("test_") and not contact_id.startswith("demo_"):
-        return flask_jsonify({"logs": []}) 
+    # 2. SQL FALLBACK — always used for demo/test, or when Redis empty
+    if not is_demo and not contact_id.startswith("test_") and not contact_id.startswith("demo_"):
+        return flask_jsonify({"logs": []})
 
     db_conn = get_db_connection()
-    if not db_conn: return flask_jsonify({"logs": []})
+    if not db_conn:
+        return flask_jsonify({"logs": []})
 
     logs = []
     try:
         cur = db_conn.cursor(cursor_factory=RealDictCursor)
-        
-        # A. Fetch Messages
+
+        # Fetch Messages
         cur.execute("""
             SELECT message_type, message_text, created_at 
             FROM contact_messages 
@@ -1023,65 +1024,52 @@ def get_logs():
             ORDER BY created_at ASC
         """, (contact_id,))
         rows = cur.fetchall()
-        
+
         for r in rows:
             ts = r['created_at'].isoformat() if hasattr(r['created_at'], 'isoformat') else str(r['created_at'])
             role = "Bot" if r['message_type'] in ['assistant', 'bot'] else "Lead"
             logs.append({
-                "role": role.lower(), 
-                "type": f"{role} Message", 
-                "content": r['message_text'], 
+                "role": role.lower(),
+                "type": f"{role} Message",
+                "content": r['message_text'],
                 "timestamp": ts
             })
-        
-        # B. Fetch Facts & Narrative (The "Brain" Display)
+
+        # Facts & Narrative (same as before)
         facts = get_known_facts(contact_id)
         if facts:
             logs.append({
-                "timestamp": datetime.now().isoformat(), 
-                "type": "Known Facts", 
+                "timestamp": datetime.now().isoformat(),
+                "type": "Known Facts",
                 "content": "\n".join([f"• {f}" for f in facts])
             })
 
         narrative = get_narrative(contact_id)
-        
-        # C. Logic: If narrative is missing but facts exist, rebuild it on the fly
-        # This preserves your "Gold for debugging" logic
         if not narrative and facts:
             try:
-                # Basic parsing to help the builder
                 facts_text = " ".join(facts).lower()
                 first_name = None
                 age = None
-                
-                # Simple extraction to feed the builder
                 import re
                 name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
                 if name_match: first_name = name_match.group(1).capitalize()
-                
                 age_match = re.search(r"age: (\d+)", facts_text)
                 if age_match: age = age_match.group(1)
 
                 rebuilt_narrative = build_comprehensive_profile(
-                    story_narrative="", 
+                    story_narrative="",
                     known_facts=facts,
                     first_name=first_name,
                     age=age
                 )
-                
-                # Handle tuple return if builder returns (text, confidence)
-                if isinstance(rebuilt_narrative, tuple): 
-                    narrative = str(rebuilt_narrative[0])
-                else:
-                    narrative = str(rebuilt_narrative)
-                    
+                narrative = str(rebuilt_narrative[0]) if isinstance(rebuilt_narrative, tuple) else str(rebuilt_narrative)
             except Exception as e:
-                logger.warning(f"Profile rebuild in logs failed: {e}")
+                logger.warning(f"Profile rebuild failed: {e}")
 
         if narrative:
             logs.append({
-                "timestamp": datetime.now().isoformat(), 
-                "type": "Full Human Identity Narrative", 
+                "timestamp": datetime.now().isoformat(),
+                "type": "Full Human Identity Narrative",
                 "content": narrative
             })
 
