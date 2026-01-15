@@ -33,7 +33,7 @@ from memory import get_known_facts, get_narrative, get_recent_messages
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
-from WEBSITE_ASSISTANT.tasks import process_saas_webhook
+from website_chat_logic import process_async_chat_task
 load_dotenv()
 
 app = Flask(__name__)
@@ -137,57 +137,88 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
-from WEBSITE_ASSISTANT.tasks import process_saas_webhook
-
-# main.py
-
-
 @app.route("/website-bot-webhook", methods=["POST"])
 def website_bot_webhook():
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    
     contact_id = payload.get('contact_id')
     user_message = payload.get('message')
 
     if not contact_id or not user_message:
-        return jsonify({"status": "error", "reason": "Missing data"}), 400
+        return flask_jsonify({"status": "error"}), 400
 
-    # 1. Save User Message to Global Log
-    if contact_id not in conversation_logs:
-        conversation_logs[contact_id] = []
+    redis_key = f"chat_logs:{contact_id}"
+    user_type_key = f"user_type:{contact_id}"
+    
+    # --- PART A: FAST LOGIC (Instant Reply) ---
+
+    # 1. Initial Greeting / Reset
+    if user_message == "INIT_CHAT":
+        welcome_msg = "Hello! I'm the InsuranceGrokBot assistant. To customize my answers, are you an Individual Agent or an Agency Owner?"
+        options = [
+            {"label": "Individual Agent", "value": "individual"},
+            {"label": "Agency Owner", "value": "agency"}
+        ]
+        # Log the welcome message so it shows in history
+        log = {"role": "assistant", "type": "Bot Message", "content": welcome_msg, "timestamp": datetime.utcnow().isoformat()}
+        if conn: conn.rpush(redis_key, json.dumps(log))
         
-    conversation_logs[contact_id].append({
-        "role": "user",
+        return flask_jsonify({"text": welcome_msg, "options": options})
+
+    # 2. Handle Button Selection
+    if user_message in ["individual", "agency"]:
+        if conn: conn.set(user_type_key, user_message)
+        
+        reply = "Understood. "
+        if user_message == "agency":
+            reply += "I'll focus on features for scaling teams, whitelabeling, and sub-account management."
+        else:
+            reply += "I'll focus on tools to help you reactivate leads and book appointments automatically."
+            
+        log = {"role": "assistant", "type": "Bot Message", "content": reply, "timestamp": datetime.utcnow().isoformat()}
+        if conn: conn.rpush(redis_key, json.dumps(log))
+        return flask_jsonify({"text": reply})
+
+    # 3. Handle Redirects (Simple Navigation)
+    msg_lower = user_message.lower()
+    redirect_map = {
+        "price": "/#pricing", "cost": "/#pricing", "plan": "/#pricing",
+        "compare": "/comparison", "difference": "/comparison", "vs": "/comparison",
+        "faq": "/faq", "question": "/faq", "support": "/contact"
+    }
+    
+    for key, url in redirect_map.items():
+        if key in msg_lower:
+            reply = f"I can help with that. Let me navigate you to our {key} section."
+            log = {"role": "assistant", "type": "Bot Message", "content": reply, "timestamp": datetime.utcnow().isoformat()}
+            if conn: conn.rpush(redis_key, json.dumps(log))
+            return flask_jsonify({"text": reply, "redirect": url})
+
+    # --- PART B: SLOW LOGIC (Async AI) ---
+    
+    # 4. Save User Message to Redis (So worker sees it)
+    user_log = {
+        "role": "lead", 
         "type": "User Message", 
         "content": user_message,
         "timestamp": datetime.utcnow().isoformat()
-    })
+    }
+    if conn:
+        conn.rpush(redis_key, json.dumps(user_log))
+        conn.expire(redis_key, 86400)
 
-    # 2. Call xAI Directly (Synchronous)
+    # 5. Enqueue Job to 'production' Queue
     try:
-        # Assuming you have your 'client' initialized globally or here
-        completion = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning", 
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant for InsuranceGrokBot. Keep answers short and sales-focused."},
-                {"role": "user", "content": user_message}
-            ]
+        job = q_production.enqueue(
+            process_async_chat_task,
+            {"contact_id": contact_id, "message": user_message},
+            job_timeout=60,
+            result_ttl=600
         )
-        bot_reply = completion.choices[0].message.content
-
-        # 3. Save Bot Reply to Global Log (So frontend can see it)
-        conversation_logs[contact_id].append({
-            "role": "assistant",
-            "type": "Bot Message",
-            "content": bot_reply,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        
-        return jsonify({"status": "success", "reply": bot_reply}), 200
-
+        return flask_jsonify({"status": "processing", "job_id": job.id}), 202
+    
     except Exception as e:
-        print(f"Error generating reply: {e}")
-        return jsonify({"status": "error", "reason": str(e)}), 500
+        logger.error(f"Queue Error: {e}")
+        return flask_jsonify({"text": "My connection is a bit slow. Please try again."}), 500
     
 
 @app.route('/api/demo/reset', methods=['POST'])
@@ -1039,8 +1070,8 @@ def reset_test():
 @app.route("/download-transcript", methods=["GET"])
 def download_transcript():
     contact_id = request.args.get("contact_id")
-    if not contact_id or not contact_id.startswith("test_"):
-        return flask_jsonify({"error": "Invalid test contact"}), 400
+    if not contact_id or not contact_id.startswith("test_" or "demo_"):
+        return flask_jsonify({"error": "Invalid contact"}), 400
 
     # Fetch data from DB
     messages = get_recent_messages(contact_id, limit=50)

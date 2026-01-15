@@ -106,11 +106,13 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     
-    <script>
+<script>
         document.addEventListener("DOMContentLoaded", function() {
-            // --- CAROUSEL LOGIC ---
-            const cards = document.querySelectorAll('.pricing-card');
             
+            // =========================================
+            // 1. CAROUSEL LOGIC (Pricing)
+            // =========================================
+            const cards = document.querySelectorAll('.pricing-card');
             if (cards.length > 0) {
                 let activeIndex = 1; 
                 let autoRotateInterval;
@@ -159,7 +161,9 @@
                 }
             }
 
-            // --- POPUP LOGIC ---
+            // =========================================
+            // 2. POPUP LOGIC (7-Day Trial)
+            // =========================================
             const popup = document.getElementById("elite-popup-overlay");
             const LAST_CLOSED_KEY = "grok_popup_last_closed";
             const COOLDOWN_HOURS = 4;
@@ -192,31 +196,48 @@
                 setTimeout(showPopup, 2000);
             }
 
-            // --- CHAT WIDGET LOGIC ---
-            let chatSessionId = localStorage.getItem('grok_chat_session_id');
-            if (!chatSessionId) {
-                chatSessionId = 'demo_web_' + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem('grok_chat_session_id', chatSessionId);
+            // =========================================
+            // 3. CHAT WIDGET LOGIC (Hybrid Async)
+            // =========================================
+            const SESSION_KEY = 'grok_chat_session_v1';
+            const SESSION_DURATION = 60 * 60 * 1000; // 60 Minutes
+
+            function getOrCreateSession() {
+                const now = Date.now();
+                const stored = localStorage.getItem(SESSION_KEY);
+                
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    if (now - data.timestamp < SESSION_DURATION) {
+                        return data.id; // Valid session
+                    }
+                }
+                // Generate NEW Session with 'assist_' prefix
+                const newId = 'assist_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ id: newId, timestamp: now }));
+                return newId;
             }
 
+            let chatSessionId = getOrCreateSession();
             const chatWindow = document.getElementById('chatWindow');
-            const chatCallout = document.getElementById('chatCallout');
             const chatBody = document.getElementById('chatBody');
             const chatInput = document.getElementById('chatInput');
-            const typingIndicator = document.getElementById('typingIndicator');
             let isChatOpen = false;
-            let lastLogCount = 0; 
+            let hasInitialized = false;
 
             window.toggleChat = function() {
                 isChatOpen = !isChatOpen;
                 if (isChatOpen) {
                     chatWindow.classList.add('open');
-                    chatCallout.classList.add('hidden');
+                    document.getElementById('chatCallout').classList.add('hidden');
+                    if (!hasInitialized) {
+                        loadHistoryOrInit();
+                        hasInitialized = true;
+                    }
                     scrollToBottom();
-                    startPolling(); 
                 } else {
                     chatWindow.classList.remove('open');
-                    setTimeout(() => chatCallout.classList.remove('hidden'), 500);
+                    setTimeout(() => document.getElementById('chatCallout').classList.remove('hidden'), 500);
                 }
             };
 
@@ -224,70 +245,134 @@
                 if (e.key === 'Enter') sendMessage();
             };
 
-            window.sendMessage = function() {
-                const text = chatInput.value.trim();
+            async function loadHistoryOrInit() {
+                const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
+                const data = await res.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    chatBody.innerHTML = '';
+                    data.logs.forEach(log => {
+                        // Detect role based on log type string
+                        const type = (log.type && log.type.includes('Bot')) ? 'bot' : 'user';
+                        addMessage(log.content, type);
+                    });
+                } else {
+                    sendSystemMessage("INIT_CHAT");
+                }
+            }
+
+            window.sendMessage = function(textOverride) {
+                const text = textOverride || chatInput.value.trim();
                 if (!text) return;
 
-                addMessage(text, 'user');
-                chatInput.value = '';
-                showTyping();
+                if (!textOverride) {
+                    addMessage(text, 'user');
+                    chatInput.value = '';
+                }
+                
+                const loadingId = 'loading-' + Date.now();
+                addMessage('...', 'bot', loadingId);
 
                 fetch('/website-bot-webhook', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contact_id: chatSessionId,
-                        message: text
-                    })
-                }).catch(err => console.error("Chat Error:", err));
+                    body: JSON.stringify({ contact_id: chatSessionId, message: text })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Scenario A: Instant Reply (Buttons / Redirects)
+                    if (data.text || data.redirect || data.options) {
+                        const loader = document.getElementById(loadingId);
+                        if(loader) loader.remove();
+
+                        if (data.redirect) window.location.href = data.redirect;
+                        if (data.text) addMessage(data.text, 'bot');
+                        if (data.options) renderButtons(data.options);
+                    } 
+                    // Scenario B: Async Processing (Worker)
+                    else if (data.status === "processing") {
+                        // Wait for polling to pick it up.
+                        // Failsafe: remove loader if it takes too long
+                        setTimeout(() => {
+                            const loader = document.getElementById(loadingId);
+                            if(loader) loader.remove();
+                        }, 15000);
+                    }
+                })
+                .catch(err => {
+                    console.error("Chat Error:", err);
+                    const loader = document.getElementById(loadingId);
+                    if(loader) loader.remove();
+                });
             };
 
-            function addMessage(text, type) {
+            function sendSystemMessage(cmd) {
+                fetch('/website-bot-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_id: chatSessionId, message: cmd })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.text) addMessage(data.text, 'bot');
+                    if (data.options) renderButtons(data.options);
+                });
+            }
+
+            function addMessage(text, type, id=null) {
                 const div = document.createElement('div');
                 div.className = `msg ${type}`;
-                div.textContent = text;
-                chatBody.insertBefore(div, typingIndicator);
+                div.innerHTML = text;
+                if(id) div.id = id;
+                chatBody.appendChild(div);
                 scrollToBottom();
             }
 
-            function showTyping() {
-                typingIndicator.style.display = 'flex';
+            function renderButtons(options) {
+                const div = document.createElement('div');
+                div.style.display = "flex"; div.style.gap = "10px"; div.style.marginTop = "10px";
+                
+                options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.innerText = opt.label;
+                    btn.className = "btn btn-sm btn-outline-accent";
+                    btn.style.borderRadius = "20px"; btn.style.fontSize = "0.75rem";
+                    btn.onclick = () => {
+                        addMessage(opt.label, 'user');
+                        sendMessage(opt.value);
+                        div.remove();
+                    };
+                    div.appendChild(btn);
+                });
+                chatBody.appendChild(div);
                 scrollToBottom();
             }
 
-            function hideTyping() {
-                typingIndicator.style.display = 'none';
-            }
-
-            function scrollToBottom() {
-                chatBody.scrollTop = chatBody.scrollHeight;
-            }
-
-            let pollInterval;
-            function startPolling() {
-                if (pollInterval) return;
-                pollInterval = setInterval(async () => {
-                    if (!isChatOpen) { clearInterval(pollInterval); pollInterval = null; return; }
-
-                    try {
-                        const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
-                        const data = await res.json();
-                        
-                        if (data.logs && data.logs.length > lastLogCount) {
-                            const newLogs = data.logs.slice(lastLogCount);
-                            
-                            newLogs.forEach(log => {
-                                if (log.type === "Bot Message") {
-                                    hideTyping();
-                                    addMessage(log.content, 'bot');
-                                }
-                            });
-                            
-                            lastLogCount = data.logs.length;
+            function scrollToBottom() { chatBody.scrollTop = chatBody.scrollHeight; }
+            
+            // --- POLLING LOOP (Reads Redis) ---
+            setInterval(async () => {
+                if (!isChatOpen) return;
+                const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
+                const data = await res.json();
+                
+                const msgs = document.querySelectorAll('.msg');
+                const lastMsg = msgs[msgs.length - 1];
+                
+                if (data.logs && data.logs.length > 0) {
+                    const lastLog = data.logs[data.logs.length - 1];
+                    const lastLogContent = lastLog.content;
+                    
+                    // Only add if it's new AND it's a Bot Message
+                    if (!lastMsg || (lastMsg.innerText !== lastLogContent && lastLogContent !== '...')) {
+                        if (lastLog.type && lastLog.type.includes('Bot')) {
+                             // Clean up loading bubbles
+                             document.querySelectorAll('[id^="loading-"]').forEach(el => el.remove());
+                             addMessage(lastLogContent, 'bot');
                         }
-                    } catch (e) { }
-                }, 2000); 
-            }
+                    }
+                }
+            }, 3000);
         });
     </script>
 
