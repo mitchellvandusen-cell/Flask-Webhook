@@ -46,7 +46,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def safe_jsonify(data):
-    return flask_jsonify(make_json_serializable)
+    # Pass 'data' into the function so it can process the dictionary/list
+    return flask_jsonify(make_json_serializable(data))
 
 # === REDIS & RQ SETUP ===
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
