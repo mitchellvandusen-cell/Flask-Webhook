@@ -336,7 +336,12 @@ def stripe_webhook():
     return '', 200
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    form = RegisterForm()  # ← Make sure RegisterForm uses location_id, not code (see below)
+    """
+    Registration for INDIVIDUAL users after OAuth.
+    Sub-users should use /claim-account instead.
+    Agency owners are auto-registered via OAuth.
+    """
+    form = RegisterForm()
 
     # Pre-fill from OAuth redirect
     if request.method == "GET":
@@ -349,52 +354,66 @@ def register():
         email = form.email.data.lower().strip()
         submitted_location_id = form.location_id.data.strip()
 
-        # 1. Check if email already exists → redirect to login
+        # 1. Check if email already registered → redirect to login
         existing_user = User.get(email)
         if existing_user:
             flash("Email already registered. Please log in.", "info")
             return redirect(url_for("login"))
 
-        # 2. Verify the location_id exists in subscribers (proof from OAuth)
+        # 2. Verify location_id exists in subscribers (created by OAuth)
         conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("""
-                    SELECT email FROM subscribers 
-                    WHERE location_id = %s
-                    LIMIT 1
-                """, (submitted_location_id,))
-                match = cur.fetchone()
-                
-                if not match:
-                    flash("Invalid or unverified location ID. Please reconnect via GoHighLevel or contact support.", "error")
-                    return redirect("/register")
-                
-                # Optional: Check if email matches (extra security)
-                if match[0] != email:
-                    flash("Location ID does not match your email. Please reconnect.", "error")
-                    return redirect("/register")
-                
-            except Exception as e:
-                logger.error(f"Location ID verification failed: {e}")
-                flash("System error during verification. Please try again.", "error")
-                return redirect("/register")
-            finally:
-                cur.close()
-                conn.close()
-        else:
+        if not conn:
             flash("Database unavailable. Please try again later.", "error")
             return redirect("/register")
 
-        # 3. All checks passed → create account
-        password_hash = generate_password_hash(form.password.data)
-        if User.create(email, password_hash):
-            # Optional: Update subscribers with confirmed status or link
+        try:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("""
+                SELECT email, parent_agency_email, invite_token, onboarding_status
+                FROM subscribers
+                WHERE location_id = %s
+                LIMIT 1
+            """, (submitted_location_id,))
+            match = cur.fetchone()
+
+            if not match:
+                flash("Invalid or unverified location ID. Please reconnect via GoHighLevel or contact support.", "error")
+                return redirect("/register")
+
+            # 3. Check if this is a sub-user who should use /claim-account
+            if match['parent_agency_email'] and match['invite_token']:
+                flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
+                return redirect(url_for("login"))
+
+            # 4. Verify email matches (security check)
+            if match['email'] != email:
+                flash("Location ID does not match your email. Please reconnect.", "error")
+                return redirect("/register")
+
+            # 5. All checks passed → Update password in subscribers table
+            password_hash = generate_password_hash(form.password.data)
+
+            cur.execute("""
+                UPDATE subscribers
+                SET password_hash = %s,
+                    onboarding_status = 'claimed',
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (password_hash, submitted_location_id))
+
+            conn.commit()
+            logger.info(f"Individual user registered: {email} for location {submitted_location_id}")
             flash("Account created successfully! Welcome aboard.", "success")
             return redirect(url_for("login"))
-        else:
+
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Registration failed for {email}: {e}")
             flash("Account creation failed. Please try again or contact support.", "error")
+            return redirect("/register")
+        finally:
+            cur.close()
+            conn.close()
 
     return render_template('register.html', form=form)
 
@@ -1488,29 +1507,79 @@ def success():
     # SCENARIO 2: Generic Success (Already has password or just viewing receipt)
     return render_template('checkout-success-login.html', email=email)
 
-@app.route("/set-password", methods=["POST"])
+@app.route("/set-password", methods=["GET", "POST"])
+@login_required
 def set_password():
-    email = request.form.get("email").lower()
+    """
+    Password setup for users after OAuth.
+    GET: Show password setup form
+    POST: Process password and save to database
+    """
+    user_type = request.args.get("type", "individual")  # 'agency' or 'individual'
+
+    if request.method == "GET":
+        # Show password setup form
+        return render_template('set_password.html',
+                             email=current_user.email,
+                             user_type=user_type)
+
+    # POST: Process password setup
     password = request.form.get("password")
-    confirm = request.form.get("confirm")
+    confirm = request.form.get("confirm_password")
+
+    if not password or len(password) < 8:
+        flash("Password must be at least 8 characters.", "danger")
+        return redirect(f"/set-password?type={user_type}")
 
     if password != confirm:
-        flash("Passwords do not match")
-        return redirect(url_for('success'))  # Redirect back to success page logic if possible or show error
+        flash("Passwords do not match.", "danger")
+        return redirect(f"/set-password?type={user_type}")
 
-    user = User.get(email)
-    if user:
-        password_hash = generate_password_hash(password)
-        conn = get_db_connection()
-        conn.execute("UPDATE users SET password_hash = ? WHERE email = ?", (password_hash, email))
+    password_hash = generate_password_hash(password)
+    conn = get_db_connection()
+
+    if not conn:
+        flash("Database unavailable. Please try again.", "error")
+        return redirect(f"/set-password?type={user_type}")
+
+    try:
+        cur = conn.cursor()
+
+        if current_user.role == 'agency_owner':
+            # Update agency_billing table
+            cur.execute("""
+                UPDATE agency_billing
+                SET password_hash = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (password_hash, current_user.email))
+        else:
+            # Update subscribers table
+            cur.execute("""
+                UPDATE subscribers
+                SET password_hash = %s,
+                    onboarding_status = 'claimed',
+                    updated_at = NOW()
+                WHERE email = %s
+            """, (password_hash, current_user.email))
+
         conn.commit()
-        conn.close()
-        login_user(user)
-        flash("Password set successfully!")
-        return redirect("/dashboard")
+        logger.info(f"Password set for {current_user.email} ({current_user.role})")
+        flash("Password set successfully! You can now log in anytime.", "success")
 
-    flash("User not found.")
-    return redirect("/")
+        # Redirect based on role
+        if current_user.role == 'agency_owner':
+            return redirect("/agency-dashboard")
+        else:
+            return redirect("/dashboard")
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Set password error for {current_user.email}: {e}")
+        flash("Error setting password. Please try again.", "error")
+        return redirect(f"/set-password?type={user_type}")
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/refresh")
 def refresh_subscribers():
@@ -1709,6 +1778,17 @@ def oauth_callback():
                 conn.commit()
                 logger.info(f"Successfully onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
 
+                # Check if user needs to set password
+                needs_password = False
+                if is_agency_owner:
+                    cur.execute("SELECT password_hash FROM agency_billing WHERE agency_email = %s", (user_email,))
+                    row = cur.fetchone()
+                    needs_password = not row or not row[0]
+                else:
+                    cur.execute("SELECT password_hash FROM subscribers WHERE email = %s", (user_email,))
+                    row = cur.fetchone()
+                    needs_password = not row or not row[0]
+
             except Exception as e:
                 conn.rollback()
                 logger.error(f"Database onboarding error: {e}", exc_info=True)
@@ -1718,8 +1798,20 @@ def oauth_callback():
                 cur.close()
                 conn.close()
 
-        # Success redirect
+        # Login the user via Flask-Login
+        user = User.get(user_email)
+        if user:
+            login_user(user)
+
+        # Success redirect - check if password needed
         flash(f"Success! {num_subs} locations connected.", "success")
+
+        if needs_password:
+            if is_agency_owner:
+                return redirect("/set-password?type=agency")
+            else:
+                return redirect(f"/register?location_id={primary_location_id}")
+
         if is_agency_owner:
             return redirect("/agency-dashboard")
         return redirect("/dashboard")
