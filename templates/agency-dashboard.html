@@ -62,7 +62,18 @@
                 <label>Refresh Token</label>
                 <div class="tech-readout">{{ refresh_token_display }}</div>
             </div>
-           
+
+            {% if not access_token_display or access_token_display == '' %}
+            <div class="mt-3">
+                <a href="/oauth/initiate" class="btn btn-success w-100" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);">
+                    <i class="fa-brands fa-google me-2"></i>Connect GoHighLevel Account
+                </a>
+                <div class="text-center mt-2" style="font-size: 0.875rem; color: #6c757d;">
+                    Link your GHL account to activate agency features
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Editable Profile -->
             <div class="mt-4">
                 <label>Full Name</label>
