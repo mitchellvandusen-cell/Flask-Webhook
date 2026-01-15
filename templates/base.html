@@ -105,30 +105,35 @@
         const chatWindow = document.getElementById('chatWindow');
         const chatInput = document.getElementById('chatInput');
         const typingIndicator = document.getElementById('typingIndicator');
-        const chatSessionId = localStorage.getItem('grok_contact_id') || ('web_' + Math.random().toString(36).substr(2, 9));
-        localStorage.setItem('grok_contact_id', chatSessionId);
-
+        
+        // Ensure the Session ID is persistent so history doesn't break
+        if (!localStorage.getItem('grok_contact_id')) {
+            localStorage.setItem('grok_contact_id', 'web_' + Math.random().toString(36).substr(2, 9));
+        }
+        const chatSessionId = localStorage.getItem('grok_contact_id');
+    
         // 1. CHAT LOGIC
         window.toggleChat = function() {
             chatWindow.classList.toggle('active');
+            // Initial greeting trigger
             if (chatWindow.classList.contains('active') && chatBody.innerHTML.trim() === "") {
                 window.sendMessage("INIT_CHAT", true);
             }
         };
-
+    
         window.handleEnter = (e) => { if (e.key === 'Enter') window.sendMessage(); };
-
+    
         window.sendMessage = function(textOverride, isSystem = false) {
             const text = textOverride || chatInput.value.trim();
             if (!text) return;
-
+    
             if (!isSystem) {
-                appendMessageHTML('lead', text);
+                appendMessageHTML('lead', text); // Lead is the internal user role
                 chatInput.value = '';
             }
-
+    
             typingIndicator.style.display = 'flex';
-
+    
             fetch('/website-bot-webhook', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -137,23 +142,25 @@
             .then(res => res.json())
             .then(data => {
                 typingIndicator.style.display = 'none';
-                if (data.text) appendMessageHTML('bot', data.text, data.options);
+                // Instant reply rendering
+                if (data.text) appendMessageHTML('assistant', data.text, data.options);
                 if (data.redirect) setTimeout(() => window.location.href = data.redirect, 1200);
             })
             .catch(() => { typingIndicator.style.display = 'none'; });
         };
-
+    
         function appendMessageHTML(role, text, options = null) {
-            // THE DEDUPLICATION SHIELD: prevents double messages from get-logs
+            // DEDUPLICATION: Prevents instant reply and poll loop from doubling up
             const existingMsgs = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
             if (existingMsgs.includes(text.trim())) return;
-
+    
             const div = document.createElement('div');
+            // Role mapping: Redis 'assistant' -> CSS 'bot', Redis 'lead' -> CSS 'user'
             const roleClass = (role === 'lead' || role === 'user') ? 'user' : 'bot';
             div.className = `msg ${roleClass} mb-3`;
             div.innerHTML = `<div class="msg-content p-3 shadow-sm">${text}</div>`;
             chatBody.appendChild(div);
-
+    
             if (options) {
                 const btnWrap = document.createElement('div');
                 btnWrap.className = "d-flex gap-2 flex-wrap mt-2 mb-3";
@@ -173,10 +180,27 @@
             }
             chatBody.scrollTop = chatBody.scrollHeight;
         }
-
+    
         // 2. INITIALIZATION & POLLING
         document.addEventListener("DOMContentLoaded", function() {
             AOS.init({ duration: 1000, once: true, offset: 50 });
+    
+            // Fast Path Polling: Reads specifically from Redis logs
+            setInterval(async () => {
+                if (!chatWindow.classList.contains('active')) return;
+                try {
+                    const res = await fetch(`/get-assistant-logs?contact_id=${chatSessionId}`);
+                    const data = await res.json();
+                    if (data.logs) {
+                        data.logs.forEach(log => {
+                            // Support both Redis role naming conventions
+                            if (log.role === 'assistant' || log.role === 'lead' || log.role === 'bot' || log.role === 'user') {
+                                appendMessageHTML(log.role, log.content);
+                            }
+                        });
+                    }
+                } catch(e) {}
+            }, 
 
             // Pricing Carousel
             const cards = document.querySelectorAll('.pricing-card');
