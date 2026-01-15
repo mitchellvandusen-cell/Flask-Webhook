@@ -55,6 +55,7 @@
 
     <div class="chat-widget-container">
         <div class="chat-callout" id="chatCallout">Ask about me</div>
+        
         <div class="chat-window" id="chatWindow">
             <div class="chat-header">
                 <div class="bot-identity">
@@ -64,17 +65,23 @@
                         <div class="bot-status">Online</div>
                     </div>
                 </div>
-                <button onclick="toggleChat()" style="background:none; border:none; color:#777; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="toggleChat()" style="background:none; border:none; color:#777; cursor:pointer;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-                <div class="typing-indicator" id="typingIndicator">
-                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-                </div>
+
+            <div class="chat-body" id="chatBody"></div>
+
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="dot"></div><div class="dot"></div><div class="dot"></div>
             </div>
+
             <div class="chat-footer">
                 <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything..." onkeypress="handleEnter(event)">
                 <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
+
         <div class="chat-toggle-btn" onclick="toggleChat()">
             <div class="pulse-ring"></div>
             <i class="fa-solid fa-robot"></i>
