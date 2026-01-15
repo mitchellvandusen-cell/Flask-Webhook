@@ -33,7 +33,6 @@ from memory import get_known_facts, get_narrative, get_recent_messages
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
-from website_chat_logic import process_async_chat_task
 load_dotenv()
 
 app = Flask(__name__)
