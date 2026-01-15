@@ -110,7 +110,7 @@ def load_user(user_id):
 # Forms
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
-    code = StringField("Confirmation Code (from GHL install)", validators=[]) 
+    location_id = StringField("Your GoHighLevel Location ID", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
     confirm = PasswordField("Confirm Password", validators=[DataRequired(), EqualTo("password")])
     submit = SubmitField("Create Account")
@@ -386,79 +386,66 @@ def stripe_webhook():
     return '', 200
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    form = RegisterForm()
-    
-    # --- SEAMLESS PRE-FILL ---
-    # If sent here by OAuth, grab the code from the URL
+    form = RegisterForm()  # ← Make sure RegisterForm uses location_id, not code (see below)
+
+    # Pre-fill from OAuth redirect
     if request.method == "GET":
-        url_code = request.args.get('code')
-        if url_code:
-            form.code.data = url_code
-            # Optional: You can flash a message saying "Connected! Create your account."
-            flash("GoHighLevel connected successfully. Complete setup below.", "success")
+        url_location_id = request.args.get('location_id')
+        if url_location_id:
+            form.location_id.data = url_location_id
+            flash("GoHighLevel connected! Your location ID is pre-filled. Set a password to finish.", "success")
 
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
-        code = form.code.data.upper().strip() if form.code.data else ""
+        submitted_location_id = form.location_id.data.strip()
 
-        if User.get(email):
-            flash("Email already registered.", "error")
-            return redirect("/login")
+        # 1. Check if email already exists → redirect to login
+        existing_user = User.get(email)
+        if existing_user:
+            flash("Email already registered. Please log in.", "info")
+            return redirect(url_for("login"))
 
-        is_valid = False
-        used_code_row = None
-
-        # Logic: Check Stripe OR Check Sheet Code
-        if current_user.is_authenticated and current_user.stripe_customer_id:
-            is_valid = True
-        elif code and worksheet:
+        # 2. Verify the location_id exists in subscribers (proof from OAuth)
+        conn = get_db_connection()
+        if conn:
             try:
-                values = worksheet.get_all_values()
-                header_lower = [h.strip().lower() for h in values[0]]
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT email FROM subscribers 
+                    WHERE location_id = %s
+                    LIMIT 1
+                """, (submitted_location_id,))
+                match = cur.fetchone()
                 
-                code_idx = header_lower.index("confirmation_code") if "confirmation_code" in header_lower else -1
-                used_idx = header_lower.index("code_used") if "code_used" in header_lower else -1
-                email_idx = header_lower.index("email") if "email" in header_lower else -1
+                if not match:
+                    flash("Invalid or unverified location ID. Please reconnect via GoHighLevel or contact support.", "error")
+                    return redirect("/register")
                 
-                if code_idx != -1:
-                    for i, row in enumerate(values[1:], start=2):
-                        # Verify Code Matches
-                        if len(row) > code_idx and row[code_idx].strip().upper() == code:
-                            # Verify Not Used
-                            if used_idx != -1 and len(row) > used_idx and row[used_idx] == "1":
-                                flash("Code already used.", "error")
-                                return redirect("/register")
-                            
-                            used_code_row = i
-                            is_valid = True
-                            break
-                    
-                    if is_valid and used_code_row and used_idx != -1:
-                        # MARK AS USED
-                        worksheet.update_cell(used_code_row, used_idx + 1, "1")
-                        
-                        # SAVE EMAIL TO SHEET
-                        if email_idx == -1: 
-                            new_col = len(values[0]) + 1
-                            worksheet.update_cell(1, new_col, "email")
-                            email_idx = new_col - 1
-                        worksheet.update_cell(used_code_row, email_idx + 1, email)
+                # Optional: Check if email matches (extra security)
+                if match[0] != email:
+                    flash("Location ID does not match your email. Please reconnect.", "error")
+                    return redirect("/register")
+                
             except Exception as e:
-                logger.error(f"Code validation error: {e}")
-
-        if not is_valid:
-            flash("Invalid code or no subscription found.", "error")
+                logger.error(f"Location ID verification failed: {e}")
+                flash("System error during verification. Please try again.", "error")
+                return redirect("/register")
+            finally:
+                cur.close()
+                conn.close()
+        else:
+            flash("Database unavailable. Please try again later.", "error")
             return redirect("/register")
 
+        # 3. All checks passed → create account
         password_hash = generate_password_hash(form.password.data)
         if User.create(email, password_hash):
-            flash("Account created successfully! Please log in.", "success")
-            return redirect("/login")
+            # Optional: Update subscribers with confirmed status or link
+            flash("Account created successfully! Welcome aboard.", "success")
+            return redirect(url_for("login"))
         else:
-            flash("Creation failed.", "error")
+            flash("Account creation failed. Please try again or contact support.", "error")
 
-    # The HTML template remains exactly the same
-    # because form.code.data is now pre-filled by the GET logic above
     return render_template('register.html', form=form)
 
 # Updated /login (pull from subscribers table)
@@ -1303,7 +1290,7 @@ def checkout():
 
             metadata={
                 "user_email": customer_email,
-                "target_role": "individual_user",
+                "target_role": "individual",
                 "target_tier": "individual",
                 "source": "website"
             },
@@ -1311,7 +1298,7 @@ def checkout():
                 "trial_period_days": 7,
                 "metadata": {
                 "user_email": customer_email,
-                "target_role": "individual_user",
+                "target_role": "individual",
                 "target_tier": "individual"
                 },
 
@@ -1508,82 +1495,90 @@ def refresh_subscribers():
     except:
         return "Failed", 500
 
-# Updated /oauth/callback (save to correct tables based on data)
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
     if not code:
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
-    # 1. Exchange Code for Token (The "Entry Key")
-    token_url = "https://services.leadconnectorhq.com/oauth/token"
-    payload = {
-        "client_id": os.getenv("GHL_CLIENT_ID"),
-        "client_secret": os.getenv("GHL_CLIENT_SECRET"),
-        "grant_type": "authorization_code",
-        "code": code,
-        "user_type": "Location",
-        "redirect_uri": f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
-    }
+
     try:
+        # 1. Exchange Code for Token
+        token_url = "https://services.leadconnectorhq.com/oauth/token"
+        payload = {
+            "client_id": os.getenv("GHL_CLIENT_ID"),
+            "client_secret": os.getenv("GHL_CLIENT_SECRET"),
+            "grant_type": "authorization_code",
+            "code": code,
+            "user_type": "Location",
+            "redirect_uri": f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
+        }
         response = requests.post(token_url, data=payload, timeout=15)
         response.raise_for_status()
-        data = response.json()
-       
-        # This is the location the User actually selected during install
-        primary_location_id = data.get('locationId')
-        access_token = data['access_token']
-        refresh_token = data.get('refresh_token')
-        expires_in = data.get('expires_in', 86400)
+        token_data = response.json()
+
+        primary_location_id = token_data.get('locationId')
+        access_token = token_data['access_token']
+        refresh_token = token_data.get('refresh_token')
+        expires_in = token_data.get('expires_in', 86400)
+
         headers = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
-        # 2. Identify the User (Who is installing this?)
+
+        # 2. Get user info
         me_resp = requests.get("https://services.leadconnectorhq.com/users/me", headers=headers, timeout=10)
         me_data = me_resp.json() if me_resp.ok else {}
-       
+
         user_email = me_data.get('email')
         user_name = me_data.get('name', 'Agency Admin')
-       
-        # 3. Detect Agency Status (Are they the Boss?)
-        # We try to list agencies. If we can, they are likely an Agency Admin/Owner.
+
+        if not user_email:
+            flash("Could not retrieve user email from GoHighLevel.", "danger")
+            return redirect(url_for('home'))
+
+        # 3. Detect agency status
         agency_resp = requests.get("https://services.leadconnectorhq.com/agencies/", headers=headers, timeout=10)
         agencies = agency_resp.json().get('agencies', [])
         is_agency_owner = len(agencies) > 0
-       
-        # 4. FETCH ALL SUB-ACCOUNTS (The "Scan")
-        # This pulls every location this user has access to.
+
+        # 4. Fetch all locations (sub-accounts)
         locations_resp = requests.get("https://services.leadconnectorhq.com/locations/", headers=headers, timeout=15)
         sub_accounts = locations_resp.json().get('locations', [])
         num_subs = len(sub_accounts)
-        # 5. Determine Tier based on Size
+
+        # 5. Determine tier
         plan_tier = 'individual'
         if is_agency_owner:
-            if num_subs >= 10:
-                plan_tier = 'agency_pro'  # 10+ accounts
-            else:
-                plan_tier = 'agency_starter' # 1-9 accounts
-        # Find primary sub details
+            plan_tier = 'agency_pro' if num_subs >= 10 else 'agency_starter'
+
+        # 6. Get primary location details
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
-        primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else 'Unknown Location'
-        primary_timezone = primary_sub.get('timezone', 'America/Chicago') if primary_sub else 'America/Chicago'
-        # 6. DATABASE OPERATIONS (The "Onboarding")
+        primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
+        primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
+
+        # 7. Database operations
         conn = get_db_connection()
         if conn:
             try:
                 cur = conn.cursor()
-                # --- A. Setup Agency Billing Record (for owners only) ---
-                if is_agency_owner and user_email:
+
+                # --- A. Agency Owner Primary Location ---
+                if is_agency_owner:
                     max_seats = 9999 if plan_tier == 'agency_pro' else 10
-                    active_seats = num_subs - 1 if num_subs > 0 else 0  # Exclude primary
+                    active_seats = max(0, num_subs - 1)  # Exclude primary
+
                     cur.execute("""
                         INSERT INTO agency_billing (
-                            agency_email, location_id, full_name, role, subscription_tier, max_seats, active_seats,
-                            access_token, refresh_token, token_expires_at, bot_first_name, timezone, crm_user_id,
+                            agency_email, location_id, full_name, subscription_tier,
+                            max_seats, active_seats, access_token, refresh_token,
+                            token_expires_at, timezone, crm_user_id,
                             created_at, updated_at
                         ) VALUES (
-                            %s, %s, %s, 'agency_owner', %s, %s, %s, %s, %s, 
-                            NOW() + interval '%s seconds', 'Grok', %s, %s, NOW(), NOW()
+                            %s, %s, %s, %s, %s, %s, %s, %s,
+                            NOW() + interval '%s seconds', %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (agency_email) DO UPDATE SET
+                            location_id = EXCLUDED.location_id,
+                            full_name = EXCLUDED.full_name,
                             subscription_tier = EXCLUDED.subscription_tier,
                             max_seats = EXCLUDED.max_seats,
                             active_seats = EXCLUDED.active_seats,
@@ -1592,103 +1587,89 @@ def oauth_callback():
                             token_expires_at = EXCLUDED.token_expires_at,
                             timezone = EXCLUDED.timezone,
                             crm_user_id = EXCLUDED.crm_user_id,
-                            updated_at = NOW();
-                    """, (user_email, primary_location_id, user_name, plan_tier, max_seats, active_seats,
-                          access_token, refresh_token, expires_in, primary_timezone, me_data.get('id')))
-                # --- B. Onboard Every Single Sub-Account ---
+                            updated_at = NOW()
+                    """, (
+                        user_email, primary_location_id, primary_name, plan_tier,
+                        max_seats, active_seats, access_token, refresh_token,
+                        expires_in, primary_timezone or 'America/Chicago', me_data.get('id')
+                    ))
+
+                # --- B. Sub-accounts (or individual user) ---
                 for sub in sub_accounts:
                     sub_id = sub['id']
                     sub_name = sub.get('name', 'Unknown Location')
-                    sub_timezone = sub.get('timezone', 'America/Chicago')
-                   
+                    sub_timezone = sub.get('timezone')
+
                     is_primary = (sub_id == primary_location_id)
-                   
+
+                    # Skip primary if agency owner (already handled above)
                     if is_agency_owner and is_primary:
-                        continue  # Primary handled in agency_billing
-                   
-                    # TOKEN LOGIC:
-                    # Only primary has token (but skipped for agency primary)
+                        continue
+
                     access_token_this = access_token if is_primary else None
                     refresh_token_this = refresh_token if is_primary else None
                     crm_user_id_this = me_data.get('id') if is_primary else None
-                   
-                    # Role and Parent
+
                     role = 'agency_sub_account_user' if is_agency_owner else 'individual'
                     parent_agency_email = user_email if is_agency_owner else None
-                    email_this = user_email  # Link to owner initially
-                   
-                    # UPSERT into Subscribers Table
+                    email_this = user_email  # Initially link to owner
+
                     cur.execute("""
                         INSERT INTO subscribers (
-                            location_id,
-                            email,
-                            full_name,
-                            role,
-                            subscription_tier,
-                            parent_agency_email,
-                            access_token,
-                            refresh_token,
-                            token_expires_at,
-                            bot_first_name,
-                            timezone,
-                            crm_user_id,
-                            created_at,
-                            updated_at
+                            location_id, email, full_name, role, subscription_tier,
+                            parent_agency_email, access_token, refresh_token,
+                            token_expires_at, timezone, crm_user_id,
+                            created_at, updated_at
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s,
                             CASE WHEN %s THEN NOW() + interval '%s seconds' ELSE NULL END,
-                            'Grok', %s, %s, NOW(), NOW()
+                            %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (location_id) DO UPDATE SET
-                            -- Always update these:
-                            parent_agency_email = EXCLUDED.parent_agency_email,
+                            email = EXCLUDED.email,
+                            full_name = EXCLUDED.full_name,
+                            role = EXCLUDED.role,
                             subscription_tier = EXCLUDED.subscription_tier,
-                            timezone = EXCLUDED.timezone,
-                           
-                            -- Only update Auth Info if this is the Primary location we just authenticated
+                            parent_agency_email = EXCLUDED.parent_agency_email,
                             access_token = CASE WHEN %s THEN EXCLUDED.access_token ELSE subscribers.access_token END,
                             refresh_token = CASE WHEN %s THEN EXCLUDED.refresh_token ELSE subscribers.refresh_token END,
                             token_expires_at = CASE WHEN %s THEN EXCLUDED.token_expires_at ELSE subscribers.token_expires_at END,
+                            timezone = EXCLUDED.timezone,
                             crm_user_id = CASE WHEN %s THEN EXCLUDED.crm_user_id ELSE subscribers.crm_user_id END,
-                            updated_at = NOW();
+                            updated_at = NOW()
                     """, (
-                        sub_id,
-                        email_this,
-                        sub_name,
-                        role,
-                        plan_tier,
-                        parent_agency_email,
-                        access_token_this,
-                        refresh_token_this,
+                        sub_id, email_this, sub_name, role, plan_tier,
+                        parent_agency_email, access_token_this, refresh_token_this,
                         is_primary, expires_in,
-                        sub_timezone,
-                        crm_user_id_this,
-                       
-                        # Conditional parameters for the ON CONFLICT checks
+                        sub_timezone, crm_user_id_this,
                         is_primary, is_primary, is_primary, is_primary
                     ))
+
                 conn.commit()
-                logger.info(f"🚀 Fully Onboarded Agency {user_email} with {num_subs} locations.")
+                logger.info(f"Successfully onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
+
             except Exception as e:
                 conn.rollback()
-                logger.error(f"SQL Error during Onboarding: {e}")
-                flash("Error setting up agency database.", "danger")
+                logger.error(f"Database onboarding error: {e}", exc_info=True)
+                flash("Error completing setup. Please contact support.", "danger")
+                return redirect(url_for('home'))
             finally:
                 cur.close()
                 conn.close()
-        # 7. Redundant Backup (Google Sheets) - Only if you still want it
-        # ... (Your existing sheet logic here) ...
-        # 8. Redirect Logic
+
+        # Success redirect
         flash(f"Success! {num_subs} locations connected.", "success")
         if is_agency_owner:
             return redirect("/agency-dashboard")
         return redirect("/dashboard")
+
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}")
-        flash("Connection to GoHighLevel failed.", "danger")
+        flash("Failed to connect to GoHighLevel. Please try again.", "danger")
         return redirect(url_for('home'))
     except Exception as e:
-        logger.error(f"OAuth callback critical failure: {e}", exc_info=True)
+        logger.error(f"Critical OAuth failure: {e}", exc_info=True)
+        flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
 # =====================================================
 # AGENCY LOGIN - FULL UNIFIED IMPLEMENTATION
