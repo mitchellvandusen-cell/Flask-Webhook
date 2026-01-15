@@ -327,7 +327,7 @@ footer a:hover { color: var(--accent); }
 @keyframes ringPulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2); opacity: 0; } }
 
 .chat-callout {
-    position: absolute; right: 75px; top: 50%;
+    position: absolute; right: 75px; top: 5%;
     background: rgba(0, 255, 136, 0.1); backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border); color: #fff;
     padding: 8px 15px; border-radius: 20px 20px 4px 20px;
