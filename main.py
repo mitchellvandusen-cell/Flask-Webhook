@@ -337,13 +337,15 @@ def stripe_webhook():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """
-    Registration for INDIVIDUAL users after OAuth.
+    Registration - Supports TWO paths:
+    1. Post-OAuth: User already in DB from OAuth, just sets password
+    2. Website/Stripe: New user, creates entry in DB manually
+
     Sub-users should use /claim-account instead.
-    Agency owners are auto-registered via OAuth.
     """
     form = RegisterForm()
 
-    # Pre-fill from OAuth redirect
+    # Pre-fill from OAuth redirect or Stripe checkout
     if request.method == "GET":
         url_location_id = request.args.get('location_id')
         if url_location_id:
@@ -353,6 +355,7 @@ def register():
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
         submitted_location_id = form.location_id.data.strip()
+        password = form.password.data
 
         # 1. Check if email already registered → redirect to login
         existing_user = User.get(email)
@@ -360,7 +363,6 @@ def register():
             flash("Email already registered. Please log in.", "info")
             return redirect(url_for("login"))
 
-        # 2. Verify location_id exists in subscribers (created by OAuth)
         conn = get_db_connection()
         if not conn:
             flash("Database unavailable. Please try again later.", "error")
@@ -368,6 +370,8 @@ def register():
 
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
+
+            # 2. Check if location_id already exists in subscribers (from OAuth)
             cur.execute("""
                 SELECT email, parent_agency_email, invite_token, onboarding_status
                 FROM subscribers
@@ -376,35 +380,69 @@ def register():
             """, (submitted_location_id,))
             match = cur.fetchone()
 
-            if not match:
-                flash("Invalid or unverified location ID. Please reconnect via GoHighLevel or contact support.", "error")
-                return redirect("/register")
+            password_hash = generate_password_hash(password)
 
-            # 3. Check if this is a sub-user who should use /claim-account
-            if match['parent_agency_email'] and match['invite_token']:
-                flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
+            if match:
+                # PATH A: Post-OAuth Registration
+                # User already in DB from OAuth, just set password
+
+                # Check if this is a sub-user who should use /claim-account
+                if match['parent_agency_email'] and match['invite_token']:
+                    flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
+                    return redirect(url_for("login"))
+
+                # Verify email matches (security check)
+                if match['email'] != email:
+                    flash("Location ID does not match your email. Please reconnect via OAuth.", "error")
+                    return redirect("/register")
+
+                # Update password in existing record
+                cur.execute("""
+                    UPDATE subscribers
+                    SET password_hash = %s,
+                        onboarding_status = 'claimed',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (password_hash, submitted_location_id))
+
+                conn.commit()
+                logger.info(f"Post-OAuth registration completed: {email}")
+                flash("Account created successfully! Welcome aboard.", "success")
                 return redirect(url_for("login"))
 
-            # 4. Verify email matches (security check)
-            if match['email'] != email:
-                flash("Location ID does not match your email. Please reconnect.", "error")
-                return redirect("/register")
+            else:
+                # PATH B: Website/Stripe Registration
+                # User NOT in DB yet, create new entry
+                # This is for users who:
+                # - Paid via Stripe on website
+                # - Haven't done OAuth yet
+                # - Manually entering their location_id
 
-            # 5. All checks passed → Update password in subscribers table
-            password_hash = generate_password_hash(form.password.data)
+                logger.info(f"Creating new subscriber entry for Stripe/manual registration: {email}")
 
-            cur.execute("""
-                UPDATE subscribers
-                SET password_hash = %s,
-                    onboarding_status = 'claimed',
-                    updated_at = NOW()
-                WHERE location_id = %s
-            """, (password_hash, submitted_location_id))
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        location_id, email, password_hash, full_name, role,
+                        subscription_tier, onboarding_status,
+                        timezone, bot_first_name,
+                        created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, 'individual',
+                        'individual', 'claimed',
+                        'America/Chicago', 'Grok',
+                        NOW(), NOW()
+                    )
+                """, (
+                    submitted_location_id,
+                    email,
+                    password_hash,
+                    form.email.data  # Use email as name initially
+                ))
 
-            conn.commit()
-            logger.info(f"Individual user registered: {email} for location {submitted_location_id}")
-            flash("Account created successfully! Welcome aboard.", "success")
-            return redirect(url_for("login"))
+                conn.commit()
+                logger.info(f"Manual/Stripe registration completed: {email}")
+                flash("Account created successfully! You can now connect your GoHighLevel account from the dashboard.", "success")
+                return redirect(url_for("login"))
 
         except Exception as e:
             conn.rollback()
@@ -1588,6 +1626,46 @@ def refresh_subscribers():
         return "Synced", 200
     except:
         return "Failed", 500
+
+@app.route("/oauth/initiate")
+def oauth_initiate():
+    """
+    Initiates OAuth flow with GoHighLevel.
+    Works BEFORE marketplace approval (using private app credentials).
+
+    User clicks "Connect with GoHighLevel" → Redirected to GHL consent page → Back to /oauth/callback
+    """
+    client_id = os.getenv("GHL_CLIENT_ID")
+    redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
+
+    # Required scopes for the app
+    scopes = [
+        "locations.readonly",
+        "users.readonly",
+        "contacts.write",
+        "contacts.readonly",
+        "opportunities.readonly",
+        "opportunities.write",
+        "calendars.readonly",
+        "calendars.write",
+        "conversations.readonly",
+        "conversations.write",
+        "conversations/message.readonly",
+        "conversations/message.write"
+    ]
+    scope_string = " ".join(scopes)
+
+    # Build OAuth URL
+    oauth_url = (
+        f"https://marketplace.gohighlevel.com/oauth/chooselocation?"
+        f"response_type=code&"
+        f"redirect_uri={redirect_uri}&"
+        f"client_id={client_id}&"
+        f"scope={scope_string}"
+    )
+
+    logger.info(f"Initiating OAuth flow. Redirecting to: {oauth_url}")
+    return redirect(oauth_url)
 
 @app.route("/oauth/callback")
 def oauth_callback():
