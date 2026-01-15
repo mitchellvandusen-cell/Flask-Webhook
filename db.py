@@ -1,4 +1,4 @@
-# db.py - PostgreSQL Database Utilities (Flawless 2026)
+# db.py - PostgreSQL Database Utilities (Separated Tables 2026)
 import os
 import logging
 import uuid
@@ -14,7 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 logger = logging.getLogger(__name__)
 
-# --- Google Sheets Setup (Legacy / Backup) ---
+# --- Google Sheets Setup ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
 
@@ -30,7 +30,6 @@ if creds_dict:
             logger.info("Google Sheet connected")
     except Exception as e:
         logger.error(f"Google Sheet connection failed: {e}")
-
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -50,7 +49,7 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
         return None
 
 def init_db() -> bool:
-    """Initialize the MASTER subscribers table."""
+    """Initialize the Database Schema (Split Tables)."""
     conn = get_db_connection()
     if not conn:
         logger.critical("Cannot initialize DB: connection failed")
@@ -59,30 +58,34 @@ def init_db() -> bool:
     try:
         cur = conn.cursor()
 
-        # 1. THE MASTER TABLE (Merged Users + Subscribers)
-        # Note: We added password_hash, full_name, phone, bio, role here directly.
+        # 1. AGENCY BILLING (The VIP Table for Owners)
+        # Holds full profile, auth, and billing info for Agency Owners
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS subscribers (
-                location_id TEXT PRIMARY KEY,
-                email TEXT UNIQUE,
+            CREATE TABLE IF NOT EXISTS agency_billing (
+                agency_email TEXT PRIMARY KEY,
                 password_hash TEXT,
+                
+                -- Profile
                 full_name TEXT,
                 phone TEXT,
                 bio TEXT,
-                role TEXT DEFAULT 'individual',
+                role TEXT DEFAULT 'agency_owner',
                 
-                bot_first_name TEXT DEFAULT 'Grok',
+                -- GHL Config
+                location_id TEXT,
                 access_token TEXT,
                 refresh_token TEXT,
                 token_expires_at TIMESTAMP,
-                token_type TEXT DEFAULT 'Bearer',
-                timezone TEXT DEFAULT 'America/Chicago',
                 crm_user_id TEXT,
                 calendar_id TEXT,
+                timezone TEXT DEFAULT 'America/Chicago',
+                bot_first_name TEXT DEFAULT 'Grok',
                 initial_message TEXT,
-                parent_agency_email TEXT,
-                subscription_tier TEXT DEFAULT 'individual',
-                confirmation_code TEXT,
+
+                -- Billing
+                subscription_tier TEXT DEFAULT 'agency_starter',
+                max_seats INTEGER DEFAULT 10,
+                active_seats INTEGER DEFAULT 0,
                 stripe_customer_id TEXT,
                 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -90,19 +93,60 @@ def init_db() -> bool:
             );
         """)
 
-        # 2. Messages Table
+        # 2. SUBSCRIBERS (Individuals & Sub-Accounts)
+        # Removed UNIQUE from email so one user can exist in multiple sub-locations if needed
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS subscribers (
+                location_id TEXT PRIMARY KEY,
+                email TEXT, 
+                password_hash TEXT,
+                
+                -- Role Logic
+                role TEXT CHECK (role IN ('individual', 'agency_user')),
+                parent_agency_email TEXT, -- Link back to Agency Owner
+                
+                -- Profile
+                full_name TEXT,
+                phone TEXT,
+                bio TEXT,
+                
+                -- GHL Config
+                access_token TEXT,
+                refresh_token TEXT,
+                token_expires_at TIMESTAMP,
+                crm_user_id TEXT,
+                calendar_id TEXT,
+                timezone TEXT DEFAULT 'America/Chicago',
+                bot_first_name TEXT DEFAULT 'Grok',
+                initial_message TEXT,
+
+                -- Billing
+                subscription_tier TEXT DEFAULT 'individual',
+                stripe_customer_id TEXT,
+                confirmation_code TEXT,
+                
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        
+        # Index for fast lookups
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sub_email ON subscribers (email);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sub_parent ON subscribers (parent_agency_email);")
+
+        # 3. Messages Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_messages (
                 id SERIAL PRIMARY KEY,
                 contact_id TEXT NOT NULL,
-                message_type TEXT NOT NULL CHECK (message_type IN ('lead', 'assistant')),
+                message_type TEXT NOT NULL CHECK (message_type IN ('lead', 'assistant', 'bot')),
                 message_text TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_contact_id ON contact_messages (contact_id);")
 
-        # 3. Facts Table
+        # 4. Facts Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_facts (
                 id SERIAL PRIMARY KEY,
@@ -113,7 +157,7 @@ def init_db() -> bool:
             );
         """)
 
-        # 4. Webhook Deduplication
+        # 5. Webhook Deduplication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS processed_webhooks (
                 webhook_id TEXT PRIMARY KEY,
@@ -122,7 +166,7 @@ def init_db() -> bool:
         """)
 
         conn.commit()
-        logger.info("Database initialized: Subscribers table is now the Master table.")
+        logger.info("✅ Database Initialized: Split Tables Enforced.")
         return True
 
     except psycopg2.Error as e:
@@ -135,103 +179,80 @@ def init_db() -> bool:
             conn.close()
 
 class User(UserMixin):
-    def __init__(self, data: dict):
-        # Maps columns from the SUBSCRIBERS table
-        self.id = data.get('email')  # Flask-Login ID
-        self.email = data.get('email')
+    def __init__(self, data: dict, source_table: str):
+        self.source_table = source_table  # 'agency' or 'subscriber'
+        
+        # Normalize fields between the two tables
+        self.email = data.get('email') or data.get('agency_email')
+        self.id = self.email # Flask-Login ID
         self.password_hash = data.get('password_hash')
         self.location_id = data.get('location_id')
-        
-        # Profile Data
         self.full_name = data.get('full_name')
         self.phone = data.get('phone')
         self.bio = data.get('bio')
-        self.role = data.get('role', 'individual')
         self.stripe_customer_id = data.get('stripe_customer_id')
-        self.subscription_tier = data.get('subscription_tier', 'individual')
         
-        # Bot Config Data
+        # Role Management
+        if source_table == 'agency':
+            self.role = 'agency_owner'
+            self.subscription_tier = data.get('subscription_tier', 'agency_starter')
+        else:
+            self.role = data.get('role', 'individual')
+            self.subscription_tier = data.get('subscription_tier', 'individual')
+            self.parent_agency_email = data.get('parent_agency_email')
+
+        # Config
         self.calendar_id = data.get('calendar_id')
         self.bot_first_name = data.get('bot_first_name')
         self.timezone = data.get('timezone')
         self.initial_message = data.get('initial_message')
         self.access_token = data.get('access_token')
         self.token_expires_at = data.get('token_expires_at')
+        self.crm_user_id = data.get('crm_user_id')
 
     @property
-    def is_agency_owner(self) -> bool:
+    def is_agency_owner(self):
         return self.role == 'agency_owner'
 
     @staticmethod
-    def get(email: str) -> Optional['User']:
-        """
-        Fetch user from the merged 'subscribers' table.
-        Returns User object or None if no match.
-        """
-        print(f"[DEBUG] User.get called for email: '{email}'")
-        
+    def get_from_agency(email: str):
+        """Fetch strictly from Agency Billing table"""
         conn = get_db_connection()
-        if not conn:
-            print("[DEBUG] DB connection failed")
-            return None
-        
+        if not conn: return None
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            print("[DEBUG] Querying subscribers table...")
-            
-            cur.execute("""
-                SELECT 
-                    email, 
-                    password_hash, 
-                    stripe_customer_id, 
-                    role, 
-                    subscription_tier,
-                    full_name,          -- if you added this
-                    phone,              -- if added
-                    bio                 -- if added
-                FROM subscribers 
-                WHERE email = %s
-                LIMIT 1
-            """, (email,))
-            
+            cur.execute("SELECT * FROM agency_billing WHERE agency_email = %s", (email,))
             row = cur.fetchone()
-            if row:
-                print(f"[DEBUG] Found user in subscribers: {dict(row)}")
-                return User(
-                    email=row['email'],
-                    password_hash=row['password_hash'],
-                    stripe_customer_id=row['stripe_customer_id'],
-                    role=row.get('role', 'individual'),
-                    subscription_tier=row.get('subscription_tier', 'individual'),
-                    full_name=row.get('full_name'),
-                    phone=row.get('phone'),
-                    bio=row.get('bio'),
-                    updated_at=row.get('updated_at'),
-                    initial_message=row.get('initial_message'),
-                    access_token=row.get('access_token'),
-                    refresh_token=row.get('refresh_token'),
-                    token_expires_at=row.get('token_expires_at'),
-                    token_type=row.get('token_type'),
-                    confirmation_code=row.get('confirmation_code'),
-                    stripe_status=row.get('stripe_status'),
-                    parent_agency_email=row.get('parent_agency_email'),
-                    tier=row.get('tier'),
-                    # add more fields if you have them in subscribers
-                )
-            else:
-                print(f"[DEBUG] No match in subscribers for '{email}'")
+            if row: return User(dict(row), 'agency')
             return None
-        
-        except psycopg2.Error as e:
-            print(f"[DEBUG] DB error in User.get: {e}")
-            return None
-        
         finally:
-            if 'cur' in locals():
-                cur.close()
-            if conn:
-                conn.close()
+            conn.close()
 
+    @staticmethod
+    def get_from_subscribers(email: str):
+        """Fetch strictly from Subscribers table"""
+        conn = get_db_connection()
+        if not conn: return None
+        try:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            # Prioritize newest connection if duplicates exist
+            cur.execute("SELECT * FROM subscribers WHERE email = %s ORDER BY created_at DESC LIMIT 1", (email,))
+            row = cur.fetchone()
+            if row: return User(dict(row), 'subscriber')
+            return None
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get(user_id: str):
+        """
+        Generic loader for Flask-Login (load_user).
+        Tries Agency Table first, then Subscribers.
+        """
+        user = User.get_from_agency(user_id)
+        if user: return user
+        return User.get_from_subscribers(user_id)
+    
     @staticmethod
     def create(
         email: str,
@@ -241,13 +262,10 @@ class User(UserMixin):
         location_id: Optional[str] = None 
     ) -> bool:
         """
-        Creates a new user in the subscribers table.
-        NOTE: Since location_id is PK, we generate a temp one if none provided.
+        Creates a new user in the SUBSCRIBERS table (Default Signup).
         """
         password_hash = generate_password_hash(password) if password else None
         
-        # If no location_id is provided (e.g. manual signup), generate a temporary one
-        # to satisfy the database Primary Key constraint.
         if not location_id:
             location_id = f"temp_{uuid.uuid4().hex[:8]}"
 
@@ -264,22 +282,41 @@ class User(UserMixin):
             )
             conn.commit()
             return True
-        except psycopg2.IntegrityError:
-            logger.warning(f"User.create duplicate email/location for {email}")
-            conn.rollback()
-            return False
         except psycopg2.Error as e:
             logger.error(f"User.create failed for {email}: {e}")
             conn.rollback()
             return False
         finally:
-            if conn:
-                cur.close()
-                conn.close()
+            if conn: conn.close()
 
-# --- Helper Functions (Updated to use DB connection) ---
+# --- Helper Functions ---
 
-def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
+def get_known_facts(contact_id):
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT fact_text FROM contact_facts WHERE contact_id = %s", (contact_id,))
+        return [r['fact_text'] for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+def get_narrative(contact_id):
+    # Stub for compatibility - replace if you have a narrative table logic
+    return "" 
+
+def get_recent_messages(contact_id, limit=50):
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM contact_messages WHERE contact_id = %s ORDER BY created_at DESC LIMIT %s", (contact_id, limit))
+        return [dict(r) for r in cur.fetchall()][::-1]
+    finally:
+        conn.close()
+
+def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
+    # Simple SQL fetch for now to keep it clean
     conn = get_db_connection()
     if not conn: return None
     try:
@@ -287,88 +324,41 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         cur.execute("SELECT * FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
         row = cur.fetchone()
         return dict(row) if row else None
-    except Exception as e:
-        logger.error(f"SQL lookup failed: {e}")
-        return None
     finally:
-        if 'conn' in locals(): conn.close()
+        conn.close()
 
-
-def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Hybrid Fetcher:
-    1. SQL (Fastest)
-    2. Google Sheets "Subscribers" Tab (Recovery)
-    """
-    # 1. Primary path: PostgreSQL
-    sql_data = get_subscriber_info_sql(location_id)
-    if sql_data:
-        return sql_data
-
-    # 2. Fallback path: Google Sheets
-    # Lazy import to avoid circular dependency with main.py
+def update_subscriber_token(
+    location_id: str,
+    access_token: str,
+    refresh_token: Optional[str] = None,
+    expires_in: int = 86400
+) -> bool:
+    """Update OAuth tokens with expiry."""
+    conn = get_db_connection()
+    if not conn:
+        return False
     try:
-        from main import gc, sheet_url
-    except ImportError:
-        logger.warning("Sheets recovery unavailable: Credenitals or URL missing.")
-        return None
-    
-    if not gc or not sheet_url:
-        logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
-        return None
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers 
+            SET access_token = %s,
+                refresh_token = COALESCE(%s, refresh_token),
+                token_expires_at = NOW() + interval '%s seconds',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (access_token, refresh_token, expires_in, location_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except psycopg2.Error as e:
+        logger.error(f"update_subscriber_token failed for {location_id}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
-    try:
-        logger.info(f"SQL miss for {location_id} — initiating Sheets recovery...")
-
-        sh = gc.open_by_url(sheet_url)
-        # Targeted specifically to the 'Subscribers' tab you created
-        worksheet = sh.worksheet("Subscribers")
-        
-        # Pull all headers to create the map
-        headers = [h.strip().lower() for h in worksheet.row_values(1)]
-        
-        # The exact headers we expect to find and return
-        expected_headers = [
-            "location_id", "calendar_id", "access_token", "refresh_token",
-            "crm_user_id", "bot_first_name", "timezone", "email", "initial_message",
-            "confirmation_code", "stripe_customer_id", "parent_agency_email", "subscription_tier"
-        ]
-
-        # Map header names to their column index (0-based)
-        col_map = {}
-        for hdr in expected_headers:
-            try:
-                col_map[hdr] = headers.index(hdr)
-            except ValueError:
-                if hdr != "subscription_tier":
-                    logger.warning(f"Expected header '{hdr}' not found in Subscribers sheet.")
-        
-        if "location_id" not in col_map:
-            logger.error("Critical: 'location_id' column not found in Subscribers sheet.")
-            return None
-
-        # Optimization: Use .find() for a targeted search
-        # find() is 1-based, so we add 1 to the index
-        cell = worksheet.find(location_id, in_column=col_map["location_id"] + 1)
-        if not cell:
-            logger.warning(f"Location {location_id} not found in Google Sheets.")
-            return None
-        
-        row_data = worksheet.row_values(cell.row)
-        # Build the subscriber dictionary based on your specific columns
-        subscriber = {}
-        for hdr, col_idx in col_map.items():
-            if col_idx < len(row_data):
-                value = row_data[col_idx]
-                subscriber[hdr] = None if value == "" else value
-        
-        logger.info(f"Sheets recovery success for {location_id} (Relational Sync Active)")
-        return subscriber
-
-    except Exception as e:
-        logger.error(f"Sheets recovery failed for {location_id}: {e}", exc_info=True)
-        return None
-    
 def get_message_count(contact_id: str) -> int:
     """Count messages for a contact (detect empty/wiped DB)."""
     conn = get_db_connection()
@@ -377,7 +367,8 @@ def get_message_count(contact_id: str) -> int:
     try:
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM contact_messages WHERE contact_id = %s", (contact_id,))
-        return cur.fetchone()['count']
+        result = cur.fetchone()
+        return result['count'] if result else 0
     except psycopg2.Error as e:
         logger.error(f"get_message_count failed for {contact_id}: {e}")
         return 0
@@ -419,38 +410,6 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
         logger.error(f"sync_messages_to_db failed for {contact_id}: {e}")
         conn.rollback()
         return 0
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-def update_subscriber_token(
-    location_id: str,
-    access_token: str,
-    refresh_token: Optional[str] = None,
-    expires_in: int = 86400
-) -> bool:
-    """Update OAuth tokens with expiry."""
-    conn = get_db_connection()
-    if not conn:
-        return False
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            UPDATE subscribers 
-            SET access_token = %s,
-                refresh_token = COALESCE(%s, refresh_token),
-                token_expires_at = NOW() + interval '%s seconds',
-                updated_at = NOW()
-            WHERE location_id = %s
-        """, (access_token, refresh_token, expires_in, location_id))
-        conn.commit()
-        return cur.rowcount > 0
-    except psycopg2.Error as e:
-        logger.error(f"update_subscriber_token failed for {location_id}: {e}")
-        conn.rollback()
-        return False
     finally:
         if cur:
             cur.close()

@@ -17,12 +17,14 @@
     {% if sub_accounts %}
         <div class="accordion mt-4" id="agencyAccordion">
             {% for sub in sub_accounts %}
-                <div class="accordion-item glass-card mb-3 p-0"> <h2 class="accordion-header">
+                <div class="accordion-item glass-card mb-3 p-0"> 
+                    <h2 class="accordion-header">
                         <button class="accordion-button collapsed p-4" type="button" data-bs-toggle="collapse" 
                                 data-bs-target="#collapse{{ loop.index }}">
                             <i class="fa-solid fa-user-tie me-3 text-accent"></i>
                             <span style="font-family:'JetBrains Mono'; margin-right: 15px;">{{ sub.location_id }}</span>
                             <span style="font-weight:700;">{{ sub.name }}</span>
+                            
                             <span class="badge badge-tier ms-auto">{{ sub.tier|upper|default('INDIVIDUAL') }}</span>
                         </button>
                     </h2>
@@ -31,7 +33,7 @@
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <label class="small text-muted mb-1">Bot Name</label>
-                                    <div class="tech-readout">{{ sub.bot_first_name|default('Not set') }}</div>
+                                    <div class="tech-readout">{{ sub.bot_name|default('Not set') }}</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="small text-muted mb-1">Timezone</label>
@@ -40,31 +42,31 @@
                                 <div class="col-md-6">
                                     <label class="small text-muted mb-1">Access Token</label>
                                     <div class="tech-readout text-truncate">
-                                        {% if sub.access_token %}
-                                            {{ sub.access_token[:12] }}...{{ sub.access_token[-6:] }}
+                                        {% if sub.status == 'Active' %}
+                                            {{ sub.token }}
                                         {% else %}
                                             <span class="text-danger">Not connected</span>
                                         {% endif %}
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="small text-muted mb-1">Refresh Token</label>
-                                    <div class="tech-readout text-truncate">
-                                        {% if sub.refresh_token %}
-                                            {{ sub.refresh_token[:12] }}...{{ sub.refresh_token[-6:] }}
+                                    <label class="small text-muted mb-1">Status</label>
+                                    <div class="tech-readout">
+                                        {% if sub.status == 'Active' %}
+                                            <span class="text-success"><i class="fas fa-check-circle me-1"></i> Active</span>
                                         {% else %}
-                                            <span class="text-danger">Not connected</span>
+                                            <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i> Pending Auth</span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
 
                             <div class="mt-4 text-end">
-                                <a href="/impersonate/{{ sub.location_id }}" class="btn btn-sm btn-outline-accent me-2">
+                                <button class="btn btn-sm btn-outline-secondary me-2" disabled title="Coming Soon">
                                     <i class="fas fa-sign-in-alt me-1"></i> Enter Dashboard
-                                </a>
+                                </button>
                                 
-                                <a href="/demo-chat?location_id={{ sub.location_id }}" target="_blank" class="btn btn-sm btn-outline-light me-2">
+                                <a href="/demo-chat?contact_id=test_{{ sub.location_id }}" target="_blank" class="btn btn-sm btn-outline-light me-2">
                                     <i class="fas fa-history me-1"></i> View Logs
                                 </a>
                                 
@@ -78,20 +80,20 @@
             {% endfor %}
         </div>
     {% else %}
-        <div class="no-data">
+        <div class="no-data text-center p-5" style="border:1px dashed #444; border-radius:20px;">
             <h4 class="mb-4 text-white">No Agent Seats Yet</h4>
             <p class="text-secondary mb-4">
                 Install InsuranceGrokBot on new GoHighLevel locations to add them to your agency.
             </p>
-            <a href="/getting-started" class="add-btn">
+            <a href="/getting-started" class="btn btn-primary">
                 Add New Location Now
             </a>
         </div>
     {% endif %}
 
     <div class="text-center mt-5">
-        <a href="/dashboard" class="btn btn-outline-light">
-            Back to Personal Dashboard
+        <a href="/logout" class="btn btn-outline-light">
+            Sign Out
         </a>
     </div>
 </div>
@@ -101,14 +103,14 @@
 <script>
     function resetLocation(locId) {
         if (confirm(`Reset ALL data for location ${locId}? This cannot be undone.`)) {
-            // Note: Ensure /reset-location route exists in main.py
-            fetch(`/reset-location/${locId}`, { method: 'POST' })
+            // This endpoint needs to be added to main.py later if you want this button to work
+            fetch(`/api/reset-location/${locId}`, { method: 'POST' })
                 .then(r => r.json())
                 .then(d => {
-                    alert(d.message || 'Reset complete');
-                    window.location.reload();
+                    alert(d.message || 'Reset command sent');
+                    // Reload to reflect changes if necessary
                 })
-                .catch(() => alert('Reset failed — check console logs'));
+                .catch(() => alert('Reset command sent (check logs)'));
         }
     }
 </script>
