@@ -553,14 +553,17 @@ def agency_dashboard():
             SELECT
                 location_id,
                 full_name,          -- This holds the Location Name (from onboarding)
-                email,              -- Agent Email
+                email,              -- Owner email (for billing/parent link)
+                agent_email,        -- Individual agent's email
                 bot_first_name,
                 timezone,
                 access_token,       -- Used to check connection status
                 subscription_tier,
                 token_expires_at,
                 created_at,
-                refresh_token       -- Added for display
+                refresh_token,      -- Added for display
+                onboarding_status,  -- pending/invited/claimed
+                invite_sent_at      -- When invitation was sent
             FROM subscribers
             WHERE parent_agency_email = %s
             ORDER BY created_at DESC
@@ -591,13 +594,16 @@ def agency_dashboard():
                 'name': sub['full_name'] or 'Unnamed Location',
                 'location_id': sub['location_id'],
                 'email': sub['email'] or 'No Email Assigned',
+                'agent_email': sub['agent_email'] or 'No Agent Email',
                 'status': 'Active' if is_connected else 'Pending Auth',
                 'status_class': 'success' if is_connected else 'warning',
                 'tier': sub['subscription_tier'].replace('_', ' ').title(),
                 'bot_name': sub['bot_first_name'],
                 'timezone': sub['timezone'],
                 'access_token': sub['access_token'],  # For display (truncated in template)
-                'refresh_token': sub['refresh_token']  # Added
+                'refresh_token': sub['refresh_token'],  # Added
+                'onboarding_status': sub['onboarding_status'] or 'pending',
+                'invite_sent_at': sub['invite_sent_at']
             })
         # 5. Self-Healing Stats
         # Instead of trusting the counter in the billing table, we count the REAL rows.
