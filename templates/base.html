@@ -195,16 +195,16 @@
                 setInterval(() => { activeIndex = (activeIndex + 1) % 3; updateCarousel(); }, 5000);
             }
 
-            // The Poll Loop (Reads get-logs every 4s)
+            // The Poll Loop (Reads get-assistant-logs every 4s)
             setInterval(async () => {
                 if (!chatWindow.classList.contains('active')) return;
                 try {
-                    const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
+                    const res = await fetch(`/get-assistant-logs?contact_id=${chatSessionId}`);
                     const data = await res.json();
                     if (data.logs) {
                         data.logs.forEach(log => {
-                            // Only add Bot or User messages, ignoring the Brain activity here
-                            if (log.type && (log.type.includes('Bot') || log.type.includes('Lead'))) {
+                            // Only add Bot or User messages, ignoring other types
+                            if (log.type && (log.type.includes('Bot') || log.type.includes('User'))) {
                                 appendMessageHTML(log.role, log.content);
                             }
                         });
