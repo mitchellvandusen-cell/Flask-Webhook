@@ -158,45 +158,46 @@ class User(UserMixin):
 
         self.password_hash = data.get('password_hash')
 
-        # Location & GHL identifiers
+        # Location & GHL identifiers (from subscribers CSV)
         self.location_id = data.get('location_id')
+        self.ghl_calendar_id = data.get('ghl_calendar_id')
+        self.crm_api_key = data.get('crm_api_key')
         self.crm_user_id = data.get('crm_user_id')
-        self.crm_api_key = data.get('crm_api_key')          # from CSV
-        self.ghl_calendar_id = data.get('ghl_calendar_id')  # from CSV
         self.calendar_id = data.get('calendar_id')
 
-        # Bot configuration
+        # Bot configuration (from subscribers CSV)
         self.bot_first_name = data.get('bot_first_name', 'Grok')
         self.timezone = data.get('timezone', 'America/Chicago')
         self.initial_message = data.get('initial_message', '')
-        self.bot_active = data.get('bot_active')            # from CSV
+        self.bot_active = data.get('bot_active')
 
-        # OAuth / Token fields
+        # OAuth / Token fields (from subscribers CSV)
         self.access_token = data.get('access_token')
         self.refresh_token = data.get('refresh_token')
         self.token_expires_at = data.get('token_expires_at')
         self.token_type = data.get('token_type', 'Bearer')
 
-        # Profile & Misc
+        # Profile & Misc (from subscribers CSV)
         self.full_name = data.get('full_name')
         self.phone = data.get('phone')
         self.bio = data.get('bio')
-        self.confirmation_code = data.get('confirmation_code')  # from CSV
+        self.confirmation_code = data.get('confirmation_code')
 
-        # Billing & Subscription
+        # Billing & Subscription (from both tables)
         self.subscription_tier = data.get('subscription_tier', 'individual')
-        self.tier = data.get('tier')                            # from CSV (sometimes separate)
+        self.tier = data.get('tier')  # separate field in CSV
         self.stripe_customer_id = data.get('stripe_customer_id')
-        self.stripe_status = data.get('stripe_status')         # from CSV
+        self.stripe_status = data.get('stripe_status')
 
-        # Agency linkage
+        # Agency linkage (from subscribers CSV)
         self.parent_agency_email = data.get('parent_agency_email')
 
-        # Agency-specific billing fields (only in agency_billing)
+        # Agency-specific billing fields (mainly from agency_billing)
         self.max_seats = data.get('max_seats')
         self.active_seats = data.get('active_seats')
+        self.next_billing_date = data.get('next_billing_date')  # from your recent agency_billing screenshot
 
-        # Timestamps (for reference, even if not used often)
+        # Timestamps (from both tables)
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
    
