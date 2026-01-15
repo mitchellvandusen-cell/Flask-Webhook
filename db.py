@@ -152,29 +152,53 @@ def init_db() -> bool:
             conn.close()
 class User(UserMixin):
     def __init__(self, data: dict):
-        # Maps columns from either SUBSCRIBERS or AGENCY_BILLING
+        # Core identification (works for both agency_billing and subscribers)
         self.email = data.get('agency_email') or data.get('email')
-        self.id = self.email  # Flask-Login ID
+        self.id = self.email  # Flask-Login requires this
+
         self.password_hash = data.get('password_hash')
+
+        # Location & GHL identifiers
         self.location_id = data.get('location_id')
-       
-        # Profile Data
+        self.crm_user_id = data.get('crm_user_id')
+        self.crm_api_key = data.get('crm_api_key')          # from CSV
+        self.ghl_calendar_id = data.get('ghl_calendar_id')  # from CSV
+        self.calendar_id = data.get('calendar_id')
+
+        # Bot configuration
+        self.bot_first_name = data.get('bot_first_name', 'Grok')
+        self.timezone = data.get('timezone', 'America/Chicago')
+        self.initial_message = data.get('initial_message', '')
+        self.bot_active = data.get('bot_active')            # from CSV
+
+        # OAuth / Token fields
+        self.access_token = data.get('access_token')
+        self.refresh_token = data.get('refresh_token')
+        self.token_expires_at = data.get('token_expires_at')
+        self.token_type = data.get('token_type', 'Bearer')
+
+        # Profile & Misc
         self.full_name = data.get('full_name')
         self.phone = data.get('phone')
         self.bio = data.get('bio')
-        self.role = data.get('role', 'agency_owner' if 'agency_email' in data else 'individual')
-        self.stripe_customer_id = data.get('stripe_customer_id')
+        self.confirmation_code = data.get('confirmation_code')  # from CSV
+
+        # Billing & Subscription
         self.subscription_tier = data.get('subscription_tier', 'individual')
-        self.crm_user_id    = data.get('crm_user_id')
-       
-        # Bot Config Data
-        self.calendar_id = data.get('calendar_id')
-        self.bot_first_name = data.get('bot_first_name')
-        self.timezone = data.get('timezone')
-        self.initial_message = data.get('initial_message')
-        self.access_token = data.get('access_token')
-        self.token_expires_at = data.get('token_expires_at')
-        self.refresh_token = data.get('refresh_token')  # Added for completeness
+        self.tier = data.get('tier')                            # from CSV (sometimes separate)
+        self.stripe_customer_id = data.get('stripe_customer_id')
+        self.stripe_status = data.get('stripe_status')         # from CSV
+
+        # Agency linkage
+        self.parent_agency_email = data.get('parent_agency_email')
+
+        # Agency-specific billing fields (only in agency_billing)
+        self.max_seats = data.get('max_seats')
+        self.active_seats = data.get('active_seats')
+
+        # Timestamps (for reference, even if not used often)
+        self.created_at = data.get('created_at')
+        self.updated_at = data.get('updated_at')
    
     @property
     def is_agency_owner(self) -> bool:
