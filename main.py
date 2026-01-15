@@ -1563,6 +1563,27 @@ def oauth_callback():
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
         primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
 
+        # 6b. Fetch users for each location (to get agent emails)
+        location_users = {}  # {location_id: [list of users]}
+
+        if is_agency_owner:
+            for sub in sub_accounts:
+                loc_id = sub['id']
+                try:
+                    # GHL API: Get users assigned to this location
+                    users_resp = requests.get(
+                        f"https://services.leadconnectorhq.com/locations/{loc_id}/users",
+                        headers=headers,
+                        timeout=10
+                    )
+                    if users_resp.ok:
+                        users_data = users_resp.json().get('users', [])
+                        location_users[loc_id] = users_data
+                        logger.info(f"Found {len(users_data)} users for location {loc_id}")
+                except Exception as e:
+                    logger.warning(f"Could not fetch users for location {loc_id}: {e}")
+                    location_users[loc_id] = []
+
         # 7. Database operations
         conn = get_db_connection()
         if conn:
@@ -1614,27 +1635,41 @@ def oauth_callback():
                     if is_agency_owner and is_primary:
                         continue
 
+                    # Get the first user's email for this location (if any)
+                    agent_email = None
+                    agent_name = sub_name
+                    agent_crm_user_id = None
+
+                    loc_users = location_users.get(sub_id, [])
+                    if loc_users:
+                        # Get the first (primary) user for this location
+                        primary_user = loc_users[0]
+                        agent_email = primary_user.get('email')
+                        agent_name = primary_user.get('name') or sub_name
+                        agent_crm_user_id = primary_user.get('id')
+                        logger.info(f"Location {sub_id} has agent: {agent_email}")
+
                     access_token_this = access_token if is_primary else None
                     refresh_token_this = refresh_token if is_primary else None
-                    crm_user_id_this = me_data.get('id') if is_primary else None
 
                     role = 'agency_sub_account_user' if is_agency_owner else 'individual'
                     parent_agency_email = user_email if is_agency_owner else None
-                    email_this = user_email  # Initially link to owner
+                    email_this = user_email  # Owner's email for billing/parent link
 
                     cur.execute("""
                         INSERT INTO subscribers (
-                            location_id, email, full_name, role, subscription_tier,
+                            location_id, email, agent_email, full_name, role, subscription_tier,
                             parent_agency_email, access_token, refresh_token,
                             token_expires_at, timezone, crm_user_id,
-                            created_at, updated_at
+                            onboarding_status, created_at, updated_at
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             CASE WHEN %s THEN NOW() + interval '%s seconds' ELSE NULL END,
-                            %s, %s, NOW(), NOW()
+                            %s, %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (location_id) DO UPDATE SET
                             email = EXCLUDED.email,
+                            agent_email = COALESCE(EXCLUDED.agent_email, subscribers.agent_email),
                             full_name = EXCLUDED.full_name,
                             role = EXCLUDED.role,
                             subscription_tier = EXCLUDED.subscription_tier,
@@ -1643,14 +1678,15 @@ def oauth_callback():
                             refresh_token = CASE WHEN %s THEN EXCLUDED.refresh_token ELSE subscribers.refresh_token END,
                             token_expires_at = CASE WHEN %s THEN EXCLUDED.token_expires_at ELSE subscribers.token_expires_at END,
                             timezone = EXCLUDED.timezone,
-                            crm_user_id = CASE WHEN %s THEN EXCLUDED.crm_user_id ELSE subscribers.crm_user_id END,
+                            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
                             updated_at = NOW()
                     """, (
-                        sub_id, email_this, sub_name, role, plan_tier,
+                        sub_id, email_this, agent_email, agent_name, role, plan_tier,
                         parent_agency_email, access_token_this, refresh_token_this,
                         is_primary, expires_in,
-                        sub_timezone, crm_user_id_this,
-                        is_primary, is_primary, is_primary, is_primary
+                        sub_timezone or 'America/Chicago', agent_crm_user_id,
+                        'pending',  # onboarding_status
+                        is_primary, is_primary, is_primary
                     ))
 
                 conn.commit()
