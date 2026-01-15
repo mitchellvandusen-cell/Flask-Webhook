@@ -13,30 +13,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <style>
-        /* CRITICAL CLICKABILITY FIXES */
-        .chat-widget-container {
-            z-index: 10001 !important; /* Must be higher than the popup overlay */
-        }
-        .chat-toggle-btn {
-            cursor: pointer !important;
-            pointer-events: auto !important;
-        }
-        /* Match the CSS class to the JS .toggle('active') */
-        .chat-window.active {
-            transform: scale(1);
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .popup-overlay {
-            z-index: 9999;
-            pointer-events: none; /* Allows clicking "through" the overlay to the bot */
-        }
-        .popup-overlay.active {
-            pointer-events: auto; /* Re-enables clicks for the popup card itself */
-        }
-        .popup-card {
-            pointer-events: auto;
-        }
+        /* CLICKABILITY & OVERLAY FIXES */
+        .chat-widget-container { z-index: 10001 !important; }
+        .chat-toggle-btn { cursor: pointer !important; pointer-events: auto !important; }
+        
+        /* Ensure overlay doesn't block clicks when not active */
+        .popup-overlay { z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.5s; display: none; }
+        .popup-overlay.active { pointer-events: auto; opacity: 1; display: flex; }
+        .popup-card { pointer-events: auto; }
+
+        /* Window Open States */
+        .chat-window.active, .chat-window.open { transform: scale(1) !important; opacity: 1 !important; pointer-events: auto !important; }
+        
+        #typingIndicator { display: none; align-items: center; padding: 10px 20px; gap: 5px; }
     </style>
 </head>
 <body>
@@ -62,18 +51,13 @@
         </div>
     </nav>
 
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+    <main>{% block content %}{% endblock %}</main>
 
     <footer>
         <div class="container">
             <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
             <div class="mb-4">
-                <a href="/terms">Terms</a>
-                <a href="/privacy">Privacy</a>
-                <a href="/disclaimers">Disclaimers</a>
-                <a href="/contact">Contact</a>
+                <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/disclaimers">Disclaimers</a><a href="/contact">Contact</a>
             </div>
             <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
         </div>
@@ -84,46 +68,28 @@
             <div class="chat-header">
                 <div class="bot-identity">
                     <div class="bot-avatar"><i class="fa-solid fa-bolt"></i></div>
-                    <div class="bot-info">
-                        <h5>Grok Assistant</h5>
-                        <div class="bot-status">Online</div>
-                    </div>
+                    <div class="bot-info"><h5>Grok Assistant</h5><div class="bot-status">Online</div></div>
                 </div>
-                <button onclick="toggleChat()" style="background:none; border:none; color:#777; cursor:pointer;">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <button onclick="toggleChat()" style="background:none; border:none; color:#777; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
-
             <div class="chat-body" id="chatBody"></div>
-
-            <div class="typing-indicator" id="typingIndicator" style="display:none; align-items:center; padding: 10px 20px;">
-                <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-            </div>
-
+            <div class="typing-indicator" id="typingIndicator"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
             <div class="chat-footer">
                 <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything..." onkeypress="handleEnter(event)">
                 <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
-
-        <div class="chat-toggle-btn" onclick="toggleChat()">
-            <div class="pulse-ring"></div>
-            <i class="fa-solid fa-robot"></i>
-        </div>
+        <div class="chat-toggle-btn" onclick="toggleChat()"><div class="pulse-ring"></div><i class="fa-solid fa-robot"></i></div>
     </div>
 
     <div id="elite-popup-overlay" class="popup-overlay">
         <div class="popup-card">
             <button class="close-btn" onclick="closePopup()">&times;</button>
             <div class="popup-content">
-                <div class="glow-effect"></div>
-                <span class="badge">LIMITED OFFER</span>
+                <div class="glow-effect"></div><span class="badge">LIMITED OFFER</span>
                 <h2>Experience True Intelligence</h2>
                 <p>Unlock the full potential of InsuranceGrokBot. Zero limits. Zero cost for the first week.</p>
-                <div class="offer-box">
-                    <span class="big-text">7 DAYS</span>
-                    <span class="sub-text">FREE TRIAL</span>
-                </div>
+                <div class="offer-box"><span class="big-text">7 DAYS</span><span class="sub-text">FREE TRIAL</span></div>
                 <a href="/register" class="elite-btn">Start My Free Trial</a>
                 <p class="no-commitment">No commitment. Cancel anytime.</p>
             </div>
@@ -134,15 +100,17 @@
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     
     <script>
-        // Move chat functions to GLOBAL SCOPE so onclick="toggleChat()" works
-        let chatSessionId = localStorage.getItem('grok_contact_id') || ('web_' + Math.random().toString(36).substr(2, 9));
+        // GLOBAL VARIABLES
+        const chatBody = document.getElementById('chatBody');
+        const chatWindow = document.getElementById('chatWindow');
+        const chatInput = document.getElementById('chatInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const chatSessionId = localStorage.getItem('grok_contact_id') || ('web_' + Math.random().toString(36).substr(2, 9));
         localStorage.setItem('grok_contact_id', chatSessionId);
 
+        // 1. CHAT LOGIC
         window.toggleChat = function() {
-            const chatWindow = document.getElementById('chatWindow');
-            const chatBody = document.getElementById('chatBody');
             chatWindow.classList.toggle('active');
-            
             if (chatWindow.classList.contains('active') && chatBody.innerHTML.trim() === "") {
                 window.sendMessage("INIT_CHAT", true);
             }
@@ -151,8 +119,6 @@
         window.handleEnter = (e) => { if (e.key === 'Enter') window.sendMessage(); };
 
         window.sendMessage = function(textOverride, isSystem = false) {
-            const chatInput = document.getElementById('chatInput');
-            const typingIndicator = document.getElementById('typingIndicator');
             const text = textOverride || chatInput.value.trim();
             if (!text) return;
 
@@ -178,15 +144,13 @@
         };
 
         function appendMessageHTML(role, text, options = null) {
-            const chatBody = document.getElementById('chatBody');
-            // STRICT DE-DUPLICATION
-            const existing = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
-            if (existing.includes(text.trim())) return;
+            // THE DEDUPLICATION SHIELD: prevents double messages from get-logs
+            const existingMsgs = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
+            if (existingMsgs.includes(text.trim())) return;
 
             const div = document.createElement('div');
             const roleClass = (role === 'lead' || role === 'user') ? 'user' : 'bot';
-            div.className = `msg ${roleClass} mb-3`; // Using your specific CSS classes: .msg.user and .msg.bot
-            
+            div.className = `msg ${roleClass} mb-3`;
             div.innerHTML = `<div class="msg-content p-3 shadow-sm">${text}</div>`;
             chatBody.appendChild(div);
 
@@ -210,29 +174,36 @@
             chatBody.scrollTop = chatBody.scrollHeight;
         }
 
+        // 2. INITIALIZATION & POLLING
         document.addEventListener("DOMContentLoaded", function() {
             AOS.init({ duration: 1000, once: true, offset: 50 });
 
-            // 1. CAROUSEL & POPUP
-            const popup = document.getElementById("elite-popup-overlay");
-            if (popup && !localStorage.getItem("grok_popup_last_closed")) {
-                setTimeout(() => { popup.style.display = "flex"; setTimeout(() => popup.classList.add("active"), 10); }, 2000);
+            // Pricing Carousel
+            const cards = document.querySelectorAll('.pricing-card');
+            if (cards.length > 0) {
+                let activeIndex = 1;
+                window.selectCard = (index) => { if (window.innerWidth >= 992) { activeIndex = index; updateCarousel(); } };
+                function updateCarousel() {
+                    cards.forEach((card, i) => {
+                        card.className = 'pricing-card';
+                        if (i === activeIndex) card.classList.add('active');
+                        else if (i === (activeIndex - 1 + 3) % 3) card.classList.add('prev');
+                        else card.classList.add('next');
+                    });
+                }
+                updateCarousel();
+                setInterval(() => { activeIndex = (activeIndex + 1) % 3; updateCarousel(); }, 5000);
             }
-            window.closePopup = () => {
-                popup.classList.remove("active");
-                setTimeout(() => popup.style.display = "none", 500);
-                localStorage.setItem("grok_popup_last_closed", Date.now());
-            };
 
-            // Polling Loop for Async Messages (Worker support)
+            // The Poll Loop (Reads get-logs every 4s)
             setInterval(async () => {
-                const chatWindow = document.getElementById('chatWindow');
                 if (!chatWindow.classList.contains('active')) return;
                 try {
                     const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
                     const data = await res.json();
                     if (data.logs) {
                         data.logs.forEach(log => {
+                            // Only add Bot or User messages, ignoring the Brain activity here
                             if (log.type && (log.type.includes('Bot') || log.type.includes('Lead'))) {
                                 appendMessageHTML(log.role, log.content);
                             }
@@ -240,6 +211,16 @@
                     }
                 } catch(e) {}
             }, 4000);
+
+            // Popup logic
+            const popup = document.getElementById("elite-popup-overlay");
+            if (popup && !localStorage.getItem("grok_popup_last_closed")) {
+                setTimeout(() => { popup.classList.add("active"); }, 2000);
+            }
+            window.closePopup = () => {
+                popup.classList.remove("active");
+                localStorage.setItem("grok_popup_last_closed", Date.now());
+            };
         });
     </script>
     {% block scripts %}{% endblock %}
