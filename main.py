@@ -1638,20 +1638,17 @@ def oauth_initiate():
     client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
-    # Required scopes for the app
+    # Required scopes for the private app (must match GHL private app configuration)
     scopes = [
-        "locations.readonly",
-        "users.readonly",
-        "contacts.write",
-        "contacts.readonly",
-        "opportunities.readonly",
-        "opportunities.write",
         "calendars.readonly",
-        "calendars.write",
-        "conversations.readonly",
-        "conversations.write",
+        "calendars/events.readonly",
+        "calendars/events.write",
+        "conversations/message.write",
         "conversations/message.readonly",
-        "conversations/message.write"
+        "contacts.readonly",
+        "locations.readonly",
+        "calendars/groups.readonly",
+        "conversations.write"
     ]
     scope_string = " ".join(scopes)
 
