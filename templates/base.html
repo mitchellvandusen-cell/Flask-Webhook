@@ -69,7 +69,7 @@
 
             <div class="chat-body" id="chatBody"></div>
 
-            <div class="typing-indicator" id="typingIndicator" style="display:none;">
+            <div class="typing-indicator" id="typingIndicator" style="display:none; align-items:center; padding: 10px 20px;">
                 <div class="dot"></div><div class="dot"></div><div class="dot"></div>
             </div>
 
@@ -107,18 +107,14 @@
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     
     <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        AOS.init({ duration: 1000, once: true, offset: 50 });
+        document.addEventListener("DOMContentLoaded", function() {
+            AOS.init({ duration: 1000, once: true, offset: 50 });
 
-            // 1. CAROUSEL
+            // 1. CAROUSEL & POPUP (Standard UI)
             const cards = document.querySelectorAll('.pricing-card');
             if (cards.length > 0) {
                 let activeIndex = 1; 
-                window.selectCard = function(index) {
-                    if (window.innerWidth < 992) return; 
-                    activeIndex = index;
-                    updateCarousel();
-                };
+                window.selectCard = (index) => { if (window.innerWidth >= 992) { activeIndex = index; updateCarousel(); } };
                 function updateCarousel() {
                     cards.forEach((card, i) => {
                         card.className = 'pricing-card'; 
@@ -131,27 +127,24 @@
                 setInterval(() => { activeIndex = (activeIndex + 1) % 3; updateCarousel(); }, 5000);
             }
 
-            // 2. POPUP
             const popup = document.getElementById("elite-popup-overlay");
             if (popup && !localStorage.getItem("grok_popup_last_closed")) {
-                setTimeout(() => { 
-                    popup.style.display = "flex"; 
-                    setTimeout(() => popup.classList.add("active"), 10);
-                }, 2000);
+                setTimeout(() => { popup.style.display = "flex"; setTimeout(() => popup.classList.add("active"), 10); }, 2000);
             }
-            window.closePopup = function() {
+            window.closePopup = () => {
                 popup.classList.remove("active");
                 setTimeout(() => popup.style.display = "none", 500);
                 localStorage.setItem("grok_popup_last_closed", Date.now());
             };
 
-           // CHAT WIDGET - FIXED VERSION
+            // =====================================================
+            // 2. CHAT WIDGET (Final Fixed Version)
+            // =====================================================
             const chatBody = document.getElementById('chatBody');
             const chatWindow = document.getElementById('chatWindow');
             const chatInput = document.getElementById('chatInput');
             const typingIndicator = document.getElementById('typingIndicator');
             
-            // Persistent Session ID
             if (!localStorage.getItem('grok_contact_id')) {
                 localStorage.setItem('grok_contact_id', 'web_' + Math.random().toString(36).substr(2, 9));
             }
@@ -160,9 +153,7 @@
             window.toggleChat = function() {
                 chatWindow.classList.toggle('active');
                 if (chatWindow.classList.contains('active') && chatBody.innerHTML.trim() === "") {
-                    // Start chat on first open
-                    appendMessageHTML('assistant', 'Thinking...');
-                    sendMessage("INIT_CHAT", true);
+                    window.sendMessage("INIT_CHAT", true);
                 }
             };
 
@@ -177,7 +168,7 @@
                     chatInput.value = '';
                 }
 
-                typingIndicator.style.display = 'flex';  // Show typing
+                typingIndicator.style.display = 'flex';
 
                 fetch('/website-bot-webhook', {
                     method: 'POST',
@@ -186,38 +177,29 @@
                 })
                 .then(res => res.json())
                 .then(data => {
-                    // Handle instant replies (buttons, redirects, text)
-                    if (data.text || data.redirect || data.options) {
-                        typingIndicator.style.display = 'none';
-                        if (data.redirect) {
-                            window.location.href = data.redirect;
-                        }
-                        if (data.text) {
-                            appendMessageHTML('assistant', data.text, data.options);
-                        }
-                    }
-                    // For async processing, polling will handle the reply
+                    typingIndicator.style.display = 'none';
+                    if (data.text) appendMessageHTML('assistant', data.text, data.options);
+                    if (data.redirect) setTimeout(() => window.location.href = data.redirect, 1200);
                 })
                 .catch(err => {
                     typingIndicator.style.display = 'none';
-                    appendMessageHTML('assistant', 'Sorry, something went wrong. Try again!');
                     console.error("Chat Error:", err);
                 });
             };
 
             function appendMessageHTML(role, text, options = null) {
-                // Simple de-duplication: don't add if text already exists
-                const existingTexts = Array.from(chatBody.querySelectorAll('.msg-content')).map(el => el.innerText.trim());
-                if (existingTexts.includes(text.trim())) return;
+                // DE-DUPLICATION: Don't add if the message text is already the last message in chat
+                const messages = chatBody.querySelectorAll('.msg-content');
+                if (messages.length > 0 && messages[messages.length - 1].innerText.trim() === text.trim()) return;
 
                 const div = document.createElement('div');
-                div.className = `msg ${role}`;
-                div.innerHTML = `<div class="msg-content p-3" style="border-radius:15px; background:${role==='user'?'var(--accent)':'#222'}; color:#fff; display:inline-block; max-width:80%;">${text}</div>`;
+                div.className = `msg ${role}-msg mb-3`;
+                div.innerHTML = `<div class="msg-content p-3 shadow-sm" style="border-radius:15px; background:${role === 'user' ? 'var(--accent)' : '#222'}; color:#fff; display:inline-block; max-width:80%;">${text}</div>`;
                 chatBody.appendChild(div);
 
                 if (options) {
                     const btnWrap = document.createElement('div');
-                    btnWrap.className = "d-flex gap-2 flex-wrap mt-2";
+                    btnWrap.className = "d-flex gap-2 flex-wrap mt-2 mb-3";
                     options.forEach(opt => {
                         const btn = document.createElement('button');
                         btn.className = "btn btn-sm btn-outline-accent";
@@ -232,34 +214,25 @@
                     });
                     chatBody.appendChild(btnWrap);
                 }
-
-                scrollToBottom();
-            }
-
-            function scrollToBottom() {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }
 
-            // Polling for Async Replies (every 2 seconds when chat is open)
+            // Polling for Async Messages (Checks Redis via get-logs)
             setInterval(async () => {
                 if (!chatWindow.classList.contains('active')) return;
                 try {
                     const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
                     const data = await res.json();
                     if (data.logs && data.logs.length > 0) {
-                        // Get the latest log
-                        const lastLog = data.logs[data.logs.length - 1];
-                        
-                        // Only add if it's a bot message
-                        if (lastLog.type && lastLog.type.includes('Bot')) {
-                            typingIndicator.style.display = 'none';
-                            appendMessageHTML('assistant', lastLog.content, lastLog.options);
-                        }
+                        data.logs.forEach(log => {
+                            // Only pull Bot/Assistant messages that are new
+                            if (log.type && (log.type.includes('Bot') || log.type.includes('Assistant'))) {
+                                appendMessageHTML('assistant', log.content);
+                            }
+                        });
                     }
-                } catch(e) {
-                    console.error("Polling error:", e);
-                }
-            }, 2000);  // Poll every 2 seconds
+                } catch(e) {}
+            }, 4000);
         });
     </script>
     {% block scripts %}{% endblock %}
