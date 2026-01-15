@@ -110,7 +110,7 @@
         document.addEventListener("DOMContentLoaded", function() {
             AOS.init({ duration: 1000, once: true, offset: 50 });
 
-            // 1. CAROUSEL & POPUP (Standard UI)
+            // 1. CAROUSEL & POPUP
             const cards = document.querySelectorAll('.pricing-card');
             if (cards.length > 0) {
                 let activeIndex = 1; 
@@ -138,7 +138,7 @@
             };
 
             // =====================================================
-            // 2. CHAT WIDGET (Final Fixed Version)
+            // 2. CHAT WIDGET ENGINE
             // =====================================================
             const chatBody = document.getElementById('chatBody');
             const chatWindow = document.getElementById('chatWindow');
@@ -164,7 +164,7 @@
                 if (!text) return;
 
                 if (!isSystem) {
-                    appendMessageHTML('user', text);
+                    appendMessageHTML('lead', text); // Lead role for user bubbles
                     chatInput.value = '';
                 }
 
@@ -178,7 +178,7 @@
                 .then(res => res.json())
                 .then(data => {
                     typingIndicator.style.display = 'none';
-                    if (data.text) appendMessageHTML('assistant', data.text, data.options);
+                    if (data.text) appendMessageHTML('bot', data.text, data.options); // Bot role for assistant bubbles
                     if (data.redirect) setTimeout(() => window.location.href = data.redirect, 1200);
                 })
                 .catch(err => {
@@ -188,13 +188,16 @@
             };
 
             function appendMessageHTML(role, text, options = null) {
-                // DE-DUPLICATION: Don't add if the message text is already the last message in chat
-                const messages = chatBody.querySelectorAll('.msg-content');
-                if (messages.length > 0 && messages[messages.length - 1].innerText.trim() === text.trim()) return;
+                // STRICT DE-DUPLICATION: Check if message exists anywhere in body
+                const existing = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
+                if (existing.includes(text.trim())) return;
 
                 const div = document.createElement('div');
-                div.className = `msg ${role}-msg mb-3`;
-                div.innerHTML = `<div class="msg-content p-3 shadow-sm" style="border-radius:15px; background:${role === 'user' ? 'var(--accent)' : '#222'}; color:#fff; display:inline-block; max-width:80%;">${text}</div>`;
+                // Use lead/bot role to match your backend get_logs output
+                const roleClass = (role === 'lead' || role === 'user') ? 'user' : 'assistant';
+                div.className = `msg ${roleClass}-msg mb-3`;
+                
+                div.innerHTML = `<div class="msg-content p-3 shadow-sm" style="border-radius:15px; background:${roleClass === 'user' ? 'var(--accent)' : '#222'}; color:#fff; display:inline-block; max-width:80%;">${text}</div>`;
                 chatBody.appendChild(div);
 
                 if (options) {
@@ -207,7 +210,7 @@
                         btn.innerText = opt.label;
                         btn.onclick = () => {
                             btnWrap.remove();
-                            appendMessageHTML('user', opt.label);
+                            appendMessageHTML('lead', opt.label);
                             window.sendMessage(opt.value, true);
                         };
                         btnWrap.appendChild(btn);
@@ -217,7 +220,7 @@
                 chatBody.scrollTop = chatBody.scrollHeight;
             }
 
-            // Polling for Async Messages (Checks Redis via get-logs)
+            // Polling Loop for Async Messages (Hybrid Support)
             setInterval(async () => {
                 if (!chatWindow.classList.contains('active')) return;
                 try {
@@ -225,9 +228,9 @@
                     const data = await res.json();
                     if (data.logs && data.logs.length > 0) {
                         data.logs.forEach(log => {
-                            // Only pull Bot/Assistant messages that are new
-                            if (log.type && (log.type.includes('Bot') || log.type.includes('Assistant'))) {
-                                appendMessageHTML('assistant', log.content);
+                            // Only append Bot or Lead messages, skip Facts/Narratives for this window
+                            if (log.type && (log.type.includes('Bot') || log.type.includes('Lead'))) {
+                                appendMessageHTML(log.role, log.content);
                             }
                         });
                     }
