@@ -36,8 +36,7 @@
     </nav>
 
     <main>
-        {% block content %}
-        {% endblock %}
+        {% block content %}{% endblock %}
     </main>
 
     <footer>
@@ -54,7 +53,6 @@
     </footer>
 
     <div class="chat-widget-container">
-        
         <div class="chat-window" id="chatWindow">
             <div class="chat-header">
                 <div class="bot-identity">
@@ -71,7 +69,7 @@
 
             <div class="chat-body" id="chatBody"></div>
 
-            <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-indicator" id="typingIndicator" style="display:none;">
                 <div class="dot"></div><div class="dot"></div><div class="dot"></div>
             </div>
 
@@ -108,172 +106,77 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
     
-<script>
+    <script>
         document.addEventListener("DOMContentLoaded", function() {
-            
-            // =========================================
-            // 1. CAROUSEL LOGIC (Pricing)
-            // =========================================
+            AOS.init({ duration: 1000, once: true, offset: 50 });
+
+            // 1. CAROUSEL
             const cards = document.querySelectorAll('.pricing-card');
             if (cards.length > 0) {
                 let activeIndex = 1; 
-                let autoRotateInterval;
-
                 window.selectCard = function(index) {
                     if (window.innerWidth < 992) return; 
                     activeIndex = index;
                     updateCarousel();
-                    resetTimer(); 
                 };
-
                 function updateCarousel() {
                     cards.forEach((card, i) => {
                         card.className = 'pricing-card'; 
-                        if (i === activeIndex) {
-                            card.classList.add('active');
-                        } else if (i === (activeIndex - 1 + 3) % 3) {
-                            card.classList.add('prev');
-                        } else {
-                            card.classList.add('next');
-                        }
+                        if (i === activeIndex) card.classList.add('active');
+                        else if (i === (activeIndex - 1 + 3) % 3) card.classList.add('prev');
+                        else card.classList.add('next');
                     });
                 }
-
-                function nextCard() {
-                    activeIndex = (activeIndex + 1) % 3;
-                    updateCarousel();
-                }
-
-                function startTimer() {
-                    autoRotateInterval = setInterval(nextCard, 5000); 
-                }
-
-                function resetTimer() {
-                    clearInterval(autoRotateInterval);
-                    startTimer();
-                }
-
-                updateCarousel(); 
-                startTimer();
-
-                const container = document.querySelector('.carousel-container');
-                if (container) {
-                    container.addEventListener('mouseenter', () => clearInterval(autoRotateInterval));
-                    container.addEventListener('mouseleave', startTimer);
-                }
+                updateCarousel();
+                setInterval(() => { activeIndex = (activeIndex + 1) % 3; updateCarousel(); }, 5000);
             }
 
-            // =========================================
-            // 2. POPUP LOGIC (7-Day Trial)
-            // =========================================
+            // 2. POPUP
             const popup = document.getElementById("elite-popup-overlay");
-            const LAST_CLOSED_KEY = "grok_popup_last_closed";
-            const COOLDOWN_HOURS = 4;
-
-            function shouldShowPopup() {
-                const lastClosed = localStorage.getItem(LAST_CLOSED_KEY);
-                if (!lastClosed) return true; 
-                const now = new Date().getTime();
-                const timePassed = now - parseInt(lastClosed);
-                const hoursPassed = timePassed / (1000 * 60 * 60);
-                return hoursPassed >= COOLDOWN_HOURS;
+            if (popup && !localStorage.getItem("grok_popup_last_closed")) {
+                setTimeout(() => { 
+                    popup.style.display = "flex"; 
+                    setTimeout(() => popup.classList.add("active"), 10);
+                }, 2000);
             }
-
-            function showPopup() {
-                if(popup) {
-                    popup.style.display = "flex";
-                    setTimeout(() => { popup.classList.add("active"); }, 10);
-                }
-            }
-
             window.closePopup = function() {
-                if(popup) {
-                    popup.classList.remove("active");
-                    setTimeout(() => { popup.style.display = "none"; }, 500);
-                    localStorage.setItem(LAST_CLOSED_KEY, new Date().getTime().toString());
-                }
+                popup.classList.remove("active");
+                setTimeout(() => popup.style.display = "none", 500);
+                localStorage.setItem("grok_popup_last_closed", Date.now());
             };
 
-            if (shouldShowPopup()) {
-                setTimeout(showPopup, 2000);
-            }
-
-            // =========================================
-            // 3. CHAT WIDGET LOGIC (Hybrid Async)
-            // =========================================
-            const SESSION_KEY = 'grok_chat_session_v1';
-            const SESSION_DURATION = 60 * 60 * 1000; // 60 Minutes
-
-            function getOrCreateSession() {
-                const now = Date.now();
-                const stored = localStorage.getItem(SESSION_KEY);
-                
-                if (stored) {
-                    const data = JSON.parse(stored);
-                    if (now - data.timestamp < SESSION_DURATION) {
-                        return data.id; // Valid session
-                    }
-                }
-                // Generate NEW Session with 'assist_' prefix
-                const newId = 'assist_' + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem(SESSION_KEY, JSON.stringify({ id: newId, timestamp: now }));
-                return newId;
-            }
-
-            let chatSessionId = getOrCreateSession();
-            const chatWindow = document.getElementById('chatWindow');
+            // 3. CHAT WIDGET
             const chatBody = document.getElementById('chatBody');
+            const chatWindow = document.getElementById('chatWindow');
             const chatInput = document.getElementById('chatInput');
-            let isChatOpen = false;
-            let hasInitialized = false;
+            const typingIndicator = document.getElementById('typingIndicator');
+            
+            // Persistent Session ID
+            if (!localStorage.getItem('grok_contact_id')) {
+                localStorage.setItem('grok_contact_id', 'web_' + Math.random().toString(36).substr(2, 9));
+            }
+            const chatSessionId = localStorage.getItem('grok_contact_id');
 
             window.toggleChat = function() {
-                isChatOpen = !isChatOpen;
-                if (isChatOpen) {
-                    chatWindow.classList.add('open');
-                    document.getElementById('chatCallout').classList.add('hidden');
-                    if (!hasInitialized) {
-                        loadHistoryOrInit();
-                        hasInitialized = true;
-                    }
-                    scrollToBottom();
-                } else {
-                    chatWindow.classList.remove('open');
-                    setTimeout(() => document.getElementById('chatCallout').classList.remove('hidden'), 500);
+                chatWindow.classList.toggle('active');
+                // Initiate if opened for the first time and empty
+                if (chatWindow.classList.contains('active') && chatBody.innerHTML.trim() === "") {
+                    window.sendMessage("INIT_CHAT", true);
                 }
             };
 
-            window.handleEnter = function(e) {
-                if (e.key === 'Enter') sendMessage();
-            };
+            window.handleEnter = (e) => { if (e.key === 'Enter') window.sendMessage(); };
 
-            async function loadHistoryOrInit() {
-                const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
-                const data = await res.json();
-                
-                if (data.logs && data.logs.length > 0) {
-                    chatBody.innerHTML = '';
-                    data.logs.forEach(log => {
-                        // Detect role based on log type string
-                        const type = (log.type && log.type.includes('Bot')) ? 'bot' : 'user';
-                        addMessage(log.content, type);
-                    });
-                } else {
-                    sendSystemMessage("INIT_CHAT");
-                }
-            }
-
-            window.sendMessage = function(textOverride) {
+            window.sendMessage = function(textOverride, isSystem = false) {
                 const text = textOverride || chatInput.value.trim();
                 if (!text) return;
 
-                if (!textOverride) {
-                    addMessage(text, 'user');
+                if (!isSystem) {
+                    appendMessageHTML('user', text);
                     chatInput.value = '';
                 }
-                
-                const loadingId = 'loading-' + Date.now();
-                addMessage('...', 'bot', loadingId);
+
+                typingIndicator.style.display = 'block';
 
                 fetch('/website-bot-webhook', {
                     method: 'POST',
@@ -282,106 +185,68 @@
                 })
                 .then(res => res.json())
                 .then(data => {
-                    // Scenario A: Instant Reply (Buttons / Redirects)
-                    if (data.text || data.redirect || data.options) {
-                        const loader = document.getElementById(loadingId);
-                        if(loader) loader.remove();
-
-                        if (data.redirect) window.location.href = data.redirect;
-                        if (data.text) addMessage(data.text, 'bot');
-                        if (data.options) renderButtons(data.options);
-                    } 
-                    // Scenario B: Async Processing (Worker)
-                    else if (data.status === "processing") {
-                        // Wait for polling to pick it up.
-                        // Failsafe: remove loader if it takes too long
-                        setTimeout(() => {
-                            const loader = document.getElementById(loadingId);
-                            if(loader) loader.remove();
-                        }, 15000);
+                    typingIndicator.style.display = 'none';
+                    if (data.text) {
+                        appendMessageHTML('assistant', data.text, data.options);
+                    }
+                    if (data.redirect) {
+                        setTimeout(() => window.location.href = data.redirect, 1200);
                     }
                 })
                 .catch(err => {
+                    typingIndicator.style.display = 'none';
                     console.error("Chat Error:", err);
-                    const loader = document.getElementById(loadingId);
-                    if(loader) loader.remove();
                 });
             };
 
-            function sendSystemMessage(cmd) {
-                fetch('/website-bot-webhook', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contact_id: chatSessionId, message: cmd })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.text) addMessage(data.text, 'bot');
-                    if (data.options) renderButtons(data.options);
-                });
-            }
+            function appendMessageHTML(role, text, options = null) {
+                // De-duplication: Check if message already exists
+                const existing = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
+                if (existing.includes(text.trim())) return;
 
-            function addMessage(text, type, id=null) {
                 const div = document.createElement('div');
-                div.className = `msg ${type}`;
-                div.innerHTML = text;
-                if(id) div.id = id;
+                div.className = `msg ${role}-msg mb-3`;
+                div.innerHTML = `<div class="msg-content p-3" style="border-radius:15px; background:${role==='user'?'var(--accent)':'#222'}; color:#fff; display:inline-block; max-width:80%;">${text}</div>`;
                 chatBody.appendChild(div);
-                scrollToBottom();
-            }
 
-            function renderButtons(options) {
-                const div = document.createElement('div');
-                div.style.display = "flex"; div.style.gap = "10px"; div.style.marginTop = "10px";
-                
-                options.forEach(opt => {
-                    const btn = document.createElement('button');
-                    btn.innerText = opt.label;
-                    btn.className = "btn btn-sm btn-outline-accent";
-                    btn.style.borderRadius = "20px"; btn.style.fontSize = "0.75rem";
-                    btn.onclick = () => {
-                        addMessage(opt.label, 'user');
-                        sendMessage(opt.value);
-                        div.remove();
-                    };
-                    div.appendChild(btn);
-                });
-                chatBody.appendChild(div);
-                scrollToBottom();
-            }
-
-            function scrollToBottom() { chatBody.scrollTop = chatBody.scrollHeight; }
-            
-            // --- POLLING LOOP (Reads Redis) ---
-            setInterval(async () => {
-                if (!isChatOpen) return;
-                const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
-                const data = await res.json();
-                
-                const msgs = document.querySelectorAll('.msg');
-                const lastMsg = msgs[msgs.length - 1];
-                
-                if (data.logs && data.logs.length > 0) {
-                    const lastLog = data.logs[data.logs.length - 1];
-                    const lastLogContent = lastLog.content;
-                    
-                    // Only add if it's new AND it's a Bot Message
-                    if (!lastMsg || (lastMsg.innerText !== lastLogContent && lastLogContent !== '...')) {
-                        if (lastLog.type && lastLog.type.includes('Bot')) {
-                             // Clean up loading bubbles
-                             document.querySelectorAll('[id^="loading-"]').forEach(el => el.remove());
-                             addMessage(lastLogContent, 'bot');
-                        }
-                    }
+                if (options) {
+                    const btnWrap = document.createElement('div');
+                    btnWrap.className = "d-flex gap-2 flex-wrap mt-2";
+                    options.forEach(opt => {
+                        const btn = document.createElement('button');
+                        btn.className = "btn btn-sm btn-outline-accent";
+                        btn.style.borderRadius = "20px";
+                        btn.innerText = opt.label;
+                        btn.onclick = () => {
+                            btnWrap.remove();
+                            appendMessageHTML('user', opt.label);
+                            window.sendMessage(opt.value, true);
+                        };
+                        btnWrap.appendChild(btn);
+                    });
+                    chatBody.appendChild(btnWrap);
                 }
-            }, 3000);
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+
+            // Polling Loop for Async Messages (Worker cleanup)
+            setInterval(async () => {
+                if (!chatWindow.classList.contains('active')) return;
+                try {
+                    const res = await fetch(`/get-logs?contact_id=${chatSessionId}`);
+                    const data = await res.json();
+                    if (data.logs) {
+                        data.logs.forEach(log => {
+                            // Only append if it's a Bot Message that isn't already there
+                            if (log.type && log.type.includes('Bot')) {
+                                appendMessageHTML('assistant', log.content);
+                            }
+                        });
+                    }
+                } catch(e) {}
+            }, 4000);
         });
     </script>
-
-    <script>
-        AOS.init({ duration: 1000, once: true, offset: 50 });
-    </script>
-
     {% block scripts %}{% endblock %}
 </body>
 </html>
