@@ -67,7 +67,7 @@ def init_db() -> bool:
                 phone TEXT,
                 bio TEXT,
                 role TEXT DEFAULT 'individual',
-               
+
                 bot_first_name TEXT DEFAULT 'Grok',
                 access_token TEXT,
                 refresh_token TEXT,
@@ -81,7 +81,13 @@ def init_db() -> bool:
                 subscription_tier TEXT DEFAULT 'individual',
                 confirmation_code TEXT,
                 stripe_customer_id TEXT,
-               
+
+                agent_email TEXT,
+                invite_token TEXT,
+                invite_sent_at TIMESTAMP,
+                invite_claimed_at TIMESTAMP,
+                onboarding_status TEXT DEFAULT 'pending',
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -218,6 +224,13 @@ class User(UserMixin):
         self.max_seats = data.get('max_seats')
         self.active_seats = data.get('active_seats')
         self.next_billing_date = data.get('next_billing_date')
+
+        # Sub-user onboarding system fields
+        self.agent_email = data.get('agent_email')
+        self.invite_token = data.get('invite_token')
+        self.invite_sent_at = data.get('invite_sent_at')
+        self.invite_claimed_at = data.get('invite_claimed_at')
+        self.onboarding_status = data.get('onboarding_status', 'pending')
 
         # Timestamps
         self.created_at = data.get('created_at')

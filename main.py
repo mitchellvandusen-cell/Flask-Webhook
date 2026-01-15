@@ -15,6 +15,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
 from flask import jsonify as flask_jsonify
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
@@ -80,6 +81,16 @@ if XAI_API_KEY:
 # == STRIPE & DOMAIN ==
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 YOUR_DOMAIN = os.getenv("YOUR_DOMAIN", "http://localhost:8080")
+
+# == FLASK-MAIL CONFIGURATION ==
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', '587'))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME'))
+mail = Mail(app)
 
 # Google Sheets Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -325,9 +336,16 @@ def stripe_webhook():
     return '', 200
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    form = RegisterForm()  # ← Make sure RegisterForm uses location_id, not code (see below)
+    """
+    Registration - Supports TWO paths:
+    1. Post-OAuth: User already in DB from OAuth, just sets password
+    2. Website/Stripe: New user, creates entry in DB manually
 
-    # Pre-fill from OAuth redirect
+    Sub-users should use /claim-account instead.
+    """
+    form = RegisterForm()
+
+    # Pre-fill from OAuth redirect or Stripe checkout
     if request.method == "GET":
         url_location_id = request.args.get('location_id')
         if url_location_id:
@@ -337,53 +355,103 @@ def register():
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
         submitted_location_id = form.location_id.data.strip()
+        password = form.password.data
 
-        # 1. Check if email already exists → redirect to login
+        # 1. Check if email already registered → redirect to login
         existing_user = User.get(email)
         if existing_user:
             flash("Email already registered. Please log in.", "info")
             return redirect(url_for("login"))
 
-        # 2. Verify the location_id exists in subscribers (proof from OAuth)
         conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("""
-                    SELECT email FROM subscribers 
-                    WHERE location_id = %s
-                    LIMIT 1
-                """, (submitted_location_id,))
-                match = cur.fetchone()
-                
-                if not match:
-                    flash("Invalid or unverified location ID. Please reconnect via GoHighLevel or contact support.", "error")
-                    return redirect("/register")
-                
-                # Optional: Check if email matches (extra security)
-                if match[0] != email:
-                    flash("Location ID does not match your email. Please reconnect.", "error")
-                    return redirect("/register")
-                
-            except Exception as e:
-                logger.error(f"Location ID verification failed: {e}")
-                flash("System error during verification. Please try again.", "error")
-                return redirect("/register")
-            finally:
-                cur.close()
-                conn.close()
-        else:
+        if not conn:
             flash("Database unavailable. Please try again later.", "error")
             return redirect("/register")
 
-        # 3. All checks passed → create account
-        password_hash = generate_password_hash(form.password.data)
-        if User.create(email, password_hash):
-            # Optional: Update subscribers with confirmed status or link
-            flash("Account created successfully! Welcome aboard.", "success")
-            return redirect(url_for("login"))
-        else:
+        try:
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+
+            # 2. Check if location_id already exists in subscribers (from OAuth)
+            cur.execute("""
+                SELECT email, parent_agency_email, invite_token, onboarding_status
+                FROM subscribers
+                WHERE location_id = %s
+                LIMIT 1
+            """, (submitted_location_id,))
+            match = cur.fetchone()
+
+            password_hash = generate_password_hash(password)
+
+            if match:
+                # PATH A: Post-OAuth Registration
+                # User already in DB from OAuth, just set password
+
+                # Check if this is a sub-user who should use /claim-account
+                if match['parent_agency_email'] and match['invite_token']:
+                    flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
+                    return redirect(url_for("login"))
+
+                # Verify email matches (security check)
+                if match['email'] != email:
+                    flash("Location ID does not match your email. Please reconnect via OAuth.", "error")
+                    return redirect("/register")
+
+                # Update password in existing record
+                cur.execute("""
+                    UPDATE subscribers
+                    SET password_hash = %s,
+                        onboarding_status = 'claimed',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (password_hash, submitted_location_id))
+
+                conn.commit()
+                logger.info(f"Post-OAuth registration completed: {email}")
+                flash("Account created successfully! Welcome aboard.", "success")
+                return redirect(url_for("login"))
+
+            else:
+                # PATH B: Website/Stripe Registration
+                # User NOT in DB yet, create new entry
+                # This is for users who:
+                # - Paid via Stripe on website
+                # - Haven't done OAuth yet
+                # - Manually entering their location_id
+
+                logger.info(f"Creating new subscriber entry for Stripe/manual registration: {email}")
+
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        location_id, email, password_hash, full_name, role,
+                        subscription_tier, onboarding_status,
+                        timezone, bot_first_name,
+                        created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, 'individual',
+                        'individual', 'claimed',
+                        'America/Chicago', 'Grok',
+                        NOW(), NOW()
+                    )
+                """, (
+                    submitted_location_id,
+                    email,
+                    password_hash,
+                    form.email.data  # Use email as name initially
+                ))
+
+                conn.commit()
+                logger.info(f"Manual/Stripe registration completed: {email}")
+                flash("Account created successfully! You can now connect your GoHighLevel account from the dashboard.", "success")
+                return redirect(url_for("login"))
+
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Registration failed for {email}: {e}")
             flash("Account creation failed. Please try again or contact support.", "error")
+            return redirect("/register")
+        finally:
+            cur.close()
+            conn.close()
 
     return render_template('register.html', form=form)
 
@@ -438,6 +506,38 @@ def agency_dashboard():
     if current_user.role != 'agency_owner':
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
+
+    # --- SUBSCRIPTION VERIFICATION ---
+    # Check if agency owner has active Stripe subscription
+    needs_subscription = not current_user.stripe_customer_id
+
+    if needs_subscription:
+        # Determine pricing based on tier or show both options
+        # Default to showing agency starter pricing
+        return render_template('agency_dashboard.html',
+            needs_subscription=True,
+            agency_starter_price=800,   # Agency Starter: $800/month
+            agency_pro_price=1600,      # Agency Pro: $1600/month
+            form=ConfigForm(),  # Empty form
+            access_token_display='',
+            refresh_token_display='',
+            token_readonly='',
+            expires_in_str='',
+            sub=current_user,
+            profile={
+                'full_name': current_user.full_name or '',
+                'phone': current_user.phone or '',
+                'bio': current_user.bio or ''
+            },
+            sub_accounts=[],
+            stats={
+                'max_seats': 0,
+                'active_seats': 0,
+                'tier': 'Not Subscribed'
+            },
+            user=current_user
+        )
+
     conn = get_db_connection()
     if not conn:
         flash("System error: Database unavailable.", "error")
@@ -542,14 +642,17 @@ def agency_dashboard():
             SELECT
                 location_id,
                 full_name,          -- This holds the Location Name (from onboarding)
-                email,              -- Agent Email
+                email,              -- Owner email (for billing/parent link)
+                agent_email,        -- Individual agent's email
                 bot_first_name,
                 timezone,
                 access_token,       -- Used to check connection status
                 subscription_tier,
                 token_expires_at,
                 created_at,
-                refresh_token       -- Added for display
+                refresh_token,      -- Added for display
+                onboarding_status,  -- pending/invited/claimed
+                invite_sent_at      -- When invitation was sent
             FROM subscribers
             WHERE parent_agency_email = %s
             ORDER BY created_at DESC
@@ -580,13 +683,16 @@ def agency_dashboard():
                 'name': sub['full_name'] or 'Unnamed Location',
                 'location_id': sub['location_id'],
                 'email': sub['email'] or 'No Email Assigned',
+                'agent_email': sub['agent_email'] or 'No Agent Email',
                 'status': 'Active' if is_connected else 'Pending Auth',
                 'status_class': 'success' if is_connected else 'warning',
                 'tier': sub['subscription_tier'].replace('_', ' ').title(),
                 'bot_name': sub['bot_first_name'],
                 'timezone': sub['timezone'],
                 'access_token': sub['access_token'],  # For display (truncated in template)
-                'refresh_token': sub['refresh_token']  # Added
+                'refresh_token': sub['refresh_token'],  # Added
+                'onboarding_status': sub['onboarding_status'] or 'pending',
+                'invite_sent_at': sub['invite_sent_at']
             })
         # 5. Self-Healing Stats
         # Instead of trusting the counter in the billing table, we count the REAL rows.
@@ -649,7 +755,29 @@ def save_profile():
 def dashboard():
     if current_user.role == 'agency_owner':
         return redirect(url_for("agency_dashboard"))
-   
+
+    # --- SUBSCRIPTION VERIFICATION ---
+    # Check if user has active Stripe subscription
+    needs_subscription = not current_user.stripe_customer_id
+
+    if needs_subscription:
+        # User needs to subscribe - show subscription required page
+        return render_template('dashboard.html',
+            needs_subscription=True,
+            subscription_price=100,  # Individual plan: $100/month
+            form=ConfigForm(),  # Empty form
+            access_token_display='',
+            refresh_token_display='',
+            token_readonly='',
+            expires_in_str='',
+            sub=current_user,
+            profile={
+                'full_name': current_user.full_name or '',
+                'phone': current_user.phone or '',
+                'bio': current_user.bio or ''
+            }
+        )
+
     form = ConfigForm()
     conn = get_db_connection()
    
@@ -1471,29 +1599,79 @@ def success():
     # SCENARIO 2: Generic Success (Already has password or just viewing receipt)
     return render_template('checkout-success-login.html', email=email)
 
-@app.route("/set-password", methods=["POST"])
+@app.route("/set-password", methods=["GET", "POST"])
+@login_required
 def set_password():
-    email = request.form.get("email").lower()
+    """
+    Password setup for users after OAuth.
+    GET: Show password setup form
+    POST: Process password and save to database
+    """
+    user_type = request.args.get("type", "individual")  # 'agency' or 'individual'
+
+    if request.method == "GET":
+        # Show password setup form
+        return render_template('set_password.html',
+                             email=current_user.email,
+                             user_type=user_type)
+
+    # POST: Process password setup
     password = request.form.get("password")
-    confirm = request.form.get("confirm")
+    confirm = request.form.get("confirm_password")
+
+    if not password or len(password) < 8:
+        flash("Password must be at least 8 characters.", "danger")
+        return redirect(f"/set-password?type={user_type}")
 
     if password != confirm:
-        flash("Passwords do not match")
-        return redirect(url_for('success'))  # Redirect back to success page logic if possible or show error
+        flash("Passwords do not match.", "danger")
+        return redirect(f"/set-password?type={user_type}")
 
-    user = User.get(email)
-    if user:
-        password_hash = generate_password_hash(password)
-        conn = get_db_connection()
-        conn.execute("UPDATE users SET password_hash = ? WHERE email = ?", (password_hash, email))
+    password_hash = generate_password_hash(password)
+    conn = get_db_connection()
+
+    if not conn:
+        flash("Database unavailable. Please try again.", "error")
+        return redirect(f"/set-password?type={user_type}")
+
+    try:
+        cur = conn.cursor()
+
+        if current_user.role == 'agency_owner':
+            # Update agency_billing table
+            cur.execute("""
+                UPDATE agency_billing
+                SET password_hash = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (password_hash, current_user.email))
+        else:
+            # Update subscribers table
+            cur.execute("""
+                UPDATE subscribers
+                SET password_hash = %s,
+                    onboarding_status = 'claimed',
+                    updated_at = NOW()
+                WHERE email = %s
+            """, (password_hash, current_user.email))
+
         conn.commit()
-        conn.close()
-        login_user(user)
-        flash("Password set successfully!")
-        return redirect("/dashboard")
+        logger.info(f"Password set for {current_user.email} ({current_user.role})")
+        flash("Password set successfully! You can now log in anytime.", "success")
 
-    flash("User not found.")
-    return redirect("/")
+        # Redirect based on role
+        if current_user.role == 'agency_owner':
+            return redirect("/agency-dashboard")
+        else:
+            return redirect("/dashboard")
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Set password error for {current_user.email}: {e}")
+        flash("Error setting password. Please try again.", "error")
+        return redirect(f"/set-password?type={user_type}")
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/refresh")
 def refresh_subscribers():
@@ -1503,19 +1681,76 @@ def refresh_subscribers():
     except:
         return "Failed", 500
 
+@app.route("/oauth/initiate")
+def oauth_initiate():
+    """
+    Initiates OAuth flow with GoHighLevel.
+    Works BEFORE marketplace approval (using private app credentials).
+
+    User clicks "Connect with GoHighLevel" → Redirected to GHL consent page → Back to /oauth/callback
+    """
+    client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+    redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
+
+    # Required scopes for the private app (must match GHL private app configuration)
+    scopes = [
+        "calendars.readonly",
+        "calendars/events.readonly",
+        "calendars/events.write",
+        "conversations/message.write",
+        "conversations/message.readonly",
+        "contacts.readonly",
+        "locations.readonly",
+        "calendars/groups.readonly",
+        "conversations.write"
+    ]
+    scope_string = " ".join(scopes)
+
+    # Use state parameter to identify this as private app flow (Stripe/website users)
+    state = "private_app"
+
+    # Build OAuth URL
+    oauth_url = (
+        f"https://marketplace.gohighlevel.com/oauth/chooselocation?"
+        f"response_type=code&"
+        f"redirect_uri={redirect_uri}&"
+        f"client_id={client_id}&"
+        f"scope={scope_string}&"
+        f"state={state}"
+    )
+
+    logger.info(f"Initiating private app OAuth flow. Redirecting to: {oauth_url}")
+    return redirect(oauth_url)
+
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
+    state = request.args.get("state")
+
     if not code:
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
     try:
+        # Determine which OAuth app was used based on state parameter
+        # state="private_app" → Stripe/website users connecting GHL
+        # No state → GHL marketplace installation
+        is_private_app = (state == "private_app")
+
+        if is_private_app:
+            client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+            client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+            logger.info("OAuth callback: Using private app credentials (Stripe/website flow)")
+        else:
+            client_id = os.getenv("GHL_CLIENT_ID")
+            client_secret = os.getenv("GHL_CLIENT_SECRET")
+            logger.info("OAuth callback: Using marketplace app credentials (GHL marketplace flow)")
+
         # 1. Exchange Code for Token
         token_url = "https://services.leadconnectorhq.com/oauth/token"
         payload = {
-            "client_id": os.getenv("GHL_CLIENT_ID"),
-            "client_secret": os.getenv("GHL_CLIENT_SECRET"),
+            "client_id": client_id,
+            "client_secret": client_secret,
             "grant_type": "authorization_code",
             "code": code,
             "user_type": "Location",
@@ -1562,6 +1797,27 @@ def oauth_callback():
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
         primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
+
+        # 6b. Fetch users for each location (to get agent emails)
+        location_users = {}  # {location_id: [list of users]}
+
+        if is_agency_owner:
+            for sub in sub_accounts:
+                loc_id = sub['id']
+                try:
+                    # GHL API: Get users assigned to this location
+                    users_resp = requests.get(
+                        f"https://services.leadconnectorhq.com/locations/{loc_id}/users",
+                        headers=headers,
+                        timeout=10
+                    )
+                    if users_resp.ok:
+                        users_data = users_resp.json().get('users', [])
+                        location_users[loc_id] = users_data
+                        logger.info(f"Found {len(users_data)} users for location {loc_id}")
+                except Exception as e:
+                    logger.warning(f"Could not fetch users for location {loc_id}: {e}")
+                    location_users[loc_id] = []
 
         # 7. Database operations
         conn = get_db_connection()
@@ -1614,27 +1870,41 @@ def oauth_callback():
                     if is_agency_owner and is_primary:
                         continue
 
+                    # Get the first user's email for this location (if any)
+                    agent_email = None
+                    agent_name = sub_name
+                    agent_crm_user_id = None
+
+                    loc_users = location_users.get(sub_id, [])
+                    if loc_users:
+                        # Get the first (primary) user for this location
+                        primary_user = loc_users[0]
+                        agent_email = primary_user.get('email')
+                        agent_name = primary_user.get('name') or sub_name
+                        agent_crm_user_id = primary_user.get('id')
+                        logger.info(f"Location {sub_id} has agent: {agent_email}")
+
                     access_token_this = access_token if is_primary else None
                     refresh_token_this = refresh_token if is_primary else None
-                    crm_user_id_this = me_data.get('id') if is_primary else None
 
                     role = 'agency_sub_account_user' if is_agency_owner else 'individual'
                     parent_agency_email = user_email if is_agency_owner else None
-                    email_this = user_email  # Initially link to owner
+                    email_this = user_email  # Owner's email for billing/parent link
 
                     cur.execute("""
                         INSERT INTO subscribers (
-                            location_id, email, full_name, role, subscription_tier,
+                            location_id, email, agent_email, full_name, role, subscription_tier,
                             parent_agency_email, access_token, refresh_token,
                             token_expires_at, timezone, crm_user_id,
-                            created_at, updated_at
+                            onboarding_status, created_at, updated_at
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             CASE WHEN %s THEN NOW() + interval '%s seconds' ELSE NULL END,
-                            %s, %s, NOW(), NOW()
+                            %s, %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (location_id) DO UPDATE SET
                             email = EXCLUDED.email,
+                            agent_email = COALESCE(EXCLUDED.agent_email, subscribers.agent_email),
                             full_name = EXCLUDED.full_name,
                             role = EXCLUDED.role,
                             subscription_tier = EXCLUDED.subscription_tier,
@@ -1643,18 +1913,30 @@ def oauth_callback():
                             refresh_token = CASE WHEN %s THEN EXCLUDED.refresh_token ELSE subscribers.refresh_token END,
                             token_expires_at = CASE WHEN %s THEN EXCLUDED.token_expires_at ELSE subscribers.token_expires_at END,
                             timezone = EXCLUDED.timezone,
-                            crm_user_id = CASE WHEN %s THEN EXCLUDED.crm_user_id ELSE subscribers.crm_user_id END,
+                            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
                             updated_at = NOW()
                     """, (
-                        sub_id, email_this, sub_name, role, plan_tier,
+                        sub_id, email_this, agent_email, agent_name, role, plan_tier,
                         parent_agency_email, access_token_this, refresh_token_this,
                         is_primary, expires_in,
-                        sub_timezone, crm_user_id_this,
-                        is_primary, is_primary, is_primary, is_primary
+                        sub_timezone or 'America/Chicago', agent_crm_user_id,
+                        'pending',  # onboarding_status
+                        is_primary, is_primary, is_primary
                     ))
 
                 conn.commit()
                 logger.info(f"Successfully onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
+
+                # Check if user needs to set password
+                needs_password = False
+                if is_agency_owner:
+                    cur.execute("SELECT password_hash FROM agency_billing WHERE agency_email = %s", (user_email,))
+                    row = cur.fetchone()
+                    needs_password = not row or not row[0]
+                else:
+                    cur.execute("SELECT password_hash FROM subscribers WHERE email = %s", (user_email,))
+                    row = cur.fetchone()
+                    needs_password = not row or not row[0]
 
             except Exception as e:
                 conn.rollback()
@@ -1665,8 +1947,20 @@ def oauth_callback():
                 cur.close()
                 conn.close()
 
-        # Success redirect
+        # Login the user via Flask-Login
+        user = User.get(user_email)
+        if user:
+            login_user(user)
+
+        # Success redirect - check if password needed
         flash(f"Success! {num_subs} locations connected.", "success")
+
+        if needs_password:
+            if is_agency_owner:
+                return redirect("/set-password?type=agency")
+            else:
+                return redirect(f"/register?location_id={primary_location_id}")
+
         if is_agency_owner:
             return redirect("/agency-dashboard")
         return redirect("/dashboard")
@@ -1679,6 +1973,445 @@ def oauth_callback():
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
         flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
+
+# ============================================================
+# SUB-USER INVITE SYSTEM
+# ============================================================
+
+def send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_url: str):
+    """
+    Send the onboarding invite email to a sub-account user.
+    """
+    subject = f"You're invited to InsuranceGrokBot by {agency_name}"
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Welcome to InsuranceGrokBot!</h2>
+
+            <p>Hi {agent_name},</p>
+
+            <p><strong>{agency_name}</strong> has set up an AI-powered sales assistant for your location
+            and invited you to activate your account.</p>
+
+            <p>Click the button below to set your password and get started:</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{invite_url}"
+                   style="background-color: #2563eb; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                    Activate My Account
+                </a>
+            </div>
+
+            <p style="color: #666; font-size: 14px;">
+                This link expires in 7 days. If you didn't expect this email,
+                please contact your agency administrator.
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+
+            <p style="color: #999; font-size: 12px;">
+                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                <a href="{YOUR_DOMAIN}" style="color: #2563eb;">
+                    {YOUR_DOMAIN}
+                </a>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Welcome to InsuranceGrokBot!
+
+    Hi {agent_name},
+
+    {agency_name} has set up an AI-powered sales assistant for your location
+    and invited you to activate your account.
+
+    Click here to set your password and get started:
+    {invite_url}
+
+    This link expires in 7 days.
+
+    - InsuranceGrokBot Team
+    """
+
+    try:
+        msg = Message(
+            subject=subject,
+            recipients=[to_email],
+            html=html_body,
+            body=text_body
+        )
+        mail.send(msg)
+        logger.info(f"Invite email sent to {to_email}")
+    except Exception as e:
+        logger.error(f"Failed to send invite email to {to_email}: {e}")
+        raise
+
+
+@app.route("/api/agency/invite-sub-user", methods=["POST"])
+@login_required
+def invite_sub_user():
+    """
+    Agency owner invites a sub-account user to create their login.
+    Sends email with unique claim link.
+    """
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json()
+    location_id = data.get("location_id")
+    target_email = data.get("email")  # Can override the auto-detected email
+
+    if not location_id:
+        return flask_jsonify({"error": "Missing location_id"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Verify this location belongs to the agency owner
+        cur.execute("""
+            SELECT location_id, full_name, agent_email, onboarding_status
+            FROM subscribers
+            WHERE location_id = %s AND parent_agency_email = %s
+        """, (location_id, current_user.email))
+
+        sub = cur.fetchone()
+        if not sub:
+            return flask_jsonify({"error": "Location not found or not owned by you"}), 404
+
+        # Determine email to use
+        invite_email = target_email or sub['agent_email']
+        if not invite_email:
+            return flask_jsonify({"error": "No email found for this location. Please provide one."}), 400
+
+        # Check if already claimed
+        if sub['onboarding_status'] == 'claimed':
+            return flask_jsonify({"error": "This user has already claimed their account"}), 400
+
+        # Generate unique invite token
+        invite_token = secrets.token_urlsafe(32)
+
+        # Update subscriber with invite info
+        cur.execute("""
+            UPDATE subscribers
+            SET agent_email = %s,
+                invite_token = %s,
+                invite_sent_at = NOW(),
+                onboarding_status = 'invited',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (invite_email, invite_token, location_id))
+
+        conn.commit()
+
+        # Build invite URL
+        invite_url = f"{YOUR_DOMAIN}/claim-account?token={invite_token}"
+
+        # Send email
+        try:
+            send_invite_email(
+                to_email=invite_email,
+                agent_name=sub['full_name'],
+                agency_name=current_user.full_name or "Your Agency",
+                invite_url=invite_url
+            )
+            logger.info(f"Invite sent to {invite_email} for location {location_id}")
+        except Exception as email_err:
+            logger.error(f"Email send failed: {email_err}")
+            # Still return success - they can use the link manually
+            return flask_jsonify({
+                "status": "partial",
+                "message": "Invite created but email failed to send",
+                "invite_url": invite_url  # Fallback: give them the link
+            })
+
+        return flask_jsonify({
+            "status": "success",
+            "message": f"Invite sent to {invite_email}"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Invite sub-user error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/claim-account", methods=["GET", "POST"])
+def claim_account():
+    """
+    Sub-user claims their account using the invite token.
+    GET: Show the claim form
+    POST: Process the password and activate account
+    """
+    token = request.args.get("token") or request.form.get("token")
+
+    if not token:
+        flash("Invalid or missing invite link.", "danger")
+        return redirect(url_for('home'))
+
+    conn = get_db_connection()
+    if not conn:
+        flash("System error. Please try again.", "danger")
+        return redirect(url_for('home'))
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Find the subscriber with this token
+        cur.execute("""
+            SELECT location_id, agent_email, full_name, onboarding_status, invite_sent_at
+            FROM subscribers
+            WHERE invite_token = %s
+        """, (token,))
+
+        sub = cur.fetchone()
+
+        if not sub:
+            flash("Invalid or expired invite link.", "danger")
+            return redirect(url_for('home'))
+
+        if sub['onboarding_status'] == 'claimed':
+            flash("This account has already been claimed. Please log in.", "info")
+            return redirect(url_for('login'))
+
+        # Check if invite is expired (7 days)
+        if sub['invite_sent_at']:
+            from datetime import timedelta
+            expiry = sub['invite_sent_at'] + timedelta(days=7)
+            if datetime.now() > expiry:
+                flash("This invite link has expired. Please ask your agency owner to resend.", "danger")
+                return redirect(url_for('home'))
+
+        if request.method == 'GET':
+            # Show the claim form
+            return render_template('claim_account.html',
+                                   email=sub['agent_email'],
+                                   name=sub['full_name'],
+                                   token=token)
+
+        # POST: Process the claim
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+
+        if not password or len(password) < 8:
+            flash("Password must be at least 8 characters.", "danger")
+            return render_template('claim_account.html',
+                                   email=sub['agent_email'],
+                                   name=sub['full_name'],
+                                   token=token)
+
+        if password != confirm_password:
+            flash("Passwords do not match.", "danger")
+            return render_template('claim_account.html',
+                                   email=sub['agent_email'],
+                                   name=sub['full_name'],
+                                   token=token)
+
+        # Hash password and activate account
+        password_hash = generate_password_hash(password)
+
+        cur.execute("""
+            UPDATE subscribers
+            SET password_hash = %s,
+                email = %s,
+                invite_token = NULL,
+                invite_claimed_at = NOW(),
+                onboarding_status = 'claimed',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (password_hash, sub['agent_email'], sub['location_id']))
+
+        conn.commit()
+
+        logger.info(f"Account claimed: {sub['agent_email']} for location {sub['location_id']}")
+        flash("Account activated! You can now log in.", "success")
+        return redirect(url_for('login'))
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Claim account error: {e}")
+        flash("An error occurred. Please try again.", "danger")
+        return redirect(url_for('home'))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/api/agency/resend-invite", methods=["POST"])
+@login_required
+def resend_invite():
+    """Re-send invite email to a sub-account user."""
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json()
+    location_id = data.get("location_id")
+
+    if not location_id:
+        return flask_jsonify({"error": "Missing location_id"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT location_id, full_name, agent_email, invite_token, onboarding_status
+            FROM subscribers
+            WHERE location_id = %s AND parent_agency_email = %s
+        """, (location_id, current_user.email))
+
+        sub = cur.fetchone()
+        if not sub:
+            return flask_jsonify({"error": "Location not found"}), 404
+
+        if sub['onboarding_status'] == 'claimed':
+            return flask_jsonify({"error": "User has already claimed their account"}), 400
+
+        if not sub['agent_email']:
+            return flask_jsonify({"error": "No email on file for this user"}), 400
+
+        # Generate new token
+        new_token = secrets.token_urlsafe(32)
+
+        cur.execute("""
+            UPDATE subscribers
+            SET invite_token = %s,
+                invite_sent_at = NOW(),
+                onboarding_status = 'invited',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (new_token, location_id))
+
+        conn.commit()
+
+        # Send email
+        invite_url = f"{YOUR_DOMAIN}/claim-account?token={new_token}"
+
+        try:
+            send_invite_email(
+                to_email=sub['agent_email'],
+                agent_name=sub['full_name'],
+                agency_name=current_user.full_name or "Your Agency",
+                invite_url=invite_url
+            )
+        except Exception as email_err:
+            logger.error(f"Resend email failed: {email_err}")
+            return flask_jsonify({
+                "status": "partial",
+                "message": "Token refreshed but email failed",
+                "invite_url": invite_url
+            })
+
+        return flask_jsonify({
+            "status": "success",
+            "message": f"Invite re-sent to {sub['agent_email']}"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Resend invite error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/api/agency/invite-all", methods=["POST"])
+@login_required
+def invite_all_sub_users():
+    """Invite all sub-account users who haven't been invited yet."""
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get all pending sub-accounts with emails
+        cur.execute("""
+            SELECT location_id, full_name, agent_email
+            FROM subscribers
+            WHERE parent_agency_email = %s
+              AND onboarding_status = 'pending'
+              AND agent_email IS NOT NULL
+        """, (current_user.email,))
+
+        pending = cur.fetchall()
+
+        if not pending:
+            return flask_jsonify({
+                "status": "info",
+                "message": "No pending users with emails found"
+            })
+
+        invited_count = 0
+        failed_count = 0
+
+        for sub in pending:
+            try:
+                # Generate token
+                invite_token = secrets.token_urlsafe(32)
+
+                # Update subscriber
+                cur.execute("""
+                    UPDATE subscribers
+                    SET invite_token = %s,
+                        invite_sent_at = NOW(),
+                        onboarding_status = 'invited',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (invite_token, sub['location_id']))
+
+                # Send email
+                invite_url = f"{YOUR_DOMAIN}/claim-account?token={invite_token}"
+                send_invite_email(
+                    to_email=sub['agent_email'],
+                    agent_name=sub['full_name'],
+                    agency_name=current_user.full_name or "Your Agency",
+                    invite_url=invite_url
+                )
+                invited_count += 1
+
+            except Exception as e:
+                logger.error(f"Failed to invite {sub['agent_email']}: {e}")
+                failed_count += 1
+
+        conn.commit()
+
+        return flask_jsonify({
+            "status": "success",
+            "invited": invited_count,
+            "failed": failed_count,
+            "message": f"Invited {invited_count} users ({failed_count} failed)"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Bulk invite error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 # =====================================================
 # AGENCY LOGIN - FULL UNIFIED IMPLEMENTATION
 # =====================================================
