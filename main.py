@@ -1635,7 +1635,7 @@ def oauth_initiate():
 
     User clicks "Connect with GoHighLevel" → Redirected to GHL consent page → Back to /oauth/callback
     """
-    client_id = os.getenv("GHL_CLIENT_ID")
+    client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
     # Required scopes for the app
@@ -1655,31 +1655,51 @@ def oauth_initiate():
     ]
     scope_string = " ".join(scopes)
 
+    # Use state parameter to identify this as private app flow (Stripe/website users)
+    state = "private_app"
+
     # Build OAuth URL
     oauth_url = (
         f"https://marketplace.gohighlevel.com/oauth/chooselocation?"
         f"response_type=code&"
         f"redirect_uri={redirect_uri}&"
         f"client_id={client_id}&"
-        f"scope={scope_string}"
+        f"scope={scope_string}&"
+        f"state={state}"
     )
 
-    logger.info(f"Initiating OAuth flow. Redirecting to: {oauth_url}")
+    logger.info(f"Initiating private app OAuth flow. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
 
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
+    state = request.args.get("state")
+
     if not code:
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
     try:
+        # Determine which OAuth app was used based on state parameter
+        # state="private_app" → Stripe/website users connecting GHL
+        # No state → GHL marketplace installation
+        is_private_app = (state == "private_app")
+
+        if is_private_app:
+            client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+            client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+            logger.info("OAuth callback: Using private app credentials (Stripe/website flow)")
+        else:
+            client_id = os.getenv("GHL_CLIENT_ID")
+            client_secret = os.getenv("GHL_CLIENT_SECRET")
+            logger.info("OAuth callback: Using marketplace app credentials (GHL marketplace flow)")
+
         # 1. Exchange Code for Token
         token_url = "https://services.leadconnectorhq.com/oauth/token"
         payload = {
-            "client_id": os.getenv("GHL_CLIENT_ID"),
-            "client_secret": os.getenv("GHL_CLIENT_SECRET"),
+            "client_id": client_id,
+            "client_secret": client_secret,
             "grant_type": "authorization_code",
             "code": code,
             "user_type": "Location",
