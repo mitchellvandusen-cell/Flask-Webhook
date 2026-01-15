@@ -439,11 +439,82 @@ LOOP_PATTERNS = [
 ]
 # 7. BOOKING CONFIRMATIONS (The "Stop Selling" Triggers)
 BOOKING_CONFIRMED_PATTERNS = [
-    "talk to you then", "see you at", "invite received", 
-    "locked in", "calendar", "tomorrow at", "today at",
-    "appointment set", "booked it", "confirmed", "on the calendar"
-]
+    # --- EXPLICIT CONFIRMATIONS (Formal) ---
+    "Confirmed",
+    "Appointment confirmed",
+    "Booking confirmed",
+    "All set for the appointment",
+    "I've confirmed the time",
+    "Yes, that's confirmed",
+    "The meeting is confirmed",
+    "We're good to go",
+    "Locked and loaded",
+    "It's official",
 
+    # --- EXPLICIT CONFIRMATIONS (Casual/Chat Syntax) ---
+    "confirmed",
+    "booked",
+    "all set",
+    "good to go",
+    "we're on",
+    "im in",
+    "yes that works",
+    "sounds good",
+    "k confirmed",
+    "ok booked",
+
+    # --- TIME & SLOT REFERENCES (Implying Acceptance) ---
+    "See you at",
+    "Talk to you then",
+    "See you tomorrow at",
+    "Today at works",
+    "Friday at is good",
+    "2pm is perfect",
+    "That time slot is fine",
+    "I'll be there at",
+    "Catch you at",
+    "Works for me at",
+
+    # --- CALENDAR & INVITE ACTIONS ---
+    "Added to my calendar",
+    "On the calendar",
+    "Put it on my cal",
+    "Calendar updated",
+    "Invite received",
+    "Got the invite",
+    "Accepted the calendar invite",
+    "Event added",
+    "Synced to calendar",
+    "Marked on my schedule",
+
+    # --- LOCK-IN PHRASES (Commitment Signals) ---
+    "Locked in",
+    "Booked it",
+    "Appointment set",
+    "Scheduled it",
+    "Penciled in",
+    "It's in the books",
+    "We're booked",
+    "Set in stone",
+    "Nailed down",
+    "All locked",
+
+    # --- LOOKING FORWARD / POSITIVE CLOSERS ---
+    "Looking forward to it",
+    "Excited for the call",
+    "Can't wait to chat",
+    "See you soon",
+    "Talk soon",
+    "Catch up then",
+
+    # --- EDGE CASES (Emojis, Reschedules, etc.) ---
+    "👍 confirmed",
+    "Yes 👍 on calendar",
+    "Moved to my calendar",
+    "Rescheduled and confirmed",
+    "No changes, see you then",
+    "All good, booked"
+]
 # ==========================================
 # === HELPER: FUZZY MATCHING (70% RULE) ===
 # ==========================================
