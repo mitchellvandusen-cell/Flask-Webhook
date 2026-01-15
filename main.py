@@ -1726,6 +1726,445 @@ def oauth_callback():
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
         flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
+
+# ============================================================
+# SUB-USER INVITE SYSTEM
+# ============================================================
+
+def send_invite_email(to_email: str, agent_name: str, agency_name: str, invite_url: str):
+    """
+    Send the onboarding invite email to a sub-account user.
+    """
+    subject = f"You're invited to InsuranceGrokBot by {agency_name}"
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Welcome to InsuranceGrokBot!</h2>
+
+            <p>Hi {agent_name},</p>
+
+            <p><strong>{agency_name}</strong> has set up an AI-powered sales assistant for your location
+            and invited you to activate your account.</p>
+
+            <p>Click the button below to set your password and get started:</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{invite_url}"
+                   style="background-color: #2563eb; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                    Activate My Account
+                </a>
+            </div>
+
+            <p style="color: #666; font-size: 14px;">
+                This link expires in 7 days. If you didn't expect this email,
+                please contact your agency administrator.
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+
+            <p style="color: #999; font-size: 12px;">
+                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                <a href="{YOUR_DOMAIN}" style="color: #2563eb;">
+                    {YOUR_DOMAIN}
+                </a>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+    Welcome to InsuranceGrokBot!
+
+    Hi {agent_name},
+
+    {agency_name} has set up an AI-powered sales assistant for your location
+    and invited you to activate your account.
+
+    Click here to set your password and get started:
+    {invite_url}
+
+    This link expires in 7 days.
+
+    - InsuranceGrokBot Team
+    """
+
+    try:
+        msg = Message(
+            subject=subject,
+            recipients=[to_email],
+            html=html_body,
+            body=text_body
+        )
+        mail.send(msg)
+        logger.info(f"Invite email sent to {to_email}")
+    except Exception as e:
+        logger.error(f"Failed to send invite email to {to_email}: {e}")
+        raise
+
+
+@app.route("/api/agency/invite-sub-user", methods=["POST"])
+@login_required
+def invite_sub_user():
+    """
+    Agency owner invites a sub-account user to create their login.
+    Sends email with unique claim link.
+    """
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json()
+    location_id = data.get("location_id")
+    target_email = data.get("email")  # Can override the auto-detected email
+
+    if not location_id:
+        return flask_jsonify({"error": "Missing location_id"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Verify this location belongs to the agency owner
+        cur.execute("""
+            SELECT location_id, full_name, agent_email, onboarding_status
+            FROM subscribers
+            WHERE location_id = %s AND parent_agency_email = %s
+        """, (location_id, current_user.email))
+
+        sub = cur.fetchone()
+        if not sub:
+            return flask_jsonify({"error": "Location not found or not owned by you"}), 404
+
+        # Determine email to use
+        invite_email = target_email or sub['agent_email']
+        if not invite_email:
+            return flask_jsonify({"error": "No email found for this location. Please provide one."}), 400
+
+        # Check if already claimed
+        if sub['onboarding_status'] == 'claimed':
+            return flask_jsonify({"error": "This user has already claimed their account"}), 400
+
+        # Generate unique invite token
+        invite_token = secrets.token_urlsafe(32)
+
+        # Update subscriber with invite info
+        cur.execute("""
+            UPDATE subscribers
+            SET agent_email = %s,
+                invite_token = %s,
+                invite_sent_at = NOW(),
+                onboarding_status = 'invited',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (invite_email, invite_token, location_id))
+
+        conn.commit()
+
+        # Build invite URL
+        invite_url = f"{YOUR_DOMAIN}/claim-account?token={invite_token}"
+
+        # Send email
+        try:
+            send_invite_email(
+                to_email=invite_email,
+                agent_name=sub['full_name'],
+                agency_name=current_user.full_name or "Your Agency",
+                invite_url=invite_url
+            )
+            logger.info(f"Invite sent to {invite_email} for location {location_id}")
+        except Exception as email_err:
+            logger.error(f"Email send failed: {email_err}")
+            # Still return success - they can use the link manually
+            return flask_jsonify({
+                "status": "partial",
+                "message": "Invite created but email failed to send",
+                "invite_url": invite_url  # Fallback: give them the link
+            })
+
+        return flask_jsonify({
+            "status": "success",
+            "message": f"Invite sent to {invite_email}"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Invite sub-user error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/claim-account", methods=["GET", "POST"])
+def claim_account():
+    """
+    Sub-user claims their account using the invite token.
+    GET: Show the claim form
+    POST: Process the password and activate account
+    """
+    token = request.args.get("token") or request.form.get("token")
+
+    if not token:
+        flash("Invalid or missing invite link.", "danger")
+        return redirect(url_for('home'))
+
+    conn = get_db_connection()
+    if not conn:
+        flash("System error. Please try again.", "danger")
+        return redirect(url_for('home'))
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Find the subscriber with this token
+        cur.execute("""
+            SELECT location_id, agent_email, full_name, onboarding_status, invite_sent_at
+            FROM subscribers
+            WHERE invite_token = %s
+        """, (token,))
+
+        sub = cur.fetchone()
+
+        if not sub:
+            flash("Invalid or expired invite link.", "danger")
+            return redirect(url_for('home'))
+
+        if sub['onboarding_status'] == 'claimed':
+            flash("This account has already been claimed. Please log in.", "info")
+            return redirect(url_for('login'))
+
+        # Check if invite is expired (7 days)
+        if sub['invite_sent_at']:
+            from datetime import timedelta
+            expiry = sub['invite_sent_at'] + timedelta(days=7)
+            if datetime.now() > expiry:
+                flash("This invite link has expired. Please ask your agency owner to resend.", "danger")
+                return redirect(url_for('home'))
+
+        if request.method == 'GET':
+            # Show the claim form
+            return render_template('claim_account.html',
+                                   email=sub['agent_email'],
+                                   name=sub['full_name'],
+                                   token=token)
+
+        # POST: Process the claim
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+
+        if not password or len(password) < 8:
+            flash("Password must be at least 8 characters.", "danger")
+            return render_template('claim_account.html',
+                                   email=sub['agent_email'],
+                                   name=sub['full_name'],
+                                   token=token)
+
+        if password != confirm_password:
+            flash("Passwords do not match.", "danger")
+            return render_template('claim_account.html',
+                                   email=sub['agent_email'],
+                                   name=sub['full_name'],
+                                   token=token)
+
+        # Hash password and activate account
+        password_hash = generate_password_hash(password)
+
+        cur.execute("""
+            UPDATE subscribers
+            SET password_hash = %s,
+                email = %s,
+                invite_token = NULL,
+                invite_claimed_at = NOW(),
+                onboarding_status = 'claimed',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (password_hash, sub['agent_email'], sub['location_id']))
+
+        conn.commit()
+
+        logger.info(f"Account claimed: {sub['agent_email']} for location {sub['location_id']}")
+        flash("Account activated! You can now log in.", "success")
+        return redirect(url_for('login'))
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Claim account error: {e}")
+        flash("An error occurred. Please try again.", "danger")
+        return redirect(url_for('home'))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/api/agency/resend-invite", methods=["POST"])
+@login_required
+def resend_invite():
+    """Re-send invite email to a sub-account user."""
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json()
+    location_id = data.get("location_id")
+
+    if not location_id:
+        return flask_jsonify({"error": "Missing location_id"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT location_id, full_name, agent_email, invite_token, onboarding_status
+            FROM subscribers
+            WHERE location_id = %s AND parent_agency_email = %s
+        """, (location_id, current_user.email))
+
+        sub = cur.fetchone()
+        if not sub:
+            return flask_jsonify({"error": "Location not found"}), 404
+
+        if sub['onboarding_status'] == 'claimed':
+            return flask_jsonify({"error": "User has already claimed their account"}), 400
+
+        if not sub['agent_email']:
+            return flask_jsonify({"error": "No email on file for this user"}), 400
+
+        # Generate new token
+        new_token = secrets.token_urlsafe(32)
+
+        cur.execute("""
+            UPDATE subscribers
+            SET invite_token = %s,
+                invite_sent_at = NOW(),
+                onboarding_status = 'invited',
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (new_token, location_id))
+
+        conn.commit()
+
+        # Send email
+        invite_url = f"{YOUR_DOMAIN}/claim-account?token={new_token}"
+
+        try:
+            send_invite_email(
+                to_email=sub['agent_email'],
+                agent_name=sub['full_name'],
+                agency_name=current_user.full_name or "Your Agency",
+                invite_url=invite_url
+            )
+        except Exception as email_err:
+            logger.error(f"Resend email failed: {email_err}")
+            return flask_jsonify({
+                "status": "partial",
+                "message": "Token refreshed but email failed",
+                "invite_url": invite_url
+            })
+
+        return flask_jsonify({
+            "status": "success",
+            "message": f"Invite re-sent to {sub['agent_email']}"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Resend invite error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/api/agency/invite-all", methods=["POST"])
+@login_required
+def invite_all_sub_users():
+    """Invite all sub-account users who haven't been invited yet."""
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 500
+
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Get all pending sub-accounts with emails
+        cur.execute("""
+            SELECT location_id, full_name, agent_email
+            FROM subscribers
+            WHERE parent_agency_email = %s
+              AND onboarding_status = 'pending'
+              AND agent_email IS NOT NULL
+        """, (current_user.email,))
+
+        pending = cur.fetchall()
+
+        if not pending:
+            return flask_jsonify({
+                "status": "info",
+                "message": "No pending users with emails found"
+            })
+
+        invited_count = 0
+        failed_count = 0
+
+        for sub in pending:
+            try:
+                # Generate token
+                invite_token = secrets.token_urlsafe(32)
+
+                # Update subscriber
+                cur.execute("""
+                    UPDATE subscribers
+                    SET invite_token = %s,
+                        invite_sent_at = NOW(),
+                        onboarding_status = 'invited',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (invite_token, sub['location_id']))
+
+                # Send email
+                invite_url = f"{YOUR_DOMAIN}/claim-account?token={invite_token}"
+                send_invite_email(
+                    to_email=sub['agent_email'],
+                    agent_name=sub['full_name'],
+                    agency_name=current_user.full_name or "Your Agency",
+                    invite_url=invite_url
+                )
+                invited_count += 1
+
+            except Exception as e:
+                logger.error(f"Failed to invite {sub['agent_email']}: {e}")
+                failed_count += 1
+
+        conn.commit()
+
+        return flask_jsonify({
+            "status": "success",
+            "invited": invited_count,
+            "failed": failed_count,
+            "message": f"Invited {invited_count} users ({failed_count} failed)"
+        })
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Bulk invite error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 # =====================================================
 # AGENCY LOGIN - FULL UNIFIED IMPLEMENTATION
 # =====================================================
