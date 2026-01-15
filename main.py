@@ -208,7 +208,7 @@ def website_bot_webhook():
 
     # 5. Enqueue Job to 'production' Queue
     try:
-        job = q_production.enqueue(
+        job = q_demo.enqueue(
             process_async_chat_task,
             {"contact_id": contact_id, "message": user_message},
             job_timeout=60,
