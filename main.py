@@ -976,111 +976,128 @@ def privacy():
     return render_template('privacy.html')
 
 # =====================================================
-# HYBRID GET LOGS (REDIS + SQL FALLBACK)
+#  GET LOGS (REDIS assistant + SQL for demo )
 # =====================================================
+@app.route("/get-assistant-logs", methods=["GET"])
+def get_assistant_logs():
+    contact_id = request.args.get("contact_id")
+    if not contact_id or not conn: 
+        return flask_jsonify({"logs": []})
+    
+    try:
+        redis_key = f"chat_logs:{contact_id}"
+        if conn.exists(redis_key):
+            raw = conn.lrange(redis_key, 0, -1)
+            # Fast parse and return
+            logs = [json.loads(x) for x in raw]
+            return safe_jsonify({"logs": logs})
+    except Exception as e:
+        logger.error(f"Assistant Redis Error: {e}")
+    
+    return flask_jsonify({"logs": []})
+
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
     contact_id = request.args.get("contact_id")
-    if not contact_id:
-        return flask_jsonify({"logs": []})
 
-    is_demo = contact_id.startswith(('demo_', 'test_'))
+    if not contact_id or (not contact_id.startswith("test_") and not contact_id.startswith("demo_")):
+        return flask_jsonify({"logs": []}) 
 
-    # 1. REDIS CHECK — only for NON-demo sessions (fast real-time website chat)
-    if not is_demo and conn:
-        try:
-            redis_key = f"chat_logs:{contact_id}"
-            if conn.exists(redis_key):
-                raw = conn.lrange(redis_key, 0, -1)
-                logs = []
-                for x in raw:
-                    try:
-                        d = json.loads(x)
-                        logs.append(d)
-                    except:
-                        continue
-                if logs:
-                    return safe_jsonify({"logs": logs})
-        except Exception as e:
-            logger.warning(f"Redis lookup failed in get_logs: {e}")
-
-    # 2. SQL FALLBACK — always used for demo/test, or when Redis empty
-    if not is_demo and not contact_id.startswith("test_") and not contact_id.startswith("demo_"):
-        return flask_jsonify({"logs": []})
-
-    db_conn = get_db_connection()
-    if not db_conn:
-        return flask_jsonify({"logs": []})
+    conn = get_db_connection()
+    if not conn:
+        logger.error("Database connection failed in get_logs")
+        return flask_jsonify({"error": "Database connection failed"}), 500
 
     logs = []
-    try:
-        cur = db_conn.cursor(cursor_factory=RealDictCursor)
 
-        # Fetch Messages
+    try:
+        cur = conn.cursor()
+
+        # === 1. Messages with real timestamps ===
         cur.execute("""
-            SELECT message_type, message_text, created_at 
-            FROM contact_messages 
-            WHERE contact_id = %s 
+            SELECT message_type, message_text, created_at
+            FROM contact_messages
+            WHERE contact_id = %s
             ORDER BY created_at ASC
         """, (contact_id,))
-        rows = cur.fetchall()
+        messages = cur.fetchall()
 
-        for r in rows:
-            ts = r['created_at'].isoformat() if hasattr(r['created_at'], 'isoformat') else str(r['created_at'])
-            role = "Bot" if r['message_type'] in ['assistant', 'bot'] else "Lead"
-            logs.append({
-                "role": role.lower(),
-                "type": f"{role} Message",
-                "content": r['message_text'],
-                "timestamp": ts
-            })
+        for row in messages:
+            # === CRITICAL FIX START ===
+            # Your DB returns a Dictionary, so we must access by key!
+            msg_type = row['message_type']
+            text = row['message_text']
+            created_at = row['created_at']
+            # === CRITICAL FIX END ===
 
-        # Facts & Narrative (same as before)
+            role = "Lead" if msg_type == "lead" else "Bot"
+            
+            timestamp = "Unknown"
+            if created_at:
+                if isinstance(created_at, str):
+                    timestamp = created_at
+                elif hasattr(created_at, 'isoformat'):
+                    timestamp = created_at.isoformat()
+                else:
+                    timestamp = str(created_at)
+            
+            logs.append({"timestamp": timestamp, "type": f"{role} Message", "content": text.strip()})
+
         facts = get_known_facts(contact_id)
-        if facts:
-            logs.append({
-                "timestamp": datetime.now().isoformat(),
-                "type": "Known Facts",
-                "content": "\n".join([f"• {f}" for f in facts])
-            })
+        fact_content = "\n".join([f"â¢ {f}" for f in facts]) if facts else "No facts extracted yet"
+        logs.append({"timestamp": datetime.now().isoformat(), "type": "Known Facts", "content": fact_content})
+        
+        # Extract basics for profile rebuild
+        first_name = None
+        age = None
+        address = None
+        facts_text = " ".join(facts).lower()
 
-        narrative = get_narrative(contact_id)
-        if not narrative and facts:
-            try:
-                facts_text = " ".join(facts).lower()
-                first_name = None
-                age = None
-                import re
-                name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
-                if name_match: first_name = name_match.group(1).capitalize()
-                age_match = re.search(r"age: (\d+)", facts_text)
-                if age_match: age = age_match.group(1)
+        story_narrative = get_narrative(contact_id)
+        
+        name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
+        if name_match: first_name = name_match.group(1).capitalize()
+        
+        age_match = re.search(r"age: (\d+)", facts_text)
+        if age_match: age = age_match.group(1)
+        
+        addr_match = re.search(r"address/location: (.*)", facts_text, re.IGNORECASE)
+        if addr_match: address = addr_match.group(1).strip()
 
-                rebuilt_narrative = build_comprehensive_profile(
-                    story_narrative="",
-                    known_facts=facts,
-                    first_name=first_name,
-                    age=age
-                )
-                narrative = str(rebuilt_narrative[0]) if isinstance(rebuilt_narrative, tuple) else str(rebuilt_narrative)
-            except Exception as e:
-                logger.warning(f"Profile rebuild failed: {e}")
+        narrative_text = "Narrative pending..."
 
-        if narrative:
-            logs.append({
-                "timestamp": datetime.now().isoformat(),
-                "type": "Full Human Identity Narrative",
-                "content": narrative
-            })
+        try:
+            profile_narrative = build_comprehensive_profile(
+                story_narrative=story_narrative,
+                known_facts=facts,
+                first_name=first_name,
+                age=age,
+                address=address
+            )
 
-        return safe_jsonify({"logs": logs})
+            if isinstance(profile_narrative, tuple):
+                narrative_text = profile_narrative[0]
+            else:
+                narrative_text = str(profile_narrative)
 
+        except Exception as e:
+            logger.error(f"Profile build error in logs: {e}")
+            narrative_text = f"Error building profile: {str(e)}"
+
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "type": "Full Human Identity Narrative",
+            "content": narrative_text 
+        })
+        safe_logs = make_json_serializable(logs)
+        return flask_jsonify({"logs": safe_logs})
     except Exception as e:
-        logger.error(f"SQL Logs Error: {e}")
-        return flask_jsonify({"logs": []})
+        logger.error(f"Error in get_logs: {e}")
+        logs.append({"error": str(e)})
+        return flask_jsonify({"logs": logs}), 500
     finally:
-        db_conn.close()
-
+        cur.close()
+        conn.close()
     
 @app.route("/reset-test", methods=["GET"])
 def reset_test():
