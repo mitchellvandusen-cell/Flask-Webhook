@@ -182,6 +182,7 @@ class User(UserMixin):
         self.phone = data.get('phone')
         self.bio = data.get('bio')
         self.confirmation_code = data.get('confirmation_code')
+        self.role = data.get('role', 'individual')
 
         # Billing & Subscription (from both tables)
         self.subscription_tier = data.get('subscription_tier', 'individual')
