@@ -16,6 +16,7 @@ class ConversationStage(Enum):
     RESISTANCE = "resistance"        # Chris Voss (Skepticism/Trust Issues)
     OBJECTION_HANDLING = "objection" # Handling "No", "Not Interested", "Send Info"
     CLOSING = "closing"              # Booking the appointment
+    CLOSED = "closed"                # Appointment is booked 
 
 @dataclass
 class LogicSignal:
@@ -436,6 +437,12 @@ LOOP_PATTERNS = [
     "against seeing", "opposed to looking", "bad time to",
     "ridiculous to think", "unreasonable to"
 ]
+# 7. BOOKING CONFIRMATIONS (The "Stop Selling" Triggers)
+BOOKING_CONFIRMED_PATTERNS = [
+    "talk to you then", "see you at", "invite received", 
+    "locked in", "calendar", "tomorrow at", "today at",
+    "appointment set", "booked it", "confirmed", "on the calendar"
+]
 
 # ==========================================
 # === HELPER: FUZZY MATCHING (70% RULE) ===
@@ -487,6 +494,7 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     last_lead_text = lead_msgs[-1]['text'].lower() if lead_msgs else ""
     last_bot_text = bot_msgs[-1]['text'].lower() if bot_msgs else ""
     
+    is_confirmed = is_fuzzy_match(last_lead_text, BOOKING_CONFIRMED_PATTERNS, threshold=0.7)
     # 2. Response Depth and Subtext Inference
     words = last_lead_text.split()
     depth_score = min(len(words), 2)
@@ -547,7 +555,20 @@ def analyze_logic_flow(recent_exchanges: List[dict]) -> LogicSignal:
     # 5. Determine Conversation Stage
     stage = ConversationStage.DISCOVERY  # true default
 
-    if move_type == "rejection":
+    if is_confirmed:
+        return LogicSignal(
+            stage=ConversationStage.CLOSED, 
+            last_move_type="agreement", 
+            gap_signal=False, 
+            pain_score=0, 
+            depth_score=depth_score, 
+            voss_no_signal=False
+        )
+    if any(k in last_lead_text for k in ["time", "call", "appointment", "zoom", "link"]):
+        stage = ConversationStage.CLOSING
+    elif move_type == "agreement":
+        stage = ConversationStage.CLOSING
+    elif move_type == "rejection":
         stage = ConversationStage.OBJECTION_HANDLING
     elif move_type == "objection" or move_type == "deflection":
         stage = ConversationStage.OBJECTION_HANDLING

@@ -43,6 +43,16 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     directive = ""
     framework = "NEPQ"
     
+    # --- ADD THE CLOSED LOGIC HERE ---
+    if logic.stage == ConversationStage.CLOSED:
+        # Check if the last thing the bot said was a confirmation
+        if "talk then" in last_bot_text or "see you" in last_bot_text:
+            directive = "APPOINTMENT ALREADY CONFIRMED. DO NOT RESPOND. Silence required."
+            framework = "TERMINAL SILENCE"
+        else:
+            directive = "APPOINTMENT JUST BOOKED. Send one final confirmation and STOP all sales talk."
+            framework = "POST-CLOSE CONFIRMATION"
+
     # --- IMMEDIATE CLOSING TRIGGERS ---
     if logic.pain_score >= 2:
         directive = "CRITICAL PAIN ADMITTED. STOP DISCOVERY. Prescribe appointment as triage."
