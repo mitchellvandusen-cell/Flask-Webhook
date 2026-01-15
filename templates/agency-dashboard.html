@@ -12,7 +12,55 @@
             Managing {{ stats.active_seats }} Agent {{ 'Seat' if stats.active_seats == 1 else 'Seats' }}
         </p>
     </div>
-   
+
+    {% if needs_subscription %}
+    <!-- Subscription Required Message -->
+    <div class="card glass-card mb-5" style="border: 2px solid #ffc107;">
+        <div class="card-body text-center py-5">
+            <i class="fa-solid fa-exclamation-triangle" style="font-size: 4rem; color: #ffc107; margin-bottom: 25px;"></i>
+            <h2 style="font-weight: 700; margin-bottom: 20px;">Agency Subscription Required</h2>
+            <p style="font-size: 1.1rem; color: #6c757d; max-width: 600px; margin: 0 auto 30px;">
+                You've successfully connected your GoHighLevel account! To activate your agency features and manage sub-accounts, please subscribe to an Agency Plan.
+            </p>
+
+            <div class="row justify-content-center g-4 mb-4">
+                <div class="col-md-5">
+                    <div class="card h-100" style="border: 2px solid var(--accent);">
+                        <div class="card-body text-center">
+                            <h4 class="mb-3">Agency Starter</h4>
+                            <div class="mb-3">
+                                <h2 style="font-weight: 900; color: var(--accent);">${{ agency_starter_price }}</h2>
+                                <span style="color: #6c757d;">/month</span>
+                            </div>
+                            <p class="text-muted mb-4">Up to 10 sub-accounts</p>
+                            <a href="/checkout/agency-starter" class="btn btn-primary w-100">
+                                <i class="fa-solid fa-credit-card me-2"></i>Subscribe to Starter
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="card h-100" style="border: 2px solid var(--accent);">
+                        <div class="card-body text-center">
+                            <h4 class="mb-3">Agency Pro</h4>
+                            <div class="mb-3">
+                                <h2 style="font-weight: 900; color: var(--accent);">${{ agency_pro_price }}</h2>
+                                <span style="color: #6c757d;">/month</span>
+                            </div>
+                            <p class="text-muted mb-4">Unlimited sub-accounts</p>
+                            <a href="/checkout/agency-pro" class="btn btn-primary w-100">
+                                <i class="fa-solid fa-credit-card me-2"></i>Subscribe to Pro
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="small text-muted">Cancel anytime • No long-term contracts • Full feature access</p>
+        </div>
+    </div>
+    {% else %}
+
     <!-- Owner's Agency Account Section (Profile and Config) -->
     <div class="card glass-card mb-5">
         <div class="card-header">
@@ -254,6 +302,7 @@
             Back to Personal Dashboard
         </a>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}

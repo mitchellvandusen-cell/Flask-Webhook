@@ -506,6 +506,38 @@ def agency_dashboard():
     if current_user.role != 'agency_owner':
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
+
+    # --- SUBSCRIPTION VERIFICATION ---
+    # Check if agency owner has active Stripe subscription
+    needs_subscription = not current_user.stripe_customer_id
+
+    if needs_subscription:
+        # Determine pricing based on tier or show both options
+        # Default to showing agency starter pricing
+        return render_template('agency_dashboard.html',
+            needs_subscription=True,
+            agency_starter_price=800,   # Agency Starter: $800/month
+            agency_pro_price=1600,      # Agency Pro: $1600/month
+            form=ConfigForm(),  # Empty form
+            access_token_display='',
+            refresh_token_display='',
+            token_readonly='',
+            expires_in_str='',
+            sub=current_user,
+            profile={
+                'full_name': current_user.full_name or '',
+                'phone': current_user.phone or '',
+                'bio': current_user.bio or ''
+            },
+            sub_accounts=[],
+            stats={
+                'max_seats': 0,
+                'active_seats': 0,
+                'tier': 'Not Subscribed'
+            },
+            user=current_user
+        )
+
     conn = get_db_connection()
     if not conn:
         flash("System error: Database unavailable.", "error")
@@ -723,7 +755,29 @@ def save_profile():
 def dashboard():
     if current_user.role == 'agency_owner':
         return redirect(url_for("agency_dashboard"))
-   
+
+    # --- SUBSCRIPTION VERIFICATION ---
+    # Check if user has active Stripe subscription
+    needs_subscription = not current_user.stripe_customer_id
+
+    if needs_subscription:
+        # User needs to subscribe - show subscription required page
+        return render_template('dashboard.html',
+            needs_subscription=True,
+            subscription_price=100,  # Individual plan: $100/month
+            form=ConfigForm(),  # Empty form
+            access_token_display='',
+            refresh_token_display='',
+            token_readonly='',
+            expires_in_str='',
+            sub=current_user,
+            profile={
+                'full_name': current_user.full_name or '',
+                'phone': current_user.phone or '',
+                'bio': current_user.bio or ''
+            }
+        )
+
     form = ConfigForm()
     conn = get_db_connection()
    
