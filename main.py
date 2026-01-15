@@ -137,11 +137,6 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
-from WEBSITE_ASSISTANT.tasks import process_saas_webhook
-
-# main.py
-
-
 @app.route("/website-bot-webhook", methods=["POST"])
 def website_bot_webhook():
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
@@ -176,7 +171,7 @@ def website_bot_webhook():
     redirect_map = {
         "price": "/#pricing", "cost": "/#pricing", "plan": "/#pricing",
         "compare": "/comparison", "vs": "/comparison",
-        "faq": "/faq", "help": "/faq"
+        "faq": "/faq", "help": "/faq", "get started": "/getting-started"
     }
     for key, url in redirect_map.items():
         if key in msg_lower:
@@ -992,110 +987,123 @@ def contact():
 def privacy():
     return render_template('privacy.html')
 
+# =====================================================
+# HYBRID GET LOGS (REDIS + SQL FALLBACK)
+# =====================================================
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
     contact_id = request.args.get("contact_id")
+    if not contact_id: return flask_jsonify({"logs": []}) 
 
-    if not contact_id or (not contact_id.startswith("test_") and not contact_id.startswith("demo_")):
+    # 1. REDIS CHECK (Fast Lane for Active Chats)
+    # We check Redis first. If logs exist here, it's a website visitor.
+    # This avoids touching the SQL database for simple chat widgets.
+    if conn:
+        try:
+            redis_key = f"chat_logs:{contact_id}"
+            if conn.exists(redis_key):
+                raw = conn.lrange(redis_key, 0, -1)
+                logs = []
+                for x in raw:
+                    try:
+                        d = json.loads(x)
+                        logs.append(d)
+                    except: continue
+                if logs: return safe_jsonify({"logs": logs})
+        except Exception as e:
+            # Non-blocking error: log it and proceed to SQL
+            logger.warning(f"Redis lookup failed in get_logs: {e}")
+
+    # 2. SQL FALLBACK (Heavy Lane for Demo/Analysis)
+    # If Redis was empty, we assume this is a stored Demo/Test session.
+    # We apply strict security here to protect real lead data.
+    if not contact_id.startswith("test_") and not contact_id.startswith("demo_"):
         return flask_jsonify({"logs": []}) 
 
-    conn = get_db_connection()
-    if not conn:
-        logger.error("Database connection failed in get_logs")
-        return flask_jsonify({"error": "Database connection failed"}), 500
+    db_conn = get_db_connection()
+    if not db_conn: return flask_jsonify({"logs": []})
 
     logs = []
-
     try:
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-
-        # === 1. Messages with real timestamps ===
+        cur = db_conn.cursor(cursor_factory=RealDictCursor)
+        
+        # A. Fetch Messages
         cur.execute("""
-            SELECT message_type, message_text, created_at
-            FROM contact_messages
-            WHERE contact_id = %s
+            SELECT message_type, message_text, created_at 
+            FROM contact_messages 
+            WHERE contact_id = %s 
             ORDER BY created_at ASC
         """, (contact_id,))
-        messages = cur.fetchall()
-
-        for row in messages:
-            # === CRITICAL FIX START ===
-            # Your DB returns a Dictionary, so we must access by key!
-            msg_type = row['message_type']
-            text = row['message_text']
-            created_at = row['created_at']
-            # === CRITICAL FIX END ===
-
-            role = "Lead" if msg_type == "lead" else "Bot"
-            
-            timestamp = "Unknown"
-            if created_at:
-                if isinstance(created_at, str):
-                    timestamp = created_at
-                elif hasattr(created_at, 'isoformat'):
-                    timestamp = created_at.isoformat()
-                else:
-                    timestamp = str(created_at)
-            
-            logs.append({"timestamp": timestamp, "type": f"{role} Message", "content": text.strip()})
-
+        rows = cur.fetchall()
+        
+        for r in rows:
+            ts = r['created_at'].isoformat() if hasattr(r['created_at'], 'isoformat') else str(r['created_at'])
+            role = "Bot" if r['message_type'] in ['assistant', 'bot'] else "Lead"
+            logs.append({
+                "role": role.lower(), 
+                "type": f"{role} Message", 
+                "content": r['message_text'], 
+                "timestamp": ts
+            })
+        
+        # B. Fetch Facts & Narrative (The "Brain" Display)
         facts = get_known_facts(contact_id)
-        fact_content = "\n".join([f"• {f}" for f in facts]) if facts else "No facts extracted yet"
-        logs.append({"timestamp": datetime.now().isoformat(), "type": "Known Facts", "content": fact_content})
+        if facts:
+            logs.append({
+                "timestamp": datetime.now().isoformat(), 
+                "type": "Known Facts", 
+                "content": "\n".join([f"• {f}" for f in facts])
+            })
+
+        narrative = get_narrative(contact_id)
         
-        # Extract basics for profile rebuild
-        first_name = None
-        age = None
-        address = None
-        facts_text = " ".join(facts).lower()
+        # C. Logic: If narrative is missing but facts exist, rebuild it on the fly
+        # This preserves your "Gold for debugging" logic
+        if not narrative and facts:
+            try:
+                # Basic parsing to help the builder
+                facts_text = " ".join(facts).lower()
+                first_name = None
+                age = None
+                
+                # Simple extraction to feed the builder
+                import re
+                name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
+                if name_match: first_name = name_match.group(1).capitalize()
+                
+                age_match = re.search(r"age: (\d+)", facts_text)
+                if age_match: age = age_match.group(1)
 
-        story_narrative = get_narrative(contact_id)
-        
-        name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
-        if name_match: first_name = name_match.group(1).capitalize()
-        
-        age_match = re.search(r"age: (\d+)", facts_text)
-        if age_match: age = age_match.group(1)
-        
-        addr_match = re.search(r"address/location: (.*)", facts_text, re.IGNORECASE)
-        if addr_match: address = addr_match.group(1).strip()
+                rebuilt_narrative = build_comprehensive_profile(
+                    story_narrative="", 
+                    known_facts=facts,
+                    first_name=first_name,
+                    age=age
+                )
+                
+                # Handle tuple return if builder returns (text, confidence)
+                if isinstance(rebuilt_narrative, tuple): 
+                    narrative = str(rebuilt_narrative[0])
+                else:
+                    narrative = str(rebuilt_narrative)
+                    
+            except Exception as e:
+                logger.warning(f"Profile rebuild in logs failed: {e}")
 
-        narrative_text = "Narrative pending..."
+        if narrative:
+            logs.append({
+                "timestamp": datetime.now().isoformat(), 
+                "type": "Full Human Identity Narrative", 
+                "content": narrative
+            })
 
-        try:
-            profile_narrative = build_comprehensive_profile(
-                story_narrative=story_narrative,
-                known_facts=facts,
-                first_name=first_name,
-                age=age,
-                address=address
-            )
+        return safe_jsonify({"logs": logs})
 
-            if isinstance(profile_narrative, tuple):
-                narrative_text = profile_narrative[0]
-            else:
-                narrative_text = str(profile_narrative)
-
-        except Exception as e:
-            logger.error(f"Profile build error in logs: {e}")
-            narrative_text = f"Error building profile: {str(e)}"
-
-        logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "type": "Full Human Identity Narrative",
-            "content": narrative_text 
-        })
-        safe_logs = make_json_serializable(logs)
-        return flask_jsonify({"logs": safe_logs})
-        
     except Exception as e:
-        logger.error(f"Error in get_logs: {e}")
+        logger.error(f"SQL Logs Error: {e}")
         return flask_jsonify({"logs": []})
     finally:
-        if 'cur' in locals() and cur:
-            cur.close()
-        if conn:
-            conn.close()
+        db_conn.close()
 
     
 @app.route("/reset-test", methods=["GET"])
@@ -1144,11 +1152,11 @@ def reset_test():
 def download_transcript():
     contact_id = request.args.get("contact_id")
     if not contact_id:
-        return jsonify({"error": "Missing contact_id parameter"}), 400
+        return flask_jsonify({"error": "Missing contact_id parameter"}), 400
 
     conn = get_db_connection()
     if not conn:
-        return jsonify({"error": "Database unavailable"}), 500
+        return flask_jsonify({"error": "Database unavailable"}), 500
 
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -1179,7 +1187,7 @@ def download_transcript():
                 location_id = current_user.location_id
 
         if not allowed:
-            return jsonify({"error": "You do not have permission to download this transcript"}), 403
+            return flask_jsonify({"error": "You do not have permission to download this transcript"}), 403
 
         # ────────────────────────────────────────────────
         # Fetch real data
@@ -1270,7 +1278,7 @@ def download_transcript():
 
     except Exception as e:
         logger.error(f"Transcript download error for {contact_id}: {e}", exc_info=True)
-        return jsonify({"error": "Failed to generate transcript"}), 500
+        return flask_jsonify({"error": "Failed to generate transcript"}), 500
     finally:
         if 'cur' in locals():
             cur.close()
