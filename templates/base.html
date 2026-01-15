@@ -4,19 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}InsuranceGrokBot{% endblock %}</title>
-    
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <style>
-        /* CLICKABILITY & MOBILE MENU FIXES */
         .chat-widget-container { z-index: 10001 !important; pointer-events: none; }
         .chat-toggle-btn, .chat-window { pointer-events: auto; }
-        
+
         .chat-window { 
             display: none; 
             z-index: 10002;
@@ -27,7 +26,7 @@
 
         .popup-overlay { z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.5s; display: none; }
         .popup-overlay.active { pointer-events: auto; opacity: 1; display: flex; }
-        
+
         #typingIndicator { display: none; align-items: center; padding: 10px 20px; gap: 5px; }
     </style>
 </head>
@@ -101,35 +100,34 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
-    
+
     <script>
-        // GLOBAL VARIABLES
+    (function() {
         const chatBody = document.getElementById('chatBody');
         const chatWindow = document.getElementById('chatWindow');
         const chatInput = document.getElementById('chatInput');
         const typingIndicator = document.getElementById('typingIndicator');
-        
-        if (!localStorage.getItem('grok_contact_id')) {
-            localStorage.setItem('grok_contact_id', 'web_' + Math.random().toString(36).substr(2, 9));
-        }
-        const chatSessionId = localStorage.getItem('grok_contact_id');
 
-        // 1. CHAT LOGIC
+        // Toggle chat open/close
         window.toggleChat = function() {
             chatWindow.classList.toggle('active');
             if (chatWindow.classList.contains('active') && chatBody.innerHTML.trim() === "") {
-                window.sendMessage("INIT_CHAT", true);
+                sendMessage("INIT_CHAT", true);
             }
         };
 
-        window.handleEnter = (e) => { if (e.key === 'Enter') window.sendMessage(); };
+        // Handle enter key
+        window.handleEnter = function(e) {
+            if (e.key === 'Enter') sendMessage();
+        };
 
+        // Send message - simple request/response, NO POLLING
         window.sendMessage = function(textOverride, isSystem = false) {
             const text = textOverride || chatInput.value.trim();
             if (!text) return;
 
             if (!isSystem) {
-                appendMessageHTML('lead', text);
+                appendMessage('user', text);
                 chatInput.value = '';
             }
 
@@ -138,30 +136,40 @@
             fetch('/website-bot-webhook', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contact_id: chatSessionId, message: text })
+                body: JSON.stringify({ message: text })
             })
             .then(res => res.json())
             .then(data => {
                 typingIndicator.style.display = 'none';
-                if (data.text) appendMessageHTML('assistant', data.text, data.options);
-                if (data.redirect) setTimeout(() => window.location.href = data.redirect, 1200);
+
+                if (data.text) {
+                    appendMessage('bot', data.text, data.options);
+                }
+
+                if (data.redirect) {
+                    setTimeout(() => window.location.href = data.redirect, 1200);
+                }
             })
-            .catch(() => { typingIndicator.style.display = 'none'; });
+            .catch(() => {
+                typingIndicator.style.display = 'none';
+                appendMessage('bot', "Something went wrong. Please try again.");
+            });
         };
 
-        function appendMessageHTML(role, text, options = null) {
-            // DEDUPLICATION SHIELD
-            const existingMsgs = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
-            if (existingMsgs.includes(text.trim())) return;
+        // Add message to chat
+        function appendMessage(role, text, options = null) {
+            if (!text) return;
+
+            // Deduplication
+            const existing = Array.from(chatBody.querySelectorAll('.msg-content')).map(m => m.innerText.trim());
+            if (existing.includes(text.trim())) return;
 
             const div = document.createElement('div');
-            // Role mapping for CSS
-            const roleClass = (role === 'lead' || role === 'user') ? 'user' : 'bot';
-            div.className = `msg ${roleClass} mb-3`;
+            div.className = `msg ${role} mb-3`;
             div.innerHTML = `<div class="msg-content p-3 shadow-sm">${text}</div>`;
             chatBody.appendChild(div);
 
-            if (options) {
+            if (options && options.length > 0) {
                 const btnWrap = document.createElement('div');
                 btnWrap.className = "d-flex gap-2 flex-wrap mt-2 mb-3";
                 options.forEach(opt => {
@@ -171,17 +179,18 @@
                     btn.innerText = opt.label;
                     btn.onclick = () => {
                         btnWrap.remove();
-                        appendMessageHTML('lead', opt.label);
-                        window.sendMessage(opt.value, true);
+                        appendMessage('user', opt.label);
+                        sendMessage(opt.value, true);
                     };
                     btnWrap.appendChild(btn);
                 });
                 chatBody.appendChild(btnWrap);
             }
+
             chatBody.scrollTop = chatBody.scrollHeight;
         }
 
-        // 2. INITIALIZATION & POLLING
+        // Init on page load
         document.addEventListener("DOMContentLoaded", function() {
             AOS.init({ duration: 1000, once: true, offset: 50 });
 
@@ -189,7 +198,9 @@
             const cards = document.querySelectorAll('.pricing-card');
             if (cards.length > 0) {
                 let activeIndex = 1;
-                window.selectCard = (index) => { if (window.innerWidth >= 992) { activeIndex = index; updateCarousel(); } };
+                window.selectCard = (index) => {
+                    if (window.innerWidth >= 992) { activeIndex = index; updateCarousel(); }
+                };
                 function updateCarousel() {
                     cards.forEach((card, i) => {
                         card.className = 'pricing-card';
@@ -202,22 +213,6 @@
                 setInterval(() => { activeIndex = (activeIndex + 1) % 3; updateCarousel(); }, 5000);
             }
 
-            // DEDICATED REDIS POLLING LOOP
-            setInterval(async () => {
-                if (!chatWindow.classList.contains('active')) return;
-                try {
-                    const res = await fetch(`/get-assistant-logs?contact_id=${chatSessionId}`);
-                    const data = await res.json();
-                    if (data.logs) {
-                        data.logs.forEach(log => {
-                            if (log.role === 'assistant' || log.role === 'lead' || log.role === 'bot' || log.role === 'user') {
-                                appendMessageHTML(log.role, log.content);
-                            }
-                        });
-                    }
-                } catch(e) {}
-            }, 4000);
-
             // Popup logic
             const popup = document.getElementById("elite-popup-overlay");
             if (popup && !localStorage.getItem("grok_popup_last_closed")) {
@@ -228,6 +223,7 @@
                 localStorage.setItem("grok_popup_last_closed", Date.now());
             };
         });
+    })();
     </script>
     {% block scripts %}{% endblock %}
 </body>

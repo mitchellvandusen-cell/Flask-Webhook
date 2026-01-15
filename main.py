@@ -138,63 +138,6 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
-@app.route("/website-bot-webhook", methods=["POST"])
-def website_bot_webhook():
-    payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    contact_id = payload.get('contact_id')
-    user_message = payload.get('message')
-
-    if not contact_id or not user_message:
-        return flask_jsonify({"status": "error"}), 400
-
-    redis_key = f"chat_logs:{contact_id}"
-    user_type_key = f"user_type:{contact_id}"
-    
-    # --- A: FAST LOGIC (Instant Redis Pushes) ---
-    if user_message == "INIT_CHAT":
-        welcome_msg = "Hello! I'm the InsuranceGrokBot assistant. To customize my answers, are you an Individual Agent or an Agency Owner?"
-        options = [
-            {"label": "Individual Agent", "value": "individual"},
-            {"label": "Agency Owner", "value": "agency"}
-        ]
-        log = {"role": "assistant", "type": "Bot Message", "content": welcome_msg, "timestamp": datetime.utcnow().isoformat()}
-        
-        # PUSH ONLY TO REDIS FOR GET-ASSISTANT-LOGS
-        if conn:
-            conn.rpush(redis_key, json.dumps(log))
-            conn.expire(redis_key, 86400) # Keep for 24 hours
-            
-        return flask_jsonify({"text": welcome_msg, "options": options})
-
-    if user_message in ["individual", "agency"]:
-        if conn: conn.set(user_type_key, user_message)
-        reply = "Understood. " + ("I'll focus on scaling teams." if user_message == "agency" else "I'll focus on personal automation.")
-        log = {"role": "assistant", "type": "Bot Message", "content": reply, "timestamp": datetime.utcnow().isoformat()}
-        
-        if conn: conn.rpush(redis_key, json.dumps(log))
-        return flask_jsonify({"text": reply})
-
-    # (Navigation and Redirect logic stays here...)
-    # (Ensure navigation replies also rpush to redis_key)
-
-    # --- B: ASYNC LOGIC ---
-    # Log user message to Redis immediately so it shows up in chat history
-    user_log = {"role": "lead", "type": "User Message", "content": user_message, "timestamp": datetime.utcnow().isoformat()}
-    if conn:
-        conn.rpush(redis_key, json.dumps(user_log))
-
-    try:
-        # Enqueue the worker to process the response
-        job = q_demo.enqueue(
-            process_async_chat_task,
-            {"contact_id": contact_id, "message": user_message},
-            job_timeout=60,
-            result_ttl=600
-        )
-        return flask_jsonify({"status": "processing", "job_id": job.id}), 202
-    except Exception as e:
-        logger.error(f"Queue Error: {e}")
-        return flask_jsonify({"text": "System overload. Please try again."}), 500
 
 @app.route('/api/demo/reset', methods=['POST'])
 def demo_reset():
@@ -908,53 +851,6 @@ def run_demo_janitor():
             cur.close()
             conn.close()
 
-@app.route("/demo-chat")
-def demo_chat():
-    try:
-        run_demo_janitor()
-    except:
-        pass
-
-    # 1. PERSISTENCE CHECK
-    existing_id = request.args.get('session_id')
-    clean_id = str(uuid.uuid4())
-
-    initial_msg = "" 
-
-    if existing_id:
-        try:
-            clean_id = str(uuid.UUID(existing_id))
-        except ValueError:
-            pass 
-
-    session['demo_session_id'] = clean_id
-    demo_contact_id = f"demo_{clean_id}"
-
-    # 2. NEW SESSION LOGIC
-    if not existing_id:
-        conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (demo_contact_id,))
-                cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (demo_contact_id,))
-                cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (demo_contact_id,))
-
-                initial_msg = generate_demo_opener()
-
-                cur.execute("""
-                    INSERT INTO contact_messages (contact_id, message_type, message_text, created_at)
-                    VALUES (%s, 'assistant', %s, NOW())
-                """, (demo_contact_id, initial_msg))
-                conn.commit()
-            except Exception as e:
-                logger.error(f"Demo Init Error: {e}")
-            finally:
-                cur.close()
-                conn.close()
-
-    return render_template('demo.html', clean_id=clean_id, demo_contact_id=demo_contact_id, initial_msg=initial_msg)
-
 @app.route("/disclaimers")
 def disclaimers():
     return render_template('disclaimers.html')
@@ -970,171 +866,316 @@ def contact():
 @app.route("/privacy")
 def privacy():
     return render_template('privacy.html')
+# =====================================================
+# DEMO CHAT - SIMPLE REQUEST/RESPONSE (No logs, no polling)
+# =====================================================
 
-# =====================================================
-#  GET LOGS (REDIS assistant + SQL for demo )
-# =====================================================
-@app.route("/get-assistant-logs", methods=["GET"])
-def get_assistant_logs():
-    contact_id = request.args.get("contact_id")
-    if not contact_id or not conn: 
-        return flask_jsonify({"logs": []})
-    
+@app.route("/demo/chat", methods=["POST"])
+def demo_chat_api():
+    """
+    User sends message → Gets response back directly.
+    No polling. No log reading. Just like a normal chat API.
+    """
+    data = request.get_json()
+    contact_id = data.get("contact_id")
+    message = data.get("message", "").strip()
+
+    if not contact_id or not contact_id.startswith("demo_"):
+        return flask_jsonify({"error": "Invalid session"}), 400
+
+    if not message:
+        return flask_jsonify({"error": "Empty message"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 503
+
     try:
-        redis_key = f"chat_logs:{contact_id}"
-        if conn.exists(redis_key):
-            raw = conn.lrange(redis_key, 0, -1)
-            # Fast parse and return
-            logs = [json.loads(x) for x in raw]
-            return safe_jsonify({"logs": logs})
-    except Exception as e:
-        logger.error(f"Assistant Redis Error: {e}")
-    
-    return flask_jsonify({"logs": []})
+        cur = conn.cursor()
 
+        # 1. Save user message
+        cur.execute("""
+            INSERT INTO contact_messages (contact_id, message_type, message_text)
+            VALUES (%s, 'lead', %s)
+        """, (contact_id, message))
+        conn.commit()
+
+        # 2. Get conversation history
+        cur.execute("""
+            SELECT message_type, message_text
+            FROM contact_messages
+            WHERE contact_id = %s
+            ORDER BY created_at DESC
+            LIMIT 16
+        """, (contact_id,))
+
+        rows = cur.fetchall()
+        recent_exchanges = []
+        for row in reversed(rows):
+            role = "lead" if row['message_type'] == 'lead' else "assistant"
+            recent_exchanges.append({"role": role, "text": row['message_text']})
+
+        cur.close()
+        conn.close()
+
+        # 3. Use your full brain
+        from sales_director import generate_strategic_directive
+        from prompt import build_system_prompt
+
+        director_output = generate_strategic_directive(
+            contact_id=contact_id,
+            message=message,
+            first_name="Demo User",
+            age=None,
+            address=None
+        )
+
+        calendar_slots = ""
+        if director_output["stage"] == "closing":
+            calendar_slots = "Tomorrow at 2:00 PM, Tomorrow at 4:30 PM, Friday at 10:00 AM"
+
+        system_prompt = build_system_prompt(
+            bot_first_name="Grok",
+            timezone="America/Chicago",
+            profile_str=director_output["profile_str"],
+            tactical_narrative=director_output["tactical_narrative"],
+            known_facts=director_output["known_facts"],
+            story_narrative=director_output["story_narrative"],
+            stage=director_output["stage"],
+            recent_exchanges=recent_exchanges[-8:],
+            message=message,
+            calendar_slots=calendar_slots,
+            context_nudge="",
+            lead_vendor=""
+        )
+
+        grok_messages = [{"role": "system", "content": system_prompt}]
+        for msg in recent_exchanges[-8:]:
+            role = "user" if msg["role"] == "lead" else "assistant"
+            grok_messages.append({"role": role, "content": msg["text"]})
+        grok_messages.append({"role": "user", "content": message})
+
+        # 4. Call Grok
+        response = client.chat.completions.create(
+            model="grok-4-1-fast-reasoning",
+            messages=grok_messages,
+            temperature=0.85,
+            max_tokens=200,
+        )
+
+        reply = response.choices[0].message.content.strip()
+
+        # Clean reply
+        reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
+        reply = re.sub(r'</?reply>', '', reply)
+        reply = re.sub(r'<[^>]+>', '', reply).strip()
+        reply = reply.replace("—", ",").replace("–", ",").strip()
+
+        # 5. Save bot response
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO contact_messages (contact_id, message_type, message_text)
+                VALUES (%s, 'assistant', %s)
+            """, (contact_id, reply))
+            conn.commit()
+            cur.close()
+            conn.close()
+
+        # 6. Return response directly to frontend
+        return flask_jsonify({
+            "reply": reply,
+            "stage": director_output["stage"]
+        })
+
+    except Exception as e:
+        logger.error(f"Demo chat error: {e}", exc_info=True)
+        return flask_jsonify({
+            "reply": "What's your main concern about coverage right now?",
+            "error": str(e)
+        }), 200
+
+@app.route("/demo/init", methods=["POST"])
+def demo_init_api():
+    """Initialize or resume a demo session."""
+    data = request.get_json() or {}
+    session_id = data.get("session_id") or str(uuid.uuid4())
+    contact_id = f"demo_{session_id}"
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 503
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) as cnt FROM contact_messages WHERE contact_id = %s", (contact_id,))
+        count = cur.fetchone()['cnt']
+
+        if count == 0:
+            opener = generate_demo_opener()
+            cur.execute("""
+                INSERT INTO contact_messages (contact_id, message_type, message_text)
+                VALUES (%s, 'assistant', %s)
+            """, (contact_id, opener))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return flask_jsonify({"contact_id": contact_id, "opener": opener, "status": "new"})
+
+        cur.execute("""
+            SELECT message_type, message_text 
+            FROM contact_messages 
+            WHERE contact_id = %s 
+            ORDER BY created_at ASC
+        """, (contact_id,))
+
+        history = [{"role": "bot" if r['message_type'] == 'assistant' else "user", "content": r['message_text']} for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+
+        return flask_jsonify({"contact_id": contact_id, "history": history, "status": "existing"})
+
+    except Exception as e:
+        logger.error(f"Demo init error: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+
+@app.route("/demo/reset", methods=["POST"])
+def demo_reset_api():
+    """Clear session and start fresh."""
+    data = request.get_json() or {}
+    old_id = data.get("contact_id")
+
+    conn = get_db_connection()
+    if conn and old_id and old_id.startswith("demo_"):
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (old_id,))
+            cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (old_id,))
+            cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (old_id,))
+            conn.commit()
+            cur.close()
+        except:
+            pass
+        finally:
+            conn.close()
+
+    new_id = f"demo_{uuid.uuid4()}"
+    opener = generate_demo_opener()
+
+    conn = get_db_connection()
+    if conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO contact_messages (contact_id, message_type, message_text)
+            VALUES (%s, 'assistant', %s)
+        """, (new_id, opener))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    return flask_jsonify({"contact_id": new_id, "opener": opener})
+
+@app.route("/demo-chat")
+def demo_chat():
+    try:
+        run_demo_janitor()
+    except:
+        pass
+    return render_template('demo.html')
+# =====================================================
+# HYBRID GET LOGS (REDIS + SQL FALLBACK)
+# =====================================================
 @app.route("/get-logs", methods=["GET"])
 def get_logs():
     contact_id = request.args.get("contact_id")
 
-    if not contact_id or (not contact_id.startswith("test_") and not contact_id.startswith("demo_")):
-        return flask_jsonify({"logs": []}) 
+    if not contact_id:
+        return flask_jsonify({"logs": []})
 
-    conn = get_db_connection()
-    if not conn:
-        logger.error("Database connection failed in get_logs")
-        return flask_jsonify({"error": "Database connection failed"}), 500
+    # Only allow demo/test contacts
+    if not contact_id.startswith(('demo_', 'test_')):
+        return flask_jsonify({"logs": []})
+
+    db_conn = get_db_connection()
+    if not db_conn:
+        return flask_jsonify({"logs": []})
 
     logs = []
-
     try:
-        cur = conn.cursor()
+        cur = db_conn.cursor(cursor_factory=RealDictCursor)
 
-        # === 1. Messages with real timestamps ===
+        # 1. Fetch Messages
         cur.execute("""
-            SELECT message_type, message_text, created_at
-            FROM contact_messages
-            WHERE contact_id = %s
+            SELECT message_type, message_text, created_at 
+            FROM contact_messages 
+            WHERE contact_id = %s 
             ORDER BY created_at ASC
         """, (contact_id,))
-        messages = cur.fetchall()
 
-        for row in messages:
-            # === CRITICAL FIX START ===
-            # Your DB returns a Dictionary, so we must access by key!
-            msg_type = row['message_type']
-            text = row['message_text']
-            created_at = row['created_at']
-            # === CRITICAL FIX END ===
+        for r in cur.fetchall():
+            ts = r['created_at'].isoformat() if hasattr(r['created_at'], 'isoformat') else str(r['created_at'])
+            role = "bot" if r['message_type'] in ['assistant', 'bot'] else "lead"
+            logs.append({
+                "role": role,
+                "type": f"{'Bot' if role == 'bot' else 'Lead'} Message",
+                "content": r['message_text'],
+                "timestamp": ts
+            })
 
-            role = "Lead" if msg_type == "lead" else "Bot"
-            
-            timestamp = "Unknown"
-            if created_at:
-                if isinstance(created_at, str):
-                    timestamp = created_at
-                elif hasattr(created_at, 'isoformat'):
-                    timestamp = created_at.isoformat()
-                else:
-                    timestamp = str(created_at)
-            
-            logs.append({"timestamp": timestamp, "type": f"{role} Message", "content": text.strip()})
-
+        # 2. Fetch Facts
         facts = get_known_facts(contact_id)
-        fact_content = "\n".join([f"â¢ {f}" for f in facts]) if facts else "No facts extracted yet"
-        logs.append({"timestamp": datetime.now().isoformat(), "type": "Known Facts", "content": fact_content})
-        
-        # Extract basics for profile rebuild
-        first_name = None
-        age = None
-        address = None
-        facts_text = " ".join(facts).lower()
+        if facts:
+            logs.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": "Known Facts",
+                "content": "\n".join([f"• {f}" for f in facts])
+            })
 
-        story_narrative = get_narrative(contact_id)
-        
-        name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
-        if name_match: first_name = name_match.group(1).capitalize()
-        
-        age_match = re.search(r"age: (\d+)", facts_text)
-        if age_match: age = age_match.group(1)
-        
-        addr_match = re.search(r"address/location: (.*)", facts_text, re.IGNORECASE)
-        if addr_match: address = addr_match.group(1).strip()
+        # 3. Fetch/Build Narrative
+        narrative = get_narrative(contact_id)
 
-        narrative_text = "Narrative pending..."
+        if not narrative and facts:
+            try:
+                facts_text = " ".join(facts).lower()
+                first_name = None
+                age = None
 
-        try:
-            profile_narrative = build_comprehensive_profile(
-                story_narrative=story_narrative,
-                known_facts=facts,
-                first_name=first_name,
-                age=age,
-                address=address
-            )
+                name_match = re.search(r"first name: (\w+)", facts_text, re.IGNORECASE)
+                if name_match:
+                    first_name = name_match.group(1).capitalize()
 
-            if isinstance(profile_narrative, tuple):
-                narrative_text = profile_narrative[0]
-            else:
-                narrative_text = str(profile_narrative)
+                age_match = re.search(r"age: (\d+)", facts_text)
+                if age_match:
+                    age = age_match.group(1)
 
-        except Exception as e:
-            logger.error(f"Profile build error in logs: {e}")
-            narrative_text = f"Error building profile: {str(e)}"
+                rebuilt = build_comprehensive_profile(
+                    story_narrative="",
+                    known_facts=facts,
+                    first_name=first_name,
+                    age=age
+                )
+                narrative = str(rebuilt[0]) if isinstance(rebuilt, tuple) else str(rebuilt)
+            except Exception as e:
+                logger.warning(f"Profile rebuild failed: {e}")
 
-        logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "type": "Full Human Identity Narrative",
-            "content": narrative_text 
-        })
-        safe_logs = make_json_serializable(logs)
-        return flask_jsonify({"logs": safe_logs})
+        if narrative:
+            logs.append({
+                "timestamp": datetime.now().isoformat(),
+                "type": "Full Human Identity Narrative",
+                "content": narrative
+            })
+
+        return safe_jsonify({"logs": logs})
+
     except Exception as e:
-        logger.error(f"Error in get_logs: {e}")
-        logs.append({"error": str(e)})
-        return flask_jsonify({"logs": logs}), 500
+        logger.error(f"get_logs error: {e}")
+        return flask_jsonify({"logs": []})
+
     finally:
         cur.close()
-        conn.close()
-    
-@app.route("/reset-test", methods=["GET"])
-def reset_test():
-    contact_id = request.args.get("contact_id")
-    
-    # Security: Only allow test_ prefixed contacts
-    if not contact_id or not contact_id.startswith("test_"):
-        logger.warning(f"Invalid reset attempt: {contact_id}")
-        return flask_jsonify({"error": "Invalid test contact ID"}), 400
+        db_conn.close()
 
-    conn = get_db_connection()
-    if not conn:
-        logger.error("Database connection failed during reset")
-        return flask_jsonify({"error": "Database connection failed"}), 500
-
-    try:
-        cur = conn.cursor()
-        
-        # Delete messages, facts, and narrative for this test contact only
-        cur.execute("DELETE FROM contact_messages WHERE contact_id = %s", (contact_id,))
-        cur.execute("DELETE FROM contact_facts WHERE contact_id = %s", (contact_id,))
-        cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (contact_id,))
-        
-        conn.commit()
-        
-        logger.info(f"Successfully reset test contact {contact_id}")
-        
-        return flask_jsonify({
-            "status": "reset success",
-            "message": f"Test session {contact_id} cleared",
-            "cleared_contact": contact_id
-        }), 200
-        
-    except Exception as e:
-        conn.rollback()  # Important: rollback on error
-        logger.error(f"Reset failed for {contact_id}: {e}")
-        return flask_jsonify({"error": "Failed to reset test data"}), 500
-        
-    finally:
-        cur.close()
-        conn.close()
 
 @app.route("/download-transcript", methods=["GET"])
 def download_transcript():
@@ -1700,6 +1741,294 @@ def reviews():
     # Filter: Show only 5-star reviews
     visible_reviews = [r for r in all_reviews if r['stars'] == 5]
     return render_template('reviews.html', reviews=visible_reviews, form=form)
+
+@app.route("/website-bot-webhook", methods=["POST"])
+def website_bot_webhook():
+    """
+    Smart routing chat - qualifies visitors, answers questions, routes to action.
+    No AI needed, instant responses, actually sells.
+    """
+    payload = request.get_json(silent=True) or {}
+    user_message = payload.get('message', '').strip()
+
+    if not user_message:
+        return flask_jsonify({"status": "error"}), 400
+
+    msg_lower = user_message.lower()
+
+    # =====================================================
+    # INIT & QUALIFICATION
+    # =====================================================
+
+    if user_message == "INIT_CHAT":
+        return flask_jsonify({
+            "text": "Hey! I'm actually the product you're looking at right now. Quick question - are you a solo agent or do you run an agency?",
+            "options": [
+                {"label": "Solo Agent", "value": "individual"},
+                {"label": "Agency Owner", "value": "agency"}
+            ]
+        })
+
+    # =====================================================
+    # INDIVIDUAL PATH
+    # =====================================================
+
+    if user_message == "individual":
+        return flask_jsonify({
+            "text": "Nice. So right now you're manually following up with leads, right? Or maybe you've got some basic automation that sounds like a robot?",
+            "options": [
+                {"label": "Yeah, manual follow-up", "value": "individual_manual"},
+                {"label": "I have automation but it sucks", "value": "individual_bad_auto"},
+                {"label": "Just curious what this is", "value": "individual_curious"}
+            ]
+        })
+
+    if user_message == "individual_manual":
+        return flask_jsonify({
+            "text": "That's where most leads die. You get busy, forget to follow up, and that lead who was warm 3 days ago is now cold. I fix that. I respond instantly - even at 2am - and I actually sound human. Want to see how I handle a cold lead?",
+            "options": [
+                {"label": "Show me", "value": "demo"},
+                {"label": "What does it cost?", "value": "pricing_individual"}
+            ]
+        })
+
+    if user_message == "individual_bad_auto":
+        return flask_jsonify({
+            "text": "Let me guess - keyword triggers, canned responses, and leads can tell it's a bot within 2 messages? I'm different. I use 5 actual sales methodologies - NEPQ, Gap Selling, Chris Voss tactics. I handle objections, remember everything about the lead, and book appointments on your calendar. Want to see?",
+            "options": [
+                {"label": "Try the demo", "value": "demo"},
+                {"label": "What's it cost?", "value": "pricing_individual"}
+            ]
+        })
+
+    if user_message == "individual_curious":
+        return flask_jsonify({
+            "text": "Short version: I'm an AI that responds to your insurance leads via SMS. But I'm not a dumb chatbot - I use real sales frameworks, remember the entire conversation history, handle objections like a human setter, and book appointments directly on your calendar. All while you sleep.",
+            "options": [
+                {"label": "See it in action", "value": "demo"},
+                {"label": "How is this different?", "value": "comparison"},
+                {"label": "Pricing", "value": "pricing_individual"}
+            ]
+        })
+
+    # =====================================================
+    # AGENCY PATH
+    # =====================================================
+
+    if user_message == "agency":
+        return flask_jsonify({
+            "text": "Nice. How many agents do you have under you right now?",
+            "options": [
+                {"label": "Under 10", "value": "agency_small"},
+                {"label": "10-50", "value": "agency_medium"},
+                {"label": "50+", "value": "agency_large"}
+            ]
+        })
+
+    if user_message == "agency_small":
+        return flask_jsonify({
+            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $800/month covers up to 10 agents.",
+            "options": [
+                {"label": "How does that work exactly?", "value": "agency_how"},
+                {"label": "Show me the demo", "value": "demo"},
+                {"label": "What's included?", "value": "agency_features"}
+            ]
+        })
+
+    if user_message in ["agency_medium", "agency_large"]:
+        return flask_jsonify({
+            "text": "At your scale, lead leakage is probably costing you six figures a year. Here's what I do: every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Unlimited sub-accounts for $1,600/month flat.",
+            "options": [
+                {"label": "How does multi-tenant work?", "value": "agency_how"},
+                {"label": "Show me the demo", "value": "demo"},
+                {"label": "What makes this different?", "value": "comparison"}
+            ]
+        })
+
+    if user_message == "agency_how":
+        return flask_jsonify({
+            "text": "Simple: You connect your GHL agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard. Your agents don't need to do anything.",
+            "options": [
+                {"label": "What do my agents see?", "value": "agency_agent_view"},
+                {"label": "Try the demo", "value": "demo"},
+                {"label": "Pricing", "value": "pricing_agency"}
+            ]
+        })
+
+    if user_message == "agency_agent_view":
+        return flask_jsonify({
+            "text": "Your agents see conversations happening in their GHL inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
+            "options": [
+                {"label": "That sounds good", "value": "demo"},
+                {"label": "What's pricing?", "value": "pricing_agency"}
+            ]
+        })
+
+    if user_message == "agency_features":
+        return flask_jsonify({
+            "text": "Agency Starter ($800/mo) includes: Up to 10 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
+            "options": [
+                {"label": "Start free trial", "value": "signup_agency_starter"},
+                {"label": "See it work first", "value": "demo"},
+                {"label": "What if I have more than 10?", "value": "agency_pro_info"}
+            ]
+        })
+
+    if user_message == "agency_pro_info":
+        return flask_jsonify({
+            "text": "Agency Pro is $1,600/month for unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents - scale as big as you want, price stays the same.",
+            "options": [
+                {"label": "Get started", "value": "signup_agency_pro"},
+                {"label": "Try demo first", "value": "demo"}
+            ]
+        })
+
+    # =====================================================
+    # FEATURES & COMPARISON
+    # =====================================================
+
+    if user_message == "comparison" or "different" in msg_lower or "vs" in msg_lower or "compare" in msg_lower:
+        return flask_jsonify({
+            "text": "Most bots use keyword matching - they're dumb. I use 5 real sales frameworks: NEPQ for emotional gaps, Chris Voss tactics for objections, Gap Selling to create urgency, plus Straight Line and Zig Ziglar methods. I also have persistent memory - I remember everything about every lead forever. And I understand underwriting, so I pre-qualify before the call.",
+            "redirect": "/comparison"
+        })
+
+    if "memory" in msg_lower or "remember" in msg_lower:
+        return flask_jsonify({
+            "text": "I remember everything. If a lead mentioned their wife's name 3 months ago, I still know it. If they said they had diabetes, I factor that into underwriting. No awkward 'what was your name again?' moments. This is why I can re-engage cold leads that other bots can't.",
+            "options": [
+                {"label": "See it in action", "value": "demo"},
+                {"label": "What else is different?", "value": "comparison"}
+            ]
+        })
+
+    if "underwriting" in msg_lower or "pre-qualify" in msg_lower or "health" in msg_lower:
+        return flask_jsonify({
+            "text": "I ask the right health questions before they ever get on your calendar. Diabetes? Heart issues? Smoker? I know what carriers need and I gather that info naturally in conversation. You get on calls with qualified leads, not people who can't get approved.",
+            "options": [
+                {"label": "Show me how", "value": "demo"},
+                {"label": "Pricing", "value": "pricing_individual"}
+            ]
+        })
+
+    if "methodology" in msg_lower or "framework" in msg_lower or "nepq" in msg_lower or "sales" in msg_lower:
+        return flask_jsonify({
+            "text": "I blend 5 proven frameworks: NEPQ (emotional gap questions), Gap Selling (current state vs future state), Chris Voss (labeling, no-oriented questions), Straight Line (always advancing), and Zig Ziglar (help first, objections = requests for clarity). This isn't scripted - I adapt to each conversation.",
+            "options": [
+                {"label": "See it handle objections", "value": "demo"},
+                {"label": "Pricing", "value": "pricing_individual"}
+            ]
+        })
+
+    if "book" in msg_lower or "calendar" in msg_lower or "appointment" in msg_lower:
+        return flask_jsonify({
+            "text": "I connect directly to your GHL calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up on your calendar with all the context: what they said, their health info, what objections came up. You walk into the call prepared.",
+            "options": [
+                {"label": "Try the demo", "value": "demo"},
+                {"label": "Pricing", "value": "pricing_individual"}
+            ]
+        })
+
+    # =====================================================
+    # PRICING
+    # =====================================================
+
+    if user_message == "pricing_individual" or (("price" in msg_lower or "cost" in msg_lower or "how much" in msg_lower) and "agency" not in msg_lower):
+        return flask_jsonify({
+            "text": "$100/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic. 7-day free trial to make sure it works for you.",
+            "options": [
+                {"label": "Start free trial", "value": "signup_individual"},
+                {"label": "See it first", "value": "demo"}
+            ]
+        })
+
+    if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
+        return flask_jsonify({
+            "text": "Two options: Agency Starter is $800/month for up to 10 sub-accounts. Agency Pro is $1,600/month for unlimited. Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
+            "options": [
+                {"label": "Agency Starter ($800)", "value": "signup_agency_starter"},
+                {"label": "Agency Pro ($1,600)", "value": "signup_agency_pro"},
+                {"label": "See demo first", "value": "demo"}
+            ]
+        })
+
+    # =====================================================
+    # SIGNUP ROUTES
+    # =====================================================
+
+    if user_message == "demo":
+        return flask_jsonify({
+            "text": "Let's do it. I'll show you exactly how I talk to a cold insurance lead.",
+            "redirect": "/demo-chat"
+        })
+
+    if user_message == "signup_individual":
+        return flask_jsonify({
+            "text": "Let's get you set up. 7-day free trial, cancel anytime.",
+            "redirect": "/checkout"
+        })
+
+    if user_message == "signup_agency_starter":
+        return flask_jsonify({
+            "text": "Good choice. 7-day free trial for up to 10 sub-accounts.",
+            "redirect": "/checkout/agency-starter"
+        })
+
+    if user_message == "signup_agency_pro":
+        return flask_jsonify({
+            "text": "Let's scale. Unlimited sub-accounts, one flat price.",
+            "redirect": "/checkout/agency-pro"
+        })
+
+    # =====================================================
+    # FAQ / OBJECTION HANDLING
+    # =====================================================
+
+    if "trial" in msg_lower or "free" in msg_lower:
+        return flask_jsonify({
+            "text": "7-day free trial on Individual and Agency Starter plans. Full access, no card required to try the demo. Cancel anytime during trial.",
+            "options": [
+                {"label": "Start trial", "value": "signup_individual"},
+                {"label": "Try demo first", "value": "demo"}
+            ]
+        })
+
+    if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower:
+        return flask_jsonify({
+            "text": "I integrate directly with GoHighLevel. You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any GHL plan - agency or location level.",
+            "options": [
+                {"label": "See integration", "value": "demo"},
+                {"label": "Get started", "value": "signup_individual"}
+            ]
+        })
+
+    if "support" in msg_lower or "help" in msg_lower or "setup" in msg_lower:
+        return flask_jsonify({
+            "text": "Setup takes about 5 minutes - connect GHL, configure your calendar, done. All plans include support. Agency Pro includes white-glove onboarding where we set everything up for you.",
+            "options": [
+                {"label": "Start setup", "value": "signup_individual"},
+                {"label": "Questions first", "value": "contact"}
+            ]
+        })
+
+    if user_message == "contact" or "contact" in msg_lower or "talk to" in msg_lower or "human" in msg_lower:
+        return flask_jsonify({
+            "text": "Want to talk to the team?",
+            "redirect": "/contact"
+        })
+
+    # =====================================================
+    # FALLBACK
+    # =====================================================
+
+    return flask_jsonify({
+        "text": "Best way to understand what I do is to see it. I'll show you how I handle a real cold insurance lead.",
+        "options": [
+            {"label": "Show me", "value": "demo"},
+            {"label": "Just tell me pricing", "value": "pricing_individual"}
+        ]
+    })
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
