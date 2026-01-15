@@ -1,4 +1,4 @@
-# db.py - PostgreSQL Database Utilities (Production 2026)
+# db.py - PostgreSQL Database Utilities (Production 2026) - FIXED VERSION
 import os
 import logging
 import uuid
@@ -29,7 +29,9 @@ if creds_dict:
             logger.info("Google Sheet connected")
     except Exception as e:
         logger.error(f"Google Sheet connection failed: {e}")
+
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 def get_db_connection() -> Optional[psycopg2.extensions.connection]:
     """Get a new PostgreSQL connection with RealDictCursor."""
     if not DATABASE_URL:
@@ -44,16 +46,18 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
     except psycopg2.Error as e:
         logger.error(f"Database connection failed: {e}", exc_info=True)
         return None
+
+
 def init_db() -> bool:
-    """Initialize the MASTER subscribers table and agency_billing table."""
+    """Initialize the MASTER subscribers table and all supporting tables."""
     conn = get_db_connection()
     if not conn:
         logger.critical("Cannot initialize DB: connection failed")
         return False
     try:
         cur = conn.cursor()
+        
         # 1. THE MASTER TABLE (Merged Users + Subscribers)
-        # Note: We added password_hash, full_name, phone, bio, role here directly.
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
                 location_id TEXT PRIMARY KEY,
@@ -82,7 +86,8 @@ def init_db() -> bool:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
-        # 1b. Agency Billing/Owners Table (Similar fields for agency owners)
+        
+        # 1b. Agency Billing/Owners Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS agency_billing (
                 agency_email TEXT PRIMARY KEY,
@@ -111,6 +116,7 @@ def init_db() -> bool:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        
         # 2. Messages Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_messages (
@@ -122,6 +128,7 @@ def init_db() -> bool:
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_contact_id ON contact_messages (contact_id);")
+        
         # 3. Facts Table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS contact_facts (
@@ -132,6 +139,7 @@ def init_db() -> bool:
                 UNIQUE(contact_id, fact_text)
             );
         """)
+        
         # 4. Webhook Deduplication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS processed_webhooks (
@@ -139,8 +147,19 @@ def init_db() -> bool:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        
+        # 5. CRITICAL FIX: Contact Narratives Table (was missing!)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS contact_narratives (
+                contact_id TEXT PRIMARY KEY,
+                story_narrative TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_narratives_updated ON contact_narratives (updated_at);")
+        
         conn.commit()
-        logger.info("Database initialized: Subscribers and Agency_Billing tables ready.")
+        logger.info("Database initialized: All tables ready (including contact_narratives).")
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -150,6 +169,8 @@ def init_db() -> bool:
         if conn:
             cur.close()
             conn.close()
+
+
 class User(UserMixin):
     def __init__(self, data: dict):
         # Core identification (works for both agency_billing and subscribers)
@@ -158,47 +179,47 @@ class User(UserMixin):
 
         self.password_hash = data.get('password_hash')
 
-        # Location & GHL identifiers (from subscribers CSV)
+        # Location & GHL identifiers
         self.location_id = data.get('location_id')
         self.ghl_calendar_id = data.get('ghl_calendar_id')
         self.crm_api_key = data.get('crm_api_key')
         self.crm_user_id = data.get('crm_user_id')
         self.calendar_id = data.get('calendar_id')
 
-        # Bot configuration (from subscribers CSV)
+        # Bot configuration
         self.bot_first_name = data.get('bot_first_name', 'Grok')
         self.timezone = data.get('timezone', 'America/Chicago')
         self.initial_message = data.get('initial_message', '')
         self.bot_active = data.get('bot_active')
 
-        # OAuth / Token fields (from subscribers CSV)
+        # OAuth / Token fields
         self.access_token = data.get('access_token')
         self.refresh_token = data.get('refresh_token')
         self.token_expires_at = data.get('token_expires_at')
         self.token_type = data.get('token_type', 'Bearer')
 
-        # Profile & Misc (from subscribers CSV)
+        # Profile & Misc
         self.full_name = data.get('full_name')
         self.phone = data.get('phone')
         self.bio = data.get('bio')
         self.confirmation_code = data.get('confirmation_code')
         self.role = data.get('role', 'individual')
 
-        # Billing & Subscription (from both tables)
+        # Billing & Subscription
         self.subscription_tier = data.get('subscription_tier', 'individual')
-        self.tier = data.get('tier')  # separate field in CSV
+        self.tier = data.get('tier')
         self.stripe_customer_id = data.get('stripe_customer_id')
         self.stripe_status = data.get('stripe_status')
 
-        # Agency linkage (from subscribers CSV)
+        # Agency linkage
         self.parent_agency_email = data.get('parent_agency_email')
 
-        # Agency-specific billing fields (mainly from agency_billing)
+        # Agency-specific billing fields
         self.max_seats = data.get('max_seats')
         self.active_seats = data.get('active_seats')
-        self.next_billing_date = data.get('next_billing_date')  # from your recent agency_billing screenshot
+        self.next_billing_date = data.get('next_billing_date')
 
-        # Timestamps (from both tables)
+        # Timestamps
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
    
@@ -209,37 +230,49 @@ class User(UserMixin):
     @staticmethod
     def get(email: str) -> Optional['User']:
         """
-        Fetch user from the 'subscribers' table (for individuals and sub-accounts).
+        Fetch user from BOTH tables - subscribers first, then agency_billing.
         Returns User object or None if no match.
+        
+        FIXED: Now checks both tables so agency owners can log in.
         """
-        print(f"[DEBUG] User.get called for email: '{email}' (subscribers table)")
+        if not email:
+            return None
+            
+        logger.debug(f"User.get called for email: '{email}'")
        
         conn = get_db_connection()
         if not conn:
-            print("[DEBUG] DB connection failed")
+            logger.debug("DB connection failed")
             return None
        
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            print("[DEBUG] Querying subscribers table...")
-           
+            
+            # 1. Check subscribers table first (most users)
             cur.execute("""
-                SELECT *
-                FROM subscribers
-                WHERE email = %s
-                LIMIT 1
+                SELECT * FROM subscribers WHERE email = %s LIMIT 1
             """, (email,))
-           
             row = cur.fetchone()
+            
             if row:
-                print(f"[DEBUG] Found user in subscribers: {dict(row)}")
+                logger.debug(f"Found user in subscribers table")
                 return User(row)
-            else:
-                print(f"[DEBUG] No match in subscribers for '{email}'")
+            
+            # 2. Check agency_billing table (agency owners)
+            cur.execute("""
+                SELECT * FROM agency_billing WHERE agency_email = %s LIMIT 1
+            """, (email,))
+            row = cur.fetchone()
+            
+            if row:
+                logger.debug(f"Found user in agency_billing table")
+                return User(row)
+            
+            logger.debug(f"No match found for '{email}' in either table")
             return None
        
         except psycopg2.Error as e:
-            print(f"[DEBUG] DB error in User.get: {e}")
+            logger.error(f"DB error in User.get: {e}")
             return None
        
         finally:
@@ -251,37 +284,35 @@ class User(UserMixin):
     @staticmethod
     def get_from_agency(email: str) -> Optional['User']:
         """
-        Fetch user from the 'agency_billing' table (for agency owners).
+        Fetch user from the 'agency_billing' table only.
         Returns User object or None if no match.
         """
-        print(f"[DEBUG] User.get_from_agency called for email: '{email}' (agency_billing table)")
+        if not email:
+            return None
+            
+        logger.debug(f"User.get_from_agency called for email: '{email}'")
        
         conn = get_db_connection()
         if not conn:
-            print("[DEBUG] DB connection failed")
+            logger.debug("DB connection failed")
             return None
        
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            print("[DEBUG] Querying agency_billing table...")
-           
             cur.execute("""
-                SELECT *
-                FROM agency_billing
-                WHERE agency_email = %s
-                LIMIT 1
+                SELECT * FROM agency_billing WHERE agency_email = %s LIMIT 1
             """, (email,))
            
             row = cur.fetchone()
             if row:
-                print(f"[DEBUG] Found user in agency_billing: {dict(row)}")
+                logger.debug(f"Found user in agency_billing")
                 return User(row)
             else:
-                print(f"[DEBUG] No match in agency_billing for '{email}'")
+                logger.debug(f"No match in agency_billing for '{email}'")
             return None
        
         except psycopg2.Error as e:
-            print(f"[DEBUG] DB error in User.get_from_agency: {e}")
+            logger.error(f"DB error in User.get_from_agency: {e}")
             return None
        
         finally:
@@ -301,15 +332,17 @@ class User(UserMixin):
         """
         Creates a new user in the appropriate table.
         For 'agency_owner', use agency_billing; else subscribers.
-        NOTE: Since location_id is PK, we generate a temp one if none provided.
         """
         password_hash = generate_password_hash(password) if password else None
        
-        # If no location_id is provided (e.g. manual signup), generate a temporary one
+        # If no location_id is provided, generate a temporary one
         if not location_id:
             location_id = f"temp_{uuid.uuid4().hex[:8]}"
+            
         conn = get_db_connection()
-        if not conn: return False
+        if not conn: 
+            return False
+            
         try:
             cur = conn.cursor()
             if role == 'agency_owner':
@@ -342,10 +375,15 @@ class User(UserMixin):
             if conn:
                 cur.close()
                 conn.close()
-# --- Helper Functions (Updated to use DB connection) ---
+
+
+# --- Helper Functions ---
+
 def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
+    """Direct SQL lookup for subscriber by location_id."""
     conn = get_db_connection()
-    if not conn: return None
+    if not conn: 
+        return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT * FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
@@ -355,7 +393,12 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         logger.error(f"SQL lookup failed: {e}")
         return None
     finally:
-        if 'conn' in locals(): conn.close()
+        if 'cur' in locals():
+            cur.close()
+        if conn:
+            conn.close()
+
+
 def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
     """
     Hybrid Fetcher:
@@ -366,33 +409,31 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
     sql_data = get_subscriber_info_sql(location_id)
     if sql_data:
         return sql_data
+        
     # 2. Fallback path: Google Sheets
-    # Lazy import to avoid circular dependency with main.py
     try:
         from main import gc, sheet_url
     except ImportError:
-        logger.warning("Sheets recovery unavailable: Credenitals or URL missing.")
+        logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
         return None
    
     if not gc or not sheet_url:
         logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
         return None
+        
     try:
         logger.info(f"SQL miss for {location_id} — initiating Sheets recovery...")
         sh = gc.open_by_url(sheet_url)
-        # Targeted specifically to the 'Subscribers' tab you created
         worksheet = sh.worksheet("Subscribers")
        
-        # Pull all headers to create the map
         headers = [h.strip().lower() for h in worksheet.row_values(1)]
        
-        # The exact headers we expect to find and return
         expected_headers = [
             "location_id", "calendar_id", "access_token", "refresh_token",
             "crm_user_id", "bot_first_name", "timezone", "email", "initial_message",
             "confirmation_code", "stripe_customer_id", "parent_agency_email", "subscription_tier"
         ]
-        # Map header names to their column index (0-based)
+        
         col_map = {}
         for hdr in expected_headers:
             try:
@@ -404,26 +445,25 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
         if "location_id" not in col_map:
             logger.error("Critical: 'location_id' column not found in Subscribers sheet.")
             return None
-        # Optimization: Use .find() for a targeted search
-        # find() is 1-based, so we add 1 to the index
+            
         cell = worksheet.find(location_id, in_column=col_map["location_id"] + 1)
         if not cell:
             logger.warning(f"Location {location_id} not found in Google Sheets.")
             return None
        
         row_data = worksheet.row_values(cell.row)
-        # Build the subscriber dictionary based on your specific columns
         subscriber = {}
         for hdr, col_idx in col_map.items():
             if col_idx < len(row_data):
                 value = row_data[col_idx]
                 subscriber[hdr] = None if value == "" else value
        
-        logger.info(f"Sheets recovery success for {location_id} (Relational Sync Active)")
+        logger.info(f"Sheets recovery success for {location_id}")
         return subscriber
     except Exception as e:
         logger.error(f"Sheets recovery failed for {location_id}: {e}", exc_info=True)
         return None
+
    
 def get_message_count(contact_id: str) -> int:
     """Count messages for a contact (detect empty/wiped DB)."""
@@ -433,15 +473,21 @@ def get_message_count(contact_id: str) -> int:
     try:
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM contact_messages WHERE contact_id = %s", (contact_id,))
-        return cur.fetchone()['count']
+        result = cur.fetchone()
+        # Handle both dict and tuple results
+        if isinstance(result, dict):
+            return result.get('count', 0)
+        return result[0] if result else 0
     except psycopg2.Error as e:
         logger.error(f"get_message_count failed for {contact_id}: {e}")
         return 0
     finally:
-        if cur:
+        if 'cur' in locals():
             cur.close()
         if conn:
             conn.close()
+
+
 def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: list) -> int:
     """Bulk sync GHL messages to DB with deduplication."""
     if not contact_id or not fetched_messages:
@@ -473,10 +519,12 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
         conn.rollback()
         return 0
     finally:
-        if cur:
+        if 'cur' in locals():
             cur.close()
         if conn:
             conn.close()
+
+
 def update_subscriber_token(
     location_id: str,
     access_token: str,
@@ -504,7 +552,7 @@ def update_subscriber_token(
         conn.rollback()
         return False
     finally:
-        if cur:
+        if 'cur' in locals():
             cur.close()
         if conn:
             conn.close()
