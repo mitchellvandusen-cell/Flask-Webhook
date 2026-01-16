@@ -50,6 +50,29 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     directive = ""
     framework = "NEPQ"
     
+    # === INITIAL OUTREACH STAGE (No conversation history) ===
+    if logic.stage == ConversationStage.INITIAL_OUTREACH:
+        directive = (
+            "INITIAL OUTREACH - First contact with lead. "
+            "Send warm, casual opener that makes them curious. "
+            "Reference their situation naturally if you have info (age, location, etc). "
+            "Keep it brief and conversational - one question max. "
+            "Goal: Start dialogue, not close sale."
+        )
+        framework = "INITIAL OUTREACH"
+
+        # Return early for initial outreach
+        return {
+            "profile_str": profile_str,
+            "tactical_narrative": f"STRATEGY: {framework}\nTACTICAL ORDER: {directive}",
+            "stage": logic.stage.value,
+            "underwriting_context": underwriting_ctx,
+            "company_context": company_ctx,
+            "known_facts": known_facts,
+            "story_narrative": story_narrative,
+            "recent_exchanges": recent_exchanges
+        }
+
     # === FIXED: CLOSED STAGE RETURNS EARLY ===
     # This prevents later conditions from overwriting the CLOSED directive
     if logic.stage == ConversationStage.CLOSED:

@@ -234,34 +234,13 @@ def process_webhook_task(payload: dict):
         bot_first_name = subscriber.get('bot_first_name', 'Grok')
         timezone = subscriber.get('timezone', 'America/Chicago')
 
-        # Check for GHOST MODE (initial outreach) before skipping empty messages
-        initial_message_config = subscriber.get('initial_message', '').strip()
-
-        # Get message history to check if bot has already sent messages
-        db_count = get_message_count(contact_id)
-
-        # GHOST MODE: No incoming message + no conversation history + has initial_message configured
-        if not message and db_count == 0 and initial_message_config and not is_demo:
-            logger.info(f"👻 GHOST MODE TRIGGERED for {contact_id}: Sending initial outreach")
-            # Send initial message immediately
-            try:
-                sent = send_sms_via_ghl(contact_id, initial_message_config, auth_token, location_id)
-                if sent:
-                    save_message(contact_id, initial_message_config, "assistant")
-                    logger.info(f"✅ GHOST MODE: Initial message sent to {contact_id}")
-                    return {"status": "success", "reply_sent": True, "ghost_mode": True}
-                else:
-                    logger.warning(f"⚠️ GHOST MODE: SMS send failed for {contact_id}")
-                    save_message(contact_id, initial_message_config, "assistant")
-                    return {"status": "partial", "reason": "sms_failed", "ghost_mode": True}
-            except Exception as e:
-                logger.error(f"❌ GHOST MODE FAILED for {contact_id}: {e}")
-                return {"status": "error", "reason": str(e), "ghost_mode": True}
-
-        # Skip trivial messages (save Grok cost)
-        if not message or message.strip().lower() in {".", ",", "k"}:
-            logger.debug(f"Skipping Grok call — trivial message: {message[:50] if message else 'empty'}")
+        # Skip only truly trivial messages (but allow empty for INITIAL_OUTREACH)
+        if message and message.strip().lower() in {".", ",", "k"}:
+            logger.debug(f"Skipping trivial message: {message}")
             return {"status": "skipped", "reason": "trivial message"}
+
+        # Allow empty messages to proceed - conversation_engine will detect
+        # no lead messages and set stage to INITIAL_OUTREACH automatically
 
         director_output = generate_strategic_directive(
             contact_id=contact_id,
