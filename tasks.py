@@ -343,7 +343,7 @@ def process_webhook_task(payload: dict):
         reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
         reply = re.sub(r'</?reply>', '', reply)
         reply = re.sub(r'<[^>]+>', '', reply).strip()
-        reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
+        reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip().replace("--", ",")
 
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")
