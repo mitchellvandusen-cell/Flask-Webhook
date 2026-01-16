@@ -230,14 +230,38 @@ def process_webhook_task(payload: dict):
         if message:
             save_message(contact_id, message, "lead")
 
+        # === Core Conversation Logic ===
+        bot_first_name = subscriber.get('bot_first_name', 'Grok')
+        timezone = subscriber.get('timezone', 'America/Chicago')
+
+        # Check for GHOST MODE (initial outreach) before skipping empty messages
+        initial_message_config = subscriber.get('initial_message', '').strip()
+
+        # Get message history to check if bot has already sent messages
+        db_count = get_message_count(contact_id)
+
+        # GHOST MODE: No incoming message + no conversation history + has initial_message configured
+        if not message and db_count == 0 and initial_message_config and not is_demo:
+            logger.info(f"👻 GHOST MODE TRIGGERED for {contact_id}: Sending initial outreach")
+            # Send initial message immediately
+            try:
+                sent = send_sms_via_ghl(contact_id, initial_message_config, auth_token, location_id)
+                if sent:
+                    save_message(contact_id, initial_message_config, "assistant")
+                    logger.info(f"✅ GHOST MODE: Initial message sent to {contact_id}")
+                    return {"status": "success", "reply_sent": True, "ghost_mode": True}
+                else:
+                    logger.warning(f"⚠️ GHOST MODE: SMS send failed for {contact_id}")
+                    save_message(contact_id, initial_message_config, "assistant")
+                    return {"status": "partial", "reason": "sms_failed", "ghost_mode": True}
+            except Exception as e:
+                logger.error(f"❌ GHOST MODE FAILED for {contact_id}: {e}")
+                return {"status": "error", "reason": str(e), "ghost_mode": True}
+
         # Skip trivial messages (save Grok cost)
         if not message or message.strip().lower() in {".", ",", "k"}:
             logger.debug(f"Skipping Grok call — trivial message: {message[:50] if message else 'empty'}")
             return {"status": "skipped", "reason": "trivial message"}
-
-        # === Core Conversation Logic ===
-        bot_first_name = subscriber.get('bot_first_name', 'Grok')
-        timezone = subscriber.get('timezone', 'America/Chicago')
 
         director_output = generate_strategic_directive(
             contact_id=contact_id,
@@ -300,48 +324,41 @@ def process_webhook_task(payload: dict):
         
         final_nudge = f"{context_nudge}\n{director_output['underwriting_context']}".strip()
 
-        # Ghost / initial outreach check
-        initial_message = subscriber.get('initial_message', '').strip()
-        assistant_messages = [m for m in recent_exchanges if m["role"] == "assistant"]
-
+        # Generate bot reply using Grok
         reply = ""
-        if not message and len(assistant_messages) == 0 and initial_message and not is_demo:
-            reply = initial_message
-            logger.info("👻 GHOST MODE: Sending initial outreach")
-        else:
-            system_prompt = build_system_prompt(
-                bot_first_name=bot_first_name,
-                timezone=timezone,
-                profile_str=director_output["profile_str"],
-                tactical_narrative=director_output["tactical_narrative"],
-                known_facts=director_output["known_facts"],
-                story_narrative=director_output["story_narrative"],
-                stage="closed" if booking_made else director_output["stage"],
-                recent_exchanges=recent_exchanges,
-                message=message,
-                calendar_slots=calendar_slots,
-                context_nudge=final_nudge,
-                lead_vendor=lead_vendor
+        system_prompt = build_system_prompt(
+            bot_first_name=bot_first_name,
+            timezone=timezone,
+            profile_str=director_output["profile_str"],
+            tactical_narrative=director_output["tactical_narrative"],
+            known_facts=director_output["known_facts"],
+            story_narrative=director_output["story_narrative"],
+            stage="closed" if booking_made else director_output["stage"],
+            recent_exchanges=recent_exchanges,
+            message=message,
+            calendar_slots=calendar_slots,
+            context_nudge=final_nudge,
+            lead_vendor=lead_vendor
+        )
+
+        grok_messages = [{"role": "system", "content": system_prompt}]
+        for msg in recent_exchanges:
+            role = "user" if msg["role"] == "lead" else "assistant"
+            grok_messages.append({"role": role, "content": msg["text"]})
+        if message:
+            grok_messages.append({"role": "user", "content": message})
+
+        try:
+            response = client.chat.completions.create(
+                model="grok-4-1-fast-reasoning",
+                messages=grok_messages,
+                temperature=0.85,
+                max_tokens=200,
             )
-
-            grok_messages = [{"role": "system", "content": system_prompt}]
-            for msg in recent_exchanges:
-                role = "user" if msg["role"] == "lead" else "assistant"
-                grok_messages.append({"role": role, "content": msg["text"]})
-            if message:
-                grok_messages.append({"role": "user", "content": message})
-
-            try:
-                response = client.chat.completions.create(
-                    model="grok-4-1-fast-reasoning",
-                    messages=grok_messages,
-                    temperature=0.85,
-                    max_tokens=200,
-                )
-                reply = response.choices[0].message.content.strip()
-            except Exception as e:
-                logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
-                reply = "Got it — let's circle back when you're free. Anything specific on your mind about coverage?"
+            reply = response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
+            reply = "Got it — let's circle back when you're free. Anything specific on your mind about coverage?"
 
         # Cleanup reply
         reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
