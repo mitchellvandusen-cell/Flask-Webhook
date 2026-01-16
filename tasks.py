@@ -343,7 +343,14 @@ def process_webhook_task(payload: dict):
         reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
         reply = re.sub(r'</?reply>', '', reply)
         reply = re.sub(r'<[^>]+>', '', reply).strip()
-        reply = reply.replace("—", ",").replace("-", ",").replace("…", "...").strip().replace("--", ",").replace("---", ",").replace(";", ",")
+
+        # Strip markdown formatting (SMS is plain text)
+        reply = re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)  # **bold** -> bold
+        reply = re.sub(r'\*([^*]+)\*', r'\1', reply)       # *italic* -> italic
+        reply = re.sub(r'__([^_]+)__', r'\1', reply)       # __underline__ -> underline
+        reply = re.sub(r'_([^_]+)_', r'\1', reply)         # _italic_ -> italic
+
+        reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")

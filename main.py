@@ -221,17 +221,26 @@ def webhook():
     try:
         # CHECK IF DEMO
         is_demo = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
-        
+
         # Select the appropriate queue
         target_queue = q_demo if is_demo else q_production
-        
+
+        # PRIORITY SYSTEM: Replies jump to front, initial outreach goes to back
+        # This prevents 255 initial outreach messages from blocking real conversations
+        is_reply = message_body and message_body.strip() and message_body.strip().lower() not in {".", ",", "k"}
+
         job = target_queue.enqueue(
             process_webhook_task,
             payload,
             job_timeout=120,
-            result_ttl=86400
+            result_ttl=86400,
+            at_front=is_reply  # Replies skip to front of queue
         )
-        return safe_jsonify({"status": "queued", "job_id": job.id, "queue": target_queue.name}), 202
+
+        priority_label = "HIGH PRIORITY" if is_reply else "NORMAL"
+        logger.info(f"📥 Queued job {job.id} | Queue: {target_queue.name} | Priority: {priority_label}")
+
+        return safe_jsonify({"status": "queued", "job_id": job.id, "queue": target_queue.name, "priority": priority_label}), 202
     except Exception as e:
         logger.error(f"Queue failed: {e}")
         return safe_jsonify({"status": "error"}), 500
