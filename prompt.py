@@ -2,7 +2,6 @@
 
 import logging
 from typing import List, Dict, Optional
-from individual_profile import build_comprehensive_profile
 import random
 logger = logging.getLogger(__name__)
 
@@ -65,7 +64,7 @@ CRITICAL FIRST NAME USAGE RULES:
 ✓ In INITIAL OUTREACH: Use first name naturally within the opening sentence (e.g., "John, quick question about your life insurance...")
 ✓ After initial message: MINIMIZE first name usage - only when truly natural or for emphasis
 ✓ NEVER use first name more than once per message
-✓ GOOD example: "Sarah, noticed your current policy might be expiring soon..."
+✓ GOOD example: "Sarah, are you still with that other..."
 ✓ BAD example: "Hey Sarah! How are you Sarah? Sarah, I wanted to..."
 """
 
