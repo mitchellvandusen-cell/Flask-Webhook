@@ -50,6 +50,34 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     directive = ""
     framework = "NEPQ"
     
+    # === INITIAL OUTREACH STAGE (No conversation history) ===
+    if logic.stage == ConversationStage.INITIAL_OUTREACH:
+        first_name_instruction = f"Use '{first_name}' in your opening message." if first_name else "No first name available."
+        directive = (
+            "INITIAL OUTREACH - First contact with lead.\n"
+            "CRITICAL RULES:\n"
+            "❌ NO 'Hey', 'Hi', 'Hello' or generic greetings\n"
+            "❌ NO weird/cringy introductions\n"
+            "✓ MUST mention 'life insurance' in opening\n"
+            f"✓ {first_name_instruction}\n"
+            "✓ Keep brief and direct - one question max\n"
+            "✓ After this initial message, MINIMIZE first name usage (only when natural)\n\n"
+            "Goal: Start professional dialogue about their life insurance situation."
+        )
+        framework = "INITIAL OUTREACH"
+
+        # Return early for initial outreach
+        return {
+            "profile_str": profile_str,
+            "tactical_narrative": f"STRATEGY: {framework}\nTACTICAL ORDER: {directive}",
+            "stage": logic.stage.value,
+            "underwriting_context": underwriting_ctx,
+            "company_context": company_ctx,
+            "known_facts": known_facts,
+            "story_narrative": story_narrative,
+            "recent_exchanges": recent_exchanges
+        }
+
     # === FIXED: CLOSED STAGE RETURNS EARLY ===
     # This prevents later conditions from overwriting the CLOSED directive
     if logic.stage == ConversationStage.CLOSED:
