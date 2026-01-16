@@ -52,12 +52,17 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     
     # === INITIAL OUTREACH STAGE (No conversation history) ===
     if logic.stage == ConversationStage.INITIAL_OUTREACH:
+        first_name_instruction = f"Use '{first_name}' in your opening message." if first_name else "No first name available."
         directive = (
-            "INITIAL OUTREACH - First contact with lead. "
-            "Send warm, casual opener that makes them curious. "
-            "Reference their situation naturally if you have info (age, location, etc). "
-            "Keep it brief and conversational - one question max. "
-            "Goal: Start dialogue, not close sale."
+            "INITIAL OUTREACH - First contact with lead.\n"
+            "CRITICAL RULES:\n"
+            "❌ NO 'Hey', 'Hi', 'Hello' or generic greetings\n"
+            "❌ NO weird/cringy introductions\n"
+            "✓ MUST mention 'life insurance' in opening\n"
+            f"✓ {first_name_instruction}\n"
+            "✓ Keep brief and direct - one question max\n"
+            "✓ After this initial message, MINIMIZE first name usage (only when natural)\n\n"
+            "Goal: Start professional dialogue about their life insurance situation."
         )
         framework = "INITIAL OUTREACH"
 
