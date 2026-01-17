@@ -28,6 +28,13 @@ from psycopg2.extras import RealDictCursor
 # === IMPORTS ===
 from db import get_subscriber_info_hybrid, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
+
+# === ADMIN WHITELIST (Free Access - No Subscription Required) ===
+ADMIN_EMAILS = [
+    "mitchell_vandusen@hotmail.com",
+    "mitchvandusenlife@gmail.com",
+    "mitchell.vandusen@gmail.com",
+]
 # CRITICAL IMPORT: This connects main.py to the logic in tasks.py
 from tasks import process_webhook_task  
 from memory import get_known_facts, get_narrative, get_recent_messages 
@@ -518,7 +525,9 @@ def agency_dashboard():
 
     # --- SUBSCRIPTION VERIFICATION ---
     # Check if agency owner has active Stripe subscription
-    needs_subscription = not current_user.stripe_customer_id
+    # Admin whitelist bypasses subscription requirement
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    needs_subscription = not current_user.stripe_customer_id and not is_admin
 
     if needs_subscription:
         # Determine pricing based on tier or show both options
@@ -767,7 +776,9 @@ def dashboard():
 
     # --- SUBSCRIPTION VERIFICATION ---
     # Check if user has active Stripe subscription
-    needs_subscription = not current_user.stripe_customer_id
+    # Admin whitelist bypasses subscription requirement
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    needs_subscription = not current_user.stripe_customer_id and not is_admin
 
     if needs_subscription:
         # User needs to subscribe - show subscription required page
