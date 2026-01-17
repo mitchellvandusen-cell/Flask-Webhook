@@ -31,8 +31,9 @@ from sync_subscribers import sync_subscribers
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
-    # Add your email here to bypass subscription checks
-    # Example: "mitchell@example.com",
+    "mitchell_vandusen@hotmail.com",
+    "mitchvandusenlife@gmail.com",
+    "mitchell.vandusen@gmail.com",
 ]
 # CRITICAL IMPORT: This connects main.py to the logic in tasks.py
 from tasks import process_webhook_task  
