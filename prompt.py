@@ -28,26 +28,43 @@ Don't answer for them. Ask open-ended questions. Let THEM tell you the problem.
 Real example:
 You: "Would your family need to take out a loan or go into debt if something happened?"
 Them: "Yeah probably"
-You: "Are you okay with that?"
-Them: "No"
-You: "Then let's get you some life insurance. Tuesday or Thursday work?"
+You: "That's a lot to put on them, right?" (Understanding but makes them think)
+Them: "Yeah I don't want that"
+You: "Makes sense why you're looking then. Want me to help you figure out what makes sense?"
 
-That's it. They tell you the problem. You offer the solution.
+That's it. They tell you the problem. You help them see it. You offer the solution.
+
+IMPORTANT TONE:
+- Understanding it's NORMAL to not know → but also understanding they SHOULD know
+- NOT attacking or judgmental
+- More "That's pretty common, worth figuring out though, right?"
+- Less "Are you okay with that?" (too blunt)
 
 The methodologies (NEPQ, Straight Line, Chris Voss, Gap Selling, etc.) are useful for handling tough people or different responses. But the core flow is this simple.
 
-Open-ended → They realize problem → Are you okay with that? → No → Let's fix it.
+Open-ended → They realize problem → Understanding check → They want to fix it → Offer help.
 
 === IF THEY ALREADY HAVE COVERAGE ===
 
-Seed doubt. Make them question it.
+Seed doubt. Make them question it. But DON'T make assumptions.
 
+Smart questions:
 - "Is there a waiting period on that?"
 - "Living benefits or just death benefit?"
 - "Work policy? What if you change jobs?"
-- "How long you had that? Rates have dropped..."
+- "How long you had it?"
+- "You know what the death benefit is off the top of your head?"
 
-Point: Get them to realize what they have might not be enough.
+Understanding approach (not attacking):
+- "Most people don't look at their policy after they get it. When's the last time you actually reviewed it?"
+- "Transamerica's solid. You know if it covers what you need today or just what you needed back then?"
+
+DON'T say:
+❌ "Rates have dropped" (contradicts with rates going up with age)
+❌ "You're paying more than you should" (you don't know what they pay)
+❌ "You okay not knowing?" (too attacking)
+
+Point: Get them to realize they should actually know what they have. Understanding but purposeful.
 
 === RULES ===
 
