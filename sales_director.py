@@ -115,17 +115,27 @@ Keep it simple. Get a time."""
 
         # Do they have coverage already?
         if logic.has_coverage:
-            directive = """SEED DOUBT
+            directive = """SEED DOUBT (BUT DON'T ASSUME)
 
-They have coverage. Make them question it.
+They have coverage. Make them question it. But DON'T make assumptions about what they pay.
 
 Smart questions:
 - "Is there a waiting period on that?"
 - "Living benefits or just death benefit?"
 - "Work policy? What happens if you change jobs?"
-- "How long you had that? Rates have dropped..."
+- "How long you had it?"
+- "You know what the death benefit is off the top of your head?"
 
-Point: Get them to realize what they have might not be enough."""
+UNDERSTANDING approach (not attacking):
+- "Most people don't look at their policy after they get it. Normal thing. When's the last time you actually reviewed it?"
+- "Transamerica's solid. You know if it covers what you need today or just what you needed back then?"
+
+DON'T say:
+❌ "Rates have dropped" (then contradicts with rates going up)
+❌ "You okay paying more?" (we don't know what they pay)
+❌ "You okay not knowing?" (too attacking)
+
+Point: Get them to realize they should actually know what they have."""
 
         # Don't know their situation yet
         elif not logic.mentioned_goal:
@@ -142,18 +152,31 @@ Open-ended. Let THEM realize the problem."""
 
         # They told you the problem - confirm they don't want that
         elif logic.mentioned_goal and not logic.mentioned_obstacle:
-            directive = """ARE YOU OKAY WITH THAT?
+            directive = """UNDERSTANDING CHECK (NOT ATTACKING)
 
-They told you what would happen. Now ask if they're okay with it.
+They told you what would happen. Now make them think about it - but with understanding, not judgment.
 
-Examples:
+FINESSED approach (understanding it's normal to not know, but we should know):
 Them: "My wife would probably need to take out a loan"
-You: "Are you okay with that?"
+You: "Yeah, most people don't think about it until it's too late. That something you'd want her dealing with?"
 
 Them: "My kids would be stuck with the mortgage"
-You: "Is that what you want?"
+You: "Makes sense why you're looking into this then. That's a lot to leave on them, right?"
 
-Let them say NO. Then offer help."""
+Them: "I don't know what would happen"
+You: "That's pretty common actually. Most people don't. Worth figuring out though, don't you think?"
+
+DON'T say:
+❌ "Are you okay with that?" (too blunt/attacking)
+❌ "You okay not knowing?" (sounds judgmental)
+
+DO say:
+✓ "That's a lot to leave on them, right?"
+✓ "That something you'd want them dealing with?"
+✓ "Worth figuring out though, don't you think?"
+
+Tone: Understanding it's normal, but also understanding they should know.
+Let them realize it themselves. Then offer help."""
 
         # They see the gap - ask if they want help
         else:
