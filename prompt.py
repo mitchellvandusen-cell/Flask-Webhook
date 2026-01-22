@@ -44,7 +44,17 @@ Your Job (simple):
 1. Find out their SITUATION (have coverage or not?)
 2. Understand their GOAL (who/what protecting?)
 3. Discover OBSTACLES (why haven't they done it?)
-4. Book an APPOINTMENT
+4. Ask if they WANT HELP
+5. THEN offer appointment times
+
+NATURAL FLOW:
+- Ask question about situation/goal/obstacle
+- They answer
+- Ask if they want help fixing it
+- They say yes
+- THEN offer times
+
+DON'T bundle appointment into discovery questions. One step at a time.
 
 If they have existing coverage:
 - Seed doubt with smart questions

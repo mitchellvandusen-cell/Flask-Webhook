@@ -103,22 +103,25 @@ DO NOT:
 
     # === BOOKING ===
     elif logic.stage == ConversationStage.BOOKING:
-        directive = """BOOKING - Get the appointment
+        directive = """BOOKING - Offer specific times
 
-They're warm. Stop qualifying. Get a time.
+They've shown interest or agreed to a call.
+NOW offer specific times.
 
-Voss "Would you be opposed" format:
-- "Would you be opposed to a quick 15 min call to lock in your options?"
-- "What would you say to jumping on a call Tuesday or Thursday?"
+Simple and direct:
+- "I have Tuesday at 2pm or Thursday at 5pm. Which works?"
+- "What's better for you - morning or afternoon?"
+- "This week or next week?"
 
-Assumptive:
-- "I have 2pm or 5pm tomorrow, which works?"
+Keep it brief. Make it easy to say yes to one.
 
-Identity frame:
-- "Most people in your situation [status/relatedness] just want clarity on what makes sense. 15 minutes?"
+DON'T:
+- Re-sell them
+- Add more info
+- Ask more discovery questions
 
-Key: Make it easy. Remove friction. Offer specific times."""
-        framework = "CLOSING"
+Just get a time on the books."""
+        framework = "BOOKING"
 
     # === QUALIFYING ===
     else:
@@ -163,14 +166,12 @@ If they mention something specific:
 Them: "I have two kids and a mortgage"
 You: "Got it. Is the mortgage covered if something happens, or would that fall on your wife?"
 
-Don't interrogate. Ask with purpose.
+DON'T tie appointment to this message. Just ask the question. Let them answer.
 
-Identity frame (Eli Wilde dissociation):
-- Label positive: "Sounds like you're someone who thinks ahead..."
-- Dissociate: "That's refreshing. I talk to people all the time who just hope it works out, you know what I mean."
-- Reinforce: "Where'd you learn to think like that?"
+MAYBE use identity frame if natural:
+- "Sounds like you're someone who thinks ahead. That's refreshing. What made you start looking into this?"
 
-Goal: Understand what they care about protecting."""
+Goal: Understand what they care about protecting. One step at a time."""
 
         elif not logic.mentioned_obstacle:
             # Don't know why they haven't acted
@@ -179,59 +180,44 @@ Goal: Understand what they care about protecting."""
 You know they need it. You know what they're protecting. Now find out: Why haven't they done it yet?
 
 Natural ways to ask:
-- "What's kept you from getting this handled already?" [Let them reveal obstacle]
+- "What's kept you from getting this handled already?"
 - "Is it just been busy or is there something specific holding you back?"
 - "Have you looked at options before, or is this the first time?"
 
-Common obstacles:
-- Too busy
-- Expensive/confusing
-- Health concerns
-- Don't understand it
-- Procrastination
-
-Chris Voss accusation audit (if they seem hesitant):
+Accusation audit (if they seem hesitant):
 - "You probably think this is expensive..."
-- "You're probably thinking 'I don't have time for this'..."
-[They'll correct you and tell you the real reason]
+- "You're probably thinking you don't have time for this..."
 
 Rationale question (subtle):
-- "Why not just keep what you have and hope for the best?" [Makes them defend their need]
+- "Why not just keep what you have and hope for the best?"
 
-Identity frame (Eli Wilde dissociation):
-- Label positive: "Sounds like you're the type who actually handles things..."
-- Dissociate: "That's a relief. We all know someone who just lets this stuff sit and hopes nothing bad happens, you know what I mean."
-- Reinforce: "Have you always been on top of stuff like this?"
+DON'T offer appointment times yet. Just find out what's blocking them.
 
-Goal: Understand what's been blocking them so you can remove it."""
+Goal: Understand what's been blocking them. Then NEXT message you can offer help."""
 
         else:
-            # We know enough - transition to booking
-            directive = """QUALIFYING - Transition to booking
+            # We know enough - ask if they want help
+            directive = """QUALIFYING - See if they want help
 
 You know:
 - Their situation
 - Their goal
 - Their obstacles
 
-Stop gathering info. Summarize what you know and suggest a call.
+Now see if they WANT help fixing it. Don't assume.
 
-Bridge statement:
-- "So you've got [situation], you want to make sure [goal] is handled, and [obstacle] has been the holdup. Makes sense."
+Natural flow:
+- "Want me to help you figure out what makes sense for your situation?"
+- "Would you be opposed to a quick call to lock this down?"
+- "Should we jump on a call to knock this out?"
 
-Then:
-- "Would you be opposed to a 15 minute call to see what makes sense for your specific situation?"
+DON'T offer specific times yet.
+Wait for them to say yes first.
+THEN next message you offer times.
 
-OR
+Be natural. One step at a time.
 
-- "I have Tuesday at 2pm or Thursday at 5pm. Which works better to knock this out?"
-
-Identity frame (Eli Wilde dissociation):
-- "You strike me as someone who actually follows through on things..."
-- "That's refreshing. I talk to people all the time who say they'll handle it and then just... don't. You know what I mean."
-- "When works for you - Tuesday 2pm or Thursday 5pm?"
-
-Goal: Get the appointment."""
+Goal: Get them to say yes to a call. Times come AFTER they agree."""
 
         framework = "QUALIFYING"
 
