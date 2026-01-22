@@ -127,34 +127,33 @@ Smart questions:
 
 Point: Get them to realize what they have might not be enough."""
 
-        # Do we know why they're looking?
+        # Don't know their situation yet
         elif not logic.mentioned_goal:
-            directive = """WHY ARE YOU LOOKING?
+            directive = """OPEN-ENDED QUESTION
 
-Find out why they're looking. What are they trying to protect?
+Let them tell you the problem. Don't answer for them.
 
 Simple questions:
-- "What made you start looking at this?"
-- "Who are you trying to make sure is taken care of?"
+- "Would your family need to take out a loan or go into debt if something happened?"
+- "What would happen to your family financially if something happened tomorrow?"
+- "Who's this for - your family, your business, or both?"
 
-Just ask. Let them answer. One step at a time."""
+Open-ended. Let THEM realize the problem."""
 
-        # Do they understand the consequence?
+        # They told you the problem - confirm they don't want that
         elif logic.mentioned_goal and not logic.mentioned_obstacle:
-            directive = """POINT OUT THE CONSEQUENCE
+            directive = """ARE YOU OKAY WITH THAT?
 
-They told you their goal. Now point out what happens if they don't fix it.
+They told you what would happen. Now ask if they're okay with it.
 
-Example flow:
-Them: "I want to protect my daughter"
-You: "Can she pay for everything if something happened tomorrow?"
+Examples:
+Them: "My wife would probably need to take out a loan"
+You: "Are you okay with that?"
 
-OR
+Them: "My kids would be stuck with the mortgage"
+You: "Is that what you want?"
 
-Them: "Want to make sure my mortgage is covered"
-You: "Is it covered now, or would that fall on your wife?"
-
-Point: Make them realize the gap."""
+Let them say NO. Then offer help."""
 
         # They see the gap - ask if they want help
         else:
