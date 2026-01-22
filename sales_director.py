@@ -1,5 +1,5 @@
-# sales_director.py - Conversational Intelligence Engine
-# "Talk like a human, think like a strategist"
+# sales_director.py - Simplified Life Insurance Sales Logic
+# "Keep it stupid simple"
 
 import logging
 from conversation_engine import analyze_logic_flow, LogicSignal, ConversationStage
@@ -12,8 +12,11 @@ logger = logging.getLogger(__name__)
 
 def generate_strategic_directive(contact_id: str, message: str, first_name: str, age: str, address: str) -> dict:
     """
-    Generate conversational guidance based on where they are in the conversation.
-    Focus: Situation → Goal → Obstacles → Book
+    Simple formula:
+    1. Why are you looking?
+    2. How fucked would your family be?
+    3. Do you want that?
+    4. Book appointment
     """
 
     # 1. GATHER INTELLIGENCE
@@ -23,7 +26,7 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     story_narrative = get_narrative(contact_id)
     known_facts = get_known_facts(contact_id)
 
-    # 2. ANALYZE CONVERSATION
+    # 2. ANALYZE
     logic: LogicSignal = analyze_logic_flow(recent_exchanges)
     profile_str, profile_ctx = build_comprehensive_profile(story_narrative, known_facts, first_name, age, address)
 
@@ -39,34 +42,31 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         if normalized:
             company_ctx = get_company_context(normalized)
 
-    # 3. BUILD GUIDANCE
+    # 3. BUILD DIRECTIVE
     directive = ""
     framework = ""
 
     # === INITIAL OUTREACH ===
     if logic.stage == ConversationStage.INITIAL_OUTREACH:
         first_name_instruction = f"Use '{first_name}' in your opening." if first_name else "No first name."
-        directive = f"""INITIAL OUTREACH - Natural opener
+        directive = f"""INITIAL OUTREACH
 
 {first_name_instruction}
 
-Approach options (pick what fits):
-- Curiosity hook: "Quick question about your life insurance situation..."
-- Pattern interrupt: "Noticed something about your coverage..."
-- Direct: "Are you still looking at life insurance or did that get handled?"
+Options:
+- "Quick question about your life insurance - are you still looking or did that get handled?"
+- "Noticed you were looking at life insurance. Still figuring that out?"
 
 Rules:
-- NO "Hey/Hi/Hello" greetings
-- Mention "life insurance" naturally
-- One question max
+- NO "Hey/Hi/Hello"
+- Mention life insurance
 - Brief (1-2 sentences)
-
-Identity frame: Position yourself as someone who helps people not make dumb mistakes with their coverage."""
-        framework = "INITIAL OUTREACH"
+- One question max"""
+        framework = "INITIAL"
 
         return {
             "profile_str": profile_str,
-            "tactical_narrative": f"STRATEGY: {framework}\n\n{directive}",
+            "tactical_narrative": f"{framework}\n\n{directive}",
             "stage": logic.stage.value,
             "underwriting_context": underwriting_ctx,
             "company_context": company_ctx,
@@ -77,22 +77,18 @@ Identity frame: Position yourself as someone who helps people not make dumb mist
 
     # === BOOKED ===
     elif logic.stage == ConversationStage.BOOKED:
-        directive = """APPOINTMENT BOOKED - Confirm and stop
+        directive = """APPOINTMENT BOOKED
 
 Simple confirmation:
-- "Perfect, see you [time]"
-- "You're all set for [time]"
-- Then STOP talking
+- "Perfect, see you Tuesday at 2pm"
+- "You're all set for Thursday at 5pm"
 
-DO NOT:
-- Continue selling
-- Ask more questions
-- Give more info unless they ask"""
-        framework = "POST-CLOSE"
+Then STOP. Don't keep talking."""
+        framework = "BOOKED"
 
         return {
             "profile_str": profile_str,
-            "tactical_narrative": f"STRATEGY: {framework}\n\n{directive}",
+            "tactical_narrative": f"{framework}\n\n{directive}",
             "stage": logic.stage.value,
             "underwriting_context": underwriting_ctx,
             "company_context": company_ctx,
@@ -101,129 +97,86 @@ DO NOT:
             "recent_exchanges": recent_exchanges
         }
 
-    # === BOOKING ===
+    # === BOOKING (They agreed to call) ===
     elif logic.stage == ConversationStage.BOOKING:
-        directive = """BOOKING - Offer specific times
+        directive = """BOOKING - Offer times
 
-They've shown interest or agreed to a call.
-NOW offer specific times.
+They agreed to a call. NOW offer specific times.
 
-Simple and direct:
 - "I have Tuesday at 2pm or Thursday at 5pm. Which works?"
-- "What's better for you - morning or afternoon?"
-- "This week or next week?"
+- "Morning or afternoon better for you?"
 
-Keep it brief. Make it easy to say yes to one.
-
-DON'T:
-- Re-sell them
-- Add more info
-- Ask more discovery questions
-
-Just get a time on the books."""
+Keep it simple. Get a time."""
         framework = "BOOKING"
 
-    # === QUALIFYING ===
+    # === QUALIFYING (The Simple Formula) ===
     else:
-        # Check what we know
         full_context = (story_narrative + " " + " ".join(known_facts)).lower()
 
-        # Determine what to find out
+        # Do they have coverage already?
         if logic.has_coverage:
-            # They have coverage - seed doubt
-            directive = """QUALIFYING - They have existing coverage
+            directive = """SEED DOUBT
 
-Your job: Seed doubt. Make them question what they have.
+They have coverage. Make them question it.
 
-Smart questions (not interrogative, purposeful):
-- "Is there a waiting period on that policy, or does it pay out right away?"
-- "Does that policy have living benefits or just death benefit?"
-- "Is that through work? Have you thought about what happens if you switch jobs?"
-- "How long have you had that? Rates have dropped a lot in the last few years."
-- "Term or permanent?"
+Smart questions:
+- "Is there a waiting period on that?"
+- "Living benefits or just death benefit?"
+- "Work policy? What happens if you change jobs?"
+- "How long you had that? Rates have dropped..."
 
-Don't attack their policy. Just make them think.
+Point: Get them to realize what they have might not be enough."""
 
-Identity frame (SCARF):
-- Status: "Most people with your level of responsibility [business/family] have layered coverage..."
-- Certainty: "The worst thing is thinking you're covered and finding out later there's a gap..."
-- Fairness: "Is it fair to your family if this thing doesn't do what you think it does?"
-
-Goal: Get them to question their current setup."""
-
+        # Do we know why they're looking?
         elif not logic.mentioned_goal:
-            # Don't know goal yet
-            directive = """QUALIFYING - Find out who/what they're protecting
+            directive = """WHY ARE YOU LOOKING?
 
-You need to know: Who or what are they trying to protect?
+Find out why they're looking. What are they trying to protect?
 
-Natural ways to ask (make sense, not weird):
+Simple questions:
 - "What made you start looking at this?"
 - "Who are you trying to make sure is taken care of?"
-- "What's the main thing you're worried about leaving behind?"
 
-If they mention something specific:
-Them: "I have two kids and a mortgage"
-You: "Got it. Is the mortgage covered if something happens, or would that fall on your wife?"
+Just ask. Let them answer. One step at a time."""
 
-DON'T tie appointment to this message. Just ask the question. Let them answer.
+        # Do they understand the consequence?
+        elif logic.mentioned_goal and not logic.mentioned_obstacle:
+            directive = """POINT OUT THE CONSEQUENCE
 
-MAYBE use identity frame if natural:
-- "Sounds like you're someone who thinks ahead. That's refreshing. What made you start looking into this?"
+They told you their goal. Now point out what happens if they don't fix it.
 
-Goal: Understand what they care about protecting. One step at a time."""
+Example flow:
+Them: "I want to protect my daughter"
+You: "Can she pay for everything if something happened tomorrow?"
 
-        elif not logic.mentioned_obstacle:
-            # Don't know why they haven't acted
-            directive = """QUALIFYING - Find out what's stopped them
+OR
 
-You know they need it. You know what they're protecting. Now find out: Why haven't they done it yet?
+Them: "Want to make sure my mortgage is covered"
+You: "Is it covered now, or would that fall on your wife?"
 
-Natural ways to ask:
-- "What's kept you from getting this handled already?"
-- "Is it just been busy or is there something specific holding you back?"
-- "Have you looked at options before, or is this the first time?"
+Point: Make them realize the gap."""
 
-Accusation audit (if they seem hesitant):
-- "You probably think this is expensive..."
-- "You're probably thinking you don't have time for this..."
-
-Rationale question (subtle):
-- "Why not just keep what you have and hope for the best?"
-
-DON'T offer appointment times yet. Just find out what's blocking them.
-
-Goal: Understand what's been blocking them. Then NEXT message you can offer help."""
-
+        # They see the gap - ask if they want help
         else:
-            # We know enough - ask if they want help
-            directive = """QUALIFYING - See if they want help
+            directive = """ASK IF THEY WANT HELP
 
-You know:
-- Their situation
-- Their goal
-- Their obstacles
+They know why they're looking. They see the consequence.
 
-Now see if they WANT help fixing it. Don't assume.
-
-Natural flow:
-- "Want me to help you figure out what makes sense for your situation?"
+Now ask if they want help:
+- "Want me to help you figure out what makes sense?"
 - "Would you be opposed to a quick call to lock this down?"
-- "Should we jump on a call to knock this out?"
 
-DON'T offer specific times yet.
-Wait for them to say yes first.
-THEN next message you offer times.
+DON'T offer times yet.
+Wait for them to say yes.
+THEN next message offer times.
 
-Be natural. One step at a time.
-
-Goal: Get them to say yes to a call. Times come AFTER they agree."""
+Keep it simple."""
 
         framework = "QUALIFYING"
 
     return {
         "profile_str": profile_str,
-        "tactical_narrative": f"STRATEGY: {framework}\n\n{directive}",
+        "tactical_narrative": f"{framework}\n\n{directive}",
         "stage": logic.stage.value,
         "underwriting_context": underwriting_ctx,
         "company_context": company_ctx,
