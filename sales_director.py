@@ -165,9 +165,10 @@ You: "Got it. Is the mortgage covered if something happens, or would that fall o
 
 Don't interrogate. Ask with purpose.
 
-Identity frame:
-- "Most people I talk to [relatedness] are either protecting their family or their business..."
-- "Sounds like you're the type [positive identity] who wants to make sure things are handled..."
+Identity frame (Eli Wilde dissociation):
+- Label positive: "Sounds like you're someone who thinks ahead..."
+- Dissociate: "That's refreshing. I talk to people all the time who just hope it works out, you know what I mean."
+- Reinforce: "Where'd you learn to think like that?"
 
 Goal: Understand what they care about protecting."""
 
@@ -197,9 +198,10 @@ Chris Voss accusation audit (if they seem hesitant):
 Rationale question (subtle):
 - "Why not just keep what you have and hope for the best?" [Makes them defend their need]
 
-Identity frame:
-- Negative association: "You're not the type to leave your family in a mess..." [They confirm they're NOT that]
-- Positive association: "You strike me as someone who handles things..." [They align with this]
+Identity frame (Eli Wilde dissociation):
+- Label positive: "Sounds like you're the type who actually handles things..."
+- Dissociate: "That's a relief. We all know someone who just lets this stuff sit and hopes nothing bad happens, you know what I mean."
+- Reinforce: "Have you always been on top of stuff like this?"
 
 Goal: Understand what's been blocking them so you can remove it."""
 
@@ -224,9 +226,10 @@ OR
 
 - "I have Tuesday at 2pm or Thursday at 5pm. Which works better to knock this out?"
 
-Identity frame (guilt + responsibility):
-- "Most people [relatedness] who actually care about their family [positive identity] don't let this sit..."
-- "You wouldn't forgive yourself if something happened and you hadn't handled this..."
+Identity frame (Eli Wilde dissociation):
+- "You strike me as someone who actually follows through on things..."
+- "That's refreshing. I talk to people all the time who say they'll handle it and then just... don't. You know what I mean."
+- "When works for you - Tuesday 2pm or Thursday 5pm?"
 
 Goal: Get the appointment."""
 

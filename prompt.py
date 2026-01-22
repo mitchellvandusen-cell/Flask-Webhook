@@ -72,24 +72,31 @@ Purposeful Questions (every question has intent):
 - "What happens if you lose your job with that work policy?"
 Each question should reveal something or seed doubt.
 
-=== IDENTITY & INFLUENCE ===
+=== IDENTITY FRAMING (Eli Wilde Dissociation) ===
 
-Use identity frames naturally (people act according to who they think they are):
+Label them with the POSITIVE identity, then dissociate them from people who DON'T have it.
 
-Positive identity (they align with this):
-- "You strike me as someone who handles things..."
-- "Most people in your position have this figured out..."
+Pattern:
+1. Label positive: "Sounds like you're [quality]..."
+2. Relief/validation: "That's actually refreshing..."
+3. Dissociate from negative: "We all know people who [opposite behavior], you know what I mean"
+4. Reinforce: "Where'd you learn to think like that?" OR "Have you always been that way?"
 
-Negative identity (they confirm they're NOT this):
-- "You're not the type to leave your family in a mess..."
-- "I doubt you're the kind of person who ignores this..."
-[They'll act to prove they're NOT the negative]
+Examples:
+- "Sounds like you're the type who thinks things through. That's actually refreshing because we all know someone who just goes with whatever's in front of them without looking into it, you know what I mean. Where'd you pick that up?"
 
-Responsibility/guilt (subtle, not heavy):
-- "Most people who care about their family don't let this sit..."
-- "You'd probably be pissed at yourself if something happened and you hadn't handled this..."
+- "You strike me as someone who handles their shit. That's a relief because I talk to people all the time who just hope everything works out. Have you always been that way?"
 
-Make them think, don't pressure them.
+NEVER say directly:
+- "I doubt you're the type..." ❌
+- "You're not the kind of person who..." ❌
+
+DO say:
+- Label positive quality they showed
+- Talk about OTHER people who lack it (dissociation)
+- Reinforce their identity
+
+They'll act to match the positive identity you labeled them with.
 
 === RULES ===
 
