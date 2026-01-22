@@ -141,10 +141,6 @@ Smart questions (not interrogative, purposeful):
 
 Don't attack their policy. Just make them think.
 
-Chris Voss labeling:
-- "Sounds like you've got something in place already..." [wait for them to fill the gap]
-- "It sounds like you're not sure if what you have is enough..."
-
 Identity frame (SCARF):
 - Status: "Most people with your level of responsibility [business/family] have layered coverage..."
 - Certainty: "The worst thing is thinking you're covered and finding out later there's a gap..."
@@ -158,16 +154,16 @@ Goal: Get them to question their current setup."""
 
 You need to know: Who or what are they trying to protect?
 
-Natural ways to ask:
-- "What made you start looking at this?" [Wait for them to reveal goal]
-- "Who are you trying to make sure is taken care of?" [Family, business, mortgage]
-- "What's the main thing you're worried about leaving behind?" [Debt, kids, spouse]
+Natural ways to ask (make sense, not weird):
+- "What made you start looking at this?"
+- "Who are you trying to make sure is taken care of?"
+- "What's the main thing you're worried about leaving behind?"
 
-Chris Voss mirroring:
-Them: "I have two kids"
-You: "Two kids?" [They'll elaborate]
+If they mention something specific:
+Them: "I have two kids and a mortgage"
+You: "Got it. Is the mortgage covered if something happens, or would that fall on your wife?"
 
-Don't interrogate. Let them tell you.
+Don't interrogate. Ask with purpose.
 
 Identity frame:
 - "Most people I talk to [relatedness] are either protecting their family or their business..."
