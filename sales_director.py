@@ -1,7 +1,7 @@
-# sales_director.py - FIXED VERSION
-# Fix: CLOSED stage now returns early to prevent override
+# sales_director.py - Simplified Life Insurance Sales Logic
+# "Keep it stupid simple"
+
 import logging
-from difflib import SequenceMatcher
 from conversation_engine import analyze_logic_flow, LogicSignal, ConversationStage
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
@@ -10,29 +10,31 @@ from memory import get_recent_messages, get_known_facts, get_narrative, run_narr
 
 logger = logging.getLogger(__name__)
 
-
 def generate_strategic_directive(contact_id: str, message: str, first_name: str, age: str, address: str) -> dict:
     """
-    Generate strategic sales directive based on conversation analysis.
-    Returns dict with profile, tactical narrative, stage, and context.
+    Simple formula:
+    1. Why are you looking?
+    2. How fucked would your family be?
+    3. Do you want that?
+    4. Book appointment
     """
-    
-    # 1. GATHER INTELLIGENCE (Narrative Observer updates FIRST)
+
+    # 1. GATHER INTELLIGENCE
     run_narrative_observer(contact_id, message)
-    
+
     recent_exchanges = get_recent_messages(contact_id, limit=10)
     story_narrative = get_narrative(contact_id)
     known_facts = get_known_facts(contact_id)
-    
-    # 2. PROCESS HEMISPHERES
+
+    # 2. ANALYZE
     logic: LogicSignal = analyze_logic_flow(recent_exchanges)
     profile_str, profile_ctx = build_comprehensive_profile(story_narrative, known_facts, first_name, age, address)
-    
+
     # Underwriting & Company Context
     underwriting_ctx = ""
     if "health" in message.lower() or "medic" in message.lower() or profile_ctx.get("health_issues"):
         underwriting_ctx = get_underwriting_context(message)
-    
+
     company_ctx = ""
     raw_company = find_company_in_message(message)
     if raw_company:
@@ -40,36 +42,31 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         if normalized:
             company_ctx = get_company_context(normalized)
 
-    # 3. CONTEXTUAL ANALYSIS
-    bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
-    lead_msgs = [m for m in recent_exchanges if m['role'] == 'lead']
-    last_bot_text = bot_msgs[-1]['text'].lower() if bot_msgs else ""
-    just_asked_consequence = any(x in last_bot_text for x in ["happen", "worry", "concern", "impact", "leave them"])
-    
-    # 4. EXECUTIVE SYNTHESIS
+    # 3. BUILD DIRECTIVE
     directive = ""
-    framework = "NEPQ"
-    
-    # === INITIAL OUTREACH STAGE (No conversation history) ===
+    framework = ""
+
+    # === INITIAL OUTREACH ===
     if logic.stage == ConversationStage.INITIAL_OUTREACH:
-        first_name_instruction = f"Use '{first_name}' in your opening message." if first_name else "No first name available."
-        directive = (
-            "INITIAL OUTREACH - First contact with lead.\n"
-            "CRITICAL RULES:\n"
-            "❌ NO 'Hey', 'Hi', 'Hello' or generic greetings\n"
-            "❌ NO weird/cringy introductions\n"
-            "✓ MUST mention 'life insurance' in opening\n"
-            f"✓ {first_name_instruction}\n"
-            "✓ Keep brief and direct - one question max\n"
-            "✓ After this initial message, MINIMIZE first name usage (only when natural)\n\n"
-            "Goal: Start professional dialogue about their life insurance situation."
-        )
-        framework = "INITIAL OUTREACH"
+        first_name_instruction = f"Use '{first_name}' in your opening." if first_name else "No first name."
+        directive = f"""INITIAL OUTREACH
 
-        # Return early for initial outreach
+{first_name_instruction}
+
+Options:
+- "Quick question about your life insurance - are you still looking or did that get handled?"
+- "Noticed you were looking at life insurance. Still figuring that out?"
+
+Rules:
+- NO "Hey/Hi/Hello"
+- Mention life insurance
+- Brief (1-2 sentences)
+- One question max"""
+        framework = "INITIAL"
+
         return {
             "profile_str": profile_str,
-            "tactical_narrative": f"STRATEGY: {framework}\nTACTICAL ORDER: {directive}",
+            "tactical_narrative": f"{framework}\n\n{directive}",
             "stage": logic.stage.value,
             "underwriting_context": underwriting_ctx,
             "company_context": company_ctx,
@@ -78,20 +75,20 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
             "recent_exchanges": recent_exchanges
         }
 
-    # === FIXED: CLOSED STAGE RETURNS EARLY ===
-    # This prevents later conditions from overwriting the CLOSED directive
-    if logic.stage == ConversationStage.CLOSED:
-        if "talk then" in last_bot_text or "see you" in last_bot_text:
-            directive = "APPOINTMENT ALREADY CONFIRMED. DO NOT RESPOND. Silence required."
-            framework = "TERMINAL SILENCE"
-        else:
-            directive = "APPOINTMENT JUST BOOKED. Send one final confirmation and STOP all sales talk."
-            framework = "POST-CLOSE CONFIRMATION"
-        
-        # Return early to prevent override
+    # === BOOKED ===
+    elif logic.stage == ConversationStage.BOOKED:
+        directive = """APPOINTMENT BOOKED
+
+Simple confirmation:
+- "Perfect, see you Tuesday at 2pm"
+- "You're all set for Thursday at 5pm"
+
+Then STOP. Don't keep talking."""
+        framework = "BOOKED"
+
         return {
             "profile_str": profile_str,
-            "tactical_narrative": f"STRATEGY: {framework}\nTACTICAL ORDER: {directive}",
+            "tactical_narrative": f"{framework}\n\n{directive}",
             "stage": logic.stage.value,
             "underwriting_context": underwriting_ctx,
             "company_context": company_ctx,
@@ -100,144 +97,85 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
             "recent_exchanges": recent_exchanges
         }
 
-    # --- IMMEDIATE CLOSING TRIGGERS ---
-    if logic.pain_score >= 2:
-        directive = "CRITICAL PAIN ADMITTED. STOP DISCOVERY. Prescribe appointment as triage."
-        framework = "COMPASSIONATE CLOSE"
+    # === BOOKING (They agreed to call) ===
+    elif logic.stage == ConversationStage.BOOKING:
+        directive = """BOOKING - Offer times
 
-    elif just_asked_consequence and logic.depth_score > 2:
-        directive = "GAP INTERNALIZED. Pivot from Problem to Solution using Bridge Question."
-        framework = "NEPQ (Transition)"
+They agreed to a call. NOW offer specific times.
 
-    elif just_asked_consequence and logic.depth_score <= 2:
-        directive = (
-            "Lead gave surface-level answer to consequence question. "
-            "Use a clarifying probe to force emotional visualization. "
-            "Ask what the impact would specifically look like for their family."
-        )
-        framework = "GAP SELLING (Probe)"
+- "I have Tuesday at 2pm or Thursday at 5pm. Which works?"
+- "Morning or afternoon better for you?"
 
-    elif logic.voss_no_signal:
-        directive = "AGREEMENT SIGNAL. Secure commitment using 'Illusion of Control' (How/What)."
-        framework = "CHRIS VOSS (Closing)"
+Keep it simple. Get a time."""
+        framework = "BOOKING"
 
-    elif logic.stage == ConversationStage.CLOSING:
-        directive = "GREEN LIGHT. Finalize time slot."
-        framework = "ASSUMPTIVE CLOSE"
-
-    # --- OBJECTION HANDLING ---
-    elif logic.last_move_type == "deflection":
-        directive = "DEFLECTION. Acknowledge briefly, then pivot back to Intelligence Gathering."
-        framework = "STRAIGHT LINE (Looping)"
-
-    # --- DISCOVERY LOGIC ---
-    elif logic.gap_signal:
-        directive = "GAP DETECTED. Future Pace the Pain."
-        framework = "NEPQ (Consequence)"
-
+    # === QUALIFYING (The Simple Formula) ===
     else:
-        # CHECK NARRATIVE FOR SATURATION
         full_context = (story_narrative + " " + " ".join(known_facts)).lower()
-        has_type = any(x in full_context for x in ["term", "whole", "iul", "group", "work"])
-        has_amount = any(x in full_context for x in ["$", "amount", "coverage", "benefit", "mil"])
-        has_expiry = any(x in full_context for x in ["year", "expire", "renew", "permanent"])
 
-        if (has_type + has_amount + has_expiry) >= 2:
-            directive = "MOST POLICY BASICS KNOWN. Pivot to challenging quality / revealing gap."
-            framework = "GAP SELLING (Quality Challenge)"
+        # Do they have coverage already?
+        if logic.has_coverage:
+            directive = """SEED DOUBT
+
+They have coverage. Make them question it.
+
+Smart questions:
+- "Is there a waiting period on that?"
+- "Living benefits or just death benefit?"
+- "Work policy? What happens if you change jobs?"
+- "How long you had that? Rates have dropped..."
+
+Point: Get them to realize what they have might not be enough."""
+
+        # Don't know their situation yet
+        elif not logic.mentioned_goal:
+            directive = """OPEN-ENDED QUESTION
+
+Let them tell you the problem. Don't answer for them.
+
+Simple questions:
+- "Would your family need to take out a loan or go into debt if something happened?"
+- "What would happen to your family financially if something happened tomorrow?"
+- "Who's this for - your family, your business, or both?"
+
+Open-ended. Let THEM realize the problem."""
+
+        # They told you the problem - confirm they don't want that
+        elif logic.mentioned_goal and not logic.mentioned_obstacle:
+            directive = """ARE YOU OKAY WITH THAT?
+
+They told you what would happen. Now ask if they're okay with it.
+
+Examples:
+Them: "My wife would probably need to take out a loan"
+You: "Are you okay with that?"
+
+Them: "My kids would be stuck with the mortgage"
+You: "Is that what you want?"
+
+Let them say NO. Then offer help."""
+
+        # They see the gap - ask if they want help
         else:
-            directive = (
-                "DISCOVERY MODE. Ask **only** about the MISSING piece (Type, Amount, or Expiration). "
-                "DO NOT re-ask anything already in narrative or facts. "
-                "If unsure what's missing, make a light statement reframing what you do know instead of questioning."
-            )
-            framework = "NEPQ (Situation)"
-            
-    # === SOFTEN DIRECTIVES FOR LOW SUBTEXT ===
-    if not message.strip():
-        directive += "\nSUBTEXT GUIDE: Minimal input—treat as neutral; lightly reframe prior point as guide to progress, not new probe."
+            directive = """ASK IF THEY WANT HELP
 
-    # ════════════════════════════════════════════════════════════════════
-    # ANTI-LOOP / STUCK FALLBACK
-    # ════════════════════════════════════════════════════════════════════
+They know why they're looking. They see the consequence.
 
-    bot_recent_questions = [
-        m['text'].lower()
-        for m in bot_msgs[-5:]
-        if '?' in m['text']
-    ]
+Now ask if they want help:
+- "Want me to help you figure out what makes sense?"
+- "Would you be opposed to a quick call to lock this down?"
 
-    if len(bot_recent_questions) >= 2:
-        last_q = bot_recent_questions[-1]
-        prev_qs = bot_recent_questions[:-1]
+DON'T offer times yet.
+Wait for them to say yes.
+THEN next message offer times.
 
-        similar_count = sum(
-            SequenceMatcher(None, last_q, prev).ratio() > 0.65
-            for prev in prev_qs
-        )
+Keep it simple."""
 
-        if similar_count >= 1:
-            directive = (
-                "POTENTIAL REPETITION DETECTED — bot has asked similar discovery/probe questions recently. "
-                "Do NOT ask another question in the same vein. "
-                "Instead: 1) Empathize / label the lead's emotional state, "
-                "2) Lightly reframe what is already known from narrative/facts, "
-                "3) Pivot toward solution awareness, value angle, or soft booking attempt. "
-                "Use a statement or No-Oriented question if needed — avoid open probes."
-            )
-            framework = "ANTI-LOOP PIVOT"
-            logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=similarity={similar_count}")
-
-        elif any(word in " ".join(bot_recent_questions) for word in [
-            "worry", "concern", "afraid", "scared", "happen if", "impact", "leave them",
-            "what happens", "how would", "tell me more about", "opposed", "gap", "protect"
-        ]) and len(bot_recent_questions) >= 3:
-            directive = (
-                "MULTIPLE EMOTIONAL PROBES DETECTED — risk of discovery fatigue. "
-                "Assume partial gap awareness already exists. "
-                "Reframe known pain points empathetically, then guide toward next step "
-                "(solution discussion or soft booking validation)."
-            )
-            framework = "ANTI-LOOP EMOTIONAL FATIGUE PIVOT"
-            logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=emotional_probes x{len(bot_recent_questions)}")
-
-        # Lead fatigue check
-        lead_recent = [m['text'].strip() for m in recent_exchanges[-6:] if m['role'] == 'lead']
-        if len(lead_recent) >= 3 and all(len(txt.split()) <= 3 for txt in lead_recent[-3:]):
-            directive += (
-                "\nLEAD REPLIES VERY SHORT — possible fatigue or disinterest. "
-                "Keep next message ultra-brief, empathetic, and action-oriented. "
-                "No questions unless Voss-style for closure."
-            )
-            logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=short_replies")
-
-        # Theme repetition
-        theme_keywords = ["gap", "worry", "concern", "family", "expire", "protect", "coverage", "opposed", "annoy", "frustrat"]
-        theme_count = sum(any(kw in q for kw in theme_keywords) for q in bot_recent_questions)
-        if theme_count >= len(bot_recent_questions) * 0.6:
-            directive = (
-                "THEME REPETITION DETECTED — bot stuck on gaps/worries. "
-                "Do NOT ask questions. Use a neutral statement to reframe value or disengage softly."
-            )
-            framework = "ANTI-LOOP THEME PIVOT"
-            logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=theme_count={theme_count}")
-
-        # Cumulative resistance
-        if lead_msgs:
-            lead_recent_moves = [analyze_logic_flow([m]).last_move_type for m in lead_msgs[-5:]]
-            resistance_count = sum(1 for move in lead_recent_moves if move in ["rejection", "objection", "deflection"])
-            if resistance_count >= 3:
-                directive = (
-                    "HIGH RESISTANCE — lead showing repeated disinterest. "
-                    "Acknowledge, provide value opt-in, and disengage. No questions."
-                )
-                framework = "DISENGAGE"
-                logic.stage = ConversationStage.RESISTANCE
-                logger.warning(f"ANTI-LOOP TRIGGERED | contact={contact_id} | reason=resistance_count={resistance_count}")
+        framework = "QUALIFYING"
 
     return {
         "profile_str": profile_str,
-        "tactical_narrative": f"STRATEGY: {framework}\nTACTICAL ORDER: {directive}",
+        "tactical_narrative": f"{framework}\n\n{directive}",
         "stage": logic.stage.value,
         "underwriting_context": underwriting_ctx,
         "company_context": company_ctx,
