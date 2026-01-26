@@ -128,7 +128,7 @@ def load_user(user_id):
 # Forms
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
-    location_id = StringField("Your GoHighLevel Location ID", validators=[DataRequired()])
+    location_id = StringField("Your Lead Connector Location ID", validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
     confirm = PasswordField("Confirm Password", validators=[DataRequired(), EqualTo("password")])
     submit = SubmitField("Create Account")
@@ -366,7 +366,7 @@ def register():
         url_location_id = request.args.get('location_id')
         if url_location_id:
             form.location_id.data = url_location_id
-            flash("GoHighLevel connected! Your location ID is pre-filled. Set a password to finish.", "success")
+            flash("Lead Connector connected! Your location ID is pre-filled. Set a password to finish.", "success")
 
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
@@ -457,7 +457,7 @@ def register():
 
                 conn.commit()
                 logger.info(f"Manual/Stripe registration completed: {email}")
-                flash("Account created successfully! You can now connect your GoHighLevel account from the dashboard.", "success")
+                flash("Account created successfully! You can now connect your Lead Connector account from the dashboard.", "success")
                 return redirect(url_for("login"))
 
         except Exception as e:
@@ -1704,10 +1704,10 @@ def refresh_subscribers():
 @app.route("/oauth/initiate")
 def oauth_initiate():
     """
-    Initiates OAuth flow with GoHighLevel.
+    Initiates OAuth flow with Lead Connector.
     Works BEFORE marketplace approval (using private app credentials).
 
-    User clicks "Connect with GoHighLevel" → Redirected to GHL consent page → Back to /oauth/callback
+    User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
     """
     client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
@@ -1753,8 +1753,8 @@ def oauth_callback():
 
     try:
         # Determine which OAuth app was used based on state parameter
-        # state="private_app" → Stripe/website users connecting GHL
-        # No state → GHL marketplace installation
+        # state="private_app" → Stripe/website users connecting Lead Connector
+        # No state → Marketplace installation
         is_private_app = (state == "private_app")
 
         if is_private_app:
@@ -1764,7 +1764,7 @@ def oauth_callback():
         else:
             client_id = os.getenv("GHL_CLIENT_ID")
             client_secret = os.getenv("GHL_CLIENT_SECRET")
-            logger.info("OAuth callback: Using marketplace app credentials (GHL marketplace flow)")
+            logger.info("OAuth callback: Using marketplace app credentials (Marketplace flow)")
 
         # 1. Exchange Code for Token
         token_url = "https://services.leadconnectorhq.com/oauth/token"
@@ -1795,7 +1795,7 @@ def oauth_callback():
         user_name = me_data.get('name', 'Agency Admin')
 
         if not user_email:
-            flash("Could not retrieve user email from GoHighLevel.", "danger")
+            flash("Could not retrieve user email from Lead Connector.", "danger")
             return redirect(url_for('home'))
 
         # 3. Detect agency status
@@ -2052,7 +2052,7 @@ def oauth_callback():
             </svg>
         </div>
         <h1>🎉 Installation Complete!</h1>
-        <p>InsuranceGrokBot has been successfully connected to your GoHighLevel account.</p>
+        <p>InsuranceGrokBot has been successfully connected to your Lead Connector account.</p>
         <p><strong>{{ num_subs }} location(s)</strong> synced and ready to go.</p>
 
         <div class="next-steps">
@@ -2094,7 +2094,7 @@ def oauth_callback():
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}")
-        flash("Failed to connect to GoHighLevel. Please try again.", "danger")
+        flash("Failed to connect to Lead Connector. Please try again.", "danger")
         return redirect(url_for('home'))
     except Exception as e:
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
@@ -2855,9 +2855,9 @@ def website_bot_webhook():
             ]
         })
 
-    if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower:
+    if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower or "lead connector" in msg_lower:
         return flask_jsonify({
-            "text": "I integrate directly with GoHighLevel. You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any GHL plan - agency or location level.",
+            "text": "I integrate directly with Lead Connector (formerly GoHighLevel). You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
             "options": [
                 {"label": "See integration", "value": "demo"},
                 {"label": "Get started", "value": "signup_individual"}
@@ -2866,7 +2866,7 @@ def website_bot_webhook():
 
     if "support" in msg_lower or "help" in msg_lower or "setup" in msg_lower:
         return flask_jsonify({
-            "text": "Setup takes about 5 minutes - connect GHL, configure your calendar, done. All plans include support. Agency Pro includes white-glove onboarding where we set everything up for you.",
+            "text": "Setup takes about 5 minutes - connect Lead Connector, configure your calendar, done. All plans include support. Agency Pro includes white-glove onboarding where we set everything up for you.",
             "options": [
                 {"label": "Start setup", "value": "signup_individual"},
                 {"label": "Questions first", "value": "contact"}

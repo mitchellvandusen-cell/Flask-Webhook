@@ -1,4 +1,4 @@
-# ghl_message.py - Send SMS via GoHighLevel (Flawless 2026)
+# ghl_message.py - Send SMS via Lead Connector (Flawless 2026)
 import logging
 import os
 import time as time_module
