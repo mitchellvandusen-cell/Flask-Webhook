@@ -166,7 +166,7 @@ def build_comprehensive_profile(
     # Evolving story (use narrative_safe as foundation)
     narrative_body = " ".join(profile_sections)
     final_narrative = f"""FULL HUMAN IDENTITY:
-{narrative_body or "No confirmed demographics yet — still building rapport."}
+{narrative_body or "No confirmed demographics yet, still building rapport."}
 
 EVOLVING STORY & NUANCE:
 {narrative_safe or "Building trust and identifying primary gap."}
@@ -178,7 +178,7 @@ CURRENT VIBE:
 - Analytical Focus: {profile_context['analytical_level']}/3
 
 INSTRUCTIONS FOR {name.upper()}:
-• Use this as quiet intuition — reference naturally, never re-ask knowns.
+• Use this as quiet intuition, reference naturally, never re-ask knowns.
 • Adapt tone to current vibe (e.g., more labels if skeptical).
 • Prioritize empathy and flow over rigid probing.
 """

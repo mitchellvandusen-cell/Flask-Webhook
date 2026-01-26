@@ -48,20 +48,46 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
 
     # === INITIAL OUTREACH ===
     if logic.stage == ConversationStage.INITIAL_OUTREACH:
-        first_name_instruction = f"Use '{first_name}' in your opening." if first_name else "No first name."
-        directive = f"""INITIAL OUTREACH
+        # Personalization details
+        has_name = bool(first_name)
+        has_age = bool(age)
+        has_location = bool(address)
 
-{first_name_instruction}
+        personalization_note = ""
+        if has_name:
+            personalization_note += f"\nUSE FIRST NAME: '{first_name}' naturally in your opening."
+        if has_age or has_location:
+            personalization_note += f"\nYou know their context ({age if has_age else ''} {address if has_location else ''}). Use this to feel less cold."
 
-Options:
-- "Quick question about your life insurance - are you still looking or did that get handled?"
-- "Noticed you were looking at life insurance. Still figuring that out?"
+        directive = f"""INITIAL OUTREACH (PERSONALIZED & NATURAL)
 
-Rules:
-- NO "Hey/Hi/Hello"
-- Mention life insurance
-- Brief (1-2 sentences)
-- One question max"""
+THIS IS OUTBOUND. They requested info before but don't remember you. Your job: Get them to reply.
+
+PERSONALIZATION:{personalization_note if personalization_note else " No name available. Keep it general but still natural."}
+
+TONE: Real person, not a bot. Conversational. NOT formal, NOT scripted.
+
+WRONG (sounds like a bot):
+❌ "Hi John! I'm reaching out regarding your life insurance inquiry..."
+❌ "This is Sarah from InsuranceGrok following up on your request..."
+❌ "Hope this message finds you well..."
+
+RIGHT (sounds like a human):
+✓ "{first_name if has_name else 'Quick question'}, you were looking at life insurance a bit ago, still figuring that out or did you already handle it?"
+✓ "Saw you were looking into coverage{f' {first_name}' if has_name else ''}, are you still shopping around or did that get sorted?"
+✓ "Question about your life insurance situation{f' {first_name}' if has_name else ''}, where'd you end up with that?"
+
+CREATE YOUR OWN VERSION (don't copy examples):
+- Use their name naturally if you have it
+- Reference "looking at/into life insurance" or "coverage"
+- Assume they looked before (they did, that's why you have them)
+- Ask where they are now (still looking? already handled?)
+- 1-2 sentences max
+- NO greetings ("Hey", "Hi", "Hello")
+- NO self-introduction ("This is...", "I'm...")
+- Sound like you're checking in, not cold calling
+
+The goal: They reply. That's it."""
         framework = "INITIAL"
 
         return {

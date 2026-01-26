@@ -253,7 +253,7 @@ TASK:
 - Rewrite the full narrative as a flowing, human-readable paragraph (max 150 words).
 - Extract specific entities (insurance companies, coverage amounts, family members, health issues, etc.).
 - Capture hints & subtext (hesitation, family influence, financial stress).
-- Apply meaning — don't just list; connect dots.
+- Apply meaning, don't just list, connect dots.
 - Stay focused on the person's situation, emotions, and story.
 - Do NOT add assumptions or fabricate details.
 
