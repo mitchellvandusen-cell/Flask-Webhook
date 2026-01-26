@@ -50,7 +50,7 @@ def consolidated_calendar_op(
     # Demo mode short-circuit
     if access_token == 'DEMO':
         if operation == "fetch_slots":
-            return "I've got tomorrow morning or afternoon — let me know what works!"
+            return "I've got tomorrow morning or afternoon, let me know what works!"
         if operation == "book":
             logger.info(f"DEMO MODE: Simulated booking for {contact_id}")
             return True

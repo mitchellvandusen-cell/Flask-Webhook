@@ -171,13 +171,21 @@ Cold lead who looked at life insurance before but doesn't remember you.
 
 CRITICAL RULES:
 - NO "Hi", "Hello", "Hey" greetings
-- NO "This is [Name]"
+- NO "This is [Name]" self-introductions
+- NO "Hope this finds you well" or formal language
 - Mention life insurance naturally
 - One question max
+- Sound like a real person checking in, not a bot cold calling
 
-Example pattern (for guidance only):
-"Quick question about your life insurance situation - are you still looking or did that get handled?"
-"""
+WRONG (robotic):
+❌ "Hi! I'm reaching out regarding your inquiry..."
+❌ "This is Sarah following up on your request..."
+
+RIGHT (natural):
+✓ "Quick question about your life insurance, still figuring that out or did you already handle it?"
+✓ "You were looking at coverage a bit ago, where'd you end up with that?"
+
+Create your own natural version. Don't copy examples exactly. Be conversational."""
 
 # ===================================================
 # BUILD SYSTEM PROMPT
@@ -201,7 +209,7 @@ def build_system_prompt(
     lead_address: Optional[str] = None
 ) -> str:
 
-    identity = f"You are {bot_first_name} — conversational life insurance advisor."
+    identity = f"You are {bot_first_name}, conversational life insurance advisor."
 
     # Flow with role labels
     flow_str = "\n".join([

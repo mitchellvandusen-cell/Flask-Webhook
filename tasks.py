@@ -337,7 +337,7 @@ def process_webhook_task(payload: dict):
             reply = response.choices[0].message.content.strip()
         except Exception as e:
             logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
-            reply = "Got it — let's circle back when you're free. Anything specific on your mind about coverage?"
+            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
         # Cleanup reply
         reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
