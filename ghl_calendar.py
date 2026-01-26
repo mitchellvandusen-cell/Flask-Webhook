@@ -1,4 +1,4 @@
-# ghl_calendar.py - Calendar Slots & Booking (Flawless 2026)
+# ghl_calendar.py - Lead Connector Calendar Slots & Booking (Flawless 2026)
 import logging
 import os
 import requests

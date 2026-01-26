@@ -1,4 +1,4 @@
-# ghl_api.py - GHL OAuth & API Helpers (Flawless 2026)
+# ghl_api.py - Lead Connector OAuth & API Helpers (Flawless 2026)
 import requests
 import logging
 import os

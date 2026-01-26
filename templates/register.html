@@ -26,7 +26,7 @@
         <div class="oauth-option mb-4">
             <a href="/oauth/initiate" class="btn btn-ghl w-100 py-3">
                 <i class="fa-brands fa-google me-2"></i>
-                Connect with GoHighLevel
+                Connect with Lead Connector
             </a>
             <div class="text-center my-3" style="color: #888; font-size: 0.9rem;">
                 <span style="position: relative; z-index: 1; background: rgba(255,255,255,0.03); padding: 0 10px;">
@@ -51,10 +51,10 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">GoHighLevel Location ID</label>
+                <label class="form-label">Lead Connector Location ID</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
-                    {{ form.location_id(class="form-control", placeholder="GHL Location ID") }}
+                    {{ form.location_id(class="form-control", placeholder="Location ID") }}
                 </div>
                 <div class="form-text small" style="color: #888;">This ID is verified against our subscriber records.</div>
                 {% for error in form.location_id.errors %}
