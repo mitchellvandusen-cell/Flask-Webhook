@@ -113,9 +113,40 @@ Keep it simple. Get a time."""
     else:
         full_context = (story_narrative + " " + " ".join(known_facts)).lower()
 
+        # DETECT EMOTIONAL/VULNERABLE SITUATIONS
+        vulnerable_keywords = ["struggling", "tough", "hard", "stress", "worried", "scared", "cancer",
+                               "sick", "diagnosis", "lost job", "divorce", "single parent", "alone"]
+        is_vulnerable = any(keyword in full_context for keyword in vulnerable_keywords)
+
+        # If they're in a vulnerable state, lead with empathy
+        if is_vulnerable:
+            directive = """EMOTIONAL SITUATION - LEAD WITH EMPATHY
+
+They're going through something tough. Acknowledge it FIRST before moving forward.
+
+Pattern:
+1. Acknowledge: "That's tough. I can't imagine dealing with all that."
+2. Validate: "Makes sense you're thinking about this now though."
+3. Continue gently: "Mind if I ask - what are you most worried about?"
+
+Examples:
+Them: "I'm a single mom, money's tight, just got diagnosed with diabetes"
+You: "That's a lot on your plate. Dealing with health stuff while trying to keep everything together."
+Then: "I get why you're looking into this. What worries you most about your kids if something happened?"
+
+Them: "Lost my job, trying to figure out what to do"
+You: "Man, that's rough. Job market's brutal right now."
+Then: "At least you're thinking ahead though. You have any coverage through COBRA or anything?"
+
+DON'T rush to close. Build trust first. They'll buy when they feel understood."""
+
         # Do they have coverage already?
-        if logic.has_coverage:
-            directive = """SEED DOUBT (BUT DON'T ASSUME)
+        elif logic.has_coverage:
+            expertise_note = ""
+            if company_ctx:
+                expertise_note = "\n\n🧠 SHOW EXPERTISE - Company context available. Use it to build credibility:\n\"[Company name] is solid\" or \"Been around forever\" or relevant insight about the carrier.\nThen ask the smart question."
+
+            directive = f"""SEED DOUBT (BUT DON'T ASSUME)
 
 They have coverage. Make them question it. But DON'T make assumptions about what they pay.
 
@@ -128,18 +159,22 @@ Smart questions:
 
 UNDERSTANDING approach (not attacking):
 - "Most people don't look at their policy after they get it. Normal thing. When's the last time you actually reviewed it?"
-- "Transamerica's solid. You know if it covers what you need today or just what you needed back then?"
+- "[Company]'s solid. You know if it covers what you need today or just what you needed back then?"
 
 DON'T say:
 ❌ "Rates have dropped" (then contradicts with rates going up)
 ❌ "You okay paying more?" (we don't know what they pay)
 ❌ "You okay not knowing?" (too attacking)
 
-Point: Get them to realize they should actually know what they have."""
+Point: Get them to realize they should actually know what they have.{expertise_note}"""
 
         # Don't know their situation yet
         elif not logic.mentioned_goal:
-            directive = """OPEN-ENDED QUESTION
+            context_note = ""
+            if "kids" in full_context or "children" in full_context or "mortgage" in full_context:
+                context_note = "\n\n💡 They mentioned kids/mortgage - SHOW you understand their situation before asking:\n\"Two kids and a mortgage - that's exactly who this is for.\"\nThen: \"Would your family need to take out a loan if something happened?\""
+
+            directive = f"""OPEN-ENDED QUESTION
 
 Let them tell you the problem. Don't answer for them.
 
@@ -148,7 +183,12 @@ Simple questions:
 - "What would happen to your family financially if something happened tomorrow?"
 - "Who's this for - your family, your business, or both?"
 
-Open-ended. Let THEM realize the problem."""
+ENGAGE first (when context allows):
+If they mentioned specifics (kids, mortgage, business), acknowledge it:
+"Two kids and a mortgage? Makes sense you're looking into this."
+Then ask the open-ended question.
+
+Open-ended. Let THEM realize the problem.{context_note}"""
 
         # They told you the problem - confirm they don't want that
         elif logic.mentioned_goal and not logic.mentioned_obstacle:
