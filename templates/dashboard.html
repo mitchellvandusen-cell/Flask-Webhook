@@ -220,11 +220,14 @@
                     </div>
                     <div class="list-group list-group-flush mb-4" style="border-radius:12px; overflow:hidden;">
                         <div class="list-group-item bg-dark text-white border-secondary p-3">1. Log in to your Lead Connector account.</div>
-                        <div class="list-group-item bg-dark text-white border-secondary p-3">2. Navigate to the <strong>Marketplace</strong> tab.</div>
+                        <div class="list-group-item bg-dark text-white border-secondary p-3">2. Navigate to the <strong>Marketplace</strong> tab in sidebar.</div>
                         <div class="list-group-item bg-dark text-white border-secondary p-3">3. Search for <strong>"Insurance Grok Bot"</strong> and Install.</div>
                         <div class="list-group-item bg-dark text-white border-secondary p-3">4. Approve permissions (Conversations, Contacts, etc).</div>
                     </div>
-                    <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-outline-light">Launch Marketplace <i class="fa-solid fa-external-link-alt ms-2"></i></a>
+                    <div class="alert alert-info" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 15px;">
+                        <i class="fa-solid fa-info-circle me-2" style="color: #3b82f6;"></i>
+                        <strong>Note:</strong> Access Marketplace from within your Lead Connector account to maintain white-label settings.
+                    </div>
                 </div>
             </div>
 
@@ -239,7 +242,9 @@
                         </form>
                     {% else %}
                         <p class="text-muted mb-4">You do not have an active Stripe subscription.</p>
-                        <a href="https://marketplace.gohighlevel.com/" target="_blank" class="btn btn-primary px-5">Manage via Marketplace</a>
+                        <p class="text-muted" style="max-width:500px; margin:0 auto;">
+                            If you installed via Marketplace, manage your subscription from within your Lead Connector account's Marketplace tab.
+                        </p>
                     {% endif %}
                 </div>
             </div>
