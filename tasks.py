@@ -352,6 +352,23 @@ def process_webhook_task(payload: dict):
 
         reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
+        # CRITICAL VALIDATION: Never send placeholder text, variable names, or unprofessional content
+        FORBIDDEN_PATTERNS = [
+            "message_text", "{{", "}}", "contact_id", "location_id",
+            "access_token", "None", "null", "undefined", "NaN",
+            "[object Object]", "placeholder", "test message"
+        ]
+
+        reply_lower = reply.lower()
+        if any(pattern.lower() in reply_lower for pattern in FORBIDDEN_PATTERNS):
+            logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
+            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
+
+        # Ensure minimum quality
+        if len(reply) < 5 or not any(c.isalpha() for c in reply):
+            logger.error(f"🚨 BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
+            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
+
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")
 
