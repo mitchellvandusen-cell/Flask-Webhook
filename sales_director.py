@@ -20,9 +20,11 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     """
 
     # 1. GATHER INTELLIGENCE
-    run_narrative_observer(contact_id, message)
-
     recent_exchanges = get_recent_messages(contact_id, limit=10)
+
+    # Update narrative with FULL conversation context (bot + lead messages)
+    run_narrative_observer(contact_id, message, recent_exchanges)
+
     story_narrative = get_narrative(contact_id)
     known_facts = get_known_facts(contact_id)
 
@@ -59,35 +61,19 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         if has_age or has_location:
             personalization_note += f"\nYou know their context ({age if has_age else ''} {address if has_location else ''}). Use this to feel less cold."
 
-        directive = f"""INITIAL OUTREACH (PERSONALIZED & NATURAL)
+        directive = f"""INITIAL OUTREACH
 
-THIS IS OUTBOUND. They requested info before but don't remember you. Your job: Get them to reply.
+First contact. They looked at life insurance before but don't remember you.
 
-PERSONALIZATION:{personalization_note if personalization_note else " No name available. Keep it general but still natural."}
+{personalization_note if personalization_note else "No name available."}
 
-TONE: Real person, not a bot. Conversational. NOT formal, NOT scripted.
+Your approach: Check in naturally, like you're following up on something they started.
 
-WRONG (sounds like a bot):
-❌ "Hi John! I'm reaching out regarding your life insurance inquiry..."
-❌ "This is Sarah from InsuranceGrok following up on your request..."
-❌ "Hope this message finds you well..."
+Reference that they were looking at life insurance. Ask where they ended up with it.
 
-RIGHT (sounds like a human):
-✓ "{first_name if has_name else 'Quick question'}, you were looking at life insurance a bit ago, still figuring that out or did you already handle it?"
-✓ "Saw you were looking into coverage{f' {first_name}' if has_name else ''}, are you still shopping around or did that get sorted?"
-✓ "Question about your life insurance situation{f' {first_name}' if has_name else ''}, where'd you end up with that?"
+Keep it brief. Natural. One question. Get them to reply.
 
-CREATE YOUR OWN VERSION (don't copy examples):
-- Use their name naturally if you have it
-- Reference "looking at/into life insurance" or "coverage"
-- Assume they looked before (they did, that's why you have them)
-- Ask where they are now (still looking? already handled?)
-- 1-2 sentences max
-- NO greetings ("Hey", "Hi", "Hello")
-- NO self-introduction ("This is...", "I'm...")
-- Sound like you're checking in, not cold calling
-
-The goal: They reply. That's it."""
+No formal greetings. No self-introductions. Sound like a real person checking in."""
         framework = "INITIAL"
 
         return {
@@ -105,11 +91,9 @@ The goal: They reply. That's it."""
     elif logic.stage == ConversationStage.BOOKED:
         directive = """APPOINTMENT BOOKED
 
-Simple confirmation:
-- "Perfect, see you Tuesday at 2pm"
-- "You're all set for Thursday at 5pm"
+Confirm the time. Then stop.
 
-Then STOP. Don't keep talking."""
+No need to over-explain or keep talking."""
         framework = "BOOKED"
 
         return {
@@ -125,12 +109,9 @@ Then STOP. Don't keep talking."""
 
     # === BOOKING (They agreed to call) ===
     elif logic.stage == ConversationStage.BOOKING:
-        directive = """BOOKING - Offer times
+        directive = """BOOKING
 
-They agreed to a call. NOW offer specific times.
-
-- "I have Tuesday at 2pm or Thursday at 5pm. Which works?"
-- "Morning or afternoon better for you?"
+They agreed to a call. Offer specific times.
 
 Keep it simple. Get a time."""
         framework = "BOOKING"
@@ -146,25 +127,13 @@ Keep it simple. Get a time."""
 
         # If they're in a vulnerable state, lead with empathy
         if is_vulnerable:
-            directive = """EMOTIONAL SITUATION - LEAD WITH EMPATHY
+            directive = """VULNERABLE SITUATION
 
-They're going through something tough. Acknowledge it FIRST before moving forward.
+They're going through something tough.
 
-Pattern:
-1. Acknowledge: "That's tough. I can't imagine dealing with all that."
-2. Validate: "Makes sense you're thinking about this now though."
-3. Continue gently: "Mind if I ask - what are you most worried about?"
+Acknowledge it first. Show you get it. Then continue gently.
 
-Examples:
-Them: "I'm a single mom, money's tight, just got diagnosed with diabetes"
-You: "That's a lot on your plate. Dealing with health stuff while trying to keep everything together."
-Then: "I get why you're looking into this. What worries you most about your kids if something happened?"
-
-Them: "Lost my job, trying to figure out what to do"
-You: "Man, that's rough. Job market's brutal right now."
-Then: "At least you're thinking ahead though. You have any coverage through COBRA or anything?"
-
-DON'T rush to close. Build trust first. They'll buy when they feel understood."""
+Don't rush. Build trust. They'll open up when they feel understood."""
 
         # Do they have coverage already?
         elif logic.has_coverage:
@@ -172,27 +141,13 @@ DON'T rush to close. Build trust first. They'll buy when they feel understood.""
             if company_ctx:
                 expertise_note = "\n\n🧠 SHOW EXPERTISE - Company context available. Use it to build credibility:\n\"[Company name] is solid\" or \"Been around forever\" or relevant insight about the carrier.\nThen ask the smart question."
 
-            directive = f"""SEED DOUBT (BUT DON'T ASSUME)
+            directive = f"""THEY HAVE COVERAGE
 
-They have coverage. Make them question it. But DON'T make assumptions about what they pay.
+Make them question if it's enough. But don't assume or attack.
 
-Smart questions:
-- "Is there a waiting period on that?"
-- "Living benefits or just death benefit?"
-- "Work policy? What happens if you change jobs?"
-- "How long you had it?"
-- "You know what the death benefit is off the top of your head?"
+Ask questions that make them realize they should know more about what they have.
 
-UNDERSTANDING approach (not attacking):
-- "Most people don't look at their policy after they get it. Normal thing. When's the last time you actually reviewed it?"
-- "[Company]'s solid. You know if it covers what you need today or just what you needed back then?"
-
-DON'T say:
-❌ "Rates have dropped" (then contradicts with rates going up)
-❌ "You okay paying more?" (we don't know what they pay)
-❌ "You okay not knowing?" (too attacking)
-
-Point: Get them to realize they should actually know what they have.{expertise_note}"""
+Understanding approach. Not judgmental.{expertise_note if expertise_note else ""}"""
 
         # Don't know their situation yet
         elif not logic.mentioned_goal:
@@ -200,65 +155,31 @@ Point: Get them to realize they should actually know what they have.{expertise_n
             if "kids" in full_context or "children" in full_context or "mortgage" in full_context:
                 context_note = "\n\n💡 They mentioned kids/mortgage - SHOW you understand their situation before asking:\n\"Two kids and a mortgage - that's exactly who this is for.\"\nThen: \"Would your family need to take out a loan if something happened?\""
 
-            directive = f"""OPEN-ENDED QUESTION
+            directive = f"""DISCOVER THEIR SITUATION
 
-Let them tell you the problem. Don't answer for them.
+Don't know their situation yet. Find out.
 
-Simple questions:
-- "Would your family need to take out a loan or go into debt if something happened?"
-- "What would happen to your family financially if something happened tomorrow?"
-- "Who's this for - your family, your business, or both?"
+Open-ended questions. Let them tell you what would happen.{context_note if context_note else ""}
 
-ENGAGE first (when context allows):
-If they mentioned specifics (kids, mortgage, business), acknowledge it:
-"Two kids and a mortgage? Makes sense you're looking into this."
-Then ask the open-ended question.
-
-Open-ended. Let THEM realize the problem.{context_note}"""
+Don't answer for them. They need to realize the problem themselves."""
 
         # They told you the problem - confirm they don't want that
         elif logic.mentioned_goal and not logic.mentioned_obstacle:
-            directive = """UNDERSTANDING CHECK (NOT ATTACKING)
+            directive = """CONFIRM THE GAP
 
-They told you what would happen. Now make them think about it - but with understanding, not judgment.
+They told you what would happen. Make them think about it.
 
-FINESSED approach (understanding it's normal to not know, but we should know):
-Them: "My wife would probably need to take out a loan"
-You: "Yeah, most people don't think about it until it's too late. That something you'd want her dealing with?"
+Understanding approach. Not attacking.
 
-Them: "My kids would be stuck with the mortgage"
-You: "Makes sense why you're looking into this then. That's a lot to leave on them, right?"
-
-Them: "I don't know what would happen"
-You: "That's pretty common actually. Most people don't. Worth figuring out though, don't you think?"
-
-DON'T say:
-❌ "Are you okay with that?" (too blunt/attacking)
-❌ "You okay not knowing?" (sounds judgmental)
-
-DO say:
-✓ "That's a lot to leave on them, right?"
-✓ "That something you'd want them dealing with?"
-✓ "Worth figuring out though, don't you think?"
-
-Tone: Understanding it's normal, but also understanding they should know.
-Let them realize it themselves. Then offer help."""
+Help them see why it matters. Then offer to help."""
 
         # They see the gap - ask if they want help
         else:
-            directive = """ASK IF THEY WANT HELP
+            directive = """OFFER HELP
 
-They know why they're looking. They see the consequence.
+They see the gap. Ask if they want help fixing it.
 
-Now ask if they want help:
-- "Want me to help you figure out what makes sense?"
-- "Would you be opposed to a quick call to lock this down?"
-
-DON'T offer times yet.
-Wait for them to say yes.
-THEN next message offer times.
-
-Keep it simple."""
+Don't offer times yet. Get agreement first. Then next message offer specific times."""
 
         framework = "QUALIFYING"
 

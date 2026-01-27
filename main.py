@@ -183,10 +183,26 @@ def generate_demo_opener():
 
         # 1. Get raw text & basic cleanup (strip whitespace, remove quotes)
         raw_text = response.choices[0].message.content.strip().replace('"', '')
-        
+
         # 2. Run your specific cleaner
         cleaned_content = clean_ai_reply(raw_text)
-        
+
+        # 3. CRITICAL VALIDATION: Never return placeholder text
+        FORBIDDEN_PATTERNS = [
+            "message_text", "{{", "}}", "contact_id", "location_id",
+            "access_token", "None", "null", "undefined", "placeholder"
+        ]
+
+        cleaned_lower = cleaned_content.lower()
+        if any(pattern.lower() in cleaned_lower for pattern in FORBIDDEN_PATTERNS):
+            logger.error(f"🚨 OPENER BLOCKED UNPROFESSIONAL: '{cleaned_content}' - Using fallback")
+            return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
+
+        # Ensure minimum quality
+        if len(cleaned_content) < 10 or not any(c.isalpha() for c in cleaned_content):
+            logger.error(f"🚨 OPENER BLOCKED LOW-QUALITY: '{cleaned_content}' - Using fallback")
+            return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
+
         return cleaned_content
     except Exception as e:
         logger.error(f"Demo opener failed: {e}")
@@ -1120,6 +1136,23 @@ def demo_chat_api():
         reply = re.sub(r'</?reply>', '', reply)
         reply = re.sub(r'<[^>]+>', '', reply).strip()
         reply = reply.replace("—", ",").replace("–", ",").strip()
+
+        # CRITICAL VALIDATION: Never send placeholder text or unprofessional content
+        FORBIDDEN_PATTERNS = [
+            "message_text", "{{", "}}", "contact_id", "location_id",
+            "access_token", "None", "null", "undefined", "NaN",
+            "[object Object]", "placeholder", "test message"
+        ]
+
+        reply_lower = reply.lower()
+        if any(pattern.lower() in reply_lower for pattern in FORBIDDEN_PATTERNS):
+            logger.error(f"🚨 DEMO BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
+            reply = "What's your main concern about coverage right now?"
+
+        # Ensure minimum quality
+        if len(reply) < 5 or not any(c.isalpha() for c in reply):
+            logger.error(f"🚨 DEMO BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
+            reply = "What's your main concern about coverage right now?"
 
         # 5. Save bot response
         conn = get_db_connection()
