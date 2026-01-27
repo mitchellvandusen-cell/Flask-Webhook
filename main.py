@@ -1502,58 +1502,36 @@ def checkout():
     
 @app.route("/checkout/agency-starter")
 def checkout_agency_starter():
+    """
+    AGENCY STARTER GUEST CHECKOUT:
+    - No login required (Webhook provisions account after payment).
+    - Seat count verification happens AFTER OAuth connection, not before payment.
+    - Works with Private App OAuth flow (white-label compatible).
+    """
     try:
-        # 1. Verification Step: User must be logged in to check their seat count
-        if not current_user.is_authenticated:
-            # If they aren't logged in, they can't be 'verified' for the 1 or 10 limit
-            flash("Please log in to verify your agency seat eligibility.", "warning")
-            return redirect("/login")
+        # 1. Optional email grab for existing users
+        customer_email = current_user.email if current_user.is_authenticated else None
 
-        customer_email = current_user.email
-        
-        # 2. Count current seats using your Hybrid Logic
-        # We search our data to see how many sub-accounts this email currently 'owns'
-        from db import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM subscribers WHERE parent_agency_email = %s", (customer_email,))
-        current_seat_count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-
-        # 3. Apply your strict Business Rule: Only 1 or 10 allowed
-        if current_seat_count not in [1, 10]:
-            logger.warning(f"Eligibility Denied: {customer_email} has {current_seat_count} seats.")
-            return render_template_string("""
-                <div style="background:var(--dark-bg); color:var(--text-primary); height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
-                    <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; background:var(--card-glass); backdrop-filter:blur(20px);">
-                        <h2 style="color:#ff4444;">Eligibility Restriction</h2>
-                        <p>The Agency Starter plan is strictly for agencies with 1 or 10 sub-accounts.</p>
-                        <p>Current seats detected: <strong>{{ count }}</strong></p>
-                        <a href="/dashboard" style="color:var(--accent);">Return to Dashboard</a>
-                    </div>
-                </div>
-            """, count=current_seat_count)
-
-        # 4. Proceed to Stripe if they pass the check
+        # 2. Create Stripe checkout session
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="subscription",
+            customer_email=customer_email,
             line_items=[{
                 "price": os.getenv("STRIPE_AGENCY_STARTER_PRICE_ID"),
                 "quantity": 1,
             }],
-            customer_email=customer_email,
+            allow_promotion_codes=True,
+
+            # Metadata for webhook provisioning
             metadata={
-                "user_email": customer_email,
                 "target_role": "agency_owner",
                 "target_tier": "agency_starter",
-                "seat_count_at_purchase": current_seat_count
+                "source": "website_checkout"
             },
             subscription_data={
                 "trial_period_days": 7,
                 "metadata": {
-                    "user_email": customer_email,
                     "target_role": "agency_owner",
                     "target_tier": "agency_starter"
                 }
@@ -1564,7 +1542,7 @@ def checkout_agency_starter():
         return redirect(session.url, code=303)
 
     except Exception as e:
-        logger.error(f"Stripe checkout error: {e}")
+        logger.error(f"Agency Starter checkout error: {e}")
         return "Internal Server Error", 500
 
 @app.route("/cancel")
