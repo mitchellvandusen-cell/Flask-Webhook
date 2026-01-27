@@ -16,8 +16,8 @@
         .chat-widget-container { z-index: 10001 !important; pointer-events: none; }
         .chat-toggle-btn, .chat-window { pointer-events: auto; }
 
-        .chat-window { 
-            display: none; 
+        .chat-window {
+            display: none;
             z-index: 10002;
             transform: scale(0.9);
             transition: all 0.3s ease;
@@ -28,6 +28,107 @@
         .popup-overlay.active { pointer-events: auto; opacity: 1; display: flex; }
 
         #typingIndicator { display: none; align-items: center; padding: 10px 20px; gap: 5px; }
+
+        /* Mobile Responsiveness Fixes */
+        @media (max-width: 991px) {
+            /* Mobile Menu Buttons - Centered and Full Width */
+            .navbar-collapse .d-flex {
+                flex-direction: column !important;
+                align-items: center !important;
+                width: 100%;
+                padding: 0 20px;
+            }
+
+            .navbar-collapse .nav-btn {
+                width: 100% !important;
+                max-width: 300px;
+                text-align: center;
+                justify-content: center;
+                padding: 12px 20px !important;
+            }
+
+            /* Fix mobile menu links centering */
+            .navbar-nav {
+                text-align: center;
+                width: 100%;
+            }
+
+            .navbar-nav .nav-item {
+                width: 100%;
+                text-align: center;
+            }
+
+            /* Word wrap for long text */
+            body, p, div, span, a {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+            }
+
+            /* Ensure containers don't overflow */
+            .container {
+                overflow-x: hidden;
+                max-width: 100%;
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+
+            /* Responsive heading sizes for tablets */
+            .hero h1 {
+                font-size: 2.5rem !important;
+            }
+
+            .section-title {
+                font-size: 2rem !important;
+            }
+
+            h2[style*="font-size: 2.5rem"] {
+                font-size: 2rem !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            /* Extra small screens - even more aggressive text wrapping */
+            h1, h2, h3, h4, h5, h6 {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+            }
+
+            /* Responsive heading sizes for mobile */
+            .hero h1 {
+                font-size: 1.8rem !important;
+                line-height: 1.3;
+            }
+
+            .section-title {
+                font-size: 1.6rem !important;
+            }
+
+            h2[style*="font-size: 2.5rem"] {
+                font-size: 1.5rem !important;
+            }
+
+            .main-title {
+                font-size: 1.8rem !important;
+            }
+
+            /* Smaller font sizes for long text */
+            .text-long {
+                font-size: 0.9rem !important;
+            }
+
+            /* Make lead text more readable on mobile */
+            .lead {
+                font-size: 1rem !important;
+            }
+
+            /* Responsive buttons */
+            .btn-lg {
+                font-size: 1rem !important;
+                padding: 10px 20px !important;
+            }
+        }
     </style>
 </head>
 <body>

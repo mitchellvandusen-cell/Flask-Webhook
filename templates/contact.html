@@ -13,10 +13,23 @@
         
         <div class="text-center mb-5">
             <p style="font-size: 1.4rem;">The best way to reach us is by email:</p>
-            <a href="mailto:support@insurancegrokbot.click" style="color: var(--accent); font-weight: 700; text-decoration: none; font-size: 1.5rem;">
+            <a href="mailto:support@insurancegrokbot.click" style="color: var(--accent); font-weight: 700; text-decoration: none; font-size: 1.5rem; word-wrap: break-word; overflow-wrap: break-word; display: inline-block; max-width: 100%; padding: 0 10px;">
                 support@insurancegrokbot.click
             </a>
         </div>
+
+        <style>
+            /* Mobile email responsiveness */
+            @media (max-width: 576px) {
+                .text-center a[href^="mailto"] {
+                    font-size: 1.1rem !important;
+                    line-height: 1.4;
+                }
+                .text-center p {
+                    font-size: 1.1rem !important;
+                }
+            }
+        </style>
         
         <p class="text-center">
             We typically respond within 24–48 hours (often faster). Please include as much detail as possible about your question or issue (e.g., location ID, error messages, screenshots if relevant).
