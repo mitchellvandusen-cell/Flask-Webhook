@@ -1924,10 +1924,12 @@ def oauth_callback():
         sub_accounts = locations_resp.json().get('locations', [])
         num_subs = len(sub_accounts)
 
-        # 5. Determine tier
+        # 5. Determine tier based on sub-account count
         plan_tier = 'individual'
         if is_agency_owner:
-            plan_tier = 'agency_pro' if num_subs >= 10 else 'agency_starter'
+            # Agency Starter: 1-14 sub-accounts ($797.99/mo)
+            # Agency Pro: 15+ sub-accounts ($1597.99/mo)
+            plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
 
         # 6. Get primary location details
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
@@ -1963,7 +1965,8 @@ def oauth_callback():
 
                 # --- A. Agency Owner Primary Location ---
                 if is_agency_owner:
-                    max_seats = 9999 if plan_tier == 'agency_pro' else 10
+                    # Agency Starter: max 14 seats, Agency Pro: unlimited
+                    max_seats = 9999 if plan_tier == 'agency_pro' else 14
                     active_seats = max(0, num_subs - 1)  # Exclude primary
 
                     # Determine OAuth app type
@@ -2811,7 +2814,7 @@ def website_bot_webhook():
 
     if user_message == "agency_small":
         return flask_jsonify({
-            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $797.99/month covers up to 10 agents.",
+            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $797.99/month covers up to 14 agents.",
             "options": [
                 {"label": "How does that work exactly?", "value": "agency_how"},
                 {"label": "Show me the demo", "value": "demo"},
@@ -2850,7 +2853,7 @@ def website_bot_webhook():
 
     if user_message == "agency_features":
         return flask_jsonify({
-            "text": "Agency Starter ($797.99/mo) includes: Up to 10 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
+            "text": "Agency Starter ($797.99/mo) includes: Up to 14 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
             "options": [
                 {"label": "Start free trial", "value": "signup_agency_starter"},
                 {"label": "See it work first", "value": "demo"},
@@ -2928,7 +2931,7 @@ def website_bot_webhook():
 
     if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
         return flask_jsonify({
-            "text": "Two options: Agency Starter is $797.99/month for up to 10 sub-accounts. Agency Pro is $1,597.99/month for unlimited. Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
+            "text": "Two options: Agency Starter is $797.99/month for up to 14 sub-accounts. Agency Pro is $1,597.99/month for 15+ sub-accounts (unlimited). Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
             "options": [
                 {"label": "Agency Starter ($797.99)", "value": "signup_agency_starter"},
                 {"label": "Agency Pro ($1,597.99)", "value": "signup_agency_pro"},
@@ -2954,7 +2957,7 @@ def website_bot_webhook():
 
     if user_message == "signup_agency_starter":
         return flask_jsonify({
-            "text": "Good choice. 7-day free trial for up to 10 sub-accounts.",
+            "text": "Good choice. 7-day free trial for up to 14 sub-accounts.",
             "redirect": "/checkout/agency-starter"
         })
 
