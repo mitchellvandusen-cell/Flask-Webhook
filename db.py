@@ -87,6 +87,7 @@ def init_db() -> bool:
                 invite_sent_at TIMESTAMP,
                 invite_claimed_at TIMESTAMP,
                 onboarding_status TEXT DEFAULT 'pending',
+                oauth_app_type TEXT DEFAULT 'marketplace',
 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -117,7 +118,8 @@ def init_db() -> bool:
                 max_seats INTEGER DEFAULT 10,
                 active_seats INTEGER DEFAULT 0,
                 stripe_customer_id TEXT,
-               
+                oauth_app_type TEXT DEFAULT 'marketplace',
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -163,7 +165,26 @@ def init_db() -> bool:
             );
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_narratives_updated ON contact_narratives (updated_at);")
-        
+
+        # 6. MIGRATION: Add oauth_app_type column to existing tables
+        try:
+            cur.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS oauth_app_type TEXT DEFAULT 'marketplace'
+            """)
+            logger.info("✅ Migration: Added oauth_app_type to subscribers")
+        except Exception as e:
+            logger.debug(f"oauth_app_type column may already exist in subscribers: {e}")
+
+        try:
+            cur.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS oauth_app_type TEXT DEFAULT 'marketplace'
+            """)
+            logger.info("✅ Migration: Added oauth_app_type to agency_billing")
+        except Exception as e:
+            logger.debug(f"oauth_app_type column may already exist in agency_billing: {e}")
+
         conn.commit()
         logger.info("Database initialized: All tables ready (including contact_narratives).")
         return True
