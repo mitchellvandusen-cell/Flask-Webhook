@@ -550,8 +550,8 @@ def agency_dashboard():
         # Default to showing agency starter pricing
         return render_template('agency_dashboard.html',
             needs_subscription=True,
-            agency_starter_price=800,   # Agency Starter: $800/month
-            agency_pro_price=1600,      # Agency Pro: $1600/month
+            agency_starter_price=797.99,   # Agency Starter: $797.99/month
+            agency_pro_price=1597.99,      # Agency Pro: $1597.99/month
             form=ConfigForm(),  # Empty form
             access_token_display='',
             refresh_token_display='',
@@ -800,7 +800,7 @@ def dashboard():
         # User needs to subscribe - show subscription required page
         return render_template('dashboard.html',
             needs_subscription=True,
-            subscription_price=100,  # Individual plan: $100/month
+            subscription_price=98.99,  # Individual plan: $98.99/month
             form=ConfigForm(),  # Empty form
             access_token_display='',
             refresh_token_display='',
@@ -2728,7 +2728,7 @@ def website_bot_webhook():
 
     if user_message == "agency_small":
         return flask_jsonify({
-            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $800/month covers up to 10 agents.",
+            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $797.99/month covers up to 10 agents.",
             "options": [
                 {"label": "How does that work exactly?", "value": "agency_how"},
                 {"label": "Show me the demo", "value": "demo"},
@@ -2738,7 +2738,7 @@ def website_bot_webhook():
 
     if user_message in ["agency_medium", "agency_large"]:
         return flask_jsonify({
-            "text": "At your scale, lead leakage is probably costing you six figures a year. Here's what I do: every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Unlimited sub-accounts for $1,600/month flat.",
+            "text": "At your scale, lead leakage is probably costing you six figures a year. Here's what I do: every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Unlimited sub-accounts for $1,597.99/month flat.",
             "options": [
                 {"label": "How does multi-tenant work?", "value": "agency_how"},
                 {"label": "Show me the demo", "value": "demo"},
@@ -2767,7 +2767,7 @@ def website_bot_webhook():
 
     if user_message == "agency_features":
         return flask_jsonify({
-            "text": "Agency Starter ($800/mo) includes: Up to 10 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
+            "text": "Agency Starter ($797.99/mo) includes: Up to 10 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
             "options": [
                 {"label": "Start free trial", "value": "signup_agency_starter"},
                 {"label": "See it work first", "value": "demo"},
@@ -2777,7 +2777,7 @@ def website_bot_webhook():
 
     if user_message == "agency_pro_info":
         return flask_jsonify({
-            "text": "Agency Pro is $1,600/month for unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents - scale as big as you want, price stays the same.",
+            "text": "Agency Pro is $1,597.99/month for unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents - scale as big as you want, price stays the same.",
             "options": [
                 {"label": "Get started", "value": "signup_agency_pro"},
                 {"label": "Try demo first", "value": "demo"}
@@ -2836,7 +2836,7 @@ def website_bot_webhook():
 
     if user_message == "pricing_individual" or (("price" in msg_lower or "cost" in msg_lower or "how much" in msg_lower) and "agency" not in msg_lower):
         return flask_jsonify({
-            "text": "$100/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic. 7-day free trial to make sure it works for you.",
+            "text": "$98.99/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic. 7-day free trial to make sure it works for you.",
             "options": [
                 {"label": "Start free trial", "value": "signup_individual"},
                 {"label": "See it first", "value": "demo"}
@@ -2845,10 +2845,10 @@ def website_bot_webhook():
 
     if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
         return flask_jsonify({
-            "text": "Two options: Agency Starter is $800/month for up to 10 sub-accounts. Agency Pro is $1,600/month for unlimited. Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
+            "text": "Two options: Agency Starter is $797.99/month for up to 10 sub-accounts. Agency Pro is $1,597.99/month for unlimited. Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
             "options": [
-                {"label": "Agency Starter ($800)", "value": "signup_agency_starter"},
-                {"label": "Agency Pro ($1,600)", "value": "signup_agency_pro"},
+                {"label": "Agency Starter ($797.99)", "value": "signup_agency_starter"},
+                {"label": "Agency Pro ($1,597.99)", "value": "signup_agency_pro"},
                 {"label": "See demo first", "value": "demo"}
             ]
         })
