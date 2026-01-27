@@ -1668,8 +1668,8 @@ def checkout_agency_pro():
                 {
                     "key": "agency_whitelabel_domain",
                     "label": {
-                        "type": "custom", 
-                        "custom": "GHL Agency Whitelabel Domain (e.g. app.youragency.com)"
+                        "type": "custom",
+                        "custom": "Agency Domain (e.g. app.youragency.com)"
                     },
                     "type": "text",
                 }
