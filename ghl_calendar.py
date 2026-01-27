@@ -185,7 +185,7 @@ def consolidated_calendar_op(
         end_dt = start_dt + timedelta(minutes=30)
 
         if start_dt.date() > (now_local + timedelta(days=2)).date():
-            logger.warning("Booking request too far ahead")
+            logger.error(f"🚨 BOOKING BLOCKED: Time too far ahead | requested={start_dt} | contact={contact_id}")
             return False
 
         payload = {
@@ -193,22 +193,82 @@ def consolidated_calendar_op(
             "contactId": contact_id,
             "startTime": start_dt.isoformat(),
             "endTime": end_dt.isoformat(),
-            "title": f"Life Insurance Review - {first_name or 'Lead'}",
+            "title": f"Life Insurance Review {first_name or 'Lead'}",
             "appointmentStatus": "confirmed",
             "assignedUserId": crm_user_id or None,
             "selectedTimezone": local_tz_str,
         }
 
-        try:
-            resp = requests.post(GHL_BOOK_URL, json=payload, headers=headers, timeout=30)
-            if resp.status_code in [200, 201]:
-                logger.info(f"Appointment booked for {contact_id} at {start_dt}")
-                return True
-            else:
-                logger.error(f"Booking failed ({resp.status_code}): {resp.text}")
-                return False
-        except Exception as e:
-            logger.error(f"Booking exception: {e}")
-            return False
+        # ROBUST BOOKING with 3 retries and detailed error logging
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} | contact={contact_id} | time={start_dt}")
+                resp = requests.post(GHL_BOOK_URL, json=payload, headers=headers, timeout=30)
+
+                if resp.status_code in [200, 201]:
+                    # VERIFY the booking was actually created
+                    try:
+                        result_data = resp.json()
+                        event_id = result_data.get('id') or result_data.get('event', {}).get('id')
+
+                        if event_id:
+                            logger.info(f"✅ BOOKING CONFIRMED | contact={contact_id} | time={start_dt} | event_id={event_id}")
+                            return True
+                        else:
+                            logger.warning(f"⚠️ BOOKING CREATED BUT NO EVENT ID | contact={contact_id} | response={resp.text[:200]}")
+                            return True  # Assume success if 200/201 even without event_id
+                    except Exception as parse_err:
+                        logger.warning(f"⚠️ BOOKING CREATED BUT PARSE FAILED | contact={contact_id} | error={parse_err}")
+                        return True  # Assume success if 200/201 even if parse fails
+
+                else:
+                    error_details = {
+                        "status_code": resp.status_code,
+                        "response_text": resp.text[:500],
+                        "contact_id": contact_id,
+                        "calendar_id": cal_id,
+                        "requested_time": start_dt.isoformat(),
+                        "payload": payload
+                    }
+
+                    if resp.status_code == 400:
+                        logger.error(f"🚨 BOOKING FAILED: BAD REQUEST (calendar_id invalid or time unavailable) | {error_details}")
+                    elif resp.status_code == 401:
+                        logger.error(f"🚨 BOOKING FAILED: UNAUTHORIZED (token expired or invalid) | {error_details}")
+                    elif resp.status_code == 403:
+                        logger.error(f"🚨 BOOKING FAILED: FORBIDDEN (insufficient permissions) | {error_details}")
+                    elif resp.status_code == 404:
+                        logger.error(f"🚨 BOOKING FAILED: NOT FOUND (calendar_id or contact_id doesn't exist) | {error_details}")
+                    elif resp.status_code == 409:
+                        logger.error(f"🚨 BOOKING FAILED: CONFLICT (time slot already booked) | {error_details}")
+                    elif resp.status_code == 429:
+                        logger.error(f"🚨 BOOKING FAILED: RATE LIMIT (too many requests) | {error_details}")
+                    elif resp.status_code >= 500:
+                        logger.error(f"🚨 BOOKING FAILED: SERVER ERROR (Lead Connector API issue) | {error_details}")
+                    else:
+                        logger.error(f"🚨 BOOKING FAILED: UNKNOWN ERROR | {error_details}")
+
+                    # Don't retry on client errors (400-499) except 429 (rate limit)
+                    if 400 <= resp.status_code < 500 and resp.status_code != 429:
+                        logger.error(f"❌ BOOKING ABORTED: Client error, not retrying | contact={contact_id}")
+                        return False
+
+            except requests.Timeout:
+                logger.error(f"🚨 BOOKING TIMEOUT (attempt {attempt}/{max_attempts}) | contact={contact_id} | time={start_dt}")
+            except requests.ConnectionError as conn_err:
+                logger.error(f"🚨 BOOKING CONNECTION ERROR (attempt {attempt}/{max_attempts}) | contact={contact_id} | error={conn_err}")
+            except Exception as e:
+                logger.error(f"🚨 BOOKING EXCEPTION (attempt {attempt}/{max_attempts}) | contact={contact_id} | error={e}", exc_info=True)
+
+            # Wait before retry (exponential backoff)
+            if attempt < max_attempts:
+                wait_time = 2 ** attempt  # 2s, 4s
+                logger.info(f"⏳ Retrying in {wait_time}s...")
+                time_module.sleep(wait_time)
+
+        # All attempts failed
+        logger.error(f"❌ BOOKING FAILED AFTER {max_attempts} ATTEMPTS | contact={contact_id} | time={start_dt}")
+        return False
 
     return False

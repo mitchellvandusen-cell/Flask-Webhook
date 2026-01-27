@@ -223,35 +223,52 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
             cur.close()
             conn.close()
 
-def run_narrative_observer(contact_id: str, lead_message: str) -> str:
+def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> str:
     """
     The 'Invisible Bot' that evolves the contact's life story.
-    Only runs Grok if the message has meaningful content.
+    NOW sees BOTH sides of the conversation to understand context.
     Returns updated narrative (or current if failed/skipped).
     """
-    if not contact_id or not lead_message or not lead_message.strip():
-        logger.warning(f"Skipping observer: invalid input contact={contact_id}, msg_length={len(lead_message or '')}")
+    if not contact_id:
+        logger.warning(f"Skipping observer: no contact_id")
         return get_narrative(contact_id) or ""
 
     current_story = get_narrative(contact_id) or "Brand new lead. No history yet."
 
-    # Skip trivial messages to save API cost & prevent narrative bloat
-    if len(lead_message.strip()) < 5 or lead_message.strip().lower() in {"ok", "yes", ".", "k", "cool", "thanks"}:
+    # Skip trivial lead messages to save API cost
+    if lead_message and (len(lead_message.strip()) < 5 or lead_message.strip().lower() in {"ok", "yes", ".", "k", "cool", "thanks"}):
         logger.debug(f"Observer skipped (trivial message): {contact_id}")
         return current_story
 
+    # Build conversation context (last 4 exchanges so AI knows what bot asked)
+    conversation_context = ""
+    if recent_messages and len(recent_messages) > 0:
+        recent = recent_messages[-4:]  # Last 2 exchanges (4 messages)
+        for msg in recent:
+            role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
+            conversation_context += f"{role_label}: {msg['text']}\n"
+
+    # Add current lead message if present
+    if lead_message and lead_message.strip():
+        conversation_context += f"Lead: {lead_message}\n"
+
+    # If no meaningful conversation, skip
+    if not conversation_context.strip():
+        return current_story
+
     observer_prompt = f"""
-You are a Narrative Observer. Dissect ONLY the new lead message to update their life story.
+You are a Narrative Observer. Update the lead's life story based on their conversation with the bot.
 
 CURRENT STORY (keep and evolve):
 {current_story}
 
-NEW LEAD MESSAGE:
-"{lead_message}"
+RECENT CONVERSATION (includes what bot asked AND lead's response):
+{conversation_context}
 
 TASK:
 - Rewrite the full narrative as a flowing, human-readable paragraph (max 150 words).
 - Extract specific entities (insurance companies, coverage amounts, family members, health issues, etc.).
+- Understand CONTEXT: If bot asked "still looking?" and lead said "yes", they're still looking.
 - Capture hints & subtext (hesitation, family influence, financial stress).
 - Apply meaning, don't just list, connect dots.
 - Stay focused on the person's situation, emotions, and story.
