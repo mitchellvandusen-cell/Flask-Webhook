@@ -183,7 +183,7 @@ footer a:hover { color: var(--accent); }
     display: inline-block;
 }
 .feature-card h4 { font-size: 1.4rem; font-weight: 700; margin-bottom: 15px; color: #fff; }
-.feature-card p { color: #999; font-size: 0.95rem; }
+.feature-card p { color: #aaa; font-size: 0.95rem; }
 
 /* Comparison Banner */
 .glass-banner {
