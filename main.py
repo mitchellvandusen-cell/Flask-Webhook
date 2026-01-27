@@ -1464,18 +1464,35 @@ def download_transcript():
 @app.route("/checkout")
 def checkout():
     try:
-        # Pre-fill email if user is logged in
+        # 1. Check if price ID is configured
+        price_id = os.getenv("STRIPE_PRICE_ID")
+        if not price_id:
+            logger.error("STRIPE_PRICE_ID environment variable is not set!")
+            return render_template_string("""
+                <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                    <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                        <h2 style="color:#ff4444;">Configuration Error</h2>
+                        <p style="color:#aaa;">The Individual plan price ID is not configured. Please contact support.</p>
+                        <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error Code: MISSING_PRICE_ID</p>
+                        <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                    </div>
+                </div>
+            """), 500
+
+        # 2. Pre-fill email if user is logged in
         customer_email = current_user.email if current_user.is_authenticated else None
-        
+
+        # 3. Create Stripe checkout session
+        logger.info(f"Creating Individual checkout with price_id: {price_id}")
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="subscription",
             line_items=[{
-                "price": os.getenv("STRIPE_PRICE_ID"),
+                "price": price_id,
                 "quantity": 1,
             }],
             allow_promotion_codes=True,
-            customer_email=customer_email,  # Pre-fill email here
+            customer_email=customer_email,
 
             metadata={
                 "user_email": customer_email,
@@ -1496,9 +1513,30 @@ def checkout():
             cancel_url=f"{YOUR_DOMAIN}/cancel",
         )
         return redirect(session.url, code=303)
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe Invalid Request Error (Individual): {e}")
+        return render_template_string("""
+            <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                    <h2 style="color:#ff4444;">Stripe Configuration Error</h2>
+                    <p style="color:#aaa;">There's an issue with the payment configuration. Please contact support.</p>
+                    <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error: {{ error }}</p>
+                    <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                </div>
+            </div>
+        """, error=str(e)), 500
     except Exception as e:
         logger.error(f"Stripe checkout error: {e}")
-        return render_template('checkout.html'), 500
+        return render_template_string("""
+            <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                    <h2 style="color:#ff4444;">Checkout Error</h2>
+                    <p style="color:#aaa;">Unable to create checkout session. Please contact support.</p>
+                    <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error Code: {{ error }}</p>
+                    <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                </div>
+            </div>
+        """, error=str(e)), 500
     
 @app.route("/checkout/agency-starter")
 def checkout_agency_starter():
