@@ -14,6 +14,7 @@ def get_valid_token(location_id: str) -> str | None:
     """
     Returns a valid Bearer access token or None on failure.
     Refreshes if expired (5-min buffer). Falls back to persistent token if no refresh_token.
+    FIXED: Uses correct OAuth credentials based on app type (private vs marketplace).
     """
     if location_id in {'DEMO', 'DEMO_LOC', 'TEST_LOCATION_456'}:
         print(f"ℹ️ Internal Mode: Skipping auth for {location_id}")
@@ -27,6 +28,7 @@ def get_valid_token(location_id: str) -> str | None:
     access_token = sub.get('access_token') or sub.get('crm_api_key')
     refresh_token = sub.get('refresh_token')
     expires_at = sub.get('token_expires_at')
+    oauth_app_type = sub.get('oauth_app_type', 'marketplace')  # Default to marketplace for legacy
 
     # Persistent/private token (no refresh_token)
     if not refresh_token:
@@ -36,15 +38,36 @@ def get_valid_token(location_id: str) -> str | None:
         logger.error(f"No access_token or refresh_token for {location_id}")
         return None
 
-    # Check expiry with buffer
+    # CRITICAL FIX: Convert expires_at to datetime if it's a string
+    if expires_at:
+        if isinstance(expires_at, str):
+            try:
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except Exception as e:
+                logger.warning(f"Could not parse expires_at: {expires_at} | {e}")
+                expires_at = None
+
+    # Check expiry with buffer (5-min safety margin)
     if expires_at and expires_at > datetime.now() + timedelta(minutes=5):
         return access_token
 
-    # Refresh
-    logger.info(f"🔄 Refreshing token for {location_id}")
+    # CRITICAL FIX: Use correct credentials based on OAuth app type
+    if oauth_app_type == 'private':
+        client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+        client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+        logger.info(f"🔄 Refreshing token for {location_id} using PRIVATE APP credentials")
+    else:
+        client_id = os.getenv("GHL_CLIENT_ID")
+        client_secret = os.getenv("GHL_CLIENT_SECRET")
+        logger.info(f"🔄 Refreshing token for {location_id} using MARKETPLACE credentials")
+
+    if not client_id or not client_secret:
+        logger.error(f"Missing OAuth credentials for app_type={oauth_app_type}")
+        return None
+
     payload = {
-        "client_id": os.getenv("GHL_CLIENT_ID"),
-        "client_secret": os.getenv("GHL_CLIENT_SECRET"),
+        "client_id": client_id,
+        "client_secret": client_secret,
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
         "user_type": "Location"
@@ -64,7 +87,7 @@ def get_valid_token(location_id: str) -> str | None:
             return None
 
         update_subscriber_token(location_id, new_access, new_refresh, expires_in)
-        logger.info(f"Token refreshed for {location_id}")
+        logger.info(f"✅ Token refreshed successfully for {location_id}")
         return new_access
 
     except requests.HTTPError as e:

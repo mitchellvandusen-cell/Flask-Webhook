@@ -1883,15 +1883,18 @@ def oauth_callback():
                     max_seats = 9999 if plan_tier == 'agency_pro' else 10
                     active_seats = max(0, num_subs - 1)  # Exclude primary
 
+                    # Determine OAuth app type
+                    app_type = 'private' if is_private_app else 'marketplace'
+
                     cur.execute("""
                         INSERT INTO agency_billing (
                             agency_email, location_id, full_name, subscription_tier,
                             max_seats, active_seats, access_token, refresh_token,
-                            token_expires_at, timezone, crm_user_id,
+                            token_expires_at, timezone, crm_user_id, oauth_app_type,
                             created_at, updated_at
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s,
-                            NOW() + interval '%s seconds', %s, %s, NOW(), NOW()
+                            NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (agency_email) DO UPDATE SET
                             location_id = EXCLUDED.location_id,
@@ -1904,11 +1907,12 @@ def oauth_callback():
                             token_expires_at = EXCLUDED.token_expires_at,
                             timezone = EXCLUDED.timezone,
                             crm_user_id = EXCLUDED.crm_user_id,
+                            oauth_app_type = EXCLUDED.oauth_app_type,
                             updated_at = NOW()
                     """, (
                         user_email, primary_location_id, primary_name, plan_tier,
                         max_seats, active_seats, access_token, refresh_token,
-                        expires_in, primary_timezone or 'America/Chicago', me_data.get('id')
+                        expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
                     ))
 
                 # --- B. Sub-accounts (or individual user) ---
@@ -1943,17 +1947,18 @@ def oauth_callback():
                     role = 'agency_sub_account_user' if is_agency_owner else 'individual'
                     parent_agency_email = user_email if is_agency_owner else None
                     email_this = user_email  # Owner's email for billing/parent link
+                    app_type = 'private' if is_private_app else 'marketplace'
 
                     cur.execute("""
                         INSERT INTO subscribers (
                             location_id, email, agent_email, full_name, role, subscription_tier,
                             parent_agency_email, access_token, refresh_token,
                             token_expires_at, timezone, crm_user_id,
-                            onboarding_status, created_at, updated_at
+                            onboarding_status, oauth_app_type, created_at, updated_at
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, %s,
                             CASE WHEN %s THEN NOW() + interval '%s seconds' ELSE NULL END,
-                            %s, %s, %s, NOW(), NOW()
+                            %s, %s, %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (location_id) DO UPDATE SET
                             email = EXCLUDED.email,
@@ -1967,13 +1972,14 @@ def oauth_callback():
                             token_expires_at = CASE WHEN %s THEN EXCLUDED.token_expires_at ELSE subscribers.token_expires_at END,
                             timezone = EXCLUDED.timezone,
                             crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                            oauth_app_type = EXCLUDED.oauth_app_type,
                             updated_at = NOW()
                     """, (
                         sub_id, email_this, agent_email, agent_name, role, plan_tier,
                         parent_agency_email, access_token_this, refresh_token_this,
                         is_primary, expires_in,
                         sub_timezone or 'America/Chicago', agent_crm_user_id,
-                        'pending',  # onboarding_status
+                        'pending', app_type,  # onboarding_status, oauth_app_type
                         is_primary, is_primary, is_primary
                     ))
 
