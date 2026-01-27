@@ -1,0 +1,116 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2026 InsuranceGrokBot. All rights reserved.
+
+NOTICE: This software and associated documentation files (the "Software") are
+proprietary and confidential. Unauthorized copying, distribution, modification,
+public display, or public performance of this Software, via any medium, is
+strictly prohibited.
+
+1. GRANT OF LICENSE
+
+Subject to the terms and conditions of this License, the copyright holder grants
+you a limited, non-exclusive, non-transferable, revocable license to use the
+Software solely for its intended purpose as a service provided by InsuranceGrokBot.
+
+2. WHITE-LABELING AND RESALE RIGHTS
+
+You ARE permitted to:
+
+   a) White-label and rebrand the SERVICE for resale to your clients
+   b) Resell the SERVICE under your own brand name and pricing
+   c) Customize branding, logos, and user-facing elements through provided interfaces
+   d) Market and distribute the SERVICE as part of your agency offerings
+
+3. RESTRICTIONS ON SOURCE CODE
+
+You may NOT, without prior written consent from the copyright holder:
+
+   a) Copy, modify, or create derivative works of the underlying source code
+   b) Reverse engineer, decompile, or disassemble the Software
+   c) Distribute, sublicense, or transfer the source code or Software installation
+   d) Remove or alter any proprietary notices or labels in the source code
+   e) Access the source code repository or backend systems
+   f) Use the source code to develop competing products or services
+   g) Host or deploy the Software on your own infrastructure without authorization
+
+4. IMPORTANT DISTINCTION: SERVICE vs. SOFTWARE
+
+   SERVICE: The hosted application and features you provide to end-users
+   - ✅ MAY be white-labeled and resold under your brand
+   - ✅ MAY be marketed and distributed to your clients
+   - ✅ MAY have custom branding through provided configuration options
+
+   SOFTWARE: The underlying source code, databases, and backend systems
+   - ❌ MAY NOT be copied, modified, or redistributed
+   - ❌ MAY NOT be reverse engineered or decompiled
+   - ❌ MAY NOT be hosted independently without authorization
+   - ❌ Remains proprietary property of the copyright holder
+
+5. OWNERSHIP
+
+The Software is licensed, not sold. The copyright holder retains all right, title,
+and interest in and to the Software, including all intellectual property rights.
+White-labeling rights apply only to the SERVICE as delivered, not to the underlying
+Software code or architecture. This License does not grant you any rights to
+trademarks, service marks, or trade names of the copyright holder's backend systems.
+
+6. CONFIDENTIALITY
+
+The Software source code, architecture, database schemas, API keys, and backend
+infrastructure contain trade secrets and proprietary information of the copyright
+holder. You agree to maintain the confidentiality of these elements and not disclose
+them to any third party without prior written consent.
+
+White-labeled SERVICE features and user-facing functionality may be shown to your
+clients as part of normal business operations.
+
+7. TERMINATION
+
+This License is effective until terminated. Your rights under this License will
+terminate automatically without notice if you fail to comply with any term herein.
+Upon termination, you must cease all use of the Software and destroy all copies.
+White-labeling agreements may continue for existing clients during a reasonable
+wind-down period as negotiated.
+
+8. DISCLAIMER OF WARRANTIES
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, AND NONINFRINGEMENT. THE COPYRIGHT HOLDER DOES NOT WARRANT THAT
+THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
+
+9. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY SPECIAL, INCIDENTAL,
+INDIRECT, OR CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION,
+DAMAGES FOR LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS
+INFORMATION, OR ANY OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR INABILITY
+TO USE THE SOFTWARE, EVEN IF THE COPYRIGHT HOLDER HAS BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES.
+
+10. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the laws of the
+jurisdiction in which the copyright holder is located, without regard to its
+conflict of law provisions.
+
+11. ENTIRE AGREEMENT
+
+This License constitutes the entire agreement between you and the copyright holder
+concerning the Software and supersedes all prior or contemporaneous agreements,
+whether oral or written.
+
+12. CONTACT
+
+For licensing inquiries, permissions, or other questions regarding this Software,
+please contact:
+
+InsuranceGrokBot
+Email: [Your Contact Email]
+Website: [Your Website]
+
+---
+
+BY USING THIS SOFTWARE, YOU ACKNOWLEDGE THAT YOU HAVE READ THIS LICENSE,
+UNDERSTAND IT, AND AGREE TO BE BOUND BY ITS TERMS AND CONDITIONS.
