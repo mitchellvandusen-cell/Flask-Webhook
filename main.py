@@ -1509,16 +1509,32 @@ def checkout_agency_starter():
     - Works with Private App OAuth flow (white-label compatible).
     """
     try:
-        # 1. Optional email grab for existing users
+        # 1. Check if price ID is configured
+        price_id = os.getenv("STRIPE_AGENCY_STARTER_PRICE_ID")
+        if not price_id:
+            logger.error("STRIPE_AGENCY_STARTER_PRICE_ID environment variable is not set!")
+            return render_template_string("""
+                <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                    <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                        <h2 style="color:#ff4444;">Configuration Error</h2>
+                        <p style="color:#aaa;">The Agency Starter price ID is not configured. Please contact support.</p>
+                        <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error Code: MISSING_PRICE_ID</p>
+                        <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                    </div>
+                </div>
+            """), 500
+
+        # 2. Optional email grab for existing users
         customer_email = current_user.email if current_user.is_authenticated else None
 
-        # 2. Create Stripe checkout session
+        # 3. Create Stripe checkout session
+        logger.info(f"Creating Agency Starter checkout with price_id: {price_id}")
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="subscription",
             customer_email=customer_email,
             line_items=[{
-                "price": os.getenv("STRIPE_AGENCY_STARTER_PRICE_ID"),
+                "price": price_id,
                 "quantity": 1,
             }],
             allow_promotion_codes=True,
@@ -1541,9 +1557,30 @@ def checkout_agency_starter():
         )
         return redirect(session.url, code=303)
 
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe Invalid Request Error (Agency Starter): {e}")
+        return render_template_string("""
+            <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                    <h2 style="color:#ff4444;">Stripe Configuration Error</h2>
+                    <p style="color:#aaa;">There's an issue with the payment configuration. Please contact support.</p>
+                    <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error: {{ error }}</p>
+                    <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                </div>
+            </div>
+        """, error=str(e)), 500
     except Exception as e:
         logger.error(f"Agency Starter checkout error: {e}")
-        return "Internal Server Error", 500
+        return render_template_string("""
+            <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                    <h2 style="color:#ff4444;">Checkout Error</h2>
+                    <p style="color:#aaa;">Unable to create checkout session. Please contact support.</p>
+                    <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error Code: {{ error }}</p>
+                    <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                </div>
+            </div>
+        """, error=str(e)), 500
 
 @app.route("/cancel")
 def cancel():
@@ -1552,21 +1589,37 @@ def cancel():
 @app.route("/checkout/agency-pro")
 def checkout_agency_pro():
     """
-    ENTERPRISE GUEST CHECKOUT: 
+    ENTERPRISE GUEST CHECKOUT:
     - No login required (Webhook provisions account after payment).
     - Includes 'Agency Domain' validation field to deter single-user buyers.
     """
     try:
-        # 1. Non-blocking email grab (Saves time for existing users)
+        # 1. Check if price ID is configured
+        price_id = os.getenv("STRIPE_AGENCY_PRO_PRICE_ID")
+        if not price_id:
+            logger.error("STRIPE_AGENCY_PRO_PRICE_ID environment variable is not set!")
+            return render_template_string("""
+                <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                    <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                        <h2 style="color:#ff4444;">Configuration Error</h2>
+                        <p style="color:#aaa;">The Agency Pro price ID is not configured. Please contact support.</p>
+                        <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error Code: MISSING_PRICE_ID</p>
+                        <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                    </div>
+                </div>
+            """), 500
+
+        # 2. Non-blocking email grab (Saves time for existing users)
         customer_email = current_user.email if current_user.is_authenticated else None
 
-        # 2. Create the Stripe Session
+        # 3. Create the Stripe Session
+        logger.info(f"Creating Agency Pro checkout with price_id: {price_id}")
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="subscription",
             customer_email=customer_email,
             line_items=[{
-                "price": os.getenv("STRIPE_AGENCY_PRO_PRICE_ID"),
+                "price": price_id,
                 "quantity": 1,
             }],
             allow_promotion_codes=True,
@@ -1605,9 +1658,30 @@ def checkout_agency_pro():
 
         return redirect(session.url, code=303)
 
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe Invalid Request Error (Agency Pro): {e}")
+        return render_template_string("""
+            <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                    <h2 style="color:#ff4444;">Stripe Configuration Error</h2>
+                    <p style="color:#aaa;">There's an issue with the payment configuration. Please contact support.</p>
+                    <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error: {{ error }}</p>
+                    <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                </div>
+            </div>
+        """, error=str(e)), 500
     except Exception as e:
         logger.critical(f"Pro Checkout Launch Error: {e}")
-        return "The Enterprise Portal is temporarily unavailable. Please contact support.", 500
+        return render_template_string("""
+            <div style="background:#050505; color:#fff; height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Outfit', sans-serif;">
+                <div style="padding:40px; border:1px solid #ff4444; border-radius:20px; text-align:center; max-width:500px;">
+                    <h2 style="color:#ff4444;">Checkout Error</h2>
+                    <p style="color:#aaa;">The Enterprise Portal is temporarily unavailable. Please contact support.</p>
+                    <p style="color:#666; font-size:0.85rem; margin-top:20px;">Error Code: {{ error }}</p>
+                    <a href="/" style="color:#00ff88; text-decoration:none; margin-top:20px; display:inline-block;">← Back to Home</a>
+                </div>
+            </div>
+        """, error=str(e)), 500
     
 @app.route("/success")
 def success():
