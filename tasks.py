@@ -13,7 +13,7 @@ from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token
+from ghl_api import fetch_targeted_ghl_history, get_valid_token, fetch_contact_data_from_ghl
 from contact_validator import validate_and_resolve_contact 
 
 logger = logging.getLogger('rq.worker')
@@ -195,27 +195,24 @@ def process_webhook_task(payload: dict):
         payload.get("locationId")
     )
 
-    # 🚨 CRITICAL: Log payload details for debugging
-    logger.critical(f"🔍 TASK STARTED | contact_id_raw={contact_id_raw} | location_id={location_id} | first_name={payload.get('first_name')} | payload_keys={list(payload.keys())}")
+    # 🚨 LOG: Chef (worker) received the order ticket from kitchen (Redis)
+    logger.critical(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | phone={payload.get('phone')} | location_id={location_id}")
 
-    # 🚨 STRICT VALIDATION: ALWAYS validate contact_id, even if it looks valid
-    # This prevents the "Dennis bug" where slightly-wrong contact_ids get through
-    if not is_valid_contact_id(contact_id_raw):
-        logger.warning(f"⚠️ TASK RECEIVED INVALID CONTACT_ID (failed strict validation) - Attempting resolution | contact_id_raw={contact_id_raw}")
+    # 🚨 USE PAYLOAD AS-IS: GHL sent this data, trust it (this is the order ticket)
+    # Only validate if we detect a problem below (can't find contact, name mismatch, etc.)
+    contact_id = contact_id_raw
+
+    if not contact_id or not is_valid_contact_id(contact_id):
+        logger.critical(f"🚨 TASK RECEIVED INVALID CONTACT_ID | Attempting validation | contact_id={contact_id}")
         contact_id = validate_and_resolve_contact(payload)
 
         if not contact_id or not is_valid_contact_id(contact_id):
-            logger.critical(f"🚨 TASK REJECTED - COULD NOT RESOLVE VALID CONTACT | contact_id_raw={contact_id_raw} | resolved={contact_id} | location_id={location_id}")
-            return {"status": "error", "reason": "contact_validation_failed", "message": "Could not validate or resolve contact ID"}
+            logger.critical(f"🚨 TASK REJECTED - INVALID CONTACT | contact_id={contact_id_raw} | location_id={location_id}")
+            return {"status": "error", "reason": "invalid_contact_id"}
 
-        logger.critical(f"✅ CONTACT RESOLVED IN TASK | original={contact_id_raw} | resolved={contact_id}")
-        payload["contact_id"] = contact_id
-    else:
-        # Even if it passes validation, log it for audit trail
-        logger.info(f"✅ CONTACT_ID VALIDATED | contact_id={contact_id_raw}")
-        contact_id = contact_id_raw
+        logger.critical(f"✅ CONTACT VALIDATED | original={contact_id_raw} | resolved={contact_id}")
 
-    logger.info(f"▶ START TASK | loc={location_id} | contact={contact_id}")
+    logger.info(f"▶ START PROCESSING | location={location_id} | contact={contact_id}")
 
     try:
         if not location_id:
@@ -249,7 +246,9 @@ def process_webhook_task(payload: dict):
         # Inject fresh token
         subscriber['access_token'] = auth_token
 
-        # === Metadata & Pre-load Facts ===
+        # === USE PAYLOAD DATA AS-IS (Source of Truth from GHL) ===
+        # DO NOT fetch from GHL API unless we detect a problem
+        # The payload contains everything we need - GHL already sent it
         first_name = payload.get("first_name") or ""
         dob_str = payload.get("age") or ""
         address = payload.get("address") or ""
@@ -257,8 +256,7 @@ def process_webhook_task(payload: dict):
         lead_vendor = payload.get("lead_vendor", "")
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
-        # 🚨 CRITICAL DEBUG LOGGING
-        logger.critical(f"🔍 CONTACT DEBUG | contact_id={contact_id} | first_name_from_payload={first_name} | location_id={location_id}")
+        logger.info(f"✅ USING PAYLOAD DATA | contact_id={contact_id} | first_name={first_name}")
 
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")
@@ -317,13 +315,8 @@ def process_webhook_task(payload: dict):
         bot_first_name = subscriber.get('bot_first_name', 'Grok')
         timezone = subscriber.get('timezone', 'America/Chicago')
 
-        # Skip only truly trivial messages (but allow empty for INITIAL_OUTREACH)
-        if message and message.strip().lower() in {".", ",", "k"}:
-            logger.debug(f"Skipping trivial message: {message}")
-            return {"status": "skipped", "reason": "trivial message"}
-
-        # Allow empty messages to proceed - conversation_engine will detect
-        # no lead messages and set stage to INITIAL_OUTREACH automatically
+        # Process ALL messages - trust the LLM to understand context
+        # "k", "ya", "ok" are all valid text responses that need processing
 
         director_output = generate_strategic_directive(
             contact_id=contact_id,
@@ -488,10 +481,17 @@ BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices 
             logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
             reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
-        # Ensure minimum quality
-        if len(reply) < 5 or not any(c.isalpha() for c in reply):
-            logger.error(f"🚨 BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
-            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
+        # Trust the LLM - no length restrictions on replies
+        # Sometimes "Got it" or "Ok!" is the perfect response
+
+        # Log if AI might have used wrong name, but SEND IT ANYWAY (this is a sales bot, not a pushover)
+        if first_name and reply:
+            first_lower = first_name.lower().strip()
+            reply_lower = reply.lower()
+
+            # Just log for monitoring - don't block the message
+            if first_lower not in reply_lower:
+                logger.info(f"ℹ️ Name '{first_name}' not in reply (may be intentional or AI variation)")
 
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")

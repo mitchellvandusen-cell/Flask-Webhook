@@ -219,24 +219,21 @@ def webhook():
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
-    # 🚨 CRITICAL: Log full payload to diagnose contact_id issues
-    logger.critical(f"🔍 WEBHOOK RECEIVED | payload_keys={list(payload.keys())} | contact_id_raw={payload.get('contact_id')} | first_name_raw={payload.get('first_name')}")
+    # 🚨 LOG: Full payload received from GHL (waiter taking the order)
+    logger.critical(f"🔍 WEBHOOK RECEIVED | contact_id={payload.get('contact_id')} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
 
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
-    contact_id_raw = payload.get("contact_id")
+    contact_id = payload.get("contact_id")
     message_body = payload.get("message", {}).get("body") or payload.get("message")
 
-    # 🚨 INTELLIGENT VALIDATION: Try to resolve contact_id using multiple data points
-    contact_id = validate_and_resolve_contact(payload)
+    # 🚨 SIMPLE CHECK: Only reject if contact_id is clearly invalid
+    # DO NOT validate, resolve, or modify - just pass the order to the kitchen (Redis) AS-IS
+    # The chef (tasks.py) will validate ONLY if confused about who the customer is
+    if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
+        logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} is clearly invalid | location_id={location_id}")
+        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
 
-    if not contact_id:
-        logger.critical(f"🚨 WEBHOOK REJECTED - COULD NOT RESOLVE CONTACT | contact_id_raw={contact_id_raw} | location_id={location_id} | All validation methods failed")
-        return flask_jsonify({"status": "rejected", "reason": "contact_resolution_failed", "message": "Could not resolve contact ID from available data"}), 400
-
-    # If contact_id was resolved differently than the original, update payload
-    if contact_id != contact_id_raw:
-        logger.critical(f"✅ CONTACT ID RESOLVED | original={contact_id_raw} | resolved={contact_id}")
-        payload["contact_id"] = contact_id
+    logger.info(f"✅ WEBHOOK ACCEPTED | contact_id={contact_id} | Passing to Redis AS-IS (no validation/modification)")
 
     # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
     # This ensures the UI updates instantly when they hit send.
@@ -274,7 +271,8 @@ def webhook():
 
         # PRIORITY SYSTEM: Replies jump to front, initial outreach goes to back
         # This prevents 255 initial outreach messages from blocking real conversations
-        is_reply = message_body and message_body.strip() and message_body.strip().lower() not in {".", ",", "k"}
+        # ALL text messages (including "k", "ya", one-word replies) are high priority
+        is_reply = message_body and message_body.strip()
 
         job = target_queue.enqueue(
             process_webhook_task,

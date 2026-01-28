@@ -241,10 +241,9 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
 
     current_story = get_narrative(contact_id) or "Brand new lead. No history yet."
 
-    # Skip trivial lead messages to save API cost
-    if lead_message and (len(lead_message.strip()) < 5 or lead_message.strip().lower() in {"ok", "yes", ".", "k", "cool", "thanks"}):
-        logger.debug(f"Observer skipped (trivial message): {contact_id}")
-        return current_story
+    # Process ALL messages - even "k" or "ya" have context from previous bot message
+    # Trust the narrative observer to understand what "k" means in response to "does 5pm work?"
+    # Memory is flawless, no cost-saving skips
 
     # Build conversation context (last 4 exchanges so AI knows what bot asked)
     conversation_context = ""

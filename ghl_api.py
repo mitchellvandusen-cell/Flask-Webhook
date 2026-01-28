@@ -162,3 +162,51 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
     except Exception as e:
         logger.error(f"Unexpected history error {location_id}/{contact_id}: {e}", exc_info=True)
         return []
+
+
+def fetch_contact_data_from_ghl(contact_id: str, location_id: str, access_token: str = None) -> dict:
+    """
+    Fetch complete contact data from GHL API for a specific contact_id.
+    This ensures we have the correct name, phone, and other details for the contact.
+
+    Returns dict with contact data or empty dict on failure.
+
+    Fields returned: firstName, lastName, email, phone, address1, city, state, postalCode, etc.
+    """
+    if not contact_id or not location_id:
+        logger.error("fetch_contact_data_from_ghl: Missing contact_id or location_id")
+        return {}
+
+    if not access_token:
+        access_token = get_valid_token(location_id)
+        if not access_token:
+            logger.error(f"No valid token for contact fetch {location_id}/{contact_id}")
+            return {}
+
+    if access_token == 'DEMO':
+        logger.info(f"DEMO mode: Skipping contact fetch for {contact_id}")
+        return {}
+
+    headers = {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
+
+    try:
+        # Fetch contact details from GHL API
+        url = f"https://services.leadconnectorhq.com/contacts/{contact_id}"
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        contact_data = response.json().get("contact", {})
+
+        if contact_data:
+            logger.info(f"✅ FETCHED CONTACT DATA FROM GHL | contact_id={contact_id} | firstName={contact_data.get('firstName')} | phone={contact_data.get('phone')}")
+            return contact_data
+        else:
+            logger.warning(f"⚠️ Contact fetch returned empty data for {contact_id}")
+            return {}
+
+    except requests.HTTPError as e:
+        logger.error(f"❌ GHL contact fetch HTTP error {e.response.status_code} for {contact_id}: {e.response.text}")
+        return {}
+    except Exception as e:
+        logger.error(f"❌ GHL contact fetch failed for {contact_id}: {e}", exc_info=True)
+        return {}
