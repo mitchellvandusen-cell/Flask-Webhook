@@ -135,6 +135,15 @@ def process_webhook_task(payload: dict):
         payload.get("location_id") or
         payload.get("locationId")
     )
+
+    # 🚨 CRITICAL: Log payload details for debugging
+    logger.critical(f"🔍 TASK STARTED | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | payload_keys={list(payload.keys())}")
+
+    # 🚨 CRITICAL: Reject invalid contact_ids to prevent cross-contamination
+    if not contact_id or contact_id == "unknown" or len(str(contact_id).strip()) < 5:
+        logger.critical(f"🚨 TASK REJECTED - INVALID CONTACT_ID | contact_id={contact_id} | location_id={location_id} | payload={payload}")
+        return {"status": "error", "reason": "invalid_contact_id", "message": "Contact ID is required and must be valid"}
+
     logger.info(f"▶ START TASK | loc={location_id} | contact={contact_id}")
 
     try:

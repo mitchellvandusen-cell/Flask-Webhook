@@ -217,9 +217,18 @@ def webhook():
         return flask_jsonify({"status": "error"}), 503
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
+
+    # 🚨 CRITICAL: Log full payload to diagnose contact_id issues
+    logger.critical(f"🔍 WEBHOOK RECEIVED | payload_keys={list(payload.keys())} | contact_id_raw={payload.get('contact_id')} | first_name_raw={payload.get('first_name')}")
+
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
     contact_id = payload.get("contact_id")
     message_body = payload.get("message", {}).get("body") or payload.get("message")
+
+    # 🚨 CRITICAL: Reject webhooks without valid contact_id
+    if not contact_id or contact_id == "unknown" or len(str(contact_id).strip()) < 5:
+        logger.critical(f"🚨 REJECTED WEBHOOK - INVALID CONTACT_ID | contact_id={contact_id} | location_id={location_id} | payload={payload}")
+        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id", "message": "contact_id is required and must be at least 5 characters"}), 400
 
     # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
     # This ensures the UI updates instantly when they hit send.
