@@ -195,27 +195,24 @@ def process_webhook_task(payload: dict):
         payload.get("locationId")
     )
 
-    # 🚨 CRITICAL: Log payload details for debugging
-    logger.critical(f"🔍 TASK STARTED | contact_id_raw={contact_id_raw} | location_id={location_id} | first_name_payload={payload.get('first_name')} | phone_payload={payload.get('phone')} | payload_keys={list(payload.keys())}")
+    # 🚨 LOG: Chef (worker) received the order ticket from kitchen (Redis)
+    logger.critical(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | phone={payload.get('phone')} | location_id={location_id}")
 
-    # 🚨 PAYLOAD IS SOURCE OF TRUTH: GHL sent this webhook with contact_id, trust it unless clearly invalid
-    # We only validate if contact_id is truly missing or invalid (< 5 chars, "unknown", etc.)
-    if not contact_id_raw or not is_valid_contact_id(contact_id_raw):
-        logger.warning(f"⚠️ TASK RECEIVED INVALID/MISSING CONTACT_ID - Attempting resolution | contact_id_raw={contact_id_raw}")
+    # 🚨 USE PAYLOAD AS-IS: GHL sent this data, trust it (this is the order ticket)
+    # Only validate if we detect a problem below (can't find contact, name mismatch, etc.)
+    contact_id = contact_id_raw
+
+    if not contact_id or not is_valid_contact_id(contact_id):
+        logger.critical(f"🚨 TASK RECEIVED INVALID CONTACT_ID | Attempting validation | contact_id={contact_id}")
         contact_id = validate_and_resolve_contact(payload)
 
         if not contact_id or not is_valid_contact_id(contact_id):
-            logger.critical(f"🚨 TASK REJECTED - COULD NOT RESOLVE VALID CONTACT | contact_id_raw={contact_id_raw} | resolved={contact_id} | location_id={location_id}")
-            return {"status": "error", "reason": "contact_validation_failed", "message": "Could not validate or resolve contact ID"}
+            logger.critical(f"🚨 TASK REJECTED - INVALID CONTACT | contact_id={contact_id_raw} | location_id={location_id}")
+            return {"status": "error", "reason": "invalid_contact_id"}
 
-        logger.critical(f"✅ CONTACT RESOLVED | original={contact_id_raw} | resolved={contact_id}")
-        payload["contact_id"] = contact_id
-    else:
-        # Contact ID is valid - use it as-is (PAYLOAD IS SOURCE OF TRUTH)
-        logger.info(f"✅ CONTACT_ID FROM PAYLOAD (SOURCE OF TRUTH) | contact_id={contact_id_raw}")
-        contact_id = contact_id_raw
+        logger.critical(f"✅ CONTACT VALIDATED | original={contact_id_raw} | resolved={contact_id}")
 
-    logger.info(f"▶ START TASK | loc={location_id} | contact={contact_id}")
+    logger.info(f"▶ START PROCESSING | location={location_id} | contact={contact_id}")
 
     try:
         if not location_id:
@@ -249,36 +246,17 @@ def process_webhook_task(payload: dict):
         # Inject fresh token
         subscriber['access_token'] = auth_token
 
-        # === CRITICAL FIX: Fetch correct contact data from GHL to ensure consistency ===
-        # This prevents the "Dennis bug" where payload has wrong contact data
-        # We fetch the ACTUAL contact data from GHL API using the validated contact_id
-        ghl_contact_data = {}
-        if not is_demo:
-            logger.critical(f"🔍 FETCHING CONTACT DATA FROM GHL API | contact_id={contact_id} | location_id={location_id}")
-            ghl_contact_data = fetch_contact_data_from_ghl(contact_id, location_id, auth_token)
-
-            if ghl_contact_data:
-                logger.critical(f"✅ GHL CONTACT DATA RETRIEVED | contact_id={contact_id} | firstName={ghl_contact_data.get('firstName')} | phone={ghl_contact_data.get('phone')}")
-            else:
-                logger.warning(f"⚠️ Could not fetch contact data from GHL for {contact_id} - will use payload data as fallback")
-
-        # === Metadata & Pre-load Facts ===
-        # Priority: GHL API data (source of truth) > Payload data (fallback)
-        first_name = ghl_contact_data.get("firstName") or payload.get("first_name") or ""
-        dob_str = payload.get("age") or ghl_contact_data.get("dateOfBirth") or ""
-        address = ghl_contact_data.get("address1") or payload.get("address") or ""
+        # === USE PAYLOAD DATA AS-IS (Source of Truth from GHL) ===
+        # DO NOT fetch from GHL API unless we detect a problem
+        # The payload contains everything we need - GHL already sent it
+        first_name = payload.get("first_name") or ""
+        dob_str = payload.get("age") or ""
+        address = payload.get("address") or ""
         intent = payload.get("intent") or ""
         lead_vendor = payload.get("lead_vendor", "")
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
-        # 🚨 CRITICAL DEBUG LOGGING - Compare payload vs GHL data
-        payload_first_name = payload.get("first_name")
-        if ghl_contact_data and payload_first_name and first_name != payload_first_name:
-            logger.critical(f"🚨 DATA MISMATCH DETECTED | contact_id={contact_id} | payload_firstName={payload_first_name} | ghl_firstName={first_name} | USING GHL DATA AS SOURCE OF TRUTH")
-        elif not ghl_contact_data and payload_first_name:
-            logger.critical(f"⚠️ USING PAYLOAD DATA (GHL fetch failed) | contact_id={contact_id} | first_name={first_name}")
-        else:
-            logger.critical(f"✅ DATA VALIDATED | contact_id={contact_id} | first_name={first_name} | location_id={location_id}")
+        logger.info(f"✅ USING PAYLOAD DATA | contact_id={contact_id} | first_name={first_name}")
 
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")

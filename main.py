@@ -219,30 +219,21 @@ def webhook():
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
-    # 🚨 CRITICAL: Log full payload to diagnose contact_id issues
-    logger.critical(f"🔍 WEBHOOK RECEIVED | payload_keys={list(payload.keys())} | contact_id_raw={payload.get('contact_id')} | first_name_raw={payload.get('first_name')} | phone_raw={payload.get('phone')}")
+    # 🚨 LOG: Full payload received from GHL (waiter taking the order)
+    logger.critical(f"🔍 WEBHOOK RECEIVED | contact_id={payload.get('contact_id')} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
 
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
-    contact_id_raw = payload.get("contact_id")
+    contact_id = payload.get("contact_id")
     message_body = payload.get("message", {}).get("body") or payload.get("message")
 
-    # 🚨 PAYLOAD IS SOURCE OF TRUTH: GHL sent this webhook, trust the contact_id unless it's clearly invalid
-    # Only validate/resolve if contact_id is missing or invalid (< 5 chars, "unknown", etc.)
-    if contact_id_raw and len(str(contact_id_raw).strip()) >= 5 and str(contact_id_raw).strip().lower() not in ["unknown", "none", "null"]:
-        # Contact ID looks valid - use it as-is
-        contact_id = contact_id_raw
-        logger.info(f"✅ USING PAYLOAD CONTACT_ID (SOURCE OF TRUTH) | contact_id={contact_id}")
-    else:
-        # Contact ID is missing or invalid - try to resolve
-        logger.warning(f"⚠️ WEBHOOK HAS INVALID/MISSING CONTACT_ID - Attempting resolution | contact_id_raw={contact_id_raw}")
-        contact_id = validate_and_resolve_contact(payload)
+    # 🚨 SIMPLE CHECK: Only reject if contact_id is clearly invalid
+    # DO NOT validate, resolve, or modify - just pass the order to the kitchen (Redis) AS-IS
+    # The chef (tasks.py) will validate ONLY if confused about who the customer is
+    if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
+        logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} is clearly invalid | location_id={location_id}")
+        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
 
-        if not contact_id:
-            logger.critical(f"🚨 WEBHOOK REJECTED - COULD NOT RESOLVE CONTACT | contact_id_raw={contact_id_raw} | location_id={location_id} | All validation methods failed")
-            return flask_jsonify({"status": "rejected", "reason": "contact_resolution_failed", "message": "Could not resolve contact ID from available data"}), 400
-
-        logger.critical(f"✅ CONTACT ID RESOLVED | original={contact_id_raw} | resolved={contact_id}")
-        payload["contact_id"] = contact_id
+    logger.info(f"✅ WEBHOOK ACCEPTED | contact_id={contact_id} | Passing to Redis AS-IS (no validation/modification)")
 
     # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
     # This ensures the UI updates instantly when they hit send.
