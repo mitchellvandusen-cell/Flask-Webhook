@@ -24,29 +24,25 @@ def build_comprehensive_profile(
     full_text = " ".join(facts_safe + [narrative_safe]).lower()
 
     # 🚨 CRITICAL: Detect name mismatch (wrong narrative for this contact)
-    # Use payload data - check if narrative mentions the EXPECTED name from payload
-    if first_name and narrative_safe and len(narrative_safe) > 10:
+    # DISABLED: Regex was catching capitalized words like "Brand", "Lead", "No" as names
+    # Contact_id validation should prevent wrong narratives from loading
+    # if first_name and narrative_safe and len(narrative_safe) > 10:
+    #     # Check if expected name appears in narrative
+    #     first_lower = first_name.lower().strip()
+    #     narrative_lower = narrative_safe.lower()
+    #
+    #     if first_lower not in narrative_lower:
+    #         logger.warning(f"⚠️ Expected name '{first_name}' not found in narrative")
+
+    # Simple validation: If narrative is substantial but doesn't mention the expected name, log it
+    if first_name and narrative_safe and len(narrative_safe) > 100:
         first_lower = first_name.lower().strip()
         narrative_lower = narrative_safe.lower()
 
-        # Find all capitalized words that look like names (2+ chars, starts with capital)
-        # Pattern: Word boundary, capital letter, lowercase letters
-        potential_names = re.findall(r'\b([A-Z][a-z]{1,})\b', narrative_safe)
-        potential_names_lower = [name.lower() for name in potential_names]
-
-        # Check if expected name is in the narrative
-        expected_name_found = first_lower in narrative_lower
-
-        # Check if OTHER names are prominently mentioned
-        other_names_found = [name for name in potential_names if name.lower() != first_lower]
-
-        # MISMATCH: Narrative mentions other names but NOT the expected name
-        if other_names_found and not expected_name_found:
-            logger.critical(f"🚨 NAME MISMATCH DETECTED | expected_name={first_name} | narrative_mentions={other_names_found} | CLEARING NARRATIVE")
-            logger.critical(f"🚨 NARRATIVE PREVIEW: {narrative_safe[:200]}")
-            # Clear the corrupted narrative to prevent wrong name usage
-            narrative_safe = f"New contact: {first_name}. Building profile from scratch."
-            full_text = " ".join(facts_safe + [narrative_safe]).lower()
+        # Only log if name completely missing from substantial narrative
+        if first_lower not in narrative_lower:
+            logger.warning(f"⚠️ NAME NOT IN NARRATIVE | expected='{first_name}' | narrative_length={len(narrative_safe)} | This may be normal for new contacts")
+            # DON'T clear narrative - contact_id validation prevents wrong data
 
     # ─── 1. Build Emotional & Contextual Flags (Nuanced, not binary) ───
     profile_context: Dict[str, any] = {
