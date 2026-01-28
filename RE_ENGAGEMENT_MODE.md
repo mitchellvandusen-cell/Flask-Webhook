@@ -91,47 +91,39 @@ To:
 
 ## Re-Engagement Strategies
 
-The AI is instructed to pick ONE of these approaches:
+The AI is instructed to **be creative** and come up with its own approach. No templates - the LLM creates original humor.
 
-### 1. Self-Aware Humor
-```
-"I've sent you 6 messages and haven't heard back, feeling like I'm alone on the Titanic here 😅"
+### General Approaches (AI chooses and creates):
 
-"Okay I realize I've been blowing up your phone... still interested or should I give you space?"
+**1. Self-Aware Humor**
+- Acknowledge being ignored in a funny way
+- Be self-deprecating about the situation
+- Keep it light and relatable
 
-"Pretty sure at this point you've either got my number memorized or blocked 😂 Let me know if you want to chat"
-```
+**2. Pattern Interrupt**
+- Stop talking business completely
+- Ask about their life instead
+- Show genuine human interest
 
-### 2. Pattern Interrupt
-```
-"Alright I'll stop with the insurance talk. Real question - what's keeping you busy these days?"
+**3. Dad Jokes (Male Names)**
+- Come up with an original dad joke
+- Keep it clean and harmless
+- Follow with "still interested or should I circle back?"
 
-"Okay forget insurance for a sec - you doing alright? Life getting crazy?"
+**Note:** The AI generates its own jokes, not from templates. The LLM is creative.
 
-"Hey I've been all business mode. How are things on your end?"
-```
+**4. Relatable Moments**
+- Acknowledge life gets busy
+- Give them permission to say "not now"
+- Offer to circle back later
 
-### 3. Dad Joke (Male Names Only)
-```
-"Okay one last shot: Why don't scientists trust atoms? Because they make up everything! 😄 Bad joke aside, you still thinking about coverage or should I circle back?"
-
-"Here's a dad joke for you: What do you call a fake noodle? An impasta! Anyway - still interested in chatting about insurance or nah?"
-```
-
-**Male names list includes:** John, Mike, David, James, Robert, Michael, William, etc. (70+ common male names)
-
-### 4. Relatable Moment
-```
-"I get it, life gets crazy. Just wanted to check if you're still thinking about this or if I should circle back later?"
-
-"No pressure - just wanted to see if you're still interested or if now's not the right time?"
-
-"Totally understand if you're swamped. Should I follow up later or leave you alone?"
-```
+The AI picks what feels most natural for the specific contact and creates something original.
 
 ## Examples
 
-### Example 1: Self-Aware Humor + Male Name
+**Note:** These are illustrative examples. The actual bot creates its own original humor and responses - these are NOT templates.
+
+### Example 1: AI Creates Self-Aware Humor
 
 **Conversation:**
 ```
@@ -141,7 +133,7 @@ Bot: "Did you have any questions about policies?"
 Bot: "Let me know if you'd like to discuss this"
 Bot: "Circling back on those insurance options"
 Bot: "Are you still looking for coverage?"
-Bot: 🎭 "John, I've sent you 6 messages without a peep back... feeling like I'm texting into the void here 😅 Still interested or should I circle back later?"
+Bot: 🎭 [AI creates something original, e.g.] "John, I've basically written you a novel at this point 😅 Still interested or should I give you some space?"
 ```
 
 **Lead responds:**
@@ -150,7 +142,7 @@ Lead: "haha sorry man been crazy busy, yeah let's chat"
 Bot: [RETURNS TO NORMAL MODE] "No worries! When works for you - I've got slots tomorrow at 2pm or Friday at 10am?"
 ```
 
-### Example 2: Dad Joke Strategy
+### Example 2: AI Creates Dad Joke
 
 **Conversation:**
 ```
@@ -160,7 +152,7 @@ Bot: "Did you have questions?"
 Bot: "Let me know if interested"
 Bot: "Circling back"
 Bot: "Still interested?"
-Bot: 🎭 "Alright Mike, one dad joke before I stop: What do you call a bear with no teeth? A gummy bear! 😂 Okay that was terrible. Seriously though - you still interested in coverage or nah?"
+Bot: 🎭 [AI comes up with original dad joke] "Mike, I'll hit you with a dad joke: [creates original joke]. Anyway - you still thinking about this or should I bug you later?"
 ```
 
 **Lead responds:**
@@ -169,7 +161,7 @@ Lead: "😂 that was bad but i laughed. yeah still interested"
 Bot: [RETURNS TO NORMAL MODE] "Haha glad I could get a laugh! So what type of coverage were you thinking?"
 ```
 
-### Example 3: Permission-Based Exit
+### Example 3: AI Creates Permission-Based Exit
 
 **Conversation:**
 ```
@@ -179,7 +171,7 @@ Bot: "Any questions?"
 Bot: "Let me know"
 Bot: "Circling back"
 Bot: "Still thinking about it?"
-Bot: 🎭 "Hey Sarah - I realize I've been messaging without hearing back. No pressure at all. Should I circle back in a few weeks or is now not the right time?"
+Bot: 🎭 [AI creates original message] "Sarah - I can tell life's busy. No pressure. Good time to chat or should I try back later?"
 ```
 
 **Lead responds:**

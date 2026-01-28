@@ -365,20 +365,25 @@ def process_webhook_task(payload: dict):
             context_nudge += f"""
 
 🎭 RE-ENGAGEMENT MODE (6+ unanswered messages):
-- STOP selling insurance completely
-- Be humorous, warm, and human (not business mode)
-- Acknowledge you've been messaging without response
-- Use ONE of these approaches (pick what fits best):
-  * Self-aware humor: "I've sent you 6 messages and haven't heard back, feeling like I'm alone on the Titanic here 😅"
-  * Pattern interrupt: "Okay I'll stop with the insurance talk. Real question - what's keeping you busy these days?"
-  * Dad joke (ONLY if male name): Share a short, harmless dad joke, then say "Okay that was bad, but seriously - you still interested?"
-  * Relatable moment: "I get it, life gets crazy. Just wanted to check if you're still thinking about this or if I should circle back later?"
-- Keep it light and friendly
-- NO hard selling or pressure
-- Goal: Get ANY response, even if it's "not interested"
-- ONE message only, then back off
-- If they respond, return to normal conversation (reset this mode)
-{'- Consider a dad joke since contact appears to have a male name' if is_male_name else '- Skip dad jokes (not a typical male name)'}"""
+You've sent {consecutive_bot_msgs} messages without getting a response. Time to switch strategies.
+
+WHAT TO DO:
+- COMPLETELY STOP selling insurance
+- Be humorous, self-aware, and genuinely human
+- Acknowledge the radio silence in a lighthearted way
+- Try ONE creative approach to get their attention:
+  * Self-deprecating humor about being ignored
+  * A pattern interrupt (stop talking business, ask about their life)
+  * Tell a dad joke you come up with (keep it clean and harmless){'- especially fitting since this is a male name' if is_male_name else ''}
+  * A relatable human moment about life getting busy
+- Be creative - come up with something original and natural
+- Keep it SHORT (1-2 sentences max)
+- NO pressure, NO hard selling
+- Give them an easy out ("circle back later?" or "still interested?")
+- Goal: Get ANY response, even "not interested"
+- This is your ONE shot at re-engagement, then back off
+
+BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices they've gone quiet."""
 
         final_nudge = f"{context_nudge}\n{director_output['underwriting_context']}".strip()
 
