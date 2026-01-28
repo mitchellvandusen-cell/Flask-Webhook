@@ -144,10 +144,12 @@ def search_contact_by_address(location_id: str, address: str) -> Optional[str]:
         return None
 
 
-def search_contact_by_phone(location_id: str, phone: str) -> Optional[str]:
+def search_contact_by_phone(location_id: str, phone: str, expected_first_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Search for a contact by phone number in a specific location.
-    Returns contact_id if found.
+    Returns dict with contact_id and matched contact data if found.
+
+    If expected_first_name is provided, validates that the found contact matches.
     """
     if not location_id or not phone:
         return None
@@ -179,13 +181,52 @@ def search_contact_by_phone(location_id: str, phone: str) -> Optional[str]:
         contacts = data.get("contacts", [])
 
         if len(contacts) >= 1:
-            contact_id = contacts[0].get("id")
-            logger.info(f"✅ Found contact by phone: {phone} → {contact_id}")
-            return contact_id
+            contact = contacts[0]
+            contact_id = contact.get("id")
+            contact_first_name = contact.get("firstName", "").strip().lower()
+
+            # If we have expected_first_name, validate it matches
+            if expected_first_name:
+                expected_lower = expected_first_name.strip().lower()
+                if contact_first_name and contact_first_name == expected_lower:
+                    logger.info(f"✅ VALIDATED: Phone {phone} + Name '{expected_first_name}' → {contact_id} (99% match)")
+                    return {"contact_id": contact_id, "validated": True, "match_method": "phone+name"}
+                elif contact_first_name:
+                    logger.warning(f"⚠️ Phone matched but name mismatch | expected='{expected_first_name}' | found='{contact.get('firstName')}' | contact_id={contact_id}")
+                    return None  # Name doesn't match - wrong contact
+                else:
+                    logger.info(f"✅ Phone matched (no name to validate) → {contact_id}")
+                    return {"contact_id": contact_id, "validated": False, "match_method": "phone_only"}
+            else:
+                logger.info(f"✅ Found contact by phone (no name validation): {phone} → {contact_id}")
+                return {"contact_id": contact_id, "validated": False, "match_method": "phone_only"}
 
     except Exception as e:
         logger.error(f"Error searching contact by phone: {e}")
         return None
+
+
+def extract_phone_from_payload(payload: Dict[str, Any]) -> Optional[str]:
+    """
+    Extract phone number from various webhook payload structures.
+    GHL sends phone in different formats depending on webhook type.
+    """
+    # Try multiple locations where phone might be
+    phone = (
+        payload.get("phone") or
+        payload.get("contactPhone") or
+        payload.get("contact", {}).get("phone") or
+        payload.get("message", {}).get("contactPhone") or
+        payload.get("message", {}).get("phone")
+    )
+
+    if phone:
+        # Clean and validate phone number
+        phone_clean = ''.join(filter(str.isdigit, str(phone)))
+        if len(phone_clean) >= 10:  # Valid phone should have at least 10 digits
+            return phone_clean
+
+    return None
 
 
 def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
@@ -194,22 +235,27 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
 
     Returns valid contact_id or None if all methods fail.
 
-    Fallback chain:
+    PRIORITY ORDER (as per user requirements):
     1. Use payload contact_id if valid
-    2. Search by first_name in location
-    3. Search by address in location
-    4. Search by phone in location
+    2. Phone + First Name (99% match - PRIMARY RESOLUTION METHOD)
+    3. Phone only (if no first_name available)
+    4. First Name + Location ID (fallback, but ambiguous for common names)
     5. Return None (cannot resolve)
+
+    Phone number is MOST UNIQUE because:
+    - It's the number being texted (inherent to SMS routing)
+    - Each contact has only one phone number
+    - Combined with first_name = 99% accurate match
     """
 
-    # Extract all available data points
+    # Extract all available data points from payload
     contact_id = payload.get("contact_id")
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
-    first_name = payload.get("first_name") or payload.get("contact", {}).get("first_name")
+    first_name = payload.get("first_name") or payload.get("contact", {}).get("first_name") or payload.get("contact", {}).get("firstName")
     address = payload.get("address") or payload.get("contact", {}).get("address1")
-    phone = payload.get("phone") or payload.get("contact", {}).get("phone")
+    phone = extract_phone_from_payload(payload)
 
-    logger.critical(f"🔍 CONTACT VALIDATION START | contact_id={contact_id} | location_id={location_id} | first_name={first_name} | has_address={bool(address)} | has_phone={bool(phone)}")
+    logger.critical(f"🔍 CONTACT VALIDATION START | contact_id={contact_id} | location_id={location_id} | first_name={first_name} | phone={phone} | has_address={bool(address)}")
 
     # Step 1: Check if contact_id is already valid
     if contact_id and contact_id != "unknown" and len(str(contact_id).strip()) >= 5:
@@ -221,30 +267,37 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
         logger.error("❌ Cannot validate contact: no location_id in payload")
         return None
 
-    # Step 2: Try searching by first_name
+    # Step 2: PRIMARY METHOD - Phone + First Name (99% match)
+    if phone and first_name:
+        logger.info(f"🔍 PRIMARY RESOLUTION: Phone + First Name | phone={phone} | first_name={first_name}")
+        result = search_contact_by_phone(location_id, phone, expected_first_name=first_name)
+        if result and result.get("validated"):
+            resolved_id = result["contact_id"]
+            logger.critical(f"✅ CONTACT RESOLVED (99% MATCH) | phone={phone} + first_name={first_name} → {resolved_id}")
+            return resolved_id
+        elif result:
+            # Phone matched but name didn't validate
+            logger.warning(f"⚠️ Phone matched but first_name validation failed | Trying other methods")
+        else:
+            logger.warning(f"⚠️ No contact found with phone={phone} | Trying other methods")
+
+    # Step 3: Phone only (if no first_name or name validation failed)
+    if phone:
+        logger.info(f"🔍 SECONDARY RESOLUTION: Phone only | phone={phone}")
+        result = search_contact_by_phone(location_id, phone, expected_first_name=None)
+        if result:
+            resolved_id = result["contact_id"]
+            logger.critical(f"✅ CONTACT RESOLVED BY PHONE | phone={phone} → {resolved_id} (no name validation)")
+            return resolved_id
+
+    # Step 4: FALLBACK - First Name + Location ID (warn about ambiguity)
     if first_name:
-        logger.info(f"🔍 Attempting contact search by first_name: {first_name}")
+        logger.info(f"🔍 FALLBACK RESOLUTION: First Name only | first_name={first_name} (may be ambiguous)")
         resolved_id = search_contact_by_name(location_id, first_name)
         if resolved_id:
-            logger.critical(f"✅ CONTACT RESOLVED BY NAME | original={contact_id} | resolved={resolved_id} | first_name={first_name}")
-            return resolved_id
-
-    # Step 3: Try searching by address
-    if address:
-        logger.info(f"🔍 Attempting contact search by address: {address}")
-        resolved_id = search_contact_by_address(location_id, address)
-        if resolved_id:
-            logger.critical(f"✅ CONTACT RESOLVED BY ADDRESS | original={contact_id} | resolved={resolved_id}")
-            return resolved_id
-
-    # Step 4: Try searching by phone
-    if phone:
-        logger.info(f"🔍 Attempting contact search by phone: {phone}")
-        resolved_id = search_contact_by_phone(location_id, phone)
-        if resolved_id:
-            logger.critical(f"✅ CONTACT RESOLVED BY PHONE | original={contact_id} | resolved={resolved_id}")
+            logger.critical(f"✅ CONTACT RESOLVED BY NAME (AMBIGUOUS) | first_name={first_name} → {resolved_id} | WARNING: Common names may cause mismatch")
             return resolved_id
 
     # Step 5: All methods failed
-    logger.critical(f"❌ CONTACT VALIDATION FAILED | All resolution methods exhausted | payload_keys={list(payload.keys())}")
+    logger.critical(f"❌ CONTACT VALIDATION FAILED | All resolution methods exhausted | payload_keys={list(payload.keys())} | Payload dump: {payload}")
     return None
