@@ -29,6 +29,26 @@ if XAI_API_KEY:
     )
 
 
+def count_consecutive_bot_messages(recent_exchanges: list) -> int:
+    """
+    Count how many consecutive bot messages were sent without a lead response.
+    Returns the count of most recent consecutive bot messages.
+    """
+    if not recent_exchanges:
+        return 0
+
+    consecutive_bot = 0
+    # Iterate backwards through exchanges (most recent first)
+    for exchange in reversed(recent_exchanges):
+        if exchange.get("role") == "bot":
+            consecutive_bot += 1
+        else:
+            # Hit a lead message, stop counting
+            break
+
+    return consecutive_bot
+
+
 def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> Tuple[bool, Optional[str]]:
     """
     Context-aware booking detection.
@@ -319,11 +339,47 @@ def process_webhook_task(payload: dict):
         context_nudge = ""
         if message and "covered" in message.lower():
             context_nudge = "Lead claims coverage."
-        
+
         # Add booking context
         if booking_made:
             context_nudge += "\n⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY. Confirm the time warmly, thank them, and STOP selling."
-        
+
+        # 🎭 RE-ENGAGEMENT MODE: If 6+ consecutive bot messages without response
+        consecutive_bot_msgs = count_consecutive_bot_messages(recent_exchanges)
+        if consecutive_bot_msgs >= 6 and not booking_made:
+            logger.info(f"🎭 RE-ENGAGEMENT MODE ACTIVATED | {consecutive_bot_msgs} consecutive bot messages without response")
+
+            # Determine if contact has a male name for dad joke possibility
+            male_names = ["john", "mike", "david", "james", "robert", "michael", "william", "richard", "joseph",
+                         "thomas", "charles", "christopher", "daniel", "matthew", "anthony", "mark", "donald",
+                         "steven", "paul", "andrew", "joshua", "kenneth", "kevin", "brian", "george", "timothy",
+                         "ronald", "edward", "jason", "jeffrey", "ryan", "jacob", "gary", "nicholas", "eric",
+                         "jonathan", "stephen", "larry", "justin", "scott", "brandon", "benjamin", "samuel",
+                         "raymond", "gregory", "frank", "alexander", "patrick", "jack", "dennis", "jerry", "tyler",
+                         "aaron", "jose", "adam", "nathan", "henry", "douglas", "zachary", "peter", "kyle", "noah",
+                         "phillip", "victor", "ethan", "jeremy", "walter", "christian", "keith", "roger", "terry",
+                         "sean", "austin", "carl", "harold", "dylan", "arthur", "lawrence", "jordan", "jesse"]
+
+            is_male_name = first_name and first_name.lower().strip() in male_names
+
+            context_nudge += f"""
+
+🎭 RE-ENGAGEMENT MODE (6+ unanswered messages):
+- STOP selling insurance completely
+- Be humorous, warm, and human (not business mode)
+- Acknowledge you've been messaging without response
+- Use ONE of these approaches (pick what fits best):
+  * Self-aware humor: "I've sent you 6 messages and haven't heard back, feeling like I'm alone on the Titanic here 😅"
+  * Pattern interrupt: "Okay I'll stop with the insurance talk. Real question - what's keeping you busy these days?"
+  * Dad joke (ONLY if male name): Share a short, harmless dad joke, then say "Okay that was bad, but seriously - you still interested?"
+  * Relatable moment: "I get it, life gets crazy. Just wanted to check if you're still thinking about this or if I should circle back later?"
+- Keep it light and friendly
+- NO hard selling or pressure
+- Goal: Get ANY response, even if it's "not interested"
+- ONE message only, then back off
+- If they respond, return to normal conversation (reset this mode)
+{'- Consider a dad joke since contact appears to have a male name' if is_male_name else '- Skip dad jokes (not a typical male name)'}"""
+
         final_nudge = f"{context_nudge}\n{director_output['underwriting_context']}".strip()
 
         # Generate bot reply using Grok
