@@ -18,6 +18,8 @@ from contact_validator import validate_and_resolve_contact
 
 logger = logging.getLogger('rq.worker')
 
+import re
+
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 
@@ -27,6 +29,42 @@ if XAI_API_KEY:
         api_key=XAI_API_KEY,
         base_url="https://api.x.ai/v1"
     )
+
+
+def is_valid_contact_id(contact_id: str) -> bool:
+    """
+    Strict contact_id validation to prevent cross-contamination.
+
+    Returns True only if contact_id meets ALL criteria:
+    - Not None/empty
+    - Not "unknown" or similar placeholder
+    - At least 5 characters
+    - Alphanumeric with allowed separators (-, _)
+    - Not obviously invalid (e.g., "test", "null", "undefined")
+    """
+    if not contact_id or not isinstance(contact_id, str):
+        return False
+
+    contact_id = contact_id.strip()
+
+    # Check minimum length
+    if len(contact_id) < 5:
+        return False
+
+    # Check for placeholder values
+    invalid_values = ["unknown", "none", "null", "undefined", "test", "placeholder", "temp"]
+    if contact_id.lower() in invalid_values:
+        return False
+
+    # Allow demo_ prefixed IDs (demo mode)
+    if contact_id.lower().startswith("demo_"):
+        return True
+
+    # Check for valid characters (alphanumeric, -, _)
+    if not re.match(r'^[a-zA-Z0-9_-]+$', contact_id):
+        return False
+
+    return True
 
 
 def count_consecutive_bot_messages(recent_exchanges: list) -> int:
@@ -160,19 +198,21 @@ def process_webhook_task(payload: dict):
     # 🚨 CRITICAL: Log payload details for debugging
     logger.critical(f"🔍 TASK STARTED | contact_id_raw={contact_id_raw} | location_id={location_id} | first_name={payload.get('first_name')} | payload_keys={list(payload.keys())}")
 
-    # 🚨 INTELLIGENT VALIDATION: Secondary safety check - resolve contact_id if invalid
-    # (Main validation happens in webhook handler, but this is a backup)
-    if not contact_id_raw or contact_id_raw == "unknown" or len(str(contact_id_raw).strip()) < 5:
-        logger.warning(f"⚠️ TASK RECEIVED INVALID CONTACT_ID - Attempting resolution | contact_id_raw={contact_id_raw}")
+    # 🚨 STRICT VALIDATION: ALWAYS validate contact_id, even if it looks valid
+    # This prevents the "Dennis bug" where slightly-wrong contact_ids get through
+    if not is_valid_contact_id(contact_id_raw):
+        logger.warning(f"⚠️ TASK RECEIVED INVALID CONTACT_ID (failed strict validation) - Attempting resolution | contact_id_raw={contact_id_raw}")
         contact_id = validate_and_resolve_contact(payload)
 
-        if not contact_id:
-            logger.critical(f"🚨 TASK REJECTED - COULD NOT RESOLVE CONTACT | contact_id_raw={contact_id_raw} | location_id={location_id}")
-            return {"status": "error", "reason": "contact_resolution_failed", "message": "Could not resolve contact ID"}
+        if not contact_id or not is_valid_contact_id(contact_id):
+            logger.critical(f"🚨 TASK REJECTED - COULD NOT RESOLVE VALID CONTACT | contact_id_raw={contact_id_raw} | resolved={contact_id} | location_id={location_id}")
+            return {"status": "error", "reason": "contact_validation_failed", "message": "Could not validate or resolve contact ID"}
 
         logger.critical(f"✅ CONTACT RESOLVED IN TASK | original={contact_id_raw} | resolved={contact_id}")
         payload["contact_id"] = contact_id
     else:
+        # Even if it passes validation, log it for audit trail
+        logger.info(f"✅ CONTACT_ID VALIDATED | contact_id={contact_id_raw}")
         contact_id = contact_id_raw
 
     logger.info(f"▶ START TASK | loc={location_id} | contact={contact_id}")

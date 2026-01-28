@@ -4,6 +4,7 @@ import requests
 import csv
 import io
 import re
+import threading
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -16,12 +17,13 @@ SHEET_URLS = {
     "uhl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1225036935&single=true&output=csv"
 }
 
-# Cache (in-memory, TTL 60 min)
+# Cache (in-memory, TTL 60 min) with thread safety
 _CACHE: dict = {
     "rules": [],
     "last_updated": None,
     "ttl_seconds": 3600  # 60 minutes
 }
+_cache_lock = threading.Lock()  # Thread-safe cache access
 
 def refresh_underwriting_data(force: bool = False) -> List[str]:
     """
@@ -29,11 +31,14 @@ def refresh_underwriting_data(force: bool = False) -> List[str]:
     Returns cached data if fresh, or refreshes if expired/forced.
     """
     now = datetime.now()
-    if not force and _CACHE["rules"] and _CACHE["last_updated"]:
-        age = (now - _CACHE["last_updated"]).total_seconds()
-        if age < _CACHE["ttl_seconds"]:
-            logger.debug(f"Underwriting cache hit (age: {age:.0f}s)")
-            return _CACHE["rules"]
+
+    # Check cache with lock
+    with _cache_lock:
+        if not force and _CACHE["rules"] and _CACHE["last_updated"]:
+            age = (now - _CACHE["last_updated"]).total_seconds()
+            if age < _CACHE["ttl_seconds"]:
+                logger.debug(f"Underwriting cache hit (age: {age:.0f}s)")
+                return _CACHE["rules"].copy()  # Return copy to prevent external modification
 
     combined_rules = []
     try:
@@ -53,17 +58,21 @@ def refresh_underwriting_data(force: bool = False) -> List[str]:
                     rule_str = f"[{source_name.upper()}] " + " | ".join(str(cell).strip() for cell in row if cell.strip())
                     combined_rules.append(rule_str)
 
-        _CACHE["rules"] = combined_rules
-        _CACHE["last_updated"] = now
+        # Update cache with lock
+        with _cache_lock:
+            _CACHE["rules"] = combined_rules
+            _CACHE["last_updated"] = now
         logger.info(f"Underwriting data refreshed: {len(combined_rules)} rules loaded")
 
     except requests.RequestException as e:
         logger.error(f"Underwriting fetch failed: {e}")
         # Return old cache if available
-        return _CACHE["rules"]
+        with _cache_lock:
+            return _CACHE["rules"].copy()
     except Exception as e:
         logger.error(f"Unexpected underwriting refresh error: {e}")
-        return _CACHE["rules"]
+        with _cache_lock:
+            return _CACHE["rules"].copy()
 
     return combined_rules
 

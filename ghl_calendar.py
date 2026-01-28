@@ -3,6 +3,7 @@ import logging
 import os
 import requests
 import time as time_module
+import threading
 from datetime import datetime, timedelta, timezone, time
 from zoneinfo import ZoneInfo
 import re
@@ -13,17 +14,20 @@ GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free
 GHL_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
 CACHE_TTL = 1800  # 30 minutes
-cache = {}  # Simple in-memory cache — fine for single-worker RQ
+cache = {}  # Simple in-memory cache with thread safety
+cache_lock = threading.Lock()  # Thread-safe cache access
 
 def get_cached_data(key: str):
-    if key in cache:
-        cached = cache[key]
-        if (datetime.now(timezone.utc) - cached['time']) < timedelta(seconds=CACHE_TTL):
-            return cached['data']
+    with cache_lock:
+        if key in cache:
+            cached = cache[key]
+            if (datetime.now(timezone.utc) - cached['time']) < timedelta(seconds=CACHE_TTL):
+                return cached['data']
     return None
 
 def set_cache(key: str, data):
-    cache[key] = {'data': data, 'time': datetime.now(timezone.utc)}
+    with cache_lock:
+        cache[key] = {'data': data, 'time': datetime.now(timezone.utc)}
 
 def consolidated_calendar_op(
     operation: str,
