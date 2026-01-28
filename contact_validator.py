@@ -231,9 +231,14 @@ def extract_phone_from_payload(payload: Dict[str, Any]) -> Optional[str]:
 
 def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
     """
-    Intelligent contact ID resolution with fallback chain.
+    Intelligent contact ID resolution using PAYLOAD DATA as source of truth.
 
-    Returns valid contact_id or None if all methods fail.
+    The payload contains all the data we need:
+    - Phone number (the number being texted - GHL wouldn't send webhook without it)
+    - First name (from GHL contact record)
+    - Location ID (which GHL account this belongs to)
+
+    We use THIS DATA to find the correct contact_id by cross-referencing with GHL API.
 
     PRIORITY ORDER (as per user requirements):
     1. Use payload contact_id if valid
@@ -248,7 +253,7 @@ def validate_and_resolve_contact(payload: Dict[str, Any]) -> Optional[str]:
     - Combined with first_name = 99% accurate match
     """
 
-    # Extract all available data points from payload
+    # Extract all available data points from payload (SOURCE OF TRUTH)
     contact_id = payload.get("contact_id")
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
     first_name = payload.get("first_name") or payload.get("contact", {}).get("first_name") or payload.get("contact", {}).get("firstName")
