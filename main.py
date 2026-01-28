@@ -41,6 +41,7 @@ from memory import get_known_facts, get_narrative, get_recent_messages
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
+from contact_validator import validate_and_resolve_contact
 load_dotenv()
 
 app = Flask(__name__)
@@ -217,9 +218,25 @@ def webhook():
         return flask_jsonify({"status": "error"}), 503
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
+
+    # 🚨 CRITICAL: Log full payload to diagnose contact_id issues
+    logger.critical(f"🔍 WEBHOOK RECEIVED | payload_keys={list(payload.keys())} | contact_id_raw={payload.get('contact_id')} | first_name_raw={payload.get('first_name')}")
+
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
-    contact_id = payload.get("contact_id")
+    contact_id_raw = payload.get("contact_id")
     message_body = payload.get("message", {}).get("body") or payload.get("message")
+
+    # 🚨 INTELLIGENT VALIDATION: Try to resolve contact_id using multiple data points
+    contact_id = validate_and_resolve_contact(payload)
+
+    if not contact_id:
+        logger.critical(f"🚨 WEBHOOK REJECTED - COULD NOT RESOLVE CONTACT | contact_id_raw={contact_id_raw} | location_id={location_id} | All validation methods failed")
+        return flask_jsonify({"status": "rejected", "reason": "contact_resolution_failed", "message": "Could not resolve contact ID from available data"}), 400
+
+    # If contact_id was resolved differently than the original, update payload
+    if contact_id != contact_id_raw:
+        logger.critical(f"✅ CONTACT ID RESOLVED | original={contact_id_raw} | resolved={contact_id}")
+        payload["contact_id"] = contact_id
 
     # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
     # This ensures the UI updates instantly when they hit send.

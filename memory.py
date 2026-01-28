@@ -182,9 +182,15 @@ def get_narrative(contact_id: str) -> str:
 
     try:
         cur = conn.cursor()
+        # 🚨 DEBUG: Log the exact query being executed
+        logger.critical(f"🔍 QUERY NARRATIVE | contact_id={contact_id}")
         cur.execute("SELECT story_narrative FROM contact_narratives WHERE contact_id = %s", (contact_id,))
         row = cur.fetchone()
-        return row[0] if row and isinstance(row, tuple) else (row['story_narrative'] if row else "")
+        result = row[0] if row and isinstance(row, tuple) else (row['story_narrative'] if row else "")
+
+        # 🚨 DEBUG: Log what was retrieved
+        logger.critical(f"🔍 NARRATIVE RETRIEVED | contact_id={contact_id} | has_narrative={bool(result)} | preview={result[:80] if result else 'NONE'}")
+        return result
     except Exception as e:
         logger.error(f"get_narrative failed for {contact_id}: {e}")
         return ""

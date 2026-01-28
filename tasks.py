@@ -13,7 +13,8 @@ from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token 
+from ghl_api import fetch_targeted_ghl_history, get_valid_token
+from contact_validator import validate_and_resolve_contact 
 
 logger = logging.getLogger('rq.worker')
 
@@ -26,6 +27,26 @@ if XAI_API_KEY:
         api_key=XAI_API_KEY,
         base_url="https://api.x.ai/v1"
     )
+
+
+def count_consecutive_bot_messages(recent_exchanges: list) -> int:
+    """
+    Count how many consecutive bot messages were sent without a lead response.
+    Returns the count of most recent consecutive bot messages.
+    """
+    if not recent_exchanges:
+        return 0
+
+    consecutive_bot = 0
+    # Iterate backwards through exchanges (most recent first)
+    for exchange in reversed(recent_exchanges):
+        if exchange.get("role") == "bot":
+            consecutive_bot += 1
+        else:
+            # Hit a lead message, stop counting
+            break
+
+    return consecutive_bot
 
 
 def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> Tuple[bool, Optional[str]]:
@@ -129,12 +150,31 @@ def process_webhook_task(payload: dict):
     Fully resilient, demo-safe, with booking execution.
     """
     start_time = time.time()
-    contact_id = payload.get("contact_id") or "unknown"
+    contact_id_raw = payload.get("contact_id")
     location_id = (
         payload.get("location", {}).get("id") or
         payload.get("location_id") or
         payload.get("locationId")
     )
+
+    # 🚨 CRITICAL: Log payload details for debugging
+    logger.critical(f"🔍 TASK STARTED | contact_id_raw={contact_id_raw} | location_id={location_id} | first_name={payload.get('first_name')} | payload_keys={list(payload.keys())}")
+
+    # 🚨 INTELLIGENT VALIDATION: Secondary safety check - resolve contact_id if invalid
+    # (Main validation happens in webhook handler, but this is a backup)
+    if not contact_id_raw or contact_id_raw == "unknown" or len(str(contact_id_raw).strip()) < 5:
+        logger.warning(f"⚠️ TASK RECEIVED INVALID CONTACT_ID - Attempting resolution | contact_id_raw={contact_id_raw}")
+        contact_id = validate_and_resolve_contact(payload)
+
+        if not contact_id:
+            logger.critical(f"🚨 TASK REJECTED - COULD NOT RESOLVE CONTACT | contact_id_raw={contact_id_raw} | location_id={location_id}")
+            return {"status": "error", "reason": "contact_resolution_failed", "message": "Could not resolve contact ID"}
+
+        logger.critical(f"✅ CONTACT RESOLVED IN TASK | original={contact_id_raw} | resolved={contact_id}")
+        payload["contact_id"] = contact_id
+    else:
+        contact_id = contact_id_raw
+
     logger.info(f"▶ START TASK | loc={location_id} | contact={contact_id}")
 
     try:
@@ -176,6 +216,9 @@ def process_webhook_task(payload: dict):
         intent = payload.get("intent") or ""
         lead_vendor = payload.get("lead_vendor", "")
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
+
+        # 🚨 CRITICAL DEBUG LOGGING
+        logger.critical(f"🔍 CONTACT DEBUG | contact_id={contact_id} | first_name_from_payload={first_name} | location_id={location_id}")
 
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")
@@ -296,11 +339,52 @@ def process_webhook_task(payload: dict):
         context_nudge = ""
         if message and "covered" in message.lower():
             context_nudge = "Lead claims coverage."
-        
+
         # Add booking context
         if booking_made:
             context_nudge += "\n⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY. Confirm the time warmly, thank them, and STOP selling."
-        
+
+        # 🎭 RE-ENGAGEMENT MODE: If 6+ consecutive bot messages without response
+        consecutive_bot_msgs = count_consecutive_bot_messages(recent_exchanges)
+        if consecutive_bot_msgs >= 6 and not booking_made:
+            logger.info(f"🎭 RE-ENGAGEMENT MODE ACTIVATED | {consecutive_bot_msgs} consecutive bot messages without response")
+
+            # Determine if contact has a male name for dad joke possibility
+            male_names = ["john", "mike", "david", "james", "robert", "michael", "william", "richard", "joseph",
+                         "thomas", "charles", "christopher", "daniel", "matthew", "anthony", "mark", "donald",
+                         "steven", "paul", "andrew", "joshua", "kenneth", "kevin", "brian", "george", "timothy",
+                         "ronald", "edward", "jason", "jeffrey", "ryan", "jacob", "gary", "nicholas", "eric",
+                         "jonathan", "stephen", "larry", "justin", "scott", "brandon", "benjamin", "samuel",
+                         "raymond", "gregory", "frank", "alexander", "patrick", "jack", "dennis", "jerry", "tyler",
+                         "aaron", "jose", "adam", "nathan", "henry", "douglas", "zachary", "peter", "kyle", "noah",
+                         "phillip", "victor", "ethan", "jeremy", "walter", "christian", "keith", "roger", "terry",
+                         "sean", "austin", "carl", "harold", "dylan", "arthur", "lawrence", "jordan", "jesse"]
+
+            is_male_name = first_name and first_name.lower().strip() in male_names
+
+            context_nudge += f"""
+
+🎭 RE-ENGAGEMENT MODE (6+ unanswered messages):
+You've sent {consecutive_bot_msgs} messages without getting a response. Time to switch strategies.
+
+WHAT TO DO:
+- COMPLETELY STOP selling insurance
+- Be humorous, self-aware, and genuinely human
+- Acknowledge the radio silence in a lighthearted way
+- Try ONE creative approach to get their attention:
+  * Self-deprecating humor about being ignored
+  * A pattern interrupt (stop talking business, ask about their life)
+  * Tell a dad joke you come up with (keep it clean and harmless){'- especially fitting since this is a male name' if is_male_name else ''}
+  * A relatable human moment about life getting busy
+- Be creative - come up with something original and natural
+- Keep it SHORT (1-2 sentences max)
+- NO pressure, NO hard selling
+- Give them an easy out ("circle back later?" or "still interested?")
+- Goal: Get ANY response, even "not interested"
+- This is your ONE shot at re-engagement, then back off
+
+BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices they've gone quiet."""
+
         final_nudge = f"{context_nudge}\n{director_output['underwriting_context']}".strip()
 
         # Generate bot reply using Grok

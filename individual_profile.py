@@ -23,6 +23,24 @@ def build_comprehensive_profile(
     facts_safe = [f.strip() for f in known_facts if f and f.strip()]
     full_text = " ".join(facts_safe + [narrative_safe]).lower()
 
+    # 🚨 CRITICAL: Detect name mismatch (wrong narrative for this contact)
+    if first_name and narrative_safe:
+        # Check if narrative mentions a DIFFERENT name prominently
+        common_names = ["dennis", "john", "mike", "david", "james", "robert", "william", "richard", "joseph", "thomas",
+                        "charles", "christopher", "daniel", "matthew", "anthony", "donald", "mark", "paul", "steven",
+                        "andrew", "kenneth", "george", "joshua", "kevin", "brian", "edward", "ronald", "timothy"]
+
+        first_lower = first_name.lower().strip()
+        narrative_lower = narrative_safe.lower()
+
+        # Check if narrative mentions another name but NOT the expected name
+        other_names_found = [name for name in common_names if name in narrative_lower and name != first_lower]
+        if other_names_found and first_lower not in narrative_lower:
+            logger.critical(f"🚨 NAME MISMATCH DETECTED | expected_name={first_name} | narrative_mentions={other_names_found} | CLEARING NARRATIVE")
+            # Clear the corrupted narrative to prevent wrong name usage
+            narrative_safe = f"New contact: {first_name}. Building profile from scratch."
+            full_text = " ".join(facts_safe + [narrative_safe]).lower()
+
     # ─── 1. Build Emotional & Contextual Flags (Nuanced, not binary) ───
     profile_context: Dict[str, any] = {
         # Skepticism / Trust (0–3 scale)
