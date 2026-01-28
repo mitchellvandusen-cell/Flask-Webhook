@@ -241,6 +241,8 @@ def webhook():
     # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
     # This ensures the UI updates instantly when they hit send.
     if location_id in ['DEMO_LOC', 'DEMO'] and contact_id and message_body:
+        conn = None
+        cur = None
         try:
             conn = get_db_connection()
             if conn:
@@ -251,10 +253,15 @@ def webhook():
                     ON CONFLICT DO NOTHING
                 """, (contact_id, message_body))
                 conn.commit()
-                cur.close()
-                conn.close()
         except Exception as e:
             logger.error(f"Instant demo write failed: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
 
 
 #   2. Enqueue the Brain

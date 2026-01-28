@@ -21,8 +21,12 @@ def get_cached_data(key: str):
     with cache_lock:
         if key in cache:
             cached = cache[key]
-            if (datetime.now(timezone.utc) - cached['time']) < timedelta(seconds=CACHE_TTL):
+            age = (datetime.now(timezone.utc) - cached['time']).total_seconds()
+            if age < CACHE_TTL:
                 return cached['data']
+            else:
+                # Delete expired entry to prevent memory leak
+                del cache[key]
     return None
 
 def set_cache(key: str, data):
