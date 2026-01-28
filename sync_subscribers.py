@@ -157,11 +157,14 @@ def sync_subscribers() -> bool:
     finally:
         if conn:
             try:
-                if 'cur' in locals():
+                if 'cur' in locals() and cur:
                     cur.close()
-            except:
-                pass
-            conn.close()
+            except Exception as e:
+                logger.error(f"❌ Cursor close failed: {e}")
+            try:
+                conn.close()
+            except Exception as e:
+                logger.error(f"❌ Connection close failed: {e}")
 
 if __name__ == "__main__":
     sync_subscribers()

@@ -147,7 +147,8 @@ def init_db() -> bool:
                 UNIQUE(contact_id, fact_text)
             );
         """)
-        
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_facts_contact_id ON contact_facts (contact_id);")
+
         # 4. Webhook Deduplication
         cur.execute("""
             CREATE TABLE IF NOT EXISTS processed_webhooks (

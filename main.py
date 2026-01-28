@@ -1255,10 +1255,13 @@ def demo_reset_api():
             cur.execute("DELETE FROM contact_narratives WHERE contact_id = %s", (old_id,))
             conn.commit()
             cur.close()
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"❌ Demo reset DELETE failed for {old_id}: {e}")
+            if conn:
+                conn.rollback()
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
     new_id = f"demo_{uuid.uuid4()}"
     opener = generate_demo_opener()
@@ -1280,8 +1283,8 @@ def demo_reset_api():
 def demo_chat():
     try:
         run_demo_janitor()
-    except:
-        pass
+    except Exception as e:
+        logger.error(f"❌ Demo janitor failed: {e}")
     return render_template('demo.html')
 # =====================================================
 # HYBRID GET LOGS (REDIS + SQL FALLBACK)
