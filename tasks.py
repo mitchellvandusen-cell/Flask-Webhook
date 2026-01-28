@@ -177,6 +177,9 @@ def process_webhook_task(payload: dict):
         lead_vendor = payload.get("lead_vendor", "")
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
+        # 🚨 CRITICAL DEBUG LOGGING
+        logger.critical(f"🔍 CONTACT DEBUG | contact_id={contact_id} | first_name_from_payload={first_name} | location_id={location_id}")
+
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")
         if age and age != "unknown": initial_facts.append(f"Age: {age}")
