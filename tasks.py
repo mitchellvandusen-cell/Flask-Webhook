@@ -13,7 +13,8 @@ from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token 
+from ghl_api import fetch_targeted_ghl_history, get_valid_token
+from contact_validator import validate_and_resolve_contact 
 
 logger = logging.getLogger('rq.worker')
 
@@ -129,7 +130,7 @@ def process_webhook_task(payload: dict):
     Fully resilient, demo-safe, with booking execution.
     """
     start_time = time.time()
-    contact_id = payload.get("contact_id") or "unknown"
+    contact_id_raw = payload.get("contact_id")
     location_id = (
         payload.get("location", {}).get("id") or
         payload.get("location_id") or
@@ -137,12 +138,22 @@ def process_webhook_task(payload: dict):
     )
 
     # 🚨 CRITICAL: Log payload details for debugging
-    logger.critical(f"🔍 TASK STARTED | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | payload_keys={list(payload.keys())}")
+    logger.critical(f"🔍 TASK STARTED | contact_id_raw={contact_id_raw} | location_id={location_id} | first_name={payload.get('first_name')} | payload_keys={list(payload.keys())}")
 
-    # 🚨 CRITICAL: Reject invalid contact_ids to prevent cross-contamination
-    if not contact_id or contact_id == "unknown" or len(str(contact_id).strip()) < 5:
-        logger.critical(f"🚨 TASK REJECTED - INVALID CONTACT_ID | contact_id={contact_id} | location_id={location_id} | payload={payload}")
-        return {"status": "error", "reason": "invalid_contact_id", "message": "Contact ID is required and must be valid"}
+    # 🚨 INTELLIGENT VALIDATION: Secondary safety check - resolve contact_id if invalid
+    # (Main validation happens in webhook handler, but this is a backup)
+    if not contact_id_raw or contact_id_raw == "unknown" or len(str(contact_id_raw).strip()) < 5:
+        logger.warning(f"⚠️ TASK RECEIVED INVALID CONTACT_ID - Attempting resolution | contact_id_raw={contact_id_raw}")
+        contact_id = validate_and_resolve_contact(payload)
+
+        if not contact_id:
+            logger.critical(f"🚨 TASK REJECTED - COULD NOT RESOLVE CONTACT | contact_id_raw={contact_id_raw} | location_id={location_id}")
+            return {"status": "error", "reason": "contact_resolution_failed", "message": "Could not resolve contact ID"}
+
+        logger.critical(f"✅ CONTACT RESOLVED IN TASK | original={contact_id_raw} | resolved={contact_id}")
+        payload["contact_id"] = contact_id
+    else:
+        contact_id = contact_id_raw
 
     logger.info(f"▶ START TASK | loc={location_id} | contact={contact_id}")
 
