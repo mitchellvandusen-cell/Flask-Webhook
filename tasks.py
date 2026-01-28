@@ -488,28 +488,19 @@ BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices 
             logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
             reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
-        # Ensure minimum quality
+        # Ensure minimum quality - only block truly broken messages
         if len(reply) < 5 or not any(c.isalpha() for c in reply):
             logger.error(f"🚨 BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
             reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
-        # 🚨 CRITICAL: Validate AI didn't hallucinate wrong name
+        # Log if AI might have used wrong name, but SEND IT ANYWAY (this is a sales bot, not a pushover)
         if first_name and reply:
             first_lower = first_name.lower().strip()
             reply_lower = reply.lower()
 
-            # Extract all capitalized words that look like names (actual names, not common words)
-            # Look for pattern: name followed by comma or period (e.g. "Dennis,", "John.")
-            potential_names_in_reply = re.findall(r'\b([A-Z][a-z]{2,})[,\.]', reply)
-
-            # Check if AI used a DIFFERENT name than expected
-            wrong_names = [name for name in potential_names_in_reply if name.lower() != first_lower]
-
-            if wrong_names and first_lower not in reply_lower:
-                logger.critical(f"🚨 AI HALLUCINATED WRONG NAME | expected='{first_name}' | ai_used={wrong_names} | REGENERATING")
-                logger.critical(f"🚨 BLOCKED REPLY: {reply}")
-                # Use fallback without any name
-                reply = "Got it. What's on your mind about coverage?"
+            # Just log for monitoring - don't block the message
+            if first_lower not in reply_lower:
+                logger.info(f"ℹ️ Name '{first_name}' not in reply (may be intentional or AI variation)")
 
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")

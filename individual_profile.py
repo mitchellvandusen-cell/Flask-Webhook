@@ -23,26 +23,7 @@ def build_comprehensive_profile(
     facts_safe = [f.strip() for f in known_facts if f and f.strip()]
     full_text = " ".join(facts_safe + [narrative_safe]).lower()
 
-    # 🚨 CRITICAL: Detect name mismatch (wrong narrative for this contact)
-    # DISABLED: Regex was catching capitalized words like "Brand", "Lead", "No" as names
-    # Contact_id validation should prevent wrong narratives from loading
-    # if first_name and narrative_safe and len(narrative_safe) > 10:
-    #     # Check if expected name appears in narrative
-    #     first_lower = first_name.lower().strip()
-    #     narrative_lower = narrative_safe.lower()
-    #
-    #     if first_lower not in narrative_lower:
-    #         logger.warning(f"⚠️ Expected name '{first_name}' not found in narrative")
-
-    # Simple validation: If narrative is substantial but doesn't mention the expected name, log it
-    if first_name and narrative_safe and len(narrative_safe) > 100:
-        first_lower = first_name.lower().strip()
-        narrative_lower = narrative_safe.lower()
-
-        # Only log if name completely missing from substantial narrative
-        if first_lower not in narrative_lower:
-            logger.warning(f"⚠️ NAME NOT IN NARRATIVE | expected='{first_name}' | narrative_length={len(narrative_safe)} | This may be normal for new contacts")
-            # DON'T clear narrative - contact_id validation prevents wrong data
+    # Name validation: REMOVED - Contact_id validation prevents wrong data, AI handles personalization
 
     # ─── 1. Build Emotional & Contextual Flags (Nuanced, not binary) ───
     profile_context: Dict[str, any] = {
