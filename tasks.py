@@ -315,13 +315,8 @@ def process_webhook_task(payload: dict):
         bot_first_name = subscriber.get('bot_first_name', 'Grok')
         timezone = subscriber.get('timezone', 'America/Chicago')
 
-        # Skip only truly trivial messages (but allow empty for INITIAL_OUTREACH)
-        if message and message.strip().lower() in {".", ",", "k"}:
-            logger.debug(f"Skipping trivial message: {message}")
-            return {"status": "skipped", "reason": "trivial message"}
-
-        # Allow empty messages to proceed - conversation_engine will detect
-        # no lead messages and set stage to INITIAL_OUTREACH automatically
+        # Process ALL messages - trust the LLM to understand context
+        # "k", "ya", "ok" are all valid text responses that need processing
 
         director_output = generate_strategic_directive(
             contact_id=contact_id,
@@ -486,10 +481,8 @@ BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices 
             logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
             reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
-        # Ensure minimum quality - only block truly broken messages
-        if len(reply) < 5 or not any(c.isalpha() for c in reply):
-            logger.error(f"🚨 BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
-            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
+        # Trust the LLM - no length restrictions on replies
+        # Sometimes "Got it" or "Ok!" is the perfect response
 
         # Log if AI might have used wrong name, but SEND IT ANYWAY (this is a sales bot, not a pushover)
         if first_name and reply:

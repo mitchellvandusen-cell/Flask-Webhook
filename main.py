@@ -271,7 +271,8 @@ def webhook():
 
         # PRIORITY SYSTEM: Replies jump to front, initial outreach goes to back
         # This prevents 255 initial outreach messages from blocking real conversations
-        is_reply = message_body and message_body.strip() and message_body.strip().lower() not in {".", ",", "k"}
+        # ALL text messages (including "k", "ya", one-word replies) are high priority
+        is_reply = message_body and message_body.strip()
 
         job = target_queue.enqueue(
             process_webhook_task,
