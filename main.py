@@ -1850,13 +1850,32 @@ def refresh_subscribers():
         return "Failed", 500
 
 @app.route("/oauth/initiate")
+@login_required
 def oauth_initiate():
     """
     Initiates OAuth flow with Lead Connector.
     Works BEFORE marketplace approval (using private app credentials).
 
     User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
+
+    SECURITY: Requires active login and valid Stripe subscription.
     """
+    # --- SUBSCRIPTION VERIFICATION ---
+    # Check if user has active Stripe subscription
+    # Admin whitelist bypasses subscription requirement
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+    if needs_subscription:
+        flash("You must have an active subscription to connect Lead Connector. Please subscribe first.", "error")
+        logger.warning(f"OAuth initiate blocked for {current_user.email} - no active subscription")
+
+        # Redirect based on user role
+        if current_user.role == 'agency_owner':
+            return redirect(url_for('agency_dashboard'))
+        else:
+            return redirect(url_for('dashboard'))
+
     client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
@@ -1887,7 +1906,7 @@ def oauth_initiate():
         f"state={state}"
     )
 
-    logger.info(f"Initiating private app OAuth flow. Redirecting to: {oauth_url}")
+    logger.info(f"Initiating private app OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
 
 @app.route("/oauth/callback")
@@ -1906,9 +1925,29 @@ def oauth_callback():
         is_private_app = (state == "private_app")
 
         if is_private_app:
+            # --- SUBSCRIPTION VERIFICATION FOR PRIVATE APP FLOW ---
+            # Private app flow is for paid Stripe users only.
+            # Marketplace installations (free) bypass this check.
+            if not current_user.is_authenticated:
+                flash("You must be logged in to connect Lead Connector.", "error")
+                logger.warning("OAuth callback blocked - user not authenticated")
+                return redirect(url_for('login'))
+
+            is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+            needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+            if needs_subscription:
+                flash("Active subscription required to connect Lead Connector. Please subscribe first.", "error")
+                logger.warning(f"OAuth callback blocked for {current_user.email} - no active subscription")
+
+                if current_user.role == 'agency_owner':
+                    return redirect(url_for('agency_dashboard'))
+                else:
+                    return redirect(url_for('dashboard'))
+
             client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
             client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
-            logger.info("OAuth callback: Using private app credentials (Stripe/website flow)")
+            logger.info(f"OAuth callback: Using private app credentials for {current_user.email} (Stripe/website flow)")
         else:
             client_id = os.getenv("GHL_CLIENT_ID")
             client_secret = os.getenv("GHL_CLIENT_SECRET")
