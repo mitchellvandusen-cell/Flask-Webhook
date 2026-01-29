@@ -316,45 +316,23 @@ def webhook():
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
-    # 🚨 LOG: FULL RAW PAYLOAD for debugging
-    import json
-    logger.critical(f"🔍 WEBHOOK RECEIVED - FULL PAYLOAD:")
-    logger.critical(f"📦 Payload Keys: {list(payload.keys())}")
-    logger.critical(f"📦 Full Payload JSON: {json.dumps(payload, indent=2, default=str)}")
-
-    # 🔄 UNIVERSAL PAYLOAD NORMALIZATION
-    # Accepts ALL field name variations: snake_case, camelCase, PascalCase, UPPERCASE, spaces
-    # Works with marketplace apps, custom webhooks, and any future GHL formats
-    logger.critical("🔄 NORMALIZING PAYLOAD - Accepting all field name variations")
+    # Normalize payload to accept all field name variations
     payload = normalize_payload_universal(payload)
-    logger.critical(f"✅ NORMALIZED PAYLOAD: {json.dumps(payload, indent=2, default=str)}")
 
-    # Extract values (now guaranteed to be in snake_case format)
+    # Extract values
     location_id = payload.get("location_id")
     contact_id = payload.get("contact_id")
     message_body = payload.get("message") or payload.get("body")
 
-    # 🚨 LOG: Extracted values for debugging
-    logger.critical(f"🔍 EXTRACTED VALUES | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
-
-    # 🚨 SIMPLE CHECK: Only reject if contact_id is clearly invalid
-    # DO NOT validate, resolve, or modify - just pass the order to the kitchen (Redis) AS-IS
-    # The chef (tasks.py) will validate ONLY if confused about who the customer is
+    # Validate contact_id
     if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
-        logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} is clearly invalid | location_id={location_id}")
-        logger.critical(f"🚨 REJECTION REASON: Expected 'contact_id' field with valid value (5+ chars), but got: {repr(contact_id)}")
-        logger.critical(f"🚨 Searched all variations: contact_id, contactId, ContactId, CONTACT_ID, CONTACTID, etc.")
-        logger.critical(f"🚨 Available fields in normalized payload: {list(payload.keys())}")
-        logger.critical(f"🚨 Original payload keys: {list(payload.get('_original_payload', {}).keys())}")
-        return flask_jsonify({
-            "status": "rejected",
-            "reason": "invalid_contact_id",
-            "note": "Tried all naming variations (camelCase, snake_case, UPPERCASE)",
-            "normalized_keys": list(payload.keys()),
-            "original_keys": list(payload.get("_original_payload", {}).keys())
-        }), 400
+        logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} | location_id={location_id}")
+        import json
+        logger.critical(f"🚨 Original payload: {json.dumps(payload.get('_original_payload', {}), default=str)}")
+        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
 
-    logger.info(f"✅ WEBHOOK ACCEPTED | contact_id={contact_id} | Passing to Redis AS-IS (no validation/modification)")
+    # Success - log and continue
+    logger.info(f"📨 Webhook received and normalized | contact_id={contact_id} | location_id={location_id} | Passing to Redis")
 
     # 1. DEMO SPEED OPTIMIZATION: Write User Msg Immediately
     # This ensures the UI updates instantly when they hit send.
@@ -403,10 +381,7 @@ def webhook():
             at_front=is_reply  # Replies skip to front of queue
         )
 
-        priority_label = "HIGH PRIORITY" if is_reply else "NORMAL"
-        logger.info(f"📥 Queued job {job.id} | Queue: {target_queue.name} | Priority: {priority_label}")
-
-        return safe_jsonify({"status": "queued", "job_id": job.id, "queue": target_queue.name, "priority": priority_label}), 202
+        return safe_jsonify({"status": "queued", "job_id": job.id}), 202
     except Exception as e:
         logger.error(f"Queue failed: {e}")
         return safe_jsonify({"status": "error"}), 500
