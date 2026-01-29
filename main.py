@@ -219,19 +219,27 @@ def webhook():
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
-    # 🚨 LOG: Full payload received from GHL (waiter taking the order)
-    logger.critical(f"🔍 WEBHOOK RECEIVED | contact_id={payload.get('contact_id')} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
+    # 🚨 LOG: FULL RAW PAYLOAD for debugging
+    import json
+    logger.critical(f"🔍 WEBHOOK RECEIVED - FULL PAYLOAD:")
+    logger.critical(f"📦 Payload Keys: {list(payload.keys())}")
+    logger.critical(f"📦 Full Payload JSON: {json.dumps(payload, indent=2, default=str)}")
 
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
     contact_id = payload.get("contact_id")
     message_body = payload.get("message", {}).get("body") or payload.get("message")
+
+    # 🚨 LOG: Extracted values for debugging
+    logger.critical(f"🔍 EXTRACTED VALUES | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
 
     # 🚨 SIMPLE CHECK: Only reject if contact_id is clearly invalid
     # DO NOT validate, resolve, or modify - just pass the order to the kitchen (Redis) AS-IS
     # The chef (tasks.py) will validate ONLY if confused about who the customer is
     if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
         logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} is clearly invalid | location_id={location_id}")
-        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
+        logger.critical(f"🚨 REJECTION REASON: Expected 'contact_id' field with valid value (5+ chars), but got: {repr(contact_id)}")
+        logger.critical(f"🚨 Available fields in payload: {list(payload.keys())}")
+        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id", "payload_keys": list(payload.keys())}), 400
 
     logger.info(f"✅ WEBHOOK ACCEPTED | contact_id={contact_id} | Passing to Redis AS-IS (no validation/modification)")
 
