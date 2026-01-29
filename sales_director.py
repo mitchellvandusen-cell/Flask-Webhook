@@ -98,11 +98,15 @@ No formal greetings. No self-introductions. Sound like a real person checking in
 
     # === BOOKED ===
     elif logic.stage == ConversationStage.BOOKED:
-        directive = """APPOINTMENT BOOKED
+        directive = """APPOINTMENT BOOKED IN CALENDAR
 
-Confirm the time. Then stop.
+Confirm the specific time. Mention they'll get calendar invite. STOP.
 
-No need to over-explain or keep talking."""
+DO NOT ask for phone number (you're texting them!), email, or any contact info.
+
+Example: "You're all set for Friday at 10am. Calendar invite coming your way!"
+
+Then STOP. Conversation is over."""
         framework = "BOOKED"
 
         return {
