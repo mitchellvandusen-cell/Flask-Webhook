@@ -174,8 +174,19 @@
                                 {{ form.location_id(class="form-control") }}
                             </div>
                             <div class="col-md-6">
-                                {{ form.calendar_id.label(class="form-label") }}
-                                {{ form.calendar_id(class="form-control") }}
+                                <label class="form-label">Calendar</label>
+                                <div class="d-flex gap-2">
+                                    <select id="calendar_select" class="form-control" name="calendar_id" required>
+                                        <option value="">-- Select Calendar --</option>
+                                        {% if form.calendar_id.data %}
+                                        <option value="{{ form.calendar_id.data }}" selected>{{ current_user.calendar_name or form.calendar_id.data }}</option>
+                                        {% endif %}
+                                    </select>
+                                    <button type="button" class="btn btn-outline-primary" onclick="loadCalendars()" style="white-space: nowrap;">
+                                        <i class="fa-solid fa-sync"></i> Load
+                                    </button>
+                                </div>
+                                <input type="hidden" id="calendar_name" name="calendar_name" value="{{ current_user.calendar_name or '' }}">
                             </div>
                             <div class="col-md-6">
                                 {{ form.crm_user_id.label(class="form-label") }}
@@ -270,7 +281,7 @@
             const btn = document.querySelector('button[onclick="saveProfile()"]');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-            
+
             fetch('/save-profile', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -280,6 +291,69 @@
                 setTimeout(() => btn.innerHTML = originalText, 2000);
             }).catch(e => { btn.innerHTML = 'Error'; });
         }
+
+        function loadCalendars() {
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            fetch('/api/fetch-calendars')
+                .then(r => r.json())
+                .then(data => {
+                    const select = document.getElementById('calendar_select');
+                    const currentValue = select.value;
+
+                    // Clear existing options
+                    select.innerHTML = '<option value="">-- Select Calendar --</option>';
+
+                    if (data.calendars && data.calendars.length > 0) {
+                        data.calendars.forEach(cal => {
+                            const option = document.createElement('option');
+                            option.value = cal.id;
+                            option.textContent = cal.name;
+                            option.setAttribute('data-name', cal.name);
+                            if (cal.id === currentValue) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i> Loaded';
+                    } else {
+                        btn.innerHTML = '<i class="fa-solid fa-exclamation"></i> None';
+                    }
+
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    }, 2000);
+                })
+                .catch(e => {
+                    console.error('Failed to load calendars:', e);
+                    btn.innerHTML = '<i class="fa-solid fa-times"></i> Error';
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    }, 2000);
+                });
+        }
+
+        // Update calendar_name when selection changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarSelect = document.getElementById('calendar_select');
+            const calendarNameInput = document.getElementById('calendar_name');
+
+            if (calendarSelect && calendarNameInput) {
+                calendarSelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    if (selectedOption && selectedOption.value) {
+                        calendarNameInput.value = selectedOption.getAttribute('data-name') || selectedOption.textContent;
+                    } else {
+                        calendarNameInput.value = '';
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

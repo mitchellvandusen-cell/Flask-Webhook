@@ -163,6 +163,57 @@ def demo_reset():
     opener = generate_demo_opener()
     return flask_jsonify({"message": opener})
 
+
+@app.route('/api/fetch-calendars', methods=['GET'])
+@login_required
+def fetch_calendars():
+    """
+    Fetch all calendars from GHL for the current user's location.
+    Returns a list of calendars with id and name.
+    """
+    location_id = current_user.location_id
+    access_token = current_user.access_token
+
+    if not location_id or not access_token:
+        return flask_jsonify({"error": "Missing location_id or access_token"}), 400
+
+    # Handle demo mode
+    if access_token == 'DEMO':
+        return flask_jsonify({
+            "calendars": [
+                {"id": "demo_cal_1", "name": "Demo Calendar 1"},
+                {"id": "demo_cal_2", "name": "Demo Calendar 2"}
+            ]
+        })
+
+    url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-04-15",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Extract calendar id and name from response
+        calendars = []
+        if 'calendars' in data:
+            for cal in data['calendars']:
+                calendars.append({
+                    "id": cal.get('id'),
+                    "name": cal.get('name', 'Unnamed Calendar')
+                })
+
+        return flask_jsonify({"calendars": calendars})
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to fetch calendars for location {location_id}: {e}")
+        return flask_jsonify({"error": "Failed to fetch calendars from GHL"}), 500
+
+
 def generate_demo_opener():
     if not client:
         return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
@@ -702,11 +753,15 @@ def agency_dashboard():
         else:
             try:
                 cur = conn.cursor()
+                # Get calendar_name from hidden field
+                calendar_name = request.form.get('calendar_name', '')
+
                 # Update the AGENCY_BILLING table for owner config
                 cur.execute("""
                     UPDATE agency_billing
                     SET location_id = %s,
                         calendar_id = %s,
+                        calendar_name = %s,
                         crm_user_id = %s,
                         bot_first_name = %s,
                         timezone = %s,
@@ -716,6 +771,7 @@ def agency_dashboard():
                 """, (
                     form.location_id.data,
                     form.calendar_id.data,
+                    calendar_name,
                     form.crm_user_id.data,
                     form.bot_name.data,
                     form.timezone.data,
@@ -942,11 +998,15 @@ def dashboard():
         else:
             try:
                 cur = conn.cursor()
+                # Get calendar_name from hidden field
+                calendar_name = request.form.get('calendar_name', '')
+
                 # Update the SUBSCRIBERS table
                 cur.execute("""
                     UPDATE subscribers
                     SET location_id = %s,
                         calendar_id = %s,
+                        calendar_name = %s,
                         crm_user_id = %s,
                         bot_first_name = %s,
                         timezone = %s,
@@ -956,6 +1016,7 @@ def dashboard():
                 """, (
                     form.location_id.data,
                     form.calendar_id.data,
+                    calendar_name,
                     form.crm_user_id.data,
                     form.bot_name.data,
                     form.timezone.data,

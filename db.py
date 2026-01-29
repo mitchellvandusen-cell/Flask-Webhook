@@ -76,6 +76,7 @@ def init_db() -> bool:
                 timezone TEXT DEFAULT 'America/Chicago',
                 crm_user_id TEXT,
                 calendar_id TEXT,
+                calendar_name TEXT,
                 initial_message TEXT,
                 parent_agency_email TEXT,
                 subscription_tier TEXT DEFAULT 'individual',
@@ -113,6 +114,7 @@ def init_db() -> bool:
                 timezone TEXT DEFAULT 'America/Chicago',
                 crm_user_id TEXT,
                 calendar_id TEXT,
+                calendar_name TEXT,
                 initial_message TEXT,
                 subscription_tier TEXT DEFAULT 'agency_starter',
                 max_seats INTEGER DEFAULT 10,
@@ -186,6 +188,25 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"oauth_app_type column may already exist in agency_billing: {e}")
 
+        # 7. MIGRATION: Add calendar_name column to both tables
+        try:
+            cur.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS calendar_name TEXT
+            """)
+            logger.info("✅ Migration: Added calendar_name to subscribers")
+        except Exception as e:
+            logger.debug(f"calendar_name column may already exist in subscribers: {e}")
+
+        try:
+            cur.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS calendar_name TEXT
+            """)
+            logger.info("✅ Migration: Added calendar_name to agency_billing")
+        except Exception as e:
+            logger.debug(f"calendar_name column may already exist in agency_billing: {e}")
+
         conn.commit()
         logger.info("Database initialized: All tables ready (including contact_narratives).")
         return True
@@ -213,6 +234,7 @@ class User(UserMixin):
         self.crm_api_key = data.get('crm_api_key')
         self.crm_user_id = data.get('crm_user_id')
         self.calendar_id = data.get('calendar_id')
+        self.calendar_name = data.get('calendar_name')
 
         # Bot configuration
         self.bot_first_name = data.get('bot_first_name', 'Grok')

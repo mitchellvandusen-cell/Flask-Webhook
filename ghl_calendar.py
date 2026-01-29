@@ -16,6 +16,170 @@ logger = logging.getLogger(__name__)
 GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
 GHL_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
 
+
+def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, contact_id: str):
+    """
+    🔍 COMPREHENSIVE GHL BOOKING DEBUG
+
+    Checks:
+    1. Token scope (agency vs location-scoped)
+    2. Lists all calendars for the location
+    3. Verifies calendar_id exists in location
+    4. Verifies contact_id exists in location
+
+    This function helps pinpoint exactly why booking is failing with 404 errors.
+    """
+    logger.info("=" * 80)
+    logger.info("🔍 GHL DEBUG CHECK STARTED")
+    logger.info(f"   Location ID: {location_id}")
+    logger.info(f"   Calendar ID: {calendar_id}")
+    logger.info(f"   Contact ID:  {contact_id}")
+    logger.info("=" * 80)
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-04-15"
+    }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 1️⃣ CHECK TOKEN SCOPE
+    # ═══════════════════════════════════════════════════════════════════════
+    logger.info("\n1️⃣ CHECKING TOKEN SCOPE...")
+    try:
+        me_resp = requests.get(
+            "https://services.leadconnectorhq.com/oauth/token/me",
+            headers=headers,
+            timeout=10
+        )
+
+        if me_resp.status_code == 200:
+            me_data = me_resp.json()
+            logger.info(f"✅ Token Info Retrieved:")
+            logger.info(f"   Type: {me_data.get('type', 'UNKNOWN')}")
+            logger.info(f"   Location ID from token: {me_data.get('locationId', 'N/A')}")
+            logger.info(f"   Company ID: {me_data.get('companyId', 'N/A')}")
+            logger.info(f"   User ID: {me_data.get('userId', 'N/A')}")
+
+            token_location = me_data.get('locationId')
+            if token_location and token_location != location_id:
+                logger.warning(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
+            elif token_location == location_id:
+                logger.info(f"✅ Token location matches requested location: {location_id}")
+        else:
+            logger.error(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"❌ Token scope check failed: {e}", exc_info=True)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 2️⃣ LIST ALL CALENDARS FOR LOCATION
+    # ═══════════════════════════════════════════════════════════════════════
+    logger.info("\n2️⃣ LISTING ALL CALENDARS FOR LOCATION...")
+    calendar_found = False
+    try:
+        cal_list_url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+        logger.info(f"   Fetching: {cal_list_url}")
+
+        cal_resp = requests.get(
+            cal_list_url,
+            headers=headers,
+            timeout=15
+        )
+
+        if cal_resp.status_code == 200:
+            cal_data = cal_resp.json()
+            calendars = cal_data.get("calendars", [])
+            logger.info(f"✅ Found {len(calendars)} calendars in location {location_id}:")
+
+            if not calendars:
+                logger.warning(f"⚠️ NO CALENDARS FOUND in this location!")
+
+            for idx, cal in enumerate(calendars, 1):
+                cal_id = cal.get('id', 'UNKNOWN')
+                cal_name = cal.get('name', 'UNNAMED')
+                is_active = cal.get('isActive', False)
+                linked_cal = cal.get('linkedCalendar', {})
+                linked_type = linked_cal.get('type', 'none')
+                linked_email = linked_cal.get('email', 'N/A')
+
+                is_match = "🎯 THIS ONE" if cal_id == calendar_id else ""
+
+                logger.info(f"   [{idx}] {cal_id} {is_match}")
+                logger.info(f"       Name: {cal_name}")
+                logger.info(f"       Active: {is_active}")
+                logger.info(f"       Linked: {linked_type} ({linked_email})")
+
+                if cal_id == calendar_id:
+                    calendar_found = True
+                    logger.info(f"       ✅ FOUND! This is your calendar.")
+
+            if not calendar_found:
+                logger.error(f"❌ CALENDAR '{calendar_id}' NOT FOUND IN LOCATION '{location_id}'!")
+                logger.error(f"   Available calendar IDs: {[c.get('id') for c in calendars]}")
+            else:
+                logger.info(f"✅ Calendar '{calendar_id}' exists in location '{location_id}'")
+
+        elif cal_resp.status_code == 404:
+            logger.error(f"❌ Location '{location_id}' NOT FOUND! This location might not exist or token lacks access.")
+        elif cal_resp.status_code == 403:
+            logger.error(f"❌ FORBIDDEN! Token lacks permission to access location '{location_id}'")
+        else:
+            logger.error(f"❌ Failed to list calendars: {cal_resp.status_code} - {cal_resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"❌ Calendar listing failed: {e}", exc_info=True)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 3️⃣ CHECK IF CONTACT EXISTS IN LOCATION
+    # ═══════════════════════════════════════════════════════════════════════
+    logger.info("\n3️⃣ CHECKING IF CONTACT EXISTS IN LOCATION...")
+    try:
+        contact_url = f"https://services.leadconnectorhq.com/contacts/{contact_id}"
+        logger.info(f"   Fetching: {contact_url}")
+
+        contact_resp = requests.get(
+            contact_url,
+            headers=headers,
+            timeout=10
+        )
+
+        if contact_resp.status_code == 200:
+            contact_data = contact_resp.json()
+            contact = contact_data.get('contact', {})
+            first_name = contact.get('firstName', 'N/A')
+            last_name = contact.get('lastName', 'N/A')
+            contact_location = contact.get('locationId', 'N/A')
+            email = contact.get('email', 'N/A')
+            phone = contact.get('phone', 'N/A')
+
+            logger.info(f"✅ Contact Found:")
+            logger.info(f"   Name: {first_name} {last_name}")
+            logger.info(f"   Email: {email}")
+            logger.info(f"   Phone: {phone}")
+            logger.info(f"   Contact's Location ID: {contact_location}")
+
+            if contact_location != location_id:
+                logger.error(f"❌ LOCATION MISMATCH! Contact is in location '{contact_location}' but you're trying to book in location '{location_id}'!")
+            else:
+                logger.info(f"✅ Contact location matches: {location_id}")
+
+        elif contact_resp.status_code == 404:
+            logger.error(f"❌ CONTACT '{contact_id}' NOT FOUND!")
+        elif contact_resp.status_code == 403:
+            logger.error(f"❌ FORBIDDEN! Token lacks permission to access contact '{contact_id}'")
+        else:
+            logger.error(f"❌ Failed to get contact: {contact_resp.status_code} - {contact_resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"❌ Contact check failed: {e}", exc_info=True)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 4️⃣ FINAL SUMMARY
+    # ═══════════════════════════════════════════════════════════════════════
+    logger.info("\n" + "=" * 80)
+    logger.info("🔍 DEBUG CHECK COMPLETE - SUMMARY:")
+    logger.info(f"   Calendar Found: {'✅ YES' if calendar_found else '❌ NO'}")
+    logger.info("=" * 80 + "\n")
+
+    return calendar_found
+
 CACHE_TTL = 1800  # 30 minutes
 cache = {}  # Simple in-memory cache with thread safety
 cache_lock = threading.Lock()  # Thread-safe cache access
@@ -174,6 +338,18 @@ def consolidated_calendar_op(
 
     # === BOOK APPOINTMENT ===
     if operation == "book" and selected_time and contact_id:
+        # 🔍 RUN DEBUG CHECK BEFORE BOOKING
+        logger.info("\n" + "🔍" * 40)
+        logger.info("PRE-BOOKING DEBUG CHECK - Verifying calendar and contact exist...")
+        logger.info("🔍" * 40)
+        try:
+            calendar_exists = ghl_debug_check(access_token, location_id, cal_id, contact_id)
+            if not calendar_exists:
+                logger.error(f"❌ DEBUG CHECK FAILED: Calendar '{cal_id}' not found in location '{location_id}'. ABORTING BOOKING.")
+                return False
+        except Exception as debug_err:
+            logger.warning(f"⚠️ Debug check threw error (continuing anyway): {debug_err}")
+
         time_str = selected_time.lower().strip()
         now_local = datetime.now(local_tz)
         target_date = (now_local + timedelta(days=1)).date() if "tomorrow" in time_str else now_local.date()
@@ -214,9 +390,15 @@ def consolidated_calendar_op(
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
             try:
-                logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} | contact={contact_id} | time={start_dt}")
+                booking_url = GHL_BOOK_URL.format(location_id=location_id, cal_id=cal_id)
+                logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts}")
+                logger.info(f"   Contact: {contact_id}")
+                logger.info(f"   Time: {start_dt}")
+                logger.info(f"   URL: {booking_url}")
+                logger.info(f"   Payload: {payload}")
+
                 # FIXED: Now includes cal_id in URL path (location-specific endpoint)
-                resp = requests.post(GHL_BOOK_URL.format(location_id=location_id, cal_id=cal_id), json=payload, headers=headers, timeout=30)
+                resp = requests.post(booking_url, json=payload, headers=headers, timeout=30)
 
                 if resp.status_code in [200, 201]:
                     # VERIFY the booking was actually created
@@ -252,6 +434,12 @@ def consolidated_calendar_op(
                         logger.error(f"🚨 BOOKING FAILED: FORBIDDEN (insufficient permissions) | {error_details}")
                     elif resp.status_code == 404:
                         logger.error(f"🚨 BOOKING FAILED: NOT FOUND (calendar_id or contact_id doesn't exist) | {error_details}")
+                        # Re-run debug check to see what's missing
+                        logger.error("🔍 RE-RUNNING DEBUG CHECK TO IDENTIFY WHAT'S MISSING...")
+                        try:
+                            ghl_debug_check(access_token, location_id, cal_id, contact_id)
+                        except Exception as recheck_err:
+                            logger.error(f"Debug recheck failed: {recheck_err}")
                     elif resp.status_code == 409:
                         logger.error(f"🚨 BOOKING FAILED: CONFLICT (time slot already booked) | {error_details}")
                     elif resp.status_code == 429:
