@@ -116,7 +116,7 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
 
     try:
         # Step 1: Find conversation ID
-        search_url = f"https://services.leadconnectorhq.com/conversations/search?locationId={location_id}&contactId={contact_id}"
+        search_url = f"https://services.leadconnectorhq.com/locations/{location_id}/conversations/search?contactId={contact_id}"
         search_res = requests.get(search_url, headers=headers, timeout=10)
         search_res.raise_for_status()
         convos = search_res.json().get("conversations", [])
@@ -128,7 +128,7 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         convo_id = convos[0]["id"]
 
         # Step 2: Fetch messages
-        msg_url = f"https://services.leadconnectorhq.com/conversations/{convo_id}/messages?limit={limit}"
+        msg_url = f"https://services.leadconnectorhq.com/locations/{location_id}/conversations/{convo_id}/messages?limit={limit}"
         msg_res = requests.get(msg_url, headers=headers, timeout=10)
         msg_res.raise_for_status()
 
@@ -191,7 +191,7 @@ def fetch_contact_data_from_ghl(contact_id: str, location_id: str, access_token:
 
     try:
         # Fetch contact details from GHL API
-        url = f"https://services.leadconnectorhq.com/contacts/{contact_id}"
+        url = f"https://services.leadconnectorhq.com/locations/{location_id}/contacts/{contact_id}"
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
