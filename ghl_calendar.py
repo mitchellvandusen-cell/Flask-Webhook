@@ -11,20 +11,21 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# UNIFIED GHL Calendar API Endpoints
+# GHL Calendar API v2 Endpoints - REQUIRE /locations/{location_id}/ prefix
 # These endpoints work with BOTH OAuth Access Tokens AND Private Integration Tokens (PIT)
 # Source: https://marketplace.gohighlevel.com/docs/ghl/calendars/
-GHL_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
-GHL_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-GHL_CREATE_APPOINTMENT_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
-GHL_CALENDAR_EVENTS_URL = "https://services.leadconnectorhq.com/calendars/events"
+# CRITICAL: All sub-account resources must include /locations/{location_id}/ in path
+GHL_CALENDARS_LIST = "https://services.leadconnectorhq.com/locations/{location_id}/calendars"
+GHL_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
+GHL_CREATE_APPOINTMENT_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events/appointments"
+GHL_CALENDAR_EVENTS_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events"
 
 
 def detect_token_type(access_token: str) -> dict:
     """
     Detects if the token is OAuth or Personal Integration Token (PIT).
 
-    NOTE: Both token types use the SAME unified API endpoints (/calendars/...)
+    NOTE: Both token types use the SAME v2 API paths (/locations/{locationId}/...)
     This function is kept for logging/debugging purposes only.
 
     Personal Integration Tokens start with 'pit-'.
@@ -35,7 +36,7 @@ def detect_token_type(access_token: str) -> dict:
             "is_oauth": True/False,
             "location_id": "xxx" (if OAuth),
             "company_id": "yyy",
-            "version": "unified"
+            "version": "v2"
         }
     """
     logger.debug(f"🔍 Token detection: first 10 chars = {access_token[:10]}...")
@@ -43,12 +44,12 @@ def detect_token_type(access_token: str) -> dict:
     # FAST PATH: Check for private integration token prefix
     if access_token.startswith("pit-"):
         logger.info(f"🔑 PRIVATE INTEGRATION TOKEN DETECTED (pit-...)")
-        logger.info(f"   ✅ Using unified API endpoints")
+        logger.info(f"   ✅ Using v2 API endpoints with /locations/{{locationId}}/ path")
         return {
             "is_oauth": False,
             "location_id": None,
             "company_id": None,
-            "version": "unified"
+            "version": "v2"
         }
 
     # OAUTH PATH: Verify by calling /v2/me endpoint
@@ -74,31 +75,31 @@ def detect_token_type(access_token: str) -> dict:
             logger.info(f"   Location ID: {me_data.get('locationId')}")
             logger.info(f"   Company ID: {me_data.get('companyId')}")
             logger.info(f"   User ID: {me_data.get('userId')}")
-            logger.info(f"   ✅ Using unified API endpoints")
+            logger.info(f"   ✅ Using v2 API endpoints with /locations/{{locationId}}/ path")
             return {
                 "is_oauth": True,
                 "location_id": me_data.get('locationId'),
                 "company_id": me_data.get('companyId'),
-                "version": "unified"
+                "version": "v2"
             }
         else:
             # Not an OAuth token, likely an old-style API key
             logger.info(f"⚙️ TOKEN TYPE UNKNOWN - /v2/me returned {me_resp.status_code}")
-            logger.info(f"   ✅ Using unified API endpoints")
+            logger.info(f"   ✅ Using v2 API endpoints with /locations/{{locationId}}/ path")
             logger.debug(f"   Response: {me_resp.text[:200]}")
             return {
                 "is_oauth": False,
                 "location_id": None,
                 "company_id": None,
-                "version": "unified"
+                "version": "v2"
             }
     except Exception as e:
-        logger.warning(f"⚠️ Token detection failed, using unified endpoints: {e}")
+        logger.warning(f"⚠️ Token detection failed, using v2 endpoints: {e}")
         return {
             "is_oauth": False,
             "location_id": None,
             "company_id": None,
-            "version": "unified"
+            "version": "v2"
         }
 
 
@@ -173,14 +174,14 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
             is_private_key = True
 
     # ═══════════════════════════════════════════════════════════════════════
-    # 2️⃣ LIST ALL CALENDARS (Unified Endpoint)
+    # 2️⃣ LIST ALL CALENDARS (v2 Endpoint with location path)
     # ═══════════════════════════════════════════════════════════════════════
     logger.info("\n2️⃣ LISTING ALL CALENDARS...")
     calendar_found = False
     try:
-        # UNIFIED endpoint works for both OAuth and PIT tokens
-        cal_list_url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
-        logger.info(f"   Using unified calendars endpoint: {cal_list_url}")
+        # v2 endpoint requires /locations/{locationId}/ in path (not query param)
+        cal_list_url = GHL_CALENDARS_LIST.format(location_id=location_id)
+        logger.info(f"   Using v2 calendars endpoint: {cal_list_url}")
 
         cal_resp = requests.get(
             cal_list_url,
@@ -193,7 +194,7 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
         if cal_resp.status_code == 200:
             cal_data = cal_resp.json()
 
-            # Unified response structure for both OAuth and PIT
+            # v2 response structure (same for both OAuth and PIT)
             calendars = cal_data.get("calendars", []) if isinstance(cal_data, dict) else []
 
             logger.info(f"✅ Found {len(calendars)} calendars:")
@@ -367,9 +368,9 @@ def consolidated_calendar_op(
         slots = get_cached_data(slots_key)
 
         if not slots:
-            # UNIFIED endpoint works for both OAuth and PIT tokens
-            url = GHL_FREE_SLOTS_URL.format(cal_id=cal_id)
-            logger.info(f"📅 Using unified free-slots endpoint: {url}")
+            # v2 endpoint requires /locations/{locationId}/ in path
+            url = GHL_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)
+            logger.info(f"📅 Using v2 free-slots endpoint: {url}")
 
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
@@ -388,16 +389,9 @@ def consolidated_calendar_op(
                 resp = requests.get(url, headers=headers, params=params, timeout=20)
                 logger.debug(f"   Slots response status: {resp.status_code}")
 
-                if resp.status_code == 404:
-                    # Calendar not found or no slots available
-                    logger.warning(f"⚠️ Free-slots endpoint returned 404")
-                    logger.warning(f"   The calendar '{cal_id}' might not exist or has no availability")
-                    logger.warning(f"   Will return generic availability message and attempt booking directly")
-                    slots = []  # Empty slots = generic message
-                else:
-                    resp.raise_for_status()
-                    data = resp.json()
-                    logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
+                resp.raise_for_status()
+                data = resp.json()
+                logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
 
                     slots = []
                     if isinstance(data, dict):
@@ -517,8 +511,8 @@ def consolidated_calendar_op(
             logger.error(f"🚨 BOOKING BLOCKED: Time too far ahead | requested={start_dt} | contact={contact_id}")
             return False
 
-        # UNIFIED endpoint works for both OAuth and PIT tokens
-        booking_url = GHL_CREATE_APPOINTMENT_URL
+        # v2 endpoint requires /locations/{locationId}/ in path
+        booking_url = GHL_CREATE_APPOINTMENT_URL.format(location_id=location_id)
         payload = {
             "calendarId": cal_id,  # ✅ Required in body
             "locationId": location_id,  # ✅ Required in body
@@ -532,7 +526,7 @@ def consolidated_calendar_op(
             "meetingLocationType": "custom",
             "meetingLocationId": "custom_0",
         }
-        logger.info(f"📅 Using unified booking endpoint: {booking_url}")
+        logger.info(f"📅 Using v2 booking endpoint: {booking_url}")
 
         # ROBUST BOOKING with 3 retries and detailed error logging
         max_attempts = 3
