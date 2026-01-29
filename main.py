@@ -1863,13 +1863,6 @@ def checkout_agency_pro():
                 "target_tier": "agency_pro",
                 "source": "high_ticket_portal"
             },
-            subscription_data={
-                "trial_period_days": 0,
-                "metadata": {
-                    "target_role": "agency_owner",
-                    "target_tier": "agency_pro"
-                }
-            },
             
             # Using absolute paths for reliability
             success_url=f"{YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
