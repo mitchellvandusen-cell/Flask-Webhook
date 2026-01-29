@@ -8,7 +8,7 @@ from db import get_db_connection
 
 logger = logging.getLogger(__name__)
 
-GHL_MESSAGES_URL = "https://services.leadconnectorhq.com/locations/{location_id}/conversations/messages"
+GHL_MESSAGES_URL = "https://services.leadconnectorhq.com/conversations/messages"
 
 def send_sms_via_ghl(
     contact_id: str,
@@ -76,7 +76,7 @@ def send_sms_via_ghl(
 
     for attempt in range(1, max_retries + 1):
         try:
-            resp = requests.post(GHL_MESSAGES_URL.format(location_id=location_id), json=payload, headers=headers, timeout=15)
+            resp = requests.post(GHL_MESSAGES_URL, json=payload, headers=headers, timeout=15)
             resp.raise_for_status()
 
             logger.info(f"SMS sent successfully to {contact_id} on attempt {attempt}")
