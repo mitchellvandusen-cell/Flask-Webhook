@@ -225,9 +225,39 @@ def webhook():
     logger.critical(f"📦 Payload Keys: {list(payload.keys())}")
     logger.critical(f"📦 Full Payload JSON: {json.dumps(payload, indent=2, default=str)}")
 
+    # 🔄 NORMALIZE PAYLOAD: Support both marketplace app structure AND custom workflow structure
+    is_marketplace_action = payload.get("isMarketplaceAction", False)
+
+    if is_marketplace_action:
+        logger.critical("🏪 MARKETPLACE APP PAYLOAD DETECTED - Normalizing structure")
+        # Extract from nested marketplace structure
+        extras = payload.get("extras", {})
+        meta = payload.get("meta", {})
+        data = payload.get("data", {})
+
+        # Normalize to flat structure for backwards compatibility
+        normalized_payload = {
+            "contact_id": extras.get("contactId"),
+            "location_id": extras.get("locationId"),
+            "workflow_id": extras.get("workflowId"),
+            "company_id": extras.get("companyId"),
+            "message": meta.get("message"),
+            "agent": meta.get("agent"),
+            "first_name": data.get("first_name"),
+            "phone": data.get("phone"),
+            "age": data.get("age"),
+            "address": data.get("address"),
+            "intent": data.get("intent"),
+            # Preserve original for reference
+            "_original_payload": payload
+        }
+        logger.critical(f"🔄 NORMALIZED PAYLOAD: {json.dumps(normalized_payload, indent=2, default=str)}")
+        payload = normalized_payload
+
+    # Extract values (now works with both structures)
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
     contact_id = payload.get("contact_id")
-    message_body = payload.get("message", {}).get("body") or payload.get("message")
+    message_body = payload.get("message", {}).get("body") if isinstance(payload.get("message"), dict) else payload.get("message")
 
     # 🚨 LOG: Extracted values for debugging
     logger.critical(f"🔍 EXTRACTED VALUES | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
