@@ -8,7 +8,8 @@
         <div class="auth-logo">
             Insurance<span class="text-accent">Grok</span>Bot
         </div>
-        <p class="auth-subtitle">Initialize your agent account</p>
+        <p class="auth-subtitle">Set up your account</p>
+        <p style="color:#888; font-size:0.82rem; margin-top:-5px;">You must install the app from the <a href="https://marketplace.gohighlevel.com" target="_blank" style="color:var(--text-accent, #00c853); text-decoration:none; font-weight:600;">GHL Marketplace</a> before registering.</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -42,7 +43,7 @@
                     <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
                     {{ form.location_id(class="form-control", placeholder="Location ID") }}
                 </div>
-                <div class="form-text small" style="color: #888;">This ID is verified against our subscriber records.</div>
+                <div class="form-text small" style="color: #888;">This is auto-filled when you install from the Marketplace.</div>
                 {% for error in form.location_id.errors %}
                     <span class="text-danger small">{{ error }}</span>
                 {% endfor %}
