@@ -16,17 +16,20 @@ GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{locati
 GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
 GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
 
-# Private API key v1 endpoints (legacy private integration)
-GHL_V1_CALENDAR_URL = "https://rest.gohighlevel.com/v1/calendars/{cal_id}/free-slots"
-GHL_V1_BOOK_URL = "https://rest.gohighlevel.com/v1/appointments/"
-GHL_V1_CALENDARS_LIST = "https://rest.gohighlevel.com/v1/calendars/"
+# Private API key v1 endpoints (Personal Integration Token - PIT)
+# NOTE: PIT tokens use services.leadconnectorhq.com (NOT rest.gohighlevel.com)
+GHL_V1_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/appointments/"
+GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
 
 
 def detect_token_type(access_token: str) -> dict:
     """
-    Detects if the token is OAuth (v2) or Private API Key (v1).
+    Detects if the token is OAuth (v2) or Personal Integration Token (PIT).
 
-    Private Integration Tokens start with 'pit-' and use v1 endpoints.
+    Personal Integration Tokens start with 'pit-' and use services.leadconnectorhq.com
+    with locationId required as query parameter or in request body.
+
     OAuth tokens use v2 endpoints with location-specific paths.
 
     Returns:
@@ -34,7 +37,7 @@ def detect_token_type(access_token: str) -> dict:
             "is_oauth": True/False,
             "location_id": "xxx" (if OAuth),
             "company_id": "yyy",
-            "version": "v2" or "v1"
+            "version": "v2" or "v1" (v1 = PIT)
         }
     """
     logger.debug(f"🔍 Token detection: first 10 chars = {access_token[:10]}...")
@@ -42,12 +45,12 @@ def detect_token_type(access_token: str) -> dict:
     # FAST PATH: Check for private integration token prefix
     if access_token.startswith("pit-"):
         logger.info(f"🔑 PRIVATE INTEGRATION TOKEN DETECTED (pit-...)")
-        logger.info(f"   ✅ Using v1 endpoints (calendarId in body, company-scoped)")
+        logger.info(f"   ✅ Using PIT endpoints on services.leadconnectorhq.com")
         return {
             "is_oauth": False,
             "location_id": None,
             "company_id": None,
-            "version": "v1"
+            "version": "v1"  # Keep as v1 internally for backwards compatibility
         }
 
     # OAUTH PATH: Verify by calling /v2/me endpoint
@@ -177,9 +180,9 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     calendar_found = False
     try:
         if is_private_key:
-            # v1 endpoint for private keys (company-scoped, no locationId)
-            cal_list_url = "https://rest.gohighlevel.com/v1/calendars/"
-            logger.info(f"   Using v1 endpoint (private key): {cal_list_url}")
+            # PIT endpoint requires locationId query parameter
+            cal_list_url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
+            logger.info(f"   Using PIT endpoint (private key): {cal_list_url}")
         else:
             # v2 endpoint for OAuth tokens (location-scoped)
             cal_list_url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
@@ -198,10 +201,10 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
 
             # Parse response based on endpoint version
             if is_private_key:
-                # v1 response structure
+                # PIT response structure
                 calendars = cal_data.get("calendars", []) if isinstance(cal_data, dict) else []
             else:
-                # v2 response structure
+                # OAuth v2 response structure
                 calendars = cal_data.get("calendars", [])
 
             logger.info(f"✅ Found {len(calendars)} calendars:")
@@ -242,10 +245,11 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
 
         elif cal_resp.status_code == 404:
             if is_private_key:
-                logger.critical(f"❌ 404 ERROR with v1 calendars endpoint")
+                logger.critical(f"❌ 404 ERROR with PIT calendars endpoint")
                 logger.critical(f"   This might mean:")
                 logger.critical(f"      1. Private integration token lacks calendar permissions")
-                logger.critical(f"      2. No calendars exist in this GHL account")
+                logger.critical(f"      2. The locationId is incorrect or doesn't exist")
+                logger.critical(f"      3. No calendars exist in this location")
             else:
                 logger.critical(f"❌ Location '{location_id}' NOT FOUND!")
                 logger.critical(f"   🔍 POSSIBLE CAUSES:")
@@ -387,7 +391,7 @@ def consolidated_calendar_op(
                 logger.info(f"📅 Using v2 OAuth endpoint for slots: {url}")
             else:
                 url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
-                logger.info(f"📅 Using v1 Private Key endpoint for slots: {url}")
+                logger.info(f"📅 Using PIT endpoint for slots: {url}")
 
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
@@ -398,6 +402,9 @@ def consolidated_calendar_op(
                 "endDate": end_ts,
                 "timezone": local_tz_str
             }
+            # PIT tokens require locationId as query parameter
+            if not is_oauth:
+                params["locationId"] = location_id
             if crm_user_id:
                 params["userId"] = crm_user_id
 
@@ -407,9 +414,9 @@ def consolidated_calendar_op(
                 logger.debug(f"   Slots response status: {resp.status_code}")
 
                 if resp.status_code == 404 and not is_oauth:
-                    # v1 free-slots endpoint might not exist
-                    logger.warning(f"⚠️ v1 free-slots endpoint returned 404")
-                    logger.warning(f"   The v1 API might not support fetching available slots")
+                    # PIT free-slots endpoint might not exist or calendar not found
+                    logger.warning(f"⚠️ PIT free-slots endpoint returned 404")
+                    logger.warning(f"   The calendar might not exist or locationId might be incorrect")
                     logger.warning(f"   Will return generic availability message and attempt booking directly")
                     slots = []  # Empty slots = generic message
                 else:
@@ -550,10 +557,11 @@ def consolidated_calendar_op(
             }
             logger.info(f"🔐 Using v2 OAuth booking endpoint (calendarId in URL)")
         else:
-            # v1 Private Key: calendarId in payload body
+            # PIT (Personal Integration Token): calendarId in payload body
             booking_url = GHL_V1_BOOK_URL
             payload = {
-                "calendarId": cal_id,  # ✅ calendarId in body for v1
+                "calendarId": cal_id,  # ✅ calendarId in body for PIT
+                "locationId": location_id,  # ✅ locationId required for PIT
                 "contactId": contact_id,
                 "startTime": start_dt.isoformat(),
                 "endTime": end_dt.isoformat(),
@@ -562,7 +570,7 @@ def consolidated_calendar_op(
                 "assignedUserId": crm_user_id or None,
                 "selectedTimezone": local_tz_str,
             }
-            logger.info(f"🔑 Using v1 Private Key booking endpoint (calendarId in body)")
+            logger.info(f"🔑 Using PIT booking endpoint (calendarId + locationId in body)")
 
         # ROBUST BOOKING with 3 retries and detailed error logging
         max_attempts = 3
