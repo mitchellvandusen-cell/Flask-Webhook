@@ -405,22 +405,34 @@ def consolidated_calendar_op(
                 logger.debug(f"   Fetching slots with params: {params}")
                 resp = requests.get(url, headers=headers, params=params, timeout=20)
                 logger.debug(f"   Slots response status: {resp.status_code}")
-                resp.raise_for_status()
-                data = resp.json()
-                logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
 
+                if resp.status_code == 404 and not is_oauth:
+                    # v1 free-slots endpoint might not exist
+                    logger.warning(f"⚠️ v1 free-slots endpoint returned 404")
+                    logger.warning(f"   The v1 API might not support fetching available slots")
+                    logger.warning(f"   Will return generic availability message and attempt booking directly")
+                    slots = []  # Empty slots = generic message
+                else:
+                    resp.raise_for_status()
+                    data = resp.json()
+                    logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
+
+                    slots = []
+                    if isinstance(data, dict):
+                        for entry in data.values():
+                            if isinstance(entry, list):
+                                slots.extend(entry)
+                            elif isinstance(entry, dict) and "slots" in entry:
+                                slots.extend(entry["slots"])
+                    elif isinstance(data, list):
+                        slots = data
+
+                    set_cache(slots_key, slots)
+                    logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
+            except requests.HTTPError as e:
+                logger.error(f"❌ Calendar fetch HTTP error ({token_version}): {e}")
+                logger.error(f"   Response text: {e.response.text[:200] if hasattr(e, 'response') else 'N/A'}")
                 slots = []
-                if isinstance(data, dict):
-                    for entry in data.values():
-                        if isinstance(entry, list):
-                            slots.extend(entry)
-                        elif isinstance(entry, dict) and "slots" in entry:
-                            slots.extend(entry["slots"])
-                elif isinstance(data, list):
-                    slots = data
-
-                set_cache(slots_key, slots)
-                logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
             except Exception as e:
                 logger.error(f"❌ Calendar fetch error ({token_version}): {e}")
                 logger.debug(f"   Error details: {str(e)}", exc_info=True)
