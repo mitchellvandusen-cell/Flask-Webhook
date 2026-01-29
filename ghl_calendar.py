@@ -10,8 +10,8 @@ import re
 
 logger = logging.getLogger(__name__)
 
-GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_BOOK_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events/appointments"
+GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
+GHL_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
 
 CACHE_TTL = 1800  # 30 minutes
 cache = {}  # Simple in-memory cache with thread safety
