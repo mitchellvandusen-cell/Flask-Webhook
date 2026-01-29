@@ -404,8 +404,7 @@ def consolidated_calendar_op(
             }
 
             if not is_oauth:
-                # PIT: locationId as query parameter, simple URL
-                params["locationId"] = location_id
+                # PIT: simple URL, NO locationId in free-slots query (API rejects it)
                 url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
                 logger.info(f"📅 Using PIT endpoint for slots: {url}")
             else:
@@ -553,37 +552,29 @@ def consolidated_calendar_op(
             return False
 
         # 🔀 Build payload and URL based on token type (v1 vs v2)
+        # Both use POST /calendars/events/appointments with calendarId + locationId in body
         if is_oauth:
-            # v2 OAuth: POST /calendars/events/appointments
-            # calendarId and locationId go in the request body
             booking_url = GHL_V2_BOOK_URL
-            payload = {
-                "calendarId": cal_id,
-                "locationId": location_id,
-                "contactId": contact_id,
-                "startTime": start_dt.isoformat(),
-                "endTime": end_dt.isoformat(),
-                "title": f"Life Insurance Review {first_name or 'Lead'}",
-                "appointmentStatus": "confirmed",
-                "assignedUserId": crm_user_id or None,
-                "selectedTimezone": local_tz_str,
-            }
-            logger.info(f"🔐 Using v2 OAuth booking endpoint (calendarId + locationId in body)")
+            logger.info(f"🔐 Using v2 OAuth booking endpoint")
         else:
-            # PIT (Personal Integration Token): calendarId in payload body
             booking_url = GHL_V1_BOOK_URL
-            payload = {
-                "calendarId": cal_id,  # ✅ calendarId in body for PIT
-                "locationId": location_id,  # ✅ locationId required for PIT
-                "contactId": contact_id,
-                "startTime": start_dt.isoformat(),
-                "endTime": end_dt.isoformat(),
-                "title": f"Life Insurance Review {first_name or 'Lead'}",
-                "appointmentStatus": "confirmed",
-                "assignedUserId": crm_user_id or None,
-                "selectedTimezone": local_tz_str,
-            }
-            logger.info(f"🔑 Using PIT booking endpoint (calendarId + locationId in body)")
+            logger.info(f"🔑 Using PIT booking endpoint")
+
+        payload = {
+            "calendarId": cal_id,
+            "locationId": location_id,
+            "contactId": contact_id,
+            "startTime": start_dt.isoformat(),
+            "endTime": end_dt.isoformat(),
+            "title": f"Life Insurance Review {first_name or 'Lead'}",
+            "appointmentStatus": "confirmed",
+            "selectedTimezone": local_tz_str,
+        }
+        # Only include assignedUserId if set -- GHL returns 422
+        # "The user id not part of calendar team" if the userId isn't on the calendar
+        if crm_user_id:
+            payload["assignedUserId"] = crm_user_id
+            logger.info(f"   assignedUserId: {crm_user_id}")
 
         # ROBUST BOOKING with 3 retries and detailed error logging
         max_attempts = 3
@@ -630,6 +621,13 @@ def consolidated_calendar_op(
                         "payload": payload
                     }
 
+                    # 422 with "not part of calendar team" → retry without assignedUserId
+                    if resp.status_code == 422 and "not part of calendar team" in resp.text:
+                        if "assignedUserId" in payload:
+                            logger.warning(f"⚠️ assignedUserId '{payload['assignedUserId']}' not on calendar team — retrying without it")
+                            del payload["assignedUserId"]
+                            continue  # retry this attempt with the fixed payload
+
                     if resp.status_code == 400:
                         logger.error(f"🚨 BOOKING FAILED: BAD REQUEST (calendar_id invalid or time unavailable) | {error_details}")
                     elif resp.status_code == 401:
@@ -646,6 +644,8 @@ def consolidated_calendar_op(
                             logger.error(f"Debug recheck failed: {recheck_err}")
                     elif resp.status_code == 409:
                         logger.error(f"🚨 BOOKING FAILED: CONFLICT (time slot already booked) | {error_details}")
+                    elif resp.status_code == 422:
+                        logger.error(f"🚨 BOOKING FAILED: UNPROCESSABLE ENTITY | {error_details}")
                     elif resp.status_code == 429:
                         logger.error(f"🚨 BOOKING FAILED: RATE LIMIT (too many requests) | {error_details}")
                     elif resp.status_code >= 500:
