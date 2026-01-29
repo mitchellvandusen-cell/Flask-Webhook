@@ -16,17 +16,20 @@ GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{locati
 GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
 GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
 
-# Private API key v1 endpoints (legacy private integration)
-GHL_V1_CALENDAR_URL = "https://rest.gohighlevel.com/v1/calendars/{cal_id}/free-slots"
-GHL_V1_BOOK_URL = "https://rest.gohighlevel.com/v1/appointments/"
-GHL_V1_CALENDARS_LIST = "https://rest.gohighlevel.com/v1/calendars/"
+# Private API key v1 endpoints (Personal Integration Token - PIT)
+# NOTE: PIT tokens use services.leadconnectorhq.com (NOT rest.gohighlevel.com)
+GHL_V1_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/appointments/"
+GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
 
 
 def detect_token_type(access_token: str) -> dict:
     """
-    Detects if the token is OAuth (v2) or Private API Key (v1).
+    Detects if the token is OAuth (v2) or Personal Integration Token (PIT).
 
-    Private Integration Tokens start with 'pit-' and use v1 endpoints.
+    Personal Integration Tokens start with 'pit-' and use services.leadconnectorhq.com
+    with locationId required as query parameter or in request body.
+
     OAuth tokens use v2 endpoints with location-specific paths.
 
     Returns:
@@ -34,7 +37,7 @@ def detect_token_type(access_token: str) -> dict:
             "is_oauth": True/False,
             "location_id": "xxx" (if OAuth),
             "company_id": "yyy",
-            "version": "v2" or "v1"
+            "version": "v2" or "v1" (v1 = PIT)
         }
     """
     logger.debug(f"🔍 Token detection: first 10 chars = {access_token[:10]}...")
@@ -42,12 +45,12 @@ def detect_token_type(access_token: str) -> dict:
     # FAST PATH: Check for private integration token prefix
     if access_token.startswith("pit-"):
         logger.info(f"🔑 PRIVATE INTEGRATION TOKEN DETECTED (pit-...)")
-        logger.info(f"   ✅ Using v1 endpoints (calendarId in body, company-scoped)")
+        logger.info(f"   ✅ Using PIT endpoints on services.leadconnectorhq.com")
         return {
             "is_oauth": False,
             "location_id": None,
             "company_id": None,
-            "version": "v1"
+            "version": "v1"  # Keep as v1 internally for backwards compatibility
         }
 
     # OAUTH PATH: Verify by calling /v2/me endpoint
@@ -102,13 +105,13 @@ def detect_token_type(access_token: str) -> dict:
 
 def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, contact_id: str):
     """
-    🔍 COMPREHENSIVE GHL BOOKING DEBUG
+    🔍 COMPREHENSIVE GHL BOOKING DEBUG (Token-Type Aware)
 
     Checks:
-    1. Token scope (agency vs location-scoped)
-    2. Lists all calendars for the location
-    3. Verifies calendar_id exists in location
-    4. Verifies contact_id exists in location
+    1. Token scope (private key vs OAuth)
+    2. Lists all calendars (using correct endpoint for token type)
+    3. Verifies calendar_id exists
+    4. Verifies contact_id exists
 
     This function helps pinpoint exactly why booking is failing with 404 errors.
     """
@@ -125,51 +128,65 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     }
 
     # ═══════════════════════════════════════════════════════════════════════
-    # 1️⃣ CHECK TOKEN SCOPE
+    # 1️⃣ DETECT TOKEN TYPE FIRST
     # ═══════════════════════════════════════════════════════════════════════
-    logger.info("\n1️⃣ CHECKING TOKEN SCOPE...")
+    logger.info("\n1️⃣ DETECTING TOKEN TYPE...")
     logger.critical(f"[FORCED LOG] Token first 20 chars: {access_token[:20]}...")
-    logger.critical(f"[FORCED LOG] Calling /oauth/token/me...")
 
-    try:
-        me_resp = requests.get(
-            "https://services.leadconnectorhq.com/oauth/token/me",
-            headers=headers,
-            timeout=10
-        )
+    is_private_key = access_token.startswith("pit-")
 
-        logger.critical(f"[FORCED LOG] Token check response status: {me_resp.status_code}")
+    if is_private_key:
+        logger.critical(f"[FORCED LOG] ✅ PRIVATE INTEGRATION TOKEN (pit-...)")
+        logger.critical(f"[FORCED LOG] Will use v1 endpoints (company-scoped, no locationId in paths)")
+    else:
+        logger.critical(f"[FORCED LOG] Calling /oauth/token/me...")
+        try:
+            me_resp = requests.get(
+                "https://services.leadconnectorhq.com/oauth/token/me",
+                headers=headers,
+                timeout=10
+            )
 
-        if me_resp.status_code == 200:
-            me_data = me_resp.json()
-            logger.critical(f"[FORCED LOG] Full token response: {me_data}")
-            logger.info(f"✅ Token Info Retrieved:")
-            logger.info(f"   Type: {me_data.get('type', 'UNKNOWN')}")
-            logger.info(f"   Location ID from token: {me_data.get('locationId', 'N/A')}")
-            logger.info(f"   Company ID: {me_data.get('companyId', 'N/A')}")
-            logger.info(f"   User ID: {me_data.get('userId', 'N/A')}")
+            logger.critical(f"[FORCED LOG] Token check response status: {me_resp.status_code}")
 
-            token_location = me_data.get('locationId')
-            if token_location and token_location != location_id:
-                logger.critical(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
-                logger.critical(f"⚠️ THIS IS WHY THE CALENDAR ENDPOINT IS FAILING!")
-            elif token_location == location_id:
-                logger.info(f"✅ Token location matches requested location: {location_id}")
+            if me_resp.status_code == 200:
+                me_data = me_resp.json()
+                logger.critical(f"[FORCED LOG] Full token response: {me_data}")
+                logger.info(f"✅ Token Info Retrieved:")
+                logger.info(f"   Type: {me_data.get('type', 'UNKNOWN')}")
+                logger.info(f"   Location ID from token: {me_data.get('locationId', 'N/A')}")
+                logger.info(f"   Company ID: {me_data.get('companyId', 'N/A')}")
+                logger.info(f"   User ID: {me_data.get('userId', 'N/A')}")
+
+                token_location = me_data.get('locationId')
+                if token_location and token_location != location_id:
+                    logger.critical(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
+                    logger.critical(f"⚠️ THIS IS WHY THE CALENDAR ENDPOINT IS FAILING!")
+                elif token_location == location_id:
+                    logger.info(f"✅ Token location matches requested location: {location_id}")
+                else:
+                    logger.warning(f"⚠️ Token has no locationId - might be agency-scoped token")
             else:
-                logger.warning(f"⚠️ Token has no locationId - might be agency-scoped token")
-        else:
-            logger.critical(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:500]}")
-    except Exception as e:
-        logger.critical(f"❌ Token scope check EXCEPTION: {e}", exc_info=True)
+                logger.critical(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:500]}")
+                is_private_key = True  # Assume private key if /oauth/token/me fails
+        except Exception as e:
+            logger.critical(f"❌ Token scope check EXCEPTION: {e}", exc_info=True)
+            is_private_key = True
 
     # ═══════════════════════════════════════════════════════════════════════
-    # 2️⃣ LIST ALL CALENDARS FOR LOCATION
+    # 2️⃣ LIST ALL CALENDARS (Token-Type Aware)
     # ═══════════════════════════════════════════════════════════════════════
-    logger.info("\n2️⃣ LISTING ALL CALENDARS FOR LOCATION...")
+    logger.info("\n2️⃣ LISTING ALL CALENDARS...")
     calendar_found = False
     try:
-        cal_list_url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
-        logger.info(f"   Fetching: {cal_list_url}")
+        if is_private_key:
+            # PIT endpoint requires locationId query parameter
+            cal_list_url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
+            logger.info(f"   Using PIT endpoint (private key): {cal_list_url}")
+        else:
+            # v2 endpoint for OAuth tokens (location-scoped)
+            cal_list_url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+            logger.info(f"   Using v2 endpoint (OAuth): {cal_list_url}")
 
         cal_resp = requests.get(
             cal_list_url,
@@ -177,53 +194,70 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
             timeout=15
         )
 
+        logger.info(f"   Response status: {cal_resp.status_code}")
+
         if cal_resp.status_code == 200:
             cal_data = cal_resp.json()
-            calendars = cal_data.get("calendars", [])
-            logger.info(f"✅ Found {len(calendars)} calendars in location {location_id}:")
+
+            # Parse response based on endpoint version
+            if is_private_key:
+                # PIT response structure
+                calendars = cal_data.get("calendars", []) if isinstance(cal_data, dict) else []
+            else:
+                # OAuth v2 response structure
+                calendars = cal_data.get("calendars", [])
+
+            logger.info(f"✅ Found {len(calendars)} calendars:")
 
             if not calendars:
-                logger.warning(f"⚠️ NO CALENDARS FOUND in this location!")
+                logger.warning(f"⚠️ NO CALENDARS FOUND!")
 
             for idx, cal in enumerate(calendars, 1):
                 cal_id = cal.get('id', 'UNKNOWN')
                 cal_name = cal.get('name', 'UNNAMED')
                 is_active = cal.get('isActive', False)
-                linked_cal = cal.get('linkedCalendar', {})
-                linked_type = linked_cal.get('type', 'none')
-                linked_email = linked_cal.get('email', 'N/A')
+                cal_location = cal.get('locationId', 'N/A')
 
                 is_match = "🎯 THIS ONE" if cal_id == calendar_id else ""
 
                 logger.info(f"   [{idx}] {cal_id} {is_match}")
                 logger.info(f"       Name: {cal_name}")
                 logger.info(f"       Active: {is_active}")
-                logger.info(f"       Linked: {linked_type} ({linked_email})")
+                logger.info(f"       Location: {cal_location}")
 
                 if cal_id == calendar_id:
                     calendar_found = True
                     logger.info(f"       ✅ FOUND! This is your calendar.")
 
+                    # For private keys, check if calendar's location matches
+                    if is_private_key and cal_location != location_id:
+                        logger.warning(f"       ⚠️ Calendar is in location '{cal_location}' but you specified '{location_id}'")
+
             if not calendar_found:
-                logger.critical(f"❌ CALENDAR '{calendar_id}' NOT FOUND IN LOCATION '{location_id}'!")
+                logger.critical(f"❌ CALENDAR '{calendar_id}' NOT FOUND!")
                 logger.critical(f"   Available calendar IDs: {[c.get('id') for c in calendars]}")
-                logger.critical(f"   📋 Here are the calendars that DO exist in this location:")
+                logger.critical(f"   📋 Here are the calendars that DO exist:")
                 for cal in calendars:
-                    logger.critical(f"      - {cal.get('id')} | {cal.get('name')}")
+                    logger.critical(f"      - {cal.get('id')} | {cal.get('name')} | Location: {cal.get('locationId', 'N/A')}")
                 logger.critical(f"   ⚠️ YOUR CALENDAR '{calendar_id}' IS NOT IN THIS LIST!")
-                logger.critical(f"   💡 This means the calendar belongs to a DIFFERENT location!")
             else:
-                logger.info(f"✅ Calendar '{calendar_id}' exists in location '{location_id}'")
+                logger.info(f"✅ Calendar '{calendar_id}' found")
 
         elif cal_resp.status_code == 404:
-            logger.critical(f"❌ Location '{location_id}' NOT FOUND! This location might not exist or token lacks access.")
-            logger.critical(f"   🔍 POSSIBLE CAUSES:")
-            logger.critical(f"      1. Token is scoped to a DIFFERENT location")
-            logger.critical(f"      2. Location '{location_id}' doesn't exist in this GHL account")
-            logger.critical(f"      3. Token lacks 'locations.readonly' permission")
-            logger.critical(f"   💡 Check the token's locationId in step 1️⃣ above!")
+            if is_private_key:
+                logger.critical(f"❌ 404 ERROR with PIT calendars endpoint")
+                logger.critical(f"   This might mean:")
+                logger.critical(f"      1. Private integration token lacks calendar permissions")
+                logger.critical(f"      2. The locationId is incorrect or doesn't exist")
+                logger.critical(f"      3. No calendars exist in this location")
+            else:
+                logger.critical(f"❌ Location '{location_id}' NOT FOUND!")
+                logger.critical(f"   🔍 POSSIBLE CAUSES:")
+                logger.critical(f"      1. Token is scoped to a DIFFERENT location")
+                logger.critical(f"      2. Location doesn't exist in this GHL account")
+                logger.critical(f"      3. Token lacks 'locations.readonly' permission")
         elif cal_resp.status_code == 403:
-            logger.critical(f"❌ FORBIDDEN! Token lacks permission to access location '{location_id}'")
+            logger.critical(f"❌ FORBIDDEN! Token lacks permission to list calendars")
         else:
             logger.error(f"❌ Failed to list calendars: {cal_resp.status_code} - {cal_resp.text[:200]}")
     except Exception as e:
@@ -357,7 +391,7 @@ def consolidated_calendar_op(
                 logger.info(f"📅 Using v2 OAuth endpoint for slots: {url}")
             else:
                 url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
-                logger.info(f"📅 Using v1 Private Key endpoint for slots: {url}")
+                logger.info(f"📅 Using PIT endpoint for slots: {url}")
 
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
@@ -368,6 +402,9 @@ def consolidated_calendar_op(
                 "endDate": end_ts,
                 "timezone": local_tz_str
             }
+            # PIT tokens require locationId as query parameter
+            if not is_oauth:
+                params["locationId"] = location_id
             if crm_user_id:
                 params["userId"] = crm_user_id
 
@@ -375,22 +412,34 @@ def consolidated_calendar_op(
                 logger.debug(f"   Fetching slots with params: {params}")
                 resp = requests.get(url, headers=headers, params=params, timeout=20)
                 logger.debug(f"   Slots response status: {resp.status_code}")
-                resp.raise_for_status()
-                data = resp.json()
-                logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
 
+                if resp.status_code == 404 and not is_oauth:
+                    # PIT free-slots endpoint might not exist or calendar not found
+                    logger.warning(f"⚠️ PIT free-slots endpoint returned 404")
+                    logger.warning(f"   The calendar might not exist or locationId might be incorrect")
+                    logger.warning(f"   Will return generic availability message and attempt booking directly")
+                    slots = []  # Empty slots = generic message
+                else:
+                    resp.raise_for_status()
+                    data = resp.json()
+                    logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
+
+                    slots = []
+                    if isinstance(data, dict):
+                        for entry in data.values():
+                            if isinstance(entry, list):
+                                slots.extend(entry)
+                            elif isinstance(entry, dict) and "slots" in entry:
+                                slots.extend(entry["slots"])
+                    elif isinstance(data, list):
+                        slots = data
+
+                    set_cache(slots_key, slots)
+                    logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
+            except requests.HTTPError as e:
+                logger.error(f"❌ Calendar fetch HTTP error ({token_version}): {e}")
+                logger.error(f"   Response text: {e.response.text[:200] if hasattr(e, 'response') else 'N/A'}")
                 slots = []
-                if isinstance(data, dict):
-                    for entry in data.values():
-                        if isinstance(entry, list):
-                            slots.extend(entry)
-                        elif isinstance(entry, dict) and "slots" in entry:
-                            slots.extend(entry["slots"])
-                elif isinstance(data, list):
-                    slots = data
-
-                set_cache(slots_key, slots)
-                logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
             except Exception as e:
                 logger.error(f"❌ Calendar fetch error ({token_version}): {e}")
                 logger.debug(f"   Error details: {str(e)}", exc_info=True)
@@ -508,10 +557,11 @@ def consolidated_calendar_op(
             }
             logger.info(f"🔐 Using v2 OAuth booking endpoint (calendarId in URL)")
         else:
-            # v1 Private Key: calendarId in payload body
+            # PIT (Personal Integration Token): calendarId in payload body
             booking_url = GHL_V1_BOOK_URL
             payload = {
-                "calendarId": cal_id,  # ✅ calendarId in body for v1
+                "calendarId": cal_id,  # ✅ calendarId in body for PIT
+                "locationId": location_id,  # ✅ locationId required for PIT
                 "contactId": contact_id,
                 "startTime": start_dt.isoformat(),
                 "endTime": end_dt.isoformat(),
@@ -520,7 +570,7 @@ def consolidated_calendar_op(
                 "assignedUserId": crm_user_id or None,
                 "selectedTimezone": local_tz_str,
             }
-            logger.info(f"🔑 Using v1 Private Key booking endpoint (calendarId in body)")
+            logger.info(f"🔑 Using PIT booking endpoint (calendarId + locationId in body)")
 
         # ROBUST BOOKING with 3 retries and detailed error logging
         max_attempts = 3
