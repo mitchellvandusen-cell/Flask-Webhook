@@ -1,5 +1,5 @@
 # ghl_calendar.py - Lead Connector Calendar Slots & Booking (Flawless 2026)
-# CRITICAL: Uses webhook's locationId for all API calls (location-specific paths)
+# CRITICAL: Uses webhook's locationId as query param / body field for all API calls
 import logging
 import os
 import requests
@@ -12,9 +12,12 @@ import re
 logger = logging.getLogger(__name__)
 
 # OAuth v2 endpoints (location-scoped tokens from marketplace app)
-GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
-GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+# NOTE: GHL API does NOT use /v2/locations/ in URL paths.
+# API version is controlled by the "Version" header, not the URL.
+# locationId is passed as a query parameter or in the request body.
+GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
+GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
 
 # Private API key v1 endpoints (Personal Integration Token - PIT)
 # NOTE: PIT tokens use services.leadconnectorhq.com (NOT rest.gohighlevel.com)
@@ -179,18 +182,20 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     logger.info("\n2️⃣ LISTING ALL CALENDARS...")
     calendar_found = False
     try:
+        # Both PIT and OAuth use the same endpoint: GET /calendars/
+        # locationId is always a required query parameter
+        cal_list_url = "https://services.leadconnectorhq.com/calendars/"
+        cal_params = {"locationId": location_id}
+
         if is_private_key:
-            # PIT endpoint requires locationId query parameter
-            cal_list_url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
-            logger.info(f"   Using PIT endpoint (private key): {cal_list_url}")
+            logger.info(f"   Using PIT endpoint: {cal_list_url} with locationId={location_id}")
         else:
-            # v2 endpoint for OAuth tokens (location-scoped)
-            cal_list_url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
-            logger.info(f"   Using v2 endpoint (OAuth): {cal_list_url}")
+            logger.info(f"   Using OAuth endpoint: {cal_list_url} with locationId={location_id}")
 
         cal_resp = requests.get(
             cal_list_url,
             headers=headers,
+            params=cal_params,
             timeout=15
         )
 
@@ -387,7 +392,7 @@ def consolidated_calendar_op(
         if not slots:
             # 🔀 Use v1 or v2 endpoint based on token type
             if is_oauth:
-                url = GHL_V2_CALENDAR_URL.format(location_id=location_id, cal_id=cal_id)
+                url = GHL_V2_CALENDAR_URL.format(cal_id=cal_id)
                 logger.info(f"📅 Using v2 OAuth endpoint for slots: {url}")
             else:
                 url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
@@ -397,6 +402,7 @@ def consolidated_calendar_op(
             start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
 
+            # Required query params: startDate (epoch ms), endDate (epoch ms), timezone
             params = {
                 "startDate": start_ts,
                 "endDate": end_ts,
@@ -544,9 +550,12 @@ def consolidated_calendar_op(
 
         # 🔀 Build payload and URL based on token type (v1 vs v2)
         if is_oauth:
-            # v2 OAuth: calendarId in URL path, NOT in payload
-            booking_url = GHL_V2_BOOK_URL.format(location_id=location_id, cal_id=cal_id)
+            # v2 OAuth: POST /calendars/events/appointments
+            # calendarId and locationId go in the request body
+            booking_url = GHL_V2_BOOK_URL
             payload = {
+                "calendarId": cal_id,
+                "locationId": location_id,
                 "contactId": contact_id,
                 "startTime": start_dt.isoformat(),
                 "endTime": end_dt.isoformat(),
@@ -555,7 +564,7 @@ def consolidated_calendar_op(
                 "assignedUserId": crm_user_id or None,
                 "selectedTimezone": local_tz_str,
             }
-            logger.info(f"🔐 Using v2 OAuth booking endpoint (calendarId in URL)")
+            logger.info(f"🔐 Using v2 OAuth booking endpoint (calendarId + locationId in body)")
         else:
             # PIT (Personal Integration Token): calendarId in payload body
             booking_url = GHL_V1_BOOK_URL
