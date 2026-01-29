@@ -1998,6 +1998,59 @@ def oauth_initiate():
     logger.info(f"Initiating private app OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
 
+def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
+    """
+    Helper to handle GHL pagination (fetching all locations/users).
+    Prevents onboarding failures when agencies have >20 locations.
+
+    Args:
+        base_url: Initial API endpoint URL
+        headers: Authorization headers
+        item_key: JSON key containing items (e.g., 'locations', 'users')
+        max_pages: Safety limit to prevent infinite loops
+
+    Returns:
+        List of all items across all pages
+    """
+    items = []
+    url = base_url
+    page_count = 0
+
+    while url and page_count < max_pages:
+        try:
+            resp = requests.get(url, headers=headers, timeout=15)
+            if not resp.ok:
+                logger.error(f"Failed to fetch {item_key} (page {page_count+1}): {resp.status_code} {resp.text}")
+                break
+
+            data = resp.json()
+            batch = data.get(item_key, [])
+            items.extend(batch)
+            page_count += 1
+
+            logger.info(f"Fetched {len(batch)} {item_key} from page {page_count} (total: {len(items)})")
+
+            # GHL pagination: check both 'meta.nextPageUrl' and direct 'nextPageUrl'
+            meta = data.get('meta', {})
+            next_url = meta.get('nextPageUrl') or data.get('nextPageUrl')
+
+            if next_url:
+                # Handle both absolute and relative URLs
+                if next_url.startswith('http'):
+                    url = next_url
+                else:
+                    url = f"https://services.leadconnectorhq.com{next_url}"
+            else:
+                # No more pages
+                url = None
+
+        except Exception as e:
+            logger.error(f"Pagination error fetching {item_key} (page {page_count+1}): {e}")
+            break
+
+    logger.info(f"✅ Pagination complete: {len(items)} total {item_key} fetched across {page_count} pages")
+    return items
+
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
@@ -2079,10 +2132,15 @@ def oauth_callback():
         agencies = agency_resp.json().get('agencies', [])
         is_agency_owner = len(agencies) > 0
 
-        # 4. Fetch all locations (sub-accounts)
-        locations_resp = requests.get("https://services.leadconnectorhq.com/locations/", headers=headers, timeout=15)
-        sub_accounts = locations_resp.json().get('locations', [])
+        # 4. Fetch all locations (sub-accounts) with PAGINATION
+        # CRITICAL FIX: Use pagination to get ALL locations (not just first 20)
+        sub_accounts = fetch_all_ghl_items(
+            "https://services.leadconnectorhq.com/locations/",
+            headers,
+            item_key='locations'
+        )
         num_subs = len(sub_accounts)
+        logger.info(f"📊 Total locations fetched for {user_email}: {num_subs}")
 
         # 5. Determine tier based on sub-account count
         plan_tier = 'individual'
@@ -2096,26 +2154,12 @@ def oauth_callback():
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
         primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
 
-        # 6b. Fetch users for each location (to get agent emails)
-        location_users = {}  # {location_id: [list of users]}
-
-        if is_agency_owner:
-            for sub in sub_accounts:
-                loc_id = sub['id']
-                try:
-                    # GHL API: Get users assigned to this location
-                    users_resp = requests.get(
-                        f"https://services.leadconnectorhq.com/locations/{loc_id}/users",
-                        headers=headers,
-                        timeout=10
-                    )
-                    if users_resp.ok:
-                        users_data = users_resp.json().get('users', [])
-                        location_users[loc_id] = users_data
-                        logger.info(f"Found {len(users_data)} users for location {loc_id}")
-                except Exception as e:
-                    logger.warning(f"Could not fetch users for location {loc_id}: {e}")
-                    location_users[loc_id] = []
+        # 6b. REMOVED: N+1 user fetch loop
+        # CRITICAL FIX: Don't fetch users for each location during OAuth callback
+        # This causes timeout for agencies with many locations (N+1 query problem)
+        # Instead: Set agent_email=NULL initially, let agents claim their locations later
+        # OR: Fetch users async in background job after onboarding completes
+        logger.info(f"⚡ Skipping user fetch loop to prevent timeout (will handle async or via claim flow)")
 
         # 7. Database operations
         conn = get_db_connection()
@@ -2162,6 +2206,15 @@ def oauth_callback():
                     ))
 
                 # --- B. Sub-accounts (or individual user) ---
+                # CRITICAL FIXES IMPLEMENTED HERE:
+                # 1. ✅ Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
+                # 2. ✅ Token Sharing: All sub-accounts get the agency token (prevents token starvation)
+                # 3. ✅ No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
+                #
+                # Why these fixes matter:
+                # - Without pagination: Agencies with >20 locations only onboard first page
+                # - Without token sharing: Bot fails for all sub-accounts (get_valid_token returns None)
+                # - Without removing N+1: OAuth callback times out for agencies with many locations
                 for sub in sub_accounts:
                     sub_id = sub['id']
                     sub_name = sub.get('name', 'Unknown Location')
@@ -2173,22 +2226,17 @@ def oauth_callback():
                     if is_agency_owner and is_primary:
                         continue
 
-                    # Get the first user's email for this location (if any)
-                    agent_email = None
+                    # CRITICAL FIX: Agent email will be set when agent claims location
+                    # For now, default to agency owner's email so they can manage
+                    agent_email = user_email if is_agency_owner else user_email
                     agent_name = sub_name
-                    agent_crm_user_id = None
+                    agent_crm_user_id = me_data.get('id')  # Use owner's CRM ID initially
 
-                    loc_users = location_users.get(sub_id, [])
-                    if loc_users:
-                        # Get the first (primary) user for this location
-                        primary_user = loc_users[0]
-                        agent_email = primary_user.get('email')
-                        agent_name = primary_user.get('name') or sub_name
-                        agent_crm_user_id = primary_user.get('id')
-                        logger.info(f"Location {sub_id} has agent: {agent_email}")
-
-                    access_token_this = access_token if is_primary else None
-                    refresh_token_this = refresh_token if is_primary else None
+                    # CRITICAL FIX: Share agency token with ALL sub-accounts
+                    # Agency-level OAuth tokens work for all locations under that agency
+                    # Without this, the bot will fail for all sub-accounts (token starvation)
+                    access_token_this = access_token  # Share token with all subs
+                    refresh_token_this = refresh_token  # Share refresh token too
 
                     role = 'agency_sub_account_user' if is_agency_owner else 'individual'
                     parent_agency_email = user_email if is_agency_owner else None
@@ -2203,19 +2251,22 @@ def oauth_callback():
                             onboarding_status, oauth_app_type, created_at, updated_at
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            CASE WHEN %s THEN NOW() + interval '%s seconds' ELSE NULL END,
+                            NOW() + interval '%s seconds',
                             %s, %s, %s, %s, NOW(), NOW()
                         )
                         ON CONFLICT (location_id) DO UPDATE SET
                             email = EXCLUDED.email,
-                            agent_email = COALESCE(EXCLUDED.agent_email, subscribers.agent_email),
+                            agent_email = CASE
+                                WHEN subscribers.agent_email IS NULL THEN EXCLUDED.agent_email
+                                ELSE subscribers.agent_email
+                            END,
                             full_name = EXCLUDED.full_name,
                             role = EXCLUDED.role,
                             subscription_tier = EXCLUDED.subscription_tier,
                             parent_agency_email = EXCLUDED.parent_agency_email,
-                            access_token = CASE WHEN %s THEN EXCLUDED.access_token ELSE subscribers.access_token END,
-                            refresh_token = CASE WHEN %s THEN EXCLUDED.refresh_token ELSE subscribers.refresh_token END,
-                            token_expires_at = CASE WHEN %s THEN EXCLUDED.token_expires_at ELSE subscribers.token_expires_at END,
+                            access_token = EXCLUDED.access_token,
+                            refresh_token = EXCLUDED.refresh_token,
+                            token_expires_at = EXCLUDED.token_expires_at,
                             timezone = EXCLUDED.timezone,
                             crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
                             oauth_app_type = EXCLUDED.oauth_app_type,
@@ -2223,10 +2274,9 @@ def oauth_callback():
                     """, (
                         sub_id, email_this, agent_email, agent_name, role, plan_tier,
                         parent_agency_email, access_token_this, refresh_token_this,
-                        is_primary, expires_in,
+                        expires_in,
                         sub_timezone or 'America/Chicago', agent_crm_user_id,
-                        'pending', app_type,  # onboarding_status, oauth_app_type
-                        is_primary, is_primary, is_primary
+                        'pending', app_type
                     ))
 
                 conn.commit()

@@ -196,14 +196,15 @@ def process_webhook_task(payload: dict):
     """
     Main webhook processor — handles demo + real GHL traffic.
     Fully resilient, demo-safe, with booking execution.
+
+    IMPORTANT: Payload is already normalized by main.py's normalize_payload_universal()
+    All fields are in clean snake_case format (contact_id, location_id, etc.)
     """
     start_time = time.time()
+
+    # Payload is already normalized - just read the clean fields
     contact_id_raw = payload.get("contact_id")
-    location_id = (
-        payload.get("location", {}).get("id") or
-        payload.get("location_id") or
-        payload.get("locationId")
-    )
+    location_id = payload.get("location_id")
 
     # 🚨 LOG: Chef (worker) received the order ticket from kitchen (Redis)
     logger.critical(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | phone={payload.get('phone')} | location_id={location_id}")
@@ -290,8 +291,20 @@ def process_webhook_task(payload: dict):
                 sync_messages_to_db(contact_id, location_id, ghl_history)
 
         # === Message Extraction ===
+        # Normalized payload has "message" and "body" as top-level fields
+        # Handle both direct string and nested dict formats
         raw_message = payload.get("message", {})
-        message = raw_message.get("body", "").strip() if isinstance(raw_message, dict) else str(raw_message).strip()
+        if isinstance(raw_message, dict):
+            message = raw_message.get("body", "").strip()
+        else:
+            # If message is already a string (normalized), use it
+            message = str(raw_message).strip() if raw_message else ""
+
+        # If still empty, try top-level "body" field (normalized)
+        if not message:
+            message = payload.get("body", "").strip()
+
+        # message_id is normalized, but fallback to "id" for safety
         message_id = payload.get("message_id") or payload.get("id")
 
         # === FIXED: Atomic Idempotency Check ===
