@@ -219,19 +219,27 @@ def webhook():
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
-    # 🚨 LOG: Full payload received from GHL (waiter taking the order)
-    logger.critical(f"🔍 WEBHOOK RECEIVED | contact_id={payload.get('contact_id')} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
+    # 🚨 LOG: FULL RAW PAYLOAD for debugging
+    import json
+    logger.critical(f"🔍 WEBHOOK RECEIVED - FULL PAYLOAD:")
+    logger.critical(f"📦 Payload Keys: {list(payload.keys())}")
+    logger.critical(f"📦 Full Payload JSON: {json.dumps(payload, indent=2, default=str)}")
 
     location_id = payload.get("location_id") or payload.get("location", {}).get("id")
     contact_id = payload.get("contact_id")
     message_body = payload.get("message", {}).get("body") or payload.get("message")
+
+    # 🚨 LOG: Extracted values for debugging
+    logger.critical(f"🔍 EXTRACTED VALUES | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
 
     # 🚨 SIMPLE CHECK: Only reject if contact_id is clearly invalid
     # DO NOT validate, resolve, or modify - just pass the order to the kitchen (Redis) AS-IS
     # The chef (tasks.py) will validate ONLY if confused about who the customer is
     if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
         logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} is clearly invalid | location_id={location_id}")
-        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
+        logger.critical(f"🚨 REJECTION REASON: Expected 'contact_id' field with valid value (5+ chars), but got: {repr(contact_id)}")
+        logger.critical(f"🚨 Available fields in payload: {list(payload.keys())}")
+        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id", "payload_keys": list(payload.keys())}), 400
 
     logger.info(f"✅ WEBHOOK ACCEPTED | contact_id={contact_id} | Passing to Redis AS-IS (no validation/modification)")
 
@@ -1843,13 +1851,32 @@ def refresh_subscribers():
         return "Failed", 500
 
 @app.route("/oauth/initiate")
+@login_required
 def oauth_initiate():
     """
     Initiates OAuth flow with Lead Connector.
     Works BEFORE marketplace approval (using private app credentials).
 
     User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
+
+    SECURITY: Requires active login and valid Stripe subscription.
     """
+    # --- SUBSCRIPTION VERIFICATION ---
+    # Check if user has active Stripe subscription
+    # Admin whitelist bypasses subscription requirement
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+    if needs_subscription:
+        flash("You must have an active subscription to connect Lead Connector. Please subscribe first.", "error")
+        logger.warning(f"OAuth initiate blocked for {current_user.email} - no active subscription")
+
+        # Redirect based on user role
+        if current_user.role == 'agency_owner':
+            return redirect(url_for('agency_dashboard'))
+        else:
+            return redirect(url_for('dashboard'))
+
     client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
@@ -1880,7 +1907,7 @@ def oauth_initiate():
         f"state={state}"
     )
 
-    logger.info(f"Initiating private app OAuth flow. Redirecting to: {oauth_url}")
+    logger.info(f"Initiating private app OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
 
 @app.route("/oauth/callback")
@@ -1899,9 +1926,29 @@ def oauth_callback():
         is_private_app = (state == "private_app")
 
         if is_private_app:
+            # --- SUBSCRIPTION VERIFICATION FOR PRIVATE APP FLOW ---
+            # Private app flow is for paid Stripe users only.
+            # Marketplace installations (free) bypass this check.
+            if not current_user.is_authenticated:
+                flash("You must be logged in to connect Lead Connector.", "error")
+                logger.warning("OAuth callback blocked - user not authenticated")
+                return redirect(url_for('login'))
+
+            is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+            needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+            if needs_subscription:
+                flash("Active subscription required to connect Lead Connector. Please subscribe first.", "error")
+                logger.warning(f"OAuth callback blocked for {current_user.email} - no active subscription")
+
+                if current_user.role == 'agency_owner':
+                    return redirect(url_for('agency_dashboard'))
+                else:
+                    return redirect(url_for('dashboard'))
+
             client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
             client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
-            logger.info("OAuth callback: Using private app credentials (Stripe/website flow)")
+            logger.info(f"OAuth callback: Using private app credentials for {current_user.email} (Stripe/website flow)")
         else:
             client_id = os.getenv("GHL_CLIENT_ID")
             client_secret = os.getenv("GHL_CLIENT_SECRET")

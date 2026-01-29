@@ -22,20 +22,6 @@
             {% endif %}
         {% endwith %}
 
-        <!-- OAuth Connect Option -->
-        <div class="oauth-option mb-4">
-            <a href="/oauth/initiate" class="btn btn-ghl w-100 py-3">
-                <i class="fa-brands fa-google me-2"></i>
-                Connect with Lead Connector
-            </a>
-            <div class="text-center my-3" style="color: #888; font-size: 0.9rem;">
-                <span style="position: relative; z-index: 1; background: rgba(255,255,255,0.03); padding: 0 10px;">
-                    or register manually
-                </span>
-                <div style="height: 1px; background: rgba(255,255,255,0.1); margin-top: -12px;"></div>
-            </div>
-        </div>
-
         <form method="post" action="{{ url_for('register') }}">
             {{ form.hidden_tag() }}
             
