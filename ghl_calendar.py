@@ -1,4 +1,5 @@
 # ghl_calendar.py - Lead Connector Calendar Slots & Booking (Flawless 2026)
+# CRITICAL: Uses webhook's locationId for all API calls (location-specific paths)
 import logging
 import os
 import requests
@@ -10,8 +11,10 @@ import re
 
 logger = logging.getLogger(__name__)
 
-GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_BOOK_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events/appointments"
+# FIXED: Added /v2/ prefix for correct GHL Marketplace App API endpoints
+# locationId comes from webhook payload → subscriber_data → these URLs
+GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
+GHL_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
 
 CACHE_TTL = 1800  # 30 minutes
 cache = {}  # Simple in-memory cache with thread safety
@@ -196,8 +199,8 @@ def consolidated_calendar_op(
             logger.error(f"🚨 BOOKING BLOCKED: Time too far ahead | requested={start_dt} | contact={contact_id}")
             return False
 
+        # FIXED: Removed calendarId from payload since it's now in URL path
         payload = {
-            "calendarId": cal_id,
             "contactId": contact_id,
             "startTime": start_dt.isoformat(),
             "endTime": end_dt.isoformat(),
@@ -212,7 +215,8 @@ def consolidated_calendar_op(
         for attempt in range(1, max_attempts + 1):
             try:
                 logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} | contact={contact_id} | time={start_dt}")
-                resp = requests.post(GHL_BOOK_URL.format(location_id=location_id), json=payload, headers=headers, timeout=30)
+                # FIXED: Now includes cal_id in URL path (location-specific endpoint)
+                resp = requests.post(GHL_BOOK_URL.format(location_id=location_id, cal_id=cal_id), json=payload, headers=headers, timeout=30)
 
                 if resp.status_code in [200, 201]:
                     # VERIFY the booking was actually created
