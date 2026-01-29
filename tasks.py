@@ -91,18 +91,23 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     """
     Context-aware booking detection.
     Returns (is_booking_request, extracted_time_string)
-    
+
     Key insight: If bot just offered times and lead responds with ANY acceptance,
     that's a booking request even without explicit "book" keywords.
     """
+    logger.critical(f"🔍 BOOKING DETECTION START | message='{message}' | stage='{stage}' | exchanges_count={len(recent_exchanges)}")
+
     if not message:
+        logger.critical("🚫 BOOKING DETECTION: No message provided")
         return False, None
-        
+
     msg_lower = message.lower().strip()
-    
+
     # === CONTEXT CHECK: Did bot just offer time slots? ===
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
     last_bot_msg = bot_msgs[-1]['text'].lower() if bot_msgs else ""
+
+    logger.critical(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
     
     # Detect if bot offered times in last message
     time_offer_indicators = [
@@ -140,7 +145,7 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
             break
     
     has_time_reference = time_match is not None
-    
+
     # === ACCEPTANCE PHRASES (only valid if bot offered times) ===
     acceptance_phrases = [
         "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "k",
@@ -150,7 +155,10 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         "fine", "cool", "bet", "alright"
     ]
     is_acceptance = any(phrase in msg_lower for phrase in acceptance_phrases)
-    
+
+    # Log detection signals
+    logger.critical(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
+
     # === DECISION LOGIC ===
     
     # Case 1: Explicit booking request with time (always book)
@@ -173,12 +181,14 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | msg='{message[:50]}'")
         return True, message if has_time_reference else last_bot_msg
     
-    # Case 5: Explicit "that time works" / "works for me" 
+    # Case 5: Explicit "that time works" / "works for me"
     time_acceptance_phrases = ["that time", "that works", "works for me", "good time", "that's fine"]
     if bot_offered_times and any(phrase in msg_lower for phrase in time_acceptance_phrases):
         logger.info(f"BOOKING CASE 5: Time acceptance phrase | msg='{message[:50]}'")
         return True, last_bot_msg
-    
+
+    logger.critical(f"🚫 BOOKING DETECTION FAILED | No cases matched | msg='{message}'")
+    logger.critical(f"🚫 Reasons: bot_offered={bot_offered_times}, explicit={has_explicit_intent}, time_ref={has_time_reference}, acceptance={is_acceptance}, stage={stage}")
     return False, None
 
 
@@ -376,6 +386,11 @@ def process_webhook_task(payload: dict):
         # Add booking context
         if booking_made:
             context_nudge += "\n⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY. Confirm the time warmly, thank them, and STOP selling."
+            logger.critical(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
+        else:
+            # CRITICAL: Prevent AI from hallucinating bookings
+            context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
+            logger.critical(f"🚫 NO BOOKING - AI instructed NOT to confirm appointments | contact={contact_id}")
 
         # 🎭 RE-ENGAGEMENT MODE: If 6+ consecutive bot messages without response
         consecutive_bot_msgs = count_consecutive_bot_messages(recent_exchanges)
