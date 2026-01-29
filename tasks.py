@@ -385,7 +385,22 @@ def process_webhook_task(payload: dict):
 
         # Add booking context
         if booking_made:
-            context_nudge += "\n⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY. Confirm the time warmly, thank them, and STOP selling."
+            context_nudge += """
+⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY IN GHL CALENDAR.
+
+WHAT TO SAY:
+- Confirm the specific time that was booked (e.g., "Perfect, you're all set for tomorrow at 2pm")
+- Mention they'll get a calendar invite automatically
+- STOP selling immediately
+
+CRITICAL - DO NOT ASK FOR:
+❌ Phone number (you're TEXTING them - you already have it!)
+❌ Email address (already in system)
+❌ Any contact information
+
+Example: "Perfect! You're all set for tomorrow at 2pm. You'll get the calendar invite in a few minutes. Looking forward to it!"
+
+DO NOT continue the sales conversation. The appointment is booked. Just confirm and end warmly."""
             logger.critical(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
         else:
             # CRITICAL: Prevent AI from hallucinating bookings

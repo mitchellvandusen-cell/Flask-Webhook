@@ -10,8 +10,8 @@ import re
 
 logger = logging.getLogger(__name__)
 
-GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-GHL_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
+GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
+GHL_BOOK_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events/appointments"
 
 CACHE_TTL = 1800  # 30 minutes
 cache = {}  # Simple in-memory cache with thread safety
@@ -77,7 +77,7 @@ def consolidated_calendar_op(
         slots = get_cached_data(slots_key)
 
         if not slots:
-            url = GHL_CALENDAR_URL.format(cal_id=cal_id)
+            url = GHL_CALENDAR_URL.format(location_id=location_id, cal_id=cal_id)
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
@@ -212,7 +212,7 @@ def consolidated_calendar_op(
         for attempt in range(1, max_attempts + 1):
             try:
                 logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} | contact={contact_id} | time={start_dt}")
-                resp = requests.post(GHL_BOOK_URL, json=payload, headers=headers, timeout=30)
+                resp = requests.post(GHL_BOOK_URL.format(location_id=location_id), json=payload, headers=headers, timeout=30)
 
                 if resp.status_code in [200, 201]:
                     # VERIFY the booking was actually created

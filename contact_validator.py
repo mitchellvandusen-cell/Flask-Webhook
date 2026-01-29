@@ -70,9 +70,9 @@ def search_contact_by_name(location_id: str, first_name: str) -> Optional[str]:
 
         # Search for contacts with this first name
         response = requests.get(
-            f"{GHL_API_BASE}/contacts/",
+            f"{GHL_API_BASE}/locations/{location_id}/contacts/",
             headers=headers,
-            params={"locationId": location_id, "query": first_name},
+            params={"query": first_name},
             timeout=10
         )
 
@@ -122,9 +122,9 @@ def search_contact_by_address(location_id: str, address: str) -> Optional[str]:
         address_clean = address.strip()
 
         response = requests.get(
-            f"{GHL_API_BASE}/contacts/",
+            f"{GHL_API_BASE}/locations/{location_id}/contacts/",
             headers=headers,
-            params={"locationId": location_id, "query": address_clean},
+            params={"query": address_clean},
             timeout=10
         )
 
@@ -168,9 +168,9 @@ def search_contact_by_phone(location_id: str, phone: str, expected_first_name: O
         phone_clean = ''.join(filter(str.isdigit, phone))
 
         response = requests.get(
-            f"{GHL_API_BASE}/contacts/",
+            f"{GHL_API_BASE}/locations/{location_id}/contacts/",
             headers=headers,
-            params={"locationId": location_id, "query": phone_clean},
+            params={"query": phone_clean},
             timeout=10
         )
 
