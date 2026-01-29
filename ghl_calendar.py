@@ -11,10 +11,71 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# FIXED: Added /v2/ prefix for correct GHL Marketplace App API endpoints
-# locationId comes from webhook payload → subscriber_data → these URLs
-GHL_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
+# OAuth v2 endpoints (location-scoped tokens from marketplace app)
+GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
+GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/appointments"
+GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+
+# Private API key v1 endpoints (legacy private integration)
+GHL_V1_CALENDAR_URL = "https://rest.gohighlevel.com/v1/calendars/{cal_id}/free-slots"
+GHL_V1_BOOK_URL = "https://rest.gohighlevel.com/v1/appointments/"
+GHL_V1_CALENDARS_LIST = "https://rest.gohighlevel.com/v1/calendars/"
+
+
+def detect_token_type(access_token: str) -> dict:
+    """
+    Detects if the token is OAuth (v2) or Private API Key (v1).
+
+    Returns:
+        {
+            "is_oauth": True/False,
+            "location_id": "xxx" (if OAuth),
+            "company_id": "yyy",
+            "version": "v2" or "v1"
+        }
+    """
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-04-15"
+    }
+
+    try:
+        # Try v2 token info endpoint (works for OAuth tokens)
+        me_resp = requests.get(
+            "https://services.leadconnectorhq.com/v2/me",
+            headers=headers,
+            timeout=10
+        )
+
+        if me_resp.status_code == 200:
+            me_data = me_resp.json()
+            logger.info(f"✅ OAUTH TOKEN DETECTED (v2)")
+            logger.info(f"   Location ID: {me_data.get('locationId')}")
+            logger.info(f"   Company ID: {me_data.get('companyId')}")
+            return {
+                "is_oauth": True,
+                "location_id": me_data.get('locationId'),
+                "company_id": me_data.get('companyId'),
+                "version": "v2"
+            }
+        else:
+            # Not an OAuth token, assume private API key
+            logger.info(f"⚙️ PRIVATE API KEY DETECTED (v1)")
+            logger.info(f"   Will use v1 endpoints (calendarId in body, no locationId in path)")
+            return {
+                "is_oauth": False,
+                "location_id": None,
+                "company_id": None,
+                "version": "v1"
+            }
+    except Exception as e:
+        logger.warning(f"⚠️ Token detection failed, defaulting to v1: {e}")
+        return {
+            "is_oauth": False,
+            "location_id": None,
+            "company_id": None,
+            "version": "v1"
+        }
 
 
 def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, contact_id: str):
@@ -249,6 +310,11 @@ def consolidated_calendar_op(
             logger.info(f"DEMO MODE: Simulated booking for {contact_id}")
             return True
 
+    # 🔍 DETECT TOKEN TYPE (OAuth v2 or Private API Key v1)
+    token_info = detect_token_type(access_token)
+    is_oauth = token_info["is_oauth"]
+    token_version = token_info["version"]
+
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15",
@@ -263,7 +329,14 @@ def consolidated_calendar_op(
         slots = get_cached_data(slots_key)
 
         if not slots:
-            url = GHL_CALENDAR_URL.format(location_id=location_id, cal_id=cal_id)
+            # 🔀 Use v1 or v2 endpoint based on token type
+            if is_oauth:
+                url = GHL_V2_CALENDAR_URL.format(location_id=location_id, cal_id=cal_id)
+                logger.info(f"📅 Using v2 OAuth endpoint for slots: {url}")
+            else:
+                url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
+                logger.info(f"📅 Using v1 Private Key endpoint for slots: {url}")
+
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
@@ -292,9 +365,9 @@ def consolidated_calendar_op(
                     slots = data
 
                 set_cache(slots_key, slots)
-                logger.info(f"Fetched {len(slots)} slots for {cal_id}")
+                logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
             except Exception as e:
-                logger.error(f"Calendar fetch error: {e}")
+                logger.error(f"❌ Calendar fetch error ({token_version}): {e}")
                 slots = []
 
         if operation == "fetch_slots":
@@ -394,29 +467,45 @@ def consolidated_calendar_op(
             logger.error(f"🚨 BOOKING BLOCKED: Time too far ahead | requested={start_dt} | contact={contact_id}")
             return False
 
-        # FIXED: Removed calendarId from payload since it's now in URL path
-        payload = {
-            "contactId": contact_id,
-            "startTime": start_dt.isoformat(),
-            "endTime": end_dt.isoformat(),
-            "title": f"Life Insurance Review {first_name or 'Lead'}",
-            "appointmentStatus": "confirmed",
-            "assignedUserId": crm_user_id or None,
-            "selectedTimezone": local_tz_str,
-        }
+        # 🔀 Build payload and URL based on token type (v1 vs v2)
+        if is_oauth:
+            # v2 OAuth: calendarId in URL path, NOT in payload
+            booking_url = GHL_V2_BOOK_URL.format(location_id=location_id, cal_id=cal_id)
+            payload = {
+                "contactId": contact_id,
+                "startTime": start_dt.isoformat(),
+                "endTime": end_dt.isoformat(),
+                "title": f"Life Insurance Review {first_name or 'Lead'}",
+                "appointmentStatus": "confirmed",
+                "assignedUserId": crm_user_id or None,
+                "selectedTimezone": local_tz_str,
+            }
+            logger.info(f"🔐 Using v2 OAuth booking endpoint (calendarId in URL)")
+        else:
+            # v1 Private Key: calendarId in payload body
+            booking_url = GHL_V1_BOOK_URL
+            payload = {
+                "calendarId": cal_id,  # ✅ calendarId in body for v1
+                "contactId": contact_id,
+                "startTime": start_dt.isoformat(),
+                "endTime": end_dt.isoformat(),
+                "title": f"Life Insurance Review {first_name or 'Lead'}",
+                "appointmentStatus": "confirmed",
+                "assignedUserId": crm_user_id or None,
+                "selectedTimezone": local_tz_str,
+            }
+            logger.info(f"🔑 Using v1 Private Key booking endpoint (calendarId in body)")
 
         # ROBUST BOOKING with 3 retries and detailed error logging
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
             try:
-                booking_url = GHL_BOOK_URL.format(location_id=location_id, cal_id=cal_id)
-                logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts}")
+                logger.info(f"📅 BOOKING ATTEMPT {attempt}/{max_attempts} ({token_version})")
                 logger.info(f"   Contact: {contact_id}")
                 logger.info(f"   Time: {start_dt}")
                 logger.info(f"   URL: {booking_url}")
                 logger.info(f"   Payload: {payload}")
 
-                # FIXED: Now includes cal_id in URL path (location-specific endpoint)
                 resp = requests.post(booking_url, json=payload, headers=headers, timeout=30)
 
                 if resp.status_code in [200, 201]:
