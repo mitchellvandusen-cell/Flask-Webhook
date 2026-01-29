@@ -1,5 +1,6 @@
 # ghl_calendar.py - Lead Connector Calendar Slots & Booking (Flawless 2026)
-# CRITICAL: Uses webhook's locationId as query param / body field for all API calls
+# OAuth: locationId in URL path (/v2/locations/{id}/...)
+# PIT: locationId as query param or in request body
 import logging
 import os
 import requests
@@ -12,17 +13,15 @@ import re
 logger = logging.getLogger(__name__)
 
 # OAuth v2 endpoints (location-scoped tokens from marketplace app)
-# NOTE: GHL API does NOT use /v2/locations/ in URL paths.
-# API version is controlled by the "Version" header, not the URL.
-# locationId is passed as a query parameter or in the request body.
-GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+# OAuth tokens require /v2/locations/{locationId}/ prefix in URL path
+GHL_V2_CALENDAR_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
 GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
-GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
+GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
 
-# Private API key v1 endpoints (Personal Integration Token - PIT)
-# NOTE: PIT tokens use services.leadconnectorhq.com (NOT rest.gohighlevel.com)
+# Private Integration Token (PIT) endpoints
+# PIT tokens use base URL with locationId as query parameter
 GHL_V1_CALENDAR_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/appointments/"
+GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
 GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
 
 
@@ -182,15 +181,16 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     logger.info("\n2️⃣ LISTING ALL CALENDARS...")
     calendar_found = False
     try:
-        # Both PIT and OAuth use the same endpoint: GET /calendars/
-        # locationId is always a required query parameter
-        cal_list_url = "https://services.leadconnectorhq.com/calendars/"
-        cal_params = {"locationId": location_id}
-
         if is_private_key:
+            # PIT: locationId as query parameter
+            cal_list_url = GHL_V1_CALENDARS_LIST
+            cal_params = {"locationId": location_id}
             logger.info(f"   Using PIT endpoint: {cal_list_url} with locationId={location_id}")
         else:
-            logger.info(f"   Using OAuth endpoint: {cal_list_url} with locationId={location_id}")
+            # OAuth v2: locationId in URL path
+            cal_list_url = GHL_V2_CALENDARS_LIST.format(location_id=location_id)
+            cal_params = {}
+            logger.info(f"   Using OAuth v2 endpoint: {cal_list_url}")
 
         cal_resp = requests.get(
             cal_list_url,
@@ -391,13 +391,7 @@ def consolidated_calendar_op(
 
         if not slots:
             # 🔀 Use v1 or v2 endpoint based on token type
-            if is_oauth:
-                url = GHL_V2_CALENDAR_URL.format(cal_id=cal_id)
-                logger.info(f"📅 Using v2 OAuth endpoint for slots: {url}")
-            else:
-                url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
-                logger.info(f"📅 Using PIT endpoint for slots: {url}")
-
+            # Always define core query params first
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
@@ -406,17 +400,27 @@ def consolidated_calendar_op(
             params = {
                 "startDate": start_ts,
                 "endDate": end_ts,
-                "timezone": local_tz_str
+                "timezone": local_tz_str,
             }
-            # PIT tokens require locationId as query parameter
+
             if not is_oauth:
+                # PIT: locationId as query parameter, simple URL
                 params["locationId"] = location_id
+                url = GHL_V1_CALENDAR_URL.format(cal_id=cal_id)
+                logger.info(f"📅 Using PIT endpoint for slots: {url}")
+            else:
+                # OAuth v2: locationId in URL path, no locationId in query
+                url = GHL_V2_CALENDAR_URL.format(location_id=location_id, cal_id=cal_id)
+                logger.info(f"📅 Using v2 OAuth endpoint for slots: {url}")
+
+            # Optional: filter by user
             if crm_user_id:
                 params["userId"] = crm_user_id
 
             try:
                 logger.debug(f"   Fetching slots with params: {params}")
                 resp = requests.get(url, headers=headers, params=params, timeout=20)
+                logger.debug(f"   Full URL sent: {resp.request.url}")
                 logger.debug(f"   Slots response status: {resp.status_code}")
 
                 if resp.status_code == 404 and not is_oauth:
@@ -594,6 +598,7 @@ def consolidated_calendar_op(
                 resp = requests.post(booking_url, json=payload, headers=headers, timeout=30)
 
                 # DETAILED RESPONSE LOGGING
+                logger.debug(f"   Full URL sent: {resp.request.url}")
                 logger.info(f"   📬 Response Status: {resp.status_code}")
                 logger.debug(f"   📬 Response Body: {resp.text[:500]}")
 
