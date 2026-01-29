@@ -1,8 +1,20 @@
-# 🔧 GoHighLevel Workflow Configuration Guide
+# 🔧 GoHighLevel Webhook Configuration Guide
 
-## CRITICAL: Field Names Must Match Exactly
+## Two Types of Webhooks
 
-When configuring your GHL workflow custom action to call the InsuranceGrokBot webhook, you **MUST** use these exact field names (lowercase, with underscores):
+GHL sends webhooks in **two different structures** depending on how you configure them:
+
+### 1. Marketplace App Webhooks (Automatic)
+When you use the InsuranceGrokBot as a **marketplace app action** in your workflow, GHL automatically sends a nested structure. **You don't need to configure field names** - they're handled automatically.
+
+### 2. Custom Webhook Actions (Manual)
+When you create a **custom webhook action** in your workflow, you must manually configure field names. This guide covers the requirements for custom webhooks.
+
+---
+
+## CRITICAL: Field Names Must Match Exactly (Custom Webhooks Only)
+
+When configuring your GHL workflow **custom webhook action** to call the InsuranceGrokBot webhook, you **MUST** use these exact field names (lowercase, with underscores):
 
 ## Required Field Names
 
@@ -182,8 +194,65 @@ If you see:
 
 Then your field names are still incorrect. Check the `Available fields in payload` log line to see what names GHL is sending.
 
+## Marketplace App Payload Structure
+
+If you're using the InsuranceGrokBot **marketplace app action** (not custom webhook), GHL sends this structure automatically:
+
+```json
+{
+  "isMarketplaceAction": true,
+  "extras": {
+    "contactId": "3BKttSk7A2Bo186g67ge",
+    "locationId": "k7l0zdwaMruhP7NZHin2",
+    "workflowId": "f382fb04-4c9c-4d7f-a708-e4dc9aab289b",
+    "companyId": "sNPidQtIdTTGGw0AIiL6"
+  },
+  "meta": {
+    "message": "Testing",
+    "agent": "Mitchell",
+    "key": "insurance_grok_bot_communication",
+    "version": "1.1"
+  },
+  "data": {
+    "intent": "message",
+    "first_name": "Test",
+    "phone": "",
+    "age": "",
+    "address": ""
+  }
+}
+```
+
+**Good News:** The webhook handler automatically detects marketplace app payloads and normalizes them to work with the rest of the application. You don't need to do anything special!
+
+### How Normalization Works
+
+When `isMarketplaceAction: true` is detected, the webhook automatically converts:
+
+| Marketplace Structure | Normalized To |
+|----------------------|---------------|
+| `extras.contactId` | `contact_id` |
+| `extras.locationId` | `location_id` |
+| `extras.workflowId` | `workflow_id` |
+| `extras.companyId` | `company_id` |
+| `meta.message` | `message` |
+| `meta.agent` | `agent` |
+| `data.first_name` | `first_name` |
+| `data.phone` | `phone` |
+| `data.age` | `age` |
+| `data.address` | `address` |
+| `data.intent` | `intent` |
+
+After normalization, it works identically to custom webhook payloads.
+
 ## Summary
 
+### For Marketplace App Actions:
+- ✅ No configuration needed - automatic structure
+- ✅ Webhook automatically normalizes nested format
+- ✅ Check logs to verify: `🏪 MARKETPLACE APP PAYLOAD DETECTED`
+
+### For Custom Webhook Actions:
 - ✅ Use **lowercase field names with underscores** (`contact_id`, `first_name`)
 - ❌ Do NOT use uppercase or spaces (`CONTACT ID`, `Contact ID`)
 - ✅ Keep GHL custom values as dropdown selections (`{{contact.id}}`)

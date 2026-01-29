@@ -208,6 +208,103 @@ def generate_demo_opener():
     except Exception as e:
         logger.error(f"Demo opener failed: {e}")
         return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
+
+# =====================================================
+#  FLEXIBLE FIELD EXTRACTION - Handles ALL Variations
+# =====================================================
+def extract_field_flexible(payload, field_name, search_nested=True):
+    """
+    Extract a field from payload supporting ALL naming conventions:
+    - snake_case: contact_id, location_id, user_id
+    - camelCase: contactId, locationId, userId
+    - PascalCase: ContactId, LocationId, UserId
+    - UPPERCASE: CONTACT_ID, CONTACTID, ContactID
+    - With spaces: CONTACT ID, Contact Id
+
+    Also searches nested structures (extras, data, meta) if enabled.
+
+    Args:
+        payload: The webhook payload dict
+        field_name: The normalized field name (e.g., "contact_id")
+        search_nested: Whether to search nested dicts (default True)
+
+    Returns:
+        The field value or None if not found
+    """
+    # Generate all possible variations
+    base_name = field_name.replace("_", "").lower()  # e.g., "contactid"
+
+    # Split into words (e.g., "contact_id" -> ["contact", "id"])
+    words = field_name.split("_")
+
+    variations = [
+        field_name,                                    # contact_id
+        field_name.upper(),                           # CONTACT_ID
+        field_name.replace("_", " "),                 # contact id
+        field_name.replace("_", " ").upper(),         # CONTACT ID
+        field_name.replace("_", " ").title(),         # Contact Id
+        base_name,                                    # contactid
+        base_name.upper(),                            # CONTACTID
+        "".join(w.capitalize() for w in words),       # ContactId (PascalCase)
+        words[0] + "".join(w.capitalize() for w in words[1:]),  # contactId (camelCase)
+    ]
+
+    # Try all variations in root payload
+    for var in variations:
+        if var in payload:
+            value = payload[var]
+            if value is not None and str(value).strip():
+                return value
+
+    # Search nested structures if enabled
+    if search_nested:
+        nested_keys = ["extras", "data", "meta", "contact", "location", "user", "calendar"]
+        for nested_key in nested_keys:
+            if nested_key in payload and isinstance(payload[nested_key], dict):
+                for var in variations:
+                    if var in payload[nested_key]:
+                        value = payload[nested_key][var]
+                        if value is not None and str(value).strip():
+                            return value
+
+    return None
+
+def normalize_payload_universal(payload):
+    """
+    Normalize ANY GHL payload structure to consistent snake_case format.
+    Handles marketplace apps, custom webhooks, and any future formats.
+    """
+    # Common ID fields to normalize
+    id_fields = [
+        "contact_id", "location_id", "user_id", "calendar_id",
+        "appointment_id", "opportunity_id", "workflow_id", "company_id",
+        "conversation_id", "message_id", "task_id", "pipeline_id"
+    ]
+
+    # Common data fields
+    data_fields = [
+        "first_name", "last_name", "full_name", "email", "phone",
+        "address", "city", "state", "zip", "country",
+        "age", "date_of_birth", "gender", "intent", "message",
+        "agent", "status", "type", "direction", "body"
+    ]
+
+    all_fields = id_fields + data_fields
+
+    normalized = {}
+
+    # Extract all known fields using flexible search
+    for field in all_fields:
+        value = extract_field_flexible(payload, field, search_nested=True)
+        if value is not None:
+            normalized[field] = value
+
+    # Preserve original payload for reference
+    normalized["_original_payload"] = payload
+    normalized["_is_marketplace"] = payload.get("isMarketplaceAction", False)
+
+    return normalized
+
 # =====================================================
 #  THE ASYNC WEBHOOK ENDPOINT
 # =====================================================
@@ -225,9 +322,17 @@ def webhook():
     logger.critical(f"📦 Payload Keys: {list(payload.keys())}")
     logger.critical(f"📦 Full Payload JSON: {json.dumps(payload, indent=2, default=str)}")
 
-    location_id = payload.get("location_id") or payload.get("location", {}).get("id")
+    # 🔄 UNIVERSAL PAYLOAD NORMALIZATION
+    # Accepts ALL field name variations: snake_case, camelCase, PascalCase, UPPERCASE, spaces
+    # Works with marketplace apps, custom webhooks, and any future GHL formats
+    logger.critical("🔄 NORMALIZING PAYLOAD - Accepting all field name variations")
+    payload = normalize_payload_universal(payload)
+    logger.critical(f"✅ NORMALIZED PAYLOAD: {json.dumps(payload, indent=2, default=str)}")
+
+    # Extract values (now guaranteed to be in snake_case format)
+    location_id = payload.get("location_id")
     contact_id = payload.get("contact_id")
-    message_body = payload.get("message", {}).get("body") or payload.get("message")
+    message_body = payload.get("message") or payload.get("body")
 
     # 🚨 LOG: Extracted values for debugging
     logger.critical(f"🔍 EXTRACTED VALUES | contact_id={contact_id} | location_id={location_id} | first_name={payload.get('first_name')} | phone={payload.get('phone')}")
@@ -238,8 +343,16 @@ def webhook():
     if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
         logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} is clearly invalid | location_id={location_id}")
         logger.critical(f"🚨 REJECTION REASON: Expected 'contact_id' field with valid value (5+ chars), but got: {repr(contact_id)}")
-        logger.critical(f"🚨 Available fields in payload: {list(payload.keys())}")
-        return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id", "payload_keys": list(payload.keys())}), 400
+        logger.critical(f"🚨 Searched all variations: contact_id, contactId, ContactId, CONTACT_ID, CONTACTID, etc.")
+        logger.critical(f"🚨 Available fields in normalized payload: {list(payload.keys())}")
+        logger.critical(f"🚨 Original payload keys: {list(payload.get('_original_payload', {}).keys())}")
+        return flask_jsonify({
+            "status": "rejected",
+            "reason": "invalid_contact_id",
+            "note": "Tried all naming variations (camelCase, snake_case, UPPERCASE)",
+            "normalized_keys": list(payload.keys()),
+            "original_keys": list(payload.get("_original_payload", {}).keys())
+        }), 400
 
     logger.info(f"✅ WEBHOOK ACCEPTED | contact_id={contact_id} | Passing to Redis AS-IS (no validation/modification)")
 
