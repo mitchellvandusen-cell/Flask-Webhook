@@ -45,6 +45,9 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     # 1️⃣ CHECK TOKEN SCOPE
     # ═══════════════════════════════════════════════════════════════════════
     logger.info("\n1️⃣ CHECKING TOKEN SCOPE...")
+    logger.critical(f"[FORCED LOG] Token first 20 chars: {access_token[:20]}...")
+    logger.critical(f"[FORCED LOG] Calling /oauth/token/me...")
+
     try:
         me_resp = requests.get(
             "https://services.leadconnectorhq.com/oauth/token/me",
@@ -52,8 +55,11 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
             timeout=10
         )
 
+        logger.critical(f"[FORCED LOG] Token check response status: {me_resp.status_code}")
+
         if me_resp.status_code == 200:
             me_data = me_resp.json()
+            logger.critical(f"[FORCED LOG] Full token response: {me_data}")
             logger.info(f"✅ Token Info Retrieved:")
             logger.info(f"   Type: {me_data.get('type', 'UNKNOWN')}")
             logger.info(f"   Location ID from token: {me_data.get('locationId', 'N/A')}")
@@ -62,13 +68,16 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
 
             token_location = me_data.get('locationId')
             if token_location and token_location != location_id:
-                logger.warning(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
+                logger.critical(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
+                logger.critical(f"⚠️ THIS IS WHY THE CALENDAR ENDPOINT IS FAILING!")
             elif token_location == location_id:
                 logger.info(f"✅ Token location matches requested location: {location_id}")
+            else:
+                logger.warning(f"⚠️ Token has no locationId - might be agency-scoped token")
         else:
-            logger.error(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:200]}")
+            logger.critical(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:500]}")
     except Exception as e:
-        logger.error(f"❌ Token scope check failed: {e}", exc_info=True)
+        logger.critical(f"❌ Token scope check EXCEPTION: {e}", exc_info=True)
 
     # ═══════════════════════════════════════════════════════════════════════
     # 2️⃣ LIST ALL CALENDARS FOR LOCATION
@@ -113,15 +122,25 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
                     logger.info(f"       ✅ FOUND! This is your calendar.")
 
             if not calendar_found:
-                logger.error(f"❌ CALENDAR '{calendar_id}' NOT FOUND IN LOCATION '{location_id}'!")
-                logger.error(f"   Available calendar IDs: {[c.get('id') for c in calendars]}")
+                logger.critical(f"❌ CALENDAR '{calendar_id}' NOT FOUND IN LOCATION '{location_id}'!")
+                logger.critical(f"   Available calendar IDs: {[c.get('id') for c in calendars]}")
+                logger.critical(f"   📋 Here are the calendars that DO exist in this location:")
+                for cal in calendars:
+                    logger.critical(f"      - {cal.get('id')} | {cal.get('name')}")
+                logger.critical(f"   ⚠️ YOUR CALENDAR '{calendar_id}' IS NOT IN THIS LIST!")
+                logger.critical(f"   💡 This means the calendar belongs to a DIFFERENT location!")
             else:
                 logger.info(f"✅ Calendar '{calendar_id}' exists in location '{location_id}'")
 
         elif cal_resp.status_code == 404:
-            logger.error(f"❌ Location '{location_id}' NOT FOUND! This location might not exist or token lacks access.")
+            logger.critical(f"❌ Location '{location_id}' NOT FOUND! This location might not exist or token lacks access.")
+            logger.critical(f"   🔍 POSSIBLE CAUSES:")
+            logger.critical(f"      1. Token is scoped to a DIFFERENT location")
+            logger.critical(f"      2. Location '{location_id}' doesn't exist in this GHL account")
+            logger.critical(f"      3. Token lacks 'locations.readonly' permission")
+            logger.critical(f"   💡 Check the token's locationId in step 1️⃣ above!")
         elif cal_resp.status_code == 403:
-            logger.error(f"❌ FORBIDDEN! Token lacks permission to access location '{location_id}'")
+            logger.critical(f"❌ FORBIDDEN! Token lacks permission to access location '{location_id}'")
         else:
             logger.error(f"❌ Failed to list calendars: {cal_resp.status_code} - {cal_resp.text[:200]}")
     except Exception as e:
