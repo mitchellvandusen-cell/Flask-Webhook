@@ -26,6 +26,9 @@ def detect_token_type(access_token: str) -> dict:
     """
     Detects if the token is OAuth (v2) or Private API Key (v1).
 
+    Private Integration Tokens start with 'pit-' and use v1 endpoints.
+    OAuth tokens use v2 endpoints with location-specific paths.
+
     Returns:
         {
             "is_oauth": True/False,
@@ -34,24 +37,42 @@ def detect_token_type(access_token: str) -> dict:
             "version": "v2" or "v1"
         }
     """
+    logger.debug(f"🔍 Token detection: first 10 chars = {access_token[:10]}...")
+
+    # FAST PATH: Check for private integration token prefix
+    if access_token.startswith("pit-"):
+        logger.info(f"🔑 PRIVATE INTEGRATION TOKEN DETECTED (pit-...)")
+        logger.info(f"   ✅ Using v1 endpoints (calendarId in body, company-scoped)")
+        return {
+            "is_oauth": False,
+            "location_id": None,
+            "company_id": None,
+            "version": "v1"
+        }
+
+    # OAUTH PATH: Verify by calling /v2/me endpoint
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15"
     }
 
     try:
-        # Try v2 token info endpoint (works for OAuth tokens)
+        logger.debug(f"   Calling /v2/me to verify OAuth token...")
         me_resp = requests.get(
             "https://services.leadconnectorhq.com/v2/me",
             headers=headers,
             timeout=10
         )
 
+        logger.debug(f"   /v2/me response: status={me_resp.status_code}")
+
         if me_resp.status_code == 200:
             me_data = me_resp.json()
+            logger.debug(f"   /v2/me body: {me_data}")
             logger.info(f"✅ OAUTH TOKEN DETECTED (v2)")
             logger.info(f"   Location ID: {me_data.get('locationId')}")
             logger.info(f"   Company ID: {me_data.get('companyId')}")
+            logger.info(f"   User ID: {me_data.get('userId')}")
             return {
                 "is_oauth": True,
                 "location_id": me_data.get('locationId'),
@@ -59,9 +80,10 @@ def detect_token_type(access_token: str) -> dict:
                 "version": "v2"
             }
         else:
-            # Not an OAuth token, assume private API key
-            logger.info(f"⚙️ PRIVATE API KEY DETECTED (v1)")
+            # Not an OAuth token, likely an old-style API key
+            logger.info(f"⚙️ PRIVATE API KEY DETECTED (v1) - /v2/me returned {me_resp.status_code}")
             logger.info(f"   Will use v1 endpoints (calendarId in body, no locationId in path)")
+            logger.debug(f"   Response: {me_resp.text[:200]}")
             return {
                 "is_oauth": False,
                 "location_id": None,
@@ -350,9 +372,12 @@ def consolidated_calendar_op(
                 params["userId"] = crm_user_id
 
             try:
+                logger.debug(f"   Fetching slots with params: {params}")
                 resp = requests.get(url, headers=headers, params=params, timeout=20)
+                logger.debug(f"   Slots response status: {resp.status_code}")
                 resp.raise_for_status()
                 data = resp.json()
+                logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
 
                 slots = []
                 if isinstance(data, dict):
@@ -368,6 +393,7 @@ def consolidated_calendar_op(
                 logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
             except Exception as e:
                 logger.error(f"❌ Calendar fetch error ({token_version}): {e}")
+                logger.debug(f"   Error details: {str(e)}", exc_info=True)
                 slots = []
 
         if operation == "fetch_slots":
@@ -508,20 +534,26 @@ def consolidated_calendar_op(
 
                 resp = requests.post(booking_url, json=payload, headers=headers, timeout=30)
 
+                # DETAILED RESPONSE LOGGING
+                logger.info(f"   📬 Response Status: {resp.status_code}")
+                logger.debug(f"   📬 Response Body: {resp.text[:500]}")
+
                 if resp.status_code in [200, 201]:
                     # VERIFY the booking was actually created
                     try:
                         result_data = resp.json()
                         event_id = result_data.get('id') or result_data.get('event', {}).get('id')
+                        logger.debug(f"   Parsed event_id: {event_id}")
 
                         if event_id:
-                            logger.info(f"✅ BOOKING CONFIRMED | contact={contact_id} | time={start_dt} | event_id={event_id}")
+                            logger.info(f"✅ BOOKING CONFIRMED ({token_version}) | contact={contact_id} | time={start_dt} | event_id={event_id}")
                             return True
                         else:
                             logger.warning(f"⚠️ BOOKING CREATED BUT NO EVENT ID | contact={contact_id} | response={resp.text[:200]}")
                             return True  # Assume success if 200/201 even without event_id
                     except Exception as parse_err:
                         logger.warning(f"⚠️ BOOKING CREATED BUT PARSE FAILED | contact={contact_id} | error={parse_err}")
+                        logger.debug(f"   Raw response: {resp.text[:500]}")
                         return True  # Assume success if 200/201 even if parse fails
 
                 else:
