@@ -186,7 +186,8 @@ def fetch_calendars():
             ]
         })
 
-    url = f"https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+    # Unified endpoint works for both OAuth and PIT tokens
+    url = f"https://services.leadconnectorhq.com/calendars/?locationId={location_id}"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15",
@@ -449,6 +450,10 @@ def home():
 @app.route("/comparison")
 def comparison():
     return render_template('comparison.html')
+
+@app.route("/comparison/text-drip")
+def comparison_text_drip():
+    return render_template('comparison-text-drip.html')
 
 @app.route("/getting-started")
 def getting_started():
