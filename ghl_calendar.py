@@ -12,14 +12,20 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# GHL Calendar API v2 Endpoints - REQUIRE /locations/{location_id}/ prefix
-# These endpoints work with BOTH OAuth Access Tokens AND Private Integration Tokens (PIT)
+# GHL Calendar API Endpoints
+# OAuth: requires /v2/locations/{location_id}/ prefix in URL path
+# PIT: uses base URL (no location prefix), locationId as query param where needed
 # Source: https://marketplace.gohighlevel.com/docs/ghl/calendars/
-# CRITICAL: All sub-account resources must include /locations/{location_id}/ in path
-GHL_CALENDARS_LIST = "https://services.leadconnectorhq.com/locations/{location_id}/calendars"
-GHL_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_CREATE_APPOINTMENT_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events/appointments"
-GHL_CALENDAR_EVENTS_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/events"
+
+# OAuth v2 endpoints (location in URL path)
+GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+GHL_V2_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
+GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
+
+# PIT (Private Integration Token) endpoints (no location in path)
+GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
+GHL_V1_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
+GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
 
 def detect_token_type(access_token: str) -> dict:
@@ -180,9 +186,15 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     logger.info("\n2️⃣ LISTING ALL CALENDARS...")
     calendar_found = False
     try:
-        # v2 endpoint requires /locations/{locationId}/ in path (not query param)
-        cal_list_url = GHL_CALENDARS_LIST.format(location_id=location_id)
-        logger.info(f"   Using v2 calendars endpoint: {cal_list_url}")
+        # Select endpoint based on token type
+        if is_private_key:
+            cal_list_url = GHL_V1_CALENDARS_LIST
+            cal_params = {"locationId": location_id}
+            logger.info(f"   Using PIT calendars endpoint: {cal_list_url} with locationId param")
+        else:
+            cal_list_url = GHL_V2_CALENDARS_LIST.format(location_id=location_id)
+            cal_params = {}
+            logger.info(f"   Using OAuth v2 calendars endpoint: {cal_list_url}")
 
         cal_resp = requests.get(
             cal_list_url,
@@ -370,9 +382,15 @@ def consolidated_calendar_op(
         slots = get_cached_data(slots_key)
 
         if not slots:
-            # v2 endpoint requires /locations/{locationId}/ in path
-            url = GHL_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)
-            logger.info(f"📅 Using v2 free-slots endpoint: {url}")
+            # Select endpoint based on token type
+            if not is_oauth:
+                # PIT: base URL, NO locationId in query (API rejects it with 422)
+                url = GHL_V1_FREE_SLOTS_URL.format(cal_id=cal_id)
+                logger.info(f"📅 Using PIT free-slots endpoint: {url}")
+            else:
+                # OAuth: /v2/locations/{location_id}/ in path
+                url = GHL_V2_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)
+                logger.info(f"📅 Using OAuth v2 free-slots endpoint: {url}")
 
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
@@ -397,18 +415,18 @@ def consolidated_calendar_op(
                 data = resp.json()
                 logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
 
-                    slots = []
-                    if isinstance(data, dict):
-                        for entry in data.values():
-                            if isinstance(entry, list):
-                                slots.extend(entry)
-                            elif isinstance(entry, dict) and "slots" in entry:
-                                slots.extend(entry["slots"])
-                    elif isinstance(data, list):
-                        slots = data
+                slots = []
+                if isinstance(data, dict):
+                    for entry in data.values():
+                        if isinstance(entry, list):
+                            slots.extend(entry)
+                        elif isinstance(entry, dict) and "slots" in entry:
+                            slots.extend(entry["slots"])
+                elif isinstance(data, list):
+                    slots = data
 
-                    set_cache(slots_key, slots)
-                    logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
+                set_cache(slots_key, slots)
+                logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
             except requests.HTTPError as e:
                 logger.error(f"❌ Calendar fetch HTTP error ({token_version}): {e}")
                 logger.error(f"   Response text: {e.response.text[:200] if hasattr(e, 'response') else 'N/A'}")
@@ -515,22 +533,24 @@ def consolidated_calendar_op(
             logger.error(f"🚨 BOOKING BLOCKED: Time too far ahead | requested={start_dt} | contact={contact_id}")
             return False
 
-        # v2 endpoint requires /locations/{locationId}/ in path
-        booking_url = GHL_CREATE_APPOINTMENT_URL.format(location_id=location_id)
+        # Both PIT and OAuth use the same booking endpoint
+        booking_url = GHL_V2_BOOK_URL  # Same URL for both token types
         payload = {
-            "calendarId": cal_id,  # ✅ Required in body
-            "locationId": location_id,  # ✅ Required in body
+            "calendarId": cal_id,
+            "locationId": location_id,
             "contactId": contact_id,
             "startTime": start_dt.isoformat(),
             "endTime": end_dt.isoformat(),
             "title": f"Life Insurance Review {first_name or 'Lead'}",
             "appointmentStatus": "confirmed",
-            "assignedUserId": crm_user_id or None,
             "selectedTimezone": local_tz_str,
             "meetingLocationType": "custom",
             "meetingLocationId": "custom_0",
         }
-        logger.info(f"📅 Using v2 booking endpoint: {booking_url}")
+        # Only include assignedUserId if set (avoids 422 "not part of calendar team")
+        if crm_user_id:
+            payload["assignedUserId"] = crm_user_id
+        logger.info(f"📅 Using booking endpoint: {booking_url}")
 
         # ROBUST BOOKING with 3 retries and detailed error logging
         max_attempts = 3
