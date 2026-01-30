@@ -451,6 +451,10 @@ def home():
 def comparison():
     return render_template('comparison.html')
 
+@app.route("/comparison/text-drip")
+def comparison_text_drip():
+    return render_template('comparison-text-drip.html')
+
 @app.route("/getting-started")
 def getting_started():
     return render_template('getting-started.html')
