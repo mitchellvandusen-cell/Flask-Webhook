@@ -1,5 +1,6 @@
 # ghl_calendar.py - Lead Connector Calendar Slots & Booking (Flawless 2026)
-# CRITICAL: Uses webhook's locationId for all API calls (location-specific paths)
+# OAuth: locationId in URL path (/v2/locations/{id}/...)
+# PIT: locationId as query param or in request body
 import logging
 import os
 import requests
@@ -186,6 +187,7 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
         cal_resp = requests.get(
             cal_list_url,
             headers=headers,
+            params=cal_params,
             timeout=15
         )
 
@@ -376,10 +378,11 @@ def consolidated_calendar_op(
             start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
 
+            # Required query params: startDate (epoch ms), endDate (epoch ms), timezone
             params = {
                 "startDate": start_ts,
                 "endDate": end_ts,
-                "timezone": local_tz_str
+                "timezone": local_tz_str,
             }
             if crm_user_id:
                 params["userId"] = crm_user_id
@@ -387,6 +390,7 @@ def consolidated_calendar_op(
             try:
                 logger.debug(f"   Fetching slots with params: {params}")
                 resp = requests.get(url, headers=headers, params=params, timeout=20)
+                logger.debug(f"   Full URL sent: {resp.request.url}")
                 logger.debug(f"   Slots response status: {resp.status_code}")
 
                 resp.raise_for_status()
@@ -541,6 +545,7 @@ def consolidated_calendar_op(
                 resp = requests.post(booking_url, json=payload, headers=headers, timeout=30)
 
                 # DETAILED RESPONSE LOGGING
+                logger.debug(f"   Full URL sent: {resp.request.url}")
                 logger.info(f"   📬 Response Status: {resp.status_code}")
                 logger.debug(f"   📬 Response Body: {resp.text[:500]}")
 
@@ -572,6 +577,13 @@ def consolidated_calendar_op(
                         "payload": payload
                     }
 
+                    # 422 with "not part of calendar team" → retry without assignedUserId
+                    if resp.status_code == 422 and "not part of calendar team" in resp.text:
+                        if "assignedUserId" in payload:
+                            logger.warning(f"⚠️ assignedUserId '{payload['assignedUserId']}' not on calendar team — retrying without it")
+                            del payload["assignedUserId"]
+                            continue  # retry this attempt with the fixed payload
+
                     if resp.status_code == 400:
                         logger.error(f"🚨 BOOKING FAILED: BAD REQUEST (calendar_id invalid or time unavailable) | {error_details}")
                     elif resp.status_code == 401:
@@ -588,6 +600,8 @@ def consolidated_calendar_op(
                             logger.error(f"Debug recheck failed: {recheck_err}")
                     elif resp.status_code == 409:
                         logger.error(f"🚨 BOOKING FAILED: CONFLICT (time slot already booked) | {error_details}")
+                    elif resp.status_code == 422:
+                        logger.error(f"🚨 BOOKING FAILED: UNPROCESSABLE ENTITY | {error_details}")
                     elif resp.status_code == 429:
                         logger.error(f"🚨 BOOKING FAILED: RATE LIMIT (too many requests) | {error_details}")
                     elif resp.status_code >= 500:

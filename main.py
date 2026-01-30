@@ -543,15 +543,16 @@ def stripe_webhook():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """
-    Registration - Supports TWO paths:
-    1. Post-OAuth: User already in DB from OAuth, just sets password
-    2. Website/Stripe: New user, creates entry in DB manually
+    Registration - Marketplace Only.
+    User must have already installed the app from the GHL Marketplace,
+    which creates their record via /oauth/callback.
+    This page just lets them set a password.
 
     Sub-users should use /claim-account instead.
     """
     form = RegisterForm()
 
-    # Pre-fill from OAuth redirect or Stripe checkout
+    # Pre-fill from OAuth redirect
     if request.method == "GET":
         url_location_id = request.args.get('location_id')
         if url_location_id:
@@ -577,7 +578,7 @@ def register():
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
 
-            # 2. Check if location_id already exists in subscribers (from OAuth)
+            # 2. Check if location_id already exists in subscribers (from OAuth/Marketplace)
             cur.execute("""
                 SELECT email, parent_agency_email, invite_token, onboarding_status
                 FROM subscribers
@@ -586,69 +587,36 @@ def register():
             """, (submitted_location_id,))
             match = cur.fetchone()
 
+            if not match:
+                # Location not found → user hasn't installed from Marketplace yet
+                flash("Location ID not found. You must install the app from the GoHighLevel Marketplace first.", "error")
+                return redirect("/register")
+
             password_hash = generate_password_hash(password)
 
-            if match:
-                # PATH A: Post-OAuth Registration
-                # User already in DB from OAuth, just set password
-
-                # Check if this is a sub-user who should use /claim-account
-                if match['parent_agency_email'] and match['invite_token']:
-                    flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
-                    return redirect(url_for("login"))
-
-                # Verify email matches (security check)
-                if match['email'] != email:
-                    flash("Location ID does not match your email. Please reconnect via OAuth.", "error")
-                    return redirect("/register")
-
-                # Update password in existing record
-                cur.execute("""
-                    UPDATE subscribers
-                    SET password_hash = %s,
-                        onboarding_status = 'claimed',
-                        updated_at = NOW()
-                    WHERE location_id = %s
-                """, (password_hash, submitted_location_id))
-
-                conn.commit()
-                logger.info(f"Post-OAuth registration completed: {email}")
-                flash("Account created successfully! Welcome aboard.", "success")
+            # Check if this is a sub-user who should use /claim-account
+            if match['parent_agency_email'] and match['invite_token']:
+                flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
                 return redirect(url_for("login"))
 
-            else:
-                # PATH B: Website/Stripe Registration
-                # User NOT in DB yet, create new entry
-                # This is for users who:
-                # - Paid via Stripe on website
-                # - Haven't done OAuth yet
-                # - Manually entering their location_id
+            # Verify email matches (security check)
+            if match['email'] != email:
+                flash("Location ID does not match your email. Please reconnect via OAuth.", "error")
+                return redirect("/register")
 
-                logger.info(f"Creating new subscriber entry for Stripe/manual registration: {email}")
+            # Update password in existing record
+            cur.execute("""
+                UPDATE subscribers
+                SET password_hash = %s,
+                    onboarding_status = 'claimed',
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (password_hash, submitted_location_id))
 
-                cur.execute("""
-                    INSERT INTO subscribers (
-                        location_id, email, password_hash, full_name, role,
-                        subscription_tier, onboarding_status,
-                        timezone, bot_first_name,
-                        created_at, updated_at
-                    ) VALUES (
-                        %s, %s, %s, %s, 'individual',
-                        'individual', 'claimed',
-                        'America/Chicago', 'Grok',
-                        NOW(), NOW()
-                    )
-                """, (
-                    submitted_location_id,
-                    email,
-                    password_hash,
-                    form.email.data  # Use email as name initially
-                ))
-
-                conn.commit()
-                logger.info(f"Manual/Stripe registration completed: {email}")
-                flash("Account created successfully! You can now connect your Lead Connector account from the dashboard.", "success")
-                return redirect(url_for("login"))
+            conn.commit()
+            logger.info(f"Post-OAuth registration completed: {email}")
+            flash("Account created successfully! Welcome aboard.", "success")
+            return redirect(url_for("login"))
 
         except Exception as e:
             conn.rollback()
