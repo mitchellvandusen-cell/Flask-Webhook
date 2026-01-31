@@ -208,9 +208,6 @@ def build_system_prompt(
     calendar_slots: str = "",
     context_nudge: str = "",
     lead_vendor: str = "",
-    lead_first_name: Optional[str] = None,
-    lead_age: Optional[str] = None,
-    lead_address: Optional[str] = None
 ) -> str:
 
     identity = f"You are {bot_first_name}, conversational life insurance advisor."
@@ -221,6 +218,18 @@ def build_system_prompt(
         for msg in recent_exchanges[-8:]
     ])
 
+    # Known facts the LLM has gathered about this lead
+    facts_str = ""
+    if known_facts:
+        clean_facts = [f for f in known_facts if f and f.strip()]
+        if clean_facts:
+            facts_str = "\n=== WHAT YOU ALREADY KNOW ABOUT THIS LEAD ===\n" + "\n".join(f"- {fact}" for fact in clean_facts)
+
+    # Narrative arc of the conversation so far
+    story_str = ""
+    if story_narrative and story_narrative.strip():
+        story_str = f"\n=== CONVERSATION STORY SO FAR ===\n{story_narrative.strip()}"
+
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
 
@@ -230,6 +239,8 @@ def build_system_prompt(
 {identity}
 
 {profile_str}
+{facts_str}
+{story_str}
 
 === TACTICAL GUIDANCE ===
 {tactical_narrative}

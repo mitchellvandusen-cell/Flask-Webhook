@@ -19,8 +19,7 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     4. Book appointment
     """
 
-    # 🚨 CRITICAL DEBUG LOGGING
-    logger.critical(f"🔍 SALES DIRECTOR | contact_id={contact_id} | first_name={first_name}")
+    logger.info(f"🔍 SALES DIRECTOR | contact_id={contact_id} | first_name={first_name}")
 
     # 1. GATHER INTELLIGENCE
     # Get ALL messages for narrative observer (unlimited memory)
@@ -35,15 +34,13 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     story_narrative = get_narrative(contact_id)
     known_facts = get_known_facts(contact_id)
 
-    # 🚨 DEBUG: Check what narrative was retrieved
-    logger.critical(f"🔍 NARRATIVE CHECK | contact_id={contact_id} | narrative_preview={story_narrative[:100] if story_narrative else 'EMPTY'}")
+    logger.debug(f"🔍 NARRATIVE CHECK | contact_id={contact_id} | narrative_preview={story_narrative[:100] if story_narrative else 'EMPTY'}")
 
     # 2. ANALYZE
     logic: LogicSignal = analyze_logic_flow(recent_exchanges)
     profile_str, profile_ctx = build_comprehensive_profile(story_narrative, known_facts, first_name, age, address)
 
-    # 🚨 DEBUG: Check profile output
-    logger.critical(f"🔍 PROFILE BUILT | contact_id={contact_id} | profile_preview={profile_str[:150] if profile_str else 'EMPTY'}")
+    logger.debug(f"🔍 PROFILE BUILT | contact_id={contact_id} | profile_preview={profile_str[:150] if profile_str else 'EMPTY'}")
 
     # Underwriting & Company Context
     underwriting_ctx = ""

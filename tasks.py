@@ -95,10 +95,10 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     Key insight: If bot just offered times and lead responds with ANY acceptance,
     that's a booking request even without explicit "book" keywords.
     """
-    logger.critical(f"🔍 BOOKING DETECTION START | message='{message}' | stage='{stage}' | exchanges_count={len(recent_exchanges)}")
+    logger.info(f"🔍 BOOKING DETECTION START | message='{message}' | stage='{stage}' | exchanges_count={len(recent_exchanges)}")
 
     if not message:
-        logger.critical("🚫 BOOKING DETECTION: No message provided")
+        logger.warning("🚫 BOOKING DETECTION: No message provided")
         return False, None
 
     msg_lower = message.lower().strip()
@@ -107,7 +107,7 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
     last_bot_msg = bot_msgs[-1]['text'].lower() if bot_msgs else ""
 
-    logger.critical(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
+    logger.debug(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
     
     # Detect if bot offered times in last message
     time_offer_indicators = [
@@ -157,7 +157,7 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     is_acceptance = any(phrase in msg_lower for phrase in acceptance_phrases)
 
     # Log detection signals
-    logger.critical(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
+    logger.info(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
 
     # === DECISION LOGIC ===
     
@@ -176,8 +176,8 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | msg='{message[:50]}'")
         return True, last_bot_msg  # Use bot's message for time extraction
     
-    # Case 4: Stage is CLOSING + any acceptance
-    if stage == "closing" and is_acceptance:
+    # Case 4: Stage is BOOKING + any acceptance
+    if stage == "booking" and is_acceptance:
         logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | msg='{message[:50]}'")
         return True, message if has_time_reference else last_bot_msg
     
@@ -187,8 +187,8 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         logger.info(f"BOOKING CASE 5: Time acceptance phrase | msg='{message[:50]}'")
         return True, last_bot_msg
 
-    logger.critical(f"🚫 BOOKING DETECTION FAILED | No cases matched | msg='{message}'")
-    logger.critical(f"🚫 Reasons: bot_offered={bot_offered_times}, explicit={has_explicit_intent}, time_ref={has_time_reference}, acceptance={is_acceptance}, stage={stage}")
+    logger.info(f"🚫 BOOKING DETECTION: No cases matched | msg='{message}'")
+    logger.debug(f"   Reasons: bot_offered={bot_offered_times}, explicit={has_explicit_intent}, time_ref={has_time_reference}, acceptance={is_acceptance}, stage={stage}")
     return False, None
 
 
@@ -207,21 +207,21 @@ def process_webhook_task(payload: dict):
     location_id = payload.get("location_id")
 
     # 🚨 LOG: Chef (worker) received the order ticket from kitchen (Redis)
-    logger.critical(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | phone={payload.get('phone')} | location_id={location_id}")
+    logger.info(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | location_id={location_id}")
 
     # 🚨 USE PAYLOAD AS-IS: GHL sent this data, trust it (this is the order ticket)
     # Only validate if we detect a problem below (can't find contact, name mismatch, etc.)
     contact_id = contact_id_raw
 
     if not contact_id or not is_valid_contact_id(contact_id):
-        logger.critical(f"🚨 TASK RECEIVED INVALID CONTACT_ID | Attempting validation | contact_id={contact_id}")
+        logger.warning(f"🚨 TASK RECEIVED INVALID CONTACT_ID | Attempting validation | contact_id={contact_id}")
         contact_id = validate_and_resolve_contact(payload)
 
         if not contact_id or not is_valid_contact_id(contact_id):
-            logger.critical(f"🚨 TASK REJECTED - INVALID CONTACT | contact_id={contact_id_raw} | location_id={location_id}")
+            logger.error(f"🚨 TASK REJECTED - INVALID CONTACT | contact_id={contact_id_raw} | location_id={location_id}")
             return {"status": "error", "reason": "invalid_contact_id"}
 
-        logger.critical(f"✅ CONTACT VALIDATED | original={contact_id_raw} | resolved={contact_id}")
+        logger.info(f"✅ CONTACT VALIDATED | original={contact_id_raw} | resolved={contact_id}")
 
     logger.info(f"▶ START PROCESSING | location={location_id} | contact={contact_id}")
 
@@ -386,7 +386,7 @@ def process_webhook_task(payload: dict):
 
         # === Calendar fetch logic (for offering slots - only if NOT already booking) ===
         calendar_slots = ""
-        if director_output["stage"] == "closing" and not booking_made:
+        if director_output["stage"] == "booking" and not booking_made:
             if is_demo:
                 # FIXED: Typo "Tomrorow" -> "Tomorrow"
                 calendar_slots = "Tomorrow at 2:00 PM, Tomorrow at 4:30 PM, or Friday at 10:00 AM"
@@ -415,11 +415,11 @@ CRITICAL - DO NOT ASK FOR:
 Example: "Perfect! You're all set for tomorrow at 2pm. You'll get the calendar invite in a few minutes. Looking forward to it!"
 
 DO NOT continue the sales conversation. The appointment is booked. Just confirm and end warmly."""
-            logger.critical(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
+            logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
         else:
             # CRITICAL: Prevent AI from hallucinating bookings
             context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
-            logger.critical(f"🚫 NO BOOKING - AI instructed NOT to confirm appointments | contact={contact_id}")
+            logger.info(f"🚫 NO BOOKING YET | contact={contact_id}")
 
         # 🎭 RE-ENGAGEMENT MODE: If 6+ consecutive bot messages without response
         consecutive_bot_msgs = count_consecutive_bot_messages(recent_exchanges)
