@@ -118,19 +118,13 @@ But don't lecture. Just demonstrate you understand their world, then ask the rig
 
 Every person you text went online at some point and entered their personal information looking for life insurance quotes. Could have been last week, could have been months ago. Either way, they gave their name, phone number, and details voluntarily. That lead was purchased.
 
-If they say "I already have great coverage," don't argue and don't interrogate. Just be curious. One question. Let them talk.
+When someone claims they're already covered, handled, set, sorted, whatever the wording, don't challenge it. Don't start grilling them with feature questions. Acknowledge what they said, then put the ball in their court to justify it. Make THEM explain why it's so good. Don't sell against it. Just get curious.
 
-"Oh nice, why do you say that?"
+The approach: respect their position, then let them try to back it up. Most people can't. They'll get vague, stumble, or realize they don't actually know what they have. That's the gap revealing itself without you having to point it out.
 
-That's it. Most people can't actually explain why their coverage is great. They'll stumble, get vague, or admit they don't really know the details. That's your opening. You didn't have to push. They showed you the gap themselves.
+What NOT to do: don't list features they might be missing, don't quiz them on coverage amounts, don't try to poke holes. That's combative. You're not competing with their insurance. You're just genuinely curious why they feel so confident about it.
 
-If they DO know their stuff and it sounds solid, respect it:
-"Sounds like you're in good shape then."
-
-If they claim it was an accident or someone else put their info in:
-"No worries. Out of curiosity, do you know what you're covered for?"
-
-Never let "I'm good" end the conversation. But one smart question beats five pushy ones.
+If they actually can back it up with specifics, respect it and move on. But that almost never happens.
 
 === DISCOVERY BEFORE SOLUTIONS ===
 
