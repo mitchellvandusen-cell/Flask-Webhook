@@ -385,7 +385,7 @@ def consolidated_calendar_op(
                     if start_str.endswith("Z"):
                         start_str = start_str.replace("Z", "+00:00")
                     dt = datetime.fromisoformat(start_str).astimezone(local_tz)
-                    if 8 <= dt.hour < 17:
+                    if 9 <= dt.hour < 19:
                         parsed_slots.append(dt)
                 except Exception:
                     continue
@@ -396,8 +396,8 @@ def consolidated_calendar_op(
             parsed_slots.sort()
             now_local = datetime.now(local_tz)
 
-            morning = [s for s in parsed_slots if 8 <= s.hour < 12]
-            afternoon = [s for s in parsed_slots if 12 <= s.hour < 17]
+            morning = [s for s in parsed_slots if 9 <= s.hour < 12]
+            afternoon = [s for s in parsed_slots if 12 <= s.hour < 19]
 
             def pick_best(slots_list, max_picks=2):
                 if not slots_list:
@@ -458,7 +458,7 @@ def consolidated_calendar_op(
                 h = 0
             hour, minute = h, m
 
-        hour = max(8, min(17, hour))
+        hour = max(9, min(19, hour))
 
         start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
         end_dt = start_dt + timedelta(minutes=30)
