@@ -556,10 +556,12 @@ BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices 
             lead_vendor=lead_vendor
         )
 
+        # System prompt already contains the full conversation recap (narrator),
+        # the person dossier (profile), AND recent_exchanges as formatted text.
+        # Do NOT duplicate the conversation as chat history — that causes the LLM
+        # to see the same messages twice and lose track of what's been discussed.
+        # Only pass system prompt + the lead's current message.
         grok_messages = [{"role": "system", "content": system_prompt}]
-        for msg in recent_exchanges:
-            role = "user" if msg["role"] == "lead" else "assistant"
-            grok_messages.append({"role": role, "content": msg["text"]})
         if message:
             grok_messages.append({"role": "user", "content": message})
 
