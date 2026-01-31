@@ -140,10 +140,11 @@ def build_comprehensive_profile(
                 basics.append(f"{name} is {age_int} years old")
         except:
             pass
-    if address:
-        city_state = address.split(',')[-1].strip() if ',' in address else address.strip()
-        if city_state:
-            basics.append(f"located in {city_state}")
+    # PRIVACY: Do NOT include address in profile - too invasive/creepy for bot to mention
+    # if address:
+    #     city_state = address.split(',')[-1].strip() if ',' in address else address.strip()
+    #     if city_state:
+    #         basics.append(f"located in {city_state}")
     if basics:
         profile_sections.append(f"Basics: {', '.join(basics)}.")
 
