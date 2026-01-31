@@ -463,8 +463,8 @@ def consolidated_calendar_op(
         start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
         end_dt = start_dt + timedelta(minutes=30)
 
-        if start_dt.date() > (now_local + timedelta(days=14)).date():
-            logger.error(f"🚨 BOOKING BLOCKED: Time more than 14 days ahead | requested={start_dt} | contact={contact_id}")
+        if start_dt.date() > (now_local + timedelta(days=3)).date():
+            logger.error(f"🚨 BOOKING BLOCKED: Time more than 3 days ahead | requested={start_dt} | contact={contact_id}")
             return False
 
         # Both PIT and OAuth use the same booking endpoint
