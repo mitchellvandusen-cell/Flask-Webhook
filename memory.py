@@ -242,17 +242,20 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
 
 def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> dict:
     """
-    Single LLM call that does BOTH jobs:
-    1. Evolves the narrative story (flowing paragraph of who this person is)
-    2. Extracts discrete facts from conversation (structured bullet points)
+    LEFT BRAIN — The Conversation Recap.
 
-    The LLM reads the entire conversation and understands meaning — no keyword
-    matching. If someone says "yeah I have something through my job", the LLM
-    understands that means employer-provided coverage without anyone hardcoding
-    the phrase.
+    Reads the full conversation and produces:
+    1. A narrative recap of what has happened in this conversation — what was said,
+       what was asked, what was answered, what was agreed to, where things stand NOW.
+       This is session notes, not a person description.
+    2. Discrete facts extracted from what the lead actually said or confirmed.
+       These feed into the individual profile (right brain) separately.
+
+    The narrative prevents looping. If Grok reads "Bot already asked about coverage
+    and lead said he has something through work", Grok won't ask again.
 
     Returns dict with:
-        - "narrative": updated story string
+        - "narrative": conversation recap string
         - "new_facts": list of newly extracted fact strings
     """
     result = {"narrative": "", "new_facts": []}
@@ -262,7 +265,7 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
         result["narrative"] = get_narrative(contact_id) or ""
         return result
 
-    current_story = get_narrative(contact_id) or "Brand new lead. No history yet."
+    current_story = get_narrative(contact_id) or "First contact. No conversation yet."
     existing_facts = get_known_facts(contact_id)
 
     # Build conversation context (UNLIMITED - use EVERYTHING from database)
@@ -281,27 +284,28 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
 
     existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
 
-    observer_prompt = f"""You are a Narrative Observer. You read the ENTIRE conversation and produce two things.
+    observer_prompt = f"""You are a conversation note-taker. Your job is to read the full conversation and write a recap of what has happened so far, and pull out any new facts the lead revealed.
 
-CURRENT STORY:
+PREVIOUS RECAP:
 {current_story}
 
-KNOWN FACTS:
+ALREADY KNOWN FACTS:
 {existing_str}
 
-COMPLETE CONVERSATION:
+FULL CONVERSATION:
 {conversation_context}
 
-OUTPUT FORMAT (follow exactly):
+Produce two sections. Follow this format exactly:
 
-NARRATIVE:
-Write a flowing paragraph that tells this person's story so far. Who they are, what they want, what they've said, how they feel, where the conversation stands. Understand meaning and context, not just words. If someone says "yeah" after the bot asked "still looking?", they're still looking. If someone mentions "something through work", they have employer coverage. Read between the lines.
+RECAP:
+Write a chronological recap of this conversation. What did the bot say, what did the lead say back, what questions were asked, what was answered, what was agreed to, what objections came up, and where does the conversation stand right now. This is a play-by-play of the conversation, not a description of the person.
 
-Keep everything from the current story. Add new details. Never lose old facts. Connect the dots. No assumptions. No fabrication. Use as much space as needed to capture the full picture.
+Understand meaning and context. If the lead said "yeah" after the bot asked "still looking?", note that the lead confirmed they're still looking. If they said "nah I'm good" after being asked about scheduling, note that they declined to book.
+
+Include everything from the previous recap. Add what's new. Never drop old details. The goal is that someone reading this recap knows exactly what has been discussed and what hasn't, so nothing gets repeated.
 
 FACTS:
-List any NEW facts from the latest messages that aren't already in the KNOWN FACTS list above. One per line. Interpret meaning, not just literal words. If there are no new facts, write NONE.
-"""
+List any NEW facts about the lead that came out of the latest messages. Things they said or confirmed about themselves, their life, their coverage, their situation. Interpret meaning — if they mention "something through my job" that's employer-provided coverage. One fact per line. Only new facts not already in ALREADY KNOWN FACTS. If no new facts, write NONE."""
 
     try:
         if not client:
@@ -326,9 +330,9 @@ List any NEW facts from the latest messages that aren't already in the KNOWN FAC
             narrative_part = parts[0].strip()
             facts_part = parts[1].strip()
 
-        # Clean narrative (remove the "NARRATIVE:" label if present)
-        if narrative_part.startswith("NARRATIVE:"):
-            narrative_part = narrative_part[len("NARRATIVE:"):].strip()
+        # Clean narrative (remove the "RECAP:" label if present)
+        if narrative_part.startswith("RECAP:"):
+            narrative_part = narrative_part[len("RECAP:"):].strip()
 
         # Update narrative if valid
         if len(narrative_part) >= 20:
