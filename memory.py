@@ -56,9 +56,11 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
             cur.close()
             conn.close()
 
-def get_recent_messages(contact_id: str, limit: int = 8) -> List[Dict[str, str]]:
+def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, str]]:
     """
-    Fetch the most recent messages for context (lead + assistant).
+    Fetch messages for context (lead + assistant).
+    If limit=None, fetches ALL messages (for narrative observer).
+    If limit=int, fetches recent N exchanges.
     Returns list of {'role': 'lead'/'assistant', 'text': str}, newest last.
     """
     if not contact_id:
@@ -71,13 +73,23 @@ def get_recent_messages(contact_id: str, limit: int = 8) -> List[Dict[str, str]]
 
     try:
         cur = conn.cursor()
-        cur.execute("""
-            SELECT message_type, message_text
-            FROM contact_messages
-            WHERE contact_id = %s
-            ORDER BY created_at DESC
-            LIMIT %s
-        """, (contact_id, limit * 2))
+        if limit is None:
+            # Fetch ALL messages for narrative observer (unlimited memory)
+            cur.execute("""
+                SELECT message_type, message_text
+                FROM contact_messages
+                WHERE contact_id = %s
+                ORDER BY created_at DESC
+            """, (contact_id,))
+        else:
+            # Fetch limited messages for logic flow
+            cur.execute("""
+                SELECT message_type, message_text
+                FROM contact_messages
+                WHERE contact_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+            """, (contact_id, limit * 2))
 
         rows = cur.fetchall()
         messages = []
@@ -85,7 +97,8 @@ def get_recent_messages(contact_id: str, limit: int = 8) -> List[Dict[str, str]]
             role = "lead" if msg_type == "lead" else "assistant"
             messages.append({"role": role, "text": text.strip()})
 
-        return messages[-limit:]
+        # If limit specified, return last N messages; otherwise return all
+        return messages[-limit:] if limit else messages
     except Exception as e:
         logger.error(f"get_recent_messages failed for {contact_id}: {e}")
         return []
@@ -245,11 +258,11 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
     # Trust the narrative observer to understand what "k" means in response to "does 5pm work?"
     # Memory is flawless, no cost-saving skips
 
-    # Build conversation context (last 4 exchanges so AI knows what bot asked)
+    # Build conversation context (UNLIMITED - use EVERYTHING from database)
     conversation_context = ""
     if recent_messages and len(recent_messages) > 0:
-        recent = recent_messages[-4:]  # Last 2 exchanges (4 messages)
-        for msg in recent:
+        # Use ALL messages - no limit. 99% unlimited memory promise.
+        for msg in recent_messages:
             role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
             conversation_context += f"{role_label}: {msg['text']}\n"
 
@@ -262,18 +275,19 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
         return current_story
 
     observer_prompt = f"""
-You are a Narrative Observer. Update the lead's life story based on their conversation with the bot.
+You are a Narrative Observer with UNLIMITED MEMORY. Update the lead's life story based on their COMPLETE conversation history.
 
 CURRENT STORY (keep and evolve):
 {current_story}
 
-RECENT CONVERSATION (includes what bot asked AND lead's response):
+COMPLETE CONVERSATION HISTORY (EVERY message from the beginning):
 {conversation_context}
 
 TASK:
 - Rewrite the full narrative as a flowing, human-readable paragraph (max 150 words).
 - Extract specific entities (insurance companies, coverage amounts, family members, health issues, etc.).
 - Understand CONTEXT: If bot asked "still looking?" and lead said "yes", they're still looking.
+- REMEMBER EVERYTHING: Never lose facts from earlier in conversation (work coverage, family details, health info).
 - Capture hints & subtext (hesitation, family influence, financial stress).
 - Apply meaning, don't just list, connect dots.
 - Stay focused on the person's situation, emotions, and story.
