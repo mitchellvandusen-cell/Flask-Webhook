@@ -66,13 +66,14 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
         # Personalization details
         has_name = bool(first_name)
         has_age = bool(age)
-        has_location = bool(address)
+        # PRIVACY: Do NOT expose address to bot - only for backend context
+        # has_location = bool(address)
 
         personalization_note = ""
         if has_name:
             personalization_note += f"\nUSE FIRST NAME: '{first_name}' naturally in your opening."
-        if has_age or has_location:
-            personalization_note += f"\nYou know their context ({age if has_age else ''} {address if has_location else ''}). Use this to feel less cold."
+        if has_age:
+            personalization_note += f"\nYou know their age ({age}). Use this to feel less cold, but DON'T mention their location/address."
 
         directive = f"""INITIAL OUTREACH
 

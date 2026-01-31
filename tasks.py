@@ -272,7 +272,8 @@ def process_webhook_task(payload: dict):
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")
         if age and age != "unknown": initial_facts.append(f"Age: {age}")
-        if address: initial_facts.append(f"Address: {address}")
+        # PRIVACY: Do NOT save address as a fact - only for backend context
+        # if address: initial_facts.append(f"Address: {address}")
         if intent: initial_facts.append(f"Intent: {intent}")
 
         if initial_facts and contact_id != "unknown":
