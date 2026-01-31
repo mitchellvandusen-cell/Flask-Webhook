@@ -240,175 +240,124 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
             cur.close()
             conn.close()
 
-def extract_facts_from_conversation(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> List[str]:
+def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> dict:
     """
-    Extracts discrete, structured facts from the conversation using the LLM.
-    This supplements the narrative observer by maintaining a bullet-point list
-    of confirmed details — things the lead has actually said or confirmed.
+    Single LLM call that does BOTH jobs:
+    1. Evolves the narrative story (flowing paragraph of who this person is)
+    2. Extracts discrete facts from conversation (structured bullet points)
 
-    Examples of facts:
-    - "Has a policy through work"
-    - "Married with two kids"
-    - "Age 42"
-    - "Concerned about mortgage coverage"
-    - "Skeptical about cost"
+    The LLM reads the entire conversation and understands meaning — no keyword
+    matching. If someone says "yeah I have something through my job", the LLM
+    understands that means employer-provided coverage without anyone hardcoding
+    the phrase.
 
-    The LLM interprets MEANING, not just keywords. If someone says
-    "yeah I have something through my job" that becomes "Has employer-provided coverage."
+    Returns dict with:
+        - "narrative": updated story string
+        - "new_facts": list of newly extracted fact strings
     """
-    if not contact_id or not client:
-        return []
+    result = {"narrative": "", "new_facts": []}
 
-    existing_facts = get_known_facts(contact_id)
-
-    # Build recent context (last 6 messages is enough for fact extraction)
-    context_lines = []
-    if recent_messages:
-        for msg in recent_messages[-6:]:
-            role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
-            context_lines.append(f"{role_label}: {msg['text']}")
-    if lead_message and lead_message.strip():
-        context_lines.append(f"Lead: {lead_message}")
-
-    if not context_lines:
-        return existing_facts
-
-    conversation_snippet = "\n".join(context_lines)
-    existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
-
-    extract_prompt = f"""Extract confirmed facts about this lead from their conversation. Interpret meaning, not just exact words.
-
-ALREADY KNOWN:
-{existing_str}
-
-RECENT CONVERSATION:
-{conversation_snippet}
-
-RULES:
-- Only extract facts the lead has SAID or CONFIRMED (not bot assumptions)
-- Interpret meaning at about 70% confidence. If someone says "yeah I have something through my job", that means they have employer-provided coverage.
-- Short, factual bullet points. No speculation.
-- Skip anything already in the ALREADY KNOWN list above.
-- If the lead confirmed or denied something the bot asked, capture that.
-- Return ONLY new facts not already known, one per line, no bullets or dashes.
-- If there are no new facts, return exactly: NONE
-
-Examples of good facts:
-Has coverage through employer
-Married with kids
-Age around 35
-Looking for additional coverage
-Worried about cost
-Not interested in whole life
-Agreed to a call
-Prefers morning appointments"""
-
-    try:
-        response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
-            messages=[{"role": "system", "content": extract_prompt}],
-            temperature=0.2,
-            max_tokens=150,
-            timeout=10.0
-        )
-        raw = response.choices[0].message.content.strip()
-
-        if not raw or raw.upper() == "NONE":
-            return existing_facts
-
-        # Parse lines into facts
-        new_facts = []
-        for line in raw.split("\n"):
-            line = line.strip().lstrip("-•* ")
-            if line and len(line) > 3 and line.upper() != "NONE":
-                new_facts.append(line)
-
-        if new_facts:
-            saved = save_new_facts(contact_id, new_facts)
-            if saved > 0:
-                logger.info(f"📝 Extracted {saved} new facts for {contact_id}: {new_facts}")
-
-        return existing_facts + new_facts
-
-    except Exception as e:
-        logger.error(f"Fact extraction failed for {contact_id}: {e}")
-        return existing_facts
-
-
-def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> str:
-    """
-    The 'Invisible Bot' that evolves the contact's life story.
-    NOW sees BOTH sides of the conversation to understand context.
-    Returns updated narrative (or current if failed/skipped).
-    """
     if not contact_id:
         logger.warning(f"Skipping observer: no contact_id")
-        return get_narrative(contact_id) or ""
+        result["narrative"] = get_narrative(contact_id) or ""
+        return result
 
     current_story = get_narrative(contact_id) or "Brand new lead. No history yet."
-
-    # Process ALL messages - even "k" or "ya" have context from previous bot message
-    # Trust the narrative observer to understand what "k" means in response to "does 5pm work?"
-    # Memory is flawless, no cost-saving skips
+    existing_facts = get_known_facts(contact_id)
 
     # Build conversation context (UNLIMITED - use EVERYTHING from database)
     conversation_context = ""
     if recent_messages and len(recent_messages) > 0:
-        # Use ALL messages - no limit. 99% unlimited memory promise.
         for msg in recent_messages:
             role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
             conversation_context += f"{role_label}: {msg['text']}\n"
 
-    # Add current lead message if present
     if lead_message and lead_message.strip():
         conversation_context += f"Lead: {lead_message}\n"
 
-    # If no meaningful conversation, skip
     if not conversation_context.strip():
-        return current_story
+        result["narrative"] = current_story
+        return result
 
-    observer_prompt = f"""
-You are a Narrative Observer with UNLIMITED MEMORY. Update the lead's life story based on their COMPLETE conversation history.
+    existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
 
-CURRENT STORY (keep and evolve):
+    observer_prompt = f"""You are a Narrative Observer. You read the ENTIRE conversation and produce two things.
+
+CURRENT STORY:
 {current_story}
 
-COMPLETE CONVERSATION HISTORY (EVERY message from the beginning):
+KNOWN FACTS:
+{existing_str}
+
+COMPLETE CONVERSATION:
 {conversation_context}
 
-TASK:
-- Rewrite the full narrative as a flowing, human-readable paragraph (max 150 words).
-- Extract specific entities (insurance companies, coverage amounts, family members, health issues, etc.).
-- Understand CONTEXT: If bot asked "still looking?" and lead said "yes", they're still looking.
-- REMEMBER EVERYTHING: Never lose facts from earlier in conversation (work coverage, family details, health info).
-- Capture hints & subtext (hesitation, family influence, financial stress).
-- Apply meaning, don't just list, connect dots.
-- Stay focused on the person's situation, emotions, and story.
-- Do NOT add assumptions or fabricate details.
+OUTPUT FORMAT (follow exactly):
 
-OUTPUT ONLY the updated narrative paragraph.
+NARRATIVE:
+Write a flowing paragraph that tells this person's story so far. Who they are, what they want, what they've said, how they feel, where the conversation stands. Understand meaning and context, not just words. If someone says "yeah" after the bot asked "still looking?", they're still looking. If someone mentions "something through work", they have employer coverage. Read between the lines.
+
+Keep everything from the current story. Add new details. Never lose old facts. Connect the dots. No assumptions. No fabrication. Use as much space as needed to capture the full picture.
+
+FACTS:
+List any NEW facts from the latest messages that aren't already in the KNOWN FACTS list above. One per line. Interpret meaning, not just literal words. If there are no new facts, write NONE.
 """
 
     try:
+        if not client:
+            result["narrative"] = current_story
+            return result
+
         response = client.chat.completions.create(
             model="grok-4-1-fast-reasoning",
             messages=[{"role": "system", "content": observer_prompt}],
-            temperature=0.3,  # Low for factual consistency
-            max_tokens=250,
-            timeout=15.0  # Prevent hanging
+            temperature=0.3,
+            max_tokens=1000,
+            timeout=15.0
         )
-        updated_story = response.choices[0].message.content.strip()
+        raw_output = response.choices[0].message.content.strip()
 
-        if len(updated_story) < 20:
-            logger.warning(f"Narrative update too short: {contact_id}")
-            return current_story
+        # Parse the two sections
+        narrative_part = raw_output
+        facts_part = ""
 
-        if update_narrative(contact_id, updated_story):
-            logger.info(f"Narrative updated for {contact_id} ({len(updated_story)} chars)")
-            return updated_story
+        if "FACTS:" in raw_output:
+            parts = raw_output.split("FACTS:", 1)
+            narrative_part = parts[0].strip()
+            facts_part = parts[1].strip()
+
+        # Clean narrative (remove the "NARRATIVE:" label if present)
+        if narrative_part.startswith("NARRATIVE:"):
+            narrative_part = narrative_part[len("NARRATIVE:"):].strip()
+
+        # Update narrative if valid
+        if len(narrative_part) >= 20:
+            if update_narrative(contact_id, narrative_part):
+                logger.info(f"Narrative updated for {contact_id} ({len(narrative_part)} chars)")
+                result["narrative"] = narrative_part
+            else:
+                result["narrative"] = current_story
         else:
-            return current_story
+            logger.warning(f"Narrative update too short: {contact_id}")
+            result["narrative"] = current_story
+
+        # Parse and save new facts
+        if facts_part and facts_part.upper() != "NONE":
+            new_facts = []
+            for line in facts_part.split("\n"):
+                line = line.strip().lstrip("-•* 0123456789.")
+                if line and len(line) > 3 and line.upper() != "NONE":
+                    new_facts.append(line)
+
+            if new_facts:
+                saved = save_new_facts(contact_id, new_facts)
+                if saved > 0:
+                    logger.info(f"📝 Extracted {saved} new facts for {contact_id}: {new_facts}")
+                result["new_facts"] = new_facts
+
+        return result
 
     except Exception as e:
         logger.error(f"Narrative observer failed for {contact_id}: {e}", exc_info=True)
-        return current_story
+        result["narrative"] = current_story
+        return result

@@ -6,7 +6,7 @@ from conversation_engine import analyze_logic_flow, LogicSignal, ConversationSta
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
 from insurance_companies import get_company_context, find_company_in_message, normalize_company_name
-from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer, extract_facts_from_conversation
+from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer
 
 logger = logging.getLogger(__name__)
 
@@ -25,18 +25,18 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     # Get ALL messages for narrative observer (unlimited memory)
     all_messages = get_recent_messages(contact_id, limit=None)
 
-    # Update narrative with COMPLETE conversation history
-    run_narrative_observer(contact_id, message, all_messages)
+    # Single LLM call: updates narrative AND extracts new facts
+    # The narrator reads the full conversation, understands meaning, and produces:
+    # 1. A flowing story paragraph (who this person is, what they want, where things stand)
+    # 2. Discrete facts extracted from what the lead actually said/confirmed
+    observer_result = run_narrative_observer(contact_id, message, all_messages)
+    story_narrative = observer_result["narrative"]
 
-    # Extract structured facts from conversation (LLM-based, interprets meaning)
-    # This runs alongside the narrative observer — facts are discrete bullet points,
-    # narrative is the flowing story. Both feed into the prompt.
-    known_facts = extract_facts_from_conversation(contact_id, message, all_messages)
+    # Get all known facts (existing DB facts + any new ones the narrator just extracted)
+    known_facts = get_known_facts(contact_id)
 
     # Get recent 10 for logic flow analysis
     recent_exchanges = get_recent_messages(contact_id, limit=10)
-
-    story_narrative = get_narrative(contact_id)
 
     logger.debug(f"🔍 NARRATIVE CHECK | contact_id={contact_id} | narrative_preview={story_narrative[:100] if story_narrative else 'EMPTY'}")
 
