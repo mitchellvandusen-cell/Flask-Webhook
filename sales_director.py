@@ -23,10 +23,14 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     logger.critical(f"🔍 SALES DIRECTOR | contact_id={contact_id} | first_name={first_name}")
 
     # 1. GATHER INTELLIGENCE
-    recent_exchanges = get_recent_messages(contact_id, limit=10)
+    # Get ALL messages for narrative observer (unlimited memory)
+    all_messages = get_recent_messages(contact_id, limit=None)
 
-    # Update narrative with FULL conversation context (bot + lead messages)
-    run_narrative_observer(contact_id, message, recent_exchanges)
+    # Update narrative with COMPLETE conversation history
+    run_narrative_observer(contact_id, message, all_messages)
+
+    # Get recent 10 for logic flow analysis
+    recent_exchanges = get_recent_messages(contact_id, limit=10)
 
     story_narrative = get_narrative(contact_id)
     known_facts = get_known_facts(contact_id)
