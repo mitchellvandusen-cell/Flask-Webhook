@@ -192,6 +192,69 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     return False, None
 
 
+def _collect_unanswered_lead_messages(contact_id: str, current_message: str) -> str:
+    """
+    Collects all consecutive unanswered lead messages (sent within the last 60s)
+    and combines them into one message string.
+
+    This handles the case where a lead sends 3 rapid messages:
+      "hey" / "yeah im looking" / "for my wife and kids"
+    Instead of responding to each separately, we combine them:
+      "hey. yeah im looking. for my wife and kids"
+
+    Returns the combined message (or original if only one message).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return current_message
+
+    try:
+        cur = conn.cursor()
+        # Get recent lead messages that have no bot reply after them.
+        # We look at the last 60 seconds of lead messages, walking backward
+        # until we hit a bot message (which means everything before it was already answered).
+        cur.execute("""
+            SELECT message_type, message_text, created_at
+            FROM contact_messages
+            WHERE contact_id = %s
+            ORDER BY created_at DESC
+            LIMIT 10
+        """, (contact_id,))
+        rows = cur.fetchall()
+
+        if not rows:
+            return current_message
+
+        # Collect consecutive lead messages from the end (most recent first)
+        unanswered = []
+        for row in rows:
+            msg_type = row['message_type'] if isinstance(row, dict) else row[0]
+            msg_text = row['message_text'] if isinstance(row, dict) else row[1]
+            if msg_type == 'lead':
+                unanswered.append(msg_text.strip())
+            else:
+                # Hit a bot message — everything before this was already answered
+                break
+
+        if len(unanswered) <= 1:
+            return current_message
+
+        # Reverse to chronological order and combine
+        unanswered.reverse()
+        combined = ". ".join(unanswered)
+        logger.info(f"📦 BATCHED {len(unanswered)} lead messages into one | contact={contact_id} | combined='{combined[:100]}'")
+        return combined
+
+    except Exception as e:
+        logger.error(f"Message batching failed for {contact_id}: {e}")
+        return current_message
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if conn:
+            conn.close()
+
+
 def process_webhook_task(payload: dict):
     """
     Main webhook processor — handles demo + real GHL traffic.
@@ -335,6 +398,14 @@ def process_webhook_task(payload: dict):
         if message:
             save_message(contact_id, message, "lead")
 
+        # === MESSAGE BATCHING ===
+        # If a lead sends 3 messages in 30 seconds, we want ONE response to all 3.
+        # After saving, wait briefly for more messages to arrive, then collect
+        # all unanswered lead messages into a single combined message.
+        if message:
+            time.sleep(3)  # Brief pause to let rapid follow-up messages arrive and get queued/saved
+            message = _collect_unanswered_lead_messages(contact_id, message)
+
         # === Core Conversation Logic ===
         bot_first_name = subscriber.get('bot_first_name', 'Grok')
         timezone = subscriber.get('timezone', 'America/Chicago')
@@ -462,7 +533,11 @@ WHAT TO DO:
 
 BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices they've gone quiet."""
 
-        final_nudge = f"{context_nudge}\n{director_output['underwriting_context']}".strip()
+        # Combine all context: nudge + underwriting + company intel
+        extra_context = director_output['underwriting_context']
+        if director_output.get('company_context'):
+            extra_context = f"{extra_context}\n[COMPANY INTEL] {director_output['company_context']}".strip()
+        final_nudge = f"{context_nudge}\n{extra_context}".strip()
 
         # Generate bot reply using Grok
         reply = ""

@@ -6,7 +6,7 @@ from conversation_engine import analyze_logic_flow, LogicSignal, ConversationSta
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
 from insurance_companies import get_company_context, find_company_in_message, normalize_company_name
-from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer
+from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer, extract_facts_from_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +28,15 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     # Update narrative with COMPLETE conversation history
     run_narrative_observer(contact_id, message, all_messages)
 
+    # Extract structured facts from conversation (LLM-based, interprets meaning)
+    # This runs alongside the narrative observer — facts are discrete bullet points,
+    # narrative is the flowing story. Both feed into the prompt.
+    known_facts = extract_facts_from_conversation(contact_id, message, all_messages)
+
     # Get recent 10 for logic flow analysis
     recent_exchanges = get_recent_messages(contact_id, limit=10)
 
     story_narrative = get_narrative(contact_id)
-    known_facts = get_known_facts(contact_id)
 
     logger.debug(f"🔍 NARRATIVE CHECK | contact_id={contact_id} | narrative_preview={story_narrative[:100] if story_narrative else 'EMPTY'}")
 
@@ -52,7 +56,16 @@ def generate_strategic_directive(contact_id: str, message: str, first_name: str,
     if raw_company:
         normalized = normalize_company_name(raw_company)
         if normalized:
-            company_ctx = get_company_context(normalized)
+            company_data = get_company_context(normalized)
+            if company_data and isinstance(company_data, dict):
+                parts = [f"Lead mentioned: {company_data.get('name', raw_company)}"]
+                if company_data.get("is_guaranteed_issue"):
+                    parts.append("This is a guaranteed issue carrier (limited coverage, higher cost per dollar). Opportunity to show better options.")
+                if company_data.get("is_bundled"):
+                    parts.append("This carrier typically bundles life with auto/home. Coverage is often minimal add-on, not standalone.")
+                if company_data.get("is_employer_provider"):
+                    parts.append("Common employer group plan provider. Coverage usually ends when they leave the job.")
+                company_ctx = " ".join(parts)
 
     # 3. BUILD DIRECTIVE
     directive = ""
