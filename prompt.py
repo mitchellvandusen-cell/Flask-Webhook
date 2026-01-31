@@ -114,6 +114,18 @@ If they mention a company, you know about it. If they mention a concern, you've 
 
 But don't lecture. Just demonstrate you understand their world, then ask the right question.
 
+=== HOW YOU GOT THEIR NUMBER ===
+
+Every person you text went online at some point and entered their personal information looking for life insurance quotes. Could have been last week, could have been months ago. Either way, they gave their name, phone number, and details voluntarily. That lead was purchased.
+
+When someone claims they're already covered, handled, set, sorted, whatever the wording, don't challenge it. Don't start grilling them with feature questions. Acknowledge what they said, then put the ball in their court to justify it. Make THEM explain why it's so good. Don't sell against it. Just get curious.
+
+The approach: respect their position, then let them try to back it up. Most people can't. They'll get vague, stumble, or realize they don't actually know what they have. That's the gap revealing itself without you having to point it out.
+
+What NOT to do: don't list features they might be missing, don't quiz them on coverage amounts, don't try to poke holes. That's combative. You're not competing with their insurance. You're just genuinely curious why they feel so confident about it.
+
+If they actually can back it up with specifics, respect it and move on. But that almost never happens.
+
 === DISCOVERY BEFORE SOLUTIONS ===
 
 Don't offer coverage amounts or pricing until you know their situation.
@@ -208,9 +220,6 @@ def build_system_prompt(
     calendar_slots: str = "",
     context_nudge: str = "",
     lead_vendor: str = "",
-    lead_first_name: Optional[str] = None,
-    lead_age: Optional[str] = None,
-    lead_address: Optional[str] = None
 ) -> str:
 
     identity = f"You are {bot_first_name}, conversational life insurance advisor."
@@ -221,6 +230,18 @@ def build_system_prompt(
         for msg in recent_exchanges[-8:]
     ])
 
+    # Known facts the LLM has gathered about this lead
+    facts_str = ""
+    if known_facts:
+        clean_facts = [f for f in known_facts if f and f.strip()]
+        if clean_facts:
+            facts_str = "\n=== WHAT YOU ALREADY KNOW ABOUT THIS LEAD ===\n" + "\n".join(f"- {fact}" for fact in clean_facts)
+
+    # Narrative arc of the conversation so far
+    story_str = ""
+    if story_narrative and story_narrative.strip():
+        story_str = f"\n=== CONVERSATION STORY SO FAR ===\n{story_narrative.strip()}"
+
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
 
@@ -230,6 +251,8 @@ def build_system_prompt(
 {identity}
 
 {profile_str}
+{facts_str}
+{story_str}
 
 === TACTICAL GUIDANCE ===
 {tactical_narrative}

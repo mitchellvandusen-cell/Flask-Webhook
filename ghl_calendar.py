@@ -30,84 +30,19 @@ GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appoint
 
 def detect_token_type(access_token: str) -> dict:
     """
-    Detects if the token is OAuth or Personal Integration Token (PIT).
+    Detects if the token is OAuth or Private Integration Token (PIT).
 
-    NOTE: Both token types use the SAME v2 API paths (/locations/{locationId}/...)
-    This function is kept for logging/debugging purposes only.
+    OAuth tokens use v2 endpoints: /v2/locations/{locationId}/...
+    PIT tokens use v1 endpoints: /calendars/... with locationId as query param
 
-    Personal Integration Tokens start with 'pit-'.
-    OAuth tokens are obtained through OAuth 2.0 flow.
-
-    Returns:
-        {
-            "is_oauth": True/False,
-            "location_id": "xxx" (if OAuth),
-            "company_id": "yyy",
-            "version": "v2"
-        }
+    Detection is by prefix only (no HTTP call) to avoid latency.
     """
-    logger.debug(f"🔍 Token detection: first 10 chars = {access_token[:10]}...")
-
-    # FAST PATH: Check for private integration token prefix
     if access_token.startswith("pit-"):
-        logger.info(f"🔑 PRIVATE INTEGRATION TOKEN DETECTED (pit-...)")
-        logger.info(f"   ✅ Using v2 API endpoints with /locations/{{locationId}}/ path")
-        return {
-            "is_oauth": False,
-            "location_id": None,
-            "company_id": None,
-            "version": "v2"
-        }
+        logger.info(f"🔑 PIT token detected — using v1 endpoints")
+        return {"is_oauth": False, "version": "v1"}
 
-    # OAUTH PATH: Verify by calling /v2/me endpoint
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Version": "2021-04-15"
-    }
-
-    try:
-        logger.debug(f"   Calling /v2/me to verify OAuth token...")
-        me_resp = requests.get(
-            "https://services.leadconnectorhq.com/v2/me",
-            headers=headers,
-            timeout=10
-        )
-
-        logger.debug(f"   /v2/me response: status={me_resp.status_code}")
-
-        if me_resp.status_code == 200:
-            me_data = me_resp.json()
-            logger.debug(f"   /v2/me body: {me_data}")
-            logger.info(f"✅ OAUTH TOKEN DETECTED")
-            logger.info(f"   Location ID: {me_data.get('locationId')}")
-            logger.info(f"   Company ID: {me_data.get('companyId')}")
-            logger.info(f"   User ID: {me_data.get('userId')}")
-            logger.info(f"   ✅ Using v2 API endpoints with /locations/{{locationId}}/ path")
-            return {
-                "is_oauth": True,
-                "location_id": me_data.get('locationId'),
-                "company_id": me_data.get('companyId'),
-                "version": "v2"
-            }
-        else:
-            # Not an OAuth token, likely an old-style API key
-            logger.info(f"⚙️ TOKEN TYPE UNKNOWN - /v2/me returned {me_resp.status_code}")
-            logger.info(f"   ✅ Using v2 API endpoints with /locations/{{locationId}}/ path")
-            logger.debug(f"   Response: {me_resp.text[:200]}")
-            return {
-                "is_oauth": False,
-                "location_id": None,
-                "company_id": None,
-                "version": "v2"
-            }
-    except Exception as e:
-        logger.warning(f"⚠️ Token detection failed, using v2 endpoints: {e}")
-        return {
-            "is_oauth": False,
-            "location_id": None,
-            "company_id": None,
-            "version": "v2"
-        }
+    logger.info(f"🔑 OAuth token detected — using v2 endpoints")
+    return {"is_oauth": True, "version": "v2"}
 
 
 def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, contact_id: str):
@@ -138,15 +73,15 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     # 1️⃣ DETECT TOKEN TYPE FIRST
     # ═══════════════════════════════════════════════════════════════════════
     logger.info("\n1️⃣ DETECTING TOKEN TYPE...")
-    logger.critical(f"[FORCED LOG] Token first 20 chars: {access_token[:20]}...")
+    logger.debug(f"Token first 20 chars: {access_token[:20]}...")
 
     is_private_key = access_token.startswith("pit-")
 
     if is_private_key:
-        logger.critical(f"[FORCED LOG] ✅ PRIVATE INTEGRATION TOKEN (pit-...)")
-        logger.critical(f"[FORCED LOG] Will use v1 endpoints (company-scoped, no locationId in paths)")
+        logger.info(f"✅ PRIVATE INTEGRATION TOKEN (pit-...)")
+        logger.info(f"   Will use v1 endpoints (company-scoped, no locationId in paths)")
     else:
-        logger.critical(f"[FORCED LOG] Calling /oauth/token/me...")
+        logger.info(f"Calling /oauth/token/me...")
         try:
             me_resp = requests.get(
                 "https://services.leadconnectorhq.com/oauth/token/me",
@@ -154,11 +89,11 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
                 timeout=10
             )
 
-            logger.critical(f"[FORCED LOG] Token check response status: {me_resp.status_code}")
+            logger.info(f"   Token check response status: {me_resp.status_code}")
 
             if me_resp.status_code == 200:
                 me_data = me_resp.json()
-                logger.critical(f"[FORCED LOG] Full token response: {me_data}")
+                logger.debug(f"   Full token response: {me_data}")
                 logger.info(f"✅ Token Info Retrieved:")
                 logger.info(f"   Type: {me_data.get('type', 'UNKNOWN')}")
                 logger.info(f"   Location ID from token: {me_data.get('locationId', 'N/A')}")
@@ -167,17 +102,17 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
 
                 token_location = me_data.get('locationId')
                 if token_location and token_location != location_id:
-                    logger.critical(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
-                    logger.critical(f"⚠️ THIS IS WHY THE CALENDAR ENDPOINT IS FAILING!")
+                    logger.error(f"⚠️ MISMATCH! Token is for location '{token_location}' but you're trying to use location '{location_id}'")
+                    logger.error(f"⚠️ THIS IS WHY THE CALENDAR ENDPOINT IS FAILING!")
                 elif token_location == location_id:
                     logger.info(f"✅ Token location matches requested location: {location_id}")
                 else:
                     logger.warning(f"⚠️ Token has no locationId - might be agency-scoped token")
             else:
-                logger.critical(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:500]}")
+                logger.error(f"❌ Failed to get token info: {me_resp.status_code} - {me_resp.text[:500]}")
                 is_private_key = True  # Assume private key if /oauth/token/me fails
         except Exception as e:
-            logger.critical(f"❌ Token scope check EXCEPTION: {e}", exc_info=True)
+            logger.error(f"❌ Token scope check EXCEPTION: {e}", exc_info=True)
             is_private_key = True
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -450,7 +385,7 @@ def consolidated_calendar_op(
                     if start_str.endswith("Z"):
                         start_str = start_str.replace("Z", "+00:00")
                     dt = datetime.fromisoformat(start_str).astimezone(local_tz)
-                    if 8 <= dt.hour < 17:
+                    if 9 <= dt.hour < 19:
                         parsed_slots.append(dt)
                 except Exception:
                     continue
@@ -461,8 +396,8 @@ def consolidated_calendar_op(
             parsed_slots.sort()
             now_local = datetime.now(local_tz)
 
-            morning = [s for s in parsed_slots if 8 <= s.hour < 12]
-            afternoon = [s for s in parsed_slots if 13 <= s.hour < 17]
+            morning = [s for s in parsed_slots if 9 <= s.hour < 12]
+            afternoon = [s for s in parsed_slots if 12 <= s.hour < 19]
 
             def pick_best(slots_list, max_picks=2):
                 if not slots_list:
@@ -485,9 +420,9 @@ def consolidated_calendar_op(
 
             options = []
             if morning_picks:
-                options.append(" or ".join(format_slot(s) for s in morning_picks) + " morning")
+                options.append(" or ".join(format_slot(s) for s in morning_picks))
             if afternoon_picks:
-                options.append(" or ".join(format_slot(s) for s in afternoon_picks) + " afternoon")
+                options.append(" or ".join(format_slot(s) for s in afternoon_picks))
 
             if not options:
                 return "let me look at my calendar"
@@ -496,17 +431,16 @@ def consolidated_calendar_op(
 
     # === BOOK APPOINTMENT ===
     if operation == "book" and selected_time and contact_id:
-        # 🔍 RUN DEBUG CHECK BEFORE BOOKING
-        logger.info("\n" + "🔍" * 40)
-        logger.info("PRE-BOOKING DEBUG CHECK - Verifying calendar and contact exist...")
-        logger.info("🔍" * 40)
-        try:
-            calendar_exists = ghl_debug_check(access_token, location_id, cal_id, contact_id)
-            if not calendar_exists:
-                logger.error(f"❌ DEBUG CHECK FAILED: Calendar '{cal_id}' not found in location '{location_id}'. ABORTING BOOKING.")
-                return False
-        except Exception as debug_err:
-            logger.warning(f"⚠️ Debug check threw error (continuing anyway): {debug_err}")
+        # Run debug check only when DEBUG logging is enabled (skipped in production)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("PRE-BOOKING DEBUG CHECK - Verifying calendar and contact exist...")
+            try:
+                calendar_exists = ghl_debug_check(access_token, location_id, cal_id, contact_id)
+                if not calendar_exists:
+                    logger.error(f"❌ DEBUG CHECK FAILED: Calendar '{cal_id}' not found in location '{location_id}'. ABORTING BOOKING.")
+                    return False
+            except Exception as debug_err:
+                logger.warning(f"⚠️ Debug check threw error (continuing anyway): {debug_err}")
 
         time_str = selected_time.lower().strip()
         now_local = datetime.now(local_tz)
@@ -524,13 +458,13 @@ def consolidated_calendar_op(
                 h = 0
             hour, minute = h, m
 
-        hour = max(8, min(16, hour))
+        hour = max(9, min(19, hour))
 
         start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
         end_dt = start_dt + timedelta(minutes=30)
 
-        if start_dt.date() > (now_local + timedelta(days=2)).date():
-            logger.error(f"🚨 BOOKING BLOCKED: Time too far ahead | requested={start_dt} | contact={contact_id}")
+        if start_dt.date() > (now_local + timedelta(days=3)).date():
+            logger.error(f"🚨 BOOKING BLOCKED: Time more than 3 days ahead | requested={start_dt} | contact={contact_id}")
             return False
 
         # Both PIT and OAuth use the same booking endpoint

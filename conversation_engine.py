@@ -80,23 +80,36 @@ def analyze_logic_flow(messages: List[dict]) -> LogicSignal:
                        "appointment", "call", "zoom", "meet", "when", "available", "time"]
     ready_to_book = any(keyword in last_lead_text for keyword in booking_keywords)
 
-    # Resistance signals
-    resistance_keywords = ["no", "not interested", "stop", "remove", "busy", "don't want",
-                          "already told you", "leave me alone", "annoying", "spam"]
-    resistance = any(keyword in last_lead_text for keyword in resistance_keywords)
+    # Hard stop signals only — actual opt-out requests
+    # "not interested" etc. are objection smokescreens, not real stops
+    stop_keywords = ["stop", "unsubscribe", "remove me", "take me off",
+                     "leave me alone", "do not contact"]
+    resistance = any(keyword in last_lead_text for keyword in stop_keywords)
 
     # === STAGE DETECTION ===
+
+    # Check if booking was already confirmed (bot said "all set", "booked", etc.)
+    booking_confirmed = False
+    if bot_msgs:
+        recent_bot_text = " ".join([m['text'].lower() for m in bot_msgs[-2:]])
+        confirmation_patterns = ["all set", "booked", "calendar invite",
+                                 "confirmed", "appointment is", "see you at",
+                                 "looking forward"]
+        booking_confirmed = any(p in recent_bot_text for p in confirmation_patterns)
 
     # Initial outreach
     if conversation_count == 0:
         stage = ConversationStage.INITIAL_OUTREACH
 
-    # Booked
-    elif ready_to_book and conversation_count >= 2:
+    # Booked — only when bot already confirmed a booking
+    elif booking_confirmed:
         stage = ConversationStage.BOOKED
 
-    # Booking (they're warm, move to close)
-    elif (needs_coverage or mentioned_goal) and conversation_count >= 3:
+    # Booking — they're ready or warm enough, offer times
+    elif ready_to_book and conversation_count >= 2:
+        stage = ConversationStage.BOOKING
+
+    elif (needs_coverage or mentioned_goal) and conversation_count >= 2:
         stage = ConversationStage.BOOKING
 
     # Still qualifying

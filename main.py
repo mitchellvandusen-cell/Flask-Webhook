@@ -1249,7 +1249,7 @@ def demo_chat_api():
             return flask_jsonify({"reply": "", "stage": "closed"})
 
         calendar_slots = ""
-        if director_output["stage"] == "closing":
+        if director_output["stage"] == "booking":
             calendar_slots = "Tomorrow at 2:00 PM, Tomorrow at 4:30 PM, Friday at 10:00 AM"
 
         system_prompt = build_system_prompt(
