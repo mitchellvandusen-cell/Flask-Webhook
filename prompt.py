@@ -230,17 +230,13 @@ def build_system_prompt(
         for msg in recent_exchanges[-8:]
     ])
 
-    # Known facts the LLM has gathered about this lead
-    facts_str = ""
-    if known_facts:
-        clean_facts = [f for f in known_facts if f and f.strip()]
-        if clean_facts:
-            facts_str = "\n=== WHAT YOU ALREADY KNOW ABOUT THIS LEAD ===\n" + "\n".join(f"- {fact}" for fact in clean_facts)
+    # RIGHT BRAIN: Who this person is (profile_str already contains the facts)
+    # No separate facts section — the profile IS the dossier.
 
-    # Narrative arc of the conversation so far
+    # LEFT BRAIN: What has happened in this conversation
     story_str = ""
     if story_narrative and story_narrative.strip():
-        story_str = f"\n=== CONVERSATION STORY SO FAR ===\n{story_narrative.strip()}"
+        story_str = f"\n=== CONVERSATION SO FAR (what has been discussed, what was answered, where things stand) ===\n{story_narrative.strip()}"
 
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
@@ -251,7 +247,6 @@ def build_system_prompt(
 {identity}
 
 {profile_str}
-{facts_str}
 {story_str}
 
 === TACTICAL GUIDANCE ===

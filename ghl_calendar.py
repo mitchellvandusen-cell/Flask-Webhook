@@ -329,7 +329,7 @@ def consolidated_calendar_op(
 
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
-            end_ts = int((now_utc + timedelta(days=29)).timestamp() * 1000)
+            end_ts = int((now_utc + timedelta(days=3)).timestamp() * 1000)
 
             # Required query params: startDate (epoch ms), endDate (epoch ms), timezone
             params = {

@@ -2,11 +2,21 @@
 # "Less thinking, more listening"
 
 import logging
+import re
 from enum import Enum
 from dataclasses import dataclass
 from typing import List
 
 logger = logging.getLogger(__name__)
+
+
+def _has_word(text: str, keyword: str) -> bool:
+    """
+    Word-boundary keyword match. Prevents 'ok' matching inside 'book',
+    'yes' matching inside 'eyes', 'term' matching inside 'determine', etc.
+    Multi-word phrases (e.g. 'whole life') are matched as-is with boundaries.
+    """
+    return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text))
 
 class ConversationStage(Enum):
     INITIAL_OUTREACH = "initial_outreach"  # First contact
@@ -54,37 +64,37 @@ def analyze_logic_flow(messages: List[dict]) -> LogicSignal:
 
     # === SIMPLE SIGNAL DETECTION ===
 
-    # Coverage signals
+    # Coverage signals (word-boundary matching prevents false positives)
     coverage_keywords = ["policy", "coverage", "term", "whole life", "iul", "universal", "work policy",
                         "group", "state farm", "farmers", "allstate", "have insurance", "already have",
                         "$100k", "$250k", "$500k", "million"]
-    has_coverage = any(keyword in all_lead_text for keyword in coverage_keywords)
+    has_coverage = any(_has_word(all_lead_text, kw) for kw in coverage_keywords)
 
     # Need signals
     need_keywords = ["need", "want", "looking", "interested", "thinking about", "family", "kids",
                     "wife", "husband", "protect", "mortgage", "business", "future", "worry"]
-    needs_coverage = any(keyword in all_lead_text for keyword in need_keywords)
+    needs_coverage = any(_has_word(all_lead_text, kw) for kw in need_keywords)
 
     # Goal signals (who/what protecting)
     goal_keywords = ["family", "kids", "children", "wife", "husband", "spouse", "mortgage",
                     "business", "partner", "parents", "funeral", "debt", "college"]
-    mentioned_goal = any(keyword in all_lead_text for keyword in goal_keywords)
+    mentioned_goal = any(_has_word(all_lead_text, kw) for kw in goal_keywords)
 
     # Obstacle signals (why they haven't acted)
     obstacle_keywords = ["busy", "expensive", "too much", "later", "thinking", "not sure",
                         "confused", "don't understand", "complicated", "health", "been meaning"]
-    mentioned_obstacle = any(keyword in all_lead_text for keyword in obstacle_keywords)
+    mentioned_obstacle = any(_has_word(all_lead_text, kw) for kw in obstacle_keywords)
 
     # Booking signals
     booking_keywords = ["yes", "sure", "ok", "sounds good", "let's do it", "book", "schedule",
                        "appointment", "call", "zoom", "meet", "when", "available", "time"]
-    ready_to_book = any(keyword in last_lead_text for keyword in booking_keywords)
+    ready_to_book = any(_has_word(last_lead_text, kw) for kw in booking_keywords)
 
     # Hard stop signals only — actual opt-out requests
     # "not interested" etc. are objection smokescreens, not real stops
     stop_keywords = ["stop", "unsubscribe", "remove me", "take me off",
                      "leave me alone", "do not contact"]
-    resistance = any(keyword in last_lead_text for keyword in stop_keywords)
+    resistance = any(_has_word(last_lead_text, kw) for kw in stop_keywords)
 
     # === STAGE DETECTION ===
 
