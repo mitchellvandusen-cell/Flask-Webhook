@@ -167,47 +167,37 @@ Don't rush. Build trust. They'll open up when they feel understood."""
         elif logic.has_coverage:
             expertise_note = ""
             if company_ctx:
-                expertise_note = "\n\n🧠 SHOW EXPERTISE - Company context available. Use it to build credibility:\n\"[Company name] is solid\" or \"Been around forever\" or relevant insight about the carrier.\nThen ask the smart question."
+                expertise_note = f"\n\nCompany context: {company_ctx}"
 
             directive = f"""THEY HAVE COVERAGE
 
-Make them question if it's enough. But don't assume or attack.
+They've mentioned having coverage. Check the conversation recap to see what's already been discussed about it. Do not re-ask questions that were already answered.
 
-Ask questions that make them realize they should know more about what they have.
-
-Understanding approach. Not judgmental.{expertise_note if expertise_note else ""}"""
+If their coverage hasn't been explored yet, get curious about it. If it has, move forward.{expertise_note if expertise_note else ""}"""
 
         # Don't know their situation yet
         elif not logic.mentioned_goal:
-            context_note = ""
-            if "kids" in full_context or "children" in full_context or "mortgage" in full_context:
-                context_note = "\n\n💡 They mentioned kids/mortgage - SHOW you understand their situation before asking:\n\"Two kids and a mortgage - that's exactly who this is for.\"\nThen: \"Would your family need to take out a loan if something happened?\""
+            directive = """CONTINUE THE CONVERSATION
 
-            directive = f"""DISCOVER THEIR SITUATION
+Read the conversation recap. Respond to what the lead just said. Move things forward naturally based on where the conversation is.
 
-Don't know their situation yet. Find out.
-
-Open-ended questions. Let them tell you what would happen.{context_note if context_note else ""}
-
-Don't answer for them. They need to realize the problem themselves."""
+If you don't know their situation yet, ask about it. If you already asked and they answered, build on that answer. The recap has what's been covered."""
 
         # They told you the problem - confirm they don't want that
         elif logic.mentioned_goal and not logic.mentioned_obstacle:
-            directive = """CONFIRM THE GAP
+            directive = """THEY'VE SHARED THEIR SITUATION
 
-They told you what would happen. Make them think about it.
+They've told you about who they're protecting or what they need. Check the recap for exactly what was said.
 
-Understanding approach. Not attacking.
-
-Help them see why it matters. Then offer to help."""
+Help them think about why it matters. Then offer to help. Don't repeat questions they already answered."""
 
         # They see the gap - ask if they want help
         else:
-            directive = """OFFER HELP
+            directive = """READY TO MOVE FORWARD
 
-They see the gap. Ask if they want help fixing it.
+They understand the gap. If you haven't offered to help yet, do it. If you already did, move toward booking.
 
-Don't offer times yet. Get agreement first. Then next message offer specific times."""
+Check the recap. Don't repeat yourself."""
 
         framework = "QUALIFYING"
 
