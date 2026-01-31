@@ -245,10 +245,10 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
     # Trust the narrative observer to understand what "k" means in response to "does 5pm work?"
     # Memory is flawless, no cost-saving skips
 
-    # Build conversation context (last 4 exchanges so AI knows what bot asked)
+    # Build conversation context (use full message history so AI remembers everything)
     conversation_context = ""
     if recent_messages and len(recent_messages) > 0:
-        recent = recent_messages[-4:]  # Last 2 exchanges (4 messages)
+        recent = recent_messages[-10:]  # Use full message history (5 exchanges)
         for msg in recent:
             role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
             conversation_context += f"{role_label}: {msg['text']}\n"
