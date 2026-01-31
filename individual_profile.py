@@ -124,7 +124,9 @@ def build_comprehensive_profile(
         profile_context["current_vibe"] = "open/neutral"
         profile_context["vibe_confidence"] = 0.5
 
-    # ─── 4. Build Readable Narrative String ───
+    # ─── 4. Build Readable Profile String ───
+    # NOTE: story_narrative is passed directly to the LLM prompt now,
+    # so profile_str focuses on structured analysis only (no duplication)
     name = (first_name or "the lead").strip().capitalize()
     if len(name.split()) > 1:
         name = name.split()[0]
@@ -141,10 +143,6 @@ def build_comprehensive_profile(
         except:
             pass
     # PRIVACY: Do NOT include address in profile - too invasive/creepy for bot to mention
-    # if address:
-    #     city_state = address.split(',')[-1].strip() if ',' in address else address.strip()
-    #     if city_state:
-    #         basics.append(f"located in {city_state}")
     if basics:
         profile_sections.append(f"Basics: {', '.join(basics)}.")
 
@@ -166,24 +164,18 @@ def build_comprehensive_profile(
             f"Underwriting risk: {profile_context['underwriting_risk_level']}."
         )
 
-    # Evolving story (use narrative_safe as foundation)
-    narrative_body = " ".join(profile_sections)
-    final_narrative = f"""FULL HUMAN IDENTITY:
-{narrative_body or "No confirmed demographics yet, still building rapport."}
+    # High-value flag
+    if profile_context["high_value_potential"]:
+        profile_sections.append("High-value indicators detected (business/estate/wealth).")
 
-EVOLVING STORY & NUANCE:
-{narrative_safe or "Building trust and identifying primary gap."}
+    profile_body = " ".join(profile_sections)
+    final_profile = f"""LEAD PROFILE:
+{profile_body or "No confirmed demographics yet."}
 
-CURRENT VIBE:
-{profile_context['current_vibe'].title()} (confidence: {profile_context['vibe_confidence']:.1f})
-- Skepticism: {profile_context['skepticism_level']}/3
-- Gap Awareness: {profile_context['gap_awareness']}/3
-- Analytical Focus: {profile_context['analytical_level']}/3
+CURRENT VIBE: {profile_context['current_vibe'].title()}
+Skepticism: {profile_context['skepticism_level']}/3 | Gap Awareness: {profile_context['gap_awareness']}/3 | Analytical: {profile_context['analytical_level']}/3
 
-INSTRUCTIONS FOR {name.upper()}:
-• Use this as quiet intuition, reference naturally, never re-ask knowns.
-• Adapt tone to current vibe (e.g., more labels if skeptical).
-• Prioritize empathy and flow over rigid probing.
+Use this as quiet intuition. Adapt tone to vibe. Never re-ask things you already know.
 """
 
-    return final_narrative, profile_context
+    return final_profile, profile_context
