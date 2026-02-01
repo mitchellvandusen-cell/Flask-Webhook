@@ -688,10 +688,11 @@ def agency_dashboard():
     needs_subscription = not current_user.stripe_customer_id and not is_admin
 
     if needs_subscription:
-        # Determine pricing based on tier or show both options
-        # Default to showing agency starter pricing
+        # Enforce the tier detected during onboarding (prevents large agency buying starter)
+        detected_tier = current_user.subscription_tier or 'agency_starter'
         return render_template('agency_dashboard.html',
             needs_subscription=True,
+            detected_tier=detected_tier,
             agency_starter_price=797.99,   # Agency Starter: $797.99/month
             agency_pro_price=1597.99,      # Agency Pro: $1597.99/month
             form=ConfigForm(),  # Empty form
@@ -1949,7 +1950,19 @@ def set_password():
         logger.info(f"Password set for {current_user.email} ({current_user.role})")
         flash("Password set successfully! You can now log in anytime.", "success")
 
-        # Redirect based on role
+        # Redirect: if no subscription yet, go to checkout; otherwise dashboard
+        is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        needs_sub = not current_user.stripe_customer_id and not is_admin
+
+        if needs_sub:
+            tier = current_user.subscription_tier or 'individual'
+            if tier == 'agency_pro':
+                return redirect("/checkout/agency-pro")
+            elif tier == 'agency_starter':
+                return redirect("/checkout/agency-starter")
+            else:
+                return redirect("/checkout")
+
         if current_user.role == 'agency_owner':
             return redirect("/agency-dashboard")
         else:
@@ -2343,110 +2356,29 @@ def oauth_callback():
         else:
             logger.warning(f"User.get({user_email}) returned None after database insertion!")
 
-        # MARKETPLACE INSTALLATION: Show success page (happens in popup)
-        # User needs to close popup and go to main app URL
+        # MARKETPLACE INSTALLATION: Seamless redirect to subscription setup
+        # App is free in GHL Marketplace — gate functionality behind Stripe checkout
         if not is_private_app:
-            logger.info("Marketplace installation complete - showing success page")
-            return render_template_string("""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Installation Complete</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .success-card {
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            max-width: 500px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .checkmark {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: #10b981;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-        }
-        .checkmark svg {
-            width: 50px;
-            height: 50px;
-            stroke: white;
-            stroke-width: 3;
-            fill: none;
-        }
-        h1 { color: #1f2937; margin-bottom: 10px; }
-        p { color: #6b7280; font-size: 16px; line-height: 1.6; }
-        .next-steps {
-            background: #f3f4f6;
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 30px;
-            text-align: left;
-        }
-        .next-steps h3 { color: #1f2937; margin-top: 0; }
-        .next-steps ol { padding-left: 20px; }
-        .next-steps li { margin: 10px 0; color: #4b5563; }
-        .btn {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 14px 28px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            margin-top: 20px;
-            transition: background 0.2s;
-        }
-        .btn:hover { background: #5568d3; }
-    </style>
-</head>
-<body>
-    <div class="success-card">
-        <div class="checkmark">
-            <svg viewBox="0 0 24 24">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        </div>
-        <h1>🎉 Installation Complete!</h1>
-        <p>InsuranceGrokBot has been successfully connected to your Lead Connector account.</p>
-        <p><strong>{{ num_subs }} location(s)</strong> synced and ready to go.</p>
+            has_subscription = user and user.stripe_customer_id
+            is_admin = user_email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
-        <div class="next-steps">
-            <h3>📋 Next Steps:</h3>
-            <ol>
-                <li><strong>Close this popup/window</strong></li>
-                <li>Go to <strong>{{ domain }}</strong></li>
-                <li>Login with: <strong>{{ user_email }}</strong></li>
-                <li>Set your password and configure your bot</li>
-            </ol>
-        </div>
-
-        <a href="{{ domain }}" class="btn" target="_blank">Open Dashboard</a>
-
-        <p style="margin-top:20px; font-size:14px; color:#9ca3af;">
-            You can close this window now.
-        </p>
-    </div>
-</body>
-</html>
-            """,
-            num_subs=num_subs,
-            user_email=user_email,
-            domain=os.getenv('YOUR_DOMAIN')
-            )
+            if has_subscription or is_admin:
+                # Already subscribed or admin — send to password setup or dashboard
+                logger.info(f"Marketplace install: {user_email} already subscribed, routing to dashboard")
+                if needs_password:
+                    return redirect(f"/set-password?type={'agency' if is_agency_owner else 'individual'}")
+                if is_agency_owner:
+                    return redirect("/agency-dashboard")
+                return redirect("/dashboard")
+            else:
+                # Needs subscription — route directly to the correct Stripe checkout
+                logger.info(f"Marketplace install: routing {user_email} to checkout (tier={plan_tier})")
+                if plan_tier == 'agency_pro':
+                    return redirect("/checkout/agency-pro")
+                elif plan_tier == 'agency_starter':
+                    return redirect("/checkout/agency-starter")
+                else:
+                    return redirect("/checkout")
 
         # PRIVATE APP FLOW: Direct redirect (happens in main browser window)
         flash(f"Success! {num_subs} locations connected.", "success")
