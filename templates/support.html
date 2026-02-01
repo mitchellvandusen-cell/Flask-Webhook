@@ -45,7 +45,7 @@
     <!-- ============================================================ -->
     <div id="installation" class="card glass-card mb-4">
         <div class="card-body p-4">
-            <h3 class="mb-4" style="font-weight: 700;">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
                 <i class="fa-solid fa-cloud-arrow-down me-2 text-accent"></i>Installation &amp; Connection
             </h3>
 
@@ -61,7 +61,7 @@
                     <div id="inst1" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
                         <div class="accordion-body" style="color: #ccc;">
                             <ol>
-                                <li>Log into your <strong>GoHighLevel / Lead Connector</strong> account.</li>
+                                <li>Log into your <strong>Lead Connector</strong> account.</li>
                                 <li>Open the <strong>Marketplace</strong> tab in the left sidebar.</li>
                                 <li>Search for <strong>"Insurance Grok Bot"</strong>.</li>
                                 <li>Click <strong>Install</strong> and approve the requested permissions.</li>
@@ -86,7 +86,7 @@
                             <p>This usually means the OAuth handshake completed but the redirect was blocked by a popup blocker or the browser tab closed prematurely.</p>
                             <p><strong>Fix:</strong></p>
                             <ol>
-                                <li>Go to <a href="/login" style="color: var(--accent);">Login</a> and sign in with the email associated with your GHL account.</li>
+                                <li>Go to <a href="/login" style="color: var(--accent);">Login</a> and sign in with the email associated with your Lead Connector account.</li>
                                 <li>If you haven't set a password yet, go to <a href="/onboarding-status" style="color: var(--accent);">Setup Progress</a> to see exactly where you are and pick up from there.</li>
                                 <li>Check that your browser allows popups from this domain.</li>
                             </ol>
@@ -103,11 +103,11 @@
                     </h2>
                     <div id="inst3" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
                         <div class="accordion-body" style="color: #ccc;">
-                            <p>This means your account exists but isn't linked to your GHL account's API tokens yet.</p>
+                            <p>This means your account exists but isn't linked to your Lead Connector account's API tokens yet.</p>
                             <p><strong>Fix:</strong></p>
                             <ol>
                                 <li>Click the green <strong>"Connect Lead Connector"</strong> button on your dashboard.</li>
-                                <li>This starts the OAuth flow. You'll be redirected to GoHighLevel to approve access.</li>
+                                <li>This starts the OAuth flow. You'll be redirected to Lead Connector to approve access.</li>
                                 <li>Once approved, your tokens are saved and the button disappears.</li>
                             </ol>
                             <p>If the button keeps reappearing, your OAuth token may have expired. Click it again to re-authorize.</p>
@@ -124,7 +124,7 @@
                     </h2>
                     <div id="inst4" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
                         <div class="accordion-body" style="color: #ccc;">
-                            <p>GoHighLevel OAuth tokens expire periodically. The system automatically refreshes them, but in rare cases the refresh can fail.</p>
+                            <p>Lead Connector OAuth tokens expire periodically. The system automatically refreshes them, but in rare cases the refresh can fail.</p>
                             <p><strong>Fix:</strong></p>
                             <ol>
                                 <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a>.</li>
@@ -143,7 +143,7 @@
     <!-- ============================================================ -->
     <div id="dashboard-config" class="card glass-card mb-4">
         <div class="card-body p-4">
-            <h3 class="mb-4" style="font-weight: 700;">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
                 <i class="fa-solid fa-sliders me-2 text-accent"></i>Dashboard &amp; Configuration
             </h3>
 
@@ -160,9 +160,9 @@
                         <div class="accordion-body" style="color: #ccc;">
                             <p>Your Location ID is automatically filled in during the Marketplace installation. If it shows as blank or a temporary value:</p>
                             <ol>
-                                <li>Log into <strong>GoHighLevel</strong>.</li>
+                                <li>Log into <strong>Lead Connector</strong>.</li>
                                 <li>Go to <strong>Settings &rarr; Business Info</strong>.</li>
-                                <li>Your Location ID is in the URL bar: <code>app.gohighlevel.com/v2/location/<strong>YOUR_LOCATION_ID</strong>/...</code></li>
+                                <li>Your Location ID is in the URL bar: <code>app.leadconnector.com/v2/location/<strong>YOUR_LOCATION_ID</strong>/...</code></li>
                                 <li>Copy that ID and paste it into the <strong>Location ID</strong> field on your dashboard.</li>
                                 <li>Click <strong>Save Configuration</strong>.</li>
                             </ol>
@@ -182,12 +182,12 @@
                             <ol>
                                 <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Bot Configuration</strong> tab.</li>
                                 <li>Next to the Calendar dropdown, click the <strong>"Load"</strong> button.</li>
-                                <li>This fetches all calendars from your connected GHL account.</li>
+                                <li>This fetches all calendars from your connected Lead Connector account.</li>
                                 <li>Select the calendar you want the bot to book appointments on.</li>
                                 <li>Click <strong>Save Configuration</strong>.</li>
                             </ol>
                             <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
-                                <i class="fa-solid fa-exclamation-triangle me-1"></i> If the Load button shows "None", make sure you have at least one calendar created in your GHL account under <strong>Calendars</strong> in the sidebar.
+                                <i class="fa-solid fa-exclamation-triangle me-1"></i> If the Load button shows "None", make sure you have at least one calendar created in your Lead Connector account under <strong>Calendars</strong> in the sidebar.
                             </div>
                         </div>
                     </div>
@@ -203,12 +203,12 @@
                     <div id="cfg3" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
                         <div class="accordion-body" style="color: #ccc;">
                             <ol>
-                                <li>In GoHighLevel, go to <strong>Settings &rarr; My Staff</strong> (or <strong>Team Management</strong>).</li>
+                                <li>In Lead Connector, go to <strong>Settings &rarr; My Staff</strong> (or <strong>Team Management</strong>).</li>
                                 <li>Click on your user profile.</li>
                                 <li>The User ID appears in the URL: <code>...users/<strong>YOUR_USER_ID</strong></code></li>
                                 <li>Alternatively, your User ID was captured during installation. Check if it's already filled in on your dashboard.</li>
                             </ol>
-                            <p>The CRM User ID tells the bot which user account to send messages as inside your GHL location.</p>
+                            <p>The CRM User ID tells the bot which user account to send messages as inside your Lead Connector location.</p>
                         </div>
                     </div>
                 </div>
@@ -287,7 +287,7 @@
     <!-- ============================================================ -->
     <div id="bot-behavior" class="card glass-card mb-4">
         <div class="card-body p-4">
-            <h3 class="mb-4" style="font-weight: 700;">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
                 <i class="fa-solid fa-robot me-2 text-accent"></i>Bot Behavior &amp; Troubleshooting
             </h3>
 
@@ -308,7 +308,7 @@
                                 <li><strong>OAuth tokens valid?</strong> Check the sidebar for "Token Expired". If expired, click <strong>Connect Lead Connector</strong> to re-authorize.</li>
                                 <li><strong>Location ID set?</strong> Make sure your Location ID field isn't empty or showing a temporary value.</li>
                                 <li><strong>Calendar selected?</strong> The bot needs a calendar to function. Click <strong>Load</strong> next to the calendar dropdown and select one.</li>
-                                <li><strong>GHL webhook active?</strong> In your GHL account, go to <strong>Settings &rarr; Webhooks</strong> and verify the InsuranceGrokBot webhook URL is listed and active.</li>
+                                <li><strong>Webhook active?</strong> In your Lead Connector account, go to <strong>Settings &rarr; Webhooks</strong> and verify the InsuranceGrokBot webhook URL is listed and active.</li>
                             </ol>
                         </div>
                     </div>
@@ -327,7 +327,7 @@
                             <ul>
                                 <li><strong>Short conversations:</strong> The first 2-3 exchanges may feel similar as the bot gathers initial information. This is normal discovery behavior.</li>
                                 <li><strong>After 5+ messages:</strong> If it's still repeating, the lead's answers may not have been clear enough for the bot to register. The lead can try giving more direct answers.</li>
-                                <li><strong>Database issue:</strong> In rare cases, the narrative memory may not have saved correctly. The bot will recover on the next message as it re-reads the full conversation history from GHL.</li>
+                                <li><strong>Database issue:</strong> In rare cases, the narrative memory may not have saved correctly. The bot will recover on the next message as it re-reads the full conversation history from Lead Connector.</li>
                             </ul>
                         </div>
                     </div>
@@ -364,8 +364,8 @@
                         <div class="accordion-body" style="color: #ccc;">
                             <ol>
                                 <li><strong>Calendar selected?</strong> On your dashboard, click <strong>Load</strong> next to the calendar dropdown. Make sure a calendar is selected and saved.</li>
-                                <li><strong>Availability set in GHL?</strong> The bot pulls available slots from your GHL calendar. If no availability is configured in GHL, there are no slots to show. Go to <strong>Calendars</strong> in GHL and set your available hours.</li>
-                                <li><strong>Timezone correct?</strong> If slots show at wrong times, your timezone setting on the dashboard may not match your GHL calendar's timezone. Update it and save.</li>
+                                <li><strong>Availability set?</strong> The bot pulls available slots from your Lead Connector calendar. If no availability is configured, there are no slots to show. Go to <strong>Calendars</strong> in Lead Connector and set your available hours.</li>
+                                <li><strong>Timezone correct?</strong> If slots show at wrong times, your timezone setting on the dashboard may not match your Lead Connector calendar's timezone. Update it and save.</li>
                                 <li><strong>Slots fully booked?</strong> The bot shows the next 3 days of availability. If all slots are booked, the bot won't have any to offer.</li>
                             </ol>
                         </div>
@@ -385,9 +385,9 @@
                             <ul>
                                 <li>An appointment is booked.</li>
                                 <li>The lead requests to stop or opts out.</li>
-                                <li>A manual (human) reply is detected in the GHL conversation from your side.</li>
+                                <li>A manual (human) reply is detected in the Lead Connector conversation from your side.</li>
                             </ul>
-                            <p>To manually pause the bot for a lead, simply send a message to that lead yourself inside GHL. The bot recognizes human agent activity and steps back.</p>
+                            <p>To manually pause the bot for a lead, simply send a message to that lead yourself inside Lead Connector. The bot recognizes human agent activity and steps back.</p>
                         </div>
                     </div>
                 </div>
@@ -400,7 +400,7 @@
     <!-- ============================================================ -->
     <div id="billing" class="card glass-card mb-4">
         <div class="card-body p-4">
-            <h3 class="mb-4" style="font-weight: 700;">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
                 <i class="fa-solid fa-credit-card me-2 text-accent"></i>Billing &amp; Subscription
             </h3>
 
@@ -486,7 +486,7 @@
                                     <tr>
                                         <td>Individual</td>
                                         <td>$98.99/mo</td>
-                                        <td>Solo agents with a single GHL location</td>
+                                        <td>Solo agents with a single location</td>
                                     </tr>
                                     <tr>
                                         <td>Agency Starter</td>
@@ -513,7 +513,7 @@
     <!-- ============================================================ -->
     <div id="agency" class="card glass-card mb-4">
         <div class="card-body p-4">
-            <h3 class="mb-4" style="font-weight: 700;">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
                 <i class="fa-solid fa-users me-2 text-accent"></i>Agency Management
             </h3>
 
@@ -550,7 +550,7 @@
                         <div class="accordion-body" style="color: #ccc;">
                             <ol>
                                 <li>Ask them to check their <strong>spam/junk folder</strong>.</li>
-                                <li>Verify the agent email shown on the sub-account card is correct. If it says "No email detected", the GHL account may not have an email associated.</li>
+                                <li>Verify the agent email shown on the sub-account card is correct. If it says "No email detected", the Lead Connector account may not have an email associated.</li>
                                 <li>Click <strong>"Resend Invite"</strong> on their sub-account card to send another email.</li>
                                 <li>If the email is still not delivered, you can share the invite link directly. After clicking Resend, check for a "Manual invite link" popup with a direct URL.</li>
                             </ol>
@@ -567,7 +567,7 @@
                     </h2>
                     <div id="ag3" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion2">
                         <div class="accordion-body" style="color: #ccc;">
-                            <p>This means the sub-account hasn't completed the OAuth connection to GHL yet.</p>
+                            <p>This means the sub-account hasn't completed the OAuth connection to Lead Connector yet.</p>
                             <p><strong>Fix:</strong></p>
                             <ol>
                                 <li>The sub-user needs to log into their account and click <strong>"Connect Lead Connector"</strong>.</li>
@@ -621,7 +621,7 @@
     <!-- ============================================================ -->
     <div id="account" class="card glass-card mb-4">
         <div class="card-body p-4">
-            <h3 class="mb-4" style="font-weight: 700;">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
                 <i class="fa-solid fa-user-shield me-2 text-accent"></i>Account &amp; Login
             </h3>
 
@@ -636,11 +636,13 @@
                     </h2>
                     <div id="acct1" class="accordion-collapse collapse" data-bs-parent="#accountAccordion">
                         <div class="accordion-body" style="color: #ccc;">
-                            <p>Password reset is not self-service at this time. To regain access:</p>
                             <ol>
-                                <li>Go to <a href="/contact" style="color: var(--accent);">Contact Us</a> and request a password reset.</li>
-                                <li>Include the email address associated with your account.</li>
+                                <li>Go to <a href="/forgot-password" style="color: var(--accent);">Forgot Password</a>.</li>
+                                <li>Enter the email address associated with your account.</li>
+                                <li>Check your inbox (and spam folder) for a reset link.</li>
+                                <li>Click the link and choose a new password.</li>
                             </ol>
+                            <p>The reset link expires after 30 minutes. If it expires, request a new one.</p>
                         </div>
                     </div>
                 </div>

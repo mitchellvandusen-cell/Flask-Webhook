@@ -22,6 +22,7 @@ from wtforms import StringField, PasswordField, SubmitField, TextAreaField, Sele
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from rq import Queue
 from psycopg2.extras import RealDictCursor
 
@@ -168,7 +169,7 @@ def demo_reset():
 @login_required
 def fetch_calendars():
     """
-    Fetch all calendars from GHL for the current user's location.
+    Fetch all calendars from Lead Connector for the current user's location.
     Returns a list of calendars with id and name.
     """
     location_id = current_user.location_id
@@ -212,7 +213,7 @@ def fetch_calendars():
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to fetch calendars for location {location_id}: {e}")
-        return flask_jsonify({"error": "Failed to fetch calendars from GHL"}), 500
+        return flask_jsonify({"error": "Failed to fetch calendars from Lead Connector"}), 500
 
 
 def generate_demo_opener():
@@ -323,7 +324,7 @@ def extract_field_flexible(payload, field_name, search_nested=True):
 
 def normalize_payload_universal(payload):
     """
-    Normalize ANY GHL payload structure to consistent snake_case format.
+    Normalize ANY Lead Connector payload structure to consistent snake_case format.
     Handles marketplace apps, custom webhooks, and any future formats.
     """
     # Common ID fields to normalize
@@ -544,7 +545,7 @@ def stripe_webhook():
 def register():
     """
     Registration - Marketplace Only.
-    User must have already installed the app from the GHL Marketplace,
+    User must have already installed the app from the Lead Connector Marketplace,
     which creates their record via /oauth/callback.
     This page just lets them set a password.
 
@@ -589,7 +590,7 @@ def register():
 
             if not match:
                 # Location not found → user hasn't installed from Marketplace yet
-                flash("Location ID not found. You must install the app from the GoHighLevel Marketplace first.", "error")
+                flash("Location ID not found. You must install the app from the Lead Connector Marketplace first.", "error")
                 return redirect("/register")
 
             password_hash = generate_password_hash(password)
@@ -672,6 +673,154 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
+
+
+# ============================================================
+# FORGOT / RESET PASSWORD
+# ============================================================
+
+def _get_reset_serializer():
+    return URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+
+def _send_reset_email(to_email, reset_url):
+    """Send a password-reset link via Flask-Mail."""
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Password Reset</h2>
+            <p>We received a request to reset your InsuranceGrokBot password.</p>
+            <p>Click the button below to choose a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_url}"
+                   style="background-color: #2563eb; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                    Reset My Password
+                </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+                This link expires in 30 minutes. If you didn't request this,
+                you can safely ignore this email.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px;">
+                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                <a href="{YOUR_DOMAIN}" style="color: #2563eb;">{YOUR_DOMAIN}</a>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    msg = Message(
+        subject="InsuranceGrokBot - Password Reset",
+        recipients=[to_email],
+        html=html_body,
+        body=f"Reset your password: {reset_url}\n\nThis link expires in 30 minutes."
+    )
+    mail.send(msg)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET":
+        return render_template("forgot-password.html")
+
+    email = request.form.get("email", "").strip().lower()
+    # Always show the same message regardless of whether the account exists
+    flash("If an account is registered with that email, you will receive a reset link.", "info")
+
+    if email:
+        # Check both subscribers and agency_billing tables
+        user = User.get(email)
+        if not user:
+            # Try agency_billing
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor(cursor_factory=RealDictCursor)
+                    cur.execute("SELECT agency_email FROM agency_billing WHERE agency_email = %s", (email,))
+                    user = cur.fetchone()
+                except Exception:
+                    pass
+                finally:
+                    conn.close()
+
+        if user:
+            try:
+                s = _get_reset_serializer()
+                token = s.dumps(email, salt='password-reset')
+                reset_url = f"{YOUR_DOMAIN}/reset-password/{token}"
+                _send_reset_email(email, reset_url)
+                logger.info(f"Password reset email sent to {email}")
+            except Exception as e:
+                logger.error(f"Failed to send reset email to {email}: {e}")
+
+    return redirect("/forgot-password")
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    # Validate the token (30-minute expiry)
+    s = _get_reset_serializer()
+    try:
+        email = s.loads(token, salt='password-reset', max_age=1800)
+    except SignatureExpired:
+        flash("This reset link has expired. Please request a new one.", "error")
+        return redirect("/forgot-password")
+    except BadSignature:
+        flash("Invalid reset link.", "error")
+        return redirect("/forgot-password")
+
+    if request.method == "GET":
+        return render_template("reset-password.html", token=token, email=email)
+
+    # POST: Save new password
+    password = request.form.get("password", "")
+    confirm = request.form.get("confirm_password", "")
+
+    if not password or len(password) < 8:
+        flash("Password must be at least 8 characters.", "error")
+        return redirect(f"/reset-password/{token}")
+
+    if password != confirm:
+        flash("Passwords do not match.", "error")
+        return redirect(f"/reset-password/{token}")
+
+    password_hash = generate_password_hash(password)
+    conn = get_db_connection()
+    if not conn:
+        flash("Database unavailable. Please try again.", "error")
+        return redirect(f"/reset-password/{token}")
+
+    try:
+        cur = conn.cursor()
+        # Update subscribers table
+        cur.execute("""
+            UPDATE subscribers SET password_hash = %s, updated_at = NOW()
+            WHERE LOWER(email) = %s
+        """, (password_hash, email.lower()))
+
+        # Also update agency_billing if they're an agency owner
+        cur.execute("""
+            UPDATE agency_billing SET password_hash = %s, updated_at = NOW()
+            WHERE LOWER(agency_email) = %s
+        """, (password_hash, email.lower()))
+
+        conn.commit()
+        logger.info(f"Password reset completed for {email}")
+        flash("Password reset successfully! You can now log in.", "success")
+        return redirect("/login")
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Password reset DB error for {email}: {e}")
+        flash("Something went wrong. Please try again.", "error")
+        return redirect(f"/reset-password/{token}")
+    finally:
+        cur.close()
+        conn.close()
+
 
 @app.route("/agency-dashboard", methods=["GET", "POST"])
 @login_required
@@ -968,7 +1117,7 @@ def onboarding_status():
 
     steps = [
         {"label": "App Installed", "done": has_token, "icon": "fa-cloud-arrow-down",
-         "help": "Install InsuranceGrokBot from the GHL Marketplace to connect your account."},
+         "help": "Install InsuranceGrokBot from the Lead Connector Marketplace to connect your account."},
         {"label": "Password Created", "done": has_password, "icon": "fa-lock",
          "help": "Set a secure password so you can log in anytime."},
         {"label": "Subscription Confirmed", "done": has_subscription, "icon": "fa-credit-card",
@@ -2079,7 +2228,7 @@ def oauth_initiate():
     client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
-    # Required scopes for the private app (must match GHL private app configuration)
+    # Required scopes for the private app (must match Lead Connector app configuration)
     scopes = [
         "calendars.readonly",
         "calendars/events.readonly",
@@ -2111,7 +2260,7 @@ def oauth_initiate():
 
 def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
     """
-    Helper to handle GHL pagination (fetching all locations/users).
+    Helper to handle Lead Connector pagination (fetching all locations/users).
     Prevents onboarding failures when agencies have >20 locations.
 
     Args:
@@ -2141,7 +2290,7 @@ def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
 
             logger.info(f"Fetched {len(batch)} {item_key} from page {page_count} (total: {len(items)})")
 
-            # GHL pagination: check both 'meta.nextPageUrl' and direct 'nextPageUrl'
+            # Lead Connector pagination: check both 'meta.nextPageUrl' and direct 'nextPageUrl'
             meta = data.get('meta', {})
             next_url = meta.get('nextPageUrl') or data.get('nextPageUrl')
 
@@ -3056,7 +3205,7 @@ def website_bot_webhook():
 
     if user_message == "agency_how":
         return flask_jsonify({
-            "text": "Simple: You connect your GHL agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard. Your agents don't need to do anything.",
+            "text": "Simple: You connect your Lead Connector agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard. Your agents don't need to do anything.",
             "options": [
                 {"label": "What do my agents see?", "value": "agency_agent_view"},
                 {"label": "Try the demo", "value": "demo"},
@@ -3066,7 +3215,7 @@ def website_bot_webhook():
 
     if user_message == "agency_agent_view":
         return flask_jsonify({
-            "text": "Your agents see conversations happening in their GHL inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
+            "text": "Your agents see conversations happening in their Lead Connector inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
             "options": [
                 {"label": "That sounds good", "value": "demo"},
                 {"label": "What's pricing?", "value": "pricing_agency"}
@@ -3131,7 +3280,7 @@ def website_bot_webhook():
 
     if "book" in msg_lower or "calendar" in msg_lower or "appointment" in msg_lower:
         return flask_jsonify({
-            "text": "I connect directly to your GHL calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up on your calendar with all the context: what they said, their health info, what objections came up. You walk into the call prepared.",
+            "text": "I connect directly to your Lead Connector calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up on your calendar with all the context: what they said, their health info, what objections came up. You walk into the call prepared.",
             "options": [
                 {"label": "Try the demo", "value": "demo"},
                 {"label": "Pricing", "value": "pricing_individual"}
@@ -3204,7 +3353,7 @@ def website_bot_webhook():
 
     if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower or "lead connector" in msg_lower:
         return flask_jsonify({
-            "text": "I integrate directly with Lead Connector (formerly GoHighLevel). You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
+            "text": "I integrate directly with Lead Connector. You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
             "options": [
                 {"label": "See integration", "value": "demo"},
                 {"label": "Get started", "value": "signup_individual"}
