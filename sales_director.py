@@ -1,7 +1,6 @@
 # sales_director.py
 # The decider: reads memory, profile, narrative → tells the texting agent the current situation
-# Updated Jan 2026: light qualification → fast hand-off to real salesperson call
-# Role: smart SDR / appointment setter — NOT full closer over text
+# Updated Jan 2026: Single DB Call + Global Ghosting Protection + Momentum Logic
 
 import logging
 from typing import Dict, Any, List
@@ -30,32 +29,36 @@ def generate_strategic_directive(
     """
     Returns lean context + tactical situation for the texting agent.
     Goal: qualify lightly → sense real interest / engagement → propose a call with real salesperson ASAP.
-    Do NOT try to close or go deep over text — hand off to human quickly.
     """
     logger.info(f"Director | {contact_id} | msg='{message[:60]}'")
 
-    # ─── 1. Fetch full history once (for narrative observer) ───
+    # ─── 1. INTELLIGENCE GATHERING (Single DB Fetch) ───
+    # We fetch ALL messages once because the Narrative Observer needs the full story.
     all_msgs: List[Dict] = get_recent_messages(contact_id, limit=None)
     
-    # Slice recent exchanges from the full list (cheap, no extra DB hit)
-    recent_exchanges = all_msgs[-14:] if all_msgs else []  # last 14 messages max
+    # OPTIMIZATION: Slice the recent exchanges from the list we just fetched.
+    # We do NOT call the database a second time.
+    recent_exchanges = all_msgs[-14:] if all_msgs else []  # Last 14 messages for prompt context
 
-    # ─── 2. Refresh narrative & facts (uses full history) ───
+    # ─── 2. REFRESH NARRATIVE & FACTS ───
+    # Run the observer on the full history
     observer = run_narrative_observer(contact_id, message, all_msgs)
     narrative = observer["narrative"] or ""
     known_facts = get_known_facts(contact_id)
 
-    # ─── 3. Core logic signals (uses sliced recent history) ───
+    # ─── 3. ANALYZE LOGIC FLOW ───
+    # The logic engine only needs the recent context to determine current state
     logic: LogicSignal = analyze_logic_flow(recent_exchanges)
 
-    # ─── 4. Profile ───
+    # ─── 4. BUILD PROFILE ───
     profile_str, _ = build_comprehensive_profile(
         narrative, known_facts, first_name, age, address
     )
 
-    # ─── 5. Underwriting & carrier (only when triggered) ───
+    # ─── 5. CONTEXTUAL INTELLIGENCE (Underwriting & Carriers) ───
     underwriting_ctx = ""
     full_lower = (message + narrative).lower()
+    # Only run regex if relevant keywords appear (Optimization)
     if any(kw in full_lower for kw in ["health", "medic", "condit", "prescrip", "doctor"]):
         underwriting_ctx = get_underwriting_context(message)
 
@@ -72,10 +75,10 @@ def generate_strategic_directive(
                 lines.append("Likely group/employer plan — ends if they leave job.")
             company_ctx = " ".join(lines)
 
-    # ─── 6. Tactical situation ───
+    # ─── 6. DETERMINE STAGE ───
     stage_value = logic.stage.value
 
-    # Quick intent overrides — catch soft agreements early
+    # A. Quick Intent Overrides (Catch soft agreements early)
     if any(word in full_lower for word in [
         "book", "schedule", "call", "talk", "meet", "appointment", "hop on", "quick call",
         "time work", "works for", "lets do", "sure", "yeah lets", "maybe", "probably",
@@ -83,13 +86,28 @@ def generate_strategic_directive(
     ]):
         stage_value = ConversationStage.BOOKING.value
 
-    # Lock BOOKED if facts show success
+    # B. Fact-Based Override (If backend knows they booked, lock it)
     if any(kw in f.lower() for f in known_facts for kw in ["booked", "appointment at", "calendar"]):
         stage_value = ConversationStage.BOOKED.value
 
+    # ─── 7. GENERATE TACTICAL DIRECTIVE ───
     tactical = ""
 
-    if stage_value == ConversationStage.BOOKED.value:
+    # === GLOBAL GHOSTING CHECK (The Critical Fix) ===
+    # If this is an Outbound Trigger (empty message) and we have history,
+    # it is ALWAYS a follow-up, regardless of whether the stage says "Qualifying" or "Initial".
+    # This prevents the bot from "replying" to silence.
+    if not message and len(recent_exchanges) > 0:
+        tactical = (
+            "FOLLOW-UP / RE-ENGAGE\n"
+            "The lead has not responded to your previous message.\n"
+            "Check the conversation recap. Nudge them gently.\n"
+            "Do not repeat the exact same introduction.\n"
+            "Goal: Get a response — see if they're worth qualifying further."
+        )
+
+    # === STAGE SPECIFIC LOGIC ===
+    elif stage_value == ConversationStage.BOOKED.value:
         tactical = (
             "APPOINTMENT BOOKED\n"
             "Confirm the time naturally. Mention calendar invite coming.\n"
@@ -105,19 +123,13 @@ def generate_strategic_directive(
         )
 
     elif stage_value == ConversationStage.INITIAL_OUTREACH.value:
-        if recent_exchanges and not message:  # outbound follow-up (ghosting)
-            tactical = (
-                "FOLLOW-UP — no reply yet.\n"
-                "Nudge casually. Don't repeat the opener.\n"
-                "Goal: any response — see if they're worth qualifying further."
-            )
-        else:
-            tactical = (
-                "EARLY / FIRST CONTACT\n"
-                "Casual check-in. Reference life insurance interest.\n"
-                f"Use '{first_name}' if known. Ask one natural question.\n"
-                "Sound like a real person texting — goal is to see if they engage at all."
-            )
+        # True Initial Outreach (First ever contact)
+        tactical = (
+            "EARLY / FIRST CONTACT\n"
+            "Casual check-in. Reference life insurance interest.\n"
+            f"Use '{first_name}' if known. Ask one natural question.\n"
+            "Sound like a real person texting — goal is to see if they engage at all."
+        )
 
     else:  # QUALIFYING / DISCOVERY — intentionally light & fast-moving
         if logic.mentioned_goal and logic.mentioned_obstacle:
@@ -154,7 +166,7 @@ def generate_strategic_directive(
                 "Acknowledge briefly, then keep moving toward 'a quick call can help sort this'.\n"
             ) + tactical
 
-    # ─── Final output ───
+    # ─── 8. FINAL OUTPUT (Single Return) ───
     return {
         "profile_str": profile_str.strip(),
         "tactical_narrative": tactical.strip(),
@@ -163,5 +175,5 @@ def generate_strategic_directive(
         "company_context": company_ctx.strip(),
         "known_facts": known_facts,
         "story_narrative": narrative.strip(),
-        "recent_exchanges": recent_exchanges,  # sliced — cheap & sufficient
+        "recent_exchanges": recent_exchanges, # Passed back to tasks.py so it doesn't have to fetch again
     }
