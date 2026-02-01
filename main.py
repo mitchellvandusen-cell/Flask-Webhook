@@ -1422,10 +1422,12 @@ def demo_chat_api():
     try:
         cur = conn.cursor()
 
-        # 1. Save user message
+        # 1. CRASH FIX: Save user message with "ON CONFLICT DO NOTHING"
+        # This prevents the app from crashing if the lead repeats themselves (e.g. "No", "No")
         cur.execute("""
             INSERT INTO contact_messages (contact_id, message_type, message_text)
             VALUES (%s, 'lead', %s)
+            ON CONFLICT DO NOTHING
         """, (contact_id, message))
         conn.commit()
 
@@ -1520,13 +1522,14 @@ def demo_chat_api():
             logger.error(f"🚨 DEMO BLOCKED LOW-QUALITY MESSAGE: '{reply}' - Using fallback")
             reply = "What's your main concern about coverage right now?"
 
-        # 5. Save bot response
+        # 5. Save bot response - ALSO CRASH PROOF
         conn = get_db_connection()
         if conn:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO contact_messages (contact_id, message_type, message_text)
                 VALUES (%s, 'assistant', %s)
+                ON CONFLICT DO NOTHING
             """, (contact_id, reply))
             conn.commit()
             cur.close()
@@ -1540,8 +1543,9 @@ def demo_chat_api():
 
     except Exception as e:
         logger.error(f"Demo chat error: {e}", exc_info=True)
+        # Even if DB fails completely, try to reply so the UI doesn't hang
         return flask_jsonify({
-            "reply": "What's your main concern about coverage right now?",
+            "reply": "I hear you. Could you clarify that last part?",
             "error": str(e)
         }), 200
 
