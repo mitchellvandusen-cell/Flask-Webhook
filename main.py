@@ -22,6 +22,7 @@ from wtforms import StringField, PasswordField, SubmitField, TextAreaField, Sele
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from rq import Queue
 from psycopg2.extras import RealDictCursor
 
@@ -672,6 +673,154 @@ def login():
 def logout():
     logout_user()
     return redirect("/")
+
+
+# ============================================================
+# FORGOT / RESET PASSWORD
+# ============================================================
+
+def _get_reset_serializer():
+    return URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+
+def _send_reset_email(to_email, reset_url):
+    """Send a password-reset link via Flask-Mail."""
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Password Reset</h2>
+            <p>We received a request to reset your InsuranceGrokBot password.</p>
+            <p>Click the button below to choose a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_url}"
+                   style="background-color: #2563eb; color: white; padding: 14px 28px;
+                          text-decoration: none; border-radius: 8px; font-weight: bold;
+                          display: inline-block;">
+                    Reset My Password
+                </a>
+            </div>
+            <p style="color: #666; font-size: 14px;">
+                This link expires in 30 minutes. If you didn't request this,
+                you can safely ignore this email.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #999; font-size: 12px;">
+                InsuranceGrokBot - AI-Powered Insurance Sales Assistant<br>
+                <a href="{YOUR_DOMAIN}" style="color: #2563eb;">{YOUR_DOMAIN}</a>
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    msg = Message(
+        subject="InsuranceGrokBot - Password Reset",
+        recipients=[to_email],
+        html=html_body,
+        body=f"Reset your password: {reset_url}\n\nThis link expires in 30 minutes."
+    )
+    mail.send(msg)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET":
+        return render_template("forgot-password.html")
+
+    email = request.form.get("email", "").strip().lower()
+    # Always show the same message regardless of whether the account exists
+    flash("If an account is registered with that email, you will receive a reset link.", "info")
+
+    if email:
+        # Check both subscribers and agency_billing tables
+        user = User.get(email)
+        if not user:
+            # Try agency_billing
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor(cursor_factory=RealDictCursor)
+                    cur.execute("SELECT agency_email FROM agency_billing WHERE agency_email = %s", (email,))
+                    user = cur.fetchone()
+                except Exception:
+                    pass
+                finally:
+                    conn.close()
+
+        if user:
+            try:
+                s = _get_reset_serializer()
+                token = s.dumps(email, salt='password-reset')
+                reset_url = f"{YOUR_DOMAIN}/reset-password/{token}"
+                _send_reset_email(email, reset_url)
+                logger.info(f"Password reset email sent to {email}")
+            except Exception as e:
+                logger.error(f"Failed to send reset email to {email}: {e}")
+
+    return redirect("/forgot-password")
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    # Validate the token (30-minute expiry)
+    s = _get_reset_serializer()
+    try:
+        email = s.loads(token, salt='password-reset', max_age=1800)
+    except SignatureExpired:
+        flash("This reset link has expired. Please request a new one.", "error")
+        return redirect("/forgot-password")
+    except BadSignature:
+        flash("Invalid reset link.", "error")
+        return redirect("/forgot-password")
+
+    if request.method == "GET":
+        return render_template("reset-password.html", token=token, email=email)
+
+    # POST: Save new password
+    password = request.form.get("password", "")
+    confirm = request.form.get("confirm_password", "")
+
+    if not password or len(password) < 8:
+        flash("Password must be at least 8 characters.", "error")
+        return redirect(f"/reset-password/{token}")
+
+    if password != confirm:
+        flash("Passwords do not match.", "error")
+        return redirect(f"/reset-password/{token}")
+
+    password_hash = generate_password_hash(password)
+    conn = get_db_connection()
+    if not conn:
+        flash("Database unavailable. Please try again.", "error")
+        return redirect(f"/reset-password/{token}")
+
+    try:
+        cur = conn.cursor()
+        # Update subscribers table
+        cur.execute("""
+            UPDATE subscribers SET password_hash = %s, updated_at = NOW()
+            WHERE LOWER(email) = %s
+        """, (password_hash, email.lower()))
+
+        # Also update agency_billing if they're an agency owner
+        cur.execute("""
+            UPDATE agency_billing SET password_hash = %s, updated_at = NOW()
+            WHERE LOWER(agency_email) = %s
+        """, (password_hash, email.lower()))
+
+        conn.commit()
+        logger.info(f"Password reset completed for {email}")
+        flash("Password reset successfully! You can now log in.", "success")
+        return redirect("/login")
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Password reset DB error for {email}: {e}")
+        flash("Something went wrong. Please try again.", "error")
+        return redirect(f"/reset-password/{token}")
+    finally:
+        cur.close()
+        conn.close()
+
 
 @app.route("/agency-dashboard", methods=["GET", "POST"])
 @login_required
