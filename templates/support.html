@@ -1,0 +1,703 @@
+{% extends "base.html" %}
+{% block title %}Support Center | InsuranceGrokBot{% endblock %}
+{% block content %}
+<div class="container" style="padding-top: 120px; padding-bottom: 80px; max-width: 900px;">
+
+    <div class="text-center mb-5">
+        <h1 style="font-weight: 900; font-size: 2.8rem; margin-bottom: 10px;">
+            Support <span class="text-accent">Center</span>
+        </h1>
+        <p class="text-secondary" style="font-size: 1.1rem; max-width: 600px; margin: 0 auto;">
+            Find answers to common issues, learn how to configure your dashboard, and troubleshoot problems without waiting for support.
+        </p>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row g-3 mb-5">
+        <div class="col-md-3 col-6">
+            <a href="#installation" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-cloud-arrow-down text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Installation</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="#dashboard-config" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-sliders text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Dashboard</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="#billing" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-credit-card text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Billing</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="#agency" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-users text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Agency</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 1: INSTALLATION & CONNECTION -->
+    <!-- ============================================================ -->
+    <div id="installation" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700;">
+                <i class="fa-solid fa-cloud-arrow-down me-2 text-accent"></i>Installation &amp; Connection
+            </h3>
+
+            <div class="accordion" id="installAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I install InsuranceGrokBot?
+                        </button>
+                    </h2>
+                    <div id="inst1" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Log into your <strong>GoHighLevel / Lead Connector</strong> account.</li>
+                                <li>Open the <strong>Marketplace</strong> tab in the left sidebar.</li>
+                                <li>Search for <strong>"Insurance Grok Bot"</strong>.</li>
+                                <li>Click <strong>Install</strong> and approve the requested permissions.</li>
+                                <li>You'll be redirected to complete your subscription and set a password.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> The app is free to install. Billing is handled separately through Stripe after installation.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            The install redirected me but nothing happened
+                        </button>
+                    </h2>
+                    <div id="inst2" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>This usually means the OAuth handshake completed but the redirect was blocked by a popup blocker or the browser tab closed prematurely.</p>
+                            <p><strong>Fix:</strong></p>
+                            <ol>
+                                <li>Go to <a href="/login" style="color: var(--accent);">Login</a> and sign in with the email associated with your GHL account.</li>
+                                <li>If you haven't set a password yet, go to <a href="/onboarding-status" style="color: var(--accent);">Setup Progress</a> to see exactly where you are and pick up from there.</li>
+                                <li>Check that your browser allows popups from this domain.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            I see "Connect Lead Connector" on my dashboard
+                        </button>
+                    </h2>
+                    <div id="inst3" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>This means your account exists but isn't linked to your GHL account's API tokens yet.</p>
+                            <p><strong>Fix:</strong></p>
+                            <ol>
+                                <li>Click the green <strong>"Connect Lead Connector"</strong> button on your dashboard.</li>
+                                <li>This starts the OAuth flow. You'll be redirected to GoHighLevel to approve access.</li>
+                                <li>Once approved, your tokens are saved and the button disappears.</li>
+                            </ol>
+                            <p>If the button keeps reappearing, your OAuth token may have expired. Click it again to re-authorize.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            OAuth token expired / "Token Expired" message
+                        </button>
+                    </h2>
+                    <div id="inst4" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>GoHighLevel OAuth tokens expire periodically. The system automatically refreshes them, but in rare cases the refresh can fail.</p>
+                            <p><strong>Fix:</strong></p>
+                            <ol>
+                                <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a>.</li>
+                                <li>Click <strong>"Connect Lead Connector"</strong> to re-authorize.</li>
+                                <li>This generates fresh tokens and the bot resumes working immediately.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 2: DASHBOARD & CONFIGURATION -->
+    <!-- ============================================================ -->
+    <div id="dashboard-config" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700;">
+                <i class="fa-solid fa-sliders me-2 text-accent"></i>Dashboard &amp; Configuration
+            </h3>
+
+            <div class="accordion" id="configAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cfg1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I find my Location ID?
+                        </button>
+                    </h2>
+                    <div id="cfg1" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Your Location ID is automatically filled in during the Marketplace installation. If it shows as blank or a temporary value:</p>
+                            <ol>
+                                <li>Log into <strong>GoHighLevel</strong>.</li>
+                                <li>Go to <strong>Settings &rarr; Business Info</strong>.</li>
+                                <li>Your Location ID is in the URL bar: <code>app.gohighlevel.com/v2/location/<strong>YOUR_LOCATION_ID</strong>/...</code></li>
+                                <li>Copy that ID and paste it into the <strong>Location ID</strong> field on your dashboard.</li>
+                                <li>Click <strong>Save Configuration</strong>.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cfg2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I set up or change my calendar?
+                        </button>
+                    </h2>
+                    <div id="cfg2" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Bot Configuration</strong> tab.</li>
+                                <li>Next to the Calendar dropdown, click the <strong>"Load"</strong> button.</li>
+                                <li>This fetches all calendars from your connected GHL account.</li>
+                                <li>Select the calendar you want the bot to book appointments on.</li>
+                                <li>Click <strong>Save Configuration</strong>.</li>
+                            </ol>
+                            <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-exclamation-triangle me-1"></i> If the Load button shows "None", make sure you have at least one calendar created in your GHL account under <strong>Calendars</strong> in the sidebar.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cfg3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I find my CRM User ID?
+                        </button>
+                    </h2>
+                    <div id="cfg3" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>In GoHighLevel, go to <strong>Settings &rarr; My Staff</strong> (or <strong>Team Management</strong>).</li>
+                                <li>Click on your user profile.</li>
+                                <li>The User ID appears in the URL: <code>...users/<strong>YOUR_USER_ID</strong></code></li>
+                                <li>Alternatively, your User ID was captured during installation. Check if it's already filled in on your dashboard.</li>
+                            </ol>
+                            <p>The CRM User ID tells the bot which user account to send messages as inside your GHL location.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cfg4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What is "Bot First Name" and "Initial Message"?
+                        </button>
+                    </h2>
+                    <div id="cfg4" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p><strong>Bot First Name:</strong> The name the bot uses when introducing itself to leads. Example: "Hey, this is <em>Sarah</em> from..."</p>
+                            <p><strong>Initial Message:</strong> The very first outreach message the bot sends when a new lead comes in. This is the opening line of the conversation.</p>
+                            <p>To update either one:</p>
+                            <ol>
+                                <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a>.</li>
+                                <li>Edit the fields under <strong>Bot Configuration</strong>.</li>
+                                <li>Click <strong>Save Configuration</strong>.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cfg5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What timezone should I pick?
+                        </button>
+                    </h2>
+                    <div id="cfg5" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Select the timezone that matches your <strong>business operating hours</strong>. This is used when the bot presents available calendar slots to leads so times display correctly.</p>
+                            <p>Common US timezones:</p>
+                            <ul>
+                                <li><code>America/New_York</code> &mdash; Eastern</li>
+                                <li><code>America/Chicago</code> &mdash; Central</li>
+                                <li><code>America/Denver</code> &mdash; Mountain</li>
+                                <li><code>America/Los_Angeles</code> &mdash; Pacific</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cfg6"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            I saved my settings but they didn't stick
+                        </button>
+                    </h2>
+                    <div id="cfg6" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Make sure you clicked the <strong>"Save Configuration"</strong> button (not just the browser back button).</li>
+                                <li>Look for a green "Settings saved successfully!" confirmation banner at the top of the page.</li>
+                                <li>If you see a red error banner, the save failed. Common causes:
+                                    <ul>
+                                        <li>A required field was left empty.</li>
+                                        <li>Your session expired. Log out and back in, then try again.</li>
+                                    </ul>
+                                </li>
+                                <li>Hard-refresh the page (<strong>Ctrl+Shift+R</strong> or <strong>Cmd+Shift+R</strong>) to confirm the values are saved.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 3: BOT BEHAVIOR & TROUBLESHOOTING -->
+    <!-- ============================================================ -->
+    <div id="bot-behavior" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700;">
+                <i class="fa-solid fa-robot me-2 text-accent"></i>Bot Behavior &amp; Troubleshooting
+            </h3>
+
+            <div class="accordion" id="botAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bot1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            The bot isn't responding to incoming messages
+                        </button>
+                    </h2>
+                    <div id="bot1" class="accordion-collapse collapse" data-bs-parent="#botAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Check these in order:</p>
+                            <ol>
+                                <li><strong>Subscription active?</strong> Log into your dashboard. If you see a "Subscription Required" message, you need to subscribe first.</li>
+                                <li><strong>OAuth tokens valid?</strong> Check the sidebar for "Token Expired". If expired, click <strong>Connect Lead Connector</strong> to re-authorize.</li>
+                                <li><strong>Location ID set?</strong> Make sure your Location ID field isn't empty or showing a temporary value.</li>
+                                <li><strong>Calendar selected?</strong> The bot needs a calendar to function. Click <strong>Load</strong> next to the calendar dropdown and select one.</li>
+                                <li><strong>GHL webhook active?</strong> In your GHL account, go to <strong>Settings &rarr; Webhooks</strong> and verify the InsuranceGrokBot webhook URL is listed and active.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bot2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            The bot keeps asking the same questions over and over
+                        </button>
+                    </h2>
+                    <div id="bot2" class="accordion-collapse collapse" data-bs-parent="#botAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>The bot uses a memory system that stores conversation history and facts about each lead. If it seems to loop:</p>
+                            <ul>
+                                <li><strong>Short conversations:</strong> The first 2-3 exchanges may feel similar as the bot gathers initial information. This is normal discovery behavior.</li>
+                                <li><strong>After 5+ messages:</strong> If it's still repeating, the lead's answers may not have been clear enough for the bot to register. The lead can try giving more direct answers.</li>
+                                <li><strong>Database issue:</strong> In rare cases, the narrative memory may not have saved correctly. The bot will recover on the next message as it re-reads the full conversation history from GHL.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bot3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            The bot sent a weird or garbled message
+                        </button>
+                    </h2>
+                    <div id="bot3" class="accordion-collapse collapse" data-bs-parent="#botAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Occasionally the AI model may produce an unexpected response. This is rare and typically self-corrects on the next message.</p>
+                            <p><strong>If it happens repeatedly:</strong></p>
+                            <ol>
+                                <li>Check your <strong>Initial Message</strong> on the dashboard. If it contains special characters or formatting, simplify it to plain text.</li>
+                                <li>Verify your <strong>Bot First Name</strong> is a normal first name (no symbols, no full sentences).</li>
+                                <li>The issue usually resolves itself. The bot reads the full conversation each time and adjusts.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bot4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            Calendar slots aren't showing or are wrong
+                        </button>
+                    </h2>
+                    <div id="bot4" class="accordion-collapse collapse" data-bs-parent="#botAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li><strong>Calendar selected?</strong> On your dashboard, click <strong>Load</strong> next to the calendar dropdown. Make sure a calendar is selected and saved.</li>
+                                <li><strong>Availability set in GHL?</strong> The bot pulls available slots from your GHL calendar. If no availability is configured in GHL, there are no slots to show. Go to <strong>Calendars</strong> in GHL and set your available hours.</li>
+                                <li><strong>Timezone correct?</strong> If slots show at wrong times, your timezone setting on the dashboard may not match your GHL calendar's timezone. Update it and save.</li>
+                                <li><strong>Slots fully booked?</strong> The bot shows the next 3 days of availability. If all slots are booked, the bot won't have any to offer.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bot5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I stop the bot for a specific lead?
+                        </button>
+                    </h2>
+                    <div id="bot5" class="accordion-collapse collapse" data-bs-parent="#botAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>The bot automatically stops responding when:</p>
+                            <ul>
+                                <li>An appointment is booked.</li>
+                                <li>The lead requests to stop or opts out.</li>
+                                <li>A manual (human) reply is detected in the GHL conversation from your side.</li>
+                            </ul>
+                            <p>To manually pause the bot for a lead, simply send a message to that lead yourself inside GHL. The bot recognizes human agent activity and steps back.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 4: BILLING & SUBSCRIPTION -->
+    <!-- ============================================================ -->
+    <div id="billing" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700;">
+                <i class="fa-solid fa-credit-card me-2 text-accent"></i>Billing &amp; Subscription
+            </h3>
+
+            <div class="accordion" id="billingAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bill1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I update my payment method?
+                        </button>
+                    </h2>
+                    <div id="bill1" class="accordion-collapse collapse" data-bs-parent="#billingAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Log into your <a href="/dashboard" style="color: var(--accent);">Dashboard</a>.</li>
+                                <li>Click the <strong>Billing &amp; Subscription</strong> tab.</li>
+                                <li>Click <strong>"Open Stripe Portal"</strong>.</li>
+                                <li>In the Stripe portal, click <strong>Update payment method</strong> and enter your new card details.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bill2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I cancel my subscription?
+                        </button>
+                    </h2>
+                    <div id="bill2" class="accordion-collapse collapse" data-bs-parent="#billingAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Billing &amp; Subscription</strong> tab.</li>
+                                <li>Click <strong>"Open Stripe Portal"</strong>.</li>
+                                <li>Click <strong>"Cancel plan"</strong> in the Stripe portal.</li>
+                            </ol>
+                            <p>Your access continues until the end of the current billing period. No partial refunds are issued for the remaining days.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bill3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            I paid but still see "Subscription Required"
+                        </button>
+                    </h2>
+                    <div id="bill3" class="accordion-collapse collapse" data-bs-parent="#billingAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>This can happen if there's a brief delay between Stripe processing and our system updating.</p>
+                            <p><strong>Fix:</strong></p>
+                            <ol>
+                                <li><strong>Wait 1-2 minutes</strong> and refresh the page. Stripe webhooks usually arrive within seconds, but occasionally take longer.</li>
+                                <li>Check that you used the <strong>same email</strong> for both your Stripe checkout and your dashboard login. If they don't match, the system can't link your payment to your account.</li>
+                                <li>Log out and back in to refresh your session.</li>
+                                <li>Check your email for a Stripe receipt confirming the charge went through.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bill4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What are the plan options and pricing?
+                        </button>
+                    </h2>
+                    <div id="bill4" class="accordion-collapse collapse" data-bs-parent="#billingAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <table class="table table-dark table-bordered" style="border-color: rgba(255,255,255,0.1);">
+                                <thead>
+                                    <tr>
+                                        <th>Plan</th>
+                                        <th>Price</th>
+                                        <th>For</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Individual</td>
+                                        <td>$98.99/mo</td>
+                                        <td>Solo agents with a single GHL location</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Agency Starter</td>
+                                        <td>$797.99/mo</td>
+                                        <td>Agencies with 1-14 sub-accounts</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Agency Pro</td>
+                                        <td>$1,597.99/mo</td>
+                                        <td>Agencies with 15+ sub-accounts (unlimited)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p>All plans include a <strong>7-day free trial</strong>. Cancel anytime through the Stripe portal.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 5: AGENCY MANAGEMENT -->
+    <!-- ============================================================ -->
+    <div id="agency" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700;">
+                <i class="fa-solid fa-users me-2 text-accent"></i>Agency Management
+            </h3>
+
+            <div class="accordion" id="agencyAccordion2">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ag1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I invite sub-account users?
+                        </button>
+                    </h2>
+                    <div id="ag1" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion2">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Go to your <a href="/agency-dashboard" style="color: var(--accent);">Agency Dashboard</a>.</li>
+                                <li>Scroll down to the sub-account list.</li>
+                                <li>For each sub-account showing <strong>"Pending"</strong>, click <strong>"Send Invite"</strong>.</li>
+                                <li>An email is sent to the agent's email on file with a link to claim their account.</li>
+                                <li>Alternatively, click <strong>"Invite All Pending Users"</strong> at the top to bulk-invite everyone at once.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ag2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            A sub-user says they didn't get the invite email
+                        </button>
+                    </h2>
+                    <div id="ag2" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion2">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Ask them to check their <strong>spam/junk folder</strong>.</li>
+                                <li>Verify the agent email shown on the sub-account card is correct. If it says "No email detected", the GHL account may not have an email associated.</li>
+                                <li>Click <strong>"Resend Invite"</strong> on their sub-account card to send another email.</li>
+                                <li>If the email is still not delivered, you can share the invite link directly. After clicking Resend, check for a "Manual invite link" popup with a direct URL.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ag3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            Sub-account shows "Not connected" for tokens
+                        </button>
+                    </h2>
+                    <div id="ag3" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion2">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>This means the sub-account hasn't completed the OAuth connection to GHL yet.</p>
+                            <p><strong>Fix:</strong></p>
+                            <ol>
+                                <li>The sub-user needs to log into their account and click <strong>"Connect Lead Connector"</strong>.</li>
+                                <li>Alternatively, you (the agency owner) can click <strong>"Enter Dashboard"</strong> on their card and connect on their behalf.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ag4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I configure a sub-account's bot settings?
+                        </button>
+                    </h2>
+                    <div id="ag4" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion2">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>On the <a href="/agency-dashboard" style="color: var(--accent);">Agency Dashboard</a>, expand the sub-account card.</li>
+                                <li>Click <strong>"Enter Dashboard"</strong>.</li>
+                                <li>You'll enter that sub-account's individual dashboard where you can configure their Location ID, Calendar, Bot Name, Timezone, and Initial Message.</li>
+                                <li>Save the settings. They take effect immediately.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ag5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What does "Reset Data" do on a sub-account?
+                        </button>
+                    </h2>
+                    <div id="ag5" class="accordion-collapse collapse" data-bs-parent="#agencyAccordion2">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p><strong>Reset Data</strong> clears all conversation history, stored facts, and bot memory for that sub-account's location. The bot configuration (calendar, timezone, etc.) is preserved.</p>
+                            <div class="alert alert-danger mt-2" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-exclamation-triangle me-1"></i> This action <strong>cannot be undone</strong>. Only use it if you need to completely reset a sub-account's conversation data.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 6: ACCOUNT & LOGIN -->
+    <!-- ============================================================ -->
+    <div id="account" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700;">
+                <i class="fa-solid fa-user-shield me-2 text-accent"></i>Account &amp; Login
+            </h3>
+
+            <div class="accordion" id="accountAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#acct1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            I forgot my password
+                        </button>
+                    </h2>
+                    <div id="acct1" class="accordion-collapse collapse" data-bs-parent="#accountAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Password reset is not self-service at this time. To regain access:</p>
+                            <ol>
+                                <li>Go to <a href="/contact" style="color: var(--accent);">Contact Us</a> and request a password reset.</li>
+                                <li>Include the email address associated with your account.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#acct2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            Which login page should I use?
+                        </button>
+                    </h2>
+                    <div id="acct2" class="accordion-collapse collapse" data-bs-parent="#accountAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ul>
+                                <li><a href="/login" style="color: var(--accent);"><strong>Login</strong></a> &mdash; For individual users and sub-account agents.</li>
+                                <li><a href="/agency-login" style="color: var(--accent);"><strong>Agency Login</strong></a> &mdash; For agency owners who manage multiple sub-accounts.</li>
+                            </ul>
+                            <p>If you're unsure which you are: if you were invited by an agency owner, use the regular Login. If you installed the app yourself and manage sub-accounts, use Agency Login.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#acct3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            I'm a sub-user &mdash; how do I claim my account?
+                        </button>
+                    </h2>
+                    <div id="acct3" class="accordion-collapse collapse" data-bs-parent="#accountAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Check your email for an invite from your agency owner.</li>
+                                <li>Click the <strong>claim link</strong> in the email.</li>
+                                <li>Set a password on the claim page.</li>
+                                <li>You can now log in at <a href="/login" style="color: var(--accent);">Login</a> and access your individual dashboard.</li>
+                            </ol>
+                            <p>If you didn't get an email, ask your agency owner to resend the invite from their Agency Dashboard.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom CTA -->
+    <div class="text-center mt-5">
+        <p class="text-secondary mb-3" style="font-size: 1rem;">Still need help?</p>
+        <a href="/contact" class="btn btn-outline-light" style="border-radius: 12px; padding: 12px 30px;">
+            <i class="fa-solid fa-envelope me-2"></i>Contact Support
+        </a>
+        {% if current_user.is_authenticated %}
+        <div class="mt-3">
+            <a href="/onboarding-status" class="text-secondary" style="font-size: 0.9rem; text-decoration: underline;">Check your Setup Progress</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

@@ -932,6 +932,70 @@ def save_profile():
         cur.close()
         conn.close()
 
+@app.route("/onboarding-status")
+@login_required
+def onboarding_status():
+    """Live onboarding checkpoint — reads real account state."""
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+
+    has_token = bool(current_user.access_token)
+    has_password = bool(current_user.password_hash)
+    has_subscription = bool(current_user.stripe_customer_id) or is_admin
+    loc_ok = bool(current_user.location_id and not str(current_user.location_id).startswith("temp_"))
+    cal_ok = bool(current_user.calendar_id)
+    bot_ok = bool(current_user.bot_first_name)
+    config_ok = loc_ok and cal_ok and bot_ok
+    all_done = has_token and has_password and has_subscription and config_ok
+
+    # Figure out the correct "next action" URL
+    if not has_subscription:
+        tier = current_user.subscription_tier or 'individual'
+        if tier == 'agency_pro':
+            next_url = '/checkout/agency-pro'
+        elif tier == 'agency_starter':
+            next_url = '/checkout/agency-starter'
+        else:
+            next_url = '/checkout'
+    elif not has_password:
+        user_type = 'agency' if current_user.role == 'agency_owner' else 'individual'
+        next_url = f'/set-password?type={user_type}'
+    elif not has_token:
+        next_url = '/oauth/initiate'
+    elif not config_ok:
+        next_url = '/agency-dashboard' if current_user.role == 'agency_owner' else '/dashboard'
+    else:
+        next_url = '/agency-dashboard' if current_user.role == 'agency_owner' else '/dashboard'
+
+    steps = [
+        {"label": "App Installed", "done": has_token, "icon": "fa-cloud-arrow-down",
+         "help": "Install InsuranceGrokBot from the GHL Marketplace to connect your account."},
+        {"label": "Password Created", "done": has_password, "icon": "fa-lock",
+         "help": "Set a secure password so you can log in anytime."},
+        {"label": "Subscription Confirmed", "done": has_subscription, "icon": "fa-credit-card",
+         "help": "Subscribe to activate all bot features."},
+        {"label": "Bot Configured", "done": config_ok, "icon": "fa-sliders",
+         "help": "Set your Location ID, Calendar, and Bot Name in the dashboard."},
+        {"label": "Integration Complete", "done": all_done, "icon": "fa-circle-check",
+         "help": "All systems go — your bot is live and ready to engage leads."},
+    ]
+
+    completed_count = sum(1 for s in steps if s["done"])
+
+    return render_template('onboarding-status.html',
+        steps=steps,
+        completed_count=completed_count,
+        total_steps=len(steps),
+        all_done=all_done,
+        next_url=next_url,
+    )
+
+
+@app.route("/support")
+def support_page():
+    """Self-service support and troubleshooting hub."""
+    return render_template('support.html')
+
+
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
@@ -2356,29 +2420,11 @@ def oauth_callback():
         else:
             logger.warning(f"User.get({user_email}) returned None after database insertion!")
 
-        # MARKETPLACE INSTALLATION: Seamless redirect to subscription setup
-        # App is free in GHL Marketplace — gate functionality behind Stripe checkout
+        # MARKETPLACE INSTALLATION: Route to onboarding checkpoint
+        # Shows the user exactly where they are and what to do next
         if not is_private_app:
-            has_subscription = user and user.stripe_customer_id
-            is_admin = user_email.lower() in [e.lower() for e in ADMIN_EMAILS]
-
-            if has_subscription or is_admin:
-                # Already subscribed or admin — send to password setup or dashboard
-                logger.info(f"Marketplace install: {user_email} already subscribed, routing to dashboard")
-                if needs_password:
-                    return redirect(f"/set-password?type={'agency' if is_agency_owner else 'individual'}")
-                if is_agency_owner:
-                    return redirect("/agency-dashboard")
-                return redirect("/dashboard")
-            else:
-                # Needs subscription — route directly to the correct Stripe checkout
-                logger.info(f"Marketplace install: routing {user_email} to checkout (tier={plan_tier})")
-                if plan_tier == 'agency_pro':
-                    return redirect("/checkout/agency-pro")
-                elif plan_tier == 'agency_starter':
-                    return redirect("/checkout/agency-starter")
-                else:
-                    return redirect("/checkout")
+            logger.info(f"Marketplace install complete for {user_email} — routing to onboarding status")
+            return redirect("/onboarding-status")
 
         # PRIVATE APP FLOW: Direct redirect (happens in main browser window)
         flash(f"Success! {num_subs} locations connected.", "success")
