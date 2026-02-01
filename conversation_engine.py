@@ -1,89 +1,278 @@
-# conversation_engine.py - Simplified Conversational Logic
-# Updated Jan 2026: LLM-assisted intent detection for better nuance & progression
+# conversation_engine.py - Conversational Logic with Objection Handling
+# Updated Feb 2026: Message context detection, objection classification, cycling framework
 
+import os
 import logging
 import re
 import json
 from enum import Enum
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
-from openai import OpenAI  # assuming this is already imported globally in your project
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# Assuming client is initialized globally somewhere (e.g. in memory.py or main app)
-# If not, you can add it here or pass it in
+# === API Client ===
+XAI_API_KEY = os.getenv("XAI_API_KEY")
+client = None
+if XAI_API_KEY:
+    client = OpenAI(
+        api_key=XAI_API_KEY,
+        base_url="https://api.x.ai/v1"
+    )
+
+# ===================================
+# ENUMS
+# ===================================
 
 class ConversationStage(Enum):
-    INITIAL_OUTREACH = "initial_outreach"  # First contact or very early
-    QUALIFYING       = "qualifying"        # Discovering situation, goal, obstacles
-    BOOKING          = "booking"           # Offering / confirming times
-    BOOKED           = "booked"            # Appointment confirmed
+    INITIAL_OUTREACH    = "initial_outreach"
+    QUALIFYING          = "qualifying"
+    OBJECTION_HANDLING  = "objection_handling"
+    BOOKING             = "booking"
+    BOOKED              = "booked"
+
+class MessageContext(Enum):
+    COLD_OUTBOUND       = "cold_outbound"        # First ever contact, no conversation history
+    FOLLOW_UP_NO_REPLY  = "follow_up_no_reply"   # Nth outbound attempt, lead hasn't responded
+    INBOUND_REPLY       = "inbound_reply"         # Lead actually sent a message
+
+class ObjectionType(Enum):
+    NONE                = "none"
+    NOT_INTERESTED      = "not_interested"        # "no thanks", "not interested", "pass"
+    SPOUSE_PARTNER      = "spouse_partner"         # "need to talk to my wife", "check with husband"
+    PRICE_MONEY         = "price_money"            # "too expensive", "can't afford it"
+    ALREADY_COVERED     = "already_covered"        # "already have life insurance", "I'm covered"
+    BUSY_TIMING         = "busy_timing"            # "busy right now", "call back later"
+
+class ObjectionNature(Enum):
+    NONE                = "none"
+    FEAR_BASED          = "fear_based"             # Emotional resistance, avoidance, uncertainty
+    LOGISTICAL          = "logistical"             # Practical concern: money movement, scheduling, existing arrangements
+
+
+# ===================================
+# DATA
+# ===================================
 
 @dataclass
 class LogicSignal:
     stage: ConversationStage
-    has_coverage: bool           # Mentioned existing policy/coverage
-    needs_coverage: bool         # Expressed need/interest
-    mentioned_goal: bool         # Talked about who/what they're protecting
-    mentioned_obstacle: bool     # Revealed barrier to action
-    ready_to_book: bool          # Agreement to call/meet/book/next step
-    resistance: bool             # Strong pushback / opt-out signals
-    conversation_count: int      # Number of lead messages (depth)
+    message_context: MessageContext
+    has_coverage: bool
+    needs_coverage: bool
+    mentioned_goal: bool
+    mentioned_obstacle: bool
+    ready_to_book: bool
+    resistance: bool
+    conversation_count: int
+    objection_type: ObjectionType
+    objection_nature: ObjectionNature
+    consecutive_bot_messages: int
+
+
+# ===================================
+# HELPERS
+# ===================================
 
 def _has_word(text: str, keyword: str) -> bool:
     """Word-boundary safe keyword match."""
     return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text, re.IGNORECASE))
 
 
-def analyze_logic_flow(messages: List[Dict[str, str]]) -> LogicSignal:
+def determine_message_context(message: str, messages: List[Dict[str, str]]) -> Tuple[MessageContext, int]:
+    """
+    Determine the conversation context based on whether there's an inbound message
+    and what the history looks like.
+
+    Returns (context, consecutive_bot_message_count).
+
+    Three situations:
+    1. COLD_OUTBOUND: No inbound message AND no conversation history (or no bot messages sent yet).
+       This is the very first contact attempt.
+    2. FOLLOW_UP_NO_REPLY: No inbound message BUT conversation history exists with bot messages.
+       The lead hasn't responded to previous outreach.
+    3. INBOUND_REPLY: There IS an inbound message. The lead actually said something.
+    """
+    has_message = bool(message and message.strip())
+
+    if has_message:
+        return MessageContext.INBOUND_REPLY, 0
+
+    if not messages:
+        return MessageContext.COLD_OUTBOUND, 0
+
+    # Count consecutive bot messages at end of history (no lead response between them)
+    consecutive = 0
+    for msg in reversed(messages):
+        if msg['role'] == 'assistant':
+            consecutive += 1
+        else:
+            break
+
+    # If bot has never messaged, this is still a cold outbound
+    has_any_bot = any(m['role'] == 'assistant' for m in messages)
+    if not has_any_bot:
+        return MessageContext.COLD_OUTBOUND, 0
+
+    return MessageContext.FOLLOW_UP_NO_REPLY, consecutive
+
+
+def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature]:
+    """
+    Keyword-based fallback for objection detection when LLM is unavailable.
+    Checks the most recent lead text for common objection patterns.
+    """
+    if not text:
+        return ObjectionType.NONE, ObjectionNature.NONE
+
+    text_lower = text.lower()
+
+    # Order matters: check most specific patterns first
+
+    not_interested_kw = [
+        "not interested", "no thanks", "no thank you", "dont want", "don't want",
+        "nah im good", "nah i'm good", "no i'm good", "no im good",
+        "i'm good", "im good", "don't need", "dont need", "not for me",
+        "not looking", "no need", "i'll pass", "ill pass"
+    ]
+
+    spouse_kw = [
+        "talk to my wife", "talk to my husband", "ask my spouse", "ask my wife",
+        "ask my husband", "check with my", "run it by my", "discuss with my",
+        "talk to my partner", "other half", "talk it over", "spouse"
+    ]
+
+    price_kw = [
+        "too expensive", "can't afford", "cant afford", "too much money",
+        "don't have the money", "out of my budget", "pricey", "costly",
+        "not in my budget", "too much", "how much does"
+    ]
+
+    already_kw = [
+        "already have", "already got", "i'm covered", "im covered",
+        "have insurance", "have a policy", "taken care of", "all set",
+        "set with insurance", "good on insurance", "squared away",
+        "have something through", "through my job", "through work",
+        "employer", "work provides"
+    ]
+
+    busy_kw = [
+        "busy right now", "call back later", "another time", "not a good time",
+        "bad time", "not now", "maybe later", "call me back", "reach out later",
+        "try again later", "not the best time", "in a meeting", "at work",
+        "can you call back", "text me later"
+    ]
+
+    if any(kw in text_lower for kw in not_interested_kw):
+        return ObjectionType.NOT_INTERESTED, ObjectionNature.FEAR_BASED
+
+    if any(kw in text_lower for kw in spouse_kw):
+        return ObjectionType.SPOUSE_PARTNER, ObjectionNature.FEAR_BASED
+
+    if any(kw in text_lower for kw in price_kw):
+        return ObjectionType.PRICE_MONEY, ObjectionNature.LOGISTICAL
+
+    if any(kw in text_lower for kw in already_kw):
+        return ObjectionType.ALREADY_COVERED, ObjectionNature.LOGISTICAL
+
+    if any(kw in text_lower for kw in busy_kw):
+        return ObjectionType.BUSY_TIMING, ObjectionNature.FEAR_BASED
+
+    return ObjectionType.NONE, ObjectionNature.NONE
+
+
+# ===================================
+# MAIN ANALYSIS
+# ===================================
+
+def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "") -> LogicSignal:
     """
     Analyze recent conversation to produce LogicSignal.
-    Uses a small Grok call for accurate intent detection + fallback to keywords.
+    Uses a small Grok call for accurate intent + objection detection, keyword fallback.
+
+    Args:
+        messages: List of conversation exchanges [{'role': 'lead'/'assistant', 'text': str}]
+        message: The current inbound message (empty string for outbound triggers)
     """
+    # Determine message context first
+    msg_context, consecutive_bot = determine_message_context(message, messages)
+
     if not messages:
         return LogicSignal(
             stage=ConversationStage.INITIAL_OUTREACH,
+            message_context=msg_context,
             has_coverage=False,
             needs_coverage=False,
             mentioned_goal=False,
             mentioned_obstacle=False,
             ready_to_book=False,
             resistance=False,
-            conversation_count=0
+            conversation_count=0,
+            objection_type=ObjectionType.NONE,
+            objection_nature=ObjectionNature.NONE,
+            consecutive_bot_messages=consecutive_bot
         )
 
-    # Split messages
+    # Split messages by role
     lead_msgs = [m['text'].lower() for m in messages if m['role'] == 'lead']
     bot_msgs  = [m['text'].lower() for m in messages if m['role'] == 'assistant']
 
     conversation_count = len(lead_msgs)
     all_lead_text = " ".join(lead_msgs)
-    recent_lead_text = " ".join(lead_msgs[-4:]) if lead_msgs else ""  # last 4 replies for booking signals
+    recent_lead_text = " ".join(lead_msgs[-4:]) if lead_msgs else ""
 
-    # ─── Primary: Small Grok intent classification ───
+    # ─── Primary: LLM intent + objection classification ───
     cls = {}
-    if client:  # assuming global client from xAI
-        prompt = f"""You are classifying short lead text messages in a sales conversation about life insurance.
+    if client and lead_msgs:
+        prompt = f"""You are classifying lead messages in a life insurance sales conversation.
 
 Lead messages (most recent at bottom):
 {chr(10).join([f"[{i+1}] {msg}" for i, msg in enumerate(lead_msgs[-8:])])}
 
-Return ONLY valid JSON with these exact keys (true/false):
+Return ONLY valid JSON with these exact keys:
 
 {{
-  "has_coverage": bool,           // they mention having any existing life insurance/policy/coverage
-  "needs_coverage": bool,         // expressed need, want, interest, looking, thinking about coverage
-  "mentioned_goal": bool,         // protecting family, kids, spouse, mortgage, business, future, etc.
-  "mentioned_obstacle": bool,     // barrier like busy, expensive, health issue, not sure, complicated
-  "ready_to_book": bool,          // agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
-  "resistance": bool              // strong opt-out: stop, unsubscribe, not interested, leave me alone
+  "has_coverage": bool,
+  "needs_coverage": bool,
+  "mentioned_goal": bool,
+  "mentioned_obstacle": bool,
+  "ready_to_book": bool,
+  "resistance": bool,
+  "objection_type": str,
+  "objection_nature": str
 }}
 
-Be accurate and context-aware. "I have something through work" → has_coverage: true
-"My wife would be screwed without me" → mentioned_goal: true
-"Yeah let's talk next week" → ready_to_book: true
+INTENT FIELDS (true/false):
+- has_coverage: they mention having any existing life insurance/policy/coverage
+- needs_coverage: expressed need, want, interest, looking, thinking about coverage
+- mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
+- mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
+- ready_to_book: agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
+- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact
+
+OBJECTION FIELDS (based on the MOST RECENT lead message only):
+- objection_type: one of "none", "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing"
+  "not_interested" = any form of no, pass, not interested, don't need this
+  "spouse_partner" = needs to consult spouse, partner, or family member before deciding
+  "price_money" = concerns about cost, affordability, budget, expense
+  "already_covered" = claims to already have life insurance or be covered
+  "busy_timing" = too busy, bad time, call back later, not now
+  "none" = no objection, or message is positive/neutral/engaged
+
+- objection_nature: one of "none", "fear_based", "logistical"
+  "fear_based" = emotional resistance, avoidance, uncertainty, deflecting the decision
+  "logistical" = practical concern about money movement, scheduling, or existing arrangements
+  "none" = no objection present
+
+Context clues:
+"I already have something through work" = already_covered + logistical
+"I don't think I need it" = not_interested + fear_based
+"I can't afford that right now" = price_money (could be logistical OR fear_based depending on tone)
+"Let me talk to my wife first" = spouse_partner + fear_based
+"I'm slammed this week" = busy_timing + fear_based
+"Yeah sounds good" = none + none (positive response)
 """
 
         try:
@@ -91,16 +280,18 @@ Be accurate and context-aware. "I have something through work" → has_coverage:
                 model="grok-4-1-fast-reasoning",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.15,
-                max_tokens=200,
+                max_tokens=300,
                 timeout=8.0
             )
             raw = response.choices[0].message.content.strip()
             if raw.startswith("```json"):
                 raw = raw.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif raw.startswith("```"):
+                raw = raw.split("```", 1)[1].split("```", 1)[0].strip()
             cls = json.loads(raw)
-            logger.debug(f"LLM intent classification succeeded: {cls}")
+            logger.debug(f"LLM intent+objection classification: {cls}")
         except Exception as e:
-            logger.warning(f"LLM intent classification failed: {e}. Falling back to keywords.")
+            logger.warning(f"LLM classification failed: {e}. Falling back to keywords.")
             cls = {}
 
     # ─── Fallback: keyword-based if LLM fails or unavailable ───
@@ -112,47 +303,81 @@ Be accurate and context-aware. "I have something through work" → has_coverage:
         need_keywords = ["need", "want", "looking", "interested", "thinking about", "protect", "mortgage"]
         goal_keywords = ["family", "kids", "wife", "husband", "spouse", "children", "business", "parents"]
         obstacle_keywords = ["busy", "expensive", "too much", "later", "not sure", "confused", "health", "complicated"]
-        booking_keywords = ["yes", "sure", "ok", "sounds good", "let's do", "book", "schedule", "appointment", "call", "talk", "meet", "time work", "works for me"]
+        booking_keywords = [
+            "yes", "sure", "ok", "sounds good", "let's do", "book", "schedule",
+            "appointment", "call", "talk", "meet", "time work", "works for me"
+        ]
         stop_keywords = ["stop", "unsubscribe", "remove", "leave me alone", "do not contact"]
 
+        obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
+
         cls = {
-            "has_coverage":     any(_has_word(all_lead_text, kw) for kw in coverage_keywords),
-            "needs_coverage":   any(_has_word(all_lead_text, kw) for kw in need_keywords),
-            "mentioned_goal":   any(_has_word(all_lead_text, kw) for kw in goal_keywords),
+            "has_coverage":       any(_has_word(all_lead_text, kw) for kw in coverage_keywords),
+            "needs_coverage":     any(_has_word(all_lead_text, kw) for kw in need_keywords),
+            "mentioned_goal":     any(_has_word(all_lead_text, kw) for kw in goal_keywords),
             "mentioned_obstacle": any(_has_word(all_lead_text, kw) for kw in obstacle_keywords),
-            "ready_to_book":    any(_has_word(recent_lead_text, kw) for kw in booking_keywords),
-            "resistance":       any(_has_word(recent_lead_text, kw) for kw in stop_keywords),
+            "ready_to_book":      any(_has_word(recent_lead_text, kw) for kw in booking_keywords),
+            "resistance":         any(_has_word(recent_lead_text, kw) for kw in stop_keywords),
+            "objection_type":     obj_type.value,
+            "objection_nature":   obj_nature.value,
         }
+
+    # ─── Parse objection from classification ───
+    obj_type_str = cls.get("objection_type", "none")
+    obj_nature_str = cls.get("objection_nature", "none")
+
+    try:
+        objection_type = ObjectionType(obj_type_str)
+    except ValueError:
+        objection_type = ObjectionType.NONE
+
+    try:
+        objection_nature = ObjectionNature(obj_nature_str)
+    except ValueError:
+        objection_nature = ObjectionNature.NONE
 
     # ─── Booking confirmed by bot recently? ───
     booking_confirmed = False
     if bot_msgs:
-        recent_bot = " ".join(bot_msgs[-3:])  # last 3 bot messages
+        recent_bot = " ".join(bot_msgs[-3:])
         confirmation_patterns = [
             "all set", "you're booked", "appointment is", "calendar invite",
             "confirmed", "see you at", "looking forward", "locked in", "set for"
         ]
         booking_confirmed = any(p in recent_bot for p in confirmation_patterns)
 
-    # ─── Stage logic ───
+    # ─── Stage logic (priority order) ───
     stage = ConversationStage.QUALIFYING
 
     if booking_confirmed:
+        # Already booked — nothing else matters
         stage = ConversationStage.BOOKED
+
     elif cls.get("ready_to_book", False) and conversation_count >= 2:
+        # Explicit readiness to book overrides objections
         stage = ConversationStage.BOOKING
+
+    elif objection_type != ObjectionType.NONE and msg_context == MessageContext.INBOUND_REPLY:
+        # Active objection from an inbound reply — handle it before pushing forward
+        stage = ConversationStage.OBJECTION_HANDLING
+
     elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and conversation_count >= 2:
         stage = ConversationStage.BOOKING
+
     elif conversation_count == 0:
         stage = ConversationStage.INITIAL_OUTREACH
 
     return LogicSignal(
         stage=stage,
+        message_context=msg_context,
         has_coverage=cls.get("has_coverage", False),
         needs_coverage=cls.get("needs_coverage", False),
         mentioned_goal=cls.get("mentioned_goal", False),
         mentioned_obstacle=cls.get("mentioned_obstacle", False),
         ready_to_book=cls.get("ready_to_book", False),
         resistance=cls.get("resistance", False),
-        conversation_count=conversation_count
+        conversation_count=conversation_count,
+        objection_type=objection_type,
+        objection_nature=objection_nature,
+        consecutive_bot_messages=consecutive_bot
     )

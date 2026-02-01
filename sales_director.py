@@ -1,11 +1,14 @@
 # sales_director.py
 # The decider: reads memory, profile, narrative → tells the texting agent the current situation
-# Updated Jan 2026: Single DB Call + Global Ghosting Protection + Momentum Logic
+# Updated Feb 2026: Message Context Awareness + Objection Handling Framework
 
 import logging
 from typing import Dict, Any, List
 
-from conversation_engine import analyze_logic_flow, LogicSignal, ConversationStage
+from conversation_engine import (
+    analyze_logic_flow, LogicSignal, ConversationStage,
+    MessageContext, ObjectionType, ObjectionNature
+)
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
 from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
@@ -28,27 +31,29 @@ def generate_strategic_directive(
 ) -> Dict[str, Any]:
     """
     Returns lean context + tactical situation for the texting agent.
-    Goal: qualify lightly → sense real interest / engagement → propose a call with real salesperson ASAP.
+    Understands three message contexts (cold outbound, follow-up, inbound reply)
+    and classifies objections for appropriate handling guidance.
     """
     logger.info(f"Director | {contact_id} | msg='{message[:60]}'")
 
     # ─── 1. INTELLIGENCE GATHERING (Single DB Fetch) ───
-    # We fetch ALL messages once because the Narrative Observer needs the full story.
     all_msgs: List[Dict] = get_recent_messages(contact_id, limit=None)
-    
-    # OPTIMIZATION: Slice the recent exchanges from the list we just fetched.
-    # We do NOT call the database a second time.
-    recent_exchanges = all_msgs[-14:] if all_msgs else []  # Last 14 messages for prompt context
+    recent_exchanges = all_msgs[-14:] if all_msgs else []
 
     # ─── 2. REFRESH NARRATIVE & FACTS ───
-    # Run the observer on the full history
     observer = run_narrative_observer(contact_id, message, all_msgs)
     narrative = observer["narrative"] or ""
     known_facts = get_known_facts(contact_id)
 
-    # ─── 3. ANALYZE LOGIC FLOW ───
-    # The logic engine only needs the recent context to determine current state
-    logic: LogicSignal = analyze_logic_flow(recent_exchanges)
+    # ─── 3. ANALYZE LOGIC FLOW (now includes message context + objection detection) ───
+    logic: LogicSignal = analyze_logic_flow(recent_exchanges, message=message)
+
+    logger.info(
+        f"Director signals | {contact_id} | "
+        f"context={logic.message_context.value} | stage={logic.stage.value} | "
+        f"objection={logic.objection_type.value}/{logic.objection_nature.value} | "
+        f"consecutive_bot={logic.consecutive_bot_messages} | lead_count={logic.conversation_count}"
+    )
 
     # ─── 4. BUILD PROFILE ───
     profile_str, _ = build_comprehensive_profile(
@@ -58,7 +63,6 @@ def generate_strategic_directive(
     # ─── 5. CONTEXTUAL INTELLIGENCE (Underwriting & Carriers) ───
     underwriting_ctx = ""
     full_lower = (message + narrative).lower()
-    # Only run regex if relevant keywords appear (Optimization)
     if any(kw in full_lower for kw in ["health", "medic", "condit", "prescrip", "doctor"]):
         underwriting_ctx = get_underwriting_context(message)
 
@@ -68,105 +72,35 @@ def generate_strategic_directive(
         if norm and (co_data := get_company_context(norm)):
             lines = [f"Lead mentioned carrier: {co_data.get('name', raw_co)}"]
             if co_data.get("is_guaranteed_issue"):
-                lines.append("Guaranteed issue → limited coverage, higher cost.")
+                lines.append("Guaranteed issue = limited coverage, higher cost.")
             if co_data.get("is_bundled"):
-                lines.append("Often bundled with auto/home — usually minimal standalone.")
+                lines.append("Often bundled with auto/home = usually minimal standalone.")
             if co_data.get("is_employer_provider"):
-                lines.append("Likely group/employer plan — ends if they leave job.")
+                lines.append("Likely group/employer plan = ends if they leave job.")
             company_ctx = " ".join(lines)
 
-    # ─── 6. DETERMINE STAGE ───
+    # ─── 6. DETERMINE FINAL STAGE ───
     stage_value = logic.stage.value
 
-    # A. Quick Intent Overrides (Catch soft agreements early)
-    if any(word in full_lower for word in [
-        "book", "schedule", "call", "talk", "meet", "appointment", "hop on", "quick call",
-        "time work", "works for", "lets do", "sure", "yeah lets", "maybe", "probably",
-        "interested", "tell me more", "numbers", "options", "when works", "set up"
-    ]):
-        stage_value = ConversationStage.BOOKING.value
+    # A. Quick Intent Overrides — BUT only if there's no active objection
+    #    "not interested" contains "interested", "maybe later" contains "maybe"
+    #    Don't accidentally override objection handling with loose keyword matches
+    if logic.objection_type == ObjectionType.NONE and logic.message_context == MessageContext.INBOUND_REPLY:
+        if any(word in full_lower for word in [
+            "book", "schedule", "appointment", "hop on", "quick call",
+            "time work", "works for", "lets do", "yeah lets",
+            "tell me more", "when works", "set up", "set something up"
+        ]):
+            stage_value = ConversationStage.BOOKING.value
 
     # B. Fact-Based Override (If backend knows they booked, lock it)
     if any(kw in f.lower() for f in known_facts for kw in ["booked", "appointment at", "calendar"]):
         stage_value = ConversationStage.BOOKED.value
 
     # ─── 7. GENERATE TACTICAL DIRECTIVE ───
-    tactical = ""
+    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower)
 
-    # === GLOBAL GHOSTING CHECK (The Critical Fix) ===
-    # If this is an Outbound Trigger (empty message) and we have history,
-    # it is ALWAYS a follow-up, regardless of whether the stage says "Qualifying" or "Initial".
-    # This prevents the bot from "replying" to silence.
-    if not message and len(recent_exchanges) > 0:
-        tactical = (
-            "FOLLOW-UP / RE-ENGAGE\n"
-            "The lead has not responded to your previous message.\n"
-            "Check the conversation recap. Nudge them gently.\n"
-            "Do not repeat the exact same introduction.\n"
-            "Goal: Get a response — see if they're worth qualifying further."
-        )
-
-    # === STAGE SPECIFIC LOGIC ===
-    elif stage_value == ConversationStage.BOOKED.value:
-        tactical = (
-            "APPOINTMENT BOOKED\n"
-            "Confirm the time naturally. Mention calendar invite coming.\n"
-            "Stop selling. End warmly. Conversation is basically done — hand-off complete."
-        )
-
-    elif stage_value == ConversationStage.BOOKING.value:
-        tactical = (
-            "They are showing real interest — enough to justify a live call with the actual salesperson.\n"
-            "Offer 2–3 specific times that work.\n"
-            "Keep it short, confident, normal — like a busy person setting up a quick chat.\n"
-            "Vibe: 'Cool, let's hop on a quick call so I can run your real numbers. I have tomorrow 11a, 2p, or Thursday 10a — which works?'"
-        )
-
-    elif stage_value == ConversationStage.INITIAL_OUTREACH.value:
-        # True Initial Outreach (First ever contact)
-        tactical = (
-            "EARLY / FIRST CONTACT\n"
-            "Casual check-in. Reference life insurance interest.\n"
-            f"Use '{first_name}' if known. Ask one natural question.\n"
-            "Sound like a real person texting — goal is to see if they engage at all."
-        )
-
-    else:  # QUALIFYING / DISCOVERY — intentionally light & fast-moving
-        if logic.mentioned_goal and logic.mentioned_obstacle:
-            tactical = (
-                "They've shared why they need coverage and why what they have falls short.\n"
-                "This is usually plenty of qualification — the real salesperson can take it from here.\n"
-                "If they're responding well (decent length replies, asking questions back, not dodging),\n"
-                "it's time to propose a quick call with the actual person who can help them properly.\n"
-                "Don't go deeper over text — move to offering times soon."
-            )
-        elif logic.has_coverage:
-            tactical = (
-                "They mentioned some existing coverage.\n"
-                "Quickly clarify the basics if unclear (term/group/amount?), then highlight common gaps.\n"
-                "Transition fast: 'This is probably easier to sort properly on a short call with the team.'\n"
-                "Goal is NOT full analysis here — goal is to get to a live conversation."
-            )
-        else:
-            tactical = (
-                "Still early — checking for real interest.\n"
-                "Ask 1–2 thoughtful questions about protection needs, family, or current setup.\n"
-                "Pay attention to reply quality: longer answers / questions back = green light to suggest a call soon.\n"
-                "Short/evasive = slow down or circle back later.\n"
-                "Remember: you're just the warm-up guy. The real sale happens on the call with a human."
-            )
-
-        # Brief empathy gate — never linger
-        vulnerable = any(kw in full_lower for kw in [
-            "cancer", "sick", "divorce", "lost job", "scared", "worried", "single mom", "alone", "diagnosis"
-        ])
-        if vulnerable:
-            tactical = (
-                "They're dealing with something tough.\n"
-                "Acknowledge briefly, then keep moving toward 'a quick call can help sort this'.\n"
-            ) + tactical
-
-    # ─── 8. FINAL OUTPUT (Single Return) ───
+    # ─── 8. FINAL OUTPUT ───
     return {
         "profile_str": profile_str.strip(),
         "tactical_narrative": tactical.strip(),
@@ -175,5 +109,312 @@ def generate_strategic_directive(
         "company_context": company_ctx.strip(),
         "known_facts": known_facts,
         "story_narrative": narrative.strip(),
-        "recent_exchanges": recent_exchanges, # Passed back to tasks.py so it doesn't have to fetch again
+        "recent_exchanges": recent_exchanges,
     }
+
+
+# ═══════════════════════════════════════════════════
+# TACTICAL GUIDANCE BUILDER
+# ═══════════════════════════════════════════════════
+
+def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str) -> str:
+    """
+    Build the tactical narrative that tells the LLM what to do right now.
+    Uses message context, stage, and objection signals.
+    """
+
+    # ═══════════════════════════════════════════════════
+    # CONTEXT 1: COLD OUTBOUND — First ever contact
+    # ═══════════════════════════════════════════════════
+    if logic.message_context == MessageContext.COLD_OUTBOUND:
+        return (
+            "SITUATION: COLD OUTBOUND. This is your first ever message to this person.\n"
+            "They have never heard from you before. There is zero conversation history.\n\n"
+            "This person went online at some point and entered their information looking for "
+            "life insurance quotes. Could have been last week, could have been months ago. "
+            "You purchased that lead.\n\n"
+            "Your opening needs to be a natural, casual status check. You are checking in "
+            "to see if they ever got that handled. You are not pitching. You are not selling. "
+            "You are a real person sending a quick text to see where things stand.\n\n"
+            f"Use their name '{first_name}' if known. Reference life insurance naturally. "
+            "One question only. Keep it brief. Sound like a human, not a bot.\n\n"
+            "Goal: get them to reply. That is it. Nothing else matters on the first message."
+        )
+
+    # ═══════════════════════════════════════════════════
+    # CONTEXT 2: FOLLOW-UP — No reply from lead
+    # ═══════════════════════════════════════════════════
+    if logic.message_context == MessageContext.FOLLOW_UP_NO_REPLY:
+        return _build_followup_guidance(logic)
+
+    # ═══════════════════════════════════════════════════
+    # CONTEXT 3: INBOUND REPLY — Lead responded
+    # ═══════════════════════════════════════════════════
+
+    # --- BOOKED ---
+    if stage_value == ConversationStage.BOOKED.value:
+        return (
+            "APPOINTMENT BOOKED.\n"
+            "Confirm the time naturally. Mention calendar invite coming.\n"
+            "Stop selling. End warmly. Conversation is done, hand-off complete."
+        )
+
+    # --- BOOKING ---
+    if stage_value == ConversationStage.BOOKING.value:
+        return (
+            "READY TO BOOK.\n"
+            "They are showing real interest, enough to justify a live call.\n"
+            "Offer 2 to 3 specific times from the available calendar slots.\n"
+            "Keep it short, confident, and normal. Like a busy person setting up a quick chat.\n"
+            "Do not over-explain. Just offer times and ask which works."
+        )
+
+    # --- OBJECTION HANDLING ---
+    if stage_value == ConversationStage.OBJECTION_HANDLING.value:
+        return _build_objection_guidance(logic)
+
+    # --- QUALIFYING / DISCOVERY ---
+    return _build_qualifying_guidance(logic, first_name, full_lower)
+
+
+# ═══════════════════════════════════════════════════
+# FOLLOW-UP GUIDANCE (No reply scenarios)
+# ═══════════════════════════════════════════════════
+
+def _build_followup_guidance(logic: LogicSignal) -> str:
+    """
+    Graduated follow-up guidance based on how many consecutive bot messages
+    have gone unanswered.
+    """
+    n = logic.consecutive_bot_messages
+
+    base = (
+        "SITUATION: FOLLOW-UP. The lead has NOT responded.\n"
+        "There is no inbound message. This is an outbound follow-up attempt.\n"
+        "Do NOT treat this as if they said something. They did not.\n"
+        "Do NOT repeat your previous message or introduction.\n\n"
+    )
+
+    if n <= 1:
+        return base + (
+            "This is your first or second follow-up attempt.\n"
+            "Check the conversation recap. If you asked a question before, reference it casually.\n"
+            "Keep it light and short. One quick nudge. A different angle than your first message.\n"
+            "You might reference the life insurance topic from a slightly different direction, "
+            "or ask a simple yes/no question that is easy to respond to.\n\n"
+            "Goal: make it effortless for them to reply. Even a one-word answer is a win."
+        )
+
+    if n <= 3:
+        return base + (
+            f"This is follow-up attempt number {n + 1}. You have sent {n} messages with no response.\n"
+            "Time to change your angle completely. Do not keep asking variations of the same question.\n"
+            "Try something unexpected. A different topic entirely. A quick observation. "
+            "Something that breaks the pattern of what you have been saying.\n"
+            "Keep it to one short sentence. Make it feel like a casual afterthought, not pressure.\n\n"
+            "Goal: pattern interrupt. Get any response at all, even if it is 'not interested.' "
+            "Any reply is better than silence."
+        )
+
+    # 4-5 attempts
+    return base + (
+        f"This is follow-up attempt number {n + 1}. You have sent {n} messages without a single response.\n"
+        "They are clearly not engaging. Do not keep pushing the same topic.\n"
+        "You have two options:\n"
+        "1. Send one final, casual, low-pressure message that gives them an easy out. "
+        "Something like acknowledging the silence in a lighthearted way and letting them "
+        "know you will stop reaching out unless they want to talk.\n"
+        "2. Try genuine humor or self-awareness about the situation. Be human about it.\n\n"
+        "Do NOT guilt trip. Do NOT be passive aggressive. Keep your dignity.\n"
+        "Goal: either get a response or exit gracefully so the door stays open."
+    )
+
+
+# ═══════════════════════════════════════════════════
+# OBJECTION HANDLING GUIDANCE
+# ═══════════════════════════════════════════════════
+
+def _build_objection_guidance(logic: LogicSignal) -> str:
+    """
+    Build tactical guidance for handling the detected objection.
+    Follows the framework: acknowledge, reframe, question.
+    Differentiates between fear-based and logistical objections.
+    """
+    obj = logic.objection_type
+    nature = logic.objection_nature
+
+    # Header with the core principle
+    header = (
+        "OBJECTION DETECTED. Do not argue. Do not pitch. Do not get defensive.\n\n"
+        "Core approach: Acknowledge what they said genuinely. Then shift from 'you vs them' "
+        "to 'both of you looking at their situation together.' Then ask a question that "
+        "moves the conversation forward. Let them arrive at their own conclusion.\n\n"
+    )
+
+    if nature == ObjectionNature.FEAR_BASED:
+        header += (
+            "This is a FEAR-BASED objection. They are resisting emotionally, not logically. "
+            "Facts and features will not work here. Do not try to convince them with logic. "
+            "Instead, use questions that help them examine their own situation honestly. "
+            "Be patient. Be curious. Let them talk themselves through it. "
+            "If they push back again, cycle back to the same core idea from a slightly "
+            "different angle, a bit more direct each time, but never aggressive.\n\n"
+        )
+    elif nature == ObjectionNature.LOGISTICAL:
+        header += (
+            "This is a LOGISTICAL objection. They have a practical concern, something about "
+            "money, existing arrangements, or timing. These need concrete acknowledgment. "
+            "Do not dismiss their practical reality. Validate it, then help them see whether "
+            "their current arrangement actually addresses what they need it to. "
+            "Often what they think is a logistical barrier is actually a gap they have not examined.\n\n"
+        )
+
+    # Specific objection guidance
+    if obj == ObjectionType.NOT_INTERESTED:
+        return header + (
+            "OBJECTION: Not interested / No.\n"
+            "They said some version of 'no.' This almost always masks something deeper. "
+            "Nobody goes online, enters their personal information looking for life insurance quotes, "
+            "and then genuinely has zero interest. Something prompted that original search.\n\n"
+            "Acknowledge their response. Do not fight it. Then make their disinterest the "
+            "reason you are reaching out. They looked into this before. Something was on their mind. "
+            "Did that situation change? Did they get it handled another way? Or did life just get busy?\n\n"
+            "Ask one question that reframes around what originally motivated them. "
+            "Do not ask 'why not?' That is combative. Instead, get curious about whether "
+            "the thing that made them look in the first place ever got resolved.\n\n"
+            "If they push back a second time with more conviction, respect it. "
+            "Let them know the door is open and move on. Do not cycle more than twice on a flat no."
+        )
+
+    if obj == ObjectionType.SPOUSE_PARTNER:
+        return header + (
+            "OBJECTION: Need to talk to spouse/partner.\n"
+            "This is usually about not wanting to make a decision alone, not about actually "
+            "needing the partner's permission. Respect it completely. Do not minimize it.\n\n"
+            "Get on their side. Acknowledge that this is absolutely a decision worth discussing together. "
+            "Then reframe the next step as information gathering, not committing. "
+            "A quick call is not signing anything. It is getting the actual numbers and details "
+            "so they have something real to discuss with their partner, instead of guessing.\n\n"
+            "Position it as: would it not be better to bring actual information to that conversation "
+            "instead of going in blind? The call gives them what they need to have that discussion properly.\n\n"
+            "If they still want to wait, offer to schedule a time after they have had that conversation. "
+            "Give them a specific timeframe to reconnect. Do not leave it open-ended.\n\n"
+            "If the partner is genuinely opposed and they confirm they will not move forward, "
+            "respect it. Ask if it would be okay to check back in down the road."
+        )
+
+    if obj == ObjectionType.PRICE_MONEY:
+        return header + (
+            "OBJECTION: Price / Money / Too expensive.\n"
+            "First, figure out which kind of money objection this is. There are two:\n\n"
+            "1. Value objection (fear-based): They are not sure this is worth the money. "
+            "They do not see the ROI or urgency. This is really about not understanding what "
+            "happens to their family financially if something happens to them. "
+            "The conversation here is about the cost of NOT having coverage versus the cost of having it. "
+            "What does their family's financial situation look like if they are gone tomorrow? "
+            "That is not a scare tactic. It is the entire point of life insurance.\n\n"
+            "2. Cash flow objection (logistical): They literally cannot fit another bill right now. "
+            "This is real and you respect it. But also know that there are more flexible options "
+            "than most people realize. Coverage amounts, term lengths, and structures vary widely. "
+            "A real advisor on a call can find something that actually fits their budget.\n\n"
+            "In either case, you cannot quote prices over text. That is a hard rule. "
+            "Acknowledge the concern, then position the call as the way to find out what "
+            "options actually exist in their price range. No commitment, just real numbers.\n\n"
+            "Do not try to overcome this objection more than twice. If it is genuinely about funds, "
+            "pushing harder just makes you tone-deaf."
+        )
+
+    if obj == ObjectionType.ALREADY_COVERED:
+        return header + (
+            "OBJECTION: Already have life insurance / Already covered.\n"
+            "Do not challenge this. Do not start listing features they might be missing. "
+            "Do not quiz them on coverage amounts. That is combative.\n\n"
+            "Instead, get genuinely curious. Most people who say they are covered have no idea "
+            "what they actually have, how much it covers, or whether it is enough. "
+            "They know they have 'something' but could not tell you the details.\n\n"
+            "Acknowledge and respect their position. Then let them try to back it up. "
+            "Get curious about what kind of coverage, how long they have had it, "
+            "whether it is through work or personal. Let THEM explain it.\n\n"
+            "If it is employer/group coverage, know that it usually ends if they leave the job, "
+            "and the amount is often far less than what a family actually needs. "
+            "You do not say this directly. You ask questions that let them discover it.\n\n"
+            "If they genuinely can back it up with specifics and seem fully set, respect it. "
+            "Let them know you are available if anything changes. Do not push."
+        )
+
+    if obj == ObjectionType.BUSY_TIMING:
+        return header + (
+            "OBJECTION: Busy / Bad timing / Call back later.\n"
+            "Respect the timing completely. Do not push through a busy signal.\n\n"
+            "Acknowledge it briefly, then offer a specific alternative time. "
+            "Do not say 'when is a better time?' because that puts the work on them and "
+            "they will never follow through. Instead, suggest a specific day or window.\n\n"
+            "You can also gently surface that the thing they were looking into has not gone away "
+            "just because today is hectic. The gap between 'I will handle it later' and "
+            "actually handling it is where families end up unprotected. But say this lightly, "
+            "not as a guilt trip.\n\n"
+            "If they give you a specific callback time, take it and confirm you will reach out then. "
+            "If they are vague ('yeah sometime later'), pin it down. "
+            "Later this week? Next Monday? Give them something concrete to agree to."
+        )
+
+    # Generic fallback (should rarely hit)
+    return header + (
+        "They have raised a concern. Acknowledge it first. "
+        "Then ask a question that helps you understand what is really behind it. "
+        "Move the conversation forward by getting curious, not by pushing."
+    )
+
+
+# ═══════════════════════════════════════════════════
+# QUALIFYING GUIDANCE
+# ═══════════════════════════════════════════════════
+
+def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: str) -> str:
+    """Build tactical guidance for the qualifying/discovery stage."""
+
+    # Brief empathy gate for vulnerable situations
+    empathy_prefix = ""
+    vulnerable = any(kw in full_lower for kw in [
+        "cancer", "sick", "divorce", "lost job", "scared", "worried",
+        "single mom", "alone", "diagnosis"
+    ])
+    if vulnerable:
+        empathy_prefix = (
+            "They are dealing with something tough. "
+            "Acknowledge it briefly and genuinely before anything else. "
+            "Then keep moving toward 'a quick call can help sort this out.'\n\n"
+        )
+
+    if logic.mentioned_goal and logic.mentioned_obstacle:
+        return empathy_prefix + (
+            "QUALIFYING: They have shared why they need coverage and what is holding them back.\n"
+            "This is enough qualification. The real salesperson can take it from here.\n"
+            "If they are responding with decent length replies and asking questions back, "
+            "it is time to propose a quick call. Do not go deeper over text. Move to offering times."
+        )
+
+    if logic.has_coverage:
+        return empathy_prefix + (
+            "QUALIFYING: They mentioned existing coverage.\n"
+            "Get curious about what they have. Do not quiz or poke holes.\n"
+            "If it is group/employer, know that it usually ends when they leave the job "
+            "and amounts are often far below what a family needs. Let them discover this through your questions.\n"
+            "Transition toward a call when you have a sense of their situation."
+        )
+
+    if logic.needs_coverage or logic.mentioned_goal:
+        return empathy_prefix + (
+            "QUALIFYING: They have expressed some interest or mentioned who they are protecting.\n"
+            "Good momentum. Ask about what they have now, their family situation, or their goals.\n"
+            "One question at a time. Let them lead the conversation.\n"
+            "Once you have a basic picture, suggest hopping on a call to look at real options."
+        )
+
+    return empathy_prefix + (
+        "QUALIFYING: Still early. Checking for real interest.\n"
+        "Ask 1 thoughtful question about their protection needs, family, or current setup.\n"
+        "Pay attention to how they reply. Longer answers and questions back = green light "
+        "to suggest a call soon. Short or evasive = slow down, stay curious.\n"
+        "You are the warm-up. The real sale happens on the call with a human advisor."
+    )
