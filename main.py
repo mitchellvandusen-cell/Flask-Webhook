@@ -168,7 +168,7 @@ def demo_reset():
 @login_required
 def fetch_calendars():
     """
-    Fetch all calendars from GHL for the current user's location.
+    Fetch all calendars from Lead Connector for the current user's location.
     Returns a list of calendars with id and name.
     """
     location_id = current_user.location_id
@@ -212,7 +212,7 @@ def fetch_calendars():
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to fetch calendars for location {location_id}: {e}")
-        return flask_jsonify({"error": "Failed to fetch calendars from GHL"}), 500
+        return flask_jsonify({"error": "Failed to fetch calendars from Lead Connector"}), 500
 
 
 def generate_demo_opener():
@@ -323,7 +323,7 @@ def extract_field_flexible(payload, field_name, search_nested=True):
 
 def normalize_payload_universal(payload):
     """
-    Normalize ANY GHL payload structure to consistent snake_case format.
+    Normalize ANY Lead Connector payload structure to consistent snake_case format.
     Handles marketplace apps, custom webhooks, and any future formats.
     """
     # Common ID fields to normalize
@@ -544,7 +544,7 @@ def stripe_webhook():
 def register():
     """
     Registration - Marketplace Only.
-    User must have already installed the app from the GHL Marketplace,
+    User must have already installed the app from the Lead Connector Marketplace,
     which creates their record via /oauth/callback.
     This page just lets them set a password.
 
@@ -589,7 +589,7 @@ def register():
 
             if not match:
                 # Location not found → user hasn't installed from Marketplace yet
-                flash("Location ID not found. You must install the app from the GoHighLevel Marketplace first.", "error")
+                flash("Location ID not found. You must install the app from the Lead Connector Marketplace first.", "error")
                 return redirect("/register")
 
             password_hash = generate_password_hash(password)
@@ -968,7 +968,7 @@ def onboarding_status():
 
     steps = [
         {"label": "App Installed", "done": has_token, "icon": "fa-cloud-arrow-down",
-         "help": "Install InsuranceGrokBot from the GHL Marketplace to connect your account."},
+         "help": "Install InsuranceGrokBot from the Lead Connector Marketplace to connect your account."},
         {"label": "Password Created", "done": has_password, "icon": "fa-lock",
          "help": "Set a secure password so you can log in anytime."},
         {"label": "Subscription Confirmed", "done": has_subscription, "icon": "fa-credit-card",
@@ -2079,7 +2079,7 @@ def oauth_initiate():
     client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
-    # Required scopes for the private app (must match GHL private app configuration)
+    # Required scopes for the private app (must match Lead Connector app configuration)
     scopes = [
         "calendars.readonly",
         "calendars/events.readonly",
@@ -2111,7 +2111,7 @@ def oauth_initiate():
 
 def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
     """
-    Helper to handle GHL pagination (fetching all locations/users).
+    Helper to handle Lead Connector pagination (fetching all locations/users).
     Prevents onboarding failures when agencies have >20 locations.
 
     Args:
@@ -2141,7 +2141,7 @@ def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
 
             logger.info(f"Fetched {len(batch)} {item_key} from page {page_count} (total: {len(items)})")
 
-            # GHL pagination: check both 'meta.nextPageUrl' and direct 'nextPageUrl'
+            # Lead Connector pagination: check both 'meta.nextPageUrl' and direct 'nextPageUrl'
             meta = data.get('meta', {})
             next_url = meta.get('nextPageUrl') or data.get('nextPageUrl')
 
@@ -3056,7 +3056,7 @@ def website_bot_webhook():
 
     if user_message == "agency_how":
         return flask_jsonify({
-            "text": "Simple: You connect your GHL agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard. Your agents don't need to do anything.",
+            "text": "Simple: You connect your Lead Connector agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard. Your agents don't need to do anything.",
             "options": [
                 {"label": "What do my agents see?", "value": "agency_agent_view"},
                 {"label": "Try the demo", "value": "demo"},
@@ -3066,7 +3066,7 @@ def website_bot_webhook():
 
     if user_message == "agency_agent_view":
         return flask_jsonify({
-            "text": "Your agents see conversations happening in their GHL inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
+            "text": "Your agents see conversations happening in their Lead Connector inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
             "options": [
                 {"label": "That sounds good", "value": "demo"},
                 {"label": "What's pricing?", "value": "pricing_agency"}
@@ -3131,7 +3131,7 @@ def website_bot_webhook():
 
     if "book" in msg_lower or "calendar" in msg_lower or "appointment" in msg_lower:
         return flask_jsonify({
-            "text": "I connect directly to your GHL calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up on your calendar with all the context: what they said, their health info, what objections came up. You walk into the call prepared.",
+            "text": "I connect directly to your Lead Connector calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up on your calendar with all the context: what they said, their health info, what objections came up. You walk into the call prepared.",
             "options": [
                 {"label": "Try the demo", "value": "demo"},
                 {"label": "Pricing", "value": "pricing_individual"}
@@ -3204,7 +3204,7 @@ def website_bot_webhook():
 
     if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower or "lead connector" in msg_lower:
         return flask_jsonify({
-            "text": "I integrate directly with Lead Connector (formerly GoHighLevel). You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
+            "text": "I integrate directly with Lead Connector. You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
             "options": [
                 {"label": "See integration", "value": "demo"},
                 {"label": "Get started", "value": "signup_individual"}
