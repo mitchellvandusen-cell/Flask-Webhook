@@ -511,46 +511,9 @@ DO NOT continue the sales conversation. The appointment is booked. Just confirm 
             context_nudge += "\n⚠️ CRITICAL: NO APPOINTMENT HAS BEEN BOOKED YET. Do NOT tell the lead they are booked. Do NOT confirm an appointment. Only offer times or ask which time works best."
             logger.info(f"🚫 NO BOOKING YET | contact={contact_id}")
 
-        # 🎭 RE-ENGAGEMENT MODE: If 6+ consecutive bot messages without response
-        consecutive_bot_msgs = count_consecutive_bot_messages(recent_exchanges)
-        if consecutive_bot_msgs >= 6 and not booking_made:
-            logger.info(f"🎭 RE-ENGAGEMENT MODE ACTIVATED | {consecutive_bot_msgs} consecutive bot messages without response")
-
-            # Determine if contact has a male name for dad joke possibility
-            male_names = ["john", "mike", "david", "james", "robert", "michael", "william", "richard", "joseph",
-                         "thomas", "charles", "christopher", "daniel", "matthew", "anthony", "mark", "donald",
-                         "steven", "paul", "andrew", "joshua", "kenneth", "kevin", "brian", "george", "timothy",
-                         "ronald", "edward", "jason", "jeffrey", "ryan", "jacob", "gary", "nicholas", "eric",
-                         "jonathan", "stephen", "larry", "justin", "scott", "brandon", "benjamin", "samuel",
-                         "raymond", "gregory", "frank", "alexander", "patrick", "jack", "dennis", "jerry", "tyler",
-                         "aaron", "jose", "adam", "nathan", "henry", "douglas", "zachary", "peter", "kyle", "noah",
-                         "phillip", "victor", "ethan", "jeremy", "walter", "christian", "keith", "roger", "terry",
-                         "sean", "austin", "carl", "harold", "dylan", "arthur", "lawrence", "jordan", "jesse"]
-
-            is_male_name = first_name and first_name.lower().strip() in male_names
-
-            context_nudge += f"""
-
-🎭 RE-ENGAGEMENT MODE (6+ unanswered messages):
-You've sent {consecutive_bot_msgs} messages without getting a response. Time to switch strategies.
-
-WHAT TO DO:
-- COMPLETELY STOP selling insurance
-- Be humorous, self-aware, and genuinely human
-- Acknowledge the radio silence in a lighthearted way
-- Try ONE creative approach to get their attention:
-  * Self-deprecating humor about being ignored
-  * A pattern interrupt (stop talking business, ask about their life)
-  * Tell a dad joke you come up with (keep it clean and harmless){'- especially fitting since this is a male name' if is_male_name else ''}
-  * A relatable human moment about life getting busy
-- Be creative - come up with something original and natural
-- Keep it SHORT (1-2 sentences max)
-- NO pressure, NO hard selling
-- Give them an easy out ("circle back later?" or "still interested?")
-- Goal: Get ANY response, even "not interested"
-- This is your ONE shot at re-engagement, then back off
-
-BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices they've gone quiet."""
+        # Note: Follow-up strategy (including humor at 5+ unanswered) is now handled
+        # by sales_director's tactical_narrative via _build_followup_guidance().
+        # No duplicate re-engagement block needed here.
 
         # Combine all context: nudge + underwriting + company intel
         extra_context = director_output['underwriting_context']
