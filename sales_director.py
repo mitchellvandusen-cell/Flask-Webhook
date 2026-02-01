@@ -136,6 +136,10 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
             "Your opening needs to be a natural, casual status check. You are checking in "
             "to see if they ever got that handled. You are not pitching. You are not selling. "
             "You are a real person sending a quick text to see where things stand.\n\n"
+            "CRITICAL: Every single lead must get a UNIQUE opening message. "
+            "Never use the same phrasing twice. Vary your structure, word choice, and angle "
+            "every single time. Mix up how you reference the topic. Mix up your question. "
+            "No two leads should ever receive the same cold outreach.\n\n"
             f"Use their name '{first_name}' if known. Reference life insurance naturally. "
             "One question only. Keep it brief. Sound like a human, not a bot.\n\n"
             "Goal: get them to reply. That is it. Nothing else matters on the first message."
@@ -183,8 +187,8 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
 def _build_followup_guidance(logic: LogicSignal) -> str:
     """
-    Graduated follow-up guidance based on how many consecutive bot messages
-    have gone unanswered.
+    Follow-up guidance for unanswered messages.
+    Always creative, always different. Humor mode at 5+.
     """
     n = logic.consecutive_bot_messages
 
@@ -192,41 +196,28 @@ def _build_followup_guidance(logic: LogicSignal) -> str:
         "SITUATION: FOLLOW-UP. The lead has NOT responded.\n"
         "There is no inbound message. This is an outbound follow-up attempt.\n"
         "Do NOT treat this as if they said something. They did not.\n"
-        "Do NOT repeat your previous message or introduction.\n\n"
+        "Do NOT repeat your previous message or opening.\n\n"
     )
 
-    if n <= 1:
+    if n >= 5:
         return base + (
-            "This is your first or second follow-up attempt.\n"
-            "Check the conversation recap. If you asked a question before, reference it casually.\n"
-            "Keep it light and short. One quick nudge. A different angle than your first message.\n"
-            "You might reference the life insurance topic from a slightly different direction, "
-            "or ask a simple yes/no question that is easy to respond to.\n\n"
-            "Goal: make it effortless for them to reply. Even a one-word answer is a win."
+            f"You have sent {n} messages with zero response. Time for humor.\n"
+            "Send something genuinely funny. A clean joke. A self-aware comment. "
+            "Something completely unexpected that has nothing to do with insurance.\n"
+            "Make them smile or laugh. That is the entire goal.\n"
+            "Keep it to one or two sentences. Be creative. Be original.\n"
+            "Do not sell. Do not mention insurance. Do not guilt trip.\n"
+            "Just be a real human being who is funny and worth replying to.\n"
+            "Goal: get ANY response. Even 'lol' is a win."
         )
 
-    if n <= 3:
-        return base + (
-            f"This is follow-up attempt number {n + 1}. You have sent {n} messages with no response.\n"
-            "Time to change your angle completely. Do not keep asking variations of the same question.\n"
-            "Try something unexpected. A different topic entirely. A quick observation. "
-            "Something that breaks the pattern of what you have been saying.\n"
-            "Keep it to one short sentence. Make it feel like a casual afterthought, not pressure.\n\n"
-            "Goal: pattern interrupt. Get any response at all, even if it is 'not interested.' "
-            "Any reply is better than silence."
-        )
-
-    # 4-5 attempts
     return base + (
-        f"This is follow-up attempt number {n + 1}. You have sent {n} messages without a single response.\n"
-        "They are clearly not engaging. Do not keep pushing the same topic.\n"
-        "You have two options:\n"
-        "1. Send one final, casual, low-pressure message that gives them an easy out. "
-        "Something like acknowledging the silence in a lighthearted way and letting them "
-        "know you will stop reaching out unless they want to talk.\n"
-        "2. Try genuine humor or self-awareness about the situation. Be human about it.\n\n"
-        "Do NOT guilt trip. Do NOT be passive aggressive. Keep your dignity.\n"
-        "Goal: either get a response or exit gracefully so the door stays open."
+        f"This is follow-up number {n + 1}.\n"
+        "Be creative. Every follow-up must be completely different from the last.\n"
+        "Different angle, different topic, different tone. Never repeat an approach.\n"
+        "Read the conversation recap to see what you already said, then do something new.\n"
+        "Keep it short, one to two sentences. Make it easy for them to reply.\n"
+        "Goal: get them to respond. Any response is a win."
     )
 
 
