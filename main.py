@@ -1825,15 +1825,6 @@ def download_transcript():
         if conn:
             conn.close()
 
-        # ────────────────────────────────────────────────
-        # Send as downloadable .txt file
-        # ────────────────────────────────────────────────
-        filename = f"InsuranceGrokBot_transcript_{contact_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
-        response = make_response(transcript)
-        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
-        response.headers["Content-Type"] = "text/plain; charset=utf-8"
-        return response
-
 @app.route("/checkout")
 def checkout():
     try:
