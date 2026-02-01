@@ -1,213 +1,167 @@
-# sales_director.py - Simplified Life Insurance Sales Logic
-# "Keep it stupid simple"
+# sales_director.py
+# The decider: reads memory, profile, narrative → tells the texting agent the current situation
+# Updated Jan 2026: light qualification → fast hand-off to real salesperson call
+# Role: smart SDR / appointment setter — NOT full closer over text
 
 import logging
+from typing import Dict, Any, List
+
 from conversation_engine import analyze_logic_flow, LogicSignal, ConversationStage
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
-from insurance_companies import get_company_context, find_company_in_message, normalize_company_name
-from memory import get_recent_messages, get_known_facts, get_narrative, run_narrative_observer
+from insurance_companies import find_company_in_message, normalize_company_name, get_company_context
+from memory import (
+    get_recent_messages,
+    get_known_facts,
+    get_narrative,
+    run_narrative_observer
+)
 
 logger = logging.getLogger(__name__)
 
-def generate_strategic_directive(contact_id: str, message: str, first_name: str, age: str, address: str) -> dict:
+
+def generate_strategic_directive(
+    contact_id: str,
+    message: str,
+    first_name: str,
+    age: str | None,
+    address: str | None = None
+) -> Dict[str, Any]:
     """
-    Simple formula:
-    1. Why are you looking?
-    2. How fucked would your family be?
-    3. Do you want that?
-    4. Book appointment
+    Returns lean context + tactical situation for the texting agent.
+    Goal: qualify lightly → sense real interest / engagement → propose a call with real salesperson ASAP.
+    Do NOT try to close or go deep over text — hand off to human quickly.
     """
+    logger.info(f"Director | {contact_id} | msg='{message[:60]}'")
 
-    logger.info(f"🔍 SALES DIRECTOR | contact_id={contact_id} | first_name={first_name}")
+    # ─── 1. Fetch full history once (for narrative observer) ───
+    all_msgs: List[Dict] = get_recent_messages(contact_id, limit=None)
+    
+    # Slice recent exchanges from the full list (cheap, no extra DB hit)
+    recent_exchanges = all_msgs[-14:] if all_msgs else []  # last 14 messages max
 
-    # 1. GATHER INTELLIGENCE
-    # Get ALL messages for narrative observer (unlimited memory)
-    all_messages = get_recent_messages(contact_id, limit=None)
-
-    # Single LLM call: updates narrative AND extracts new facts
-    # The narrator reads the full conversation, understands meaning, and produces:
-    # 1. A flowing story paragraph (who this person is, what they want, where things stand)
-    # 2. Discrete facts extracted from what the lead actually said/confirmed
-    observer_result = run_narrative_observer(contact_id, message, all_messages)
-    story_narrative = observer_result["narrative"]
-
-    # Get all known facts (existing DB facts + any new ones the narrator just extracted)
+    # ─── 2. Refresh narrative & facts (uses full history) ───
+    observer = run_narrative_observer(contact_id, message, all_msgs)
+    narrative = observer["narrative"] or ""
     known_facts = get_known_facts(contact_id)
 
-    # Get recent 10 for logic flow analysis
-    recent_exchanges = get_recent_messages(contact_id, limit=10)
-
-    logger.debug(f"🔍 NARRATIVE CHECK | contact_id={contact_id} | narrative_preview={story_narrative[:100] if story_narrative else 'EMPTY'}")
-
-    # 2. ANALYZE
+    # ─── 3. Core logic signals (uses sliced recent history) ───
     logic: LogicSignal = analyze_logic_flow(recent_exchanges)
-    profile_str, profile_ctx = build_comprehensive_profile(story_narrative, known_facts, first_name, age, address)
 
-    logger.debug(f"🔍 PROFILE BUILT | contact_id={contact_id} | profile_preview={profile_str[:150] if profile_str else 'EMPTY'}")
+    # ─── 4. Profile ───
+    profile_str, _ = build_comprehensive_profile(
+        narrative, known_facts, first_name, age, address
+    )
 
-    # Underwriting & Company Context
+    # ─── 5. Underwriting & carrier (only when triggered) ───
     underwriting_ctx = ""
-    if "health" in message.lower() or "medic" in message.lower() or profile_ctx.get("health_issues"):
+    full_lower = (message + narrative).lower()
+    if any(kw in full_lower for kw in ["health", "medic", "condit", "prescrip", "doctor"]):
         underwriting_ctx = get_underwriting_context(message)
 
     company_ctx = ""
-    raw_company = find_company_in_message(message)
-    if raw_company:
-        normalized = normalize_company_name(raw_company)
-        if normalized:
-            company_data = get_company_context(normalized)
-            if company_data and isinstance(company_data, dict):
-                parts = [f"Lead mentioned: {company_data.get('name', raw_company)}"]
-                if company_data.get("is_guaranteed_issue"):
-                    parts.append("This is a guaranteed issue carrier (limited coverage, higher cost per dollar). Opportunity to show better options.")
-                if company_data.get("is_bundled"):
-                    parts.append("This carrier typically bundles life with auto/home. Coverage is often minimal add-on, not standalone.")
-                if company_data.get("is_employer_provider"):
-                    parts.append("Common employer group plan provider. Coverage usually ends when they leave the job.")
-                company_ctx = " ".join(parts)
+    if raw_co := find_company_in_message(message):
+        norm = normalize_company_name(raw_co)
+        if norm and (co_data := get_company_context(norm)):
+            lines = [f"Lead mentioned carrier: {co_data.get('name', raw_co)}"]
+            if co_data.get("is_guaranteed_issue"):
+                lines.append("Guaranteed issue → limited coverage, higher cost.")
+            if co_data.get("is_bundled"):
+                lines.append("Often bundled with auto/home — usually minimal standalone.")
+            if co_data.get("is_employer_provider"):
+                lines.append("Likely group/employer plan — ends if they leave job.")
+            company_ctx = " ".join(lines)
 
-    # 3. BUILD DIRECTIVE
-    directive = ""
-    framework = ""
+    # ─── 6. Tactical situation ───
+    stage_value = logic.stage.value
 
-    # === INITIAL OUTREACH ===
-    if logic.stage == ConversationStage.INITIAL_OUTREACH:
-        # Personalization details
-        has_name = bool(first_name)
-        has_age = bool(age)
-        # PRIVACY: Do NOT expose address to bot - only for backend context
-        # has_location = bool(address)
+    # Quick intent overrides — catch soft agreements early
+    if any(word in full_lower for word in [
+        "book", "schedule", "call", "talk", "meet", "appointment", "hop on", "quick call",
+        "time work", "works for", "lets do", "sure", "yeah lets", "maybe", "probably",
+        "interested", "tell me more", "numbers", "options", "when works", "set up"
+    ]):
+        stage_value = ConversationStage.BOOKING.value
 
-        personalization_note = ""
-        if has_name:
-            personalization_note += f"\nUSE FIRST NAME: '{first_name}' naturally in your opening."
-        if has_age:
-            personalization_note += f"\nYou know their age ({age}). Use this to feel less cold, but DON'T mention their location/address."
+    # Lock BOOKED if facts show success
+    if any(kw in f.lower() for f in known_facts for kw in ["booked", "appointment at", "calendar"]):
+        stage_value = ConversationStage.BOOKED.value
 
-        directive = f"""INITIAL OUTREACH
+    tactical = ""
 
-First contact. They looked at life insurance before but don't remember you.
+    if stage_value == ConversationStage.BOOKED.value:
+        tactical = (
+            "APPOINTMENT BOOKED\n"
+            "Confirm the time naturally. Mention calendar invite coming.\n"
+            "Stop selling. End warmly. Conversation is basically done — hand-off complete."
+        )
 
-{personalization_note if personalization_note else "No name available."}
+    elif stage_value == ConversationStage.BOOKING.value:
+        tactical = (
+            "They are showing real interest — enough to justify a live call with the actual salesperson.\n"
+            "Offer 2–3 specific times that work.\n"
+            "Keep it short, confident, normal — like a busy person setting up a quick chat.\n"
+            "Vibe: 'Cool, let's hop on a quick call so I can run your real numbers. I have tomorrow 11a, 2p, or Thursday 10a — which works?'"
+        )
 
-Your approach: Check in naturally, like you're following up on something they started.
-
-Reference that they were looking at life insurance. Ask where they ended up with it.
-
-Keep it brief. Natural. One question. Get them to reply.
-
-No formal greetings. No self-introductions. Sound like a real person checking in."""
-        framework = "INITIAL"
-
-        return {
-            "profile_str": profile_str,
-            "tactical_narrative": f"{framework}\n\n{directive}",
-            "stage": logic.stage.value,
-            "underwriting_context": underwriting_ctx,
-            "company_context": company_ctx,
-            "known_facts": known_facts,
-            "story_narrative": story_narrative,
-            "recent_exchanges": recent_exchanges
-        }
-
-    # === BOOKED ===
-    elif logic.stage == ConversationStage.BOOKED:
-        directive = """APPOINTMENT BOOKED IN CALENDAR
-
-Confirm the specific time. Mention they'll get calendar invite. STOP.
-
-DO NOT ask for phone number (you're texting them!), email, or any contact info.
-
-Example: "You're all set for Friday at 10am. Calendar invite coming your way!"
-
-Then STOP. Conversation is over."""
-        framework = "BOOKED"
-
-        return {
-            "profile_str": profile_str,
-            "tactical_narrative": f"{framework}\n\n{directive}",
-            "stage": logic.stage.value,
-            "underwriting_context": underwriting_ctx,
-            "company_context": company_ctx,
-            "known_facts": known_facts,
-            "story_narrative": story_narrative,
-            "recent_exchanges": recent_exchanges
-        }
-
-    # === BOOKING (They agreed to call) ===
-    elif logic.stage == ConversationStage.BOOKING:
-        directive = """BOOKING
-
-They agreed to a call. Offer specific times.
-
-Keep it simple. Get a time."""
-        framework = "BOOKING"
-
-    # === QUALIFYING (The Simple Formula) ===
-    else:
-        full_context = (story_narrative + " " + " ".join(known_facts)).lower()
-
-        # DETECT EMOTIONAL/VULNERABLE SITUATIONS
-        vulnerable_keywords = ["struggling", "tough", "hard", "stress", "worried", "scared", "cancer",
-                               "sick", "diagnosis", "lost job", "divorce", "single parent", "alone"]
-        is_vulnerable = any(keyword in full_context for keyword in vulnerable_keywords)
-
-        # If they're in a vulnerable state, lead with empathy
-        if is_vulnerable:
-            directive = """VULNERABLE SITUATION
-
-They're going through something tough.
-
-Acknowledge it first. Show you get it. Then continue gently.
-
-Don't rush. Build trust. They'll open up when they feel understood."""
-
-        # Do they have coverage already?
-        elif logic.has_coverage:
-            expertise_note = ""
-            if company_ctx:
-                expertise_note = f"\n\nCompany context: {company_ctx}"
-
-            directive = f"""THEY HAVE COVERAGE
-
-They've mentioned having coverage. Check the conversation recap to see what's already been discussed about it. Do not re-ask questions that were already answered.
-
-If their coverage hasn't been explored yet, get curious about it. If it has, move forward.{expertise_note if expertise_note else ""}"""
-
-        # Don't know their situation yet
-        elif not logic.mentioned_goal:
-            directive = """CONTINUE THE CONVERSATION
-
-Read the conversation recap. Respond to what the lead just said. Move things forward naturally based on where the conversation is.
-
-If you don't know their situation yet, ask about it. If you already asked and they answered, build on that answer. The recap has what's been covered."""
-
-        # They told you the problem - confirm they don't want that
-        elif logic.mentioned_goal and not logic.mentioned_obstacle:
-            directive = """THEY'VE SHARED THEIR SITUATION
-
-They've told you about who they're protecting or what they need. Check the recap for exactly what was said.
-
-Help them think about why it matters. Then offer to help. Don't repeat questions they already answered."""
-
-        # They see the gap - ask if they want help
+    elif stage_value == ConversationStage.INITIAL_OUTREACH.value:
+        if recent_exchanges and not message:  # outbound follow-up (ghosting)
+            tactical = (
+                "FOLLOW-UP — no reply yet.\n"
+                "Nudge casually. Don't repeat the opener.\n"
+                "Goal: any response — see if they're worth qualifying further."
+            )
         else:
-            directive = """READY TO MOVE FORWARD
+            tactical = (
+                "EARLY / FIRST CONTACT\n"
+                "Casual check-in. Reference life insurance interest.\n"
+                f"Use '{first_name}' if known. Ask one natural question.\n"
+                "Sound like a real person texting — goal is to see if they engage at all."
+            )
 
-They understand the gap. If you haven't offered to help yet, do it. If you already did, move toward booking.
+    else:  # QUALIFYING / DISCOVERY — intentionally light & fast-moving
+        if logic.mentioned_goal and logic.mentioned_obstacle:
+            tactical = (
+                "They've shared why they need coverage and why what they have falls short.\n"
+                "This is usually plenty of qualification — the real salesperson can take it from here.\n"
+                "If they're responding well (decent length replies, asking questions back, not dodging),\n"
+                "it's time to propose a quick call with the actual person who can help them properly.\n"
+                "Don't go deeper over text — move to offering times soon."
+            )
+        elif logic.has_coverage:
+            tactical = (
+                "They mentioned some existing coverage.\n"
+                "Quickly clarify the basics if unclear (term/group/amount?), then highlight common gaps.\n"
+                "Transition fast: 'This is probably easier to sort properly on a short call with the team.'\n"
+                "Goal is NOT full analysis here — goal is to get to a live conversation."
+            )
+        else:
+            tactical = (
+                "Still early — checking for real interest.\n"
+                "Ask 1–2 thoughtful questions about protection needs, family, or current setup.\n"
+                "Pay attention to reply quality: longer answers / questions back = green light to suggest a call soon.\n"
+                "Short/evasive = slow down or circle back later.\n"
+                "Remember: you're just the warm-up guy. The real sale happens on the call with a human."
+            )
 
-Check the recap. Don't repeat yourself."""
+        # Brief empathy gate — never linger
+        vulnerable = any(kw in full_lower for kw in [
+            "cancer", "sick", "divorce", "lost job", "scared", "worried", "single mom", "alone", "diagnosis"
+        ])
+        if vulnerable:
+            tactical = (
+                "They're dealing with something tough.\n"
+                "Acknowledge briefly, then keep moving toward 'a quick call can help sort this'.\n"
+            ) + tactical
 
-        framework = "QUALIFYING"
-
+    # ─── Final output ───
     return {
-        "profile_str": profile_str,
-        "tactical_narrative": f"{framework}\n\n{directive}",
-        "stage": logic.stage.value,
-        "underwriting_context": underwriting_ctx,
-        "company_context": company_ctx,
+        "profile_str": profile_str.strip(),
+        "tactical_narrative": tactical.strip(),
+        "stage": stage_value,
+        "underwriting_context": underwriting_ctx.strip(),
+        "company_context": company_ctx.strip(),
         "known_facts": known_facts,
-        "story_narrative": story_narrative,
-        "recent_exchanges": recent_exchanges
+        "story_narrative": narrative.strip(),
+        "recent_exchanges": recent_exchanges,  # sliced — cheap & sufficient
     }

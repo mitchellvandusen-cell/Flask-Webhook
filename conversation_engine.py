@@ -1,47 +1,48 @@
 # conversation_engine.py - Simplified Conversational Logic
-# "Less thinking, more listening"
+# Updated Jan 2026: LLM-assisted intent detection for better nuance & progression
 
 import logging
 import re
+import json
 from enum import Enum
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
+
+from openai import OpenAI  # assuming this is already imported globally in your project
 
 logger = logging.getLogger(__name__)
 
-
-def _has_word(text: str, keyword: str) -> bool:
-    """
-    Word-boundary keyword match. Prevents 'ok' matching inside 'book',
-    'yes' matching inside 'eyes', 'term' matching inside 'determine', etc.
-    Multi-word phrases (e.g. 'whole life') are matched as-is with boundaries.
-    """
-    return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text))
+# Assuming client is initialized globally somewhere (e.g. in memory.py or main app)
+# If not, you can add it here or pass it in
 
 class ConversationStage(Enum):
-    INITIAL_OUTREACH = "initial_outreach"  # First contact
-    QUALIFYING = "qualifying"               # Find situation, goal, obstacles
-    BOOKING = "booking"                     # Getting appointment
-    BOOKED = "booked"                       # Done
+    INITIAL_OUTREACH = "initial_outreach"  # First contact or very early
+    QUALIFYING       = "qualifying"        # Discovering situation, goal, obstacles
+    BOOKING          = "booking"           # Offering / confirming times
+    BOOKED           = "booked"            # Appointment confirmed
 
 @dataclass
 class LogicSignal:
     stage: ConversationStage
-    has_coverage: bool           # Mentioned existing policy
+    has_coverage: bool           # Mentioned existing policy/coverage
     needs_coverage: bool         # Expressed need/interest
-    mentioned_goal: bool         # Talked about who/what protecting
-    mentioned_obstacle: bool     # Revealed why they haven't acted
-    ready_to_book: bool          # Agreement signals
-    resistance: bool             # Pushback/objections
-    conversation_count: int      # Exchange depth
+    mentioned_goal: bool         # Talked about who/what they're protecting
+    mentioned_obstacle: bool     # Revealed barrier to action
+    ready_to_book: bool          # Agreement to call/meet/book/next step
+    resistance: bool             # Strong pushback / opt-out signals
+    conversation_count: int      # Number of lead messages (depth)
 
-def analyze_logic_flow(messages: List[dict]) -> LogicSignal:
-    """
-    Simplified conversation analysis.
-    Just track: Do they have coverage? Do they need it? Are they ready to book?
-    """
+def _has_word(text: str, keyword: str) -> bool:
+    """Word-boundary safe keyword match."""
+    return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text, re.IGNORECASE))
 
-    if not messages or len(messages) == 0:
+
+def analyze_logic_flow(messages: List[Dict[str, str]]) -> LogicSignal:
+    """
+    Analyze recent conversation to produce LogicSignal.
+    Uses a small Grok call for accurate intent detection + fallback to keywords.
+    """
+    if not messages:
         return LogicSignal(
             stage=ConversationStage.INITIAL_OUTREACH,
             has_coverage=False,
@@ -53,86 +54,105 @@ def analyze_logic_flow(messages: List[dict]) -> LogicSignal:
             conversation_count=0
         )
 
-    # Separate lead and bot messages
-    lead_msgs = [m for m in messages if m['role'] == 'lead']
-    bot_msgs = [m for m in messages if m['role'] == 'assistant']
+    # Split messages
+    lead_msgs = [m['text'].lower() for m in messages if m['role'] == 'lead']
+    bot_msgs  = [m['text'].lower() for m in messages if m['role'] == 'assistant']
+
     conversation_count = len(lead_msgs)
+    all_lead_text = " ".join(lead_msgs)
+    recent_lead_text = " ".join(lead_msgs[-4:]) if lead_msgs else ""  # last 4 replies for booking signals
 
-    # Combine all lead text for analysis
-    all_lead_text = " ".join([m['text'].lower() for m in lead_msgs])
-    last_lead_text = lead_msgs[-1]['text'].lower() if lead_msgs else ""
+    # ─── Primary: Small Grok intent classification ───
+    cls = {}
+    if client:  # assuming global client from xAI
+        prompt = f"""You are classifying short lead text messages in a sales conversation about life insurance.
 
-    # === SIMPLE SIGNAL DETECTION ===
+Lead messages (most recent at bottom):
+{chr(10).join([f"[{i+1}] {msg}" for i, msg in enumerate(lead_msgs[-8:])])}
 
-    # Coverage signals (word-boundary matching prevents false positives)
-    coverage_keywords = ["policy", "coverage", "term", "whole life", "iul", "universal", "work policy",
-                        "group", "state farm", "farmers", "allstate", "have insurance", "already have",
-                        "$100k", "$250k", "$500k", "million"]
-    has_coverage = any(_has_word(all_lead_text, kw) for kw in coverage_keywords)
+Return ONLY valid JSON with these exact keys (true/false):
 
-    # Need signals
-    need_keywords = ["need", "want", "looking", "interested", "thinking about", "family", "kids",
-                    "wife", "husband", "protect", "mortgage", "business", "future", "worry"]
-    needs_coverage = any(_has_word(all_lead_text, kw) for kw in need_keywords)
+{{
+  "has_coverage": bool,           // they mention having any existing life insurance/policy/coverage
+  "needs_coverage": bool,         // expressed need, want, interest, looking, thinking about coverage
+  "mentioned_goal": bool,         // protecting family, kids, spouse, mortgage, business, future, etc.
+  "mentioned_obstacle": bool,     // barrier like busy, expensive, health issue, not sure, complicated
+  "ready_to_book": bool,          // agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
+  "resistance": bool              // strong opt-out: stop, unsubscribe, not interested, leave me alone
+}}
 
-    # Goal signals (who/what protecting)
-    goal_keywords = ["family", "kids", "children", "wife", "husband", "spouse", "mortgage",
-                    "business", "partner", "parents", "funeral", "debt", "college"]
-    mentioned_goal = any(_has_word(all_lead_text, kw) for kw in goal_keywords)
+Be accurate and context-aware. "I have something through work" → has_coverage: true
+"My wife would be screwed without me" → mentioned_goal: true
+"Yeah let's talk next week" → ready_to_book: true
+"""
 
-    # Obstacle signals (why they haven't acted)
-    obstacle_keywords = ["busy", "expensive", "too much", "later", "thinking", "not sure",
-                        "confused", "don't understand", "complicated", "health", "been meaning"]
-    mentioned_obstacle = any(_has_word(all_lead_text, kw) for kw in obstacle_keywords)
+        try:
+            response = client.chat.completions.create(
+                model="grok-4-1-fast-reasoning",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.15,
+                max_tokens=200,
+                timeout=8.0
+            )
+            raw = response.choices[0].message.content.strip()
+            if raw.startswith("```json"):
+                raw = raw.split("```json", 1)[1].split("```", 1)[0].strip()
+            cls = json.loads(raw)
+            logger.debug(f"LLM intent classification succeeded: {cls}")
+        except Exception as e:
+            logger.warning(f"LLM intent classification failed: {e}. Falling back to keywords.")
+            cls = {}
 
-    # Booking signals
-    booking_keywords = ["yes", "sure", "ok", "sounds good", "let's do it", "book", "schedule",
-                       "appointment", "call", "zoom", "meet", "when", "available", "time"]
-    ready_to_book = any(_has_word(last_lead_text, kw) for kw in booking_keywords)
+    # ─── Fallback: keyword-based if LLM fails or unavailable ───
+    if not cls or not isinstance(cls, dict):
+        coverage_keywords = [
+            "policy", "coverage", "term", "whole life", "iul", "universal", "group",
+            "state farm", "farmers", "allstate", "have insurance", "already have"
+        ]
+        need_keywords = ["need", "want", "looking", "interested", "thinking about", "protect", "mortgage"]
+        goal_keywords = ["family", "kids", "wife", "husband", "spouse", "children", "business", "parents"]
+        obstacle_keywords = ["busy", "expensive", "too much", "later", "not sure", "confused", "health", "complicated"]
+        booking_keywords = ["yes", "sure", "ok", "sounds good", "let's do", "book", "schedule", "appointment", "call", "talk", "meet", "time work", "works for me"]
+        stop_keywords = ["stop", "unsubscribe", "remove", "leave me alone", "do not contact"]
 
-    # Hard stop signals only — actual opt-out requests
-    # "not interested" etc. are objection smokescreens, not real stops
-    stop_keywords = ["stop", "unsubscribe", "remove me", "take me off",
-                     "leave me alone", "do not contact"]
-    resistance = any(_has_word(last_lead_text, kw) for kw in stop_keywords)
+        cls = {
+            "has_coverage":     any(_has_word(all_lead_text, kw) for kw in coverage_keywords),
+            "needs_coverage":   any(_has_word(all_lead_text, kw) for kw in need_keywords),
+            "mentioned_goal":   any(_has_word(all_lead_text, kw) for kw in goal_keywords),
+            "mentioned_obstacle": any(_has_word(all_lead_text, kw) for kw in obstacle_keywords),
+            "ready_to_book":    any(_has_word(recent_lead_text, kw) for kw in booking_keywords),
+            "resistance":       any(_has_word(recent_lead_text, kw) for kw in stop_keywords),
+        }
 
-    # === STAGE DETECTION ===
-
-    # Check if booking was already confirmed (bot said "all set", "booked", etc.)
+    # ─── Booking confirmed by bot recently? ───
     booking_confirmed = False
     if bot_msgs:
-        recent_bot_text = " ".join([m['text'].lower() for m in bot_msgs[-2:]])
-        confirmation_patterns = ["all set", "booked", "calendar invite",
-                                 "confirmed", "appointment is", "see you at",
-                                 "looking forward"]
-        booking_confirmed = any(p in recent_bot_text for p in confirmation_patterns)
+        recent_bot = " ".join(bot_msgs[-3:])  # last 3 bot messages
+        confirmation_patterns = [
+            "all set", "you're booked", "appointment is", "calendar invite",
+            "confirmed", "see you at", "looking forward", "locked in", "set for"
+        ]
+        booking_confirmed = any(p in recent_bot for p in confirmation_patterns)
 
-    # Initial outreach
-    if conversation_count == 0:
-        stage = ConversationStage.INITIAL_OUTREACH
+    # ─── Stage logic ───
+    stage = ConversationStage.QUALIFYING
 
-    # Booked — only when bot already confirmed a booking
-    elif booking_confirmed:
+    if booking_confirmed:
         stage = ConversationStage.BOOKED
-
-    # Booking — they're ready or warm enough, offer times
-    elif ready_to_book and conversation_count >= 2:
+    elif cls.get("ready_to_book", False) and conversation_count >= 2:
         stage = ConversationStage.BOOKING
-
-    elif (needs_coverage or mentioned_goal) and conversation_count >= 2:
+    elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and conversation_count >= 2:
         stage = ConversationStage.BOOKING
-
-    # Still qualifying
-    else:
-        stage = ConversationStage.QUALIFYING
+    elif conversation_count == 0:
+        stage = ConversationStage.INITIAL_OUTREACH
 
     return LogicSignal(
         stage=stage,
-        has_coverage=has_coverage,
-        needs_coverage=needs_coverage,
-        mentioned_goal=mentioned_goal,
-        mentioned_obstacle=mentioned_obstacle,
-        ready_to_book=ready_to_book,
-        resistance=resistance,
+        has_coverage=cls.get("has_coverage", False),
+        needs_coverage=cls.get("needs_coverage", False),
+        mentioned_goal=cls.get("mentioned_goal", False),
+        mentioned_obstacle=cls.get("mentioned_obstacle", False),
+        ready_to_book=cls.get("ready_to_book", False),
+        resistance=cls.get("resistance", False),
         conversation_count=conversation_count
     )
