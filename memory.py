@@ -40,11 +40,15 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
 
     try:
         cur = conn.cursor()
+        
+        # CRASH FIX: Added ON CONFLICT DO NOTHING
+        # This allows the lead to repeat themselves without crashing the worker
         cur.execute("""
             INSERT INTO contact_messages (contact_id, message_type, message_text, created_at)
             VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT DO NOTHING
         """, (contact_id, message_type, message_text.strip()))
+        
         conn.commit()
         return True
     except Exception as e:
