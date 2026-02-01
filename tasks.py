@@ -159,8 +159,27 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     # Log detection signals
     logger.info(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
 
+    # === NEGATIVE TIME REJECTION ===
+    # "I can't do 2pm" or "2pm doesn't work" should NOT trigger booking at that time.
+    # The lead is declining, not accepting. Let the LLM handle the response naturally.
+    rejection_phrases = [
+        "can't do", "cant do", "cannot do",
+        "won't work", "wont work", "will not work",
+        "doesn't work", "doesnt work", "does not work",
+        "not available", "not free", "unavailable",
+        "can't make", "cant make", "cannot make",
+        "won't be able", "wont be able",
+        "busy then", "busy at",
+        "no good", "not going to work", "not gonna work",
+    ]
+    has_rejection = any(phrase in msg_lower for phrase in rejection_phrases)
+
+    if has_rejection and not is_acceptance and not has_explicit_intent:
+        logger.info(f"🚫 BOOKING REJECTION: Lead declined time/availability | msg='{message[:50]}'")
+        return False, None
+
     # === DECISION LOGIC ===
-    
+
     # Case 1: Explicit booking request with time (always book)
     if has_explicit_intent and has_time_reference:
         logger.info(f"BOOKING CASE 1: Explicit + Time | msg='{message[:50]}'")
@@ -539,43 +558,48 @@ BE YOURSELF. Be funny. Be human. Let them know you're a real person who notices 
             extra_context = f"{extra_context}\n[COMPANY INTEL] {director_output['company_context']}".strip()
         final_nudge = f"{context_nudge}\n{extra_context}".strip()
 
-        # Generate bot reply using Grok
+        # === INITIAL MESSAGE BYPASS ===
+        # If the subscriber configured an initial_message and this is the very first
+        # contact (no inbound message, no conversation history), send it verbatim.
+        # All subsequent messages are LLM-generated.
+        initial_msg = subscriber.get('initial_message', '').strip()
         reply = ""
-        system_prompt = build_system_prompt(
-            bot_first_name=bot_first_name,
-            timezone=timezone,
-            profile_str=director_output["profile_str"],
-            tactical_narrative=director_output["tactical_narrative"],
-            known_facts=director_output["known_facts"],
-            story_narrative=director_output["story_narrative"],
-            stage="closed" if booking_made else director_output["stage"],
-            recent_exchanges=recent_exchanges,
-            message=message,
-            calendar_slots=calendar_slots,
-            context_nudge=final_nudge,
-            lead_vendor=lead_vendor
-        )
 
-        # System prompt already contains the full conversation recap (narrator),
-        # the person dossier (profile), AND recent_exchanges as formatted text.
-        # Do NOT duplicate the conversation as chat history — that causes the LLM
-        # to see the same messages twice and lose track of what's been discussed.
-        # Only pass system prompt + the lead's current message.
-        grok_messages = [{"role": "system", "content": system_prompt}]
-        if message:
-            grok_messages.append({"role": "user", "content": message})
-
-        try:
-            response = client.chat.completions.create(
-                model="grok-4-1-fast-reasoning",
-                messages=grok_messages,
-                temperature=0.85,
-                max_tokens=200,
+        if initial_msg and not message and not recent_exchanges:
+            reply = initial_msg
+            logger.info(f"📨 USING CONFIGURED INITIAL MESSAGE | contact={contact_id} | msg='{reply[:60]}'")
+        else:
+            # === NORMAL LLM FLOW ===
+            system_prompt = build_system_prompt(
+                bot_first_name=bot_first_name,
+                timezone=timezone,
+                profile_str=director_output["profile_str"],
+                tactical_narrative=director_output["tactical_narrative"],
+                known_facts=director_output["known_facts"],
+                story_narrative=director_output["story_narrative"],
+                stage="closed" if booking_made else director_output["stage"],
+                recent_exchanges=recent_exchanges,
+                message=message,
+                calendar_slots=calendar_slots,
+                context_nudge=final_nudge,
+                lead_vendor=lead_vendor
             )
-            reply = response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
-            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
+
+            grok_messages = [{"role": "system", "content": system_prompt}]
+            if message:
+                grok_messages.append({"role": "user", "content": message})
+
+            try:
+                response = client.chat.completions.create(
+                    model="grok-4-1-fast-reasoning",
+                    messages=grok_messages,
+                    temperature=0.85,
+                    max_tokens=200,
+                )
+                reply = response.choices[0].message.content.strip()
+            except Exception as e:
+                logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
+                reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
         # Cleanup reply
         reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
