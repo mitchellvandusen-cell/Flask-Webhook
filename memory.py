@@ -254,43 +254,6 @@ def _clean_llm_output(raw: str) -> str:
     return cleaned.strip()
 
 
-def _is_valid_fact(line: str) -> bool:
-    """
-    Reject LLM reasoning that leaked into facts.
-    A valid fact is a short, concrete statement about the lead.
-    """
-    lower = line.lower()
-
-    # Too short or too long to be a fact
-    if len(line) < 10 or len(line) > 300:
-        return False
-
-    # LLM reasoning / meta-commentary leaks
-    reasoning_markers = [
-        "for recap", "for facts", "previous recap", "already known",
-        "new parts from", "full conversation", "update the standing",
-        "one fact per line", "no other new facts", "that's it",
-        "so, add:", "so:", "[content]", "recap:", "facts:",
-        "include everything", "never drop", "chronological",
-        "understand meaning", "the bot ", "conversation stands",
-        "no agreements made", "objections of ", "persist",
-    ]
-    if any(marker in lower for marker in reasoning_markers):
-        return False
-
-    # Lines that are clearly section labels or instructions
-    if line.startswith(("For ", "So,", "So:", "New:", "Update")):
-        return False
-
-    return True
-
-
-# Maximum narrative size in characters. Beyond this, older details get trimmed.
-MAX_NARRATIVE_CHARS = 2000
-
-# Only pass the most recent messages to the observer. The previous recap
-# already covers older conversation, so we only need new exchanges.
-OBSERVER_MESSAGE_WINDOW = 10
 
 
 def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> dict:
@@ -318,14 +281,9 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
     current_story = get_narrative(contact_id) or "First contact. No conversation yet."
     existing_facts = get_known_facts(contact_id)
 
-    # Only use RECENT messages — the recap already covers older conversation.
-    # This prevents the prompt from growing unbounded and timing out.
-    msgs_to_use = recent_messages or []
-    if len(msgs_to_use) > OBSERVER_MESSAGE_WINDOW:
-        msgs_to_use = msgs_to_use[-OBSERVER_MESSAGE_WINDOW:]
-
+    # Build conversation context from all messages
     conversation_context = ""
-    for msg in msgs_to_use:
+    for msg in (recent_messages or []):
         role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
         conversation_context += f"{role_label}: {msg['text']}\n"
 
@@ -387,16 +345,6 @@ List any NEW facts the lead revealed in the recent messages. One fact per line. 
         if narrative_part.startswith("RECAP:"):
             narrative_part = narrative_part[len("RECAP:"):].strip()
 
-        # Cap narrative size to prevent unbounded growth
-        if len(narrative_part) > MAX_NARRATIVE_CHARS:
-            # Keep the most recent part (end of the narrative)
-            narrative_part = narrative_part[-MAX_NARRATIVE_CHARS:]
-            # Try to start at a sentence boundary
-            first_period = narrative_part.find(". ")
-            if first_period > 0 and first_period < 200:
-                narrative_part = narrative_part[first_period + 2:]
-            logger.info(f"Narrative capped at {MAX_NARRATIVE_CHARS} chars for {contact_id}")
-
         # Update narrative if valid
         if len(narrative_part) >= 20:
             if update_narrative(contact_id, narrative_part):
@@ -408,12 +356,12 @@ List any NEW facts the lead revealed in the recent messages. One fact per line. 
             logger.warning(f"Narrative update too short: {contact_id}")
             result["narrative"] = current_story
 
-        # Parse and save new facts with validation
+        # Parse and save new facts
         if facts_part and facts_part.upper().strip() != "NONE":
             new_facts = []
             for line in facts_part.split("\n"):
                 line = line.strip().lstrip("-•* 0123456789.")
-                if line and _is_valid_fact(line):
+                if line and len(line) > 3 and line.upper() != "NONE":
                     new_facts.append(line)
 
             if new_facts:
