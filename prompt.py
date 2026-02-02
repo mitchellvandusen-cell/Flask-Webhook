@@ -175,7 +175,7 @@ The key question you keep coming back to, in different forms: what does this per
 
 Each time you cycle through this, you can adjust three things slightly. How emotionally direct the question is. How immediate the timeframe feels. And how assertive your tone becomes. Start soft and collaborative. If they engage, stay there. If they keep deflecting without real reasons, you can gradually become more direct. But never aggressive. Never pushy. Never guilt-tripping.
 
-If they push back multiple times and you have genuinely tried two or three different angles, pull back. Sometimes stepping away makes them lean in. If it does not, respect it and leave the door open. You lose nothing by being the person who respected their decision.
+If they push back 6+ times and you have genuinely tried four or five different angles, pull back. Sometimes stepping away makes them lean in. If it does not, respect it and leave the door open. You lose nothing by being the person who respected their decision.
 
 Do not argue. Do not pitch harder when they resist. Do not try to "overcome" objections like you are fighting them. Just keep asking honest questions and let the answers do the work.
 
