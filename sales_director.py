@@ -273,8 +273,6 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
             "Ask one question that reframes around what originally motivated them. "
             "Do not ask 'why not?' That is combative. Instead, get curious about whether "
             "the thing that made them look in the first place ever got resolved.\n\n"
-            "If they push back a second time with more conviction, respect it. "
-            "Let them know the door is open and move on. Do not cycle more than twice on a flat no."
         )
 
     if obj == ObjectionType.SPOUSE_PARTNER:
@@ -290,8 +288,6 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
             "instead of going in blind? The call gives them what they need to have that discussion properly.\n\n"
             "If they still want to wait, offer to schedule a time after they have had that conversation. "
             "Give them a specific timeframe to reconnect. Do not leave it open-ended.\n\n"
-            "If the partner is genuinely opposed and they confirm they will not move forward, "
-            "respect it. Ask if it would be okay to check back in down the road."
         )
 
     if obj == ObjectionType.PRICE_MONEY:
@@ -311,8 +307,6 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
             "In either case, you cannot quote prices over text. That is a hard rule. "
             "Acknowledge the concern, then position the call as the way to find out what "
             "options actually exist in their price range. No commitment, just real numbers.\n\n"
-            "Do not try to overcome this objection more than twice. If it is genuinely about funds, "
-            "pushing harder just makes you tone-deaf."
         )
 
     if obj == ObjectionType.ALREADY_COVERED:
@@ -328,9 +322,9 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
             "whether it is through work or personal. Let THEM explain it.\n\n"
             "If it is employer/group coverage, know that it usually ends if they leave the job, "
             "and the amount is often far less than what a family actually needs. "
-            "You do not say this directly. You ask questions that let them discover it.\n\n"
-            "If they genuinely can back it up with specifics and seem fully set, respect it. "
-            "Let them know you are available if anything changes. Do not push."
+            "You do not say this directly. You ask questions that let them discover it. "
+            "most employer coverage doesn't have living benefits. Living benefits are benefits "
+            "that allow the policy owner to access thier policy if the insured gets chronically ill, terminally ill, or critically ill.\n\n"
         )
 
     if obj == ObjectionType.BUSY_TIMING:
@@ -389,7 +383,7 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
         return empathy_prefix + (
             "QUALIFYING: They mentioned existing coverage.\n"
             "Get curious about what they have. Do not quiz or poke holes.\n"
-            "If it is group/employer, know that it usually ends when they leave the job "
+            "If it is group/employer, know that it usually ends when they leave the job and does not have living benefits "
             "and amounts are often far below what a family needs. Let them discover this through your questions.\n"
             "Transition toward a call when you have a sense of their situation."
         )
