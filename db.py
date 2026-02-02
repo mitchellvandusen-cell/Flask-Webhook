@@ -207,6 +207,28 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"calendar_name column may already exist in agency_billing: {e}")
 
+        # 8. MIGRATION: Replace unique_msg_content constraint
+        # Old constraint blocked BOTH lead and assistant duplicates.
+        # Leads CAN and DO repeat themselves (e.g. "I'm not interested" sent multiple times).
+        # But assistant duplicates should still be blocked to prevent the bot from looping.
+        try:
+            # Drop the old constraint that blocked everything
+            cur.execute("""
+                ALTER TABLE contact_messages
+                DROP CONSTRAINT IF EXISTS unique_msg_content
+            """)
+            # Drop old partial index if it exists from a previous migration
+            cur.execute("DROP INDEX IF EXISTS unique_assistant_msg")
+            # Add a partial unique index ONLY for assistant messages (anti-looping)
+            cur.execute("""
+                CREATE UNIQUE INDEX unique_assistant_msg
+                ON contact_messages (contact_id, message_text, message_type)
+                WHERE message_type = 'assistant'
+            """)
+            logger.info("✅ Migration: Replaced unique_msg_content with assistant-only constraint")
+        except Exception as e:
+            logger.debug(f"unique_msg_content migration note: {e}")
+
         conn.commit()
         logger.info("Database initialized: All tables ready (including contact_narratives).")
         return True

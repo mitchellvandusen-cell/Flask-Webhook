@@ -492,19 +492,9 @@ def process_webhook_task(payload: dict):
             context_nudge += """
 ⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY IN GHL CALENDAR.
 
-WHAT TO SAY:
-- Confirm the specific time that was booked (e.g., "Perfect, you're all set for tomorrow at 2pm")
-- Mention they'll get a calendar invite automatically
-- STOP selling immediately
+Confirm the specific time that was booked. Let them know a calendar invite is coming. Stop selling immediately. Do not ask for phone number, email, or any contact info. You already have it. You are texting them.
 
-CRITICAL - DO NOT ASK FOR:
-❌ Phone number (you're TEXTING them - you already have it!)
-❌ Email address (already in system)
-❌ Any contact information
-
-Example: "Perfect! You're all set for tomorrow at 2pm. You'll get the calendar invite in a few minutes. Looking forward to it!"
-
-DO NOT continue the sales conversation. The appointment is booked. Just confirm and end warmly."""
+Do not continue the sales conversation. The appointment is booked. Confirm it in your own words and end warmly."""
             logger.info(f"✅ BOOKING CONFIRMATION ADDED TO PROMPT | contact={contact_id}")
         else:
             # CRITICAL: Prevent AI from hallucinating bookings
@@ -578,14 +568,18 @@ DO NOT continue the sales conversation. The appointment is booked. Just confirm 
         reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
         # CRITICAL VALIDATION: Never send placeholder text, variable names, or unprofessional content
-        FORBIDDEN_PATTERNS = [
+        FORBIDDEN_SUBSTRINGS = [
             "message_text", "{{", "}}", "contact_id", "location_id",
-            "access_token", "None", "null", "undefined", "NaN",
-            "[object Object]", "placeholder", "test message"
+            "access_token", "[object Object]", "placeholder", "test message"
         ]
+        FORBIDDEN_EXACT = ["none", "null", "undefined", "nan"]
 
-        reply_lower = reply.lower()
-        if any(pattern.lower() in reply_lower for pattern in FORBIDDEN_PATTERNS):
+        reply_lower = reply.lower().strip()
+        is_forbidden = (
+            any(p.lower() in reply_lower for p in FORBIDDEN_SUBSTRINGS) or
+            reply_lower in FORBIDDEN_EXACT
+        )
+        if is_forbidden:
             logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
             reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
