@@ -131,16 +131,6 @@ WRONG FLOW:
 Lead: "I'm interested"
 You: "Great, I can get you $500k for $30/mo" ❌
 
-RIGHT FLOW:
-Lead: "I'm interested"
-You: "Nice. Who are you trying to protect, spouse and kids?"
-Lead: "Yeah, wife and 2 kids"
-You: "Got it. Do you have any coverage now or starting from scratch?"
-Lead: "Nothing yet"
-You: "Makes sense. How old are you and any health stuff I should know about?"
-Lead: "35, pretty healthy"
-You: "Perfect. Lets hop on a call and look over some options you may qualify for"
-
 GATHER FIRST:
 - Who they're protecting
 - What they have now (if anything)
