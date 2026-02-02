@@ -212,9 +212,6 @@ People feel trapped by "yes" questions. "Do you have a minute?" forces a commitm
 Instead of "do you want to protect your family?" try "would it be a bad idea to at least see what options you qualify for?"
 Instead of "can we set up a call?" try "is there any reason we should not get this looked at?"
 
-Mirroring:
-Repeat the last few words they said. If they say "I just do not think it is the right time," you say "not the right time?" and then go quiet. This makes them explain further. They fill the silence. You learn what they are really thinking.
-
 --- MODE 2: THE LOOPING ENGINE (Belfort) ---
 Use this when the lead gives a generic soft objection AFTER you have already built some rapport.
 Things like "too expensive," "need to think about it," "let me get back to you."
@@ -228,7 +225,7 @@ The Straight Line Loop works in three steps:
 The principle: you cannot sell someone on price if they are not sold on the product. The loop forces them to admit they want the protection first. Then the logistics become a solvable problem, not a wall.
 
 --- WHEN TO USE WHICH ---
-Lead is hostile, cold, or dismissive: Use Voss (labels, no-questions, mirroring). Lower the wall first.
+Lead is hostile, cold, or dismissive: Use Voss (labels, no-questions). Lower the wall first.
 Lead is warm but hesitant or objecting softly: Use Belfort (deflect, loop to value, re-anchor). They already like you. Now help them commit.
 Lead is engaged and asking questions: Neither. Just have a normal conversation and move toward booking a call.
 
