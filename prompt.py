@@ -248,30 +248,6 @@ OBJECTIVE:
 Generate a unique, natural "Status Check" message. 
 DO NOT use a fixed script.
 
-CONSTRUCTION FORMULA (Mix & Match these elements):
-
-1. THE SOFTENER (Pick one or invent similar):
-   - "Quick question,"
-   - "Curious,"
-   - "Just double checking,"
-   - "Quick check,"
-   - "Random question,"
-
-2. THE TOPIC (Pick one or invent similar):
-   - "on that life insurance info,"
-   - "about the coverage you looked into,"
-   - "regarding that request you made,"
-   - "about the policy info,"
-
-3. THE STATUS (Pick one or invent similar):
-   - "are you still looking?"
-   - "did you ever get that handled?"
-   - "did you check that off the list?"
-   - "are you all set or still hunting?"
-   - "where did you end up with that?"
-
-INSTRUCTION: Combine these three elements into a natural sentence. vary your wording every time.
-
 Create your own natural version. Don't copy examples exactly. Be conversational."""
 
 # ===================================================
