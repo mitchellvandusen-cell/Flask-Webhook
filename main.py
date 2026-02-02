@@ -242,13 +242,18 @@ def generate_demo_opener():
         cleaned_content = clean_ai_reply(raw_text)
 
         # 3. CRITICAL VALIDATION: Never return placeholder text
-        FORBIDDEN_PATTERNS = [
+        FORBIDDEN_SUBSTRINGS_OPENER = [
             "message_text", "{{", "}}", "contact_id", "location_id",
-            "access_token", "None", "null", "undefined", "placeholder"
+            "access_token", "[object Object]", "placeholder"
         ]
+        FORBIDDEN_EXACT_OPENER = ["none", "null", "undefined", "nan"]
 
-        cleaned_lower = cleaned_content.lower()
-        if any(pattern.lower() in cleaned_lower for pattern in FORBIDDEN_PATTERNS):
+        cleaned_lower = cleaned_content.lower().strip()
+        is_forbidden_opener = (
+            any(p.lower() in cleaned_lower for p in FORBIDDEN_SUBSTRINGS_OPENER) or
+            cleaned_lower in FORBIDDEN_EXACT_OPENER
+        )
+        if is_forbidden_opener:
             logger.error(f"🚨 OPENER BLOCKED UNPROFESSIONAL: '{cleaned_content}' - Using fallback")
             return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
 
@@ -1506,14 +1511,22 @@ def demo_chat_api():
         reply = reply.replace("—", ",").replace("–", ",").strip()
 
         # CRITICAL VALIDATION: Never send placeholder text or unprofessional content
-        FORBIDDEN_PATTERNS = [
+        # Substring patterns: these should never appear anywhere in a real response
+        FORBIDDEN_SUBSTRINGS = [
             "message_text", "{{", "}}", "contact_id", "location_id",
-            "access_token", "None", "null", "undefined", "NaN",
-            "[object Object]", "placeholder", "test message"
+            "access_token", "[object Object]", "placeholder", "test message"
         ]
+        # Exact-match patterns: only block if the ENTIRE reply is just this word
+        # (catches broken LLM output like "None" or "null" without blocking
+        # normal English like "none of those" or "that's not an option")
+        FORBIDDEN_EXACT = ["none", "null", "undefined", "nan"]
 
-        reply_lower = reply.lower()
-        if any(pattern.lower() in reply_lower for pattern in FORBIDDEN_PATTERNS):
+        reply_lower = reply.lower().strip()
+        is_forbidden = (
+            any(p.lower() in reply_lower for p in FORBIDDEN_SUBSTRINGS) or
+            reply_lower in FORBIDDEN_EXACT
+        )
+        if is_forbidden:
             logger.error(f"🚨 DEMO BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
             reply = "What's your main concern about coverage right now?"
 

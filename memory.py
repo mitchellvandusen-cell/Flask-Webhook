@@ -97,9 +97,9 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
 
         rows = cur.fetchall()
         messages = []
-        for msg_type, text in reversed(rows):
-            role = "lead" if msg_type == "lead" else "assistant"
-            messages.append({"role": role, "text": text.strip()})
+        for row in reversed(rows):
+            role = "lead" if row['message_type'] == "lead" else "assistant"
+            messages.append({"role": role, "text": row['message_text'].strip()})
 
         # If limit specified, return last N messages; otherwise return all
         return messages[-limit:] if limit else messages

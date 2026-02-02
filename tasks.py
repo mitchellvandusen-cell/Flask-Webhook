@@ -578,14 +578,18 @@ DO NOT continue the sales conversation. The appointment is booked. Just confirm 
         reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
         # CRITICAL VALIDATION: Never send placeholder text, variable names, or unprofessional content
-        FORBIDDEN_PATTERNS = [
+        FORBIDDEN_SUBSTRINGS = [
             "message_text", "{{", "}}", "contact_id", "location_id",
-            "access_token", "None", "null", "undefined", "NaN",
-            "[object Object]", "placeholder", "test message"
+            "access_token", "[object Object]", "placeholder", "test message"
         ]
+        FORBIDDEN_EXACT = ["none", "null", "undefined", "nan"]
 
-        reply_lower = reply.lower()
-        if any(pattern.lower() in reply_lower for pattern in FORBIDDEN_PATTERNS):
+        reply_lower = reply.lower().strip()
+        is_forbidden = (
+            any(p.lower() in reply_lower for p in FORBIDDEN_SUBSTRINGS) or
+            reply_lower in FORBIDDEN_EXACT
+        )
+        if is_forbidden:
             logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
             reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 

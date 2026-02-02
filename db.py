@@ -207,6 +207,18 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"calendar_name column may already exist in agency_billing: {e}")
 
+        # 8. MIGRATION: Drop unique_msg_content constraint on contact_messages
+        # Leads CAN and DO repeat themselves (e.g. "I'm not interested" sent multiple times).
+        # The old constraint prevented saving duplicate message text, causing crashes or silent drops.
+        try:
+            cur.execute("""
+                ALTER TABLE contact_messages
+                DROP CONSTRAINT IF EXISTS unique_msg_content
+            """)
+            logger.info("✅ Migration: Dropped unique_msg_content constraint (allows repeated messages)")
+        except Exception as e:
+            logger.debug(f"unique_msg_content constraint may not exist: {e}")
+
         conn.commit()
         logger.info("Database initialized: All tables ready (including contact_narratives).")
         return True
