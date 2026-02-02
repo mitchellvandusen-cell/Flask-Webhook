@@ -2,6 +2,7 @@
 # Handles message storage, fact redundancy, and evolving narrative observer
 
 import os
+import re
 import logging
 from typing import List, Dict, Optional
 from openai import OpenAI
@@ -244,16 +245,61 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
             cur.close()
             conn.close()
 
+def _clean_llm_output(raw: str) -> str:
+    """Strip thinking tags and other LLM reasoning artifacts from output."""
+    # Strip <thinking>...</thinking> blocks (reasoning model artifacts)
+    cleaned = re.sub(r'<thinking>[\s\S]*?</thinking>', '', raw)
+    # Strip any remaining XML-like tags
+    cleaned = re.sub(r'</?(?:thinking|reply|output|response)>', '', cleaned)
+    return cleaned.strip()
+
+
+def _is_valid_fact(line: str) -> bool:
+    """
+    Reject LLM reasoning that leaked into facts.
+    A valid fact is a short, concrete statement about the lead.
+    """
+    lower = line.lower()
+
+    # Too short or too long to be a fact
+    if len(line) < 10 or len(line) > 300:
+        return False
+
+    # LLM reasoning / meta-commentary leaks
+    reasoning_markers = [
+        "for recap", "for facts", "previous recap", "already known",
+        "new parts from", "full conversation", "update the standing",
+        "one fact per line", "no other new facts", "that's it",
+        "so, add:", "so:", "[content]", "recap:", "facts:",
+        "include everything", "never drop", "chronological",
+        "understand meaning", "the bot ", "conversation stands",
+        "no agreements made", "objections of ", "persist",
+    ]
+    if any(marker in lower for marker in reasoning_markers):
+        return False
+
+    # Lines that are clearly section labels or instructions
+    if line.startswith(("For ", "So,", "So:", "New:", "Update")):
+        return False
+
+    return True
+
+
+# Maximum narrative size in characters. Beyond this, older details get trimmed.
+MAX_NARRATIVE_CHARS = 2000
+
+# Only pass the most recent messages to the observer. The previous recap
+# already covers older conversation, so we only need new exchanges.
+OBSERVER_MESSAGE_WINDOW = 10
+
+
 def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: List[Dict[str, str]] = None) -> dict:
     """
     LEFT BRAIN — The Conversation Recap.
 
-    Reads the full conversation and produces:
-    1. A narrative recap of what has happened in this conversation — what was said,
-       what was asked, what was answered, what was agreed to, where things stand NOW.
-       This is session notes, not a person description.
-    2. Discrete facts extracted from what the lead actually said or confirmed.
-       These feed into the individual profile (right brain) separately.
+    Reads the previous recap plus RECENT messages and produces:
+    1. An updated narrative recap of the full conversation.
+    2. Discrete facts extracted from what the lead said.
 
     The narrative prevents looping. If Grok reads "Bot already asked about coverage
     and lead said he has something through work", Grok won't ask again.
@@ -272,12 +318,16 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
     current_story = get_narrative(contact_id) or "First contact. No conversation yet."
     existing_facts = get_known_facts(contact_id)
 
-    # Build conversation context (UNLIMITED - use EVERYTHING from database)
+    # Only use RECENT messages — the recap already covers older conversation.
+    # This prevents the prompt from growing unbounded and timing out.
+    msgs_to_use = recent_messages or []
+    if len(msgs_to_use) > OBSERVER_MESSAGE_WINDOW:
+        msgs_to_use = msgs_to_use[-OBSERVER_MESSAGE_WINDOW:]
+
     conversation_context = ""
-    if recent_messages and len(recent_messages) > 0:
-        for msg in recent_messages:
-            role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
-            conversation_context += f"{role_label}: {msg['text']}\n"
+    for msg in msgs_to_use:
+        role_label = "Bot" if msg['role'] == 'assistant' else "Lead"
+        conversation_context += f"{role_label}: {msg['text']}\n"
 
     if lead_message and lead_message.strip():
         conversation_context += f"Lead: {lead_message}\n"
@@ -288,7 +338,7 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
 
     existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
 
-    observer_prompt = f"""You are a conversation note-taker. Your job is to read the full conversation and write a recap of what has happened so far, and pull out any new facts the lead revealed.
+    observer_prompt = f"""You are a conversation note-taker. Read the previous recap and the recent messages, then write an updated recap and extract any new facts.
 
 PREVIOUS RECAP:
 {current_story}
@@ -296,20 +346,16 @@ PREVIOUS RECAP:
 ALREADY KNOWN FACTS:
 {existing_str}
 
-FULL CONVERSATION:
+RECENT MESSAGES:
 {conversation_context}
 
-Produce two sections. Follow this format exactly:
+Output EXACTLY two sections, nothing else. No reasoning, no thinking, no commentary. Just the two sections:
 
 RECAP:
-Write a chronological recap of this conversation. What did the bot say, what did the lead say back, what questions were asked, what was answered, what was agreed to, what objections came up, and where does the conversation stand right now. This is a play-by-play of the conversation, not a description of the person.
-
-Understand meaning and context. If the lead said "yeah" after the bot asked "still looking?", note that the lead confirmed they're still looking. If they said "nah I'm good" after being asked about scheduling, note that they declined to book.
-
-Include everything from the previous recap. Add what's new. Never drop old details. The goal is that someone reading this recap knows exactly what has been discussed and what hasn't, so nothing gets repeated.
+Update the previous recap with what happened in the recent messages. Keep it chronological. Include key points from the previous recap and add the new exchanges. Note what was asked, what was answered, what objections came up, and where the conversation stands now. Be concise but complete.
 
 FACTS:
-List any NEW facts about the lead that came out of the latest messages. Things they said or confirmed about themselves, their life, their coverage, their situation. Interpret meaning — if they mention "something through my job" that's employer-provided coverage. One fact per line. Only new facts not already in ALREADY KNOWN FACTS. If no new facts, write NONE."""
+List any NEW facts the lead revealed in the recent messages. One fact per line. Only concrete information about the lead, their life, coverage, or situation. Do not repeat facts already in ALREADY KNOWN FACTS. If no new facts, write NONE."""
 
     try:
         if not client:
@@ -320,10 +366,13 @@ List any NEW facts about the lead that came out of the latest messages. Things t
             model="grok-4-1-fast-reasoning",
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3,
-            max_tokens=1000,
+            max_tokens=800,
             timeout=15.0
         )
         raw_output = response.choices[0].message.content.strip()
+
+        # Strip reasoning model artifacts (<thinking> tags, etc.)
+        raw_output = _clean_llm_output(raw_output)
 
         # Parse the two sections
         narrative_part = raw_output
@@ -338,6 +387,16 @@ List any NEW facts about the lead that came out of the latest messages. Things t
         if narrative_part.startswith("RECAP:"):
             narrative_part = narrative_part[len("RECAP:"):].strip()
 
+        # Cap narrative size to prevent unbounded growth
+        if len(narrative_part) > MAX_NARRATIVE_CHARS:
+            # Keep the most recent part (end of the narrative)
+            narrative_part = narrative_part[-MAX_NARRATIVE_CHARS:]
+            # Try to start at a sentence boundary
+            first_period = narrative_part.find(". ")
+            if first_period > 0 and first_period < 200:
+                narrative_part = narrative_part[first_period + 2:]
+            logger.info(f"Narrative capped at {MAX_NARRATIVE_CHARS} chars for {contact_id}")
+
         # Update narrative if valid
         if len(narrative_part) >= 20:
             if update_narrative(contact_id, narrative_part):
@@ -349,12 +408,12 @@ List any NEW facts about the lead that came out of the latest messages. Things t
             logger.warning(f"Narrative update too short: {contact_id}")
             result["narrative"] = current_story
 
-        # Parse and save new facts
-        if facts_part and facts_part.upper() != "NONE":
+        # Parse and save new facts with validation
+        if facts_part and facts_part.upper().strip() != "NONE":
             new_facts = []
             for line in facts_part.split("\n"):
                 line = line.strip().lstrip("-•* 0123456789.")
-                if line and len(line) > 3 and line.upper() != "NONE":
+                if line and _is_valid_fact(line):
                     new_facts.append(line)
 
             if new_facts:
