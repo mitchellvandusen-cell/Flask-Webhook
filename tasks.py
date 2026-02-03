@@ -13,6 +13,7 @@ from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
 from reply_sanitizer import sanitize_reply
+from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
 from ghl_api import fetch_targeted_ghl_history, get_valid_token, fetch_contact_data_from_ghl
 from contact_validator import validate_and_resolve_contact 
@@ -539,28 +540,21 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 lead_vendor=lead_vendor
             )
 
-            grok_messages = [{"role": "system", "content": system_prompt}]
-            if message:
-                grok_messages.append({"role": "user", "content": message})
-
-            try:
-                response = client.chat.completions.create(
-                    model="grok-4-1-fast-reasoning",
-                    messages=grok_messages,
-                    temperature=0.85,
-                    max_tokens=200,
-                )
-                reply = response.choices[0].message.content.strip()
-            except Exception as e:
-                logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
-                reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
-
-        # === REPLY SANITIZATION (3 layers) ===
-        # Layer 1: Strip reasoning/chain-of-thought contamination
-        reply = sanitize_reply(reply)
+            # === STRUCTURAL REASONING SEPARATION ===
+            # generate_clean_reply handles:
+            # 1. Making the API call
+            # 2. Extracting reasoning_content vs content (like ChatGPT/Claude do)
+            # 3. If reasoning leaks into content: retry with a focused "response-only" call
+            # 4. Sanitization as final safety net
+            reply = generate_clean_reply(
+                client=client,
+                system_prompt=system_prompt,
+                user_message=message,
+                bot_name=bot_first_name,
+            )
 
         if not reply:
-            logger.error(f"REASONING CONTAMINATION: LLM output was entirely reasoning. Using fallback. contact={contact_id}")
+            logger.error(f"LLM produced no usable reply after retry. Using fallback. contact={contact_id}")
             reply = "Hey, just checking in. Anything new on your end with coverage?"
 
         # Layer 2: Strip markdown (SMS is plain text)
