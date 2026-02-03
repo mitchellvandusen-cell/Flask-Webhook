@@ -660,8 +660,20 @@ def login():
         # Password correct → log in
         print("[LOGIN DEBUG] Login successful - role:", user.role)
         login_user(user)
-       
-        # Normalize role checks
+
+        # Check if setup is complete — redirect to onboarding if not
+        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        has_token = bool(user.access_token)
+        has_subscription = bool(user.stripe_customer_id) or is_admin
+        loc_ok = bool(user.location_id and not str(user.location_id).startswith("temp_"))
+        cal_ok = bool(user.calendar_id)
+        bot_ok = bool(user.bot_first_name)
+        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
+
+        if not setup_complete:
+            return redirect("/onboarding-status")
+
+        # Normal routing for fully set-up users
         role = (user.role or 'individual').lower()
        
         if role in ['individual', 'individual_user', 'user', 'agency_sub_account_user']:
@@ -1101,36 +1113,40 @@ def onboarding_status():
     config_ok = loc_ok and cal_ok and bot_ok
     all_done = has_token and has_password and has_subscription and config_ok
 
-    # Figure out the correct "next action" URL
+    # Shared URL variables for next_url logic and step action buttons
+    user_type = 'agency' if current_user.role == 'agency_owner' else 'individual'
+    dashboard_url = '/agency-dashboard' if current_user.role == 'agency_owner' else '/dashboard'
+    tier = current_user.subscription_tier or 'individual'
+    if tier == 'agency_pro':
+        checkout_url = '/checkout/agency-pro'
+    elif tier == 'agency_starter':
+        checkout_url = '/checkout/agency-starter'
+    else:
+        checkout_url = '/checkout'
+
+    # Figure out the correct "next action" URL (priority order)
     if not has_subscription:
-        tier = current_user.subscription_tier or 'individual'
-        if tier == 'agency_pro':
-            next_url = '/checkout/agency-pro'
-        elif tier == 'agency_starter':
-            next_url = '/checkout/agency-starter'
-        else:
-            next_url = '/checkout'
+        next_url = checkout_url
     elif not has_password:
-        user_type = 'agency' if current_user.role == 'agency_owner' else 'individual'
         next_url = f'/set-password?type={user_type}'
     elif not has_token:
         next_url = '/oauth/initiate'
-    elif not config_ok:
-        next_url = '/agency-dashboard' if current_user.role == 'agency_owner' else '/dashboard'
     else:
-        next_url = '/agency-dashboard' if current_user.role == 'agency_owner' else '/dashboard'
+        next_url = dashboard_url
 
     steps = [
-        {"label": "App Installed", "done": has_token, "icon": "fa-cloud-arrow-down",
-         "help": "Install InsuranceGrokBot from the Lead Connector Marketplace to connect your account."},
-        {"label": "Password Created", "done": has_password, "icon": "fa-lock",
-         "help": "Set a secure password so you can log in anytime."},
-        {"label": "Subscription Confirmed", "done": has_subscription, "icon": "fa-credit-card",
-         "help": "Subscribe to activate all bot features."},
-        {"label": "Bot Configured", "done": config_ok, "icon": "fa-sliders",
-         "help": "Set your Location ID, Calendar, and Bot Name in the dashboard."},
-        {"label": "Integration Complete", "done": all_done, "icon": "fa-circle-check",
-         "help": "All systems go — your bot is live and ready to engage leads."},
+        {"label": "Connect Your CRM", "done": has_token, "icon": "fa-plug",
+         "help": "Links your Lead Connector account so the bot can read and send messages.",
+         "url": "/oauth/initiate", "button_text": "Connect Now"},
+        {"label": "Activate Subscription", "done": has_subscription, "icon": "fa-credit-card",
+         "help": "Choose your plan to turn on all bot features.",
+         "url": checkout_url, "button_text": "Subscribe Now"},
+        {"label": "Create Your Password", "done": has_password, "icon": "fa-lock",
+         "help": "You'll use this to log in from now on.",
+         "url": f"/set-password?type={user_type}", "button_text": "Set Password"},
+        {"label": "Configure Your Bot", "done": config_ok, "icon": "fa-sliders",
+         "help": "Pick your calendar, name your bot, and confirm your location.",
+         "url": dashboard_url, "button_text": "Open Dashboard"},
     ]
 
     completed_count = sum(1 for s in steps if s["done"])
@@ -2103,11 +2119,19 @@ def success():
         except Exception as e:
             logger.error(f"Stripe session retrieve failed: {e}")
 
-    # SCENARIO 1: User exists but needs a password (created via Webhook)
     if email:
         user = User.get(email)
-        if user and not user.password_hash:
-            return render_template('checkout-success-generate-password.html', email=email)
+        if user:
+            # Auto-login the user after successful checkout
+            # This ensures the password form (which posts to @login_required /set-password) works
+            # for both marketplace users and direct subscribers
+            if not current_user.is_authenticated:
+                login_user(user)
+                logger.info(f"Auto-login after checkout for {email}")
+
+            # SCENARIO 1: User exists but needs a password
+            if not user.password_hash:
+                return render_template('checkout-success-generate-password.html', email=email)
 
     # SCENARIO 2: Generic Success (Already has password or just viewing receipt)
     return render_template('checkout-success-login.html', email=email)
@@ -2171,18 +2195,17 @@ def set_password():
         logger.info(f"Password set for {current_user.email} ({current_user.role})")
         flash("Password set successfully! You can now log in anytime.", "success")
 
-        # Redirect: if no subscription yet, go to checkout; otherwise dashboard
+        # Redirect to onboarding-status if setup is still incomplete
         is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        needs_sub = not current_user.stripe_customer_id and not is_admin
+        has_token = bool(current_user.access_token)
+        has_subscription = bool(current_user.stripe_customer_id) or is_admin
+        loc_ok = bool(current_user.location_id and not str(current_user.location_id).startswith("temp_"))
+        cal_ok = bool(current_user.calendar_id)
+        bot_ok = bool(current_user.bot_first_name)
+        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
 
-        if needs_sub:
-            tier = current_user.subscription_tier or 'individual'
-            if tier == 'agency_pro':
-                return redirect("/checkout/agency-pro")
-            elif tier == 'agency_starter':
-                return redirect("/checkout/agency-starter")
-            else:
-                return redirect("/checkout")
+        if not setup_complete:
+            return redirect("/onboarding-status")
 
         if current_user.role == 'agency_owner':
             return redirect("/agency-dashboard")
