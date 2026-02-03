@@ -5,6 +5,7 @@ import time as time_module
 import requests
 from datetime import datetime, timedelta
 from db import get_db_connection
+from reply_sanitizer import is_safe_to_send
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,12 @@ def send_sms_via_ghl(
     # Demo mode short-circuit
     if access_token == 'DEMO':
         logger.info(f"DEMO MODE: Simulated SMS send to {contact_id} | msg='{message[:50]}...'")
-        # In demo, we still save the message (handled in tasks.py), so return success
         return True
+
+    # SAFETY NET: Block messages contaminated with LLM reasoning/system prompt artifacts
+    if not is_safe_to_send(message):
+        logger.error(f"MESSAGE BLOCKED BY SAFETY NET for {contact_id} — contains system prompt artifacts")
+        return False
 
     # Duplicate prevention: check if same message sent in last 5 min
     conn = get_db_connection()

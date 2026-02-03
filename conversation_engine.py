@@ -288,6 +288,9 @@ Context clues:
                 timeout=8.0
             )
             raw = response.choices[0].message.content.strip()
+            # Strip reasoning tags that can wrap the JSON output
+            raw = re.sub(r'<thinking>[\s\S]*?</thinking>', '', raw).strip()
+            raw = re.sub(r'</?(?:thinking|reply|output|response)>', '', raw).strip()
             if raw.startswith("```json"):
                 raw = raw.split("```json", 1)[1].split("```", 1)[0].strip()
             elif raw.startswith("```"):

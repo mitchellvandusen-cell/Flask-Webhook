@@ -12,6 +12,7 @@ from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
 from prompt import build_system_prompt
 from ghl_message import send_sms_via_ghl
+from reply_sanitizer import sanitize_reply
 from ghl_calendar import consolidated_calendar_op
 from ghl_api import fetch_targeted_ghl_history, get_valid_token, fetch_contact_data_from_ghl
 from contact_validator import validate_and_resolve_contact 
@@ -554,20 +555,22 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 logger.error(f"❌ GROK FAILURE: {e}", exc_info=True)
                 reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
 
-        # Cleanup reply
-        reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
-        reply = re.sub(r'</?reply>', '', reply)
-        reply = re.sub(r'<[^>]+>', '', reply).strip()
+        # === REPLY SANITIZATION (3 layers) ===
+        # Layer 1: Strip reasoning/chain-of-thought contamination
+        reply = sanitize_reply(reply)
 
-        # Strip markdown formatting (SMS is plain text)
+        if not reply:
+            logger.error(f"REASONING CONTAMINATION: LLM output was entirely reasoning. Using fallback. contact={contact_id}")
+            reply = "Hey, just checking in. Anything new on your end with coverage?"
+
+        # Layer 2: Strip markdown (SMS is plain text)
         reply = re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)  # **bold** -> bold
         reply = re.sub(r'\*([^*]+)\*', r'\1', reply)       # *italic* -> italic
         reply = re.sub(r'__([^_]+)__', r'\1', reply)       # __underline__ -> underline
         reply = re.sub(r'_([^_]+)_', r'\1', reply)         # _italic_ -> italic
-
         reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
-        # CRITICAL VALIDATION: Never send placeholder text, variable names, or unprofessional content
+        # Layer 3: Block placeholder/variable text
         FORBIDDEN_SUBSTRINGS = [
             "message_text", "{{", "}}", "contact_id", "location_id",
             "access_token", "[object Object]", "placeholder", "test message"
@@ -580,8 +583,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             reply_lower in FORBIDDEN_EXACT
         )
         if is_forbidden:
-            logger.error(f"🚨 BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
-            reply = "Got it, let's circle back when you're free. Anything specific on your mind about coverage?"
+            logger.error(f"BLOCKED VARIABLE/PLACEHOLDER: '{reply}' — using fallback")
+            reply = "Hey, just checking in. Anything new on your end with coverage?"
 
         # Trust the LLM - no length restrictions on replies
         # Sometimes "Got it" or "Ok!" is the perfect response

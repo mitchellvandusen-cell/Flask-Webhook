@@ -29,6 +29,7 @@ from psycopg2.extras import RealDictCursor
 # === IMPORTS ===
 from db import get_subscriber_info_hybrid, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
+from reply_sanitizer import sanitize_reply
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -235,27 +236,16 @@ def generate_demo_opener():
             max_tokens=130
         )
 
-        # 1. Get raw text & basic cleanup (strip whitespace, remove quotes)
+        # 1. Get raw text & strip reasoning contamination
         raw_text = response.choices[0].message.content.strip().replace('"', '')
+        cleaned_content = sanitize_reply(raw_text)
 
-        # 2. Run your specific cleaner
-        cleaned_content = clean_ai_reply(raw_text)
-
-        # 3. CRITICAL VALIDATION: Never return placeholder text
-        FORBIDDEN_SUBSTRINGS_OPENER = [
-            "message_text", "{{", "}}", "contact_id", "location_id",
-            "access_token", "[object Object]", "placeholder"
-        ]
-        FORBIDDEN_EXACT_OPENER = ["none", "null", "undefined", "nan"]
-
-        cleaned_lower = cleaned_content.lower().strip()
-        is_forbidden_opener = (
-            any(p.lower() in cleaned_lower for p in FORBIDDEN_SUBSTRINGS_OPENER) or
-            cleaned_lower in FORBIDDEN_EXACT_OPENER
-        )
-        if is_forbidden_opener:
-            logger.error(f"🚨 OPENER BLOCKED UNPROFESSIONAL: '{cleaned_content}' - Using fallback")
+        if not cleaned_content:
+            logger.error(f"OPENER: LLM output was reasoning, not a message. Using fallback.")
             return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
+
+        # 2. Run specific cleaner for opener formatting
+        cleaned_content = clean_ai_reply(cleaned_content)
 
         # Ensure minimum quality
         if len(cleaned_content) < 10 or not any(c.isalpha() for c in cleaned_content):
@@ -1520,31 +1510,13 @@ def demo_chat_api():
 
         reply = response.choices[0].message.content.strip()
 
-        # Clean reply
-        reply = re.sub(r'<thinking>[\s\S]*?</thinking>', '', reply)
-        reply = re.sub(r'</?reply>', '', reply)
-        reply = re.sub(r'<[^>]+>', '', reply).strip()
-        reply = reply.replace("—", ",").replace("–", ",").strip()
-
-        # CRITICAL VALIDATION: Never send placeholder text or unprofessional content
-        # Substring patterns: these should never appear anywhere in a real response
-        FORBIDDEN_SUBSTRINGS = [
-            "message_text", "{{", "}}", "contact_id", "location_id",
-            "access_token", "[object Object]", "placeholder", "test message"
-        ]
-        # Exact-match patterns: only block if the ENTIRE reply is just this word
-        # (catches broken LLM output like "None" or "null" without blocking
-        # normal English like "none of those" or "that's not an option")
-        FORBIDDEN_EXACT = ["none", "null", "undefined", "nan"]
-
-        reply_lower = reply.lower().strip()
-        is_forbidden = (
-            any(p.lower() in reply_lower for p in FORBIDDEN_SUBSTRINGS) or
-            reply_lower in FORBIDDEN_EXACT
-        )
-        if is_forbidden:
-            logger.error(f"🚨 DEMO BLOCKED UNPROFESSIONAL MESSAGE: '{reply}' - Using fallback")
+        # Sanitize: strip reasoning contamination, tags, and artifacts
+        reply = sanitize_reply(reply)
+        if not reply:
+            logger.error(f"DEMO: LLM output was reasoning, not a message. Using fallback.")
             reply = "What's your main concern about coverage right now?"
+
+        reply = reply.replace("—", ",").replace("–", ",").strip()
 
         # Ensure minimum quality
         if len(reply) < 5 or not any(c.isalpha() for c in reply):

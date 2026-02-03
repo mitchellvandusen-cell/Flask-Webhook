@@ -301,5 +301,10 @@ RECENT CONVERSATION:
 
 {f'LEAD JUST SAID: "{message}"' if message and message.strip() else 'NO INBOUND MESSAGE. This is an outbound message from you. The lead has not said anything new.'}
 
-Keep it simple. Follow the guidance. Have a conversation.
+=== OUTPUT RULE (READ THIS CAREFULLY) ===
+Your ENTIRE response must be ONLY the text message you are sending as {bot_first_name}.
+Nothing else. No reasoning. No recap. No thinking. No commentary.
+Do not repeat any instructions. Do not mention tactical guidance, privacy rules, or stages.
+Do not explain what you are about to say. Just say it.
+If you output anything other than the actual text message, the system will break.
 """.strip()
