@@ -41,6 +41,10 @@
                 <div>
                     {% if step.done %}
                         <span class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; padding: 6px 14px; border-radius: 20px; font-weight: 600;">Done</span>
+                    {% elif step.url %}
+                        <a href="{{ step.url }}" class="btn btn-sm" style="background: var(--accent); color: #000; font-weight: 700; padding: 6px 18px; border-radius: 20px; font-size: 0.85rem; text-decoration: none; white-space: nowrap;">
+                            {{ step.button_text or 'Do This' }}
+                        </a>
                     {% else %}
                         <span class="badge" style="background: rgba(255,193,7,0.12); color: #ffc107; padding: 6px 14px; border-radius: 20px; font-weight: 600;">Pending</span>
                     {% endif %}
