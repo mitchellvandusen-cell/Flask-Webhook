@@ -52,6 +52,7 @@ def generate_strategic_directive(
         f"Director signals | {contact_id} | "
         f"context={logic.message_context.value} | stage={logic.stage.value} | "
         f"objection={logic.objection_type.value}/{logic.objection_nature.value} | "
+        f"impact={logic.articulated_impact} | "
         f"consecutive_bot={logic.consecutive_bot_messages} | lead_count={logic.conversation_count}"
     )
 
@@ -371,35 +372,61 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
             "Then keep moving toward 'a quick call can help sort this out.'\n\n"
         )
 
-    if logic.mentioned_goal and logic.mentioned_obstacle:
+    # ── GAP FOUND + IMPACT ARTICULATED = ready to book ──
+    if (logic.mentioned_goal or logic.needs_coverage) and logic.articulated_impact:
         return empathy_prefix + (
-            "QUALIFYING: They have shared why they need coverage and what is holding them back.\n"
-            "This is enough qualification. The real salesperson can take it from here.\n"
-            "If they are responding with decent length replies and asking questions back, "
-            "it is time to propose a quick call. Do not go deeper over text. Move to offering times."
+            "QUALIFYING COMPLETE: They have told you what they need AND why it matters to them.\n"
+            "They have expressed the personal weight of this decision. That is your green light.\n"
+            "Move to booking a call. You have what you need. The real advisor takes it from here.\n"
+            "Transition naturally to offering specific times."
         )
 
+    # ── GAP FOUND + OBSTACLE KNOWN but no impact yet ──
+    if logic.mentioned_goal and logic.mentioned_obstacle:
+        if not logic.articulated_impact:
+            return empathy_prefix + (
+                "QUALIFYING: They have shared a goal and an obstacle, but they have not yet expressed "
+                "why solving this actually matters to them personally.\n"
+                "Before you push toward booking, you need them to feel the weight of the gap. "
+                "Ask about the impact. What happens if this does not get handled. What does that "
+                "look like for their family, their situation, their peace of mind. "
+                "Make them explain to themselves why this is important enough to act on. "
+                "Once they articulate that, they are ready for the call and they know it."
+            )
+        return empathy_prefix + (
+            "QUALIFYING COMPLETE: They have the goal, the obstacle, and the why.\n"
+            "Move to booking. Offer times."
+        )
+
+    # ── EXISTING COVERAGE MENTIONED ──
     if logic.has_coverage:
         return empathy_prefix + (
             "QUALIFYING: They mentioned existing coverage.\n"
             "Get curious about what they have. Do not quiz or poke holes.\n"
-            "If it is group/employer, know that it usually ends when they leave the job and does not have living benefits "
-            "and amounts are often far below what a family needs. Let them discover this through your questions.\n"
-            "Transition toward a call when you have a sense of their situation."
+            "Use your knowledge of policy types to ask questions that reveal gaps naturally. "
+            "If it is group or employer coverage, the gaps are usually obvious once they start describing it. "
+            "If they discover a gap, your next move is to ask how important it is to them "
+            "that the gap gets addressed. What would it look like if it did not. "
+            "Get them to articulate the impact before you suggest a call."
         )
 
+    # ── INTEREST OR GOAL MENTIONED but no impact yet ──
     if logic.needs_coverage or logic.mentioned_goal:
         return empathy_prefix + (
-            "QUALIFYING: They have expressed some interest or mentioned who they are protecting.\n"
-            "Good momentum. Ask about what they have now, their family situation, or their goals.\n"
-            "One question at a time. Let them lead the conversation.\n"
-            "Once you have a basic picture, suggest hopping on a call to look at real options."
+            "QUALIFYING: They have expressed interest or mentioned who they are protecting.\n"
+            "Good momentum, but do not rush to booking yet.\n"
+            "You know what they want. Now you need to understand how important it is to them. "
+            "Ask about the impact of not having this in place. What happens to the people they "
+            "mentioned if this does not get handled. What does that situation actually look like. "
+            "Let them sit with that for a moment. When they tell you why it matters, "
+            "that is when you move to a call. Not before."
         )
 
+    # ── EARLY STAGE ──
     return empathy_prefix + (
         "QUALIFYING: Still early. Checking for real interest.\n"
-        "Ask 1 thoughtful question about their protection needs, family, or current setup.\n"
-        "Pay attention to how they reply. Longer answers and questions back = green light "
-        "to suggest a call soon. Short or evasive = slow down, stay curious.\n"
+        "Ask one thoughtful question about their protection needs, family, or current setup.\n"
+        "Pay attention to how they reply. Longer answers and questions back means there is real engagement. "
+        "Short or evasive means slow down, stay curious, find a different angle.\n"
         "You are the warm-up. The real sale happens on the call with a human advisor."
     )

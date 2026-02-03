@@ -70,6 +70,7 @@ class LogicSignal:
     objection_type: ObjectionType
     objection_nature: ObjectionNature
     consecutive_bot_messages: int
+    articulated_impact: bool
 
 
 # ===================================
@@ -212,7 +213,8 @@ def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "") -> Log
             conversation_count=0,
             objection_type=ObjectionType.NONE,
             objection_nature=ObjectionNature.NONE,
-            consecutive_bot_messages=consecutive_bot
+            consecutive_bot_messages=consecutive_bot,
+            articulated_impact=False
         )
 
     # Split messages by role
@@ -240,6 +242,7 @@ Return ONLY valid JSON with these exact keys:
   "mentioned_obstacle": bool,
   "ready_to_book": bool,
   "resistance": bool,
+  "articulated_impact": bool,
   "objection_type": str,
   "objection_nature": str
 }}
@@ -251,6 +254,7 @@ INTENT FIELDS (true/false):
 - mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
 - ready_to_book: agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
 - resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact
+- articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
 OBJECTION FIELDS (based on the MOST RECENT lead message only):
 - objection_type: one of "none", "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing"
@@ -311,6 +315,13 @@ Context clues:
 
         obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
 
+        impact_keywords = [
+            "important to me", "worry", "worried", "scared", "what if",
+            "my family would", "kids would", "they'd have to", "couldn't afford",
+            "leaves them", "left with nothing", "i need to make sure", "peace of mind",
+            "keep me up", "can't sleep", "burden", "devastating", "struggle"
+        ]
+
         cls = {
             "has_coverage":       any(_has_word(all_lead_text, kw) for kw in coverage_keywords),
             "needs_coverage":     any(_has_word(all_lead_text, kw) for kw in need_keywords),
@@ -318,6 +329,7 @@ Context clues:
             "mentioned_obstacle": any(_has_word(all_lead_text, kw) for kw in obstacle_keywords),
             "ready_to_book":      any(_has_word(recent_lead_text, kw) for kw in booking_keywords),
             "resistance":         any(_has_word(recent_lead_text, kw) for kw in stop_keywords),
+            "articulated_impact": any(kw in all_lead_text for kw in impact_keywords),
             "objection_type":     obj_type.value,
             "objection_nature":   obj_nature.value,
         }
@@ -361,8 +373,13 @@ Context clues:
         # Active objection from an inbound reply — handle it before pushing forward
         stage = ConversationStage.OBJECTION_HANDLING
 
-    elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and conversation_count >= 2:
+    elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and cls.get("articulated_impact", False) and conversation_count >= 2:
+        # Gap found AND lead has expressed why it matters — ready to book
         stage = ConversationStage.BOOKING
+
+    elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and conversation_count >= 2:
+        # Gap found but lead hasn't expressed why it matters yet — stay qualifying
+        stage = ConversationStage.QUALIFYING
 
     elif conversation_count == 0:
         stage = ConversationStage.INITIAL_OUTREACH
@@ -379,5 +396,6 @@ Context clues:
         conversation_count=conversation_count,
         objection_type=objection_type,
         objection_nature=objection_nature,
-        consecutive_bot_messages=consecutive_bot
+        consecutive_bot_messages=consecutive_bot,
+        articulated_impact=cls.get("articulated_impact", False)
     )
