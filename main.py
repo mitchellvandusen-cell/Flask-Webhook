@@ -1135,21 +1135,18 @@ def onboarding_status():
         next_url = dashboard_url
 
     steps = [
-        {"label": "Lead Connector Connected", "done": has_token, "icon": "fa-cloud-arrow-down",
-         "help": "Connect your Lead Connector account to enable the bot.",
+        {"label": "Connect Your CRM", "done": has_token, "icon": "fa-plug",
+         "help": "Links your Lead Connector account so the bot can read and send messages.",
          "url": "/oauth/initiate", "button_text": "Connect Now"},
-        {"label": "Subscription Active", "done": has_subscription, "icon": "fa-credit-card",
-         "help": "Subscribe to activate all bot features.",
+        {"label": "Activate Subscription", "done": has_subscription, "icon": "fa-credit-card",
+         "help": "Choose your plan to turn on all bot features.",
          "url": checkout_url, "button_text": "Subscribe Now"},
-        {"label": "Password Created", "done": has_password, "icon": "fa-lock",
-         "help": "Set a secure password so you can log in anytime.",
+        {"label": "Create Your Password", "done": has_password, "icon": "fa-lock",
+         "help": "You'll use this to log in from now on.",
          "url": f"/set-password?type={user_type}", "button_text": "Set Password"},
-        {"label": "Bot Configured", "done": config_ok, "icon": "fa-sliders",
-         "help": "Set your Location ID, Calendar, and Bot Name in the dashboard.",
+        {"label": "Configure Your Bot", "done": config_ok, "icon": "fa-sliders",
+         "help": "Pick your calendar, name your bot, and confirm your location.",
          "url": dashboard_url, "button_text": "Open Dashboard"},
-        {"label": "Integration Complete", "done": all_done, "icon": "fa-circle-check",
-         "help": "All systems go — your bot is live and ready to engage leads.",
-         "url": dashboard_url, "button_text": "Go to Dashboard"},
     ]
 
     completed_count = sum(1 for s in steps if s["done"])
