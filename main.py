@@ -30,6 +30,7 @@ from psycopg2.extras import RealDictCursor
 from db import get_subscriber_info_hybrid, get_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
+from llm_caller import generate_clean_reply
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -226,25 +227,22 @@ def generate_demo_opener():
             + "\n\n"
             + DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
         )
-        response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": "Generate unique opener."}
-            ],
+        # Generate opener with structural reasoning separation
+        cleaned_content = generate_clean_reply(
+            client=client,
+            system_prompt=system_content,
+            user_message="Generate unique opener.",
+            bot_name="DEMOGROKBOT",
+            max_tokens=130,
             temperature=0.8,
-            max_tokens=130
         )
 
-        # 1. Get raw text & strip reasoning contamination
-        raw_text = response.choices[0].message.content.strip().replace('"', '')
-        cleaned_content = sanitize_reply(raw_text)
-
         if not cleaned_content:
-            logger.error(f"OPENER: LLM output was reasoning, not a message. Using fallback.")
+            logger.error(f"OPENER: LLM could not produce clean reply. Using fallback.")
             return "Quick question are you still with that life insurance plan you mentioned before? There's some new living benefits people have been asking me about and I wanted to make sure yours doesnt just pay out when you're dead."
 
-        # 2. Run specific cleaner for opener formatting
+        cleaned_content = cleaned_content.replace('"', '')
+        # Run specific cleaner for opener formatting
         cleaned_content = clean_ai_reply(cleaned_content)
 
         # Ensure minimum quality
@@ -1500,20 +1498,15 @@ def demo_chat_api():
             grok_messages.append({"role": role, "content": msg["text"]})
         grok_messages.append({"role": "user", "content": message})
 
-        # 4. Call Grok
-        response = client.chat.completions.create(
-            model="grok-4-1-fast-reasoning",
-            messages=grok_messages,
-            temperature=0.85,
-            max_tokens=200,
+        # 4. Call Grok with structural reasoning separation
+        reply = generate_clean_reply(
+            client=client,
+            full_messages=grok_messages,
+            bot_name=bot_first_name,
         )
 
-        reply = response.choices[0].message.content.strip()
-
-        # Sanitize: strip reasoning contamination, tags, and artifacts
-        reply = sanitize_reply(reply)
         if not reply:
-            logger.error(f"DEMO: LLM output was reasoning, not a message. Using fallback.")
+            logger.error(f"DEMO: LLM could not produce clean reply. Using fallback.")
             reply = "What's your main concern about coverage right now?"
 
         reply = reply.replace("—", ",").replace("–", ",").strip()
