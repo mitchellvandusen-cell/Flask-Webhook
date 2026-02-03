@@ -660,8 +660,20 @@ def login():
         # Password correct → log in
         print("[LOGIN DEBUG] Login successful - role:", user.role)
         login_user(user)
-       
-        # Normalize role checks
+
+        # Check if setup is complete — redirect to onboarding if not
+        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        has_token = bool(user.access_token)
+        has_subscription = bool(user.stripe_customer_id) or is_admin
+        loc_ok = bool(user.location_id and not str(user.location_id).startswith("temp_"))
+        cal_ok = bool(user.calendar_id)
+        bot_ok = bool(user.bot_first_name)
+        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
+
+        if not setup_complete:
+            return redirect("/onboarding-status")
+
+        # Normal routing for fully set-up users
         role = (user.role or 'individual').lower()
        
         if role in ['individual', 'individual_user', 'user', 'agency_sub_account_user']:
@@ -2186,18 +2198,17 @@ def set_password():
         logger.info(f"Password set for {current_user.email} ({current_user.role})")
         flash("Password set successfully! You can now log in anytime.", "success")
 
-        # Redirect: if no subscription yet, go to checkout; otherwise dashboard
+        # Redirect to onboarding-status if setup is still incomplete
         is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        needs_sub = not current_user.stripe_customer_id and not is_admin
+        has_token = bool(current_user.access_token)
+        has_subscription = bool(current_user.stripe_customer_id) or is_admin
+        loc_ok = bool(current_user.location_id and not str(current_user.location_id).startswith("temp_"))
+        cal_ok = bool(current_user.calendar_id)
+        bot_ok = bool(current_user.bot_first_name)
+        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
 
-        if needs_sub:
-            tier = current_user.subscription_tier or 'individual'
-            if tier == 'agency_pro':
-                return redirect("/checkout/agency-pro")
-            elif tier == 'agency_starter':
-                return redirect("/checkout/agency-starter")
-            else:
-                return redirect("/checkout")
+        if not setup_complete:
+            return redirect("/onboarding-status")
 
         if current_user.role == 'agency_owner':
             return redirect("/agency-dashboard")
