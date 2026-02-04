@@ -1106,8 +1106,8 @@ def app_entry():
             return redirect("/dashboard")
         return redirect("/onboarding-status")
 
-    # Not logged in — send to getting-started with login option
-    return redirect("/getting-started")
+    # Not logged in — send to login (they installed from GHL, they have an account)
+    return redirect("/login")
 
 @app.route("/onboarding-status")
 @login_required
