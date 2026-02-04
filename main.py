@@ -1086,6 +1086,29 @@ def save_profile():
         cur.close()
         conn.close()
 
+@app.route("/app")
+def app_entry():
+    """Smart entry point for GHL Custom Page sidebar link.
+    Handles all states: logged in/out, setup complete/incomplete."""
+    if current_user.is_authenticated:
+        # Check if setup is complete
+        is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+        has_token = bool(current_user.access_token)
+        has_subscription = bool(current_user.stripe_customer_id) or is_admin
+        loc_ok = bool(current_user.location_id and not str(current_user.location_id).startswith("temp_"))
+        cal_ok = bool(current_user.calendar_id)
+        bot_ok = bool(current_user.bot_first_name)
+        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
+
+        if setup_complete:
+            if current_user.role == 'agency_owner':
+                return redirect("/agency-dashboard")
+            return redirect("/dashboard")
+        return redirect("/onboarding-status")
+
+    # Not logged in — send to login (they installed from GHL, they have an account)
+    return redirect("/login")
+
 @app.route("/onboarding-status")
 @login_required
 def onboarding_status():
