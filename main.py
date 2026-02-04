@@ -1515,6 +1515,16 @@ def demo_chat_api():
             lead_vendor=""
         )
 
+        # Demo-only: establish GrokBot identity
+        system_prompt += (
+            "\n\nDEMO IDENTITY RULE: If someone asks who you are, who they are talking to, "
+            "or what this is, you MUST respond with something like: "
+            "'This is GrokBot. I'm an independent life insurance agent. I'm currently in "
+            "demo mode, in production I'll identify as whatever name you assign me in your "
+            "dashboard.' Then follow up with a question to keep the conversation going. "
+            "Do not dodge identity questions. Do not deflect. Answer directly then ask a question."
+        )
+
         grok_messages = [{"role": "system", "content": system_prompt}]
         for msg in recent_exchanges[-8:]:
             role = "user" if msg["role"] == "lead" else "assistant"
