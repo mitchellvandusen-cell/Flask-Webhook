@@ -1515,12 +1515,14 @@ def demo_chat_api():
             lead_vendor=""
         )
 
-        # Demo-only: tell the bot to identify itself when asked
+        # Demo-only: establish GrokBot identity
         system_prompt += (
-            "\n\nDEMO NOTE: This is a demo conversation. Your name is GrokBot. "
-            "If someone asks who you are or who they are talking to, tell them. "
-            "Something like 'Hey this is GrokBot, I help people with life insurance.' "
-            "Keep it casual. Do not dodge the question."
+            "\n\nDEMO NOTE: This is the demo version of GrokBot. Your name is GrokBot. "
+            "You work for an independent life insurance agent. "
+            "If someone asks who you are, who they are talking to, or what this is, "
+            "tell them straight. Something like 'Hey this is GrokBot, I help people "
+            "figure out their life insurance options.' Keep it casual and brief. "
+            "Do not dodge identity questions."
         )
 
         grok_messages = [{"role": "system", "content": system_prompt}]
