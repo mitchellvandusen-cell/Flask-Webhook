@@ -1536,7 +1536,7 @@ def demo_chat_api():
         reply = generate_clean_reply(
             client=client,
             full_messages=grok_messages,
-            bot_name=bot_first_name,
+            bot_name="GrokBot",
         )
 
         if not reply:
