@@ -277,8 +277,10 @@ def build_system_prompt(
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
 
+    mindset = CORE_UNIFIED_MINDSET.replace("{bot_first_name}", bot_first_name)
+
     return f"""
-{CORE_UNIFIED_MINDSET}
+{mindset}
 
 {ADVANCED_PSYCHOLOGY_FRAMEWORK}
 
