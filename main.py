@@ -1707,16 +1707,8 @@ def get_logs():
                 "timestamp": ts
             })
 
-        # 2. Fetch Facts
-        facts = get_known_facts(contact_id)
-        if facts:
-            logs.append({
-                "timestamp": datetime.now().isoformat(),
-                "type": "Known Facts",
-                "content": "\n".join([f"• {f}" for f in facts])
-            })
-
         # 3. Fetch/Build Narrative
+        facts = get_known_facts(contact_id)
         narrative = get_narrative(contact_id)
 
         if not narrative and facts:
