@@ -1515,7 +1515,8 @@ def demo_chat_api():
             lead_vendor=""
         )
 
-        # Demo-only: establish GrokBot identity
+        # Demo: replace any unsubstituted {bot_first_name} literals and set identity
+        system_prompt = system_prompt.replace("{bot_first_name}", "GrokBot")
         system_prompt += (
             "\n\nDEMO IDENTITY RULE: If someone asks who you are, who they are talking to, "
             "or what this is, you MUST respond with something like: "
