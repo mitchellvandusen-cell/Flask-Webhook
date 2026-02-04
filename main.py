@@ -1515,6 +1515,14 @@ def demo_chat_api():
             lead_vendor=""
         )
 
+        # Demo-only: tell the bot to identify itself when asked
+        system_prompt += (
+            "\n\nDEMO NOTE: This is a demo conversation. Your name is GrokBot. "
+            "If someone asks who you are or who they are talking to, tell them. "
+            "Something like 'Hey this is GrokBot, I help people with life insurance.' "
+            "Keep it casual. Do not dodge the question."
+        )
+
         grok_messages = [{"role": "system", "content": system_prompt}]
         for msg in recent_exchanges[-8:]:
             role = "user" if msg["role"] == "lead" else "assistant"
