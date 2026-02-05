@@ -17,15 +17,20 @@ logger = logging.getLogger(__name__)
 # PIT: uses base URL (no location prefix), locationId as query param where needed
 # Source: https://marketplace.gohighlevel.com/docs/ghl/calendars/
 
-# OAuth v2 endpoints (location in URL path)
-GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+# GHL Calendar Free Slots Endpoints (try in order until one works)
+# Pattern 1: v2 with locationId in path
 GHL_V2_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
-
-# PIT (Private Integration Token) endpoints (no location in path)
-GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
+# Pattern 2: locationId in path (no v2 prefix)
+GHL_LOC_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
+# Pattern 3: no locationId in path (PIT style)
 GHL_V1_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
+
+# Calendar list endpoints
+GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
+
+# Booking endpoint (same for all token types)
+GHL_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
 
 def detect_token_type(access_token: str) -> dict:
@@ -336,50 +341,44 @@ def consolidated_calendar_op(
             if crm_user_id:
                 params["userId"] = crm_user_id
 
-            # Try v2 endpoint first (OAuth with locationId in path)
-            url_v2 = GHL_V2_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)
-            # v1 endpoint fallback (PIT style, no locationId in path)
-            url_v1 = GHL_V1_FREE_SLOTS_URL.format(cal_id=cal_id)
+            # Three endpoint patterns to try (in order)
+            endpoints = [
+                ("v2", GHL_V2_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)),
+                ("loc", GHL_LOC_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)),
+                ("v1", GHL_V1_FREE_SLOTS_URL.format(cal_id=cal_id)),
+            ]
 
             resp = None
             used_endpoint = None
 
-            # Attempt 1: Try v2 endpoint
-            try:
-                logger.info(f"📅 Trying v2 free-slots endpoint: {url_v2}")
-                resp = requests.get(url_v2, headers=headers, params=params, timeout=20)
-                logger.info(f"   v2 response status: {resp.status_code}")
-
-                if resp.status_code in [200, 201]:
-                    used_endpoint = "v2"
-                elif resp.status_code in [401, 403, 404, 422]:
-                    # v2 failed - will try v1
-                    logger.warning(f"⚠️ v2 endpoint failed ({resp.status_code}), trying v1 fallback")
-                    resp = None
-            except Exception as e:
-                logger.warning(f"⚠️ v2 endpoint error: {e}, trying v1 fallback")
-                resp = None
-
-            # Attempt 2: Try v1 endpoint if v2 failed
-            if resp is None or resp.status_code not in [200, 201]:
+            for endpoint_name, url in endpoints:
                 try:
-                    logger.info(f"📅 Trying v1 free-slots endpoint: {url_v1}")
-                    resp = requests.get(url_v1, headers=headers, params=params, timeout=20)
-                    logger.info(f"   v1 response status: {resp.status_code}")
-
-                    # If 422 with userId, retry without it
-                    if resp.status_code == 422 and "userId" in params:
-                        logger.warning(f"⚠️ v1 422 with userId — retrying without userId")
-                        retry_params = {k: v for k, v in params.items() if k != "userId"}
-                        resp = requests.get(url_v1, headers=headers, params=retry_params, timeout=20)
-                        logger.info(f"   v1 retry response status: {resp.status_code}")
+                    logger.info(f"📅 Trying {endpoint_name} free-slots endpoint: {url}")
+                    resp = requests.get(url, headers=headers, params=params, timeout=20)
+                    logger.info(f"   {endpoint_name} response status: {resp.status_code}")
 
                     if resp.status_code in [200, 201]:
-                        used_endpoint = "v1"
-                except Exception as e:
-                    logger.error(f"❌ v1 endpoint also failed: {e}")
+                        used_endpoint = endpoint_name
+                        break  # Success - stop trying other endpoints
 
-            # Parse response
+                    # If 422 with userId, retry without it before moving to next endpoint
+                    if resp.status_code == 422 and "userId" in params:
+                        logger.warning(f"⚠️ {endpoint_name} 422 with userId — retrying without userId")
+                        retry_params = {k: v for k, v in params.items() if k != "userId"}
+                        resp = requests.get(url, headers=headers, params=retry_params, timeout=20)
+                        logger.info(f"   {endpoint_name} retry response status: {resp.status_code}")
+                        if resp.status_code in [200, 201]:
+                            used_endpoint = endpoint_name
+                            break
+
+                    # Log failure and continue to next endpoint
+                    logger.warning(f"⚠️ {endpoint_name} endpoint failed ({resp.status_code})")
+
+                except Exception as e:
+                    logger.warning(f"⚠️ {endpoint_name} endpoint error: {e}")
+                    continue
+
+            # Parse response if any endpoint succeeded
             if resp and resp.status_code in [200, 201]:
                 try:
                     data = resp.json()
@@ -401,7 +400,7 @@ def consolidated_calendar_op(
                     logger.error(f"❌ Failed to parse slots response: {parse_err}")
                     slots = []
             else:
-                logger.error(f"❌ Both v1 and v2 endpoints failed for calendar {cal_id}")
+                logger.error(f"❌ All endpoints failed for calendar {cal_id}")
                 slots = []
 
         if operation == "fetch_slots":
@@ -501,7 +500,7 @@ def consolidated_calendar_op(
             return False
 
         # Both PIT and OAuth use the same booking endpoint
-        booking_url = GHL_V2_BOOK_URL  # Same URL for both token types
+        booking_url = GHL_BOOK_URL  # Same URL for all token types
         payload = {
             "calendarId": cal_id,
             "locationId": location_id,
