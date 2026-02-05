@@ -495,14 +495,16 @@ def stripe_webhook():
                     
                     cur.execute("""
                         INSERT INTO subscribers (
-                            location_id, email, stripe_customer_id, role, subscription_tier
+                            location_id, email, stripe_customer_id, role, subscription_tier,
+                            crm_user_id, bot_first_name, timezone
                         )
-                        VALUES (%s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (email) DO UPDATE SET
                             stripe_customer_id = EXCLUDED.stripe_customer_id,
                             role = EXCLUDED.role,
                             subscription_tier = EXCLUDED.subscription_tier;
-                    """, (temp_id, email, customer_id, target_role, target_tier))
+                    """, (temp_id, email, customer_id, target_role, target_tier,
+                          '', 'Grok', 'America/Chicago'))
                     
                     # 3. SYNC TO AGENCY BILLING TABLE (Optional Redundancy)
                     if target_role == "agency_owner":
@@ -2138,12 +2140,16 @@ def success():
             cur = conn.cursor()
             temp_id = f"temp_{uuid.uuid4().hex[:8]}"
             cur.execute("""
-                INSERT INTO subscribers (location_id, email, stripe_customer_id, role, subscription_tier)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO subscribers (
+                    location_id, email, stripe_customer_id, role, subscription_tier,
+                    crm_user_id, bot_first_name, timezone
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (email) DO UPDATE SET
                     stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, subscribers.stripe_customer_id),
                     updated_at = NOW()
-            """, (temp_id, email, customer_id, 'individual', 'individual'))
+            """, (temp_id, email, customer_id, 'individual', 'individual',
+                  '', 'Grok', 'America/Chicago'))
             conn.commit()
             logger.info(f"Success page: ensured user record exists for {email}")
         except Exception as e:
@@ -2166,6 +2172,7 @@ def success():
             logger.info(f"Auto-login after checkout for {email}")
 
     # Always show create password page after checkout
+    # Even if DB provisioning failed, show the page - user can still set password
     return render_template('checkout-success-generate-password.html', email=email)
 
 @app.route("/set-password", methods=["GET", "POST"])
