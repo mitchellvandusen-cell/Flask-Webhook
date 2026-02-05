@@ -4,12 +4,184 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | InsuranceGrokBot</title>
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <style>
+        /* Pulsing green animation for fields that need attention */
+        @keyframes pulse-green {
+            0%, 100% {
+                border-color: rgba(0, 255, 136, 0.3);
+                box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.15);
+            }
+            50% {
+                border-color: rgba(0, 255, 136, 0.6);
+                box-shadow: 0 0 15px 3px rgba(0, 255, 136, 0.12);
+            }
+        }
+        .field-needs-attention {
+            animation: pulse-green 2s ease-in-out infinite;
+            border: 2px solid rgba(0, 255, 136, 0.3) !important;
+            border-radius: 8px;
+        }
+        .field-needs-attention .form-control {
+            border-color: rgba(0, 255, 136, 0.3) !important;
+        }
+
+        /* Pulsing Connect button */
+        @keyframes pulse-connect {
+            0%, 100% {
+                box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 4px 25px rgba(0, 255, 136, 0.5), 0 0 40px rgba(0, 255, 136, 0.15);
+                transform: scale(1.02);
+            }
+        }
+        .connect-btn-pulse {
+            animation: pulse-connect 2s ease-in-out infinite;
+        }
+
+        /* Congratulations overlay */
+        .congrats-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        .congrats-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .congrats-card {
+            background: rgba(12, 12, 12, 0.85);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 24px;
+            padding: 50px 40px;
+            max-width: 480px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(0, 255, 136, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .congrats-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+        .congrats-icon {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid rgba(0, 255, 136, 0.2);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .congrats-icon i {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+        .congrats-btn {
+            display: inline-block;
+            background: var(--accent);
+            color: #000;
+            font-weight: 800;
+            font-size: 1.05rem;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+            text-decoration: none;
+            margin-top: 8px;
+        }
+        .congrats-btn:hover {
+            background: #fff;
+            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.35);
+        }
+        .congrats-close {
+            position: absolute;
+            top: 16px; right: 20px;
+            background: none; border: none;
+            color: #666;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .congrats-close:hover { color: #fff; }
+
+        /* Workflow tab styles */
+        .workflow-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .workflow-tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: #888;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .workflow-tab-btn:hover { border-color: rgba(255, 255, 255, 0.15); color: #bbb; }
+        .workflow-tab-btn.active {
+            background: rgba(0, 255, 136, 0.06);
+            border-color: rgba(0, 255, 136, 0.2);
+            color: var(--accent);
+        }
+        .workflow-content { display: none; }
+        .workflow-content.active { display: block; }
+        .wf-step {
+            display: flex;
+            gap: 14px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            align-items: flex-start;
+        }
+        .wf-step-num {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: rgba(0, 255, 136, 0.08);
+            border: 1px solid rgba(0, 255, 136, 0.15);
+            color: var(--accent);
+            font-weight: 800;
+            font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .wf-step-text {
+            color: #ccc;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .wf-step-text strong { color: #fff; }
+    </style>
 </head>
 <body>
 
@@ -22,8 +194,8 @@
             <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 15px; font-weight: 700;">
                 System Params
             </div>
-            
-            <div class="tech-readout">
+
+            <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
                 <span class="tech-label" style="font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">LOCATION ID</span>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span class="tech-value">{{ form.location_id.data or 'Waiting...' }}</span>
@@ -36,15 +208,15 @@
             <div class="tech-readout no-select">
                 <span class="tech-label" style="font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">ACCESS TOKEN (SECURE)</span>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <input type="text" 
-                           name="manual_access_token" 
-                           value="{{ access_token_display }}" 
+                    <input type="text"
+                           name="manual_access_token"
+                           value="{{ access_token_display }}"
                            placeholder="Paste Token..."
                            form="main-config-form"
                            class="tech-value token-locked"
                            style="background:transparent; border:none; width:100%; color: inherit; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;"
                            {{ token_readonly }}>
-                    
+
                     {% if token_readonly == 'readonly' %}
                         <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
                     {% else %}
@@ -57,9 +229,9 @@
             <div class="tech-readout no-select">
                 <span class="tech-label" style="font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">REFRESH TOKEN (SECURE)</span>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <input type="text" 
-                           name="manual_refresh_token" 
-                           value="{{ refresh_token_display }}" 
+                    <input type="text"
+                           name="manual_refresh_token"
+                           value="{{ refresh_token_display }}"
                            placeholder="Paste Token..."
                            form="main-config-form"
                            class="tech-value token-locked"
@@ -74,9 +246,18 @@
                 </div>
             </div>
 
-            {% if not access_token_display or access_token_display == '' %}
+            {% if needs_oauth is defined and needs_oauth %}
+            <div class="mt-3" id="connectBtnWrap">
+                <a href="/oauth/initiate" class="btn btn-success w-100 connect-btn-pulse" id="connectBtn" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 10px; border-radius: 8px;">
+                    <i class="fa-brands fa-google me-2"></i>Connect Lead Connector
+                </a>
+                <div style="font-size: 0.7rem; color: var(--accent); margin-top: 8px; text-align: center; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-up me-1"></i> Connect your CRM to activate bot
+                </div>
+            </div>
+            {% elif not access_token_display or access_token_display == '' %}
             <div class="mt-3">
-                <a href="/oauth/initiate" class="btn btn-success w-100" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);">
+                <a href="/oauth/initiate" class="btn btn-success w-100 connect-btn-pulse" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 10px; border-radius: 8px;">
                     <i class="fa-brands fa-google me-2"></i>Connect Lead Connector
                 </a>
                 <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 8px; text-align: center;">
@@ -90,18 +271,18 @@
             <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 15px; font-weight: 700;">
                 Operator Profile
             </div>
-            
+
             <input type="text" class="profile-input" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" style="background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: #fff; width: 100%; padding: 8px 0; margin-bottom: 15px;">
-            
+
             <input type="tel" class="profile-input" id="phone" placeholder="Phone Number" value="{{ profile.phone or '' }}" readonly style="background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: #fff; width: 100%; padding: 8px 0; margin-bottom: 15px;">
-            
+
             <textarea class="profile-input" id="bio" rows="2" placeholder="Agent Bio / Notes" style="background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: #fff; width: 100%; padding: 8px 0; margin-bottom: 15px;">{{ profile.bio }}</textarea>
-            
+
             <button class="btn btn-outline-light btn-sm w-100 mt-2" onclick="saveProfile()" style="border-radius:20px;">
                 <i class="fa-solid fa-floppy-disk me-2"></i> Save Profile
             </button>
         </div>
-        
+
         <div style="margin-top:auto;">
             <div class="d-grid gap-2">
                 <a href="/" class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;">
@@ -153,7 +334,7 @@
                 <a href="/checkout" class="btn btn-primary btn-lg" style="padding: 15px 40px; font-size: 1.1rem; border-radius: 12px;">
                     <i class="fa-solid fa-credit-card me-2"></i>Subscribe Now - Individual Plan
                 </a>
-                <p class="mt-3 small" style="color:#aaa;">Cancel anytime • No long-term contracts</p>
+                <p class="mt-3 small" style="color:#aaa;">Cancel anytime &bull; No long-term contracts</p>
             </div>
         </div>
         {% else %}
@@ -163,7 +344,7 @@
                 <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#config" type="button">Bot Configuration</button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#guide" type="button">Marketplace Setup</button>
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#workflows" type="button">Create Workflow</button>
             </li>
             <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button">Billing & Subscription</button>
@@ -171,18 +352,18 @@
         </ul>
 
         <div class="tab-content" id="dashTabsContent">
-            
+
             <div class="tab-pane fade show active" id="config" role="tabpanel">
                 <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">
                     <h3 class="mb-4" style="font-weight:700;">Parameters</h3>
                     <form method="post" id="main-config-form">
                         {{ form.hidden_tag() }}
                         <div class="row g-4">
-                            <div class="col-md-6">
+                            <div class="col-md-6 {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
                                 {{ form.location_id.label(class="form-label") }}
                                 {{ form.location_id(class="form-control") }}
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6 {% if missing_fields is defined and 'calendar_id' in missing_fields %}field-needs-attention{% endif %}">
                                 <label class="form-label">Calendar</label>
                                 <div class="d-flex gap-2">
                                     <select id="calendar_select" class="form-control" name="calendar_id" required>
@@ -201,22 +382,22 @@
                                 {{ form.crm_user_id.label(class="form-label") }}
                                 {{ form.crm_user_id(class="form-control") }}
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6 {% if missing_fields is defined and 'timezone' in missing_fields %}field-needs-attention{% endif %}">
                                 {{ form.timezone.label(class="form-label") }}
                                 {{ form.timezone(class="form-control") }}
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6 {% if missing_fields is defined and 'bot_name' in missing_fields %}field-needs-attention{% endif %}">
                                 {{ form.bot_name.label(class="form-label") }}
                                 {{ form.bot_name(class="form-control") }}
                             </div>
-                            <div class="col-12">
+                            <div class="col-12 {% if missing_fields is defined and 'initial_message' in missing_fields %}field-needs-attention{% endif %}">
                                 {{ form.initial_message.label(class="form-label") }}
                                 {{ form.initial_message(class="form-control", rows="3") }}
                             </div>
                             <div class="col-12 text-end mt-4">
                                 <button type="submit" class="btn btn-primary px-5">Save Configuration</button>
                             </div>
-                            
+
                             {% if current_user.role == 'agency_owner' %}
                                 <div class="col-12 text-end mt-4">
                                     <a href="/agency-dashboard" class="btn btn-outline-accent px-5">
@@ -230,23 +411,83 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="guide" role="tabpanel">
+            <!-- Create Workflow Tab -->
+            <div class="tab-pane fade" id="workflows" role="tabpanel">
                 <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px;">
                     <div class="d-flex align-items-center mb-4 gap-3">
-                        <div style="width:50px; height:50px; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center;">
-                            <i class="fa-solid fa-cloud-arrow-down" style="font-size:1.5rem; color:var(--accent);"></i>
+                        <div style="width:50px; height:50px; background:rgba(0, 255, 136, 0.08); border:1px solid rgba(0, 255, 136, 0.15); border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid fa-diagram-project" style="font-size:1.3rem; color:var(--accent);"></i>
                         </div>
-                        <h3 class="m-0" style="font-weight:700;">Connect Lead Connector</h3>
+                        <div>
+                            <h3 class="m-0" style="font-weight:700;">Create a Workflow</h3>
+                            <p class="m-0" style="color: #888; font-size: 0.85rem;">Set up automation in your Lead Connector account</p>
+                        </div>
                     </div>
-                    <div class="list-group list-group-flush mb-4" style="border-radius:12px; overflow:hidden;">
-                        <div class="list-group-item bg-dark text-white border-secondary p-3">1. Log in to your Lead Connector account.</div>
-                        <div class="list-group-item bg-dark text-white border-secondary p-3">2. Navigate to the <strong>Marketplace</strong> tab in sidebar.</div>
-                        <div class="list-group-item bg-dark text-white border-secondary p-3">3. Search for <strong>"Insurance Grok Bot"</strong> and Install.</div>
-                        <div class="list-group-item bg-dark text-white border-secondary p-3">4. Approve permissions (Conversations, Contacts, etc).</div>
+
+                    <!-- Workflow Sub-tabs -->
+                    <div class="workflow-tabs">
+                        <button class="workflow-tab-btn active" onclick="switchWorkflow('reengage')">
+                            <i class="fa-solid fa-rotate me-2"></i>Re-Engage Workflow
+                        </button>
+                        <button class="workflow-tab-btn" onclick="switchWorkflow('smsreply')">
+                            <i class="fa-solid fa-comment-sms me-2"></i>SMS Reply Workflow
+                        </button>
                     </div>
-                    <div class="alert alert-info" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 15px;">
-                        <i class="fa-solid fa-info-circle me-2" style="color: #3b82f6;"></i>
-                        <strong>Note:</strong> Access Marketplace from within your Lead Connector account to maintain white-label settings.
+
+                    <!-- Re-Engage Workflow -->
+                    <div class="workflow-content active" id="wf-reengage">
+                        <div style="margin-bottom: 16px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">InsuranceGrokBot Re-Engage Workflow</span>
+                        </div>
+
+                        <div class="wf-step">
+                            <div class="wf-step-num">1</div>
+                            <div class="wf-step-text">Create a <strong>new workflow from scratch</strong> in your Lead Connector account.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">2</div>
+                            <div class="wf-step-text">Assign the trigger to <strong>"Tag Added"</strong>.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">3</div>
+                            <div class="wf-step-text">Add a <strong>Wait delay</strong> (1 or 2 minutes).</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">4</div>
+                            <div class="wf-step-text">Select the <strong>"+"</strong> button, go to the <strong>"Apps"</strong> tab, scroll to <strong>InsuranceGrokBot</strong>, and select the action.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">5</div>
+                            <div class="wf-step-text">Add an <strong>"If/Else"</strong> condition. For the <strong>IF</strong>: check if contact has an <strong>"appointment booked"</strong> tag, then <strong>end the workflow</strong>.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">6</div>
+                            <div class="wf-step-text">Add a <strong>Wait</strong> step (1 day).</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">7</div>
+                            <div class="wf-step-text">Add a <strong>"Go-To"</strong> and select above the first wait, under the trigger. This creates the re-engagement loop.</div>
+                        </div>
+                    </div>
+
+                    <!-- SMS Reply Workflow -->
+                    <div class="workflow-content" id="wf-smsreply">
+                        <div style="margin-bottom: 16px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">InsuranceGrokBot SMS Reply Workflow</span>
+                        </div>
+
+                        <div class="wf-step">
+                            <div class="wf-step-num">1</div>
+                            <div class="wf-step-text">Set the trigger to <strong>"SMS Received"</strong> by contact with tag.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">2</div>
+                            <div class="wf-step-text">Add a <strong>Wait</strong> step.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">3</div>
+                            <div class="wf-step-text">Select the <strong>"+"</strong> button, go to <strong>"Apps"</strong>, and add the <strong>InsuranceGrokBot</strong> action.</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -271,6 +512,30 @@
         </div>
         {% endif %}
     </div>
+
+    <!-- Congratulations Popup -->
+    {% if show_congrats is defined and show_congrats %}
+    <div class="congrats-overlay visible" id="congratsOverlay">
+        <div class="congrats-card">
+            <button class="congrats-close" onclick="document.getElementById('congratsOverlay').classList.remove('visible');">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="congrats-icon">
+                <i class="fa-solid fa-rocket"></i>
+            </div>
+            <h2 style="font-weight: 900; font-size: 1.8rem; color: #fff; margin-bottom: 8px;">Congratulations!</h2>
+            <p style="color: rgba(255,255,255,0.5); font-size: 1rem; margin-bottom: 24px;">
+                Your account is connected. You can now create a workflow to start engaging leads.
+            </p>
+            <a href="#" class="congrats-btn" onclick="event.preventDefault(); document.getElementById('congratsOverlay').classList.remove('visible'); document.querySelector('[data-bs-target=\'#workflows\']').click();">
+                <i class="fa-solid fa-diagram-project me-2"></i> Create Workflow
+            </a>
+            <p style="color: #555; font-size: 0.8rem; margin-top: 16px;">
+                Fill in any pulsing fields first, then set up your workflow.
+            </p>
+        </div>
+    </div>
+    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -345,6 +610,14 @@
                         btn.disabled = false;
                     }, 2000);
                 });
+        }
+
+        // Workflow tab switching
+        function switchWorkflow(id) {
+            document.querySelectorAll('.workflow-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.workflow-content').forEach(c => c.classList.remove('active'));
+            event.target.closest('.workflow-tab-btn').classList.add('active');
+            document.getElementById('wf-' + id).classList.add('active');
         }
 
         // Update calendar_name when selection changes
