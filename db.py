@@ -231,6 +231,23 @@ def init_db() -> bool:
 
         conn.commit()
         logger.info("Database initialized: All tables ready (including contact_narratives).")
+
+        # 9. MIGRATION: Drop any NOT NULL constraints on columns that should allow NULL
+        # These columns are populated later during OAuth/config, not at account creation.
+        try:
+            cur2 = conn.cursor()
+            for col in ['crm_user_id', 'calendar_id', 'bot_first_name', 'timezone',
+                        'access_token', 'refresh_token', 'initial_message', 'calendar_name']:
+                try:
+                    cur2.execute(f"ALTER TABLE subscribers ALTER COLUMN {col} DROP NOT NULL")
+                except Exception:
+                    conn.rollback()  # Each ALTER is its own mini-transaction
+            conn.commit()
+            cur2.close()
+            logger.info("✅ Migration: Ensured nullable columns on subscribers")
+        except Exception as e:
+            logger.debug(f"Nullable column migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
