@@ -645,7 +645,12 @@ def login():
             print("[LOGIN DEBUG] No user found in subscribers table")
             flash("No account found with that email.", "error")
             return render_template("login.html", form=form)
-       
+
+        if not user.password_hash:
+            print("[LOGIN DEBUG] User has no password set yet")
+            flash("You haven't set a password yet. Please check your email or complete checkout first.", "error")
+            return render_template("login.html", form=form)
+
         if not check_password_hash(user.password_hash, form.password.data):
             print("[LOGIN DEBUG] Incorrect password")
             flash("Incorrect password.", "error")
@@ -2282,10 +2287,10 @@ def oauth_initiate():
         else:
             return redirect(url_for('dashboard'))
 
-    client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+    client_id = os.getenv("GHL_CLIENT_ID")
     redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
 
-    # Required scopes for the private app (must match Lead Connector app configuration)
+    # Required scopes (must match marketplace app configuration)
     scopes = [
         "calendars.readonly",
         "calendars/events.readonly",
@@ -2299,10 +2304,11 @@ def oauth_initiate():
     ]
     scope_string = " ".join(scopes)
 
-    # Use state parameter to identify this as private app flow (Stripe/website users)
-    state = "private_app"
+    # State identifies this as a website subscriber (already paid via Stripe)
+    # vs a marketplace install (hasn't subscribed yet)
+    state = "website_user"
 
-    # Build OAuth URL
+    # Build OAuth URL using public marketplace app
     oauth_url = (
         f"https://marketplace.gohighlevel.com/oauth/chooselocation?"
         f"response_type=code&"
@@ -2312,7 +2318,7 @@ def oauth_initiate():
         f"state={state}"
     )
 
-    logger.info(f"Initiating private app OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
+    logger.info(f"Initiating marketplace OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
 
 def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
@@ -2378,15 +2384,15 @@ def oauth_callback():
         return redirect(url_for('home'))
 
     try:
-        # Determine which OAuth app was used based on state parameter
-        # state="private_app" → Stripe/website users connecting Lead Connector
-        # No state → Marketplace installation
-        is_private_app = (state == "private_app")
+        # Determine flow based on state parameter
+        # state="website_user" → Stripe/website subscriber connecting Lead Connector
+        # No state (or anything else) → Marketplace installation
+        is_website_user = (state == "website_user") or (state == "private_app")
 
-        if is_private_app:
-            # --- SUBSCRIPTION VERIFICATION FOR PRIVATE APP FLOW ---
-            # Private app flow is for paid Stripe users only.
-            # Marketplace installations (free) bypass this check.
+        if is_website_user:
+            # --- SUBSCRIPTION VERIFICATION FOR WEBSITE USERS ---
+            # Website users must have an active Stripe subscription.
+            # Marketplace installations bypass this check.
             if not current_user.is_authenticated:
                 flash("You must be logged in to connect Lead Connector.", "error")
                 logger.warning("OAuth callback blocked - user not authenticated")
@@ -2404,13 +2410,13 @@ def oauth_callback():
                 else:
                     return redirect(url_for('dashboard'))
 
-            client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
-            client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
-            logger.info(f"OAuth callback: Using private app credentials for {current_user.email} (Stripe/website flow)")
+            logger.info(f"OAuth callback: Website user flow for {current_user.email}")
         else:
-            client_id = os.getenv("GHL_CLIENT_ID")
-            client_secret = os.getenv("GHL_CLIENT_SECRET")
-            logger.info("OAuth callback: Using marketplace app credentials (Marketplace flow)")
+            logger.info("OAuth callback: Marketplace installation flow")
+
+        # All OAuth uses the public marketplace app credentials
+        client_id = os.getenv("GHL_CLIENT_ID")
+        client_secret = os.getenv("GHL_CLIENT_SECRET")
 
         # 1. Exchange Code for Token
         token_url = "https://services.leadconnectorhq.com/oauth/token"
@@ -2491,7 +2497,7 @@ def oauth_callback():
                     active_seats = max(0, num_subs - 1)  # Exclude primary
 
                     # Determine OAuth app type
-                    app_type = 'private' if is_private_app else 'marketplace'
+                    app_type = 'private' if is_website_user else 'marketplace'
 
                     cur.execute("""
                         INSERT INTO agency_billing (
@@ -2524,14 +2530,31 @@ def oauth_callback():
 
                 # --- B. Sub-accounts (or individual user) ---
                 # CRITICAL FIXES IMPLEMENTED HERE:
-                # 1. ✅ Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
-                # 2. ✅ Token Sharing: All sub-accounts get the agency token (prevents token starvation)
-                # 3. ✅ No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
+                # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
+                # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
+                # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
                 #
-                # Why these fixes matter:
-                # - Without pagination: Agencies with >20 locations only onboard first page
-                # - Without token sharing: Bot fails for all sub-accounts (get_valid_token returns None)
-                # - Without removing N+1: OAuth callback times out for agencies with many locations
+                # FIX: For Stripe subscribers connecting OAuth, a row already exists with
+                # a temp location_id. We must update that row first so the INSERT below
+                # doesn't violate the UNIQUE constraint on email.
+                if is_website_user and primary_location_id:
+                    cur.execute("""
+                        UPDATE subscribers
+                        SET location_id = %s,
+                            access_token = %s,
+                            refresh_token = %s,
+                            token_expires_at = NOW() + interval '%s seconds',
+                            crm_user_id = COALESCE(%s, crm_user_id),
+                            oauth_app_type = 'private',
+                            onboarding_status = 'claimed',
+                            updated_at = NOW()
+                        WHERE email = %s AND location_id LIKE 'temp_%%'
+                    """, (primary_location_id, access_token, refresh_token,
+                          expires_in, me_data.get('id'), user_email))
+                    rows_updated = cur.rowcount
+                    if rows_updated > 0:
+                        logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
+
                 for sub in sub_accounts:
                     sub_id = sub['id']
                     sub_name = sub.get('name', 'Unknown Location')
@@ -2558,7 +2581,7 @@ def oauth_callback():
                     role = 'agency_sub_account_user' if is_agency_owner else 'individual'
                     parent_agency_email = user_email if is_agency_owner else None
                     email_this = user_email  # Owner's email for billing/parent link
-                    app_type = 'private' if is_private_app else 'marketplace'
+                    app_type = 'private' if is_website_user else 'marketplace'
 
                     cur.execute("""
                         INSERT INTO subscribers (
@@ -2627,7 +2650,7 @@ def oauth_callback():
             logger.warning(f"User.get({user_email}) returned None after database insertion!")
 
         # MARKETPLACE INSTALLATION: Route to home page so user can subscribe
-        if not is_private_app:
+        if not is_website_user:
             logger.info(f"Marketplace install complete for {user_email} — routing to home for subscription")
             flash("App installed! Please subscribe to activate your bot.", "success")
             return redirect("/")
