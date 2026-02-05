@@ -279,29 +279,50 @@ def consolidated_calendar_op(
     Unified calendar operation: fetch slots or book appointment.
     Returns formatted string (slots) or bool (booking success).
     Demo-safe: returns placeholder on demo mode.
+
+    AUTHENTICATION (supports both token types for all operations):
+    - GHL_PIT_TOKEN env var → uses v1 endpoint (PIT/Private Integration Token)
+    - OAuth access_token → uses v2 endpoint (location-scoped)
+
+    TOKEN PRIORITY: GHL_PIT_TOKEN > subscriber access_token
+    Both can fetch slots and book appointments.
     """
-    access_token = subscriber_data.get("access_token") or subscriber_data.get("crm_api_key")
     location_id = subscriber_data.get("location_id")
     cal_id = subscriber_data.get("calendar_id")
     crm_user_id = subscriber_data.get("crm_user_id")
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
 
-    if not access_token or not cal_id:
-        logger.error(f"Missing credentials for calendar op (loc={location_id})")
+    # Get available tokens - priority: PIT > OAuth
+    pit_token = os.getenv("GHL_PIT_TOKEN")
+    oauth_token = subscriber_data.get("access_token")
+
+    if not cal_id:
+        logger.error(f"Missing calendar_id for calendar op (loc={location_id})")
         return "let me look at my calendar" if operation == "fetch_slots" else False
 
     # Demo mode short-circuit
-    if access_token == 'DEMO':
+    if oauth_token == 'DEMO':
         if operation == "fetch_slots":
             return "I've got tomorrow morning or afternoon, let me know what works!"
         if operation == "book":
             logger.info(f"DEMO MODE: Simulated booking for {contact_id}")
             return True
 
-    # 🔍 DETECT TOKEN TYPE (OAuth v2 or Private API Key v1)
-    token_info = detect_token_type(access_token)
-    is_oauth = token_info["is_oauth"]
-    token_version = token_info["version"]
+    # Select token: prefer PIT if available, otherwise use OAuth
+    if pit_token:
+        access_token = pit_token
+        is_oauth = False
+        token_version = "v1"
+        logger.info(f"📅 Using GHL_PIT_TOKEN for {operation} (location={location_id})")
+    elif oauth_token:
+        access_token = oauth_token
+        token_info = detect_token_type(access_token)
+        is_oauth = token_info["is_oauth"]
+        token_version = token_info["version"]
+        logger.info(f"📅 Using OAuth token ({token_version}) for {operation} (location={location_id})")
+    else:
+        logger.error(f"No token available for {operation} (loc={location_id})")
+        return "let me look at my calendar" if operation == "fetch_slots" else False
 
     headers = {
         "Authorization": f"Bearer {access_token}",
