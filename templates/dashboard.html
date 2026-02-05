@@ -12,24 +12,26 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <style>
-        /* Pulsing green animation for fields that need attention */
+        /* Pulsing green border glow for fields that need attention */
         @keyframes pulse-green {
             0%, 100% {
-                border-color: rgba(0, 255, 136, 0.3);
-                box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.15);
+                border-color: rgba(0, 255, 136, 0.25);
+                box-shadow: 0 0 3px rgba(0, 255, 136, 0.1);
             }
             50% {
                 border-color: rgba(0, 255, 136, 0.6);
-                box-shadow: 0 0 15px 3px rgba(0, 255, 136, 0.12);
+                box-shadow: 0 0 6px rgba(0, 255, 136, 0.2);
             }
         }
-        .field-needs-attention {
-            animation: pulse-green 2s ease-in-out infinite;
-            border: 2px solid rgba(0, 255, 136, 0.3) !important;
-            border-radius: 8px;
-        }
+        /* wrapper gets no extra border — glow only on inner controls */
         .field-needs-attention .form-control {
-            border-color: rgba(0, 255, 136, 0.3) !important;
+            animation: pulse-green 2s ease-in-out infinite;
+            border: 1px solid rgba(0, 255, 136, 0.25) !important;
+        }
+        /* for tech-readout blocks (readonly display fields) the div IS the control */
+        .tech-readout.field-needs-attention {
+            animation: pulse-green 2s ease-in-out infinite;
+            border: 1px solid rgba(0, 255, 136, 0.25) !important;
         }
 
         /* Pulsing Connect button */
