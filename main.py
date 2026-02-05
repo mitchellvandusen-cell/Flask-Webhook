@@ -2288,7 +2288,12 @@ def oauth_initiate():
             return redirect(url_for('dashboard'))
 
     client_id = os.getenv("GHL_CLIENT_ID")
-    redirect_uri = f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
+    domain = os.getenv("YOUR_DOMAIN")
+    if not client_id or not domain:
+        logger.error(f"OAuth initiate failed: GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, YOUR_DOMAIN={'set' if domain else 'MISSING'}")
+        flash("OAuth is not configured. Please contact support.", "error")
+        return redirect(url_for('dashboard'))
+    redirect_uri = f"{domain}/oauth/callback"
 
     # Required scopes (must match marketplace app configuration)
     scopes = [
