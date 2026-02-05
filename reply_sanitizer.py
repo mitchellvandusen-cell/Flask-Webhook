@@ -54,6 +54,19 @@ CONTAMINATION_MARKERS = [
     "do not mention insurance",
     "make them smile",
     "no emojis",
+    # Memory / narrative observer leaks
+    "recap:",
+    "facts:",
+    "known facts",
+    "updated recap",
+    "previous recap",
+    "no new facts",
+    "conversation stands",
+    "awaiting the lead",
+    "initial outreach phase",
+    "lead intent:",
+    "no details on current coverage",
+    "no responses yet",
     # Bot self-reference as character
     "personality: ",
     "i'm playing the role",
@@ -84,6 +97,8 @@ REASONING_OPENERS = [
     "i need to",
     "the goal here",
     "the goal is",
+    "recap:",
+    "facts:",
 ]
 
 
@@ -163,6 +178,8 @@ def is_safe_to_send(message: str) -> bool:
         "current stage:",
         "no inbound message",
         "=== ",
+        "recap:",
+        "facts:",
     ]
 
     for block in HARD_BLOCKS:

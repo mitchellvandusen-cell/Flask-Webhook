@@ -346,6 +346,13 @@ def consolidated_calendar_op(
                 logger.debug(f"   Full URL sent: {resp.request.url}")
                 logger.debug(f"   Slots response status: {resp.status_code}")
 
+                # If 422 with userId, the user likely isn't on the calendar team — retry without it
+                if resp.status_code == 422 and "userId" in params:
+                    logger.warning(f"⚠️ Free-slots 422 with userId '{params['userId']}' — retrying without userId")
+                    retry_params = {k: v for k, v in params.items() if k != "userId"}
+                    resp = requests.get(url, headers=headers, params=retry_params, timeout=20)
+                    logger.info(f"   Retry response status: {resp.status_code}")
+
                 resp.raise_for_status()
                 data = resp.json()
                 logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
