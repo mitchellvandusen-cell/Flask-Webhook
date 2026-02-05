@@ -2529,14 +2529,31 @@ def oauth_callback():
 
                 # --- B. Sub-accounts (or individual user) ---
                 # CRITICAL FIXES IMPLEMENTED HERE:
-                # 1. ✅ Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
-                # 2. ✅ Token Sharing: All sub-accounts get the agency token (prevents token starvation)
-                # 3. ✅ No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
+                # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
+                # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
+                # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
                 #
-                # Why these fixes matter:
-                # - Without pagination: Agencies with >20 locations only onboard first page
-                # - Without token sharing: Bot fails for all sub-accounts (get_valid_token returns None)
-                # - Without removing N+1: OAuth callback times out for agencies with many locations
+                # FIX: For Stripe subscribers connecting OAuth, a row already exists with
+                # a temp location_id. We must update that row first so the INSERT below
+                # doesn't violate the UNIQUE constraint on email.
+                if is_private_app and primary_location_id:
+                    cur.execute("""
+                        UPDATE subscribers
+                        SET location_id = %s,
+                            access_token = %s,
+                            refresh_token = %s,
+                            token_expires_at = NOW() + interval '%s seconds',
+                            crm_user_id = COALESCE(%s, crm_user_id),
+                            oauth_app_type = 'private',
+                            onboarding_status = 'claimed',
+                            updated_at = NOW()
+                        WHERE email = %s AND location_id LIKE 'temp_%%'
+                    """, (primary_location_id, access_token, refresh_token,
+                          expires_in, me_data.get('id'), user_email))
+                    rows_updated = cur.rowcount
+                    if rows_updated > 0:
+                        logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
+
                 for sub in sub_accounts:
                     sub_id = sub['id']
                     sub_name = sub.get('name', 'Unknown Location')
