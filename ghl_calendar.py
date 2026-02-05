@@ -17,15 +17,20 @@ logger = logging.getLogger(__name__)
 # PIT: uses base URL (no location prefix), locationId as query param where needed
 # Source: https://marketplace.gohighlevel.com/docs/ghl/calendars/
 
-# OAuth v2 endpoints (location in URL path)
-GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+# GHL Calendar Free Slots Endpoints (try in order until one works)
+# Pattern 1: v2 with locationId in path
 GHL_V2_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars/{cal_id}/free-slots"
-GHL_V2_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
-
-# PIT (Private Integration Token) endpoints (no location in path)
-GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
+# Pattern 2: locationId in path (no v2 prefix)
+GHL_LOC_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/locations/{location_id}/calendars/{cal_id}/free-slots"
+# Pattern 3: no locationId in path (PIT style)
 GHL_V1_FREE_SLOTS_URL = "https://services.leadconnectorhq.com/calendars/{cal_id}/free-slots"
-GHL_V1_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
+
+# Calendar list endpoints
+GHL_V2_CALENDARS_LIST = "https://services.leadconnectorhq.com/v2/locations/{location_id}/calendars"
+GHL_V1_CALENDARS_LIST = "https://services.leadconnectorhq.com/calendars/"
+
+# Booking endpoint (same for all token types)
+GHL_BOOK_URL = "https://services.leadconnectorhq.com/calendars/events/appointments"
 
 
 def detect_token_type(access_token: str) -> dict:
@@ -279,15 +284,27 @@ def consolidated_calendar_op(
     Unified calendar operation: fetch slots or book appointment.
     Returns formatted string (slots) or bool (booking success).
     Demo-safe: returns placeholder on demo mode.
+
+    MULTI-TENANT: All credentials come from subscriber_data (database).
+    No hardcoded tokens or env vars.
+
+    ENDPOINT FALLBACK for fetch_slots:
+    - Try v2 first: GET /v2/locations/{locationId}/calendars/{calendarId}/free-slots
+    - If v2 fails, try v1: GET /calendars/{calendarId}/free-slots
+    This handles both OAuth tokens and PIT tokens automatically.
     """
-    access_token = subscriber_data.get("access_token") or subscriber_data.get("crm_api_key")
     location_id = subscriber_data.get("location_id")
     cal_id = subscriber_data.get("calendar_id")
     crm_user_id = subscriber_data.get("crm_user_id")
     local_tz_str = subscriber_data.get("timezone", "America/Chicago")
+    access_token = subscriber_data.get("access_token")
 
-    if not access_token or not cal_id:
-        logger.error(f"Missing credentials for calendar op (loc={location_id})")
+    if not cal_id:
+        logger.error(f"Missing calendar_id for calendar op (loc={location_id})")
+        return "let me look at my calendar" if operation == "fetch_slots" else False
+
+    if not access_token:
+        logger.error(f"Missing access_token for calendar op (loc={location_id})")
         return "let me look at my calendar" if operation == "fetch_slots" else False
 
     # Demo mode short-circuit
@@ -298,11 +315,6 @@ def consolidated_calendar_op(
             logger.info(f"DEMO MODE: Simulated booking for {contact_id}")
             return True
 
-    # 🔍 DETECT TOKEN TYPE (OAuth v2 or Private API Key v1)
-    token_info = detect_token_type(access_token)
-    is_oauth = token_info["is_oauth"]
-    token_version = token_info["version"]
-
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": "2021-04-15",
@@ -311,27 +323,16 @@ def consolidated_calendar_op(
 
     local_tz = ZoneInfo(local_tz_str)
 
-    # === FETCH SLOTS ===
+    # === FETCH SLOTS (with endpoint fallback) ===
     if operation in ["fetch_slots", "book"]:
         slots_key = f"ghl_slots_{cal_id}_{crm_user_id or 'default'}"
         slots = get_cached_data(slots_key)
 
         if not slots:
-            # Select endpoint based on token type
-            if not is_oauth:
-                # PIT: base URL, NO locationId in query (API rejects it with 422)
-                url = GHL_V1_FREE_SLOTS_URL.format(cal_id=cal_id)
-                logger.info(f"📅 Using PIT free-slots endpoint: {url}")
-            else:
-                # OAuth: /v2/locations/{location_id}/ in path
-                url = GHL_V2_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)
-                logger.info(f"📅 Using OAuth v2 free-slots endpoint: {url}")
-
             now_utc = datetime.now(timezone.utc)
             start_ts = int(now_utc.timestamp() * 1000)
             end_ts = int((now_utc + timedelta(days=3)).timestamp() * 1000)
 
-            # Required query params: startDate (epoch ms), endDate (epoch ms), timezone
             params = {
                 "startDate": start_ts,
                 "endDate": end_ts,
@@ -340,42 +341,66 @@ def consolidated_calendar_op(
             if crm_user_id:
                 params["userId"] = crm_user_id
 
-            try:
-                logger.debug(f"   Fetching slots with params: {params}")
-                resp = requests.get(url, headers=headers, params=params, timeout=20)
-                logger.debug(f"   Full URL sent: {resp.request.url}")
-                logger.debug(f"   Slots response status: {resp.status_code}")
+            # Three endpoint patterns to try (in order)
+            endpoints = [
+                ("v2", GHL_V2_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)),
+                ("loc", GHL_LOC_FREE_SLOTS_URL.format(location_id=location_id, cal_id=cal_id)),
+                ("v1", GHL_V1_FREE_SLOTS_URL.format(cal_id=cal_id)),
+            ]
 
-                # If 422 with userId, the user likely isn't on the calendar team — retry without it
-                if resp.status_code == 422 and "userId" in params:
-                    logger.warning(f"⚠️ Free-slots 422 with userId '{params['userId']}' — retrying without userId")
-                    retry_params = {k: v for k, v in params.items() if k != "userId"}
-                    resp = requests.get(url, headers=headers, params=retry_params, timeout=20)
-                    logger.info(f"   Retry response status: {resp.status_code}")
+            resp = None
+            used_endpoint = None
 
-                resp.raise_for_status()
-                data = resp.json()
-                logger.debug(f"   Slots response body (first 300 chars): {str(data)[:300]}")
+            for endpoint_name, url in endpoints:
+                try:
+                    logger.info(f"📅 Trying {endpoint_name} free-slots endpoint: {url}")
+                    resp = requests.get(url, headers=headers, params=params, timeout=20)
+                    logger.info(f"   {endpoint_name} response status: {resp.status_code}")
 
-                slots = []
-                if isinstance(data, dict):
-                    for entry in data.values():
-                        if isinstance(entry, list):
-                            slots.extend(entry)
-                        elif isinstance(entry, dict) and "slots" in entry:
-                            slots.extend(entry["slots"])
-                elif isinstance(data, list):
-                    slots = data
+                    if resp.status_code in [200, 201]:
+                        used_endpoint = endpoint_name
+                        break  # Success - stop trying other endpoints
 
-                set_cache(slots_key, slots)
-                logger.info(f"✅ Fetched {len(slots)} slots for {cal_id} using {token_version}")
-            except requests.HTTPError as e:
-                logger.error(f"❌ Calendar fetch HTTP error ({token_version}): {e}")
-                logger.error(f"   Response text: {e.response.text[:200] if hasattr(e, 'response') else 'N/A'}")
-                slots = []
-            except Exception as e:
-                logger.error(f"❌ Calendar fetch error ({token_version}): {e}")
-                logger.debug(f"   Error details: {str(e)}", exc_info=True)
+                    # If 422 with userId, retry without it before moving to next endpoint
+                    if resp.status_code == 422 and "userId" in params:
+                        logger.warning(f"⚠️ {endpoint_name} 422 with userId — retrying without userId")
+                        retry_params = {k: v for k, v in params.items() if k != "userId"}
+                        resp = requests.get(url, headers=headers, params=retry_params, timeout=20)
+                        logger.info(f"   {endpoint_name} retry response status: {resp.status_code}")
+                        if resp.status_code in [200, 201]:
+                            used_endpoint = endpoint_name
+                            break
+
+                    # Log failure and continue to next endpoint
+                    logger.warning(f"⚠️ {endpoint_name} endpoint failed ({resp.status_code})")
+
+                except Exception as e:
+                    logger.warning(f"⚠️ {endpoint_name} endpoint error: {e}")
+                    continue
+
+            # Parse response if any endpoint succeeded
+            if resp and resp.status_code in [200, 201]:
+                try:
+                    data = resp.json()
+                    logger.debug(f"   Slots response ({used_endpoint}): {str(data)[:300]}")
+
+                    slots = []
+                    if isinstance(data, dict):
+                        for entry in data.values():
+                            if isinstance(entry, list):
+                                slots.extend(entry)
+                            elif isinstance(entry, dict) and "slots" in entry:
+                                slots.extend(entry["slots"])
+                    elif isinstance(data, list):
+                        slots = data
+
+                    set_cache(slots_key, slots)
+                    logger.info(f"✅ Fetched {len(slots)} slots using {used_endpoint} endpoint")
+                except Exception as parse_err:
+                    logger.error(f"❌ Failed to parse slots response: {parse_err}")
+                    slots = []
+            else:
+                logger.error(f"❌ All endpoints failed for calendar {cal_id}")
                 slots = []
 
         if operation == "fetch_slots":
@@ -475,7 +500,7 @@ def consolidated_calendar_op(
             return False
 
         # Both PIT and OAuth use the same booking endpoint
-        booking_url = GHL_V2_BOOK_URL  # Same URL for both token types
+        booking_url = GHL_BOOK_URL  # Same URL for all token types
         payload = {
             "calendarId": cal_id,
             "locationId": location_id,

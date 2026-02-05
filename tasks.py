@@ -419,6 +419,19 @@ def process_webhook_task(payload: dict):
         if message:
             save_message(contact_id, message, "lead")
 
+        # === TCPA STOP WORD CHECK ===
+        # If the lead says stop/unsubscribe/blocked, we MUST stop messaging.
+        # Check BEFORE booking or response generation.
+        TCPA_STOP_WORDS = ["stop", "unsubscribe", "blocked"]
+        if message:
+            msg_lower = message.lower()
+            for stop_word in TCPA_STOP_WORDS:
+                # Check for exact word match (not substring)
+                if re.search(rf'\b{stop_word}\b', msg_lower):
+                    logger.info(f"🛑 TCPA OPT-OUT: '{stop_word}' detected from contact {contact_id} | msg='{message}'")
+                    # Do NOT book, do NOT respond - just acknowledge internally
+                    return {"status": "opt_out", "reason": f"TCPA stop word: {stop_word}", "contact_id": contact_id}
+
         # === MESSAGE BATCHING ===
         # If a lead sends 3 messages in 30 seconds, we want ONE response to all 3.
         # After saving, wait briefly for more messages to arrive, then collect
