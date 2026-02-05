@@ -248,6 +248,20 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"Nullable column migration note: {e}")
 
+        # 10. MIGRATION: Add onboarding_status column if missing
+        # The CREATE TABLE schema includes it, but tables created before it was added won't have it.
+        try:
+            cur3 = conn.cursor()
+            cur3.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS onboarding_status TEXT DEFAULT 'pending'
+            """)
+            conn.commit()
+            cur3.close()
+            logger.info("✅ Migration: Ensured onboarding_status column on subscribers")
+        except Exception as e:
+            logger.debug(f"onboarding_status migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)

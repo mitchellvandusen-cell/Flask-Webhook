@@ -645,7 +645,12 @@ def login():
             print("[LOGIN DEBUG] No user found in subscribers table")
             flash("No account found with that email.", "error")
             return render_template("login.html", form=form)
-       
+
+        if not user.password_hash:
+            print("[LOGIN DEBUG] User has no password set yet")
+            flash("You haven't set a password yet. Please check your email or complete checkout first.", "error")
+            return render_template("login.html", form=form)
+
         if not check_password_hash(user.password_hash, form.password.data):
             print("[LOGIN DEBUG] Incorrect password")
             flash("Incorrect password.", "error")
