@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+
+{% block title %}Connecting Your Account | InsuranceGrokBot{% endblock %}
+
+{% block content %}
+<style>
+    .loading-ambient {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;
+        background-image:
+            radial-gradient(circle at 30% 20%, rgba(0, 255, 136, 0.06), transparent 40%),
+            radial-gradient(circle at 70% 80%, rgba(0, 100, 255, 0.04), transparent 40%);
+    }
+    .loading-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .loading-card {
+        background: rgba(12, 12, 12, 0.55);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 28px;
+        padding: 50px 40px;
+        max-width: 560px;
+        width: 100%;
+        box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+    }
+    .loading-card::before {
+        content: '';
+        position: absolute; top: 0; left: 0; width: 100%; height: 1px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    /* Check item rows */
+    .check-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        margin-bottom: 10px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 14px;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .check-item.success {
+        background: rgba(0, 255, 136, 0.04);
+        border-color: rgba(0, 255, 136, 0.15);
+    }
+    .check-item.error {
+        background: rgba(255, 68, 68, 0.06);
+        border-color: rgba(255, 68, 68, 0.2);
+    }
+
+    /* Status icon */
+    .check-icon {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.95rem;
+        transition: all 0.4s;
+    }
+    .check-icon.pending {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #555;
+    }
+    .check-icon.loading {
+        background: rgba(0, 255, 136, 0.08);
+        border: 1px solid rgba(0, 255, 136, 0.15);
+        color: var(--accent);
+        animation: pulse-icon 1.5s ease-in-out infinite;
+    }
+    .check-icon.success {
+        background: rgba(0, 255, 136, 0.12);
+        border: 1px solid rgba(0, 255, 136, 0.25);
+        color: var(--accent);
+    }
+    .check-icon.error {
+        background: rgba(255, 68, 68, 0.12);
+        border: 1px solid rgba(255, 68, 68, 0.25);
+        color: #ff4444;
+    }
+
+    @keyframes pulse-icon {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.2); }
+        50% { box-shadow: 0 0 15px 3px rgba(0, 255, 136, 0.15); }
+    }
+
+    /* Check info */
+    .check-info { flex: 1; min-width: 0; }
+    .check-label {
+        font-weight: 700;
+        font-size: 0.92rem;
+        color: #ccc;
+        margin-bottom: 2px;
+        transition: color 0.3s;
+    }
+    .check-item.success .check-label { color: #fff; }
+    .check-item.error .check-label { color: #ff8888; }
+    .check-value {
+        font-size: 0.78rem;
+        color: #555;
+        font-family: 'JetBrains Mono', monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .check-item.success .check-value { color: rgba(0, 255, 136, 0.6); }
+
+    /* Progress bar per item */
+    .check-progress {
+        width: 70px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+    .check-pct {
+        font-size: 0.85rem;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', monospace;
+        transition: color 0.3s;
+    }
+    .check-pct.pending { color: #444; }
+    .check-pct.loading { color: var(--accent); }
+    .check-pct.success { color: var(--accent); }
+    .check-pct.error { color: #ff4444; }
+    .check-bar {
+        width: 100%;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        margin-top: 4px;
+        overflow: hidden;
+    }
+    .check-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+        width: 0%;
+        background: var(--accent);
+    }
+    .check-item.error .check-bar-fill { background: #ff4444; }
+
+    /* Error detail */
+    .error-detail {
+        display: none;
+        margin-top: 8px;
+        padding: 10px 14px;
+        background: rgba(255, 68, 68, 0.06);
+        border: 1px solid rgba(255, 68, 68, 0.12);
+        border-radius: 8px;
+        font-size: 0.78rem;
+        color: #ff8888;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .error-detail.visible { display: block; }
+    .error-detail a {
+        color: var(--accent);
+        text-decoration: underline;
+        margin-top: 6px;
+        display: inline-block;
+    }
+
+    /* Continue button */
+    .continue-btn {
+        display: none;
+        width: 100%;
+        text-align: center;
+        background: var(--accent);
+        color: #000;
+        font-weight: 800;
+        font-size: 1.05rem;
+        padding: 16px;
+        border: none;
+        border-radius: 14px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+        margin-top: 24px;
+        text-decoration: none;
+    }
+    .continue-btn.visible { display: block; }
+    .continue-btn:hover {
+        background: #fff;
+        color: #000;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0, 255, 136, 0.35);
+    }
+
+    /* Overall progress */
+    .overall-bar {
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        margin-bottom: 30px;
+        overflow: hidden;
+    }
+    .overall-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), #00e676);
+        border-radius: 2px;
+        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+
+    @media (max-width: 576px) {
+        .loading-card { padding: 35px 22px; border-radius: 20px; }
+        .check-item { padding: 12px 14px; }
+        .check-progress { width: 55px; }
+    }
+</style>
+
+<div class="loading-ambient"></div>
+
+<div class="loading-wrapper">
+    <div class="loading-card">
+        <div class="text-center mb-4">
+            <div style="width: 60px; height: 60px; border-radius: 16px; background: rgba(0, 255, 136, 0.08); border: 1px solid rgba(0, 255, 136, 0.15); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                <i class="fa-solid fa-satellite-dish" style="font-size: 1.5rem; color: var(--accent);"></i>
+            </div>
+            <h1 style="font-weight: 900; font-size: 1.8rem; color: #fff; margin-bottom: 6px;">Syncing Your Account</h1>
+            <p style="color: rgba(255,255,255,0.4); font-size: 0.9rem;">Gathering data from Lead Connector...</p>
+        </div>
+
+        <div class="overall-bar">
+            <div class="overall-bar-fill" id="overallBarFill"></div>
+        </div>
+
+        <!-- Check Items -->
+        <div id="checkList">
+            <div class="check-item" id="check-location_id">
+                <div class="check-icon pending" id="icon-location_id">
+                    <i class="fa-solid fa-location-dot"></i>
+                </div>
+                <div class="check-info">
+                    <div class="check-label">Gathering Location ID</div>
+                    <div class="check-value" id="value-location_id">Waiting...</div>
+                </div>
+                <div class="check-progress">
+                    <div class="check-pct pending" id="pct-location_id">0%</div>
+                    <div class="check-bar"><div class="check-bar-fill" id="bar-location_id"></div></div>
+                </div>
+                <div class="error-detail" id="error-location_id">
+                    <div class="error-log"></div>
+                    <a href="/support">Contact Support</a>
+                </div>
+            </div>
+
+            <div class="check-item" id="check-user_id">
+                <div class="check-icon pending" id="icon-user_id">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="check-info">
+                    <div class="check-label">Gathering User ID</div>
+                    <div class="check-value" id="value-user_id">Waiting...</div>
+                </div>
+                <div class="check-progress">
+                    <div class="check-pct pending" id="pct-user_id">0%</div>
+                    <div class="check-bar"><div class="check-bar-fill" id="bar-user_id"></div></div>
+                </div>
+                <div class="error-detail" id="error-user_id">
+                    <div class="error-log"></div>
+                    <a href="/support">Contact Support</a>
+                </div>
+            </div>
+
+            <div class="check-item" id="check-access_token">
+                <div class="check-icon pending" id="icon-access_token">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <div class="check-info">
+                    <div class="check-label">Gathering Access Token</div>
+                    <div class="check-value" id="value-access_token">Waiting...</div>
+                </div>
+                <div class="check-progress">
+                    <div class="check-pct pending" id="pct-access_token">0%</div>
+                    <div class="check-bar"><div class="check-bar-fill" id="bar-access_token"></div></div>
+                </div>
+                <div class="error-detail" id="error-access_token">
+                    <div class="error-log"></div>
+                    <a href="/support">Contact Support</a>
+                </div>
+            </div>
+
+            <div class="check-item" id="check-refresh_token">
+                <div class="check-icon pending" id="icon-refresh_token">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="check-info">
+                    <div class="check-label">Gathering Recovery Token</div>
+                    <div class="check-value" id="value-refresh_token">Waiting...</div>
+                </div>
+                <div class="check-progress">
+                    <div class="check-pct pending" id="pct-refresh_token">0%</div>
+                    <div class="check-bar"><div class="check-bar-fill" id="bar-refresh_token"></div></div>
+                </div>
+                <div class="error-detail" id="error-refresh_token">
+                    <div class="error-log"></div>
+                    <a href="/support">Contact Support</a>
+                </div>
+            </div>
+
+            <div class="check-item" id="check-calendars">
+                <div class="check-icon pending" id="icon-calendars">
+                    <i class="fa-solid fa-calendar"></i>
+                </div>
+                <div class="check-info">
+                    <div class="check-label">Gathering Calendars</div>
+                    <div class="check-value" id="value-calendars">Waiting...</div>
+                </div>
+                <div class="check-progress">
+                    <div class="check-pct pending" id="pct-calendars">0%</div>
+                    <div class="check-bar"><div class="check-bar-fill" id="bar-calendars"></div></div>
+                </div>
+                <div class="error-detail" id="error-calendars">
+                    <div class="error-log"></div>
+                    <a href="/support">Contact Support</a>
+                </div>
+            </div>
+        </div>
+
+        <a href="/dashboard?setup=complete" class="continue-btn" id="continueBtn">
+            Continue to Dashboard <i class="fa-solid fa-arrow-right ms-2"></i>
+        </a>
+
+        <p style="color: #444; font-size: 0.78rem; text-align: center; margin-top: 16px;" id="statusMsg">
+            This may take a moment...
+        </p>
+    </div>
+</div>
+
+<script>
+(function() {
+    const items = ['location_id', 'user_id', 'access_token', 'refresh_token', 'calendars'];
+    let pollCount = 0;
+    const maxPolls = 30;
+    let currentAnimIndex = 0;
+    let allDone = false;
+
+    function animateProgress(key, targetPct, status) {
+        const bar = document.getElementById('bar-' + key);
+        const pct = document.getElementById('pct-' + key);
+        const icon = document.getElementById('icon-' + key);
+        const item = document.getElementById('check-' + key);
+        const value = document.getElementById('value-' + key);
+
+        if (!bar || !pct) return;
+
+        bar.style.width = targetPct + '%';
+        pct.textContent = targetPct + '%';
+
+        // Update classes
+        pct.className = 'check-pct ' + status;
+        icon.className = 'check-icon ' + status;
+
+        if (status === 'success') {
+            item.classList.add('success');
+            item.classList.remove('error');
+            icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+        } else if (status === 'error') {
+            item.classList.add('error');
+            item.classList.remove('success');
+            icon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        }
+    }
+
+    function showError(key, message) {
+        const errorEl = document.getElementById('error-' + key);
+        if (errorEl) {
+            errorEl.querySelector('.error-log').textContent = message || 'Failed to retrieve data. Please try reconnecting.';
+            errorEl.classList.add('visible');
+        }
+    }
+
+    function updateOverall(checks) {
+        const total = checks.length;
+        const done = checks.filter(c => c.status === 'success').length;
+        const pct = Math.round((done / total) * 100);
+        document.getElementById('overallBarFill').style.width = pct + '%';
+    }
+
+    function sequentialAnimate(checks, index) {
+        if (index >= checks.length) {
+            // All items animated
+            const allSuccess = checks.every(c => c.status === 'success' || c.key === 'calendars');
+            const coreSuccess = checks.filter(c => c.key !== 'calendars').every(c => c.status === 'success');
+
+            if (coreSuccess) {
+                allDone = true;
+                document.getElementById('continueBtn').classList.add('visible');
+                document.getElementById('statusMsg').textContent = 'All systems connected!';
+                document.getElementById('statusMsg').style.color = 'var(--accent)';
+            }
+            return;
+        }
+
+        const check = checks[index];
+        const key = check.key;
+
+        // Start loading animation
+        animateProgress(key, 30, 'loading');
+
+        setTimeout(() => {
+            animateProgress(key, 65, 'loading');
+
+            setTimeout(() => {
+                if (check.status === 'success') {
+                    animateProgress(key, 100, 'success');
+                    const valueEl = document.getElementById('value-' + key);
+                    if (valueEl && check.value) {
+                        valueEl.textContent = check.value;
+                    }
+                } else {
+                    animateProgress(key, 100, 'error');
+                    const valueEl = document.getElementById('value-' + key);
+                    if (valueEl) {
+                        if (key === 'calendars') {
+                            valueEl.textContent = 'Configure in dashboard';
+                            // Calendars are optional at this stage, show as info not error
+                            animateProgress(key, 100, 'success');
+                            document.getElementById('check-' + key).classList.remove('error');
+                            document.getElementById('check-' + key).classList.add('success');
+                            document.getElementById('icon-' + key).innerHTML = '<i class="fa-solid fa-check"></i>';
+                            document.getElementById('icon-' + key).className = 'check-icon success';
+                        } else {
+                            valueEl.textContent = 'Not found';
+                            showError(key, 'This data was not retrieved during connection. Try reconnecting Lead Connector.');
+                        }
+                    }
+                }
+
+                updateOverall(checks);
+                // Move to next item
+                setTimeout(() => sequentialAnimate(checks, index + 1), 300);
+            }, 400);
+        }, 350);
+    }
+
+    function poll() {
+        if (allDone || pollCount >= maxPolls) return;
+        pollCount++;
+
+        fetch('/api/onboarding-check')
+            .then(r => r.json())
+            .then(data => {
+                if (data.checks) {
+                    if (pollCount === 1) {
+                        // First poll: animate sequentially
+                        sequentialAnimate(data.checks, 0);
+                    }
+
+                    if (data.all_connected && !allDone) {
+                        allDone = true;
+                        // Re-animate with final data
+                        data.checks.forEach(c => {
+                            if (c.status === 'success') {
+                                animateProgress(c.key, 100, 'success');
+                                const v = document.getElementById('value-' + c.key);
+                                if (v && c.value) v.textContent = c.value;
+                            }
+                        });
+                        updateOverall(data.checks);
+                        document.getElementById('continueBtn').classList.add('visible');
+                        document.getElementById('statusMsg').textContent = 'All systems connected!';
+                        document.getElementById('statusMsg').style.color = 'var(--accent)';
+                        return;
+                    }
+                }
+
+                if (!allDone) {
+                    setTimeout(poll, 2000);
+                }
+            })
+            .catch(err => {
+                console.error('Poll error:', err);
+                if (!allDone && pollCount < maxPolls) {
+                    setTimeout(poll, 3000);
+                }
+            });
+    }
+
+    // Start polling
+    setTimeout(poll, 500);
+})();
+</script>
+{% endblock %}

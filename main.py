@@ -649,27 +649,14 @@ def login():
         print("[LOGIN DEBUG] Login successful - role:", user.role)
         login_user(user)
 
-        # Check if setup is complete — redirect to onboarding if not
-        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        has_token = bool(user.access_token)
-        has_subscription = bool(user.stripe_customer_id) or is_admin
-        loc_ok = bool(user.location_id and not str(user.location_id).startswith("temp_"))
-        cal_ok = bool(user.calendar_id)
-        bot_ok = bool(user.bot_first_name)
-        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
-
-        if not setup_complete:
-            return redirect("/onboarding-status")
-
-        # Normal routing for fully set-up users
+        # Always route to the appropriate dashboard
+        # The dashboard itself handles showing what needs to be done
+        # (pulsing Connect button, missing fields, subscription prompt, etc.)
         role = (user.role or 'individual').lower()
-       
-        if role in ['individual', 'individual_user', 'user', 'agency_sub_account_user']:
-            return redirect(url_for("dashboard"))
-        elif role in ['agency_owner', 'admin']:
+
+        if role in ['agency_owner', 'admin']:
             return redirect(url_for("agency_dashboard"))
         else:
-            flash("Your account role is not configured correctly. Contact support.", "warning")
             return redirect(url_for("dashboard"))
     return render_template("login.html", form=form)
 
@@ -1292,7 +1279,28 @@ def dashboard():
         'phone': current_user.phone or '',
         'bio': current_user.bio or ''
     }
-    # Pass 'sub' as current_user because the template might expect a dict-like object
+    # --- 5. ONBOARDING STATE FLAGS ---
+    needs_oauth = not bool(current_user.access_token)
+    show_congrats = request.args.get('setup') == 'complete'
+
+    loc_ok = bool(current_user.location_id and not str(current_user.location_id).startswith("temp_"))
+    cal_ok = bool(current_user.calendar_id)
+    bot_ok = bool(current_user.bot_first_name)
+    tz_ok = bool(current_user.timezone)
+    msg_ok = bool(current_user.initial_message)
+
+    missing_fields = []
+    if not bot_ok:
+        missing_fields.append('bot_name')
+    if not tz_ok:
+        missing_fields.append('timezone')
+    if not msg_ok:
+        missing_fields.append('initial_message')
+    if not loc_ok:
+        missing_fields.append('location_id')
+    if not cal_ok:
+        missing_fields.append('calendar_id')
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -1300,7 +1308,10 @@ def dashboard():
         token_readonly=token_field_state,
         expires_in_str=expires_in_str,
         sub=current_user,
-        profile=profile
+        profile=profile,
+        needs_oauth=needs_oauth,
+        show_congrats=show_congrats,
+        missing_fields=missing_fields
     )
 @app.route("/save-profile", methods=["POST"])
 @login_required
@@ -2102,30 +2113,56 @@ def checkout_agency_pro():
 def success():
     session_id = request.args.get("session_id")
     email = None
+    customer_id = None
 
     if session_id:
         try:
-            session = stripe.checkout.Session.retrieve(session_id)
-            email = session.customer_details.email.lower() if session.customer_details.email else None
+            checkout_session = stripe.checkout.Session.retrieve(session_id)
+            email = checkout_session.customer_details.email.lower() if checkout_session.customer_details.email else None
+            customer_id = checkout_session.customer
         except Exception as e:
             logger.error(f"Stripe session retrieve failed: {e}")
 
-    if email:
-        user = User.get(email)
-        if user:
-            # Auto-login the user after successful checkout
-            # This ensures the password form (which posts to @login_required /set-password) works
-            # for both marketplace users and direct subscribers
-            if not current_user.is_authenticated:
-                login_user(user)
-                logger.info(f"Auto-login after checkout for {email}")
+    if not email:
+        flash("Could not verify payment. Please contact support.", "error")
+        return redirect("/")
 
-            # SCENARIO 1: User exists but needs a password
-            if not user.password_hash:
-                return render_template('checkout-success-generate-password.html', email=email)
+    # Ensure user record exists in DB (handles race condition with Stripe webhook)
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            temp_id = f"temp_{uuid.uuid4().hex[:8]}"
+            cur.execute("""
+                INSERT INTO subscribers (location_id, email, stripe_customer_id, role, subscription_tier)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (email) DO UPDATE SET
+                    stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, subscribers.stripe_customer_id),
+                    updated_at = NOW()
+            """, (temp_id, email, customer_id, 'individual', 'individual'))
+            conn.commit()
+            logger.info(f"Success page: ensured user record exists for {email}")
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Success page user provision error: {e}")
+        finally:
+            cur.close()
+            conn.close()
 
-    # SCENARIO 2: Generic Success (Already has password or just viewing receipt)
-    return render_template('checkout-success-login.html', email=email)
+    user = User.get(email)
+    if user:
+        # If user already has a password, send to login
+        if user.password_hash:
+            flash("Payment confirmed! Please log in to continue.", "success")
+            return redirect("/login")
+
+        # Auto-login for the create-password form (which posts to @login_required /set-password)
+        if not current_user.is_authenticated:
+            login_user(user)
+            logger.info(f"Auto-login after checkout for {email}")
+
+    # Always show create password page after checkout
+    return render_template('checkout-success-generate-password.html', email=email)
 
 @app.route("/set-password", methods=["GET", "POST"])
 @login_required
@@ -2184,24 +2221,11 @@ def set_password():
 
         conn.commit()
         logger.info(f"Password set for {current_user.email} ({current_user.role})")
-        flash("Password set successfully! You can now log in anytime.", "success")
 
-        # Redirect to onboarding-status if setup is still incomplete
-        is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
-        has_token = bool(current_user.access_token)
-        has_subscription = bool(current_user.stripe_customer_id) or is_admin
-        loc_ok = bool(current_user.location_id and not str(current_user.location_id).startswith("temp_"))
-        cal_ok = bool(current_user.calendar_id)
-        bot_ok = bool(current_user.bot_first_name)
-        setup_complete = has_token and has_subscription and loc_ok and cal_ok and bot_ok
-
-        if not setup_complete:
-            return redirect("/onboarding-status")
-
-        if current_user.role == 'agency_owner':
-            return redirect("/agency-dashboard")
-        else:
-            return redirect("/dashboard")
+        # Log out so user must log in with their new password
+        logout_user()
+        flash("Password created successfully! Please log in.", "success")
+        return redirect("/login")
 
     except Exception as e:
         conn.rollback()
@@ -2591,24 +2615,15 @@ def oauth_callback():
         else:
             logger.warning(f"User.get({user_email}) returned None after database insertion!")
 
-        # MARKETPLACE INSTALLATION: Route to onboarding checkpoint
-        # Shows the user exactly where they are and what to do next
+        # MARKETPLACE INSTALLATION: Route to home page so user can subscribe
         if not is_private_app:
-            logger.info(f"Marketplace install complete for {user_email} — routing to onboarding status")
-            return redirect("/onboarding-status")
+            logger.info(f"Marketplace install complete for {user_email} — routing to home for subscription")
+            flash("App installed! Please subscribe to activate your bot.", "success")
+            return redirect("/")
 
-        # PRIVATE APP FLOW: Direct redirect (happens in main browser window)
-        flash(f"Success! {num_subs} locations connected.", "success")
-
-        if needs_password:
-            if is_agency_owner:
-                return redirect("/set-password?type=agency")
-            else:
-                return redirect(f"/register?location_id={primary_location_id}")
-
-        if is_agency_owner:
-            return redirect("/agency-dashboard")
-        return redirect("/dashboard")
+        # PRIVATE APP FLOW: Route through OAuth loading screen
+        logger.info(f"Private app OAuth complete for {user_email} — routing to loading screen")
+        return redirect("/oauth/loading")
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}")
@@ -2618,6 +2633,71 @@ def oauth_callback():
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
         flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
+
+# ============================================================
+# OAUTH LOADING SCREEN & ONBOARDING CHECK API
+# ============================================================
+
+@app.route("/oauth/loading")
+@login_required
+def oauth_loading():
+    """Loading screen shown after OAuth to visualize data gathering progress."""
+    return render_template('oauth-loading.html')
+
+
+@app.route("/api/onboarding-check")
+@login_required
+def onboarding_check():
+    """API endpoint for the OAuth loading screen to check data status in real-time."""
+    user = User.get(current_user.email)
+    if not user:
+        return flask_jsonify({"error": "User not found"}), 404
+
+    loc_ok = bool(user.location_id and not str(user.location_id).startswith("temp_"))
+
+    checks = [
+        {
+            "key": "location_id",
+            "label": "Location ID",
+            "status": "success" if loc_ok else "pending",
+            "value": user.location_id if loc_ok else None
+        },
+        {
+            "key": "user_id",
+            "label": "CRM User ID",
+            "status": "success" if user.crm_user_id else "pending",
+            "value": user.crm_user_id
+        },
+        {
+            "key": "access_token",
+            "label": "Access Token",
+            "status": "success" if user.access_token else "pending",
+            "value": "Connected" if user.access_token else None
+        },
+        {
+            "key": "refresh_token",
+            "label": "Recovery Token",
+            "status": "success" if user.refresh_token else "pending",
+            "value": "Connected" if user.refresh_token else None
+        },
+        {
+            "key": "calendars",
+            "label": "Calendars",
+            "status": "success" if user.calendar_id else "pending",
+            "value": user.calendar_name if user.calendar_id else "Available after dashboard config"
+        },
+    ]
+
+    # Core items that must be connected (calendars configured later in dashboard)
+    core_keys = ["location_id", "user_id", "access_token", "refresh_token"]
+    all_connected = all(c["status"] == "success" for c in checks if c["key"] in core_keys)
+
+    return flask_jsonify({
+        "checks": checks,
+        "all_connected": all_connected,
+        "email": user.email
+    })
+
 
 # ============================================================
 # SUB-USER INVITE SYSTEM
