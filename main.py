@@ -461,6 +461,10 @@ def stripe_webhook():
     sig_header = request.headers.get("Stripe-Signature")
     endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
+    if not endpoint_secret:
+        logger.error("STRIPE_WEBHOOK_SECRET env var is not set — cannot verify webhook signature")
+        return '', 500
+
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
     except stripe.error.SignatureVerificationError:
