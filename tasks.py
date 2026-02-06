@@ -6,7 +6,7 @@ import os
 import time
 from typing import Tuple, Optional
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, get_message_count, sync_messages_to_db, log_webhook_event
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -403,7 +403,7 @@ def _collect_unanswered_lead_messages(contact_id: str, current_message: str) -> 
         if 'cur' in locals():
             cur.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 
 def process_webhook_task(payload: dict):
@@ -548,7 +548,7 @@ def process_webhook_task(payload: dict):
                     logger.error(f"Idempotency check failed: {e}")
                 finally:
                     cur.close()
-                    conn.close()
+                    return_db_connection(conn)
 
         if message:
             save_message(contact_id, message, "lead")

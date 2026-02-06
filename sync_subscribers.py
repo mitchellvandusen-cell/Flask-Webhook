@@ -6,6 +6,7 @@ import io
 import logging
 import psycopg2
 from psycopg2.extras import execute_values
+from db import get_db_connection, return_db_connection
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ def sync_subscribers() -> bool:
     # ─── Database Connection & Migration ───
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = get_db_connection()
         conn.autocommit = False
         cur = conn.cursor()
 
@@ -162,7 +163,7 @@ def sync_subscribers() -> bool:
             except Exception as e:
                 logger.error(f"❌ Cursor close failed: {e}")
             try:
-                conn.close()
+                return_db_connection(conn)
             except Exception as e:
                 logger.error(f"❌ Connection close failed: {e}")
 

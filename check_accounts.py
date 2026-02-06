@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0, '/home/user/Flask-Webhook')
 
-from db import get_db_connection
+from db import get_db_connection, return_db_connection
 
 def check_accounts():
     conn = get_db_connection()
@@ -79,7 +79,7 @@ def check_accounts():
     print("\n" + "="*80)
 
     cur.close()
-    conn.close()
+    return_db_connection(conn)
 
 if __name__ == '__main__':
     check_accounts()

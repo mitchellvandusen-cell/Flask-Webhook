@@ -6,7 +6,7 @@ import re
 import logging
 from typing import List, Dict, Optional
 from openai import OpenAI
-from db import get_db_connection
+from db import get_db_connection, return_db_connection
 from psycopg2.extras import execute_values
 from datetime import datetime
 import httpx
@@ -59,7 +59,7 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, str]]:
     """
@@ -110,7 +110,7 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 # ===================================
 # FACT STORAGE (Structured Redundancy)
@@ -154,7 +154,7 @@ def save_new_facts(contact_id: str, facts: List[str]) -> int:
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 def get_known_facts(contact_id: str) -> List[str]:
     """Return all known facts as a clean list of strings."""
@@ -182,7 +182,7 @@ def get_known_facts(contact_id: str) -> List[str]:
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 # ===================================
 # NARRATIVE OBSERVER (Evolving Story)
@@ -213,7 +213,7 @@ def get_narrative(contact_id: str) -> str:
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 def update_narrative(contact_id: str, new_story: str) -> bool:
     """Update or insert the narrative story with timestamp."""
@@ -243,7 +243,7 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 def _clean_llm_output(raw: str) -> str:
     """Strip thinking tags and other LLM reasoning artifacts from output."""

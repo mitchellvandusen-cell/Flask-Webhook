@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
+from psycopg2 import pool
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -32,11 +33,39 @@ if creds_dict:
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# --- Connection Pool (replaces per-request connections) ---
+_connection_pool = None
+
+def _get_pool():
+    """Lazy-init a threaded connection pool (min 2, max 20 connections)."""
+    global _connection_pool
+    if _connection_pool is None and DATABASE_URL:
+        try:
+            _connection_pool = pool.ThreadedConnectionPool(
+                minconn=2,
+                maxconn=20,
+                dsn=DATABASE_URL,
+                connect_timeout=10,
+                cursor_factory=RealDictCursor,
+            )
+            logger.info("Database connection pool initialized (2-20 connections)")
+        except psycopg2.Error as e:
+            logger.error(f"Connection pool creation failed: {e}", exc_info=True)
+    return _connection_pool
+
 def get_db_connection() -> Optional[psycopg2.extensions.connection]:
-    """Get a new PostgreSQL connection with RealDictCursor."""
+    """Get a connection from the pool. Falls back to direct connect if pool unavailable."""
     if not DATABASE_URL:
         logger.critical("DATABASE_URL not set")
         return None
+    p = _get_pool()
+    if p:
+        try:
+            conn = p.getconn()
+            conn.autocommit = False
+            return conn
+        except psycopg2.Error as e:
+            logger.warning(f"Pool getconn failed, falling back to direct: {e}")
     try:
         return psycopg2.connect(
             DATABASE_URL,
@@ -46,6 +75,22 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
     except psycopg2.Error as e:
         logger.error(f"Database connection failed: {e}", exc_info=True)
         return None
+
+def return_db_connection(conn):
+    """Return a connection to the pool (or close it if no pool)."""
+    if conn is None:
+        return
+    p = _get_pool()
+    if p:
+        try:
+            p.putconn(conn)
+            return
+        except Exception:
+            pass
+    try:
+        conn.close()
+    except Exception:
+        pass
 
 
 def log_webhook_event(location_id: str, event_type: str, status: str = "info",
@@ -73,7 +118,7 @@ def log_webhook_event(location_id: str, event_type: str, status: str = "info",
             conn.rollback()
     finally:
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 
 def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
@@ -102,7 +147,7 @@ def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
         return []
     finally:
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 
 def init_db() -> bool:
@@ -378,7 +423,7 @@ def init_db() -> bool:
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 
 class User(UserMixin):
@@ -501,7 +546,7 @@ class User(UserMixin):
             if 'cur' in locals():
                 cur.close()
             if conn:
-                conn.close()
+                return_db_connection(conn)
    
     @staticmethod
     def get_from_agency(email: str) -> Optional['User']:
@@ -541,7 +586,7 @@ class User(UserMixin):
             if 'cur' in locals():
                 cur.close()
             if conn:
-                conn.close()
+                return_db_connection(conn)
    
     @staticmethod
     def create(
@@ -596,7 +641,7 @@ class User(UserMixin):
         finally:
             if conn:
                 cur.close()
-                conn.close()
+                return_db_connection(conn)
 
 
 # --- Helper Functions ---
@@ -618,7 +663,7 @@ def get_subscriber_info_sql(location_id: str) -> Optional[Dict[str, Any]]:
         if 'cur' in locals():
             cur.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 
 def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
@@ -707,7 +752,7 @@ def get_message_count(contact_id: str) -> int:
         if 'cur' in locals():
             cur.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 
 def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: list) -> int:
@@ -744,7 +789,7 @@ def sync_messages_to_db(contact_id: str, location_id: str, fetched_messages: lis
         if 'cur' in locals():
             cur.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 
 def update_subscriber_token(
@@ -777,4 +822,4 @@ def update_subscriber_token(
         if 'cur' in locals():
             cur.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)
