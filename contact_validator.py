@@ -5,7 +5,7 @@ import os
 import logging
 import requests
 from typing import Optional, Dict, Any
-from db import get_db_connection
+from db import get_db_connection, return_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def get_location_access_token(location_id: str) -> Optional[str]:
     finally:
         if conn:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 
 def search_contact_by_name(location_id: str, first_name: str) -> Optional[str]:

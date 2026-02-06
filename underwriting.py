@@ -4,6 +4,8 @@ import requests
 import csv
 import io
 import re
+import os
+import json
 import threading
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -16,6 +18,9 @@ SHEET_URLS = {
     "term_iul": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1023819925&single=true&output=csv",
     "uhl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTysHNk28dg31uTaucHDWi6hLBSs13L1J6V_s71MSygV5gyrwsJuALLvWIg9b-aKg/pub?gid=1225036935&single=true&output=csv"
 }
+
+# Local fallback file path (used when Google Sheets is unreachable)
+_FALLBACK_FILE = os.path.join(os.path.dirname(__file__), "underwriting_fallback.json")
 
 # Cache (in-memory, TTL 60 min) with thread safety
 _CACHE: dict = {
@@ -64,17 +69,46 @@ def refresh_underwriting_data(force: bool = False) -> List[str]:
             _CACHE["last_updated"] = now
         logger.info(f"Underwriting data refreshed: {len(combined_rules)} rules loaded")
 
+        # Save to local fallback so we survive Google Sheets outages
+        try:
+            with open(_FALLBACK_FILE, "w") as f:
+                json.dump(combined_rules, f)
+            logger.debug(f"Underwriting fallback saved ({len(combined_rules)} rules)")
+        except Exception as fe:
+            logger.debug(f"Could not save underwriting fallback: {fe}")
+
     except requests.RequestException as e:
         logger.error(f"Underwriting fetch failed: {e}")
         # Return old cache if available
         with _cache_lock:
-            return _CACHE["rules"].copy()
+            if _CACHE["rules"]:
+                return _CACHE["rules"].copy()
+        # Load from local fallback file
+        return _load_fallback()
     except Exception as e:
         logger.error(f"Unexpected underwriting refresh error: {e}")
         with _cache_lock:
-            return _CACHE["rules"].copy()
+            if _CACHE["rules"]:
+                return _CACHE["rules"].copy()
+        return _load_fallback()
 
     return combined_rules
+
+
+def _load_fallback() -> List[str]:
+    """Load underwriting rules from local fallback JSON file."""
+    try:
+        if os.path.exists(_FALLBACK_FILE):
+            with open(_FALLBACK_FILE, "r") as f:
+                rules = json.load(f)
+            logger.info(f"Loaded {len(rules)} underwriting rules from local fallback")
+            with _cache_lock:
+                _CACHE["rules"] = rules
+                _CACHE["last_updated"] = datetime.now()
+            return rules
+    except Exception as e:
+        logger.error(f"Failed to load underwriting fallback: {e}")
+    return []
 
 def get_underwriting_context(message: str) -> str:
     """

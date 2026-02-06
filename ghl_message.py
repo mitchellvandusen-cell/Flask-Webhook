@@ -4,7 +4,7 @@ import os
 import time as time_module
 import requests
 from datetime import datetime, timedelta
-from db import get_db_connection
+from db import get_db_connection, return_db_connection
 from reply_sanitizer import is_safe_to_send
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def send_sms_via_ghl(
             logger.error(f"Duplicate check failed: {e}")
         finally:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
     headers = {
         "Authorization": f"Bearer {access_token}",

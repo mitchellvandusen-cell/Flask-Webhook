@@ -27,7 +27,7 @@ from rq import Queue
 from psycopg2.extras import RealDictCursor
 
 # === IMPORTS ===
-from db import get_subscriber_info_hybrid, get_db_connection, init_db, User
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, init_db, User
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -48,11 +48,28 @@ from contact_validator import validate_and_resolve_contact
 load_dotenv()
 
 app = Flask(__name__)
+
+# --- PII Redaction Filter for Production Logs ---
+class PIIRedactionFilter(logging.Filter):
+    """Redacts phone numbers and email addresses from log messages."""
+    import re as _re
+    _phone_re = _re.compile(r'\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
+    _email_re = _re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+
+    def filter(self, record):
+        if isinstance(record.msg, str):
+            record.msg = self._phone_re.sub('[PHONE]', record.msg)
+            record.msg = self._email_re.sub('[EMAIL]', record.msg)
+        return True
+
 # Logging - structured for production
+_pii_filter = PIIRedactionFilter()
+_handler = logging.StreamHandler()
+_handler.addFilter(_pii_filter)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-    handlers=[logging.StreamHandler()]
+    handlers=[_handler]
 )
 logger = logging.getLogger(__name__)
 
@@ -403,7 +420,7 @@ def webhook():
             if cur:
                 cur.close()
             if conn:
-                conn.close()
+                return_db_connection(conn)
 
 
 #   2. Enqueue the Brain
@@ -537,7 +554,7 @@ def stripe_webhook():
                     conn.rollback()
                 finally:
                     cur.close()
-                    conn.close()
+                    return_db_connection(conn)
 
     return '', 200
 @app.route("/register", methods=["GET", "POST"])
@@ -625,7 +642,7 @@ def register():
             return redirect("/register")
         finally:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
     return render_template('register.html', form=form)
 
@@ -748,7 +765,7 @@ def forgot_password():
                 except Exception:
                     pass
                 finally:
-                    conn.close()
+                    return_db_connection(conn)
 
         if user:
             try:
@@ -822,7 +839,7 @@ def reset_password(token):
         return redirect(f"/reset-password/{token}")
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 
 @app.route("/agency-dashboard", methods=["GET", "POST"])
@@ -1036,7 +1053,7 @@ def agency_dashboard():
         flash("Error loading agency data.", "error")
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
     return render_template('agency_dashboard.html',
                            form=form,
                            access_token_display=access_token_display,
@@ -1082,7 +1099,7 @@ def save_profile():
         return flask_jsonify({"error": str(e)}), 500
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 @app.route("/app")
 def app_entry():
@@ -1248,7 +1265,7 @@ def dashboard():
                 flash(f"Error saving settings: {str(e)}", "error")
             finally:
                 cur.close()
-                conn.close()
+                return_db_connection(conn)
     # --- 2. PRE-FILL FORM (GET) ---
     # Since current_user is now loaded from 'subscribers', we can use it directly
     if request.method == 'GET':
@@ -1373,7 +1390,7 @@ def save_profile():
         return flask_jsonify({"error": str(e)}), 500
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
@@ -1435,7 +1452,7 @@ def run_demo_janitor():
             logger.error(f"Janitor cleanup failed: {e}")
         finally:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
 @app.route("/integrations")
 def integrations_page():
@@ -1488,7 +1505,7 @@ def save_integration_config():
         return safe_jsonify({"error": "Failed to save configuration"}), 500
     finally:
         cur.close()
-        conn_db.close()
+        return_db_connection(conn_db)
 
 
 @app.route("/api/integrations/test", methods=["POST"])
@@ -1615,7 +1632,7 @@ def demo_chat_api():
             recent_exchanges.append({"role": role, "text": row['message_text']})
 
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
         # 3. Use your full brain
         from sales_director import generate_strategic_directive
@@ -1697,7 +1714,7 @@ def demo_chat_api():
             """, (contact_id, reply))
             conn.commit()
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
         # 6. Return response directly to frontend
         return flask_jsonify({
@@ -1737,7 +1754,7 @@ def demo_init_api():
             """, (contact_id, opener))
             conn.commit()
             cur.close()
-            conn.close()
+            return_db_connection(conn)
             return flask_jsonify({"contact_id": contact_id, "opener": opener, "status": "new"})
 
         cur.execute("""
@@ -1749,7 +1766,7 @@ def demo_init_api():
 
         history = [{"role": "bot" if r['message_type'] == 'assistant' else "user", "content": r['message_text']} for r in cur.fetchall()]
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
         return flask_jsonify({"contact_id": contact_id, "history": history, "status": "existing"})
 
@@ -1778,7 +1795,7 @@ def demo_reset_api():
                 conn.rollback()
         finally:
             if conn:
-                conn.close()
+                return_db_connection(conn)
 
     new_id = f"demo_{uuid.uuid4()}"
     opener = generate_demo_opener()
@@ -1792,7 +1809,7 @@ def demo_reset_api():
         """, (new_id, opener))
         conn.commit()
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
     return flask_jsonify({"contact_id": new_id, "opener": opener})
 
@@ -1886,7 +1903,7 @@ def get_logs():
 
     finally:
         cur.close()
-        db_conn.close()
+        return_db_connection(db_conn)
 
 
 @app.route("/download-transcript", methods=["GET"])
@@ -1979,7 +1996,7 @@ def download_transcript():
         if 'cur' in locals():
             cur.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)
 
 @app.route("/checkout")
 def checkout():
@@ -2276,7 +2293,7 @@ def success():
             logger.error(f"Success page user provision error: {e}")
         finally:
             cur.close()
-            conn.close()
+            return_db_connection(conn)
 
     user = User.get(email)
     if user:
@@ -2364,7 +2381,7 @@ def set_password():
         return redirect(f"/set-password?type={user_type}")
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 @app.route("/refresh")
 def refresh_subscribers():
@@ -2759,7 +2776,7 @@ def oauth_callback():
                 return redirect(url_for('home'))
             finally:
                 cur.close()
-                conn.close()
+                return_db_connection(conn)
 
         # Login the user via Flask-Login
         user = User.get(user_email)
@@ -3024,7 +3041,7 @@ def invite_sub_user():
         return flask_jsonify({"error": str(e)}), 500
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 
 @app.route("/claim-account", methods=["GET", "POST"])
@@ -3125,7 +3142,7 @@ def claim_account():
         return redirect(url_for('home'))
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 
 @app.route("/api/agency/resend-invite", methods=["POST"])
@@ -3207,7 +3224,7 @@ def resend_invite():
         return flask_jsonify({"error": str(e)}), 500
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 
 @app.route("/api/agency/invite-all", methods=["POST"])
@@ -3288,7 +3305,7 @@ def invite_all_sub_users():
         return flask_jsonify({"error": str(e)}), 500
     finally:
         cur.close()
-        conn.close()
+        return_db_connection(conn)
 
 @app.route("/api/agency/logs/<location_id>", methods=["GET"])
 @login_required
