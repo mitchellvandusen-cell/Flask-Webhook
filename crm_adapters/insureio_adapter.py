@@ -8,6 +8,10 @@
 #   subdomain: Organization subdomain (e.g., "myagency" for myagency.insureio.com)
 #   agent_id: (optional) Agent ID for quoting
 #
+# Optional for SMS:
+#   twilio_account_sid, twilio_auth_token, twilio_from_number
+#   OR messaging_webhook_url
+#
 # Authentication: API key via Basic Auth or request body
 # Leads: POST https://{subdomain}.insureio.com/consumers.json
 # Appointments: Not natively supported - use webhook/Calendly integration
@@ -25,13 +29,13 @@ INSUREIO_TIMEOUT = 20
 class InsureioAdapter(CRMAdapter):
     """
     Insureio CRM adapter for insurance-specific lead management.
-    Supports lead creation and webhook-based appointment notifications.
-    Insureio does not have a native appointment booking API - appointments
-    are handled via Calendly or webhook integrations.
+    Supports lead creation, consumer lookup, and webhook-based appointment notifications.
+    SMS via Twilio or webhook. Insureio does not have a native appointment booking API -
+    appointments are handled via Calendly or webhook integrations.
     """
 
     CRM_NAME = "Insureio"
-    SUPPORTS_MESSAGING = False
+    SUPPORTS_MESSAGING = True  # Via Twilio or webhook relay
     SUPPORTS_CALENDAR = False  # No native calendar API
     SUPPORTS_CONTACTS = True
 
@@ -41,8 +45,8 @@ class InsureioAdapter(CRMAdapter):
         self.brand_id = self.crm_config.get("brand_id", "")
         self.subdomain = self.crm_config.get("subdomain", "")
         self.agent_id = self.crm_config.get("agent_id", "")
-        # Optional webhook URL for sending booking notifications
         self.booking_webhook_url = self.crm_config.get("booking_webhook_url", "")
+        self.messaging_webhook_url = self.crm_config.get("messaging_webhook_url", "")
 
     @property
     def _base_url(self):
@@ -52,25 +56,49 @@ class InsureioAdapter(CRMAdapter):
 
     @property
     def _auth(self):
-        """Basic auth tuple for requests."""
         if self.api_key:
             return (self.api_key, "")
         return None
 
     def send_message(self, contact_id: str, message: str, **kwargs) -> bool:
-        logger.info("Insureio adapter: No native messaging API. Use Zapier or external SMS service.")
-        return False
+        """Send SMS via Twilio or webhook relay."""
+        phone = kwargs.get("phone", "")
+        sent = False
+
+        # Try Twilio first
+        from crm_adapters.twilio_messaging import has_twilio_config, send_sms_via_twilio, get_twilio_config
+        if has_twilio_config(self.crm_config):
+            if not phone:
+                contact = self.get_contact(contact_id)
+                phone = contact.get("phone", "")
+            if phone:
+                cfg = get_twilio_config(self.crm_config)
+                sent = send_sms_via_twilio(phone, message, **cfg)
+
+        # Fallback: webhook relay
+        if not sent and self.messaging_webhook_url:
+            try:
+                resp = requests.post(self.messaging_webhook_url, json={
+                    "contact_id": contact_id,
+                    "message": message,
+                    "phone": phone,
+                    "direction": "outbound",
+                    "_source": "InsuranceGrokBot",
+                    "_event_type": "send_message",
+                }, timeout=INSUREIO_TIMEOUT)
+                sent = resp.status_code in [200, 201]
+            except Exception as e:
+                logger.error(f"Insureio messaging webhook error: {e}")
+
+        if not sent:
+            logger.warning(f"Insureio: No messaging method available for {contact_id}")
+        return sent
 
     def get_free_slots(self) -> str:
         logger.info("Insureio adapter: No native calendar API. Using generic response.")
         return "let me check my calendar and get back to you with some times"
 
     def book_appointment(self, contact_id: str, first_name: str, selected_time: str) -> bool:
-        """
-        Insureio doesn't have a native appointment API.
-        If a booking_webhook_url is configured, send the booking data there.
-        Otherwise, log the booking intent for manual follow-up.
-        """
         if self.booking_webhook_url:
             payload = {
                 "contact_id": contact_id,
@@ -94,8 +122,12 @@ class InsureioAdapter(CRMAdapter):
         logger.info(f"Insureio: No booking API or webhook. Booking intent logged for {contact_id} at {selected_time}")
         return False
 
+    def search_contact(self, email: str = None, phone: str = None) -> Optional[dict]:
+        """Insureio has no documented search API. Returns None."""
+        logger.info("Insureio: No search API available")
+        return None
+
     def get_contact(self, contact_id: str) -> dict:
-        # Insureio consumer fetch endpoint
         url = f"{self._base_url}/consumers/{contact_id}.json"
         try:
             resp = requests.get(url, auth=self._auth, timeout=INSUREIO_TIMEOUT)
@@ -113,7 +145,6 @@ class InsureioAdapter(CRMAdapter):
         return {}
 
     def create_contact(self, contact_data: dict) -> Optional[str]:
-        """Create a consumer/lead in Insureio."""
         if not self.brand_id:
             logger.error("Insureio: brand_id required for lead creation")
             return None
@@ -129,7 +160,6 @@ class InsureioAdapter(CRMAdapter):
             }
         }
 
-        # Add optional fields if provided
         if contact_data.get("date_of_birth"):
             payload["consumer"]["date_of_birth"] = contact_data["date_of_birth"]
         if contact_data.get("state"):
@@ -152,12 +182,10 @@ class InsureioAdapter(CRMAdapter):
     def validate_credentials(self) -> dict:
         if not self.api_key:
             return {"valid": False, "message": "No Insureio API key configured", "details": {}}
-        # Insureio doesn't have a simple "ping" endpoint; validate by checking if we can reach the API
         url = f"{self._base_url}/consumers.json"
         try:
             resp = requests.get(url, auth=self._auth, params={"limit": 1}, timeout=INSUREIO_TIMEOUT)
             if resp.status_code in [200, 401, 403]:
-                # 200 = valid, 401/403 = endpoint exists but key may be wrong
                 is_valid = resp.status_code == 200
                 return {
                     "valid": is_valid,

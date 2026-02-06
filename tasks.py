@@ -105,7 +105,7 @@ def _extract_times_from_text(text: str) -> list:
     for match in re.finditer(time_pattern, text_lower):
         h = int(match.group(1))
         m = int(match.group(2) or 0)
-        period = match.group(3).lower()
+        period = match.group(3).lower().replace(".", "")  # "p.m." -> "pm"
         if "pm" in period and h != 12:
             h += 12
         elif "am" in period and h == 12:

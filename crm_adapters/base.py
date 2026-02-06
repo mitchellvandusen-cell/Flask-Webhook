@@ -14,11 +14,13 @@ class CRMAdapter(ABC):
     Unified CRM interface. Each CRM adapter implements this contract.
 
     Methods:
-        send_message()      - Send SMS/message to a contact
-        get_free_slots()    - Fetch available calendar slots
-        book_appointment()  - Create an appointment/event
-        get_contact()       - Fetch contact details
-        create_contact()    - Create a new contact/lead
+        send_message()         - Send SMS/message to a contact
+        get_free_slots()       - Fetch available calendar slots
+        book_appointment()     - Create an appointment/event
+        get_contact()          - Fetch contact details by ID
+        search_contact()       - Search for a contact by email/phone
+        create_contact()       - Create a new contact/lead
+        update_contact()       - Update an existing contact
         validate_credentials() - Test if credentials are valid
     """
 
@@ -94,6 +96,24 @@ class CRMAdapter(ABC):
         """
         pass
 
+    def search_contact(self, email: str = None, phone: str = None) -> Optional[dict]:
+        """
+        Search for an existing contact by email or phone.
+        Returns dict with {id, firstName, lastName, email, phone} or None if not found.
+        Used for deduplication before create_contact().
+        Override in subclass for CRM-specific search.
+        """
+        return None
+
+    def update_contact(self, contact_id: str, contact_data: dict) -> bool:
+        """
+        Update an existing contact's fields.
+        contact_data: {first_name, last_name, email, phone, ...} (only fields to update)
+        Returns True if updated successfully.
+        Override in subclass for CRM-specific updates.
+        """
+        return False
+
     def validate_credentials(self) -> dict:
         """
         Test if the current credentials are valid.
@@ -113,6 +133,22 @@ class CRMAdapter(ABC):
         Default: empty list (override if CRM supports it).
         """
         return []
+
+    def get_or_create_contact(self, contact_data: dict) -> Optional[str]:
+        """
+        Search for an existing contact, create if not found.
+        Returns the contact ID or None on failure.
+        """
+        email = contact_data.get("email", "")
+        phone = contact_data.get("phone", "")
+
+        if email or phone:
+            existing = self.search_contact(email=email, phone=phone)
+            if existing and existing.get("id"):
+                logger.info(f"{self.CRM_NAME}: Found existing contact {existing['id']}")
+                return existing["id"]
+
+        return self.create_contact(contact_data)
 
     def __repr__(self):
         return f"<{self.CRM_NAME}Adapter location={self.location_id}>"
