@@ -502,7 +502,7 @@ def consolidated_calendar_op(
         if match_with_period:
             h = int(match_with_period.group(1))
             m = int(match_with_period.group(2) or 0)
-            period = match_with_period.group(3).lower()
+            period = match_with_period.group(3).lower().replace(".", "")  # "p.m." -> "pm"
             if "pm" in period and h != 12:
                 h += 12
             elif "am" in period and h == 12:

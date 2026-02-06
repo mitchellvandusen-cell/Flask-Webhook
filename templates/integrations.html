@@ -2,13 +2,13 @@
 {% block title %}Integrations | InsuranceGrokBot{% endblock %}
 
 {% block content %}
-<section style="padding: 140px 0 80px;">
+<section class="section" style="padding-top: 140px;">
     <div class="container">
-        <div class="text-center mb-5">
-            <h1 style="font-weight: 900; font-size: 3rem; margin-bottom: 20px;">
-                Connect Your <span class="text-accent">CRM</span>
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h1 class="section-title" style="font-size: 3rem; margin-bottom: 20px;">
+                Connect Your <span>CRM</span>
             </h1>
-            <p class="lead" style="color: #aaa; max-width: 700px; margin: 0 auto; font-size: 1.15rem;">
+            <p class="section-subtitle">
                 InsuranceGrokBot integrates with the tools you already use. Connect your CRM in minutes and let the bot handle lead engagement, appointment booking, and follow-ups automatically.
             </p>
         </div>
@@ -16,142 +16,142 @@
         <div class="row g-4 justify-content-center mb-5">
 
             <!-- GoHighLevel -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-bolt" style="font-size:1.5rem; color:var(--accent);"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="0">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-bolt"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">GoHighLevel</h4>
-                    <span class="badge" style="background: rgba(0,255,136,0.15); color: var(--accent); font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">Native Integration</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge native">Native Integration</span>
+                    <p class="integration-desc">
                         Full native integration with Lead Connector. OAuth connect, calendar booking, two-way SMS, contact sync, and workflow automation.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check text-accent me-2"></i>Two-Way SMS</div>
-                        <div class="mb-1"><i class="fa-solid fa-check text-accent me-2"></i>Calendar Booking</div>
-                        <div class="mb-1"><i class="fa-solid fa-check text-accent me-2"></i>Free Slot Detection</div>
-                        <div class="mb-1"><i class="fa-solid fa-check text-accent me-2"></i>Contact Sync</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Two-Way SMS</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Calendar Booking</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Free Slot Detection</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Sync</div>
                         <div><i class="fa-solid fa-check text-accent me-2"></i>OAuth Connect</div>
                     </div>
                 </div>
             </div>
 
             <!-- Salesforce -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(0,136,255,0.08); border:1px solid rgba(0,136,255,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-cloud" style="font-size:1.5rem; color:#0088ff;"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-cloud"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">Salesforce</h4>
-                    <span class="badge" style="background: rgba(0,136,255,0.15); color: #0088ff; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">API Integration</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge">API Integration</span>
+                    <p class="integration-desc">
                         Connect to Salesforce via OAuth 2.0. Create contacts, book events, and sync appointment data directly to your Salesforce org.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#0088ff;"></i>Contact Management</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#0088ff;"></i>Event Booking</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#0088ff;"></i>OAuth 2.0</div>
-                        <div><i class="fa-solid fa-check me-2" style="color:#0088ff;"></i>Auto Token Refresh</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Management</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Event Booking</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>OAuth 2.0</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Auto Token Refresh</div>
                     </div>
                 </div>
             </div>
 
             <!-- HubSpot -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(255,122,0,0.08); border:1px solid rgba(255,122,0,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-hubspot" style="font-size:1.5rem; color:#ff7a00;"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-h"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">HubSpot</h4>
-                    <span class="badge" style="background: rgba(255,122,0,0.15); color: #ff7a00; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">API Integration</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge">API Integration</span>
+                    <p class="integration-desc">
                         Integrate with HubSpot CRM using Private App tokens. Create contacts, log meetings, and associate engagements automatically.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#ff7a00;"></i>Contact Management</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#ff7a00;"></i>Meeting Logging</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#ff7a00;"></i>Private App Token</div>
-                        <div><i class="fa-solid fa-check me-2" style="color:#ff7a00;"></i>Contact Associations</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Management</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Meeting Logging</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Private App Token</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Associations</div>
                     </div>
                 </div>
             </div>
 
             <!-- Pipedrive -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(51,183,67,0.08); border:1px solid rgba(51,183,67,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-handshake" style="font-size:1.5rem; color:#33b743;"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="0">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-handshake"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">Pipedrive</h4>
-                    <span class="badge" style="background: rgba(51,183,67,0.15); color: #33b743; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">API Integration</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge">API Integration</span>
+                    <p class="integration-desc">
                         Connect Pipedrive with your API token. Create persons, schedule activities, and track deals through your sales pipeline.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#33b743;"></i>Person Management</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#33b743;"></i>Activity Scheduling</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#33b743;"></i>API Token Auth</div>
-                        <div><i class="fa-solid fa-check me-2" style="color:#33b743;"></i>Deal Tracking</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Person Management</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Activity Scheduling</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>API Token Auth</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Deal Tracking</div>
                     </div>
                 </div>
             </div>
 
             <!-- Zoho CRM -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(220,53,53,0.08); border:1px solid rgba(220,53,53,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-database" style="font-size:1.5rem; color:#dc3535;"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-database"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">Zoho CRM</h4>
-                    <span class="badge" style="background: rgba(220,53,53,0.15); color: #dc3535; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">API Integration</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge">API Integration</span>
+                    <p class="integration-desc">
                         Integrate with Zoho CRM via OAuth 2.0. Create contacts, schedule events with participants, and support all Zoho data centers globally.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#dc3535;"></i>Contact Management</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#dc3535;"></i>Event Scheduling</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#dc3535;"></i>Multi-DC Support</div>
-                        <div><i class="fa-solid fa-check me-2" style="color:#dc3535;"></i>Auto Token Refresh</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Contact Management</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Event Scheduling</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Multi-DC Support</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Auto Token Refresh</div>
                     </div>
                 </div>
             </div>
 
             <!-- Zapier -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(255,79,18,0.08); border:1px solid rgba(255,79,18,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-plug" style="font-size:1.5rem; color:#ff4f12;"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-plug"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">Zapier</h4>
-                    <span class="badge" style="background: rgba(255,79,18,0.15); color: #ff4f12; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">Universal Webhook</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge">Universal Webhook</span>
+                    <p class="integration-desc">
                         Connect to 6,000+ apps through Zapier webhooks. Route booking data, contact info, and messages to any platform Zapier supports.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#ff4f12;"></i>6,000+ App Connections</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#ff4f12;"></i>Webhook Relay</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#ff4f12;"></i>No-Code Setup</div>
-                        <div><i class="fa-solid fa-check me-2" style="color:#ff4f12;"></i>Message Routing</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>6,000+ App Connections</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Webhook Relay</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>No-Code Setup</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Message Routing</div>
                     </div>
                 </div>
             </div>
 
             <!-- Insureio -->
-            <div class="col-md-6 col-lg-4">
-                <div class="glass-panel text-center p-4 h-100" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; transition: all 0.3s;">
-                    <div style="width:64px; height:64px; background: rgba(100,50,200,0.08); border:1px solid rgba(100,50,200,0.15); border-radius:16px; display:flex; align-items:center; justify-content:center; margin: 0 auto 20px;">
-                        <i class="fa-solid fa-shield-halved" style="font-size:1.5rem; color:#6432c8;"></i>
+            <div class="col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="0">
+                <div class="glass-card text-center p-4">
+                    <div class="integration-icon">
+                        <i class="fa-solid fa-shield-halved"></i>
                     </div>
                     <h4 style="font-weight: 700; margin-bottom: 8px;">Insureio</h4>
-                    <span class="badge" style="background: rgba(100,50,200,0.15); color: #6432c8; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; display: inline-block;">Insurance CRM</span>
-                    <p style="color: #999; font-size: 0.9rem; margin-bottom: 16px;">
+                    <span class="integration-badge">Insurance CRM</span>
+                    <p class="integration-desc">
                         Purpose-built for insurance agents. Create leads in Insureio, sync consumer data, and connect booking notifications via webhooks.
                     </p>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#6432c8;"></i>Lead Creation</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#6432c8;"></i>Consumer Sync</div>
-                        <div class="mb-1"><i class="fa-solid fa-check me-2" style="color:#6432c8;"></i>Insurance-Specific</div>
-                        <div><i class="fa-solid fa-check me-2" style="color:#6432c8;"></i>Webhook Booking</div>
+                    <div class="integration-features">
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Lead Creation</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Consumer Sync</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Insurance-Specific</div>
+                        <div><i class="fa-solid fa-check text-accent me-2"></i>Webhook Booking</div>
                     </div>
                 </div>
             </div>
@@ -159,45 +159,39 @@
         </div>
 
         <!-- How It Works Section -->
-        <div class="text-center mt-5 pt-5" style="border-top: 1px solid rgba(255,255,255,0.05);">
-            <h2 style="font-weight: 800; font-size: 2.2rem; margin-bottom: 40px;">
-                How Integration <span class="text-accent">Works</span>
+        <div class="text-center mt-5 pt-5" style="border-top: 1px solid rgba(255,255,255,0.05);" data-aos="fade-up">
+            <h2 class="section-title" style="font-size: 2.2rem; margin-bottom: 40px;">
+                How Integration <span>Works</span>
             </h2>
 
             <div class="row g-4 justify-content-center">
-                <div class="col-md-4">
-                    <div class="p-4">
-                        <div style="width:56px; height:56px; background:rgba(0,255,136,0.06); border:1px solid rgba(0,255,136,0.12); border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
-                            <span style="font-weight:900; font-size:1.3rem; color:var(--accent);">1</span>
-                        </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="0">
+                    <div class="glass-card text-center p-4">
+                        <div class="integration-step-num">1</div>
                         <h5 style="font-weight: 700;">Choose Your CRM</h5>
-                        <p style="color: #888; font-size: 0.9rem;">Select your CRM from the dashboard settings. Already using GoHighLevel? You're all set, it's the default.</p>
+                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Select your CRM from the dashboard settings. Already using GoHighLevel? You're all set, it's the default.</p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="p-4">
-                        <div style="width:56px; height:56px; background:rgba(0,255,136,0.06); border:1px solid rgba(0,255,136,0.12); border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
-                            <span style="font-weight:900; font-size:1.3rem; color:var(--accent);">2</span>
-                        </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+                    <div class="glass-card text-center p-4">
+                        <div class="integration-step-num">2</div>
                         <h5 style="font-weight: 700;">Enter Credentials</h5>
-                        <p style="color: #888; font-size: 0.9rem;">Paste your API key, OAuth token, or webhook URL. Each CRM has its own setup guide with step-by-step instructions.</p>
+                        <p style="color: #888; font-size: 0.9rem; margin: 0;">Paste your API key, OAuth token, or webhook URL. Each CRM has its own setup guide with step-by-step instructions.</p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="p-4">
-                        <div style="width:56px; height:56px; background:rgba(0,255,136,0.06); border:1px solid rgba(0,255,136,0.12); border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
-                            <span style="font-weight:900; font-size:1.3rem; color:var(--accent);">3</span>
-                        </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+                    <div class="glass-card text-center p-4">
+                        <div class="integration-step-num">3</div>
                         <h5 style="font-weight: 700;">Bot Goes Live</h5>
-                        <p style="color: #888; font-size: 0.9rem;">The bot handles lead conversations, detects booking intent, and creates appointments directly in your CRM. No code required.</p>
+                        <p style="color: #888; font-size: 0.9rem; margin: 0;">The bot handles lead conversations, detects booking intent, and creates appointments directly in your CRM. No code required.</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- CTA Section -->
-        <div class="text-center mt-5 pt-4">
-            <div class="glass-panel p-5 mx-auto" style="max-width: 600px; background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 24px;">
+        <div class="text-center mt-5 pt-4" data-aos="fade-up">
+            <div class="glass-card p-5 mx-auto" style="max-width: 600px;">
                 <h3 style="font-weight: 800; margin-bottom: 12px;">Ready to Connect?</h3>
                 <p style="color: #888; margin-bottom: 24px;">
                     Sign up and configure your CRM integration from the dashboard.
@@ -209,4 +203,78 @@
         </div>
     </div>
 </section>
+
+<style>
+    .integration-icon {
+        width: 64px;
+        height: 64px;
+        background: rgba(0, 255, 136, 0.06);
+        border: 1px solid rgba(0, 255, 136, 0.12);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 1.5rem;
+        color: var(--accent);
+        transition: var(--transition);
+    }
+    .glass-card:hover .integration-icon {
+        background: rgba(0, 255, 136, 0.12);
+        border-color: rgba(0, 255, 136, 0.3);
+        transform: scale(1.1);
+    }
+    .integration-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-secondary);
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 4px 14px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 16px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .integration-badge.native {
+        background: rgba(0, 255, 136, 0.1);
+        color: var(--accent);
+        border-color: rgba(0, 255, 136, 0.2);
+    }
+    .integration-desc {
+        color: #888;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+        line-height: 1.6;
+    }
+    .integration-features {
+        font-size: 0.8rem;
+        color: #777;
+        text-align: left;
+        padding: 0 10px;
+    }
+    .integration-features div {
+        padding: 3px 0;
+    }
+    .integration-step-num {
+        width: 56px;
+        height: 56px;
+        background: rgba(0, 255, 136, 0.06);
+        border: 1px solid rgba(0, 255, 136, 0.12);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-weight: 900;
+        font-size: 1.3rem;
+        color: var(--accent);
+        transition: var(--transition);
+    }
+    .glass-card:hover .integration-step-num {
+        background: rgba(0, 255, 136, 0.12);
+        border-color: rgba(0, 255, 136, 0.3);
+    }
+</style>
 {% endblock %}

@@ -109,7 +109,7 @@ class SalesforceAdapter(CRMAdapter):
         if match:
             h = int(match.group(1))
             m = int(match.group(2) or 0)
-            period = match.group(3).lower()
+            period = match.group(3).lower().replace(".", "")
             if "pm" in period and h != 12:
                 h += 12
             elif "am" in period and h == 12:

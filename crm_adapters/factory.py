@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Maps crm_type string -> (module_path, class_name)
 CRM_REGISTRY = {
     "ghl": ("crm_adapters.ghl_adapter", "GHLAdapter"),
-    "goHighLevel": ("crm_adapters.ghl_adapter", "GHLAdapter"),
+    "gohighlevel": ("crm_adapters.ghl_adapter", "GHLAdapter"),
     "zapier": ("crm_adapters.zapier_adapter", "ZapierAdapter"),
     "salesforce": ("crm_adapters.salesforce_adapter", "SalesforceAdapter"),
     "hubspot": ("crm_adapters.hubspot_adapter", "HubSpotAdapter"),
