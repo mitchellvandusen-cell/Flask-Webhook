@@ -48,6 +48,63 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
         return None
 
 
+def log_webhook_event(location_id: str, event_type: str, status: str = "info",
+                      summary: str = "", contact_id: str = None, details: dict = None):
+    """Log a webhook/system event for the subscriber's activity log.
+
+    event_type: webhook_received, booking_attempt, booking_success, booking_failed,
+                message_sent, message_failed, slot_fetch, error, crm_action
+    status: success, error, warning, info
+    """
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO webhook_logs (location_id, contact_id, event_type, status, summary, details)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (location_id, contact_id, event_type, status,
+              (summary or "")[:500], json.dumps(details or {})))
+        conn.commit()
+    except Exception as e:
+        logger.debug(f"Failed to log webhook event: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
+                     event_type: str = None, status: str = None) -> list:
+    """Fetch webhook logs for a subscriber, newest first."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        query = "SELECT * FROM webhook_logs WHERE location_id = %s"
+        params = [location_id]
+        if event_type:
+            query += " AND event_type = %s"
+            params.append(event_type)
+        if status:
+            query += " AND status = %s"
+            params.append(status)
+        query += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Failed to fetch webhook logs: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+
 def init_db() -> bool:
     """Initialize the MASTER subscribers table and all supporting tables."""
     conn = get_db_connection()
@@ -288,6 +345,30 @@ def init_db() -> bool:
             logger.info("✅ Migration: Added crm_type and crm_config columns for multi-CRM support")
         except Exception as e:
             logger.debug(f"crm_type/crm_config migration note: {e}")
+
+        # 12. MIGRATION: Create webhook_logs table for per-subscriber activity logging
+        try:
+            cur5 = conn.cursor()
+            cur5.execute("""
+                CREATE TABLE IF NOT EXISTS webhook_logs (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT,
+                    event_type TEXT NOT NULL,
+                    status TEXT DEFAULT 'info',
+                    summary TEXT,
+                    details JSONB DEFAULT '{}'::jsonb,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur5.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_location ON webhook_logs(location_id)")
+            cur5.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_created ON webhook_logs(created_at DESC)")
+            cur5.execute("CREATE INDEX IF NOT EXISTS idx_webhook_logs_event ON webhook_logs(event_type)")
+            conn.commit()
+            cur5.close()
+            logger.info("✅ Migration: Created webhook_logs table")
+        except Exception as e:
+            logger.debug(f"webhook_logs migration note: {e}")
 
         return True
     except psycopg2.Error as e:

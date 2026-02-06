@@ -15,7 +15,7 @@ class GHLAdapter(CRMAdapter):
     Delegates to existing ghl_calendar.py, ghl_api.py, ghl_message.py functions.
     """
 
-    CRM_NAME = "GoHighLevel"
+    CRM_NAME = "LeadConnector"
     SUPPORTS_MESSAGING = True
     SUPPORTS_CALENDAR = True
     SUPPORTS_CONTACTS = True

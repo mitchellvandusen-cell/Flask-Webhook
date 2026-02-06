@@ -289,9 +289,9 @@
                                     <i class="fas fa-sign-in-alt me-1"></i> Enter Dashboard
                                 </a>
                                
-                                <a href="/demo-chat?location_id={{ sub.location_id }}" target="_blank" class="btn btn-sm btn-outline-light me-2">
+                                <button class="btn btn-sm btn-outline-light me-2" onclick="viewLogs('{{ sub.location_id }}', '{{ sub.name }}')">
                                     <i class="fas fa-history me-1"></i> View Logs
-                                </a>
+                                </button>
                                
                                 <button class="btn btn-sm btn-outline-danger" onclick="resetLocation('{{ sub.location_id }}')">
                                     <i class="fas fa-trash me-1"></i> Reset Data
@@ -313,6 +313,47 @@
             </a>
         </div>
     {% endif %}
+    <!-- Webhook Logs Modal -->
+    <div class="modal fade" id="logsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content" style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <h5 class="modal-title" style="color: #fff;">
+                        <i class="fas fa-history me-2 text-accent"></i>Webhook Logs: <span id="logsModalName"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                    <div class="d-flex gap-2 mb-3">
+                        <select id="agencyLogType" class="form-select form-select-sm" style="max-width: 180px; background: rgba(255,255,255,0.05); color: #fff; border-color: rgba(255,255,255,0.1);">
+                            <option value="">All Events</option>
+                            <option value="webhook_received">Webhook Received</option>
+                            <option value="booking_attempt">Booking Attempt</option>
+                            <option value="booking_success">Booking Success</option>
+                            <option value="booking_failed">Booking Failed</option>
+                            <option value="message_sent">Message Sent</option>
+                            <option value="message_failed">Message Failed</option>
+                            <option value="error">Error</option>
+                        </select>
+                        <select id="agencyLogStatus" class="form-select form-select-sm" style="max-width: 140px; background: rgba(255,255,255,0.05); color: #fff; border-color: rgba(255,255,255,0.1);">
+                            <option value="">All Statuses</option>
+                            <option value="success">Success</option>
+                            <option value="error">Error</option>
+                            <option value="warning">Warning</option>
+                            <option value="info">Info</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-accent" onclick="refreshAgencyLogs()">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                    <div id="agencyLogsContainer">
+                        <div class="text-center text-secondary py-4">Loading logs...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="text-center mt-5 d-flex justify-content-center gap-3">
         <a href="/" class="btn btn-outline-light">
             <i class="fa-solid fa-house me-2"></i>Homepage
@@ -518,6 +559,68 @@
                 }
             });
         }
+    });
+
+    // Webhook Logs Viewer
+    let currentLogLocation = '';
+    function viewLogs(locationId, name) {
+        currentLogLocation = locationId;
+        document.getElementById('logsModalName').textContent = name || locationId;
+        document.getElementById('agencyLogType').value = '';
+        document.getElementById('agencyLogStatus').value = '';
+        const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+        modal.show();
+        fetchAgencyLogs(locationId);
+    }
+
+    function refreshAgencyLogs() {
+        if (currentLogLocation) fetchAgencyLogs(currentLogLocation);
+    }
+
+    function fetchAgencyLogs(locationId) {
+        const container = document.getElementById('agencyLogsContainer');
+        container.innerHTML = '<div class="text-center text-secondary py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading logs...</div>';
+
+        const eventType = document.getElementById('agencyLogType').value;
+        const status = document.getElementById('agencyLogStatus').value;
+        let url = `/api/agency/logs/${locationId}?limit=50`;
+        if (eventType) url += `&event_type=${eventType}`;
+        if (status) url += `&status=${status}`;
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.logs || data.logs.length === 0) {
+                    container.innerHTML = '<div class="text-center text-secondary py-4"><i class="fas fa-inbox me-2"></i>No webhook logs found for this location.</div>';
+                    return;
+                }
+                let html = '<div class="table-responsive"><table class="table table-sm" style="color: #ccc; font-size: 0.85rem;">';
+                html += '<thead><tr><th style="color: #888; border-color: rgba(255,255,255,0.1);">Time</th><th style="color: #888; border-color: rgba(255,255,255,0.1);">Event</th><th style="color: #888; border-color: rgba(255,255,255,0.1);">Status</th><th style="color: #888; border-color: rgba(255,255,255,0.1);">Summary</th></tr></thead><tbody>';
+                data.logs.forEach(log => {
+                    const time = log.created_at ? new Date(log.created_at).toLocaleString() : '-';
+                    const badgeColor = {'success':'#10b981','error':'#ef4444','warning':'#f59e0b','info':'#3b82f6'}[log.status] || '#6b7280';
+                    html += `<tr style="border-color: rgba(255,255,255,0.05);">`;
+                    html += `<td style="white-space: nowrap; border-color: rgba(255,255,255,0.05);">${time}</td>`;
+                    html += `<td style="border-color: rgba(255,255,255,0.05);"><code style="color: var(--accent);">${log.event_type || '-'}</code></td>`;
+                    html += `<td style="border-color: rgba(255,255,255,0.05);"><span style="display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.75rem; font-weight:600; background:${badgeColor}22; color:${badgeColor}; border:1px solid ${badgeColor}44;">${log.status}</span></td>`;
+                    html += `<td style="border-color: rgba(255,255,255,0.05);">${log.summary || '-'}</td>`;
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            })
+            .catch(e => {
+                container.innerHTML = '<div class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>Failed to load logs.</div>';
+                console.error('Log fetch error:', e);
+            });
+    }
+
+    // Re-fetch when filters change
+    document.addEventListener('DOMContentLoaded', function() {
+        const logType = document.getElementById('agencyLogType');
+        const logStatus = document.getElementById('agencyLogStatus');
+        if (logType) logType.addEventListener('change', refreshAgencyLogs);
+        if (logStatus) logStatus.addEventListener('change', refreshAgencyLogs);
     });
 </script>
 {% endblock %}
