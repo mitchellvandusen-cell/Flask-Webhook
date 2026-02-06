@@ -123,7 +123,7 @@ mock_sub = {
 }
 
 case_tests = [
-    ("GHL", "GoHighLevel"),
+    ("GHL", "LeadConnector"),
     ("Salesforce", "Salesforce"),
     ("HUBSPOT", "HubSpot"),
     ("Pipedrive", "Pipedrive"),

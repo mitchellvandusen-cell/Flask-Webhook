@@ -23,7 +23,7 @@ CRM_REGISTRY = {
 
 # Human-readable names for the UI
 CRM_DISPLAY_NAMES = {
-    "ghl": "GoHighLevel (Lead Connector)",
+    "ghl": "LeadConnector",
     "zapier": "Zapier (Universal Webhook)",
     "salesforce": "Salesforce",
     "hubspot": "HubSpot",
@@ -35,7 +35,7 @@ CRM_DISPLAY_NAMES = {
 # Configuration fields required for each CRM
 CRM_CONFIG_FIELDS = {
     "ghl": {
-        "description": "GoHighLevel / Lead Connector (default)",
+        "description": "LeadConnector (default)",
         "fields": [
             {"key": "access_token", "label": "Access Token", "type": "password", "required": True, "help": "OAuth or Private Integration Token from GHL"},
             {"key": "calendar_id", "label": "Calendar ID", "type": "text", "required": True, "help": "Select from your GHL calendars"},

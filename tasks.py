@@ -6,7 +6,7 @@ import os
 import time
 from typing import Tuple, Optional
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, get_message_count, sync_messages_to_db
+from db import get_subscriber_info_hybrid, get_db_connection, get_message_count, sync_messages_to_db, log_webhook_event
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -422,6 +422,10 @@ def process_webhook_task(payload: dict):
 
     # 🚨 LOG: Chef (worker) received the order ticket from kitchen (Redis)
     logger.info(f"🔍 TASK STARTED | contact_id={contact_id_raw} | first_name={payload.get('first_name')} | location_id={location_id}")
+    log_webhook_event(location_id, "webhook_received", "info",
+                      f"Webhook from {payload.get('first_name', 'unknown')}",
+                      contact_id=contact_id_raw,
+                      details={"message_preview": str(payload.get("message", ""))[:100]})
 
     # 🚨 USE PAYLOAD AS-IS: GHL sent this data, trust it (this is the order ticket)
     # Only validate if we detect a problem below (can't find contact, name mismatch, etc.)
@@ -603,6 +607,9 @@ def process_webhook_task(payload: dict):
 
         if is_booking_request and booking_time_str:
             logger.info(f"📅 BOOKING REQUEST DETECTED for contact {contact_id} | crm_type={crm_type}")
+            log_webhook_event(location_id, "booking_attempt", "info",
+                              f"Booking requested: {booking_time_str}",
+                              contact_id=contact_id, details={"time": booking_time_str, "crm_type": crm_type})
 
             if is_demo:
                 logger.info(f"📅 DEMO MODE: Simulating booking for {contact_id}")
@@ -620,8 +627,14 @@ def process_webhook_task(payload: dict):
                     if booking_result:
                         logger.info(f"✅ APPOINTMENT BOOKED via {adapter.CRM_NAME} for {contact_id}")
                         booking_made = True
+                        log_webhook_event(location_id, "booking_success", "success",
+                                          f"Booked via {adapter.CRM_NAME}: {booking_time_str}",
+                                          contact_id=contact_id, details={"crm": adapter.CRM_NAME, "time": booking_time_str})
                     else:
                         logger.warning(f"⚠️ BOOKING FAILED via {adapter.CRM_NAME} for {contact_id}")
+                        log_webhook_event(location_id, "booking_failed", "error",
+                                          f"Booking failed via {adapter.CRM_NAME}",
+                                          contact_id=contact_id, details={"crm": adapter.CRM_NAME})
                 except Exception as adapter_err:
                     logger.error(f"CRM adapter booking error: {adapter_err}", exc_info=True)
             else:
@@ -637,8 +650,14 @@ def process_webhook_task(payload: dict):
                 if booking_result:
                     logger.info(f"✅ APPOINTMENT BOOKED for {contact_id}")
                     booking_made = True
+                    log_webhook_event(location_id, "booking_success", "success",
+                                      f"Booked via LeadConnector: {booking_time_str}",
+                                      contact_id=contact_id, details={"crm": "LeadConnector", "time": booking_time_str})
                 else:
                     logger.warning(f"⚠️ BOOKING FAILED for {contact_id} - Grok will handle response")
+                    log_webhook_event(location_id, "booking_failed", "error",
+                                      "Booking failed via LeadConnector",
+                                      contact_id=contact_id)
 
         # === Calendar fetch logic (for offering slots - only if NOT already booking) ===
         calendar_slots = ""
@@ -790,9 +809,15 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 if sent:
                     save_message(contact_id, reply, "assistant")
                     logger.info(f"✅ Message sent via {crm_type.upper()}")
+                    log_webhook_event(location_id, "message_sent", "success",
+                                      f"Reply sent ({len(reply)} chars)",
+                                      contact_id=contact_id, details={"preview": reply[:80]})
                 else:
                     logger.warning("Message send failed — saved locally")
                     save_message(contact_id, reply, "assistant")
+                    log_webhook_event(location_id, "message_failed", "error",
+                                      "Message send failed",
+                                      contact_id=contact_id)
             else:
                 save_message(contact_id, reply, "assistant")
                 logger.info("⚠ DEMO MODE: Message saved internally")
@@ -801,6 +826,9 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
 
     except Exception as e:
         logger.critical(f"💣 CRITICAL TASK FAILURE | contact={contact_id}: {str(e)}", exc_info=True)
+        log_webhook_event(location_id, "error", "error",
+                          f"Task failure: {str(e)[:200]}",
+                          contact_id=contact_id, details={"error": str(e)[:500]})
         return {"status": "error", "reason": str(e)}
     finally:
         elapsed = time.time() - start_time

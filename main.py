@@ -1312,6 +1312,7 @@ def dashboard():
     if not cal_ok:
         missing_fields.append('calendar_id')
 
+    from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -1322,7 +1323,9 @@ def dashboard():
         profile=profile,
         needs_oauth=needs_oauth,
         show_congrats=show_congrats,
-        missing_fields=missing_fields
+        missing_fields=missing_fields,
+        crm_config_fields=CRM_CONFIG_FIELDS,
+        crm_display_names=CRM_DISPLAY_NAMES
     )
 @app.route("/save-profile", methods=["POST"])
 @login_required
@@ -1518,6 +1521,31 @@ def test_integration():
     except Exception as e:
         logger.error(f"Integration test failed: {e}")
         return safe_jsonify({"valid": False, "message": str(e)}), 500
+
+
+@app.route("/api/logs", methods=["GET"])
+@login_required
+def get_webhook_logs_api():
+    """Fetch webhook logs for the current user's location."""
+    from db import get_webhook_logs
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"logs": [], "total": 0})
+
+    limit = min(int(request.args.get("limit", 50)), 200)
+    offset = int(request.args.get("offset", 0))
+    event_type = request.args.get("event_type", "").strip() or None
+    status_filter = request.args.get("status", "").strip() or None
+
+    logs = get_webhook_logs(location_id, limit=limit, offset=offset,
+                            event_type=event_type, status=status_filter)
+
+    # Serialize datetime objects
+    for log in logs:
+        if log.get("created_at"):
+            log["created_at"] = log["created_at"].isoformat()
+
+    return safe_jsonify({"logs": logs, "total": len(logs)})
 
 
 @app.route("/disclaimers")
@@ -3261,6 +3289,24 @@ def invite_all_sub_users():
     finally:
         cur.close()
         conn.close()
+
+@app.route("/api/agency/logs/<location_id>", methods=["GET"])
+@login_required
+def get_agency_logs(location_id):
+    """Get webhook logs for a specific sub-account location (agency owners only)."""
+    if current_user.role != 'agency_owner':
+        return flask_jsonify({"error": "Access denied"}), 403
+    from db import get_webhook_logs
+    limit = min(int(request.args.get("limit", 50)), 200)
+    offset = int(request.args.get("offset", 0))
+    event_type = request.args.get("event_type", "").strip() or None
+    status_filter = request.args.get("status", "").strip() or None
+    logs = get_webhook_logs(location_id, limit=limit, offset=offset,
+                            event_type=event_type, status=status_filter)
+    for log in logs:
+        if log.get("created_at"):
+            log["created_at"] = log["created_at"].isoformat()
+    return safe_jsonify({"logs": logs, "total": len(logs)})
 
 # =====================================================
 # AGENCY LOGIN - FULL UNIFIED IMPLEMENTATION

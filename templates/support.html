@@ -38,6 +38,12 @@
                 <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Agency</div>
             </a>
         </div>
+        <div class="col-md-3 col-6">
+            <a href="#crm-integration" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-plug text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">CRM Setup</div>
+            </a>
+        </div>
     </div>
 
     <!-- ============================================================ -->
@@ -684,6 +690,246 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 7: CRM INTEGRATION GUIDES -->
+    <!-- ============================================================ -->
+    <div id="crm-integration" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
+                <i class="fa-solid fa-plug me-2 text-accent"></i>CRM Integration Guides
+            </h3>
+
+            <div class="accordion" id="crmAccordion">
+
+                <!-- LeadConnector -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-bolt me-2 text-accent"></i>LeadConnector (Default)
+                        </button>
+                    </h2>
+                    <div id="crm1" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>LeadConnector is the default CRM. Most users are connected automatically via the Marketplace install.</p>
+                            <ol>
+                                <li>Go to the <a href="https://marketplace.leadconnectorhq.com/" style="color: var(--accent);" target="_blank">LeadConnector Marketplace</a>.</li>
+                                <li>Search for <strong>"Insurance Grok Bot"</strong> and click <strong>Install</strong>.</li>
+                                <li>Approve the requested permissions (contacts, calendars, messaging).</li>
+                                <li>You'll be redirected to set up your account and subscription.</li>
+                                <li>Your OAuth tokens, Location ID, and Calendar are set automatically.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> If your token expires, click <strong>"Connect Lead Connector"</strong> on your dashboard to re-authorize.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Two-way SMS, calendar booking, free slot detection, contact sync, OAuth auto-connect.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Salesforce -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-cloud me-2 text-accent"></i>Salesforce
+                        </button>
+                    </h2>
+                    <div id="crm2" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Connect Salesforce via OAuth 2.0 for full contact lifecycle management.</p>
+                            <ol>
+                                <li>In Salesforce, go to <strong>Setup &rarr; App Manager &rarr; New Connected App</strong>.</li>
+                                <li>Enable <strong>OAuth Settings</strong> and add scopes: <code>full</code>, <code>api</code>, <code>refresh_token</code>.</li>
+                                <li>Copy your <strong>Consumer Key</strong> (Client ID) and <strong>Consumer Secret</strong>.</li>
+                                <li>Generate an OAuth access token (use Salesforce's OAuth flow or Workbench).</li>
+                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>Select <strong>Salesforce</strong> and enter your Instance URL, Access Token, Refresh Token, Client ID, and Client Secret.</li>
+                                <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> For SMS, add your <strong>Twilio credentials</strong> (Account SID, Auth Token, Phone Number) in the integration settings. Messages are logged as Tasks in Salesforce.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Contact search (SOQL), event booking, SMS via Twilio, activity timeline logging, auto token refresh.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HubSpot -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-h me-2 text-accent"></i>HubSpot
+                        </button>
+                    </h2>
+                    <div id="crm3" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Connect HubSpot using a Private App token or OAuth credentials.</p>
+                            <ol>
+                                <li>In HubSpot, go to <strong>Settings &rarr; Integrations &rarr; Private Apps</strong>.</li>
+                                <li>Click <strong>Create a private app</strong>.</li>
+                                <li>Under <strong>Scopes</strong>, enable: <code>crm.objects.contacts</code> (read/write), <code>crm.objects.deals</code>, <code>sales-email-read</code>.</li>
+                                <li>Click <strong>Create app</strong> and copy the <strong>Access Token</strong>.</li>
+                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>Select <strong>HubSpot</strong> and paste the Access Token.</li>
+                                <li>(Optional) Add your <strong>Owner ID</strong> for meeting assignments &mdash; find it under Settings &rarr; Users &amp; Teams.</li>
+                                <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> SMS requires <strong>Twilio credentials</strong>. Messages are logged as Communications in HubSpot on the contact timeline.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Contact search &amp; dedup, meeting booking, SMS via Twilio, communication timeline logging.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pipedrive -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-filter me-2 text-accent"></i>Pipedrive
+                        </button>
+                    </h2>
+                    <div id="crm4" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Connect Pipedrive with an API token for contact and deal management.</p>
+                            <ol>
+                                <li>In Pipedrive, go to <strong>Settings &rarr; Personal Preferences &rarr; API</strong>.</li>
+                                <li>Copy your <strong>Personal API Token</strong>.</li>
+                                <li>Note your <strong>Company Domain</strong> (the subdomain from <code>yourcompany.pipedrive.com</code>).</li>
+                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>Select <strong>Pipedrive</strong> and enter your Company Domain and API Token.</li>
+                                <li>(Optional) Enter <strong>User ID</strong>, <strong>Pipeline ID</strong>, and <strong>Stage ID</strong> for deal assignment.</li>
+                                <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> New contacts automatically get a deal created. SMS requires <strong>Twilio credentials</strong>. Messages are logged as Notes.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Contact search, auto deal creation, activity scheduling, SMS via Twilio, note logging.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zoho CRM -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-z me-2 text-accent"></i>Zoho CRM
+                        </button>
+                    </h2>
+                    <div id="crm5" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Connect Zoho CRM using OAuth 2.0. Tokens are auto-refreshed (Zoho tokens expire hourly).</p>
+                            <ol>
+                                <li>Go to <a href="https://api-console.zoho.com/" style="color: var(--accent);" target="_blank">Zoho API Console</a> and create a <strong>Self Client</strong>.</li>
+                                <li>Add scopes: <code>ZohoCRM.modules.ALL</code>, <code>ZohoCRM.users.READ</code>.</li>
+                                <li>Generate a <strong>Grant Token</strong>, then exchange it for an Access Token and Refresh Token.</li>
+                                <li>Copy your <strong>Client ID</strong> and <strong>Client Secret</strong> from the API Console.</li>
+                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>Select <strong>Zoho CRM</strong> and enter all four fields plus your <strong>Data Center</strong> region.</li>
+                                <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
+                            </ol>
+                            <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-exclamation-triangle me-1"></i> The <strong>Refresh Token is required</strong> &mdash; Zoho access tokens expire every hour. The system auto-refreshes them using your refresh token.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Contact search, event booking, native email sending, SMS via Twilio, note logging, auto token refresh.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zapier -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm6"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-arrows-turn-to-dots me-2 text-accent"></i>Zapier (Universal Webhook)
+                        </button>
+                    </h2>
+                    <div id="crm6" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Connect any app via Zapier webhooks. Route bot events to your CRM, email, Slack, or any of 6,000+ apps.</p>
+                            <ol>
+                                <li>In Zapier, create a new Zap and select <strong>"Webhooks by Zapier"</strong> as the trigger.</li>
+                                <li>Choose <strong>"Catch Hook"</strong> and copy the webhook URL provided.</li>
+                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>Select <strong>Zapier</strong> and paste the Catch Hook URL.</li>
+                                <li>(Optional) Create separate hooks for messages and bookings, and enter those URLs too.</li>
+                                <li>Click <strong>Save Integration</strong>.</li>
+                                <li>Back in Zapier, test the trigger to receive sample data, then add your action steps (e.g., create lead in your CRM, send email, etc.).</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> Zapier is ideal if your CRM isn't directly supported. Bot events (new lead, booking, message) are sent as JSON payloads to your hooks.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Universal webhook relay, custom event routing, works with 6,000+ apps.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insureio -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm7"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-shield-halved me-2 text-accent"></i>Insureio
+                        </button>
+                    </h2>
+                    <div id="crm7" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Insureio is an insurance-industry CRM for lead management and quoting. Connect via API key.</p>
+                            <ol>
+                                <li>Log into your Insureio account and go to <strong>Account Settings &rarr; API</strong>.</li>
+                                <li>Copy your <strong>API Key</strong>.</li>
+                                <li>Find your <strong>Brand/Profile ID</strong> (required for lead creation) in your Insureio brand settings.</li>
+                                <li>In your InsuranceGrokBot dashboard, go to the <strong>Connect</strong> tab.</li>
+                                <li>Select <strong>Insureio</strong> and enter your API Key, Brand ID, and (optionally) your subdomain.</li>
+                                <li>Click <strong>Save Integration</strong>, then <strong>Test Connection</strong>.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> Insureio does not have a native calendar API. For appointment booking, add a <strong>Booking Webhook URL</strong> (e.g., Calendly) in your settings. SMS requires <strong>Twilio credentials</strong>.
+                            </div>
+                            <p class="mt-2"><strong>Features:</strong> Lead creation, consumer lookup, insurance-specific fields, SMS via Twilio, webhook booking relay.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Twilio SMS Setup -->
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm8"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            <i class="fa-solid fa-comment-sms me-2 text-accent"></i>Setting Up Twilio SMS (for non-LeadConnector CRMs)
+                        </button>
+                    </h2>
+                    <div id="crm8" class="accordion-collapse collapse" data-bs-parent="#crmAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>If you're using Salesforce, HubSpot, Pipedrive, Zoho, or Insureio, the bot sends SMS via <strong>Twilio</strong>. LeadConnector users don't need this &mdash; SMS works natively.</p>
+                            <ol>
+                                <li>Sign up at <a href="https://www.twilio.com" style="color: var(--accent);" target="_blank">twilio.com</a> and verify your account.</li>
+                                <li>Go to <strong>Console Dashboard</strong> and copy your <strong>Account SID</strong> and <strong>Auth Token</strong>.</li>
+                                <li>Under <strong>Phone Numbers</strong>, buy a number with SMS capability (or use an existing one).</li>
+                                <li>In your InsuranceGrokBot <strong>Connect</strong> tab, enter the three Twilio fields:
+                                    <ul>
+                                        <li><strong>Twilio Account SID</strong></li>
+                                        <li><strong>Twilio Auth Token</strong></li>
+                                        <li><strong>Twilio Phone Number</strong> (in +1XXXXXXXXXX format)</li>
+                                    </ul>
+                                </li>
+                                <li>Click <strong>Save Integration</strong>. The bot will now send SMS through Twilio.</li>
+                            </ol>
+                            <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-exclamation-triangle me-1"></i> Twilio charges per SMS (typically ~$0.0079/message). Make sure your Twilio account has a billing method set up.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
