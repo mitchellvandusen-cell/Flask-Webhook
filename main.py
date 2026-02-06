@@ -1417,42 +1417,50 @@ DEMO_CONTACT_ID = "demo_web_visitor"
 
 def run_demo_janitor():
     """
-    Deletes all demo data older than 2 hours.
+    Deletes all demo data older than 30 minutes.
     Keeps the DB very light.
     """
     conn = get_db_connection()
-    if conn:
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+
+        # 1. Clean Messages
+        cur.execute("""
+            DELETE FROM contact_messages
+            WHERE contact_id LIKE 'demo_%'
+            AND created_at < NOW() - INTERVAL '30 minutes';
+        """)
+
+        # 2. Clean Facts
+        cur.execute("""
+            DELETE FROM contact_facts
+            WHERE contact_id LIKE 'demo_%'
+            AND created_at < NOW() - INTERVAL '30 minutes';
+        """)
+
+        # 3. Clean Narratives
+        cur.execute("""
+            DELETE FROM contact_narratives
+            WHERE contact_id LIKE 'demo_%'
+            AND updated_at < NOW() - INTERVAL '30 minutes';
+        """)
+
+        conn.commit()
+
+    except Exception as e:
+        logger.error(f"Janitor cleanup failed: {e}")
         try:
-            cur = conn.cursor()
-            
-            # 1. Clean Messages (older than 2 hours)
-            cur.execute("""
-                DELETE FROM contact_messages 
-                WHERE contact_id LIKE 'demo_%' 
-                AND created_at < NOW() - INTERVAL '30 minutes';
-            """)
-            
-            # 2. Clean Facts (older than 2 hours)
-            cur.execute("""
-                DELETE FROM contact_facts 
-                WHERE contact_id LIKE 'demo_%' 
-                AND created_at < NOW() - INTERVAL '30 minutes';
-            """)
-
-            # 3. Clean Narratives (older than 2 hours)
-            cur.execute("""
-                DELETE FROM contact_narratives 
-                WHERE contact_id LIKE 'demo_%' 
-                AND updated_at < NOW() - INTERVAL '30 minutes';
-            """)
-
-            conn.commit()
-            
-        except Exception as e:
-            logger.error(f"Janitor cleanup failed: {e}")
-        finally:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
             cur.close()
-            return_db_connection(conn)
+        except Exception:
+            pass
+        return_db_connection(conn)
 
 @app.route("/integrations")
 def integrations_page():

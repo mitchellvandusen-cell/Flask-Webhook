@@ -62,6 +62,20 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
     if p:
         try:
             conn = p.getconn()
+            # Validate the connection is alive (catches stale SSL drops)
+            try:
+                conn.isolation_level
+                cur = conn.cursor()
+                cur.execute("SELECT 1")
+                cur.close()
+            except Exception:
+                logger.warning("Stale pooled connection detected, replacing")
+                try:
+                    p.putconn(conn, close=True)
+                except Exception:
+                    pass
+                conn = psycopg2.connect(
+                    DATABASE_URL, connect_timeout=10, cursor_factory=RealDictCursor)
             conn.autocommit = False
             return conn
         except psycopg2.Error as e:
