@@ -1434,6 +1434,92 @@ def run_demo_janitor():
             cur.close()
             conn.close()
 
+@app.route("/integrations")
+def integrations_page():
+    """Public-facing integrations page showing supported CRM platforms."""
+    from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
+    crms = list_available_crms()
+    return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
+
+
+@app.route("/api/integrations/save", methods=["POST"])
+@login_required
+def save_integration_config():
+    """Save CRM integration settings for the logged-in subscriber."""
+    data = request.get_json()
+    if not data:
+        return safe_jsonify({"error": "No data provided"}), 400
+
+    crm_type = data.get("crm_type", "ghl").strip().lower()
+    crm_config = data.get("crm_config", {})
+
+    # Validate crm_type
+    from crm_adapters.factory import CRM_REGISTRY
+    if crm_type not in CRM_REGISTRY:
+        return safe_jsonify({"error": f"Unsupported CRM type: {crm_type}"}), 400
+
+    conn_db = get_db_connection()
+    if not conn_db:
+        return safe_jsonify({"error": "Database error"}), 500
+
+    try:
+        cur = conn_db.cursor()
+        # Update both tables depending on user type
+        if current_user.role == 'agency_owner':
+            cur.execute("""
+                UPDATE agency_billing SET crm_type = %s, crm_config = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (crm_type, json.dumps(crm_config), current_user.email))
+        else:
+            cur.execute("""
+                UPDATE subscribers SET crm_type = %s, crm_config = %s, updated_at = NOW()
+                WHERE email = %s
+            """, (crm_type, json.dumps(crm_config), current_user.email))
+
+        conn_db.commit()
+        logger.info(f"Integration saved: {crm_type} for {current_user.email}")
+        return safe_jsonify({"success": True, "crm_type": crm_type})
+    except Exception as e:
+        logger.error(f"Failed to save integration config: {e}")
+        conn_db.rollback()
+        return safe_jsonify({"error": "Failed to save configuration"}), 500
+    finally:
+        cur.close()
+        conn_db.close()
+
+
+@app.route("/api/integrations/test", methods=["POST"])
+@login_required
+def test_integration():
+    """Test CRM credentials by attempting a validation call."""
+    data = request.get_json()
+    if not data:
+        return safe_jsonify({"error": "No data provided"}), 400
+
+    crm_type = data.get("crm_type", "ghl").strip().lower()
+    crm_config = data.get("crm_config", {})
+
+    # Build a temporary subscriber_data dict for the adapter
+    subscriber_data = {
+        "access_token": crm_config.get("access_token", current_user.access_token or ""),
+        "location_id": current_user.location_id or "",
+        "calendar_id": current_user.calendar_id or "",
+        "timezone": current_user.timezone or "America/Chicago",
+        "crm_user_id": current_user.crm_user_id or "",
+        "crm_type": crm_type,
+        "crm_config": crm_config,
+    }
+
+    try:
+        from crm_adapters.factory import get_crm_adapter
+        adapter = get_crm_adapter(crm_type, subscriber_data)
+        result = adapter.validate_credentials()
+        return safe_jsonify(result)
+    except Exception as e:
+        logger.error(f"Integration test failed: {e}")
+        return safe_jsonify({"valid": False, "message": str(e)}), 500
+
+
 @app.route("/disclaimers")
 def disclaimers():
     return render_template('disclaimers.html')

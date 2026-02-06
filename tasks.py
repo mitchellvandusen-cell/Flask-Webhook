@@ -89,6 +89,99 @@ def count_consecutive_bot_messages(recent_exchanges: list) -> int:
     return consecutive_bot
 
 
+def _extract_times_from_text(text: str) -> list:
+    """
+    Extract all time references from a text string.
+    Returns list of dicts: [{"hour": 14, "minute": 0, "original": "2:00 PM", "day_hint": "tomorrow"}, ...]
+    """
+    results = []
+    if not text:
+        return results
+
+    text_lower = text.lower()
+
+    # Match times with am/pm like "9:00 am", "4:30pm", "2 pm", "10am"
+    time_pattern = r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.)'
+    for match in re.finditer(time_pattern, text_lower):
+        h = int(match.group(1))
+        m = int(match.group(2) or 0)
+        period = match.group(3).lower()
+        if "pm" in period and h != 12:
+            h += 12
+        elif "am" in period and h == 12:
+            h = 0
+
+        # Look for day context near this match (within 30 chars)
+        context_start = max(0, match.start() - 30)
+        context_end = min(len(text_lower), match.end() + 30)
+        context = text_lower[context_start:context_end]
+        day_hint = ""
+        if "tomorrow" in context:
+            day_hint = "tomorrow"
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            if day in context:
+                day_hint = day
+                break
+
+        results.append({
+            "hour": h,
+            "minute": m,
+            "original": match.group().strip(),
+            "day_hint": day_hint
+        })
+
+    return results
+
+
+def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
+    """
+    When the lead says a bare number like "4" or "the 2 one", find the matching
+    time from the bot's offered times and return a full time string with AM/PM.
+
+    Returns a formatted time string like "4:00 pm tomorrow" or None if no match.
+    """
+    if not lead_msg or not bot_msg:
+        return None
+
+    lead_lower = lead_msg.lower().strip()
+    bot_times = _extract_times_from_text(bot_msg)
+
+    if not bot_times:
+        return None
+
+    # Extract the bare number from the lead's message
+    bare_num_match = re.search(r'\b(\d{1,2})\b', lead_lower)
+    if not bare_num_match:
+        return None
+
+    lead_num = int(bare_num_match.group(1))
+
+    # Try to match against bot's offered times
+    for bt in bot_times:
+        # Match hour (12h format): 4 matches 16:00 (4 PM) and 4:00 (4 AM)
+        bot_hour_12 = bt["hour"] % 12 or 12
+        if lead_num == bot_hour_12 or lead_num == bt["hour"]:
+            period = "am" if bt["hour"] < 12 else "pm"
+            minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
+            day_part = f" {bt['day_hint']}" if bt["day_hint"] else ""
+            result = f"{bot_hour_12}{minute_str} {period}{day_part}"
+            logger.info(f"📅 TIME MATCH: Lead said '{lead_msg}' -> matched to bot's '{bt['original']}' -> booking '{result}'")
+            return result
+
+    # If lead said a number 1-7 with no match but bot offered PM times, assume PM
+    if 1 <= lead_num <= 7:
+        pm_times = [bt for bt in bot_times if bt["hour"] >= 12]
+        if pm_times:
+            # Default to PM since bot was offering afternoon slots
+            day_hint = bot_times[0]["day_hint"] if bot_times else ""
+            day_part = f" {day_hint}" if day_hint else ""
+            result = f"{lead_num}:00 pm{day_part}"
+            logger.info(f"📅 TIME INFER PM: Lead said '{lead_msg}' -> no exact match, inferring PM -> booking '{result}'")
+            return result
+
+    return None
+
+
 def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> Tuple[bool, Optional[str]]:
     """
     Context-aware booking detection.
@@ -108,9 +201,10 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     # === CONTEXT CHECK: Did bot just offer time slots? ===
     bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
     last_bot_msg = bot_msgs[-1]['text'].lower() if bot_msgs else ""
+    last_bot_msg_original = bot_msgs[-1]['text'] if bot_msgs else ""
 
     logger.debug(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
-    
+
     # Detect if bot offered times in last message
     time_offer_indicators = [
         "i've got", "i have", "available", "how about", "works for you",
@@ -119,15 +213,18 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         "9:00", "10:00", "11:00", "friday", "monday", "tuesday"
     ]
     bot_offered_times = any(indicator in last_bot_msg for indicator in time_offer_indicators)
-    
+
+    # Pre-extract structured times from bot's message for matching
+    bot_time_structs = _extract_times_from_text(last_bot_msg_original) if bot_offered_times else []
+
     # === EXPLICIT BOOKING KEYWORDS (works anytime) ===
     explicit_booking_keywords = [
         "book", "schedule", "set up", "setup", "appointment",
-        "let's do", "lets do", "i'll take", "ill take", 
+        "let's do", "lets do", "i'll take", "ill take",
         "sign me up", "put me down", "lock it in", "lock me in"
     ]
     has_explicit_intent = any(kw in msg_lower for kw in explicit_booking_keywords)
-    
+
     # === TIME PATTERNS ===
     time_patterns = [
         r'\d{1,2}:\d{2}\s*(am|pm|a\.m\.|p\.m\.)?',  # 9:00 am, 2:30pm
@@ -138,14 +235,14 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         r'monday|tuesday|wednesday|thursday|friday|saturday|sunday',
         r'morning|afternoon|evening',
     ]
-    
+
     time_match = None
     for pattern in time_patterns:
         match = re.search(pattern, msg_lower)
         if match:
             time_match = match.group()
             break
-    
+
     has_time_reference = time_match is not None
 
     # === ACCEPTANCE PHRASES (only valid if bot offered times) ===
@@ -180,33 +277,66 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         logger.info(f"🚫 BOOKING REJECTION: Lead declined time/availability | msg='{message[:50]}'")
         return False, None
 
+    # === HELPER: Resolve time string using bot context ===
+    def _resolve_time_with_context(lead_message: str, use_bot_first: bool = False) -> str:
+        """
+        Resolve a booking time string by cross-referencing lead's message with bot's offered times.
+        If use_bot_first=True, extract the first time from bot's message (for simple acceptance).
+        """
+        if use_bot_first and bot_time_structs:
+            # Simple acceptance: pick the first time the bot offered
+            bt = bot_time_structs[0]
+            h12 = bt["hour"] % 12 or 12
+            period = "am" if bt["hour"] < 12 else "pm"
+            day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
+            resolved = f"{h12}:{bt['minute']:02d} {period}{day_part}"
+            logger.info(f"📅 RESOLVED (first offered): '{resolved}' from bot times")
+            return resolved
+
+        # Try to match lead's bare number against bot's offered times
+        if bot_time_structs:
+            matched = _match_lead_time_to_bot_times(lead_message, last_bot_msg_original)
+            if matched:
+                return matched
+
+        # Fallback: return the lead's message as-is for ghl_calendar to parse
+        return lead_message
+
     # === DECISION LOGIC ===
 
     # Case 1: Explicit booking request with time (always book)
     if has_explicit_intent and has_time_reference:
-        logger.info(f"BOOKING CASE 1: Explicit + Time | msg='{message[:50]}'")
-        return True, message
-    
+        resolved = _resolve_time_with_context(message)
+        logger.info(f"BOOKING CASE 1: Explicit + Time | msg='{message[:50]}' | resolved='{resolved}'")
+        return True, resolved
+
     # Case 2: Bot offered times + lead mentions time reference
     if bot_offered_times and has_time_reference:
-        logger.info(f"BOOKING CASE 2: Bot offered + Time reference | msg='{message[:50]}'")
-        return True, message
-    
-    # Case 3: Bot offered times + simple acceptance (grab time from bot's msg)
+        resolved = _resolve_time_with_context(message)
+        logger.info(f"BOOKING CASE 2: Bot offered + Time reference | msg='{message[:50]}' | resolved='{resolved}'")
+        return True, resolved
+
+    # Case 3: Bot offered times + simple acceptance (grab FIRST time from bot's msg)
     if bot_offered_times and is_acceptance and not has_time_reference:
-        logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | msg='{message[:50]}'")
-        return True, last_bot_msg  # Use bot's message for time extraction
-    
+        resolved = _resolve_time_with_context(message, use_bot_first=True)
+        logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
+        return True, resolved
+
     # Case 4: Stage is BOOKING + any acceptance
     if stage == "booking" and is_acceptance:
-        logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | msg='{message[:50]}'")
-        return True, message if has_time_reference else last_bot_msg
-    
+        if has_time_reference:
+            resolved = _resolve_time_with_context(message)
+        else:
+            resolved = _resolve_time_with_context(message, use_bot_first=True)
+        logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | resolved='{resolved}'")
+        return True, resolved
+
     # Case 5: Explicit "that time works" / "works for me"
     time_acceptance_phrases = ["that time", "that works", "works for me", "good time", "that's fine"]
     if bot_offered_times and any(phrase in msg_lower for phrase in time_acceptance_phrases):
-        logger.info(f"BOOKING CASE 5: Time acceptance phrase | msg='{message[:50]}'")
-        return True, last_bot_msg
+        resolved = _resolve_time_with_context(message, use_bot_first=True)
+        logger.info(f"BOOKING CASE 5: Time acceptance phrase | resolved='{resolved}'")
+        return True, resolved
 
     logger.info(f"🚫 BOOKING DETECTION: No cases matched | msg='{message}'")
     logger.debug(f"   Reasons: bot_offered={bot_offered_times}, explicit={has_explicit_intent}, time_ref={has_time_reference}, acceptance={is_acceptance}, stage={stage}")
@@ -467,14 +597,35 @@ def process_webhook_task(payload: dict):
             stage=director_output["stage"]
         )
         
+        # Determine CRM type for adapter routing
+        crm_type = subscriber.get("crm_type", "ghl") or "ghl"
+        use_crm_adapter = crm_type.lower() not in ("ghl", "gohighlevel")
+
         if is_booking_request and booking_time_str:
-            logger.info(f"📅 BOOKING REQUEST DETECTED for contact {contact_id}")
-            
+            logger.info(f"📅 BOOKING REQUEST DETECTED for contact {contact_id} | crm_type={crm_type}")
+
             if is_demo:
                 logger.info(f"📅 DEMO MODE: Simulating booking for {contact_id}")
                 booking_made = True
+            elif use_crm_adapter:
+                # Non-GHL CRM: Use adapter system
+                try:
+                    from crm_adapters.factory import get_adapter_for_subscriber
+                    adapter = get_adapter_for_subscriber(subscriber)
+                    booking_result = adapter.book_appointment(
+                        contact_id=contact_id,
+                        first_name=first_name,
+                        selected_time=booking_time_str
+                    )
+                    if booking_result:
+                        logger.info(f"✅ APPOINTMENT BOOKED via {adapter.CRM_NAME} for {contact_id}")
+                        booking_made = True
+                    else:
+                        logger.warning(f"⚠️ BOOKING FAILED via {adapter.CRM_NAME} for {contact_id}")
+                except Exception as adapter_err:
+                    logger.error(f"CRM adapter booking error: {adapter_err}", exc_info=True)
             else:
-                # Real booking via GHL API
+                # GHL: Use existing direct code path (unchanged)
                 booking_result = consolidated_calendar_op(
                     operation="book",
                     subscriber_data=subscriber,
@@ -482,7 +633,7 @@ def process_webhook_task(payload: dict):
                     first_name=first_name,
                     selected_time=booking_time_str
                 )
-                
+
                 if booking_result:
                     logger.info(f"✅ APPOINTMENT BOOKED for {contact_id}")
                     booking_made = True
@@ -493,9 +644,18 @@ def process_webhook_task(payload: dict):
         calendar_slots = ""
         if director_output["stage"] == "booking" and not booking_made:
             if is_demo:
-                # FIXED: Typo "Tomrorow" -> "Tomorrow"
                 calendar_slots = "Tomorrow at 2:00 PM, Tomorrow at 4:30 PM, or Friday at 10:00 AM"
+            elif use_crm_adapter:
+                # Non-GHL: Use adapter for slot fetch
+                try:
+                    from crm_adapters.factory import get_adapter_for_subscriber
+                    adapter = get_adapter_for_subscriber(subscriber)
+                    calendar_slots = adapter.get_free_slots()
+                except Exception as adapter_err:
+                    logger.error(f"CRM adapter get_free_slots error: {adapter_err}")
+                    calendar_slots = "let me check my calendar and get back to you with some times"
             else:
+                # GHL: Use existing direct code path (unchanged)
                 calendar_slots = consolidated_calendar_op("fetch_slots", subscriber)
 
         context_nudge = ""
@@ -505,7 +665,7 @@ def process_webhook_task(payload: dict):
         # Add booking context
         if booking_made:
             context_nudge += """
-⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY IN GHL CALENDAR.
+⚠️ APPOINTMENT JUST BOOKED SUCCESSFULLY.
 
 Confirm the specific time that was booked. Let them know a calendar invite is coming. Stop selling immediately. Do not ask for phone number, email, or any contact info. You already have it. You are texting them.
 
@@ -609,12 +769,29 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             logger.info(f"📨 SENDING: '{reply[:50]}...'")
 
             if not is_demo:
-                sent = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                if use_crm_adapter:
+                    # Non-GHL CRM: Use adapter for messaging
+                    try:
+                        from crm_adapters.factory import get_adapter_for_subscriber
+                        adapter = get_adapter_for_subscriber(subscriber)
+                        if adapter.SUPPORTS_MESSAGING:
+                            sent = adapter.send_message(contact_id, reply)
+                        else:
+                            # CRM doesn't support messaging - use GHL as messaging fallback
+                            # (some users use Zapier for booking but GHL for SMS)
+                            sent = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                    except Exception as adapter_err:
+                        logger.error(f"CRM adapter send_message error: {adapter_err}")
+                        sent = False
+                else:
+                    # GHL: Use existing direct code path (unchanged)
+                    sent = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+
                 if sent:
                     save_message(contact_id, reply, "assistant")
-                    logger.info("✅ Message sent to GHL")
+                    logger.info(f"✅ Message sent via {crm_type.upper()}")
                 else:
-                    logger.warning("SMS send failed — saved locally")
+                    logger.warning("Message send failed — saved locally")
                     save_message(contact_id, reply, "assistant")
             else:
                 save_message(contact_id, reply, "assistant")
