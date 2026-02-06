@@ -1565,10 +1565,10 @@ def get_webhook_logs_api():
     logs = get_webhook_logs(location_id, limit=limit, offset=offset,
                             event_type=event_type, status=status_filter)
 
-    # Serialize datetime objects
+    # Serialize datetime objects (append Z so JS knows it's UTC)
     for log in logs:
         if log.get("created_at"):
-            log["created_at"] = log["created_at"].isoformat()
+            log["created_at"] = log["created_at"].isoformat() + "Z"
 
     return safe_jsonify({"logs": logs, "total": len(logs)})
 
@@ -3330,7 +3330,7 @@ def get_agency_logs(location_id):
                             event_type=event_type, status=status_filter)
     for log in logs:
         if log.get("created_at"):
-            log["created_at"] = log["created_at"].isoformat()
+            log["created_at"] = log["created_at"].isoformat() + "Z"
     return safe_jsonify({"logs": logs, "total": len(logs)})
 
 # =====================================================
