@@ -463,6 +463,10 @@ def consolidated_calendar_op(
 
     # === BOOK APPOINTMENT ===
     if operation == "book" and selected_time and contact_id:
+        # Detect token type for logging
+        token_info = detect_token_type(access_token)
+        token_version = token_info.get("version", "unknown")
+
         # Run debug check only when DEBUG logging is enabled (skipped in production)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("PRE-BOOKING DEBUG CHECK - Verifying calendar and contact exist...")
@@ -475,20 +479,57 @@ def consolidated_calendar_op(
                 logger.warning(f"⚠️ Debug check threw error (continuing anyway): {debug_err}")
 
         time_str = selected_time.lower().strip()
+        logger.info(f"📅 BOOKING TIME PARSE | raw selected_time='{selected_time[:100]}'")
         now_local = datetime.now(local_tz)
-        target_date = (now_local + timedelta(days=1)).date() if "tomorrow" in time_str else now_local.date()
 
-        hour, minute = 14, 0
-        match = re.search(r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.)?', time_str)
-        if match:
-            h = int(match.group(1))
-            m = int(match.group(2) or 0)
-            period = (match.group(3) or "").lower()
+        # Determine target date from context
+        target_date = now_local.date()
+        if "tomorrow" in time_str:
+            target_date = (now_local + timedelta(days=1)).date()
+        else:
+            # Check for day names
+            for day_offset in range(0, 4):
+                check_date = (now_local + timedelta(days=day_offset)).date()
+                day_name = check_date.strftime("%A").lower()
+                if day_name in time_str:
+                    target_date = check_date
+                    break
+
+        # Parse time - try pattern WITH am/pm first (most reliable)
+        hour, minute = None, 0
+        # Pattern 1: Time with explicit AM/PM (e.g., "4:00 pm", "9am", "2:30 p.m.")
+        match_with_period = re.search(r'(\d{1,2}):?(\d{2})?\s*(pm|p\.m\.|am|a\.m\.)', time_str)
+        if match_with_period:
+            h = int(match_with_period.group(1))
+            m = int(match_with_period.group(2) or 0)
+            period = match_with_period.group(3).lower()
             if "pm" in period and h != 12:
                 h += 12
             elif "am" in period and h == 12:
                 h = 0
             hour, minute = h, m
+            logger.info(f"📅 TIME PARSED (with AM/PM): {hour}:{minute:02d} from '{match_with_period.group()}'")
+
+        # Pattern 2: Time without AM/PM (e.g., "4", "4:30") - needs inference
+        if hour is None:
+            match_bare = re.search(r'(\d{1,2}):?(\d{2})?', time_str)
+            if match_bare:
+                h = int(match_bare.group(1))
+                m = int(match_bare.group(2) or 0)
+                # Infer AM/PM: hours 1-7 default to PM (business context, afternoon appointments)
+                # Hours 8-11 default to AM, 12+ stays as-is
+                if 1 <= h <= 7:
+                    logger.info(f"📅 TIME INFER: Bare hour {h} -> assuming PM (afternoon) -> {h + 12}:00")
+                    h += 12
+                elif h == 0:
+                    h = 9  # Midnight makes no sense, default to 9 AM
+                hour, minute = h, m
+                logger.info(f"📅 TIME PARSED (inferred): {hour}:{minute:02d} from '{match_bare.group()}'")
+
+        # Fallback: default to 2 PM if nothing parsed
+        if hour is None:
+            hour, minute = 14, 0
+            logger.warning(f"📅 TIME FALLBACK: No time found in '{time_str[:60]}', defaulting to 2:00 PM")
 
         hour = max(9, min(19, hour))
 

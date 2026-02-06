@@ -262,6 +262,33 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"onboarding_status migration note: {e}")
 
+        # 11. MIGRATION: Add crm_type and crm_config columns for multi-CRM support
+        # crm_type: "ghl" (default), "zapier", "salesforce", "hubspot", "pipedrive", "zoho", "insureio"
+        # crm_config: JSON blob with CRM-specific settings (webhook URLs, API keys, etc.)
+        try:
+            cur4 = conn.cursor()
+            cur4.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS crm_type TEXT DEFAULT 'ghl'
+            """)
+            cur4.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS crm_config JSONB DEFAULT '{}'::jsonb
+            """)
+            cur4.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS crm_type TEXT DEFAULT 'ghl'
+            """)
+            cur4.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS crm_config JSONB DEFAULT '{}'::jsonb
+            """)
+            conn.commit()
+            cur4.close()
+            logger.info("✅ Migration: Added crm_type and crm_config columns for multi-CRM support")
+        except Exception as e:
+            logger.debug(f"crm_type/crm_config migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -328,6 +355,10 @@ class User(UserMixin):
         self.invite_sent_at = data.get('invite_sent_at')
         self.invite_claimed_at = data.get('invite_claimed_at')
         self.onboarding_status = data.get('onboarding_status', 'pending')
+
+        # Multi-CRM integration fields
+        self.crm_type = data.get('crm_type', 'ghl')
+        self.crm_config = data.get('crm_config') or {}
 
         # Timestamps
         self.created_at = data.get('created_at')
