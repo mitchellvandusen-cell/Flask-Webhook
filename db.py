@@ -43,7 +43,7 @@ def _get_pool():
         try:
             _connection_pool = pool.ThreadedConnectionPool(
                 minconn=2,
-                maxconn=20,
+                maxconn=40,
                 dsn=DATABASE_URL,
                 connect_timeout=10,
                 cursor_factory=RealDictCursor,
@@ -60,32 +60,45 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
         return None
     p = _get_pool()
     if p:
+        conn = None
         try:
             conn = p.getconn()
             # Validate the connection is alive (catches stale SSL drops)
             try:
-                conn.isolation_level
                 cur = conn.cursor()
                 cur.execute("SELECT 1")
                 cur.close()
+                conn.rollback()  # Clear the implicit transaction from the ping
             except Exception:
                 logger.warning("Stale pooled connection detected, replacing")
                 try:
                     p.putconn(conn, close=True)
                 except Exception:
                     pass
-                conn = psycopg2.connect(
+                conn = None
+                # Create fresh connection outside pool
+                fresh = psycopg2.connect(
                     DATABASE_URL, connect_timeout=10, cursor_factory=RealDictCursor)
+                fresh.autocommit = False
+                return fresh
             conn.autocommit = False
             return conn
-        except psycopg2.Error as e:
+        except Exception as e:
+            # Make sure we return the connection if something went wrong
+            if conn is not None:
+                try:
+                    p.putconn(conn)
+                except Exception:
+                    pass
             logger.warning(f"Pool getconn failed, falling back to direct: {e}")
     try:
-        return psycopg2.connect(
+        conn = psycopg2.connect(
             DATABASE_URL,
             connect_timeout=10,
             cursor_factory=RealDictCursor,
         )
+        conn.autocommit = False
+        return conn
     except psycopg2.Error as e:
         logger.error(f"Database connection failed: {e}", exc_info=True)
         return None
@@ -94,6 +107,13 @@ def return_db_connection(conn):
     """Return a connection to the pool (or close it if no pool)."""
     if conn is None:
         return
+    # Always rollback any uncommitted transaction before returning to pool,
+    # otherwise the next getconn will fail with "set_session cannot be used
+    # inside a transaction"
+    try:
+        conn.rollback()
+    except Exception:
+        pass
     p = _get_pool()
     if p:
         try:
