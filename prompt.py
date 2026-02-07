@@ -233,7 +233,7 @@ SMS_ADDITIONAL_NOTES = """
 """
 
 DEMO_OPENER_ADDITIONAL_INSTRUCTIONS = """
-Cold lead who looked at life insurance before but doesn't remember you.
+Old lead who looked at life insurance before but doesn't remember you.
 
 CRITICAL RULES:
 - No formal language. No corporate greetings.
@@ -243,9 +243,9 @@ CRITICAL RULES:
 - No robotic introductions about reaching out or following up on inquiries
 
 OBJECTIVE:
-Generate a unique, natural status check message.
+Generate a unique, natural message that would logically generate a response from someone.
 Every single message must be completely different. Different structure, different words, different angle.
-Be conversational. Be human. Be brief."""
+Be conversational. Be human."""
 
 # ===================================================
 # BUILD SYSTEM PROMPT
