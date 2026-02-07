@@ -268,6 +268,16 @@ def build_system_prompt(
 
     identity = f"You are {bot_first_name}, conversational life insurance advisor."
 
+    # Current date/time in the subscriber's timezone so the bot knows what month/day it is
+    from datetime import datetime as _dt
+    try:
+        import pytz
+        tz = pytz.timezone(timezone)
+        now_local = _dt.now(tz)
+    except Exception:
+        now_local = _dt.now()
+    date_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p")
+
     # Flow with role labels
     flow_str = "\n".join([
         f"{'Lead' if msg['role'] == 'lead' else 'You'}: {msg['text']}"
@@ -295,6 +305,9 @@ def build_system_prompt(
 {POLICY_KNOWLEDGE}
 
 {identity}
+
+TODAY'S DATE AND TIME: {date_str} ({timezone})
+Use this to correctly calculate future dates. If someone says "3 months from now" you MUST count forward from today's date. Do not guess months. Do the math.
 
 {profile_str}
 {story_str}
