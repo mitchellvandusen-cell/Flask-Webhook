@@ -97,6 +97,10 @@ init_db()
 # == SECRET SESSION ==
 app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
 
+# == SESSION COOKIE CONFIG (for iframe embedding in LeadConnector) ==
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
+
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 client = None
