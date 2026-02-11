@@ -79,16 +79,47 @@ def safe_jsonify(data):
 
 # === REDIS & RQ SETUP ===
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-try:
-    conn = redis.from_url(redis_url)
-    
-    # Create TWO queues
-    q_production = Queue('production', connection=conn) # High Priority
-    q_demo       = Queue('demo',       connection=conn) # Low Priority
-    
-    logger.info("✅ Redis Connection Successful")
-except Exception as e:
-    logger.error(f"❌ Redis Connection Failed: {e}")
+redis_conn = None
+q_production = None
+q_demo = None
+
+def get_redis_connection():
+    """Create a Redis connection with proper timeouts so it fails fast instead of hanging."""
+    return redis.from_url(
+        redis_url,
+        socket_timeout=5,
+        socket_connect_timeout=5,
+        retry_on_timeout=True,
+        health_check_interval=30,
+    )
+
+def ensure_redis():
+    """Reconnect to Redis if the connection is dead. Returns True if healthy."""
+    global redis_conn, q_production, q_demo
+    try:
+        if redis_conn:
+            redis_conn.ping()
+            return True
+    except (redis.ConnectionError, redis.TimeoutError, OSError):
+        logger.warning("⚠️ Redis connection lost, attempting reconnect...")
+        redis_conn = None
+
+    try:
+        redis_conn = get_redis_connection()
+        redis_conn.ping()  # Real connectivity check
+        q_production = Queue('production', connection=redis_conn)
+        q_demo       = Queue('demo',       connection=redis_conn)
+        logger.info("✅ Redis connection established")
+        return True
+    except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
+        logger.error(f"❌ Redis reconnect failed: {e}")
+        redis_conn = None
+        q_production = None
+        q_demo = None
+        return False
+
+# Initial connection at startup
+ensure_redis()
 
 # === INITIALIZATION ===
 sync_subscribers()
@@ -377,9 +408,9 @@ def normalize_payload_universal(payload):
 # =====================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    if not q_production or not q_demo:
-        logger.critical("Redis/RQ unavailable")
-        return flask_jsonify({"status": "error"}), 503
+    if not ensure_redis():
+        logger.critical("Redis/RQ unavailable after reconnect attempt")
+        return flask_jsonify({"status": "error", "reason": "redis_unavailable"}), 503
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
@@ -428,30 +459,34 @@ def webhook():
 
 
 #   2. Enqueue the Brain
-    try:
-        # CHECK IF DEMO
-        is_demo = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
+    is_demo = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
+    is_reply = message_body and message_body.strip()
 
-        # Select the appropriate queue
-        target_queue = q_demo if is_demo else q_production
+    for attempt in range(2):
+        try:
+            target_queue = q_demo if is_demo else q_production
+            job = target_queue.enqueue(
+                process_webhook_task,
+                payload,
+                job_timeout=120,
+                result_ttl=86400,
+                at_front=is_reply  # Replies skip to front of queue
+            )
+            return safe_jsonify({"status": "queued", "job_id": job.id}), 202
 
-        # PRIORITY SYSTEM: Replies jump to front, initial outreach goes to back
-        # This prevents 255 initial outreach messages from blocking real conversations
-        # ALL text messages (including "k", "ya", one-word replies) are high priority
-        is_reply = message_body and message_body.strip()
+        except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
+            if attempt == 0:
+                logger.warning(f"⚠️ Enqueue failed (attempt 1), reconnecting: {e}")
+                if not ensure_redis():
+                    logger.error("❌ Redis reconnect failed on retry")
+                    return safe_jsonify({"status": "error", "reason": "redis_unavailable"}), 503
+            else:
+                logger.error(f"❌ Enqueue failed after retry: {e}")
+                return safe_jsonify({"status": "error", "reason": "redis_enqueue_failed"}), 503
 
-        job = target_queue.enqueue(
-            process_webhook_task,
-            payload,
-            job_timeout=120,
-            result_ttl=86400,
-            at_front=is_reply  # Replies skip to front of queue
-        )
-
-        return safe_jsonify({"status": "queued", "job_id": job.id}), 202
-    except Exception as e:
-        logger.error(f"Queue failed: {e}")
-        return safe_jsonify({"status": "error"}), 500
+        except Exception as e:
+            logger.error(f"Queue failed: {e}")
+            return safe_jsonify({"status": "error"}), 500
 
 # =====================================================
 #  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
