@@ -10,7 +10,7 @@
     <style>
         :root { --accent: #00ff88; --accent-dim: rgba(0,255,136,0.15); --bg: #030304; --bubble-user: #00ff88; --bubble-bot: #1a1a1f; --surface: #0d0d10; --border: #1e1e24; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--bg); color: #fff; font-family: 'Outfit', sans-serif; height: 100dvh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        body { background: var(--bg); color: #fff; font-family: 'Outfit', sans-serif; height: 100dvh; display: flex; align-items: center; justify-content: center; overflow: hidden; will-change: height, transform; }
 
         /* Ambient background glow */
         body::before { content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(ellipse at 30% 20%, rgba(0,255,136,0.03) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(0,100,255,0.02) 0%, transparent 50%); pointer-events: none; animation: ambientDrift 20s ease-in-out infinite alternate; }
@@ -525,20 +525,19 @@
         // Send button click
         sendBtn.addEventListener('click', send);
 
-        // iOS keyboard handling — keep input visible when virtual keyboard opens
-        if (window.visualViewport) {
-            const phoneScreen = document.querySelector('.phone-screen');
-            window.visualViewport.addEventListener('resize', () => {
-                const keyboardHeight = window.innerHeight - window.visualViewport.height;
-                phoneScreen.style.height = `${window.visualViewport.height}px`;
-                if (keyboardHeight > 50) {
-                    requestAnimationFrame(() => scrollToBottom());
-                }
-            });
-            window.visualViewport.addEventListener('scroll', () => {
-                const phoneScreen = document.querySelector('.phone-screen');
-                phoneScreen.style.height = `${window.visualViewport.height}px`;
-            });
+        // Mobile keyboard handling — resize the whole page to match visual viewport
+        // This prevents the black gap between content and keyboard
+        if (window.visualViewport && window.innerWidth <= 900) {
+            function handleViewportResize() {
+                const vv = window.visualViewport;
+                // Set body height to exactly the visual viewport (no gap)
+                document.body.style.height = `${vv.height}px`;
+                // Offset for iOS rubber-band scroll
+                document.body.style.transform = `translateY(${vv.offsetTop}px)`;
+                requestAnimationFrame(() => scrollToBottom());
+            }
+            window.visualViewport.addEventListener('resize', handleViewportResize);
+            window.visualViewport.addEventListener('scroll', handleViewportResize);
         }
 
         // Show skeleton while loading
