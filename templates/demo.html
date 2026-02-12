@@ -153,6 +153,26 @@
             .reset-overlay { border-radius: 0; }
             .confirm-modal { border-radius: 0; }
             .status-bar { padding-top: calc(15px + env(safe-area-inset-top, 20px)); }
+
+            /* Wider bubbles on small screens */
+            .msg { max-width: 88%; }
+
+            /* Prevent iOS auto-zoom on input focus */
+            .input-field { font-size: 16px; }
+
+            /* Bigger touch targets */
+            .header-back { font-size: 20px; padding: 8px; margin: -8px; opacity: 0.7; }
+            .scroll-fab { width: 42px; height: 42px; font-size: 14px; bottom: 12px; }
+            .send-btn { width: 46px; height: 46px; font-size: 16px; }
+
+            /* Mobile reset button in header */
+            .mobile-reset { display: flex; margin-left: auto; background: none; border: 1px solid rgba(255,255,255,0.08); color: #777; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+            .mobile-reset:active { background: rgba(255,255,255,0.06); color: #fff; }
+        }
+
+        /* Hide mobile reset on desktop */
+        @media (min-width: 901px) {
+            .mobile-reset { display: none; }
         }
     </style>
 </head>
@@ -175,6 +195,7 @@
                     <h4>GrokBot</h4>
                     <div class="online"><div class="online-dot"></div> Active now</div>
                 </div>
+                <button class="mobile-reset" onclick="reset()" aria-label="Reset conversation"><i class="fa-solid fa-rotate-right"></i></button>
             </div>
             <div class="demo-banner">
                 <span style="color: var(--accent); font-weight: 700;">DEMO</span> &mdash; In production, your bot uses the name you configure in your dashboard.
@@ -503,6 +524,22 @@
 
         // Send button click
         sendBtn.addEventListener('click', send);
+
+        // iOS keyboard handling — keep input visible when virtual keyboard opens
+        if (window.visualViewport) {
+            const phoneScreen = document.querySelector('.phone-screen');
+            window.visualViewport.addEventListener('resize', () => {
+                const keyboardHeight = window.innerHeight - window.visualViewport.height;
+                phoneScreen.style.height = `${window.visualViewport.height}px`;
+                if (keyboardHeight > 50) {
+                    requestAnimationFrame(() => scrollToBottom());
+                }
+            });
+            window.visualViewport.addEventListener('scroll', () => {
+                const phoneScreen = document.querySelector('.phone-screen');
+                phoneScreen.style.height = `${window.visualViewport.height}px`;
+            });
+        }
 
         // Show skeleton while loading
         showLoadingSkeleton();
