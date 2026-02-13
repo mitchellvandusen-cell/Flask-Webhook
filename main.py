@@ -2486,9 +2486,10 @@ def oauth_initiate():
         "conversations.readonly",       # Search conversations (ghl_api.py)
         "contacts.readonly",            # Contact lookup & validation
         "oauth.readonly",              # Token info check (ghl_calendar.py)
-        "users.readonly",              # User info lookup (future use, approved in marketplace)
-        # TODO: Add "locations.readonly" here once GHL marketplace approval completes (~10 days).
-        # Without it, the callback falls back to using the primary locationId from the token.
+        # TODO: Add these scopes once GHL marketplace approval completes (~10 days):
+        #   "locations.readonly"  — enables /locations/ API for sub-account discovery
+        #   "users.readonly"      — enables /users/ API for user info lookup
+        # Without locations.readonly, the callback falls back to the primary locationId from the token.
     ]
     scope_string = " ".join(scopes)
 
