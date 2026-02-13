@@ -189,7 +189,9 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 def _build_followup_guidance(logic: LogicSignal) -> str:
     """
     Follow-up guidance for unanswered messages.
-    Always creative, always different. Humor mode at 5+.
+    Always creative, always different.
+    At 5+ unanswered: alternate between humor and insurance value.
+    Joke → insurance topic → joke → insurance topic (not all jokes).
     """
     n = logic.consecutive_bot_messages
 
@@ -201,16 +203,32 @@ def _build_followup_guidance(logic: LogicSignal) -> str:
     )
 
     if n >= 5:
-        return base + (
-            f"You have sent {n} messages with zero response. Time for humor.\n"
-            "Send something genuinely funny. A clean joke. A self-aware comment. "
-            "Something completely unexpected that has nothing to do with insurance.\n"
-            "Make them smile or laugh. That is the entire goal.\n"
-            "Keep it to one or two sentences. Be creative. Be original.\n"
-            "Do not sell. Do not mention insurance. Do not guilt trip.\n"
-            "Just be a real human being who is funny and worth replying to.\n"
-            "Goal: get ANY response. Even 'lol' is a win."
-        )
+        # Alternate: odd = humor, even = insurance value
+        is_humor_turn = (n % 2 == 1)
+
+        if is_humor_turn:
+            return base + (
+                f"You have sent {n} messages with zero response. Time for humor.\n"
+                "Send something genuinely funny. A clean joke. A self-aware comment. "
+                "Something completely unexpected that has nothing to do with insurance.\n"
+                "Make them smile or laugh. That is the entire goal.\n"
+                "Keep it to one or two sentences. Be creative. Be original.\n"
+                "Do not sell. Do not mention insurance. Do not guilt trip.\n"
+                "Just be a real human being who is funny and worth replying to.\n"
+                "Goal: get ANY response. Even 'lol' is a win."
+            )
+        else:
+            return base + (
+                f"You have sent {n} messages with zero response.\n"
+                "Your last message was humorous. Now pivot back to insurance value.\n"
+                "Share something genuinely useful — a quick tip, a surprising fact about "
+                "coverage, a real-world scenario where insurance saved someone, or a timely "
+                "reminder (open enrollment, rate changes, seasonal risks).\n"
+                "Keep it short, one to two sentences. Make it feel like helpful info, "
+                "not a sales pitch.\n"
+                "Be warm and conversational, not pushy.\n"
+                "Goal: re-engage them with something valuable. Then humor again next time."
+            )
 
     return base + (
         f"This is follow-up number {n + 1}.\n"
