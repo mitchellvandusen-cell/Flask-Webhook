@@ -2560,6 +2560,35 @@ def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
     logger.info(f"✅ Pagination complete: {len(items)} total {item_key} fetched across {page_count} pages")
     return items
 
+def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL API"):
+    """
+    Make a GHL API call with 1 automatic retry on transient errors (5xx, timeout, connection).
+    Returns (response, error_message). On success error_message is None.
+    """
+    last_err = None
+    for attempt in range(2):
+        try:
+            if method == 'POST':
+                resp = requests.post(url, data=data, headers=headers, timeout=timeout)
+            else:
+                resp = requests.get(url, headers=headers, timeout=timeout)
+
+            if resp.status_code < 500:
+                return resp, None
+
+            last_err = f"{label} returned {resp.status_code}"
+            logger.warning(f"{label} attempt {attempt+1}/2 got {resp.status_code}, "
+                         f"body={resp.text[:300]}")
+        except requests.Timeout:
+            last_err = f"{label} timed out after {timeout}s"
+            logger.warning(f"{label} attempt {attempt+1}/2 timed out")
+        except requests.ConnectionError as e:
+            last_err = f"{label} connection error: {e}"
+            logger.warning(f"{label} attempt {attempt+1}/2 connection error: {e}")
+
+    return None, last_err
+
+
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
@@ -2600,11 +2629,19 @@ def oauth_callback():
         else:
             logger.info("OAuth callback: Marketplace installation flow")
 
-        # All OAuth uses the public marketplace app credentials
+        # --- VALIDATE ENV VARS ---
         client_id = os.getenv("GHL_CLIENT_ID")
         client_secret = os.getenv("GHL_CLIENT_SECRET")
+        domain = os.getenv("YOUR_DOMAIN")
 
-        # 1. Exchange Code for Token
+        if not client_id or not client_secret or not domain:
+            logger.error(f"OAuth env vars missing: GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, "
+                        f"GHL_CLIENT_SECRET={'set' if client_secret else 'MISSING'}, "
+                        f"YOUR_DOMAIN={'set' if domain else 'MISSING'}")
+            flash("OAuth is not configured. Please contact support.", "danger")
+            return redirect(url_for('home'))
+
+        # 1. Exchange Code for Token (with retry on transient failures)
         token_url = "https://services.leadconnectorhq.com/oauth/token"
         payload = {
             "client_id": client_id,
@@ -2612,44 +2649,103 @@ def oauth_callback():
             "grant_type": "authorization_code",
             "code": code,
             "user_type": "Location",
-            "redirect_uri": f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
+            "redirect_uri": f"{domain}/oauth/callback"
         }
-        response = requests.post(token_url, data=payload, timeout=15)
-        response.raise_for_status()
-        token_data = response.json()
+
+        token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
+                                               timeout=15, label="Token exchange")
+        if token_resp is None:
+            logger.error(f"Token exchange failed after retries: {token_err}")
+            flash("Failed to connect to Lead Connector. Please try again.", "danger")
+            return redirect(url_for('home'))
+
+        if not token_resp.ok:
+            logger.error(f"Token exchange rejected: {token_resp.status_code} {token_resp.text[:500]}")
+            if token_resp.status_code == 400:
+                flash("Authorization code expired or invalid. Please try connecting again.", "danger")
+            else:
+                flash("Failed to exchange authorization code. Please try again.", "danger")
+            return redirect(url_for('home'))
+
+        try:
+            token_data = token_resp.json()
+        except ValueError:
+            logger.error(f"Token exchange returned non-JSON: {token_resp.text[:500]}")
+            flash("Unexpected response from Lead Connector. Please try again.", "danger")
+            return redirect(url_for('home'))
+
+        access_token = token_data.get('access_token')
+        if not access_token:
+            logger.error(f"Token exchange missing access_token: {json.dumps(token_data)[:500]}")
+            flash("Authorization failed — no access token received. Please try again.", "danger")
+            return redirect(url_for('home'))
 
         primary_location_id = token_data.get('locationId')
-        access_token = token_data['access_token']
         refresh_token = token_data.get('refresh_token')
         expires_in = token_data.get('expires_in', 86400)
 
+        logger.info(f"Step 1 complete: Token exchange OK. locationId={primary_location_id}, expires_in={expires_in}")
+
         headers = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
-        # 2. Get user info
-        me_resp = requests.get("https://services.leadconnectorhq.com/users/me", headers=headers, timeout=10)
-        me_data = me_resp.json() if me_resp.ok else {}
+        # 2. Get user info (with retry)
+        me_resp, me_err = _ghl_api_call('GET', "https://services.leadconnectorhq.com/users/me",
+                                         headers=headers, timeout=10, label="/users/me")
+        me_data = {}
+        user_email = None
+        user_name = 'Agency Admin'
 
-        user_email = me_data.get('email')
-        user_name = me_data.get('name', 'Agency Admin')
+        if me_resp and me_resp.ok:
+            try:
+                me_data = me_resp.json()
+                user_email = me_data.get('email')
+                user_name = me_data.get('name', 'Agency Admin')
+            except ValueError:
+                logger.error(f"/users/me returned non-JSON: {me_resp.text[:300]}")
+        elif me_resp:
+            logger.error(f"/users/me failed: {me_resp.status_code} {me_resp.text[:300]}")
+        else:
+            logger.error(f"/users/me unreachable: {me_err}")
 
         if not user_email:
-            flash("Could not retrieve user email from Lead Connector.", "danger")
+            logger.error(f"Could not retrieve user email. me_data={json.dumps(me_data)[:300]}")
+            flash("Could not retrieve your email from Lead Connector. Please try again.", "danger")
             return redirect(url_for('home'))
 
-        # 3. Detect agency status
-        agency_resp = requests.get("https://services.leadconnectorhq.com/agencies/", headers=headers, timeout=10)
-        agencies = agency_resp.json().get('agencies', [])
-        is_agency_owner = len(agencies) > 0
+        logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
+
+        # 3. Detect agency status (with retry and safe JSON parsing)
+        is_agency_owner = False
+        agencies = []
+
+        agency_resp, agency_err = _ghl_api_call('GET', "https://services.leadconnectorhq.com/agencies/",
+                                                  headers=headers, timeout=10, label="/agencies/")
+
+        if agency_resp and agency_resp.ok:
+            try:
+                agencies = agency_resp.json().get('agencies', [])
+                is_agency_owner = len(agencies) > 0
+            except (ValueError, KeyError, AttributeError):
+                logger.warning(f"/agencies/ returned unparseable response: {agency_resp.text[:300]}")
+                agencies = []
+        elif agency_resp and agency_resp.status_code < 500:
+            # 4xx — user likely doesn't have agency access, treat as individual
+            logger.info(f"/agencies/ returned {agency_resp.status_code} — treating as individual user")
+        else:
+            # Transient failure after retries — log but continue as individual
+            # Better to onboard as individual than to fail entirely
+            logger.warning(f"/agencies/ unavailable ({agency_err}), defaulting to individual classification")
+
+        logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, count={len(agencies)}")
 
         # 4. Fetch all locations (sub-accounts) with PAGINATION
-        # CRITICAL FIX: Use pagination to get ALL locations (not just first 20)
         sub_accounts = fetch_all_ghl_items(
             "https://services.leadconnectorhq.com/locations/",
             headers,
             item_key='locations'
         )
         num_subs = len(sub_accounts)
-        logger.info(f"📊 Total locations fetched for {user_email}: {num_subs}")
+        logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
 
         # 5. Determine tier based on sub-account count
         plan_tier = 'individual'
@@ -2663,177 +2759,166 @@ def oauth_callback():
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
         primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
 
-        # 6b. REMOVED: N+1 user fetch loop
-        # CRITICAL FIX: Don't fetch users for each location during OAuth callback
-        # This causes timeout for agencies with many locations (N+1 query problem)
-        # Instead: Set agent_email=NULL initially, let agents claim their locations later
-        # OR: Fetch users async in background job after onboarding completes
-        logger.info(f"⚡ Skipping user fetch loop to prevent timeout (will handle async or via claim flow)")
+        logger.info(f"Step 5-6 complete: tier={plan_tier}, primary_location={primary_name}")
 
         # 7. Database operations
         conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
+        if not conn:
+            logger.error("OAuth callback: Database connection failed — cannot complete onboarding")
+            flash("Database temporarily unavailable. Please try connecting again in a few minutes.", "danger")
+            return redirect(url_for('home'))
 
-                # --- A. Agency Owner Primary Location ---
-                if is_agency_owner:
-                    # Agency Starter: max 14 seats, Agency Pro: unlimited
-                    max_seats = 9999 if plan_tier == 'agency_pro' else 14
-                    active_seats = max(0, num_subs - 1)  # Exclude primary
+        try:
+            cur = conn.cursor()
 
-                    # Determine OAuth app type
-                    app_type = 'private' if is_website_user else 'marketplace'
+            # --- A. Agency Owner Primary Location ---
+            if is_agency_owner:
+                # Agency Starter: max 14 seats, Agency Pro: unlimited
+                max_seats = 9999 if plan_tier == 'agency_pro' else 14
+                active_seats = max(0, num_subs - 1)  # Exclude primary
 
-                    cur.execute("""
-                        INSERT INTO agency_billing (
-                            agency_email, location_id, full_name, subscription_tier,
-                            max_seats, active_seats, access_token, refresh_token,
-                            token_expires_at, timezone, crm_user_id, oauth_app_type,
-                            created_at, updated_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
-                            NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
-                        )
-                        ON CONFLICT (agency_email) DO UPDATE SET
-                            location_id = EXCLUDED.location_id,
-                            full_name = EXCLUDED.full_name,
-                            subscription_tier = EXCLUDED.subscription_tier,
-                            max_seats = EXCLUDED.max_seats,
-                            active_seats = EXCLUDED.active_seats,
-                            access_token = EXCLUDED.access_token,
-                            refresh_token = EXCLUDED.refresh_token,
-                            token_expires_at = EXCLUDED.token_expires_at,
-                            timezone = EXCLUDED.timezone,
-                            crm_user_id = EXCLUDED.crm_user_id,
-                            oauth_app_type = EXCLUDED.oauth_app_type,
-                            updated_at = NOW()
-                    """, (
-                        user_email, primary_location_id, primary_name, plan_tier,
+                # Determine OAuth app type
+                app_type = 'private' if is_website_user else 'marketplace'
+
+                cur.execute("""
+                    INSERT INTO agency_billing (
+                        agency_email, location_id, full_name, subscription_tier,
                         max_seats, active_seats, access_token, refresh_token,
-                        expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
-                    ))
+                        token_expires_at, timezone, crm_user_id, oauth_app_type,
+                        created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (agency_email) DO UPDATE SET
+                        location_id = EXCLUDED.location_id,
+                        full_name = EXCLUDED.full_name,
+                        subscription_tier = EXCLUDED.subscription_tier,
+                        max_seats = EXCLUDED.max_seats,
+                        active_seats = EXCLUDED.active_seats,
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        timezone = EXCLUDED.timezone,
+                        crm_user_id = EXCLUDED.crm_user_id,
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        updated_at = NOW()
+                """, (
+                    user_email, primary_location_id, primary_name, plan_tier,
+                    max_seats, active_seats, access_token, refresh_token,
+                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
+                ))
 
-                # --- B. Sub-accounts (or individual user) ---
-                # CRITICAL FIXES IMPLEMENTED HERE:
-                # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
-                # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
-                # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
-                #
-                # FIX: For Stripe subscribers connecting OAuth, a row already exists with
-                # a temp location_id. We must update that row first so the INSERT below
-                # doesn't violate the UNIQUE constraint on email.
-                if is_website_user and primary_location_id:
-                    cur.execute("""
-                        UPDATE subscribers
-                        SET location_id = %s,
-                            access_token = %s,
-                            refresh_token = %s,
-                            token_expires_at = NOW() + interval '%s seconds',
-                            crm_user_id = COALESCE(%s, crm_user_id),
-                            oauth_app_type = 'private',
-                            onboarding_status = 'claimed',
-                            updated_at = NOW()
-                        WHERE email = %s AND location_id LIKE 'temp_%%'
-                    """, (primary_location_id, access_token, refresh_token,
-                          expires_in, me_data.get('id'), user_email))
-                    rows_updated = cur.rowcount
-                    if rows_updated > 0:
-                        logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
+            # --- B. Sub-accounts (or individual user) ---
+            # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
+            # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
+            # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
+            #
+            # FIX: For Stripe subscribers connecting OAuth, a row already exists with
+            # a temp location_id. We must update that row first so the INSERT below
+            # doesn't violate the UNIQUE constraint on email.
+            if is_website_user and primary_location_id:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET location_id = %s,
+                        access_token = %s,
+                        refresh_token = %s,
+                        token_expires_at = NOW() + interval '%s seconds',
+                        crm_user_id = COALESCE(%s, crm_user_id),
+                        oauth_app_type = 'private',
+                        onboarding_status = 'claimed',
+                        updated_at = NOW()
+                    WHERE email = %s AND location_id LIKE 'temp_%%'
+                """, (primary_location_id, access_token, refresh_token,
+                      expires_in, me_data.get('id'), user_email))
+                rows_updated = cur.rowcount
+                if rows_updated > 0:
+                    logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
 
-                for sub in sub_accounts:
-                    sub_id = sub['id']
-                    sub_name = sub.get('name', 'Unknown Location')
-                    sub_timezone = sub.get('timezone')
+            for sub in sub_accounts:
+                sub_id = sub['id']
+                sub_name = sub.get('name', 'Unknown Location')
+                sub_timezone = sub.get('timezone')
 
-                    is_primary = (sub_id == primary_location_id)
+                is_primary = (sub_id == primary_location_id)
 
-                    # Skip primary if agency owner (already handled above)
-                    if is_agency_owner and is_primary:
-                        continue
+                # Skip primary if agency owner (already handled above)
+                if is_agency_owner and is_primary:
+                    continue
 
-                    # CRITICAL FIX: Agent email will be set when agent claims location
-                    # For now, default to agency owner's email so they can manage
-                    agent_email = user_email if is_agency_owner else user_email
-                    agent_name = sub_name
-                    agent_crm_user_id = me_data.get('id')  # Use owner's CRM ID initially
+                # Agent email will be set when agent claims location
+                # For now, default to owner's email so they can manage
+                agent_email = user_email
+                agent_name = sub_name
+                agent_crm_user_id = me_data.get('id')
 
-                    # CRITICAL FIX: Share agency token with ALL sub-accounts
-                    # Agency-level OAuth tokens work for all locations under that agency
-                    # Without this, the bot will fail for all sub-accounts (token starvation)
-                    access_token_this = access_token  # Share token with all subs
-                    refresh_token_this = refresh_token  # Share refresh token too
+                # Share agency token with ALL sub-accounts
+                # Agency-level OAuth tokens work for all locations under that agency
+                access_token_this = access_token
+                refresh_token_this = refresh_token
 
-                    role = 'agency_sub_account_user' if is_agency_owner else 'individual'
-                    parent_agency_email = user_email if is_agency_owner else None
-                    email_this = user_email  # Owner's email for billing/parent link
-                    app_type = 'private' if is_website_user else 'marketplace'
+                role = 'agency_sub_account_user' if is_agency_owner else 'individual'
+                parent_agency_email = user_email if is_agency_owner else None
+                email_this = user_email
+                app_type = 'private' if is_website_user else 'marketplace'
 
-                    cur.execute("""
-                        INSERT INTO subscribers (
-                            location_id, email, agent_email, full_name, role, subscription_tier,
-                            parent_agency_email, access_token, refresh_token,
-                            token_expires_at, timezone, crm_user_id,
-                            onboarding_status, oauth_app_type, created_at, updated_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            NOW() + interval '%s seconds',
-                            %s, %s, %s, %s, NOW(), NOW()
-                        )
-                        ON CONFLICT (location_id) DO UPDATE SET
-                            email = EXCLUDED.email,
-                            agent_email = CASE
-                                WHEN subscribers.agent_email IS NULL THEN EXCLUDED.agent_email
-                                ELSE subscribers.agent_email
-                            END,
-                            full_name = EXCLUDED.full_name,
-                            role = EXCLUDED.role,
-                            subscription_tier = EXCLUDED.subscription_tier,
-                            parent_agency_email = EXCLUDED.parent_agency_email,
-                            access_token = EXCLUDED.access_token,
-                            refresh_token = EXCLUDED.refresh_token,
-                            token_expires_at = EXCLUDED.token_expires_at,
-                            timezone = EXCLUDED.timezone,
-                            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
-                            oauth_app_type = EXCLUDED.oauth_app_type,
-                            updated_at = NOW()
-                    """, (
-                        sub_id, email_this, agent_email, agent_name, role, plan_tier,
-                        parent_agency_email, access_token_this, refresh_token_this,
-                        expires_in,
-                        sub_timezone or 'America/Chicago', agent_crm_user_id,
-                        'pending', app_type
-                    ))
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        location_id, email, agent_email, full_name, role, subscription_tier,
+                        parent_agency_email, access_token, refresh_token,
+                        token_expires_at, timezone, crm_user_id,
+                        onboarding_status, oauth_app_type, created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds',
+                        %s, %s, %s, %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (location_id) DO UPDATE SET
+                        email = EXCLUDED.email,
+                        agent_email = CASE
+                            WHEN subscribers.agent_email IS NULL THEN EXCLUDED.agent_email
+                            ELSE subscribers.agent_email
+                        END,
+                        full_name = EXCLUDED.full_name,
+                        role = EXCLUDED.role,
+                        subscription_tier = EXCLUDED.subscription_tier,
+                        parent_agency_email = EXCLUDED.parent_agency_email,
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        timezone = EXCLUDED.timezone,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        updated_at = NOW()
+                """, (
+                    sub_id, email_this, agent_email, agent_name, role, plan_tier,
+                    parent_agency_email, access_token_this, refresh_token_this,
+                    expires_in,
+                    sub_timezone or 'America/Chicago', agent_crm_user_id,
+                    'pending', app_type
+                ))
 
-                conn.commit()
-                logger.info(f"Successfully onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
+            conn.commit()
+            logger.info(f"Step 7 complete: Onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
 
-                # Check if user needs to set password
-                needs_password = False
-                if is_agency_owner:
-                    cur.execute("SELECT password_hash FROM agency_billing WHERE agency_email = %s", (user_email,))
-                    row = cur.fetchone()
-                    needs_password = not row or not row[0]
-                else:
-                    cur.execute("SELECT password_hash FROM subscribers WHERE email = %s", (user_email,))
-                    row = cur.fetchone()
-                    needs_password = not row or not row[0]
-
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"Database onboarding error: {e}", exc_info=True)
-                flash("Error completing setup. Please contact support.", "danger")
-                return redirect(url_for('home'))
-            finally:
-                cur.close()
-                return_db_connection(conn)
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Database onboarding error for {user_email}: {e}", exc_info=True)
+            flash("Error completing setup. Please contact support.", "danger")
+            return redirect(url_for('home'))
+        finally:
+            cur.close()
+            return_db_connection(conn)
 
         # Login the user via Flask-Login
         user = User.get(user_email)
         if user:
             login_user(user)
+            logger.info(f"Step 8 complete: Logged in {user_email}")
         else:
-            logger.warning(f"User.get({user_email}) returned None after database insertion!")
+            logger.error(f"User.get({user_email}) returned None after successful DB commit — login failed")
+            flash("Account created but login failed. Please log in manually.", "warning")
+            return redirect(url_for('login'))
 
         # MARKETPLACE INSTALLATION: Route to home page so user can subscribe
         if not is_website_user:
@@ -2846,7 +2931,7 @@ def oauth_callback():
         return redirect("/oauth/loading")
 
     except requests.RequestException as e:
-        logger.error(f"OAuth network error: {e}")
+        logger.error(f"OAuth network error: {e}", exc_info=True)
         flash("Failed to connect to Lead Connector. Please try again.", "danger")
         return redirect(url_for('home'))
     except Exception as e:
