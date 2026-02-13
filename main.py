@@ -2707,6 +2707,8 @@ def oauth_callback():
                 logger.error(f"/users/me returned non-JSON: {me_resp.text[:300]}")
         elif me_resp:
             logger.error(f"/users/me failed: {me_resp.status_code} {me_resp.text[:300]}")
+            if me_resp.status_code in (401, 403):
+                logger.error("SCOPE ISSUE: /users/me returned 401/403 — token may lack required scopes")
         else:
             logger.error(f"/users/me unreachable: {me_err}")
 
@@ -2749,6 +2751,13 @@ def oauth_callback():
         )
         num_subs = len(sub_accounts)
         logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
+
+        # Scope diagnostic: if token gave us a locationId but the API returned 0 locations,
+        # the most likely cause is missing 'locations.readonly' scope
+        if num_subs == 0 and primary_location_id:
+            logger.error(f"SCOPE ISSUE? Token has locationId={primary_location_id} but /locations/ "
+                        f"returned 0 results. Check that 'locations.readonly' scope is enabled in "
+                        f"GHL marketplace app settings AND was granted during OAuth consent.")
 
         # 5. Determine tier and whether to use agency onboarding flow
         # KEY DISTINCTION: Being an agency owner in GHL ≠ subscribing to an agency plan.
