@@ -457,6 +457,11 @@
                                 {{ form.initial_message.label(class="form-label") }}
                                 {{ form.initial_message(class="form-control", rows="3") }}
                             </div>
+                            <div class="col-md-6">
+                                {{ form.personal_website.label(class="form-label") }}
+                                {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
+                                <small class="text-muted">GrokBot will share this when leads ask for your website</small>
+                            </div>
                             <div class="col-12 text-end mt-4">
                                 <button type="submit" class="btn btn-primary px-5">Save Configuration</button>
                             </div>

@@ -202,6 +202,7 @@ class ConfigForm(FlaskForm):
     timezone = StringField("Timezone (e.g. America/Chicago)", validators=[DataRequired()])
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
     initial_message = StringField("Optional Initial Message")
+    personal_website = StringField("Personal Website (optional)")
     submit = SubmitField("Save Settings")
 
 class ReviewForm(FlaskForm):
@@ -948,6 +949,7 @@ def agency_dashboard():
                         bot_first_name = %s,
                         timezone = %s,
                         initial_message = %s,
+                        personal_website = %s,
                         updated_at = NOW()
                     WHERE agency_email = %s
                 """, (
@@ -958,6 +960,7 @@ def agency_dashboard():
                     form.bot_name.data,
                     form.timezone.data,
                     form.initial_message.data,
+                    form.personal_website.data or None,
                     current_user.email
                 ))
                 conn.commit()
@@ -976,6 +979,7 @@ def agency_dashboard():
         form.bot_name.data = current_user.bot_first_name
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
+        form.personal_website.data = current_user.personal_website
     # --- 3. TOKEN LOGIC ---
     access_token_display = ''
     refresh_token_display = ''
@@ -1284,6 +1288,7 @@ def dashboard():
                         bot_first_name = %s,
                         timezone = %s,
                         initial_message = %s,
+                        personal_website = %s,
                         updated_at = NOW()
                     WHERE email = %s
                 """, (
@@ -1294,6 +1299,7 @@ def dashboard():
                     form.bot_name.data,
                     form.timezone.data,
                     form.initial_message.data,
+                    form.personal_website.data or None,
                     current_user.email
                 ))
                 conn.commit()
@@ -1314,6 +1320,7 @@ def dashboard():
         form.bot_name.data = current_user.bot_first_name
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
+        form.personal_website.data = current_user.personal_website
     # --- 3. TOKEN LOGIC ---
     # We can read this directly from current_user now too!
     access_token_display = ''

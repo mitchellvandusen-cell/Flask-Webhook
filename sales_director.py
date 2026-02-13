@@ -7,7 +7,8 @@ from typing import Dict, Any, List
 
 from conversation_engine import (
     analyze_logic_flow, LogicSignal, ConversationStage,
-    MessageContext, ObjectionType, ObjectionNature
+    MessageContext, ObjectionType, ObjectionNature,
+    BuyingSignalType, InsuranceContext, ProductType
 )
 from individual_profile import build_comprehensive_profile
 from underwriting import get_underwriting_context
@@ -52,9 +53,12 @@ def generate_strategic_directive(
         f"Director signals | {contact_id} | "
         f"context={logic.message_context.value} | stage={logic.stage.value} | "
         f"objection={logic.objection_type.value}/{logic.objection_nature.value} | "
+        f"buying_signal={logic.buying_signal.value} | "
         f"impact={logic.articulated_impact} | "
         f"consecutive_bot={logic.consecutive_bot_messages} | lead_count={logic.conversation_count}"
     )
+    if logic.insurance_context and logic.insurance_context.guidance_note:
+        logger.info(f"Director insurance_ctx | {contact_id} | {logic.insurance_context.guidance_note[:200]}")
 
     # ─── 4. BUILD PROFILE ───
     profile_str, _ = build_comprehensive_profile(
@@ -166,13 +170,41 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
     # --- BOOKING ---
     if stage_value == ConversationStage.BOOKING.value:
-        return (
+        booking_base = (
             "READY TO BOOK.\n"
             "They are showing real interest, enough to justify a live call.\n"
             "Offer 2 to 3 specific times from the available calendar slots.\n"
             "Keep it short, confident, and normal. Like a busy person setting up a quick chat.\n"
-            "Do not over-explain. Just offer times and ask which works."
+            "Do not over-explain. Just offer times and ask which works.\n\n"
         )
+
+        # Buying signal context — tell the bot WHY we're booking
+        if logic.buying_signal == BuyingSignalType.ASKING_PRICE:
+            booking_base += (
+                "TRIGGER: They asked about pricing. You CANNOT quote prices over text. "
+                "That is a hard rule. Acknowledge their question, let them know a quick call "
+                "is where they get real numbers specific to their situation, and offer times.\n"
+            )
+        elif logic.buying_signal == BuyingSignalType.REQUESTING_COVERAGE:
+            booking_base += (
+                "TRIGGER: They requested a specific coverage amount. That is a strong buying signal. "
+                "Acknowledge what they want, and transition to the call where an advisor can "
+                "find the best option for that exact need.\n"
+            )
+        elif logic.too_deep_for_text:
+            booking_base += (
+                "TRIGGER: The conversation is getting into technical details (underwriting, "
+                "carrier specifics, product comparisons) that cannot be properly handled over text. "
+                "Acknowledge their great questions, and firmly but warmly redirect to a call "
+                "where a licensed advisor can walk through everything properly.\n"
+            )
+
+        # Insurance context injection (product mismatch, amount issues)
+        ins = logic.insurance_context
+        if ins and ins.guidance_note and "DEPTH GUARD" not in ins.guidance_note:
+            booking_base += f"\nINSURANCE CONTEXT: {ins.guidance_note}\n"
+
+        return booking_base
 
     # --- OBJECTION HANDLING ---
     if stage_value == ConversationStage.OBJECTION_HANDLING.value:
@@ -390,9 +422,15 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
             "Then keep moving toward 'a quick call can help sort this out.'\n\n"
         )
 
+    # Insurance context injection — product expertise
+    insurance_note = ""
+    ins = logic.insurance_context
+    if ins and ins.guidance_note and "DEPTH GUARD" not in ins.guidance_note:
+        insurance_note = f"\nEXPERT KNOWLEDGE: {ins.guidance_note}\nUse this knowledge when responding but do not dump it all at once. Ask clarifying questions first.\n\n"
+
     # ── GAP FOUND + IMPACT ARTICULATED = ready to book ──
     if (logic.mentioned_goal or logic.needs_coverage) and logic.articulated_impact:
-        return empathy_prefix + (
+        return empathy_prefix + insurance_note + (
             "QUALIFYING COMPLETE: They have told you what they need AND why it matters to them.\n"
             "They have expressed the personal weight of this decision. That is your green light.\n"
             "Move to booking a call. You have what you need. The real advisor takes it from here.\n"
@@ -402,7 +440,7 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
     # ── GAP FOUND + OBSTACLE KNOWN but no impact yet ──
     if logic.mentioned_goal and logic.mentioned_obstacle:
         if not logic.articulated_impact:
-            return empathy_prefix + (
+            return empathy_prefix + insurance_note + (
                 "QUALIFYING: They have shared a goal and an obstacle, but they have not yet expressed "
                 "why solving this actually matters to them personally.\n"
                 "Before you push toward booking, you need them to feel the weight of the gap. "
@@ -411,14 +449,14 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
                 "Make them explain to themselves why this is important enough to act on. "
                 "Once they articulate that, they are ready for the call and they know it."
             )
-        return empathy_prefix + (
+        return empathy_prefix + insurance_note + (
             "QUALIFYING COMPLETE: They have the goal, the obstacle, and the why.\n"
             "Move to booking. Offer times."
         )
 
     # ── EXISTING COVERAGE MENTIONED ──
     if logic.has_coverage:
-        return empathy_prefix + (
+        return empathy_prefix + insurance_note + (
             "QUALIFYING: They mentioned existing coverage.\n"
             "Get curious about what they have. Do not quiz or poke holes.\n"
             "Use your knowledge of policy types to ask questions that reveal gaps naturally. "
@@ -430,7 +468,7 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
 
     # ── INTEREST OR GOAL MENTIONED but no impact yet ──
     if logic.needs_coverage or logic.mentioned_goal:
-        return empathy_prefix + (
+        return empathy_prefix + insurance_note + (
             "QUALIFYING: They have expressed interest or mentioned who they are protecting.\n"
             "Good momentum, but do not rush to booking yet.\n"
             "You know what they want. Now you need to understand how important it is to them. "
@@ -441,7 +479,7 @@ def _build_qualifying_guidance(logic: LogicSignal, first_name: str, full_lower: 
         )
 
     # ── EARLY STAGE ──
-    return empathy_prefix + (
+    return empathy_prefix + insurance_note + (
         "QUALIFYING: Still early. Checking for real interest.\n"
         "Ask one thoughtful question about their protection needs, family, or current setup.\n"
         "Pay attention to how they reply. Longer answers and questions back means there is real engagement. "
