@@ -2486,7 +2486,8 @@ def oauth_initiate():
         "conversations.readonly",       # Search conversations (ghl_api.py)
         "contacts.readonly",            # Contact lookup & validation
         "oauth.readonly",              # Token info check (ghl_calendar.py)
-        # TODO: Add "locations.readonly" here once GHL marketplace approval completes.
+        "users.readonly",              # User info lookup (future use, approved in marketplace)
+        # TODO: Add "locations.readonly" here once GHL marketplace approval completes (~10 days).
         # Without it, the callback falls back to using the primary locationId from the token.
     ]
     scope_string = " ".join(scopes)
@@ -2533,7 +2534,13 @@ def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
         try:
             resp = requests.get(url, headers=headers, timeout=15)
             if not resp.ok:
-                logger.error(f"Failed to fetch {item_key} (page {page_count+1}): {resp.status_code} {resp.text}")
+                if resp.status_code in (401, 403):
+                    logger.warning(f"SCOPE MISSING: /{item_key}/ returned {resp.status_code} — "
+                                  f"'{item_key}.readonly' scope likely not granted. "
+                                  f"Falling back to token-based data.")
+                else:
+                    logger.error(f"Failed to fetch {item_key} (page {page_count+1}): "
+                                f"{resp.status_code} {resp.text[:300]}")
                 break
 
             data = resp.json()
@@ -2759,7 +2766,9 @@ def oauth_callback():
         # Fallback: if /locations/ returned 0 results but we have a locationId from the token,
         # synthesize a minimal location entry so onboarding still works.
         # This happens when 'locations.readonly' scope isn't available (pending marketplace approval).
+        using_location_fallback = False
         if num_subs == 0 and primary_location_id:
+            using_location_fallback = True
             logger.warning(f"locations.readonly scope likely missing — /locations/ returned 0 results "
                           f"but token has locationId={primary_location_id}. Using fallback location entry.")
             sub_accounts = [{
@@ -2875,13 +2884,25 @@ def oauth_callback():
             # Individual flow: only provision the primary location
             # This ensures agency owners who subscribe as individual don't get all
             # sub-accounts provisioned — they just want their own location.
-            if use_agency_flow:
+            #
+            # FALLBACK MODE: When locations.readonly is unavailable, we only have the
+            # primary location from the token. Agency owners still need at least their
+            # primary location provisioned as a subscriber row so the bot works.
+            # Sub-accounts will be discovered once the scope is approved.
+            if use_agency_flow and not using_location_fallback:
                 locations_to_provision = [s for s in sub_accounts if s['id'] != primary_location_id]
             else:
+                # Individual flow OR agency-in-fallback: provision the primary location
                 locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
 
+            if using_location_fallback and use_agency_flow:
+                logger.warning(f"Agency owner {user_email} in FALLBACK MODE: only provisioning primary "
+                              f"location {primary_location_id}. Sub-accounts will be added once "
+                              f"locations.readonly scope is approved.")
+
             logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} subscriber rows "
-                        f"(agency_flow={use_agency_flow}, total_ghl_locations={num_subs})")
+                        f"(agency_flow={use_agency_flow}, fallback={using_location_fallback}, "
+                        f"total_ghl_locations={num_subs})")
 
             for sub in locations_to_provision:
                 sub_id = sub['id']
