@@ -268,6 +268,7 @@ def build_system_prompt(
     calendar_slots: str = "",
     context_nudge: str = "",
     lead_vendor: str = "",
+    personal_website: str = "",
 ) -> str:
 
     identity = f"You are {bot_first_name}, conversational life insurance advisor."
@@ -298,6 +299,15 @@ def build_system_prompt(
 
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
+    website_str = ""
+    if personal_website and personal_website.strip():
+        website_str = (
+            f"\n=== AGENT WEBSITE ===\n"
+            f"Your agent's personal website: {personal_website.strip()}\n"
+            f"If the lead asks for a website, link, more info online, or where to learn more, "
+            f"share this URL naturally along with suggesting they book a call. "
+            f"Do not volunteer it unprompted. Only share when they ask."
+        )
 
     mindset = CORE_UNIFIED_MINDSET.replace("{bot_first_name}", bot_first_name)
 
@@ -322,6 +332,7 @@ Use this to correctly calculate future dates. If someone says "3 months from now
 CURRENT STAGE: {stage}
 {nudge_str}
 {calendar_str}
+{website_str}
 
 RECENT CONVERSATION:
 {flow_str}

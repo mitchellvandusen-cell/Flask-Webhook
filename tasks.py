@@ -577,6 +577,7 @@ def process_webhook_task(payload: dict):
         # === Core Conversation Logic ===
         bot_first_name = subscriber.get('bot_first_name', 'Grok')
         timezone = subscriber.get('timezone', 'America/Chicago')
+        personal_website = subscriber.get('personal_website') or ""
 
         # Process ALL messages - trust the LLM to understand context
         # "k", "ya", "ok" are all valid text responses that need processing
@@ -729,7 +730,8 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 message=message,
                 calendar_slots=calendar_slots,
                 context_nudge=final_nudge,
-                lead_vendor=lead_vendor
+                lead_vendor=lead_vendor,
+                personal_website=personal_website,
             )
 
             # === STRUCTURAL REASONING SEPARATION ===

@@ -111,6 +111,11 @@
                         <label for="initial_message">Initial Message</label>
                         {{ form.initial_message(class="form-control") }}
                     </div>
+                    <div class="col-md-6 mt-3">
+                        <label for="personal_website">Personal Website (optional)</label>
+                        {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
+                        <small class="text-muted">GrokBot will share this when leads ask for your website</small>
+                    </div>
                 </div>
                 <div class="mt-4 text-end">
                     {{ form.submit(class="btn btn-primary") }}

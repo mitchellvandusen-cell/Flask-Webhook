@@ -56,6 +56,38 @@ class ObjectionNature(Enum):
 # DATA
 # ===================================
 
+class BuyingSignalType(Enum):
+    NONE                = "none"
+    ASKING_PRICE        = "asking_price"         # "how much", "what does it cost", "price"
+    ASKING_OPTIONS      = "asking_options"        # "what are my options", "what's available"
+    ASKING_DETAILS      = "asking_details"        # "how does that work", "what's the difference"
+    REQUESTING_COVERAGE = "requesting_coverage"   # "I want 7000", "I need 50k", "looking for term"
+    COMPARING           = "comparing"             # "which is better", "term vs whole life"
+    READY_SIGNAL        = "ready_signal"          # "let's do it", "sign me up", "what's next"
+
+
+class ProductType(Enum):
+    UNKNOWN         = "unknown"
+    TERM            = "term"
+    WHOLE_LIFE      = "whole_life"
+    IUL             = "iul"
+    FINAL_EXPENSE   = "final_expense"
+    GROUP_EMPLOYER  = "group_employer"
+    GUARANTEED_ISSUE = "guaranteed_issue"
+
+
+@dataclass
+class InsuranceContext:
+    """Structured insurance product analysis based on what the lead said."""
+    requested_amount: int = 0              # Dollar amount they mentioned (e.g. 7000)
+    requested_product: ProductType = ProductType.UNKNOWN
+    lead_age: int = 0                      # Age if known
+    amount_below_minimum: bool = False     # True if requested amount < product minimum
+    product_mismatch: bool = False         # True if product doesn't fit their situation
+    needs_clarification: bool = False      # True if bot should ask before assuming
+    guidance_note: str = ""                # Specific expert guidance for the bot
+
+
 @dataclass
 class LogicSignal:
     stage: ConversationStage
@@ -71,6 +103,9 @@ class LogicSignal:
     objection_nature: ObjectionNature
     consecutive_bot_messages: int
     articulated_impact: bool
+    buying_signal: BuyingSignalType = BuyingSignalType.NONE
+    insurance_context: InsuranceContext = None
+    too_deep_for_text: bool = False        # True = stop texting details, book appointment
 
 
 # ===================================
@@ -182,6 +217,209 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         return ObjectionType.BUSY_TIMING, ObjectionNature.FEAR_BASED
 
     return ObjectionType.NONE, ObjectionNature.NONE
+
+
+# ===================================
+# BUYING SIGNAL DETECTION
+# ===================================
+
+def detect_buying_signal(text: str) -> BuyingSignalType:
+    """Detect buying signals from lead messages. These indicate interest and should push toward booking."""
+    if not text:
+        return BuyingSignalType.NONE
+    t = text.lower()
+
+    ready_kw = [
+        "sign me up", "let's do it", "lets do it", "i'm ready", "im ready",
+        "what's next", "whats next", "how do i start", "let's get started",
+        "i want to move forward", "ready to go"
+    ]
+    if any(kw in t for kw in ready_kw):
+        return BuyingSignalType.READY_SIGNAL
+
+    price_kw = [
+        "how much", "what does it cost", "what would it cost", "price",
+        "premium", "monthly payment", "per month", "a month",
+        "what am i looking at", "what's the cost", "whats the cost",
+        "what would i pay", "affordable", "budget", "cheapest"
+    ]
+    if any(kw in t for kw in price_kw):
+        return BuyingSignalType.ASKING_PRICE
+
+    # Check for specific coverage amount requests (e.g. "I want 7000", "need 50k", "looking for 100000")
+    amount_pattern = re.search(r'(?:want|need|looking for|get|interested in)\s*\$?(\d[\d,]*)\s*(?:k|K|thousand)?', t)
+    if amount_pattern:
+        return BuyingSignalType.REQUESTING_COVERAGE
+
+    option_kw = [
+        "what are my options", "what options", "what's available", "whats available",
+        "what can i get", "what kind of", "types of", "what type",
+        "what plans", "what policies"
+    ]
+    if any(kw in t for kw in option_kw):
+        return BuyingSignalType.ASKING_OPTIONS
+
+    compare_kw = [
+        "which is better", "term vs", "vs whole", "difference between",
+        "term or whole", "iul vs", "compared to", "which one"
+    ]
+    if any(kw in t for kw in compare_kw):
+        return BuyingSignalType.COMPARING
+
+    detail_kw = [
+        "how does that work", "how does it work", "tell me more",
+        "explain", "what does that mean", "what's the catch", "whats the catch",
+        "what are living benefits", "what is iul", "what is term"
+    ]
+    if any(kw in t for kw in detail_kw):
+        return BuyingSignalType.ASKING_DETAILS
+
+    return BuyingSignalType.NONE
+
+
+# ===================================
+# INSURANCE PRODUCT VALIDATION
+# ===================================
+
+# Coverage minimums by product type (industry standard)
+PRODUCT_MINIMUMS = {
+    ProductType.FINAL_EXPENSE:    (1000, 50000),     # $1k - $50k (Transamerica allows up to $100k)
+    ProductType.TERM:             (50000, None),      # $50k minimum, no practical max
+    ProductType.IUL:              (50000, None),      # $50k minimum
+    ProductType.WHOLE_LIFE:       (10000, None),      # Varies by carrier
+    ProductType.GUARANTEED_ISSUE: (5000, 25000),      # $5k - $25k typical
+}
+
+# Age-based product recommendations
+AGE_PRODUCT_GUIDANCE = {
+    # (min_age, max_age): (best_products, warning_products, avoid_products)
+    (0, 39):   (["term", "iul", "whole_life"], [], []),
+    (40, 49):  (["term", "iul", "whole_life"], [], []),
+    (50, 59):  (["term", "whole_life", "final_expense"], ["iul"], []),
+    (60, 67):  (["final_expense", "whole_life"], ["term"], ["iul"]),
+    (68, 120): (["final_expense", "whole_life"], [], ["term", "iul"]),
+}
+
+
+def _parse_dollar_amount(text: str) -> int:
+    """Extract a dollar amount from text. Returns 0 if none found."""
+    t = text.lower().replace(',', '')
+    # Match patterns like "$7000", "7000", "7k", "50,000", "100 thousand"
+    m = re.search(r'\$?(\d+)\s*(?:k|K|thousand)', t)
+    if m:
+        return int(m.group(1)) * 1000
+    m = re.search(r'\$?(\d{3,})', t)  # 3+ digits = likely a dollar amount
+    if m:
+        return int(m.group(1))
+    return 0
+
+
+def _detect_product_type(text: str) -> ProductType:
+    """Detect which insurance product type the lead is asking about."""
+    t = text.lower()
+    if any(kw in t for kw in ["final expense", "burial", "funeral"]):
+        return ProductType.FINAL_EXPENSE
+    if any(kw in t for kw in ["iul", "indexed universal", "index universal"]):
+        return ProductType.IUL
+    if any(kw in t for kw in ["whole life", "permanent"]):
+        return ProductType.WHOLE_LIFE
+    if any(kw in t for kw in ["term life", "term policy", "term insurance", "a term",
+                                "10 year", "15 year", "20 year", "30 year"]):
+        return ProductType.TERM
+    if any(kw in t for kw in ["through work", "through my job", "employer", "group"]):
+        return ProductType.GROUP_EMPLOYER
+    if any(kw in t for kw in ["guaranteed issue", "no exam", "no questions"]):
+        return ProductType.GUARANTEED_ISSUE
+    return ProductType.UNKNOWN
+
+
+def analyze_insurance_context(text: str, all_lead_text: str, age: int = 0) -> InsuranceContext:
+    """
+    Analyze the lead's messages for insurance product context.
+    Returns structured guidance the bot MUST follow (not optional prompt hints).
+    """
+    ctx = InsuranceContext()
+    ctx.lead_age = age
+
+    # Parse requested amount
+    ctx.requested_amount = _parse_dollar_amount(text)
+    if ctx.requested_amount == 0:
+        ctx.requested_amount = _parse_dollar_amount(all_lead_text)
+
+    # Detect product type
+    ctx.requested_product = _detect_product_type(text)
+    if ctx.requested_product == ProductType.UNKNOWN:
+        ctx.requested_product = _detect_product_type(all_lead_text)
+
+    # Validate amount against product minimums
+    if ctx.requested_amount > 0:
+        if ctx.requested_amount < 50000 and ctx.requested_product in (ProductType.TERM, ProductType.IUL):
+            ctx.amount_below_minimum = True
+            ctx.needs_clarification = True
+            ctx.guidance_note = (
+                f"Lead requested ${ctx.requested_amount:,} in {ctx.requested_product.value}. "
+                f"Term and IUL policies typically start at $50,000 minimum. "
+                f"For amounts under $50,000, final expense or whole life may be more appropriate. "
+                f"Ask the lead what they are trying to accomplish with the coverage "
+                f"before suggesting a different product. Do not assume."
+            )
+        elif ctx.requested_amount < 1000:
+            ctx.amount_below_minimum = True
+            ctx.needs_clarification = True
+            ctx.guidance_note = (
+                f"Lead requested ${ctx.requested_amount:,} which is below the minimum "
+                f"for any standard life insurance product. Final expense starts at $1,000. "
+                f"Clarify what they are looking for. They may mean monthly payment, not coverage amount."
+            )
+        elif ctx.requested_amount <= 50000 and ctx.requested_product == ProductType.UNKNOWN:
+            ctx.guidance_note = (
+                f"Lead requested ${ctx.requested_amount:,}. At this amount, final expense "
+                f"or whole life is the right product category. Term and IUL start at $50,000."
+            )
+
+    # Age-based product mismatch detection
+    if age > 0:
+        if age >= 68 and ctx.requested_product == ProductType.TERM:
+            ctx.product_mismatch = True
+            ctx.needs_clarification = True
+            ctx.guidance_note = (
+                f"Lead is {age} and asking about term insurance. At {age}, term premiums "
+                f"are extremely expensive and most carriers have age limits. Final expense "
+                f"or whole life is usually more realistic at this age. Ask what they are "
+                f"trying to protect against before recommending a different product. "
+                f"If they truly want term, acknowledge the cost reality honestly."
+            )
+        elif age >= 60 and ctx.requested_product == ProductType.IUL:
+            ctx.product_mismatch = True
+            ctx.needs_clarification = True
+            ctx.guidance_note = (
+                f"Lead is {age} and asking about IUL. At {age}+, IUL premiums are very high "
+                f"and there is not enough time for cash value to compound meaningfully. "
+                f"Final expense or whole life is more practical. But ask what drew them to IUL "
+                f"before redirecting. They may have a specific need that IUL addresses."
+            )
+
+    # Depth guard: if the conversation is getting too technical for text
+    depth_triggers = [
+        "medical underwriting", "simplified issue", "guaranteed issue vs",
+        "what carriers", "which company", "illustration", "cash value projection",
+        "rate class", "preferred plus", "preferred best", "standard plus",
+        "tobacco rate", "table rating", "flat extra", "exclusion rider",
+        "convertibility", "return of premium", "decreasing term",
+        "modified whole life", "graded benefit", "level benefit"
+    ]
+    combined = (text + " " + all_lead_text).lower()
+    depth_hits = sum(1 for trigger in depth_triggers if trigger in combined)
+    if depth_hits >= 2:
+        ctx.guidance_note = (
+            "DEPTH GUARD: This conversation is getting into underwriting details, "
+            "carrier comparisons, or product specifics that cannot be properly addressed "
+            "over text. These details require a licensed advisor reviewing their actual "
+            "situation. Push firmly but warmly toward booking an appointment. "
+            "The right answer to technical insurance questions is a call, not a text."
+        )
+
+    return ctx
 
 
 # ===================================
@@ -361,6 +599,17 @@ Context clues:
         ]
         booking_confirmed = any(p in recent_bot for p in confirmation_patterns)
 
+    # ─── Buying signal detection (structured, not prompt-based) ───
+    buying_signal = detect_buying_signal(message) if message else BuyingSignalType.NONE
+    if buying_signal == BuyingSignalType.NONE and recent_lead_text:
+        buying_signal = detect_buying_signal(recent_lead_text)
+
+    # ─── Insurance product context analysis ───
+    ins_ctx = analyze_insurance_context(message or "", all_lead_text)
+
+    # ─── Depth guard: too many technical questions = book appointment ───
+    too_deep = bool(ins_ctx.guidance_note and "DEPTH GUARD" in ins_ctx.guidance_note)
+
     # ─── Stage logic (priority order) ───
     stage = ConversationStage.QUALIFYING
 
@@ -372,9 +621,25 @@ Context clues:
         # Explicit readiness to book overrides objections
         stage = ConversationStage.BOOKING
 
+    elif too_deep and msg_context == MessageContext.INBOUND_REPLY:
+        # Too deep in technical details for text — push to booking
+        stage = ConversationStage.BOOKING
+
     elif objection_type != ObjectionType.NONE and msg_context == MessageContext.INBOUND_REPLY:
         # Active objection from an inbound reply — handle it before pushing forward
         stage = ConversationStage.OBJECTION_HANDLING
+
+    elif buying_signal in (BuyingSignalType.ASKING_PRICE, BuyingSignalType.REQUESTING_COVERAGE,
+                           BuyingSignalType.READY_SIGNAL) and msg_context == MessageContext.INBOUND_REPLY:
+        # Strong buying signal = push to booking. Asking about price, requesting
+        # specific coverage, or saying "let's do it" are all appointment triggers.
+        stage = ConversationStage.BOOKING
+
+    elif buying_signal in (BuyingSignalType.ASKING_OPTIONS, BuyingSignalType.COMPARING,
+                           BuyingSignalType.ASKING_DETAILS) and conversation_count >= 1:
+        # Moderate buying signal with some conversation = move toward booking
+        # These show real interest even without full gap/impact qualification
+        stage = ConversationStage.BOOKING
 
     elif (cls.get("needs_coverage", False) or cls.get("mentioned_goal", False)) and cls.get("articulated_impact", False) and conversation_count >= 2:
         # Gap found AND lead has expressed why it matters — ready to book
@@ -400,5 +665,8 @@ Context clues:
         objection_type=objection_type,
         objection_nature=objection_nature,
         consecutive_bot_messages=consecutive_bot,
-        articulated_impact=cls.get("articulated_impact", False)
+        articulated_impact=cls.get("articulated_impact", False),
+        buying_signal=buying_signal,
+        insurance_context=ins_ctx,
+        too_deep_for_text=too_deep,
     )

@@ -205,6 +205,7 @@ def init_db() -> bool:
                 invite_claimed_at TIMESTAMP,
                 onboarding_status TEXT DEFAULT 'pending',
                 oauth_app_type TEXT DEFAULT 'marketplace',
+                personal_website TEXT,
 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -237,6 +238,7 @@ def init_db() -> bool:
                 active_seats INTEGER DEFAULT 0,
                 stripe_customer_id TEXT,
                 oauth_app_type TEXT DEFAULT 'marketplace',
+                personal_website TEXT,
 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -405,7 +407,24 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"crm_type/crm_config migration note: {e}")
 
-        # 12. MIGRATION: Create webhook_logs table for per-subscriber activity logging
+        # 12. MIGRATION: Add personal_website column for agent website sharing
+        try:
+            cur_pw = conn.cursor()
+            cur_pw.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS personal_website TEXT
+            """)
+            cur_pw.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS personal_website TEXT
+            """)
+            conn.commit()
+            cur_pw.close()
+            logger.info("✅ Migration: Added personal_website column to subscribers and agency_billing")
+        except Exception as e:
+            logger.debug(f"personal_website migration note: {e}")
+
+        # 13. MIGRATION: Create webhook_logs table for per-subscriber activity logging
         try:
             cur5 = conn.cursor()
             cur5.execute("""
@@ -499,6 +518,9 @@ class User(UserMixin):
         # Multi-CRM integration fields
         self.crm_type = data.get('crm_type', 'ghl')
         self.crm_config = data.get('crm_config') or {}
+
+        # Agent personal website (shared by bot when lead asks)
+        self.personal_website = data.get('personal_website')
 
         # Timestamps
         self.created_at = data.get('created_at')
