@@ -2747,19 +2747,28 @@ def oauth_callback():
         num_subs = len(sub_accounts)
         logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
 
-        # 5. Determine tier based on sub-account count
-        plan_tier = 'individual'
-        if is_agency_owner:
-            # Agency Starter: 1-14 sub-accounts ($797.99/mo)
-            # Agency Pro: 15+ sub-accounts ($1597.99/mo)
-            plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
+        # 5. Determine tier and whether to use agency onboarding flow
+        # KEY DISTINCTION: Being an agency owner in GHL ≠ subscribing to an agency plan.
+        # An agency owner may only want the bot for themselves (individual plan).
+        # Website users already chose their plan via Stripe — respect that choice.
+        if is_website_user:
+            plan_tier = current_user.subscription_tier or 'individual'
+            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro')
+            logger.info(f"Website user: subscribed tier={plan_tier}, GHL agency={is_agency_owner}, "
+                        f"using agency flow={use_agency_flow}")
+        else:
+            # Marketplace install: auto-detect from GHL account structure
+            plan_tier = 'individual'
+            if is_agency_owner:
+                plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
+            use_agency_flow = is_agency_owner
 
         # 6. Get primary location details
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
         primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
 
-        logger.info(f"Step 5-6 complete: tier={plan_tier}, primary_location={primary_name}")
+        logger.info(f"Step 5-6 complete: tier={plan_tier}, agency_flow={use_agency_flow}, primary_location={primary_name}")
 
         # 7. Database operations
         conn = get_db_connection()
@@ -2771,8 +2780,8 @@ def oauth_callback():
         try:
             cur = conn.cursor()
 
-            # --- A. Agency Owner Primary Location ---
-            if is_agency_owner:
+            # --- A. Agency Owner Primary Location (only if subscribed to agency tier) ---
+            if use_agency_flow:
                 # Agency Starter: max 14 seats, Agency Pro: unlimited
                 max_seats = 9999 if plan_tier == 'agency_pro' else 14
                 active_seats = max(0, num_subs - 1)  # Exclude primary
@@ -2835,30 +2844,31 @@ def oauth_callback():
                 if rows_updated > 0:
                     logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
 
-            for sub in sub_accounts:
+            # --- C. Subscriber rows ---
+            # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
+            # Individual flow: only provision the primary location
+            # This ensures agency owners who subscribe as individual don't get all
+            # sub-accounts provisioned — they just want their own location.
+            if use_agency_flow:
+                locations_to_provision = [s for s in sub_accounts if s['id'] != primary_location_id]
+            else:
+                locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
+
+            for sub in locations_to_provision:
                 sub_id = sub['id']
                 sub_name = sub.get('name', 'Unknown Location')
                 sub_timezone = sub.get('timezone')
 
-                is_primary = (sub_id == primary_location_id)
-
-                # Skip primary if agency owner (already handled above)
-                if is_agency_owner and is_primary:
-                    continue
-
-                # Agent email will be set when agent claims location
-                # For now, default to owner's email so they can manage
                 agent_email = user_email
                 agent_name = sub_name
                 agent_crm_user_id = me_data.get('id')
 
-                # Share agency token with ALL sub-accounts
-                # Agency-level OAuth tokens work for all locations under that agency
+                # Agency tokens work for all locations under that agency
                 access_token_this = access_token
                 refresh_token_this = refresh_token
 
-                role = 'agency_sub_account_user' if is_agency_owner else 'individual'
-                parent_agency_email = user_email if is_agency_owner else None
+                role = 'agency_sub_account_user' if use_agency_flow else 'individual'
+                parent_agency_email = user_email if use_agency_flow else None
                 email_this = user_email
                 app_type = 'private' if is_website_user else 'marketplace'
 
@@ -2899,7 +2909,8 @@ def oauth_callback():
                 ))
 
             conn.commit()
-            logger.info(f"Step 7 complete: Onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
+            logger.info(f"Step 7 complete: Onboarded {user_email} (tier={plan_tier}, agency_flow={use_agency_flow}) "
+                        f"— provisioned {len(locations_to_provision)} locations out of {num_subs} total in GHL.")
 
         except Exception as e:
             conn.rollback()
