@@ -2485,8 +2485,9 @@ def oauth_initiate():
         "conversations.write",          # Conversation management
         "conversations.readonly",       # Search conversations (ghl_api.py)
         "contacts.readonly",            # Contact lookup & validation
-        "locations.readonly",           # Fetch locations during OAuth onboarding
         "oauth.readonly",              # Token info check (ghl_calendar.py)
+        # TODO: Add "locations.readonly" here once GHL marketplace approval completes.
+        # Without it, the callback falls back to using the primary locationId from the token.
     ]
     scope_string = " ".join(scopes)
 
@@ -2755,12 +2756,19 @@ def oauth_callback():
         num_subs = len(sub_accounts)
         logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
 
-        # Scope diagnostic: if token gave us a locationId but the API returned 0 locations,
-        # the most likely cause is missing 'locations.readonly' scope
+        # Fallback: if /locations/ returned 0 results but we have a locationId from the token,
+        # synthesize a minimal location entry so onboarding still works.
+        # This happens when 'locations.readonly' scope isn't available (pending marketplace approval).
         if num_subs == 0 and primary_location_id:
-            logger.error(f"SCOPE ISSUE? Token has locationId={primary_location_id} but /locations/ "
-                        f"returned 0 results. Check that 'locations.readonly' scope is enabled in "
-                        f"GHL marketplace app settings AND was granted during OAuth consent.")
+            logger.warning(f"locations.readonly scope likely missing — /locations/ returned 0 results "
+                          f"but token has locationId={primary_location_id}. Using fallback location entry.")
+            sub_accounts = [{
+                'id': primary_location_id,
+                'name': user_name or 'Primary Location',
+                'timezone': None  # Will default to America/Chicago downstream
+            }]
+            num_subs = 1
+            logger.info(f"Fallback: synthesized 1 location entry from token's locationId")
 
         # 5. Determine tier and whether to use agency onboarding flow
         # KEY DISTINCTION: Being an agency owner in GHL ≠ subscribing to an agency plan.
