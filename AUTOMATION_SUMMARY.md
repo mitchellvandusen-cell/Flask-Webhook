@@ -2,7 +2,7 @@
 
 ## 🎯 You Don't Have to Worry About Anything!
 
-Everything is now **100% automated**. When an agency installs your app, here's what happens automatically:
+Everything is now **100% automated**. When an agency installs your app here's what happens automatically:
 
 ---
 
@@ -429,3 +429,4 @@ updated_at           TIMESTAMP DEFAULT NOW()
 - Just monitor logs for any errors
 
 **That's it! Your system is fully automated! 🚀**
+
