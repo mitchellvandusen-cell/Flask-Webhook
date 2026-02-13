@@ -2473,17 +2473,20 @@ def oauth_initiate():
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # Required scopes (must match marketplace app configuration)
+    # Required scopes — must match marketplace app configuration in GHL developer portal.
+    # If you add/remove scopes here, update the marketplace app settings too.
     scopes = [
-        "calendars.readonly",
-        "calendars/events.readonly",
-        "calendars/events.write",
-        "conversations/message.write",
-        "conversations/message.readonly",
-        "contacts.readonly",
-        "locations.readonly",
-        "calendars/groups.readonly",
-        "conversations.write"
+        "calendars.readonly",           # List calendars, free slots
+        "calendars/events.readonly",    # Read calendar events
+        "calendars/events.write",       # Book appointments
+        "calendars/groups.readonly",    # Calendar group listing
+        "conversations/message.write",  # Send SMS
+        "conversations/message.readonly",  # Read inbound messages
+        "conversations.write",          # Conversation management
+        "conversations.readonly",       # Search conversations (ghl_api.py)
+        "contacts.readonly",            # Contact lookup & validation
+        "locations.readonly",           # Fetch locations during OAuth onboarding
+        "oauth.readonly",              # Token info check (ghl_calendar.py)
     ]
     scope_string = " ".join(scopes)
 
