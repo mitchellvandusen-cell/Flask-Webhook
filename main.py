@@ -2492,14 +2492,17 @@ def oauth_initiate():
     state = "website_user"
 
     # Build OAuth URL using public marketplace app
-    oauth_url = (
-        f"https://marketplace.gohighlevel.com/oauth/chooselocation?"
-        f"response_type=code&"
-        f"redirect_uri={redirect_uri}&"
-        f"client_id={client_id}&"
-        f"scope={scope_string}&"
-        f"state={state}"
-    )
+    # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
+    # and cause GHL scope validation failures + state parameter loss
+    from urllib.parse import urlencode
+    oauth_params = urlencode({
+        'response_type': 'code',
+        'redirect_uri': redirect_uri,
+        'client_id': client_id,
+        'scope': scope_string,
+        'state': state
+    })
+    oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
     logger.info(f"Initiating marketplace OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
