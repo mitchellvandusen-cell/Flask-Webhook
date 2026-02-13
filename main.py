@@ -2594,7 +2594,10 @@ def oauth_callback():
     code = request.args.get("code")
     state = request.args.get("state")
 
+    logger.info(f"OAuth callback hit: state={state}, code={'present' if code else 'MISSING'}")
+
     if not code:
+        logger.warning("OAuth callback: No authorization code in request params")
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
@@ -2781,6 +2784,7 @@ def oauth_callback():
             cur = conn.cursor()
 
             # --- A. Agency Owner Primary Location (only if subscribed to agency tier) ---
+            logger.info(f"Step 7a: use_agency_flow={use_agency_flow}, is_website_user={is_website_user}, primary_location_id={primary_location_id}")
             if use_agency_flow:
                 # Agency Starter: max 14 seats, Agency Pro: unlimited
                 max_seats = 9999 if plan_tier == 'agency_pro' else 14
@@ -2843,6 +2847,8 @@ def oauth_callback():
                 rows_updated = cur.rowcount
                 if rows_updated > 0:
                     logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
+                else:
+                    logger.warning(f"No temp_ row found for {user_email} — may already be claimed or email mismatch")
 
             # --- C. Subscriber rows ---
             # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
@@ -2853,6 +2859,9 @@ def oauth_callback():
                 locations_to_provision = [s for s in sub_accounts if s['id'] != primary_location_id]
             else:
                 locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
+
+            logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} subscriber rows "
+                        f"(agency_flow={use_agency_flow}, total_ghl_locations={num_subs})")
 
             for sub in locations_to_provision:
                 sub_id = sub['id']
