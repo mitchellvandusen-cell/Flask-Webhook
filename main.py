@@ -196,8 +196,7 @@ class LoginForm(FlaskForm):
 
 class ConfigForm(FlaskForm):
     location_id = StringField("Location ID", validators=[DataRequired()])
-    crm_api_key = StringField("CRM API Key", validators=[DataRequired()])
-    crm_user_id = StringField("CRM USER ID", validators=[DataRequired()])
+    crm_user_id = StringField("CRM USER ID")
     calendar_id = StringField("Calendar ID", validators=[DataRequired()])
     timezone = StringField("Timezone (e.g. America/Chicago)", validators=[DataRequired()])
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
@@ -930,6 +929,10 @@ def agency_dashboard():
         return redirect("/dashboard")
     form = ConfigForm()
     # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if request.method == 'POST' and not form.validate_on_submit():
+        logger.warning(f"Agency form validation failed for {current_user.email}: {form.errors}")
+        flash("Please fill in all required fields.", "error")
+
     if form.validate_on_submit():
         if not conn:
             flash("Database connection failed", "error")
@@ -1269,6 +1272,11 @@ def dashboard():
     conn = get_db_connection()
    
     # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if request.method == 'POST' and not form.validate_on_submit():
+        # Log validation failures so they're never silent again
+        logger.warning(f"Dashboard form validation failed for {current_user.email}: {form.errors}")
+        flash("Please fill in all required fields.", "error")
+
     if form.validate_on_submit():
         if not conn:
             flash("Database connection failed", "error")
@@ -1581,8 +1589,13 @@ def api_save_config():
                 current_user.email
             ))
 
+        rows = cur.rowcount
         conn.commit()
-        logger.info(f"Config saved via API for {current_user.email}")
+        if rows == 0:
+            logger.error(f"API config save: UPDATE matched 0 rows for {current_user.email} "
+                        f"(role={current_user.role}). Row may not exist in the target table.")
+            return safe_jsonify({"success": False, "error": "No matching account found in database"}), 404
+        logger.info(f"Config saved via API for {current_user.email} ({rows} row updated)")
         return safe_jsonify({"success": True})
     except Exception as e:
         conn.rollback()
