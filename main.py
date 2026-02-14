@@ -1516,6 +1516,83 @@ def integrations_page():
     return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
 
 
+@app.route("/api/save-config", methods=["POST"])
+@login_required
+def api_save_config():
+    """AJAX endpoint to save bot configuration. Returns JSON for overlay feedback."""
+    data = request.get_json()
+    if not data:
+        return safe_jsonify({"success": False, "error": "No data provided"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return safe_jsonify({"success": False, "error": "Database connection failed"}), 500
+
+    try:
+        cur = conn.cursor()
+        calendar_name = data.get('calendar_name', '')
+
+        if current_user.role == 'agency_owner':
+            cur.execute("""
+                UPDATE agency_billing
+                SET location_id = %s,
+                    calendar_id = %s,
+                    calendar_name = %s,
+                    crm_user_id = %s,
+                    bot_first_name = %s,
+                    timezone = %s,
+                    initial_message = %s,
+                    personal_website = %s,
+                    updated_at = NOW()
+                WHERE agency_email = %s
+            """, (
+                data.get('location_id', ''),
+                data.get('calendar_id', ''),
+                calendar_name,
+                data.get('crm_user_id', ''),
+                data.get('bot_name', ''),
+                data.get('timezone', ''),
+                data.get('initial_message', ''),
+                data.get('personal_website') or None,
+                current_user.email
+            ))
+        else:
+            cur.execute("""
+                UPDATE subscribers
+                SET location_id = %s,
+                    calendar_id = %s,
+                    calendar_name = %s,
+                    crm_user_id = %s,
+                    bot_first_name = %s,
+                    timezone = %s,
+                    initial_message = %s,
+                    personal_website = %s,
+                    updated_at = NOW()
+                WHERE email = %s
+            """, (
+                data.get('location_id', ''),
+                data.get('calendar_id', ''),
+                calendar_name,
+                data.get('crm_user_id', ''),
+                data.get('bot_name', ''),
+                data.get('timezone', ''),
+                data.get('initial_message', ''),
+                data.get('personal_website') or None,
+                current_user.email
+            ))
+
+        conn.commit()
+        logger.info(f"Config saved via API for {current_user.email}")
+        return safe_jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"API config save failed for {current_user.email}: {e}")
+        return safe_jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
+
+
 @app.route("/api/integrations/save", methods=["POST"])
 @login_required
 def save_integration_config():

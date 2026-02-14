@@ -238,6 +238,47 @@
             .log-time, .log-event { display: none; }
             .log-row { font-size: 0.8rem; padding: 8px; }
         }
+
+        /* Save overlay */
+        .save-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .save-overlay.active { display: flex; }
+        .save-overlay-box {
+            background: var(--card-glass, #1a1a2e);
+            border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+            border-radius: 20px;
+            padding: 40px 50px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .save-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent, #00ff88);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .save-check {
+            display: none;
+            font-size: 2.5rem;
+            color: var(--accent, #00ff88);
+            margin-bottom: 12px;
+        }
+        .save-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -463,7 +504,7 @@
                                 <small class="text-muted">GrokBot will share this when leads ask for your website</small>
                             </div>
                             <div class="col-12 text-end mt-4">
-                                <button type="submit" class="btn btn-primary px-5">Save Configuration</button>
+                                <button type="button" class="btn btn-primary px-5" id="save-config-btn" onclick="saveConfig()">Save Configuration</button>
                             </div>
 
                             {% if current_user.role == 'agency_owner' %}
@@ -1060,6 +1101,83 @@
                 resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
             });
         }
+    </script>
+
+    <!-- Save Overlay -->
+    <div class="save-overlay" id="save-overlay">
+        <div class="save-overlay-box">
+            <div class="save-spinner" id="save-spinner"></div>
+            <div class="save-check" id="save-check"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="save-text" id="save-text">Saving to database...</div>
+        </div>
+    </div>
+
+    <script>
+    function saveConfig() {
+        const form = document.getElementById('main-config-form');
+        const overlay = document.getElementById('save-overlay');
+        const spinner = document.getElementById('save-spinner');
+        const check = document.getElementById('save-check');
+        const text = document.getElementById('save-text');
+        const btn = document.getElementById('save-config-btn');
+
+        // Collect form data
+        const data = {
+            location_id: form.querySelector('[name="location_id"]')?.value || '',
+            calendar_id: form.querySelector('[name="calendar_id"]')?.value || '',
+            calendar_name: form.querySelector('[name="calendar_name"]')?.value || '',
+            crm_user_id: form.querySelector('[name="crm_user_id"]')?.value || '',
+            bot_name: form.querySelector('[name="bot_name"]')?.value || '',
+            timezone: form.querySelector('[name="timezone"]')?.value || '',
+            initial_message: form.querySelector('[name="initial_message"]')?.value || '',
+            personal_website: form.querySelector('[name="personal_website"]')?.value || ''
+        };
+
+        // Show overlay in "saving" state
+        spinner.style.display = 'block';
+        check.style.display = 'none';
+        text.textContent = 'Saving to database...';
+        overlay.classList.add('active');
+        btn.disabled = true;
+
+        fetch('/api/save-config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
+                // Switch to success state
+                spinner.style.display = 'none';
+                check.style.display = 'block';
+                text.textContent = 'Saved to database';
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    btn.disabled = false;
+                }, 1500);
+            } else {
+                spinner.style.display = 'none';
+                text.textContent = 'Error: ' + (resp.error || 'Save failed');
+                text.style.color = '#ef4444';
+                setTimeout(() => {
+                    overlay.classList.remove('active');
+                    btn.disabled = false;
+                    text.style.color = '#fff';
+                }, 2500);
+            }
+        })
+        .catch(err => {
+            spinner.style.display = 'none';
+            text.textContent = 'Network error. Please try again.';
+            text.style.color = '#ef4444';
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                btn.disabled = false;
+                text.style.color = '#fff';
+            }, 2500);
+        });
+    }
     </script>
 </body>
 </html>
