@@ -196,8 +196,7 @@ class LoginForm(FlaskForm):
 
 class ConfigForm(FlaskForm):
     location_id = StringField("Location ID", validators=[DataRequired()])
-    crm_api_key = StringField("CRM API Key", validators=[DataRequired()])
-    crm_user_id = StringField("CRM USER ID", validators=[DataRequired()])
+    crm_user_id = StringField("CRM USER ID")
     calendar_id = StringField("Calendar ID", validators=[DataRequired()])
     timezone = StringField("Timezone (e.g. America/Chicago)", validators=[DataRequired()])
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
@@ -930,6 +929,10 @@ def agency_dashboard():
         return redirect("/dashboard")
     form = ConfigForm()
     # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if request.method == 'POST' and not form.validate_on_submit():
+        logger.warning(f"Agency form validation failed for {current_user.email}: {form.errors}")
+        flash("Please fill in all required fields.", "error")
+
     if form.validate_on_submit():
         if not conn:
             flash("Database connection failed", "error")
@@ -1269,6 +1272,11 @@ def dashboard():
     conn = get_db_connection()
    
     # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if request.method == 'POST' and not form.validate_on_submit():
+        # Log validation failures so they're never silent again
+        logger.warning(f"Dashboard form validation failed for {current_user.email}: {form.errors}")
+        flash("Please fill in all required fields.", "error")
+
     if form.validate_on_submit():
         if not conn:
             flash("Database connection failed", "error")
@@ -1514,6 +1522,88 @@ def integrations_page():
     from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
     crms = list_available_crms()
     return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
+
+
+@app.route("/api/save-config", methods=["POST"])
+@login_required
+def api_save_config():
+    """AJAX endpoint to save bot configuration. Returns JSON for overlay feedback."""
+    data = request.get_json()
+    if not data:
+        return safe_jsonify({"success": False, "error": "No data provided"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return safe_jsonify({"success": False, "error": "Database connection failed"}), 500
+
+    try:
+        cur = conn.cursor()
+        calendar_name = data.get('calendar_name', '')
+
+        if current_user.role == 'agency_owner':
+            cur.execute("""
+                UPDATE agency_billing
+                SET location_id = %s,
+                    calendar_id = %s,
+                    calendar_name = %s,
+                    crm_user_id = %s,
+                    bot_first_name = %s,
+                    timezone = %s,
+                    initial_message = %s,
+                    personal_website = %s,
+                    updated_at = NOW()
+                WHERE agency_email = %s
+            """, (
+                data.get('location_id', ''),
+                data.get('calendar_id', ''),
+                calendar_name,
+                data.get('crm_user_id', ''),
+                data.get('bot_name', ''),
+                data.get('timezone', ''),
+                data.get('initial_message', ''),
+                data.get('personal_website') or None,
+                current_user.email
+            ))
+        else:
+            cur.execute("""
+                UPDATE subscribers
+                SET location_id = %s,
+                    calendar_id = %s,
+                    calendar_name = %s,
+                    crm_user_id = %s,
+                    bot_first_name = %s,
+                    timezone = %s,
+                    initial_message = %s,
+                    personal_website = %s,
+                    updated_at = NOW()
+                WHERE email = %s
+            """, (
+                data.get('location_id', ''),
+                data.get('calendar_id', ''),
+                calendar_name,
+                data.get('crm_user_id', ''),
+                data.get('bot_name', ''),
+                data.get('timezone', ''),
+                data.get('initial_message', ''),
+                data.get('personal_website') or None,
+                current_user.email
+            ))
+
+        rows = cur.rowcount
+        conn.commit()
+        if rows == 0:
+            logger.error(f"API config save: UPDATE matched 0 rows for {current_user.email} "
+                        f"(role={current_user.role}). Row may not exist in the target table.")
+            return safe_jsonify({"success": False, "error": "No matching account found in database"}), 404
+        logger.info(f"Config saved via API for {current_user.email} ({rows} row updated)")
+        return safe_jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"API config save failed for {current_user.email}: {e}")
+        return safe_jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
 
 
 @app.route("/api/integrations/save", methods=["POST"])
