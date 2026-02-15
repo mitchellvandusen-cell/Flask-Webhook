@@ -1731,16 +1731,22 @@ def api_dismiss_alert(alert_id):
     return safe_jsonify({"success": True})
 
 
-@app.route("/api/cron/send-reminders", methods=["POST"])
+@app.route("/api/cron/send-reminders", methods=["GET", "POST"])
 def api_send_reminders():
     """
     Cron-triggered endpoint: sends 24h and 72h reminder emails to users
     who installed but haven't subscribed yet.
-    Protected by a shared secret in the Authorization header.
+    Accepts auth via:
+      - Authorization: Bearer {CRON_SECRET} header
+      - ?key={CRON_SECRET} query parameter (for cron services like cron-job.org)
     """
     cron_secret = os.getenv("CRON_SECRET", "")
-    auth = request.headers.get("Authorization", "")
-    if not cron_secret or auth != f"Bearer {cron_secret}":
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     from send_email_api import send_email_via_api
