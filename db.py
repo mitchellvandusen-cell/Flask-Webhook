@@ -1008,38 +1008,61 @@ def update_subscriber_token(
 
 def get_users_needing_reminders() -> list:
     """
-    Find users who installed but haven't subscribed and need a reminder email.
-    Returns list of dicts with user info and which reminder to send (24h or 72h).
+    Find users who need a reminder email. Catches TWO scenarios:
+      A) User has account but never completed OAuth — missing access_token
+         or location_id starts with 'temp_' (incomplete setup)
+      B) User completed OAuth but hasn't subscribed — no stripe_customer_id
+
+    Both scenarios trigger 24h and 72h reminders based on created_at.
+    Each user gets a 'missing_fields' list so the email can say exactly what's needed.
     """
     conn = get_db_connection()
     if not conn:
         return []
     try:
         cur = conn.cursor()
+        # Subscribers: anyone with an account that's either unsubscribed or incomplete
         cur.execute("""
-            SELECT email, full_name, location_id, install_completed_at,
-                   reminder_24h_sent, reminder_72h_sent, 'individual' as user_type
+            SELECT email, full_name, location_id, access_token,
+                   stripe_customer_id, calendar_id, crm_user_id,
+                   reminder_24h_sent, reminder_72h_sent,
+                   COALESCE(install_completed_at, created_at) as ref_time,
+                   'individual' as user_type
             FROM subscribers
-            WHERE install_completed_at IS NOT NULL
-              AND stripe_customer_id IS NULL
+            WHERE (
+                  stripe_customer_id IS NULL
+                  OR access_token IS NULL
+                  OR location_id LIKE 'temp_%%'
+                  OR calendar_id IS NULL
+                  )
+              AND email IS NOT NULL
               AND (
-                  (reminder_24h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '24 hours')
+                  (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
                   OR
-                  (reminder_72h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '72 hours')
+                  (reminder_72h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '72 hours')
               )
         """)
         individual_rows = cur.fetchall()
 
+        # Agency owners
         cur.execute("""
-            SELECT agency_email as email, full_name, location_id, install_completed_at,
-                   reminder_24h_sent, reminder_72h_sent, 'agency_owner' as user_type
+            SELECT agency_email as email, full_name, location_id, access_token,
+                   stripe_customer_id, calendar_id, crm_user_id,
+                   reminder_24h_sent, reminder_72h_sent,
+                   COALESCE(install_completed_at, created_at) as ref_time,
+                   'agency_owner' as user_type
             FROM agency_billing
-            WHERE install_completed_at IS NOT NULL
-              AND stripe_customer_id IS NULL
+            WHERE (
+                  stripe_customer_id IS NULL
+                  OR access_token IS NULL
+                  OR location_id LIKE 'temp_%%'
+                  OR calendar_id IS NULL
+                  )
+              AND agency_email IS NOT NULL
               AND (
-                  (reminder_24h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '24 hours')
+                  (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
                   OR
-                  (reminder_72h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '72 hours')
+                  (reminder_72h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '72 hours')
               )
         """)
         agency_rows = cur.fetchall()
@@ -1048,12 +1071,12 @@ def get_users_needing_reminders() -> list:
         for row in list(individual_rows) + list(agency_rows):
             r = dict(row)
             from datetime import datetime as _dt, timezone as _tz
-            install_time = r.get("install_completed_at")
-            if not install_time:
+            ref_time = r.get("ref_time")
+            if not ref_time:
                 continue
-            if hasattr(install_time, 'tzinfo') and install_time.tzinfo is None:
-                install_time = install_time.replace(tzinfo=_tz.utc)
-            hours_since = (_dt.now(_tz.utc) - install_time).total_seconds() / 3600
+            if hasattr(ref_time, 'tzinfo') and ref_time.tzinfo is None:
+                ref_time = ref_time.replace(tzinfo=_tz.utc)
+            hours_since = (_dt.now(_tz.utc) - ref_time).total_seconds() / 3600
 
             if hours_since >= 72 and not r.get("reminder_72h_sent"):
                 r["reminder_type"] = "72h"
@@ -1061,6 +1084,19 @@ def get_users_needing_reminders() -> list:
                 r["reminder_type"] = "24h"
             else:
                 continue
+
+            # Build list of what's missing so email can be specific
+            missing = []
+            loc = r.get("location_id") or ""
+            if not r.get("access_token"):
+                missing.append("crm_connection")
+            if not loc or loc.startswith("temp_"):
+                missing.append("location_id")
+            if not r.get("stripe_customer_id"):
+                missing.append("subscription")
+            if not r.get("calendar_id"):
+                missing.append("calendar")
+            r["missing_fields"] = missing
             results.append(r)
 
         cur.close()
