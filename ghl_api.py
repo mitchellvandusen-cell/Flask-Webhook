@@ -74,25 +74,47 @@ def get_valid_token(location_id: str) -> str | None:
     }
 
     try:
-        resp = requests.post(GHL_TOKEN_URL, data=payload, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+        last_err = None
+        for attempt in range(2):
+            try:
+                resp = requests.post(GHL_TOKEN_URL, data=payload, timeout=10)
+                resp.raise_for_status()
+                data = resp.json()
 
-        new_access = data.get('access_token')
-        new_refresh = data.get('refresh_token')
-        expires_in = data.get('expires_in', 86400)  # default 24h
+                new_access = data.get('access_token')
+                new_refresh = data.get('refresh_token')
+                expires_in = data.get('expires_in', 86400)  # default 24h
 
-        if not new_access:
-            logger.error(f"Refresh response missing access_token: {resp.text}")
-            return None
+                if not new_access:
+                    logger.error(f"Refresh response missing access_token: {resp.text}")
+                    return None
 
-        update_subscriber_token(location_id, new_access, new_refresh, expires_in)
-        logger.info(f"✅ Token refreshed successfully for {location_id}")
-        return new_access
+                update_subscriber_token(location_id, new_access, new_refresh, expires_in)
+                logger.info(f"✅ Token refreshed successfully for {location_id}")
+                return new_access
+
+            except requests.HTTPError as e:
+                status = e.response.status_code if e.response else 0
+                if status in (400, 401, 403):
+                    # Auth errors — refresh token invalid, don't retry
+                    logger.error(f"Token refresh auth error {status}: {e.response.text[:300]}")
+                    return None
+                # 5xx or other — retry
+                last_err = f"HTTP {status}"
+                logger.warning(f"Token refresh attempt {attempt+1}/2 failed: {status}")
+            except (requests.Timeout, requests.ConnectionError) as e:
+                last_err = str(e)
+                logger.warning(f"Token refresh attempt {attempt+1}/2 network error: {e}")
+
+            if attempt == 0:
+                import time as _time
+                _time.sleep(2)  # Brief backoff before retry
+
+        logger.error(f"Token refresh failed after 2 attempts for {location_id}: {last_err}")
+        return None
 
     except requests.HTTPError as e:
         logger.error(f"Token refresh HTTP error {e.response.status_code}: {e.response.text}")
-        # If 400/401, refresh token likely invalid — force re-auth next time
         return None
     except Exception as e:
         logger.error(f"Token refresh failed: {e}", exc_info=True)

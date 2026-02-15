@@ -27,7 +27,9 @@ from rq import Queue
 from psycopg2.extras import RealDictCursor
 
 # === IMPORTS ===
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, init_db, User
+from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connection,
+                init_db, User, get_db_connection_with_retry, log_webhook_event,
+                save_persistent_alert, get_persistent_alerts, dismiss_persistent_alert)
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -1709,6 +1711,25 @@ def get_webhook_logs_api():
     return safe_jsonify({"logs": logs, "total": len(logs)})
 
 
+@app.route("/api/alerts", methods=["GET"])
+@login_required
+def api_get_alerts():
+    """Fetch undismissed persistent alerts for the current user."""
+    alerts = get_persistent_alerts(current_user.email)
+    for a in alerts:
+        if a.get("created_at"):
+            a["created_at"] = a["created_at"].isoformat() + "Z"
+    return safe_jsonify({"alerts": alerts})
+
+
+@app.route("/api/alerts/<int:alert_id>/dismiss", methods=["POST"])
+@login_required
+def api_dismiss_alert(alert_id):
+    """Dismiss a persistent alert."""
+    dismiss_persistent_alert(alert_id, current_user.email)
+    return safe_jsonify({"success": True})
+
+
 @app.route("/disclaimers")
 def disclaimers():
     return render_template('disclaimers.html')
@@ -2900,10 +2921,10 @@ def oauth_callback():
 
         logger.info(f"Step 5-6 complete: tier={plan_tier}, agency_flow={use_agency_flow}, primary_location={primary_name}")
 
-        # 7. Database operations
-        conn = get_db_connection()
+        # 7. Database operations (with retry — critical path)
+        conn = get_db_connection_with_retry(max_attempts=3)
         if not conn:
-            logger.error("OAuth callback: Database connection failed — cannot complete onboarding")
+            logger.error("OAuth callback: Database connection failed after 3 retries — cannot complete onboarding")
             flash("Database temporarily unavailable. Please try connecting again in a few minutes.", "danger")
             return redirect(url_for('home'))
 
@@ -3069,11 +3090,125 @@ def oauth_callback():
             cur.close()
             return_db_connection(conn)
 
-        # Login the user via Flask-Login
+        # --- 8. POST-ONBOARDING: Logging, Alerts, Email ---
+
+        # 8a. Log onboarding event to webhook_logs (visible in dashboard)
+        try:
+            log_webhook_event(
+                location_id=primary_location_id,
+                event_type="oauth_onboarding",
+                status="success",
+                summary=f"OAuth onboarding complete for {user_email}",
+                details={
+                    "email": user_email,
+                    "tier": plan_tier,
+                    "agency_flow": use_agency_flow,
+                    "locations_provisioned": len(locations_to_provision),
+                    "total_ghl_locations": num_subs,
+                    "fallback_mode": using_location_fallback,
+                    "is_website_user": is_website_user,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log onboarding event: {e}")
+
+        # 8b. Persistent alerts for scope/location issues
+        if using_location_fallback:
+            try:
+                alert_msg = (
+                    "Your Lead Connector account connected successfully, but the "
+                    "locations.readonly scope is not yet approved in the GHL marketplace. "
+                    "Your primary location is active and the bot is operational. "
+                )
+                if use_agency_flow:
+                    alert_msg += (
+                        f"However, your sub-account locations could not be discovered. "
+                        f"They will be auto-provisioned once the scope is approved. "
+                        f"Contact support if this persists beyond 10 days."
+                    )
+                else:
+                    alert_msg += "No action needed. This will resolve automatically."
+
+                save_persistent_alert(
+                    email=user_email,
+                    alert_type="scope_locations_readonly",
+                    title="Scope Pending: locations.readonly",
+                    message=alert_msg,
+                    severity="warning" if use_agency_flow else "info",
+                    location_id=primary_location_id
+                )
+                log_webhook_event(
+                    location_id=primary_location_id,
+                    event_type="scope_issue",
+                    status="warning",
+                    summary="locations.readonly scope unavailable — using fallback",
+                    details={"fallback": True, "agency_flow": use_agency_flow}
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save scope alert: {e}")
+
+        # 8c. Welcome email on install
+        try:
+            from send_email_api import send_email_via_api
+            domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+            welcome_html = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #00c853; margin-bottom: 5px;">Welcome to InsuranceGrokBot</h1>
+                    <p style="color: #888; font-size: 14px;">Your AI-powered insurance sales assistant</p>
+                </div>
+
+                <p>Hi {user_name},</p>
+
+                <p>Your Lead Connector account has been successfully connected. Here is everything you need to get started:</p>
+
+                <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                    <p style="margin: 8px 0;"><strong>Subscribe and activate your bot:</strong><br>
+                    <a href="{domain_url}" style="color: #00c853;">{domain_url}</a></p>
+
+                    <p style="margin: 8px 0;"><strong>Questions or FAQ:</strong><br>
+                    <a href="{domain_url}/support" style="color: #00c853;">{domain_url}/support</a></p>
+
+                    <p style="margin: 8px 0;"><strong>Dashboard, CRM integration, and setup guide:</strong><br>
+                    <a href="{domain_url}/dashboard" style="color: #00c853;">{domain_url}/dashboard</a></p>
+
+                    <p style="margin: 8px 0;"><strong>Onboarding status:</strong><br>
+                    <a href="{domain_url}/onboarding-status" style="color: #00c853;">{domain_url}/onboarding-status</a></p>
+                </div>
+
+                <p>If you have any questions about navigating your dashboard, integrating your CRM, or anything else, visit our support page or reply to this email.</p>
+
+                <p style="margin-top: 30px; color: #888; font-size: 13px;">
+                    — The InsuranceGrokBot Team
+                </p>
+            </body>
+            </html>
+            """
+            email_sent = send_email_via_api(
+                to_email=user_email,
+                subject="Welcome to InsuranceGrokBot",
+                html_body=welcome_html,
+                text_body=f"Welcome to InsuranceGrokBot, {user_name}! "
+                          f"Subscribe: {domain_url} | Dashboard: {domain_url}/dashboard | "
+                          f"Support: {domain_url}/support | Status: {domain_url}/onboarding-status"
+            )
+            if email_sent:
+                logger.info(f"Welcome email sent to {user_email}")
+                log_webhook_event(primary_location_id, "welcome_email", "success",
+                                  f"Welcome email sent to {user_email}")
+            else:
+                logger.warning(f"Welcome email failed for {user_email}")
+                log_webhook_event(primary_location_id, "welcome_email", "error",
+                                  f"Welcome email failed for {user_email}")
+        except Exception as e:
+            logger.warning(f"Welcome email error for {user_email}: {e}")
+
+        # --- 9. Login and redirect ---
         user = User.get(user_email)
         if user:
             login_user(user)
-            logger.info(f"Step 8 complete: Logged in {user_email}")
+            logger.info(f"Step 9 complete: Logged in {user_email}")
         else:
             logger.error(f"User.get({user_email}) returned None after successful DB commit — login failed")
             flash("Account created but login failed. Please log in manually.", "warning")
