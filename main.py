@@ -29,7 +29,8 @@ from psycopg2.extras import RealDictCursor
 # === IMPORTS ===
 from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connection,
                 init_db, User, get_db_connection_with_retry, log_webhook_event,
-                save_persistent_alert, get_persistent_alerts, dismiss_persistent_alert)
+                save_persistent_alert, get_persistent_alerts, dismiss_persistent_alert,
+                get_users_needing_reminders, mark_reminder_sent)
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -1730,6 +1731,181 @@ def api_dismiss_alert(alert_id):
     return safe_jsonify({"success": True})
 
 
+@app.route("/api/cron/send-reminders", methods=["POST"])
+def api_send_reminders():
+    """
+    Cron-triggered endpoint: sends 24h and 72h reminder emails to users
+    who installed but haven't subscribed yet.
+    Protected by a shared secret in the Authorization header.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth = request.headers.get("Authorization", "")
+    if not cron_secret or auth != f"Bearer {cron_secret}":
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+    users = get_users_needing_reminders()
+    sent_count = 0
+    errors = []
+
+    for user in users:
+        email = user.get("email")
+        name = user.get("full_name") or "there"
+        reminder_type = user.get("reminder_type")
+        user_type = user.get("user_type", "individual")
+
+        try:
+            if reminder_type == "24h":
+                subject = "Your InsuranceGrokBot is waiting to be activated"
+                html_body = _build_reminder_24h_email(name, domain_url, user_type)
+                text_body = (
+                    f"Hi {name}, you connected InsuranceGrokBot 24 hours ago but haven't subscribed yet. "
+                    f"Subscribe now to activate your AI sales assistant: {domain_url}/dashboard"
+                )
+            else:
+                subject = "Last chance to activate your InsuranceGrokBot"
+                html_body = _build_reminder_72h_email(name, domain_url, user_type)
+                text_body = (
+                    f"Hi {name}, it's been 3 days since you installed InsuranceGrokBot. "
+                    f"Your bot is configured and ready — subscribe to start converting leads: {domain_url}/dashboard"
+                )
+
+            sent = send_email_via_api(
+                to_email=email,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body
+            )
+
+            if sent:
+                mark_reminder_sent(email, reminder_type, user_type)
+                log_webhook_event(
+                    user.get("location_id", "unknown"),
+                    f"reminder_{reminder_type}",
+                    "success",
+                    f"{reminder_type} reminder email sent to {email}"
+                )
+                sent_count += 1
+                logger.info(f"Reminder {reminder_type} sent to {email}")
+            else:
+                errors.append(f"{email}: send failed")
+                logger.warning(f"Reminder {reminder_type} failed for {email}")
+        except Exception as e:
+            errors.append(f"{email}: {str(e)}")
+            logger.error(f"Reminder email error for {email}: {e}")
+
+    return safe_jsonify({
+        "success": True,
+        "checked": len(users),
+        "sent": sent_count,
+        "errors": errors
+    })
+
+
+def _build_reminder_24h_email(name: str, domain_url: str, user_type: str) -> str:
+    """Build the 24-hour reminder email HTML."""
+    plan_text = "an Agency Plan" if user_type == "agency_owner" else "the Individual Plan"
+    dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
+    return f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #00c853; margin-bottom: 5px;">Your Bot is Ready</h1>
+            <p style="color: #888; font-size: 14px;">InsuranceGrokBot</p>
+        </div>
+
+        <p>Hi {name},</p>
+
+        <p>You connected your Lead Connector account 24 hours ago — great first step! Your AI-powered insurance
+        sales assistant is configured and waiting to start working your leads.</p>
+
+        <p>All that's left is subscribing to <strong>{plan_text}</strong> to activate your bot.</p>
+
+        <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 8px 0;"><strong>What happens when you subscribe:</strong></p>
+            <ul style="color: #555; line-height: 1.8;">
+                <li>Your bot starts responding to new leads automatically</li>
+                <li>Conversations are qualified and appointments are booked for you</li>
+                <li>You get a fully configured dashboard to manage settings</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{dashboard}"
+               style="background-color: #00c853; color: white; padding: 16px 32px;
+                      text-decoration: none; border-radius: 10px; font-weight: bold;
+                      display: inline-block; font-size: 16px;">
+                Activate My Bot
+            </a>
+        </div>
+
+        <p style="color: #888; font-size: 13px;">
+            Questions? Visit <a href="{domain_url}/support" style="color: #00c853;">{domain_url}/support</a>
+            or reply to this email.
+        </p>
+
+        <p style="margin-top: 30px; color: #888; font-size: 13px;">
+            — The InsuranceGrokBot Team
+        </p>
+    </body>
+    </html>
+    """
+
+
+def _build_reminder_72h_email(name: str, domain_url: str, user_type: str) -> str:
+    """Build the 72-hour reminder email HTML."""
+    plan_text = "an Agency Plan" if user_type == "agency_owner" else "the Individual Plan"
+    dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
+    return f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #ff9800; margin-bottom: 5px;">Don't Miss Out</h1>
+            <p style="color: #888; font-size: 14px;">InsuranceGrokBot</p>
+        </div>
+
+        <p>Hi {name},</p>
+
+        <p>It's been 3 days since you installed InsuranceGrokBot. Your account is set up and your
+        bot is configured — but it's not active yet because there's no subscription on the account.</p>
+
+        <p>Every day without your bot running is leads that aren't being worked, appointments that
+        aren't being booked, and revenue that's being left on the table.</p>
+
+        <div style="background: #fff3e0; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #ffe0b2;">
+            <p style="margin: 8px 0; font-weight: bold; color: #e65100;">Here's what you're missing:</p>
+            <ul style="color: #555; line-height: 1.8;">
+                <li>Instant lead response — your bot replies in seconds, not hours</li>
+                <li>Intelligent qualifying — asks the right insurance questions</li>
+                <li>Automated appointment booking — books calls directly on your calendar</li>
+                <li>24/7 coverage — never miss a lead again, even at 2 AM</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{dashboard}"
+               style="background-color: #ff9800; color: white; padding: 16px 32px;
+                      text-decoration: none; border-radius: 10px; font-weight: bold;
+                      display: inline-block; font-size: 16px;">
+                Subscribe & Activate Now
+            </a>
+        </div>
+
+        <p style="color: #888; font-size: 13px;">
+            Need help? Visit <a href="{domain_url}/support" style="color: #00c853;">{domain_url}/support</a>
+            or reply to this email. We're here to make sure you get the most out of your bot.
+        </p>
+
+        <p style="margin-top: 30px; color: #888; font-size: 13px;">
+            — The InsuranceGrokBot Team
+        </p>
+    </body>
+    </html>
+    """
+
+
 @app.route("/disclaimers")
 def disclaimers():
     return render_template('disclaimers.html')
@@ -3111,6 +3287,26 @@ def oauth_callback():
             )
         except Exception as e:
             logger.warning(f"Failed to log onboarding event: {e}")
+
+        # 8a-2. Stamp install_completed_at for reminder email scheduling
+        try:
+            _conn = get_db_connection_with_retry(2)
+            if _conn:
+                _cur = _conn.cursor()
+                if use_agency_flow:
+                    _cur.execute(
+                        "UPDATE agency_billing SET install_completed_at = NOW() WHERE agency_email = %s AND install_completed_at IS NULL",
+                        (user_email,))
+                else:
+                    _cur.execute(
+                        "UPDATE subscribers SET install_completed_at = NOW() WHERE email = %s AND install_completed_at IS NULL",
+                        (user_email,))
+                _conn.commit()
+                _cur.close()
+                return_db_connection(_conn)
+                logger.info(f"Install timestamp set for {user_email}")
+        except Exception as e:
+            logger.warning(f"Failed to set install_completed_at: {e}")
 
         # 8b. Persistent alerts for scope/location issues
         if using_location_fallback:

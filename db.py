@@ -607,6 +607,28 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"persistent_alerts migration note: {e}")
 
+        # 15. MIGRATION: Add install tracking + reminder columns for email sequences
+        try:
+            cur7 = conn.cursor()
+            for col, default in [
+                ("install_completed_at", "NULL"),
+                ("reminder_24h_sent", "FALSE"),
+                ("reminder_72h_sent", "FALSE"),
+            ]:
+                for table in ["subscribers", "agency_billing"]:
+                    try:
+                        if default == "FALSE":
+                            cur7.execute(f"ALTER TABLE {table} ADD COLUMN {col} BOOLEAN DEFAULT FALSE")
+                        else:
+                            cur7.execute(f"ALTER TABLE {table} ADD COLUMN {col} TIMESTAMP")
+                        conn.commit()
+                    except psycopg2.Error:
+                        conn.rollback()
+            cur7.close()
+            logger.info("✅ Migration: Added install tracking + reminder columns")
+        except Exception as e:
+            logger.debug(f"reminder columns migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1018,3 +1040,93 @@ def update_subscriber_token(
             cur.close()
         if conn:
             return_db_connection(conn)
+
+
+def get_users_needing_reminders() -> list:
+    """
+    Find users who installed but haven't subscribed and need a reminder email.
+    Returns list of dicts with user info and which reminder to send (24h or 72h).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT email, full_name, location_id, install_completed_at,
+                   reminder_24h_sent, reminder_72h_sent, 'individual' as user_type
+            FROM subscribers
+            WHERE install_completed_at IS NOT NULL
+              AND stripe_customer_id IS NULL
+              AND (
+                  (reminder_24h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '24 hours')
+                  OR
+                  (reminder_72h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '72 hours')
+              )
+        """)
+        individual_rows = cur.fetchall()
+
+        cur.execute("""
+            SELECT agency_email as email, full_name, location_id, install_completed_at,
+                   reminder_24h_sent, reminder_72h_sent, 'agency_owner' as user_type
+            FROM agency_billing
+            WHERE install_completed_at IS NOT NULL
+              AND stripe_customer_id IS NULL
+              AND (
+                  (reminder_24h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '24 hours')
+                  OR
+                  (reminder_72h_sent = FALSE AND install_completed_at <= NOW() - INTERVAL '72 hours')
+              )
+        """)
+        agency_rows = cur.fetchall()
+
+        results = []
+        for row in list(individual_rows) + list(agency_rows):
+            r = dict(row)
+            from datetime import datetime as _dt, timezone as _tz
+            install_time = r.get("install_completed_at")
+            if not install_time:
+                continue
+            if hasattr(install_time, 'tzinfo') and install_time.tzinfo is None:
+                install_time = install_time.replace(tzinfo=_tz.utc)
+            hours_since = (_dt.now(_tz.utc) - install_time).total_seconds() / 3600
+
+            if hours_since >= 72 and not r.get("reminder_72h_sent"):
+                r["reminder_type"] = "72h"
+            elif hours_since >= 24 and not r.get("reminder_24h_sent"):
+                r["reminder_type"] = "24h"
+            else:
+                continue
+            results.append(r)
+
+        cur.close()
+        return results
+    except psycopg2.Error as e:
+        logger.error(f"get_users_needing_reminders failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def mark_reminder_sent(email: str, reminder_type: str, user_type: str = "individual") -> bool:
+    """Mark a reminder email as sent for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        col = "reminder_24h_sent" if reminder_type == "24h" else "reminder_72h_sent"
+        if user_type == "agency_owner":
+            cur.execute(f"UPDATE agency_billing SET {col} = TRUE WHERE agency_email = %s", (email,))
+        else:
+            cur.execute(f"UPDATE subscribers SET {col} = TRUE WHERE email = %s", (email,))
+        conn.commit()
+        success = cur.rowcount > 0
+        cur.close()
+        return success
+    except psycopg2.Error as e:
+        logger.error(f"mark_reminder_sent failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)

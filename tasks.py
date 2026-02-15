@@ -135,10 +135,14 @@ def _extract_times_from_text(text: str) -> list:
 
 def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
     """
-    When the lead says a bare number like "4" or "the 2 one", find the matching
-    time from the bot's offered times and return a full time string with AM/PM.
+    When the lead says a time like "2pm", "4", or "the 2 one", find the matching
+    time from the bot's offered times and return a full time string WITH the day.
 
-    Returns a formatted time string like "4:00 pm tomorrow" or None if no match.
+    This is critical: if bot said "Tuesday at 2pm or Wednesday at 10am" and lead
+    says "2pm", we need to return "2:00 pm tuesday" so the booking code books
+    the right date, not today.
+
+    Returns a formatted time string like "4:00 pm tuesday" or None if no match.
     """
     if not lead_msg or not bot_msg:
         return None
@@ -149,35 +153,75 @@ def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
     if not bot_times:
         return None
 
-    # Extract the bare number from the lead's message
-    bare_num_match = re.search(r'\b(\d{1,2})\b', lead_lower)
-    if not bare_num_match:
+    # --- Step 1: Parse the lead's time (with or without AM/PM) ---
+    lead_times = _extract_times_from_text(lead_msg)
+    lead_hour = None
+    lead_minute = 0
+
+    if lead_times:
+        # Lead gave explicit time like "2pm" or "4:30 pm"
+        lead_hour = lead_times[0]["hour"]
+        lead_minute = lead_times[0]["minute"]
+    else:
+        # Try bare number like "4" or "the 2 one"
+        bare_num_match = re.search(r'\b(\d{1,2})\b', lead_lower)
+        if bare_num_match:
+            lead_num = int(bare_num_match.group(1))
+            # Infer AM/PM from bot's offered context
+            if 1 <= lead_num <= 7:
+                lead_hour = lead_num + 12  # assume PM for business hours
+            elif 8 <= lead_num <= 11:
+                lead_hour = lead_num  # assume AM
+            elif lead_num == 12:
+                lead_hour = 12  # noon
+            else:
+                lead_hour = lead_num
+
+    if lead_hour is None:
         return None
 
-    lead_num = int(bare_num_match.group(1))
-
-    # Try to match against bot's offered times
+    # --- Step 2: Match against bot's offered times ---
     for bt in bot_times:
-        # Match hour (12h format): 4 matches 16:00 (4 PM) and 4:00 (4 AM)
+        # Match hour: compare both 24h and 12h representations
         bot_hour_12 = bt["hour"] % 12 or 12
-        if lead_num == bot_hour_12 or lead_num == bt["hour"]:
+        lead_hour_12 = lead_hour % 12 or 12
+        hour_match = (lead_hour == bt["hour"]) or (lead_hour_12 == bot_hour_12)
+        minute_match = (lead_minute == bt["minute"]) or (lead_minute == 0 and bt["minute"] == 0)
+
+        if hour_match and minute_match:
             period = "am" if bt["hour"] < 12 else "pm"
             minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
-            day_part = f" {bt['day_hint']}" if bt["day_hint"] else ""
+            day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
             result = f"{bot_hour_12}{minute_str} {period}{day_part}"
-            logger.info(f"📅 TIME MATCH: Lead said '{lead_msg}' -> matched to bot's '{bt['original']}' -> booking '{result}'")
+            logger.info(f"📅 TIME MATCH: Lead said '{lead_msg}' -> matched to bot's '{bt['original']}' (day={bt.get('day_hint','none')}) -> booking '{result}'")
             return result
 
-    # If lead said a number 1-7 with no match but bot offered PM times, assume PM
-    if 1 <= lead_num <= 7:
-        pm_times = [bt for bt in bot_times if bt["hour"] >= 12]
-        if pm_times:
-            # Default to PM since bot was offering afternoon slots
-            day_hint = bot_times[0]["day_hint"] if bot_times else ""
-            day_part = f" {day_hint}" if day_hint else ""
-            result = f"{lead_num}:00 pm{day_part}"
-            logger.info(f"📅 TIME INFER PM: Lead said '{lead_msg}' -> no exact match, inferring PM -> booking '{result}'")
+    # --- Step 3: Fuzzy match (within 30 min) ---
+    for bt in bot_times:
+        diff = abs(bt["hour"] * 60 + bt["minute"] - (lead_hour * 60 + lead_minute))
+        if diff <= 30:
+            bot_hour_12 = bt["hour"] % 12 or 12
+            period = "am" if bt["hour"] < 12 else "pm"
+            minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
+            day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
+            result = f"{bot_hour_12}{minute_str} {period}{day_part}"
+            logger.info(f"📅 TIME FUZZY MATCH: Lead said '{lead_msg}' -> close to bot's '{bt['original']}' -> booking '{result}'")
             return result
+
+    # --- Step 4: No match but lead gave valid time — carry forward first bot day_hint ---
+    if lead_times:
+        # Lead said "2pm" but no bot time matched — still use bot's day context
+        # if the lead didn't mention their own day
+        lead_has_day = lead_times[0].get("day_hint", "")
+        if not lead_has_day and bot_times:
+            # Use the day_hint from the closest bot time
+            first_day = bot_times[0].get("day_hint", "")
+            if first_day:
+                h12 = lead_hour % 12 or 12
+                period = "am" if lead_hour < 12 else "pm"
+                result = f"{h12}:{lead_minute:02d} {period} {first_day}"
+                logger.info(f"📅 TIME DAY INHERIT: Lead said '{lead_msg}' -> no exact match, inheriting day '{first_day}' -> booking '{result}'")
+                return result
 
     return None
 
