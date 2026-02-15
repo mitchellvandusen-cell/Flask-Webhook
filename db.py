@@ -572,6 +572,22 @@ def init_db() -> bool:
                         conn.commit()
                     except psycopg2.Error:
                         conn.rollback()
+            # Backfill: set install_completed_at = created_at for existing users
+            # so they get picked up by the reminder system
+            for table, email_col in [("subscribers", "email"), ("agency_billing", "agency_email")]:
+                try:
+                    cur7.execute(f"""
+                        UPDATE {table}
+                        SET install_completed_at = created_at
+                        WHERE install_completed_at IS NULL
+                          AND access_token IS NOT NULL
+                    """)
+                    conn.commit()
+                    if cur7.rowcount > 0:
+                        logger.info(f"✅ Backfilled install_completed_at for {cur7.rowcount} rows in {table}")
+                except psycopg2.Error:
+                    conn.rollback()
+
             cur7.close()
             logger.info("✅ Migration: Added install tracking + reminder columns")
         except Exception as e:
