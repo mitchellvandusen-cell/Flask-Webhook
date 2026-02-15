@@ -13,6 +13,42 @@
         </p>
     </div>
 
+    <!-- Persistent Alerts (DB-backed, survive page reloads) -->
+    <style>
+        .persistent-alert {
+            display: flex; align-items: flex-start; gap: 14px;
+            padding: 16px 20px; border-radius: 12px; margin-bottom: 12px;
+            border: 1px solid; position: relative;
+        }
+        .persistent-alert.alert-warning-persistent {
+            background: rgba(255, 193, 7, 0.08); border-color: rgba(255, 193, 7, 0.3);
+        }
+        .persistent-alert.alert-error-persistent {
+            background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);
+        }
+        .persistent-alert.alert-info-persistent {
+            background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.3);
+        }
+        .persistent-alert .pa-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+        .alert-warning-persistent .pa-icon { color: #ffc107; }
+        .alert-error-persistent .pa-icon { color: #ef4444; }
+        .alert-info-persistent .pa-icon { color: #3b82f6; }
+        .persistent-alert .pa-body { flex: 1; }
+        .persistent-alert .pa-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+        .alert-warning-persistent .pa-title { color: #ffc107; }
+        .alert-error-persistent .pa-title { color: #ef4444; }
+        .alert-info-persistent .pa-title { color: #3b82f6; }
+        .persistent-alert .pa-message { font-size: 0.88rem; color: #bbb; line-height: 1.5; }
+        .persistent-alert .pa-dismiss {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none; color: #666; cursor: pointer;
+            font-size: 0.9rem; padding: 4px; transition: color 0.2s;
+        }
+        .persistent-alert .pa-dismiss:hover { color: #fff; }
+        .persistent-alert .pa-time { font-size: 0.75rem; color: #666; margin-top: 6px; }
+    </style>
+    <div id="persistent-alerts-container"></div>
+
     {% if needs_subscription %}
     <!-- Subscription Required Message -->
     <div class="card glass-card mb-5" style="border: 2px solid #ffc107;">
@@ -690,5 +726,66 @@
             setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; text.style.color = '#fff'; }, 2500);
         });
     }
+
+    // --- Persistent Alerts ---
+    (function() {
+        const SEVERITY_MAP = {
+            warning: { cls: 'alert-warning-persistent', icon: 'fa-triangle-exclamation' },
+            error:   { cls: 'alert-error-persistent',   icon: 'fa-circle-xmark' },
+            info:    { cls: 'alert-info-persistent',     icon: 'fa-circle-info' }
+        };
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        function renderAlerts(alerts) {
+            const container = document.getElementById('persistent-alerts-container');
+            if (!container) return;
+            if (!alerts || alerts.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML = alerts.map(a => {
+                const sev = SEVERITY_MAP[a.severity] || SEVERITY_MAP.warning;
+                const created = a.created_at ? new Date(a.created_at).toLocaleString() : '';
+                return `<div class="persistent-alert ${sev.cls}" data-alert-id="${a.id}">
+                    <i class="fa-solid ${sev.icon} pa-icon"></i>
+                    <div class="pa-body">
+                        <div class="pa-title">${escapeHtml(a.title)}</div>
+                        <div class="pa-message">${escapeHtml(a.message)}</div>
+                        ${created ? `<div class="pa-time">${created}</div>` : ''}
+                    </div>
+                    <button class="pa-dismiss" onclick="dismissAlert(${a.id}, this)" title="Dismiss">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        window.dismissAlert = function(alertId, btn) {
+            const el = btn.closest('.persistent-alert');
+            if (el) el.style.opacity = '0.5';
+            fetch(`/api/alerts/${alertId}/dismiss`, { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.success && el) {
+                        el.style.transition = 'all 0.3s';
+                        el.style.opacity = '0';
+                        el.style.maxHeight = '0';
+                        el.style.padding = '0';
+                        el.style.margin = '0';
+                        el.style.overflow = 'hidden';
+                        setTimeout(() => el.remove(), 350);
+                    }
+                })
+                .catch(() => { if (el) el.style.opacity = '1'; });
+        };
+
+        fetch('/api/alerts')
+            .then(r => r.json())
+            .then(data => renderAlerts(data.alerts || []))
+            .catch(() => {});
+    })();
 </script>
 {% endblock %}

@@ -107,6 +107,87 @@ def return_db_connection(conn):
         pass
 
 
+def save_persistent_alert(email: str, alert_type: str, title: str, message: str,
+                          severity: str = "warning", location_id: str = None):
+    """Save a persistent dashboard alert that stays until dismissed."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        # Prevent duplicate alerts of the same type for the same email
+        cur.execute("""
+            DELETE FROM persistent_alerts
+            WHERE email = %s AND alert_type = %s AND dismissed = FALSE
+        """, (email, alert_type))
+        cur.execute("""
+            INSERT INTO persistent_alerts (email, location_id, alert_type, severity, title, message)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (email, location_id, alert_type, severity, title, message))
+        conn.commit()
+    except Exception as e:
+        logger.debug(f"Failed to save persistent alert: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_persistent_alerts(email: str) -> list:
+    """Fetch undismissed persistent alerts for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM persistent_alerts
+            WHERE email = %s AND dismissed = FALSE
+            ORDER BY created_at DESC
+        """, (email,))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception:
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def dismiss_persistent_alert(alert_id: int, email: str):
+    """Dismiss a persistent alert."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE persistent_alerts SET dismissed = TRUE
+            WHERE id = %s AND email = %s
+        """, (alert_id, email))
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_db_connection_with_retry(max_attempts: int = 3) -> Optional:
+    """Get a DB connection with retry. For critical paths like OAuth."""
+    import time as _time
+    for attempt in range(max_attempts):
+        conn = get_db_connection()
+        if conn:
+            return conn
+        logger.warning(f"DB connection attempt {attempt+1}/{max_attempts} failed")
+        if attempt < max_attempts - 1:
+            _time.sleep(2 ** attempt)  # 1s, 2s backoff
+    logger.error(f"DB connection failed after {max_attempts} attempts")
+    return None
+
+
 def log_webhook_event(location_id: str, event_type: str, status: str = "info",
                       summary: str = "", contact_id: str = None, details: dict = None):
     """Log a webhook/system event for the subscriber's activity log.
@@ -447,6 +528,32 @@ def init_db() -> bool:
             logger.info("✅ Migration: Created webhook_logs table")
         except Exception as e:
             logger.debug(f"webhook_logs migration note: {e}")
+
+        # 14. MIGRATION: Create persistent_alerts table for dashboard notifications
+        try:
+            cur6 = conn.cursor()
+            cur6.execute("""
+                CREATE TABLE IF NOT EXISTS persistent_alerts (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    location_id TEXT,
+                    alert_type TEXT NOT NULL,
+                    severity TEXT DEFAULT 'warning',
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    dismissed BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur6.execute("""
+                CREATE INDEX IF NOT EXISTS idx_persistent_alerts_email
+                ON persistent_alerts(email, dismissed)
+            """)
+            conn.commit()
+            cur6.close()
+            logger.info("✅ Migration: Created persistent_alerts table")
+        except Exception as e:
+            logger.debug(f"persistent_alerts migration note: {e}")
 
         return True
     except psycopg2.Error as e:
