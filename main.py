@@ -949,8 +949,12 @@ def login():
         # The dashboard itself handles showing what needs to be done
         # (pulsing Connect button, missing fields, subscription prompt, etc.)
         role = (user.role or 'individual').lower()
+        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
-        if role in ['agency_owner', 'admin']:
+        # Admins go to individual dashboard by default (agency-dashboard is optional)
+        if is_admin:
+            return redirect(url_for("dashboard"))
+        elif role in ['agency_owner']:
             return redirect(url_for("agency_dashboard"))
         else:
             return redirect(url_for("dashboard"))
@@ -1113,8 +1117,9 @@ def reset_password(token):
 @app.route("/agency-dashboard", methods=["GET", "POST"])
 @login_required
 def agency_dashboard():
-    # 1. Security Check
-    if current_user.role != 'agency_owner':
+    # 1. Security Check — admins can always access
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if current_user.role != 'agency_owner' and not is_admin:
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
 
@@ -1127,7 +1132,7 @@ def agency_dashboard():
     if needs_subscription:
         # Enforce the tier detected during onboarding (prevents large agency buying starter)
         detected_tier = current_user.subscription_tier or 'agency_starter'
-        return render_template('agency_dashboard.html',
+        return render_template('agency-dashboard.html',
             needs_subscription=True,
             detected_tier=detected_tier,
             agency_starter_price=797.99,   # Agency Starter: $797.99/month
@@ -1268,8 +1273,7 @@ def agency_dashboard():
             SELECT
                 location_id,
                 full_name,          -- This holds the Location Name (from onboarding)
-                email,              -- Owner email (for billing/parent link)
-                agent_email,        -- Individual agent's email
+                email,              -- Owner/agent email
                 bot_first_name,
                 timezone,
                 access_token,       -- Used to check connection status
@@ -1309,7 +1313,7 @@ def agency_dashboard():
                 'name': sub['full_name'] or 'Unnamed Location',
                 'location_id': sub['location_id'],
                 'email': sub['email'] or 'No Email Assigned',
-                'agent_email': sub['agent_email'] or 'No Agent Email',
+                'agent_email': sub['email'] or 'No Agent Email',
                 'status': 'Active' if is_connected else 'Pending Auth',
                 'status_class': 'success' if is_connected else 'warning',
                 'tier': sub['subscription_tier'].replace('_', ' ').title(),
@@ -1329,7 +1333,7 @@ def agency_dashboard():
     finally:
         cur.close()
         return_db_connection(conn)
-    return render_template('agency_dashboard.html',
+    return render_template('agency-dashboard.html',
                            form=form,
                            access_token_display=access_token_display,
                            refresh_token_display=refresh_token_display,
