@@ -30,7 +30,10 @@ from psycopg2.extras import RealDictCursor
 from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connection,
                 init_db, User, get_db_connection_with_retry, log_webhook_event,
                 save_persistent_alert, get_persistent_alerts, dismiss_persistent_alert,
-                get_users_needing_reminders, mark_reminder_sent)
+                get_users_needing_reminders, mark_reminder_sent,
+                save_marketplace_install, mark_install_oauth_complete,
+                get_incomplete_installs, get_all_marketplace_installs,
+                mark_setup_email_sent)
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -492,7 +495,230 @@ def webhook():
             return safe_jsonify({"status": "error"}), 500
 
 # =====================================================
-#  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
+#  GHL MARKETPLACE APP.INSTALLED WEBHOOK
+#  Captures install events even if OAuth redirect never fires
+# =====================================================
+
+@app.route("/webhook/app-installed", methods=["POST"])
+def app_installed_webhook():
+    """
+    GHL Marketplace 'app.installed' webhook listener.
+
+    When someone installs the app from GHL Marketplace, GHL sends this webhook
+    BEFORE the OAuth redirect. This captures the install even if:
+    - The redirect URL is broken
+    - The user closes the tab
+    - OAuth fails silently
+
+    Configure in GHL Developer Portal > Webhooks > app.installed
+    URL: https://yourdomain.com/webhook/app-installed
+    """
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+    except Exception:
+        payload = {}
+
+    # Log immediately — this is critical for visibility
+    logger.info(f"=== APP.INSTALLED WEBHOOK === payload keys: {list(payload.keys())}")
+    log_webhook_event("marketplace", "app_installed", "info",
+                      f"App install webhook received",
+                      details={"payload": payload})
+
+    # Extract what we can from the payload
+    data = payload.get("data", payload)
+    company_id = data.get("companyId") or data.get("company_id") or payload.get("companyId") or ""
+    location_id = data.get("locationId") or data.get("location_id") or payload.get("locationId") or ""
+    user_email = data.get("email") or data.get("userEmail") or ""
+    user_name = data.get("name") or data.get("userName") or data.get("firstName") or ""
+
+    # Save to marketplace_installs table
+    install_id = save_marketplace_install(payload)
+
+    if install_id:
+        log_webhook_event("marketplace", "app_installed_saved", "success",
+                          f"Install #{install_id} saved: company={company_id}, "
+                          f"location={location_id}, email={user_email}, name={user_name}")
+
+        # If we have an email, send a welcome/setup email immediately
+        if user_email:
+            try:
+                from send_email_api import send_email_via_api
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                display_name = user_name or "there"
+
+                subject = "Welcome to InsuranceGrokBot — Complete Your Setup"
+                html_body = _build_install_welcome_email(display_name, domain_url)
+                text_body = (
+                    f"Hi {display_name}, thanks for installing InsuranceGrokBot! "
+                    f"Complete your setup to start converting leads automatically: "
+                    f"{domain_url}/oauth/initiate"
+                )
+                sent = send_email_via_api(
+                    to_email=user_email,
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body
+                )
+                if sent:
+                    mark_setup_email_sent(install_id)
+                    log_webhook_event("marketplace", "install_welcome_email", "success",
+                                      f"Welcome email sent to {user_email} for install #{install_id}")
+                    logger.info(f"Install welcome email sent to {user_email}")
+                else:
+                    log_webhook_event("marketplace", "install_welcome_email", "error",
+                                      f"Failed to send welcome email to {user_email}")
+            except Exception as email_err:
+                logger.error(f"Install welcome email error: {email_err}")
+                log_webhook_event("marketplace", "install_welcome_email", "error",
+                                  f"Email error: {email_err}")
+
+        # Notify admin about new installs
+        try:
+            for admin_email in ADMIN_EMAILS[:1]:  # Notify first admin
+                save_persistent_alert(
+                    admin_email, location_id or "marketplace",
+                    "new_install", "info",
+                    "New Marketplace Install",
+                    f"New app install: {user_name or 'Unknown'} ({user_email or 'no email'}) "
+                    f"— Company: {company_id or 'N/A'}, Location: {location_id or 'N/A'}"
+                )
+        except Exception:
+            pass
+
+    return safe_jsonify({"status": "received", "install_id": install_id}), 200
+
+
+def _build_install_welcome_email(name: str, domain_url: str) -> str:
+    """Build premium welcome email for marketplace install — guides them through OAuth setup."""
+    inner = f'''
+<tr>
+<td style="padding: 0 40px 30px;">
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">
+        Welcome aboard, {name}!
+    </h1>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">
+        You just installed <strong style="color: #00c853;">InsuranceGrokBot</strong> &mdash; your AI-powered
+        insurance sales assistant that works your leads 24/7.
+    </p>
+</td>
+</tr>
+
+<!-- Setup Required Notice -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 12px;">
+    <tr>
+    <td style="padding: 20px 24px;">
+        <p style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #ff6b35;">
+            One Step Left to Activate Your Bot
+        </p>
+        <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;">
+            Click the button below to connect your GoHighLevel CRM. This authorizes InsuranceGrokBot
+            to respond to your leads, book appointments, and manage conversations automatically.
+        </p>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- CTA Button -->
+<tr>
+<td align="center" style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0">
+    <tr>
+    <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 12px; padding: 16px 48px;">
+        <a href="{domain_url}/oauth/initiate" style="color: #000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: 0.5px;">
+            Connect Your CRM Now &rarr;
+        </a>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- What Happens Next -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #fff;">What Happens After You Connect:</h2>
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">1</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Instant Lead Response</strong> &mdash; Bot replies within 5 seconds, 24/7</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">2</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Smart Qualification</strong> &mdash; Asks the right insurance questions automatically</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0;">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">3</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Auto Book Appointments</strong> &mdash; Checks your calendar and books meetings</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Stats Row -->
+<tr>
+<td style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+    <tr>
+        <td align="center" style="padding: 20px; width: 33%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">5s</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Response Time</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 34%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">24/7</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Always On</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 33%;">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">Auto</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Booking</div>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Secondary CTA -->
+<tr>
+<td style="padding: 0 40px 20px;">
+    <p style="margin: 0; font-size: 13px; color: #777; text-align: center;">
+        Need help? Reply to this email or visit
+        <a href="{domain_url}/support" style="color: #00c853; text-decoration: none;">our support page</a>.
+    </p>
+</td>
+</tr>
+'''
+    return _email_wrapper(inner, domain_url)
+
+
+# =====================================================
+#  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/")
 #  AND OTHER UI CODE EXACTLY AS IT IS
 # =====================================================
                     
@@ -1807,6 +2033,124 @@ def api_send_reminders():
         "success": True,
         "checked": len(users),
         "sent": sent_count,
+        "errors": errors
+    })
+
+
+@app.route("/api/admin/marketplace-installs", methods=["GET"])
+@login_required
+def api_marketplace_installs():
+    """Admin endpoint: view all marketplace installs and their OAuth status."""
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    show = request.args.get("show", "all")  # "all", "incomplete", "complete"
+
+    if show == "incomplete":
+        installs = get_incomplete_installs()
+    else:
+        installs = get_all_marketplace_installs()
+        if show == "complete":
+            installs = [i for i in installs if i.get("oauth_completed")]
+
+    # Serialize datetimes
+    for inst in installs:
+        for key in ["created_at", "oauth_completed_at", "setup_email_sent_at"]:
+            if inst.get(key):
+                inst[key] = inst[key].isoformat() + "Z"
+
+    return safe_jsonify({
+        "success": True,
+        "count": len(installs),
+        "filter": show,
+        "installs": installs
+    })
+
+
+@app.route("/api/admin/marketplace-installs/<int:install_id>/send-setup-email", methods=["POST"])
+@login_required
+def api_send_install_setup_email(install_id):
+    """Admin action: manually send setup email to a marketplace installer."""
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    # Get the specific install
+    installs = get_all_marketplace_installs()
+    target = next((i for i in installs if i["id"] == install_id), None)
+    if not target:
+        return safe_jsonify({"error": "Install not found"}), 404
+
+    email = target.get("user_email")
+    if not email:
+        return safe_jsonify({"error": "No email address for this install"}), 400
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    name = target.get("user_name") or "there"
+
+    subject = "Complete Your InsuranceGrokBot Setup"
+    html_body = _build_install_welcome_email(name, domain_url)
+    text_body = (
+        f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+        f"{domain_url}/oauth/initiate"
+    )
+
+    sent = send_email_via_api(to_email=email, subject=subject,
+                              html_body=html_body, text_body=text_body)
+    if sent:
+        mark_setup_email_sent(install_id)
+        log_webhook_event("marketplace", "admin_setup_email", "success",
+                          f"Admin sent setup email to {email} for install #{install_id}")
+        return safe_jsonify({"success": True, "message": f"Setup email sent to {email}"})
+    else:
+        return safe_jsonify({"error": f"Failed to send email to {email}"}), 500
+
+
+@app.route("/api/admin/marketplace-installs/send-all-setup-emails", methods=["POST"])
+@login_required
+def api_send_all_setup_emails():
+    """Admin action: send setup emails to ALL incomplete installs that have an email."""
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+    incomplete = get_incomplete_installs()
+    sent_count = 0
+    errors = []
+
+    for inst in incomplete:
+        email = inst.get("user_email")
+        if not email:
+            continue
+        if inst.get("setup_email_sent"):
+            continue  # Already sent
+
+        name = inst.get("user_name") or "there"
+        subject = "Complete Your InsuranceGrokBot Setup"
+        html_body = _build_install_welcome_email(name, domain_url)
+        text_body = (
+            f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+            f"{domain_url}/oauth/initiate"
+        )
+
+        try:
+            sent = send_email_via_api(to_email=email, subject=subject,
+                                      html_body=html_body, text_body=text_body)
+            if sent:
+                mark_setup_email_sent(inst["id"])
+                sent_count += 1
+                logger.info(f"Setup email sent to {email} for install #{inst['id']}")
+            else:
+                errors.append(f"{email}: send failed")
+        except Exception as e:
+            errors.append(f"{email}: {str(e)}")
+
+    return safe_jsonify({
+        "success": True,
+        "sent": sent_count,
+        "skipped": len(incomplete) - sent_count - len(errors),
         "errors": errors
     })
 
@@ -3656,6 +4000,16 @@ def oauth_callback():
                 logger.info(f"Install timestamp set for {user_email}")
         except Exception as e:
             logger.warning(f"Failed to set install_completed_at: {e}")
+
+        # 8a-3. Mark marketplace install as OAuth-complete (links back to app.installed webhook)
+        try:
+            if primary_location_id:
+                mark_install_oauth_complete(location_id=primary_location_id)
+            if company_id:
+                mark_install_oauth_complete(company_id=company_id)
+            logger.info(f"Marketplace install marked OAuth-complete: location={primary_location_id}, company={company_id}")
+        except Exception as e:
+            logger.debug(f"mark_install_oauth_complete note: {e}")
 
         # 8b. Persistent alerts for scope/location issues
         if using_location_fallback:
