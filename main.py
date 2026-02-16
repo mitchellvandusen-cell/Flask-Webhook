@@ -2155,6 +2155,178 @@ def api_send_all_setup_emails():
     })
 
 
+@app.route("/api/admin/discover-installs", methods=["GET", "POST"])
+@login_required
+def api_discover_installs():
+    """
+    Admin endpoint: Query GHL API to discover who installed the marketplace app.
+    Uses the GHL OAuth installedLocations endpoint to find all locations
+    that have the app installed, even if OAuth callback never completed.
+
+    This is the only way to find the 'lost' installers since GHL's marketplace
+    dashboard only shows totals, not individual location details.
+    """
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    client_id = os.getenv("GHL_CLIENT_ID")
+    client_secret = os.getenv("GHL_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        return safe_jsonify({"error": "GHL_CLIENT_ID and GHL_CLIENT_SECRET must be set"}), 500
+
+    # The public app ID from the marketplace
+    # User can override via query param if they have multiple apps
+    app_id = request.args.get("appId", client_id)
+
+    results = {
+        "app_id": app_id,
+        "installed_locations": [],
+        "errors": [],
+        "cross_reference": []
+    }
+
+    # --- Method 1: Try GHL's installedLocations endpoint ---
+    # This endpoint requires a Company-level access token or app-level token
+    # First, try to get a fresh app token via client_credentials
+    try:
+        token_url = "https://services.leadconnectorhq.com/oauth/token"
+        token_payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "client_credentials",
+        }
+        token_resp = requests.post(token_url, data=token_payload, timeout=15)
+        if token_resp.ok:
+            app_token = token_resp.json().get("access_token")
+            if app_token:
+                # Fetch installed locations
+                install_url = "https://services.leadconnectorhq.com/oauth/installedLocations"
+                params = {"appId": app_id, "limit": 100, "skip": 0}
+                headers = {
+                    "Authorization": f"Bearer {app_token}",
+                    "Version": "2021-07-28",
+                    "Accept": "application/json"
+                }
+                install_resp = requests.get(install_url, headers=headers, params=params, timeout=15)
+                if install_resp.ok:
+                    data = install_resp.json()
+                    locations = data.get("locations", data.get("data", []))
+                    results["installed_locations"] = locations
+                    results["method"] = "installedLocations_api"
+                    logger.info(f"Discovered {len(locations)} installed locations via GHL API")
+                else:
+                    results["errors"].append(
+                        f"installedLocations API: {install_resp.status_code} — {install_resp.text[:300]}"
+                    )
+
+                # Also try the /oauth/installedLocations/search endpoint
+                try:
+                    search_url = "https://services.leadconnectorhq.com/oauth/installedLocations"
+                    all_locations = []
+                    skip = 0
+                    while True:
+                        params = {"appId": app_id, "limit": 100, "skip": skip}
+                        page_resp = requests.get(search_url, headers=headers, params=params, timeout=15)
+                        if page_resp.ok:
+                            page_data = page_resp.json()
+                            page_locations = page_data.get("locations", page_data.get("data", []))
+                            if not page_locations:
+                                break
+                            all_locations.extend(page_locations)
+                            skip += len(page_locations)
+                            if len(page_locations) < 100:
+                                break
+                        else:
+                            break
+                    if all_locations:
+                        results["installed_locations"] = all_locations
+                except Exception:
+                    pass
+            else:
+                results["errors"].append("client_credentials token had no access_token")
+        else:
+            results["errors"].append(
+                f"client_credentials grant: {token_resp.status_code} — {token_resp.text[:300]}"
+            )
+    except Exception as e:
+        results["errors"].append(f"API discovery error: {str(e)}")
+
+    # --- Method 2: Cross-reference with our database ---
+    # Show which locations in our DB have the app vs. which are missing
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            # Get all known subscribers
+            cur.execute("""
+                SELECT location_id, email, full_name, access_token IS NOT NULL as has_token,
+                       calendar_id IS NOT NULL as has_calendar,
+                       stripe_customer_id IS NOT NULL as has_stripe,
+                       created_at, install_completed_at
+                FROM subscribers
+                WHERE location_id NOT LIKE 'temp_%%'
+                ORDER BY created_at DESC
+            """)
+            db_users = [dict(r) for r in cur.fetchall()]
+            for u in db_users:
+                for key in ["created_at", "install_completed_at"]:
+                    if u.get(key):
+                        u[key] = u[key].isoformat() + "Z"
+            results["db_subscribers"] = db_users
+
+            # Also get agency billing entries
+            cur.execute("""
+                SELECT agency_email, company_id, access_token IS NOT NULL as has_token,
+                       created_at
+                FROM agency_billing
+                ORDER BY created_at DESC
+            """)
+            db_agencies = [dict(r) for r in cur.fetchall()]
+            for a in db_agencies:
+                if a.get("created_at"):
+                    a["created_at"] = a["created_at"].isoformat() + "Z"
+            results["db_agencies"] = db_agencies
+
+            # Get marketplace install records
+            cur.execute("""
+                SELECT * FROM marketplace_installs ORDER BY created_at DESC
+            """)
+            mkt_installs = [dict(r) for r in cur.fetchall()]
+            for m in mkt_installs:
+                for key in ["created_at", "oauth_completed_at", "setup_email_sent_at"]:
+                    if m.get(key):
+                        m[key] = m[key].isoformat() + "Z"
+            results["marketplace_installs"] = mkt_installs
+
+            cur.close()
+            return_db_connection(conn)
+
+            # Cross-reference: which GHL-installed locations are NOT in our DB?
+            db_location_ids = {u["location_id"] for u in db_users if u.get("location_id")}
+            for loc in results.get("installed_locations", []):
+                loc_id = loc.get("locationId") or loc.get("location_id") or loc.get("_id")
+                in_db = loc_id in db_location_ids if loc_id else False
+                results["cross_reference"].append({
+                    "location_id": loc_id,
+                    "name": loc.get("name") or loc.get("locationName", "Unknown"),
+                    "email": loc.get("email", ""),
+                    "company_id": loc.get("companyId", ""),
+                    "in_our_database": in_db,
+                    "status": "connected" if in_db else "LOST — needs OAuth"
+                })
+    except Exception as e:
+        results["errors"].append(f"DB cross-reference error: {str(e)}")
+
+    # Log the discovery for audit trail
+    log_webhook_event("admin", "discover_installs", "info",
+                      f"Admin discovered {len(results.get('installed_locations', []))} installs, "
+                      f"{len(results.get('cross_reference', []))} cross-referenced",
+                      details={"errors": results["errors"]})
+
+    return safe_jsonify(results)
+
+
 def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) -> str:
     """Build a visual setup checklist showing what's done and what's remaining."""
     dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
