@@ -3176,10 +3176,26 @@ def oauth_callback():
     code = request.args.get("code")
     state = request.args.get("state")
 
-    logger.info(f"OAuth callback hit: state={state}, code={'present' if code else 'MISSING'}")
+    # LOG EVERYTHING from the very start — this is the #1 debugging tool
+    logger.info(f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
+                f"args={dict(request.args)}")
+
+    # Always log to webhook_logs so it's visible in dashboard even if everything else fails
+    try:
+        log_webhook_event("oauth_global", "oauth_callback_hit", "info",
+                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
+                          details={"args": dict(request.args)})
+    except Exception:
+        pass
 
     if not code:
         logger.warning("OAuth callback: No authorization code in request params")
+        try:
+            log_webhook_event("oauth_global", "oauth_callback_error", "error",
+                              "No authorization code in callback params",
+                              details={"args": dict(request.args)})
+        except Exception:
+            pass
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
@@ -3227,49 +3243,90 @@ def oauth_callback():
             return redirect(url_for('home'))
 
         # 1. Exchange Code for Token (with retry on transient failures)
+        # TRY BOTH user_types: "Location" first, then "Company" for agency-level installs.
+        # GHL marketplace installs can be at Location OR Company level depending on
+        # how the user installed the app. If Location fails with 400, try Company.
         token_url = "https://services.leadconnectorhq.com/oauth/token"
-        payload = {
+        base_payload = {
             "client_id": client_id,
             "client_secret": client_secret,
             "grant_type": "authorization_code",
             "code": code,
-            "user_type": "Location",
             "redirect_uri": f"{domain}/oauth/callback"
         }
 
-        token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
-                                               timeout=15, label="Token exchange")
-        if token_resp is None:
-            logger.error(f"Token exchange failed after retries: {token_err}")
-            flash("Failed to connect to Lead Connector. Please try again.", "danger")
-            return redirect(url_for('home'))
+        token_data = None
+        token_user_type_used = None
+        for user_type in ["Location", "Company"]:
+            payload = {**base_payload, "user_type": user_type}
+            logger.info(f"Token exchange attempt with user_type={user_type}")
 
-        if not token_resp.ok:
-            logger.error(f"Token exchange rejected: {token_resp.status_code} {token_resp.text[:500]}")
-            if token_resp.status_code == 400:
-                flash("Authorization code expired or invalid. Please try connecting again.", "danger")
+            token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
+                                                   timeout=15, label=f"Token exchange ({user_type})")
+
+            if token_resp is None:
+                logger.warning(f"Token exchange ({user_type}) unreachable: {token_err}")
+                continue
+
+            if token_resp.ok:
+                try:
+                    token_data = token_resp.json()
+                    token_user_type_used = user_type
+                    logger.info(f"Token exchange SUCCESS with user_type={user_type}")
+                    break
+                except ValueError:
+                    logger.error(f"Token exchange ({user_type}) returned non-JSON: {token_resp.text[:500]}")
+                    continue
+            elif token_resp.status_code == 400:
+                logger.warning(f"Token exchange ({user_type}) got 400: {token_resp.text[:300]} — trying next user_type")
+                continue
             else:
-                flash("Failed to exchange authorization code. Please try again.", "danger")
-            return redirect(url_for('home'))
+                logger.error(f"Token exchange ({user_type}) rejected: {token_resp.status_code} {token_resp.text[:500]}")
+                continue
 
-        try:
-            token_data = token_resp.json()
-        except ValueError:
-            logger.error(f"Token exchange returned non-JSON: {token_resp.text[:500]}")
-            flash("Unexpected response from Lead Connector. Please try again.", "danger")
+        if not token_data:
+            err_msg = f"Token exchange failed for all user_types (Location, Company)"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
+                                  err_msg, details={"state": state, "code_present": bool(code)})
+            except Exception:
+                pass
+            flash("Failed to connect to Lead Connector. Please try again.", "danger")
             return redirect(url_for('home'))
 
         access_token = token_data.get('access_token')
         if not access_token:
-            logger.error(f"Token exchange missing access_token: {json.dumps(token_data)[:500]}")
+            err_msg = f"Token exchange missing access_token: {json.dumps(token_data)[:500]}"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_no_access_token", "error",
+                                  err_msg, details=token_data)
+            except Exception:
+                pass
             flash("Authorization failed — no access token received. Please try again.", "danger")
             return redirect(url_for('home'))
 
         primary_location_id = token_data.get('locationId')
+        company_id = token_data.get('companyId')
         refresh_token = token_data.get('refresh_token')
         expires_in = token_data.get('expires_in', 86400)
 
-        logger.info(f"Step 1 complete: Token exchange OK. locationId={primary_location_id}, expires_in={expires_in}")
+        logger.info(f"Step 1 complete: Token exchange OK via user_type={token_user_type_used}. "
+                    f"locationId={primary_location_id}, companyId={company_id}, expires_in={expires_in}")
+
+        # If Company-level install, locationId may be empty — we get locations from /locations/ later
+        # Log this critical info for debugging
+        try:
+            log_webhook_event(primary_location_id or company_id or "unknown", "oauth_token_success", "success",
+                              f"Token exchange OK: user_type={token_user_type_used}, "
+                              f"locationId={primary_location_id}, companyId={company_id}",
+                              details={"user_type_used": token_user_type_used,
+                                       "locationId": primary_location_id,
+                                       "companyId": company_id,
+                                       "scopes": token_data.get('scope', 'unknown')})
+        except Exception:
+            pass
 
         headers = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
@@ -3295,7 +3352,23 @@ def oauth_callback():
             logger.error(f"/users/me unreachable: {me_err}")
 
         if not user_email:
-            logger.error(f"Could not retrieve user email. me_data={json.dumps(me_data)[:300]}")
+            # Try to extract email from token_data (some GHL token responses include it)
+            user_email = token_data.get('userEmail') or token_data.get('email')
+            if user_email:
+                logger.info(f"Got email from token_data instead of /users/me: {user_email}")
+
+        if not user_email:
+            err_msg = (f"Could not retrieve user email from /users/me OR token_data. "
+                       f"me_data={json.dumps(me_data)[:300]}, "
+                       f"token_keys={list(token_data.keys())}")
+            logger.error(err_msg)
+            try:
+                log_webhook_event(primary_location_id or "unknown", "oauth_no_email", "error",
+                                  err_msg, details={"me_status": me_resp.status_code if me_resp else "no_response",
+                                                    "me_body": me_resp.text[:300] if me_resp else me_err,
+                                                    "token_keys": list(token_data.keys())})
+            except Exception:
+                pass
             flash("Could not retrieve your email from Lead Connector. Please try again.", "danger")
             return redirect(url_for('home'))
 
@@ -3762,25 +3835,55 @@ def oauth_callback():
             logger.info(f"Step 9 complete: Logged in {user_email}")
         else:
             logger.error(f"User.get({user_email}) returned None after successful DB commit — login failed")
-            flash("Account created but login failed. Please log in manually.", "warning")
-            return redirect(url_for('login'))
+            # Still continue for marketplace installs — they don't need to be logged in
+            if is_website_user:
+                flash("Account created but login failed. Please log in manually.", "warning")
+                return redirect(url_for('login'))
 
-        # MARKETPLACE INSTALLATION: Route to home page so user can subscribe
+        # MARKETPLACE INSTALLATION: Route to dashboard (they're now logged in)
         if not is_website_user:
-            logger.info(f"Marketplace install complete for {user_email} — routing to home for subscription")
-            flash("App installed! Please subscribe to activate your bot.", "success")
-            return redirect("/")
+            logger.info(f"=== MARKETPLACE INSTALL COMPLETE for {user_email} ===")
+            try:
+                log_webhook_event(primary_location_id or "unknown", "oauth_complete", "success",
+                                  f"Marketplace install complete for {user_email} "
+                                  f"(tier={plan_tier}, user_type_used={token_user_type_used})")
+            except Exception:
+                pass
+            if user:
+                flash("App installed successfully! Complete your dashboard setup to activate your bot.", "success")
+                if use_agency_flow:
+                    return redirect(url_for('agency_dashboard'))
+                return redirect(url_for('dashboard'))
+            else:
+                # User couldn't be logged in — send to login page
+                flash("App installed! Please log in or create a password to access your dashboard.", "success")
+                return redirect(url_for('login'))
 
         # PRIVATE APP FLOW: Route through OAuth loading screen
-        logger.info(f"Private app OAuth complete for {user_email} — routing to loading screen")
+        logger.info(f"=== PRIVATE APP OAUTH COMPLETE for {user_email} ===")
+        try:
+            log_webhook_event(primary_location_id or "unknown", "oauth_complete", "success",
+                              f"Private app OAuth complete for {user_email} (tier={plan_tier})")
+        except Exception:
+            pass
         return redirect("/oauth/loading")
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_network_error", "error",
+                              f"OAuth network error: {e}")
+        except Exception:
+            pass
         flash("Failed to connect to Lead Connector. Please try again.", "danger")
         return redirect(url_for('home'))
     except Exception as e:
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_critical_error", "error",
+                              f"Critical OAuth failure: {e}")
+        except Exception:
+            pass
         flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
 
