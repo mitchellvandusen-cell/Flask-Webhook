@@ -30,7 +30,10 @@ from psycopg2.extras import RealDictCursor
 from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connection,
                 init_db, User, get_db_connection_with_retry, log_webhook_event,
                 save_persistent_alert, get_persistent_alerts, dismiss_persistent_alert,
-                get_users_needing_reminders, mark_reminder_sent)
+                get_users_needing_reminders, mark_reminder_sent,
+                save_marketplace_install, mark_install_oauth_complete,
+                get_incomplete_installs, get_all_marketplace_installs,
+                mark_setup_email_sent)
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -492,7 +495,230 @@ def webhook():
             return safe_jsonify({"status": "error"}), 500
 
 # =====================================================
-#  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
+#  GHL MARKETPLACE APP.INSTALLED WEBHOOK
+#  Captures install events even if OAuth redirect never fires
+# =====================================================
+
+@app.route("/webhook/app-installed", methods=["POST"])
+def app_installed_webhook():
+    """
+    GHL Marketplace 'app.installed' webhook listener.
+
+    When someone installs the app from GHL Marketplace, GHL sends this webhook
+    BEFORE the OAuth redirect. This captures the install even if:
+    - The redirect URL is broken
+    - The user closes the tab
+    - OAuth fails silently
+
+    Configure in GHL Developer Portal > Webhooks > app.installed
+    URL: https://yourdomain.com/webhook/app-installed
+    """
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+    except Exception:
+        payload = {}
+
+    # Log immediately — this is critical for visibility
+    logger.info(f"=== APP.INSTALLED WEBHOOK === payload keys: {list(payload.keys())}")
+    log_webhook_event("marketplace", "app_installed", "info",
+                      f"App install webhook received",
+                      details={"payload": payload})
+
+    # Extract what we can from the payload
+    data = payload.get("data", payload)
+    company_id = data.get("companyId") or data.get("company_id") or payload.get("companyId") or ""
+    location_id = data.get("locationId") or data.get("location_id") or payload.get("locationId") or ""
+    user_email = data.get("email") or data.get("userEmail") or ""
+    user_name = data.get("name") or data.get("userName") or data.get("firstName") or ""
+
+    # Save to marketplace_installs table
+    install_id = save_marketplace_install(payload)
+
+    if install_id:
+        log_webhook_event("marketplace", "app_installed_saved", "success",
+                          f"Install #{install_id} saved: company={company_id}, "
+                          f"location={location_id}, email={user_email}, name={user_name}")
+
+        # If we have an email, send a welcome/setup email immediately
+        if user_email:
+            try:
+                from send_email_api import send_email_via_api
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                display_name = user_name or "there"
+
+                subject = "Welcome to InsuranceGrokBot — Complete Your Setup"
+                html_body = _build_install_welcome_email(display_name, domain_url)
+                text_body = (
+                    f"Hi {display_name}, thanks for installing InsuranceGrokBot! "
+                    f"Complete your setup to start converting leads automatically: "
+                    f"{domain_url}/oauth/initiate"
+                )
+                sent = send_email_via_api(
+                    to_email=user_email,
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body
+                )
+                if sent:
+                    mark_setup_email_sent(install_id)
+                    log_webhook_event("marketplace", "install_welcome_email", "success",
+                                      f"Welcome email sent to {user_email} for install #{install_id}")
+                    logger.info(f"Install welcome email sent to {user_email}")
+                else:
+                    log_webhook_event("marketplace", "install_welcome_email", "error",
+                                      f"Failed to send welcome email to {user_email}")
+            except Exception as email_err:
+                logger.error(f"Install welcome email error: {email_err}")
+                log_webhook_event("marketplace", "install_welcome_email", "error",
+                                  f"Email error: {email_err}")
+
+        # Notify admin about new installs
+        try:
+            for admin_email in ADMIN_EMAILS[:1]:  # Notify first admin
+                save_persistent_alert(
+                    admin_email, location_id or "marketplace",
+                    "new_install", "info",
+                    "New Marketplace Install",
+                    f"New app install: {user_name or 'Unknown'} ({user_email or 'no email'}) "
+                    f"— Company: {company_id or 'N/A'}, Location: {location_id or 'N/A'}"
+                )
+        except Exception:
+            pass
+
+    return safe_jsonify({"status": "received", "install_id": install_id}), 200
+
+
+def _build_install_welcome_email(name: str, domain_url: str) -> str:
+    """Build premium welcome email for marketplace install — guides them through OAuth setup."""
+    inner = f'''
+<tr>
+<td style="padding: 0 40px 30px;">
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">
+        Welcome aboard, {name}!
+    </h1>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">
+        You just installed <strong style="color: #00c853;">InsuranceGrokBot</strong> &mdash; your AI-powered
+        insurance sales assistant that works your leads 24/7.
+    </p>
+</td>
+</tr>
+
+<!-- Setup Required Notice -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 12px;">
+    <tr>
+    <td style="padding: 20px 24px;">
+        <p style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #ff6b35;">
+            One Step Left to Activate Your Bot
+        </p>
+        <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;">
+            Click the button below to connect your GoHighLevel CRM. This authorizes InsuranceGrokBot
+            to respond to your leads, book appointments, and manage conversations automatically.
+        </p>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- CTA Button -->
+<tr>
+<td align="center" style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0">
+    <tr>
+    <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 12px; padding: 16px 48px;">
+        <a href="{domain_url}/oauth/initiate" style="color: #000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: 0.5px;">
+            Connect Your CRM Now &rarr;
+        </a>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- What Happens Next -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #fff;">What Happens After You Connect:</h2>
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">1</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Instant Lead Response</strong> &mdash; Bot replies within 5 seconds, 24/7</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">2</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Smart Qualification</strong> &mdash; Asks the right insurance questions automatically</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0;">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">3</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Auto Book Appointments</strong> &mdash; Checks your calendar and books meetings</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Stats Row -->
+<tr>
+<td style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+    <tr>
+        <td align="center" style="padding: 20px; width: 33%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">5s</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Response Time</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 34%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">24/7</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Always On</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 33%;">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">Auto</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Booking</div>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Secondary CTA -->
+<tr>
+<td style="padding: 0 40px 20px;">
+    <p style="margin: 0; font-size: 13px; color: #777; text-align: center;">
+        Need help? Reply to this email or visit
+        <a href="{domain_url}/support" style="color: #00c853; text-decoration: none;">our support page</a>.
+    </p>
+</td>
+</tr>
+'''
+    return _email_wrapper(inner, domain_url)
+
+
+# =====================================================
+#  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/")
 #  AND OTHER UI CODE EXACTLY AS IT IS
 # =====================================================
                     
@@ -1809,6 +2035,296 @@ def api_send_reminders():
         "sent": sent_count,
         "errors": errors
     })
+
+
+@app.route("/api/admin/marketplace-installs", methods=["GET"])
+@login_required
+def api_marketplace_installs():
+    """Admin endpoint: view all marketplace installs and their OAuth status."""
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    show = request.args.get("show", "all")  # "all", "incomplete", "complete"
+
+    if show == "incomplete":
+        installs = get_incomplete_installs()
+    else:
+        installs = get_all_marketplace_installs()
+        if show == "complete":
+            installs = [i for i in installs if i.get("oauth_completed")]
+
+    # Serialize datetimes
+    for inst in installs:
+        for key in ["created_at", "oauth_completed_at", "setup_email_sent_at"]:
+            if inst.get(key):
+                inst[key] = inst[key].isoformat() + "Z"
+
+    return safe_jsonify({
+        "success": True,
+        "count": len(installs),
+        "filter": show,
+        "installs": installs
+    })
+
+
+@app.route("/api/admin/marketplace-installs/<int:install_id>/send-setup-email", methods=["POST"])
+@login_required
+def api_send_install_setup_email(install_id):
+    """Admin action: manually send setup email to a marketplace installer."""
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    # Get the specific install
+    installs = get_all_marketplace_installs()
+    target = next((i for i in installs if i["id"] == install_id), None)
+    if not target:
+        return safe_jsonify({"error": "Install not found"}), 404
+
+    email = target.get("user_email")
+    if not email:
+        return safe_jsonify({"error": "No email address for this install"}), 400
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    name = target.get("user_name") or "there"
+
+    subject = "Complete Your InsuranceGrokBot Setup"
+    html_body = _build_install_welcome_email(name, domain_url)
+    text_body = (
+        f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+        f"{domain_url}/oauth/initiate"
+    )
+
+    sent = send_email_via_api(to_email=email, subject=subject,
+                              html_body=html_body, text_body=text_body)
+    if sent:
+        mark_setup_email_sent(install_id)
+        log_webhook_event("marketplace", "admin_setup_email", "success",
+                          f"Admin sent setup email to {email} for install #{install_id}")
+        return safe_jsonify({"success": True, "message": f"Setup email sent to {email}"})
+    else:
+        return safe_jsonify({"error": f"Failed to send email to {email}"}), 500
+
+
+@app.route("/api/admin/marketplace-installs/send-all-setup-emails", methods=["POST"])
+@login_required
+def api_send_all_setup_emails():
+    """Admin action: send setup emails to ALL incomplete installs that have an email."""
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+    incomplete = get_incomplete_installs()
+    sent_count = 0
+    errors = []
+
+    for inst in incomplete:
+        email = inst.get("user_email")
+        if not email:
+            continue
+        if inst.get("setup_email_sent"):
+            continue  # Already sent
+
+        name = inst.get("user_name") or "there"
+        subject = "Complete Your InsuranceGrokBot Setup"
+        html_body = _build_install_welcome_email(name, domain_url)
+        text_body = (
+            f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+            f"{domain_url}/oauth/initiate"
+        )
+
+        try:
+            sent = send_email_via_api(to_email=email, subject=subject,
+                                      html_body=html_body, text_body=text_body)
+            if sent:
+                mark_setup_email_sent(inst["id"])
+                sent_count += 1
+                logger.info(f"Setup email sent to {email} for install #{inst['id']}")
+            else:
+                errors.append(f"{email}: send failed")
+        except Exception as e:
+            errors.append(f"{email}: {str(e)}")
+
+    return safe_jsonify({
+        "success": True,
+        "sent": sent_count,
+        "skipped": len(incomplete) - sent_count - len(errors),
+        "errors": errors
+    })
+
+
+@app.route("/api/admin/discover-installs", methods=["GET", "POST"])
+@login_required
+def api_discover_installs():
+    """
+    Admin endpoint: Query GHL API to discover who installed the marketplace app.
+    Uses the GHL OAuth installedLocations endpoint to find all locations
+    that have the app installed, even if OAuth callback never completed.
+
+    This is the only way to find the 'lost' installers since GHL's marketplace
+    dashboard only shows totals, not individual location details.
+    """
+    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    client_id = os.getenv("GHL_CLIENT_ID")
+    client_secret = os.getenv("GHL_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        return safe_jsonify({"error": "GHL_CLIENT_ID and GHL_CLIENT_SECRET must be set"}), 500
+
+    # The public app ID from the marketplace
+    # User can override via query param if they have multiple apps
+    app_id = request.args.get("appId", client_id)
+
+    results = {
+        "app_id": app_id,
+        "installed_locations": [],
+        "errors": [],
+        "cross_reference": []
+    }
+
+    # --- Method 1: Try GHL's installedLocations endpoint ---
+    # This endpoint requires a Company-level access token or app-level token
+    # First, try to get a fresh app token via client_credentials
+    try:
+        token_url = "https://services.leadconnectorhq.com/oauth/token"
+        token_payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "client_credentials",
+        }
+        token_resp = requests.post(token_url, data=token_payload, timeout=15)
+        if token_resp.ok:
+            app_token = token_resp.json().get("access_token")
+            if app_token:
+                # Fetch installed locations
+                install_url = "https://services.leadconnectorhq.com/oauth/installedLocations"
+                params = {"appId": app_id, "limit": 100, "skip": 0}
+                headers = {
+                    "Authorization": f"Bearer {app_token}",
+                    "Version": "2021-07-28",
+                    "Accept": "application/json"
+                }
+                install_resp = requests.get(install_url, headers=headers, params=params, timeout=15)
+                if install_resp.ok:
+                    data = install_resp.json()
+                    locations = data.get("locations", data.get("data", []))
+                    results["installed_locations"] = locations
+                    results["method"] = "installedLocations_api"
+                    logger.info(f"Discovered {len(locations)} installed locations via GHL API")
+                else:
+                    results["errors"].append(
+                        f"installedLocations API: {install_resp.status_code} — {install_resp.text[:300]}"
+                    )
+
+                # Also try the /oauth/installedLocations/search endpoint
+                try:
+                    search_url = "https://services.leadconnectorhq.com/oauth/installedLocations"
+                    all_locations = []
+                    skip = 0
+                    while True:
+                        params = {"appId": app_id, "limit": 100, "skip": skip}
+                        page_resp = requests.get(search_url, headers=headers, params=params, timeout=15)
+                        if page_resp.ok:
+                            page_data = page_resp.json()
+                            page_locations = page_data.get("locations", page_data.get("data", []))
+                            if not page_locations:
+                                break
+                            all_locations.extend(page_locations)
+                            skip += len(page_locations)
+                            if len(page_locations) < 100:
+                                break
+                        else:
+                            break
+                    if all_locations:
+                        results["installed_locations"] = all_locations
+                except Exception:
+                    pass
+            else:
+                results["errors"].append("client_credentials token had no access_token")
+        else:
+            results["errors"].append(
+                f"client_credentials grant: {token_resp.status_code} — {token_resp.text[:300]}"
+            )
+    except Exception as e:
+        results["errors"].append(f"API discovery error: {str(e)}")
+
+    # --- Method 2: Cross-reference with our database ---
+    # Show which locations in our DB have the app vs. which are missing
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            # Get all known subscribers
+            cur.execute("""
+                SELECT location_id, email, full_name, access_token IS NOT NULL as has_token,
+                       calendar_id IS NOT NULL as has_calendar,
+                       stripe_customer_id IS NOT NULL as has_stripe,
+                       created_at, install_completed_at
+                FROM subscribers
+                WHERE location_id NOT LIKE 'temp_%%'
+                ORDER BY created_at DESC
+            """)
+            db_users = [dict(r) for r in cur.fetchall()]
+            for u in db_users:
+                for key in ["created_at", "install_completed_at"]:
+                    if u.get(key):
+                        u[key] = u[key].isoformat() + "Z"
+            results["db_subscribers"] = db_users
+
+            # Also get agency billing entries
+            cur.execute("""
+                SELECT agency_email, company_id, access_token IS NOT NULL as has_token,
+                       created_at
+                FROM agency_billing
+                ORDER BY created_at DESC
+            """)
+            db_agencies = [dict(r) for r in cur.fetchall()]
+            for a in db_agencies:
+                if a.get("created_at"):
+                    a["created_at"] = a["created_at"].isoformat() + "Z"
+            results["db_agencies"] = db_agencies
+
+            # Get marketplace install records
+            cur.execute("""
+                SELECT * FROM marketplace_installs ORDER BY created_at DESC
+            """)
+            mkt_installs = [dict(r) for r in cur.fetchall()]
+            for m in mkt_installs:
+                for key in ["created_at", "oauth_completed_at", "setup_email_sent_at"]:
+                    if m.get(key):
+                        m[key] = m[key].isoformat() + "Z"
+            results["marketplace_installs"] = mkt_installs
+
+            cur.close()
+            return_db_connection(conn)
+
+            # Cross-reference: which GHL-installed locations are NOT in our DB?
+            db_location_ids = {u["location_id"] for u in db_users if u.get("location_id")}
+            for loc in results.get("installed_locations", []):
+                loc_id = loc.get("locationId") or loc.get("location_id") or loc.get("_id")
+                in_db = loc_id in db_location_ids if loc_id else False
+                results["cross_reference"].append({
+                    "location_id": loc_id,
+                    "name": loc.get("name") or loc.get("locationName", "Unknown"),
+                    "email": loc.get("email", ""),
+                    "company_id": loc.get("companyId", ""),
+                    "in_our_database": in_db,
+                    "status": "connected" if in_db else "LOST — needs OAuth"
+                })
+    except Exception as e:
+        results["errors"].append(f"DB cross-reference error: {str(e)}")
+
+    # Log the discovery for audit trail
+    log_webhook_event("admin", "discover_installs", "info",
+                      f"Admin discovered {len(results.get('installed_locations', []))} installs, "
+                      f"{len(results.get('cross_reference', []))} cross-referenced",
+                      details={"errors": results["errors"]})
+
+    return safe_jsonify(results)
 
 
 def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) -> str:
@@ -3176,10 +3692,26 @@ def oauth_callback():
     code = request.args.get("code")
     state = request.args.get("state")
 
-    logger.info(f"OAuth callback hit: state={state}, code={'present' if code else 'MISSING'}")
+    # LOG EVERYTHING from the very start — this is the #1 debugging tool
+    logger.info(f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
+                f"args={dict(request.args)}")
+
+    # Always log to webhook_logs so it's visible in dashboard even if everything else fails
+    try:
+        log_webhook_event("oauth_global", "oauth_callback_hit", "info",
+                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
+                          details={"args": dict(request.args)})
+    except Exception:
+        pass
 
     if not code:
         logger.warning("OAuth callback: No authorization code in request params")
+        try:
+            log_webhook_event("oauth_global", "oauth_callback_error", "error",
+                              "No authorization code in callback params",
+                              details={"args": dict(request.args)})
+        except Exception:
+            pass
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
@@ -3227,49 +3759,90 @@ def oauth_callback():
             return redirect(url_for('home'))
 
         # 1. Exchange Code for Token (with retry on transient failures)
+        # TRY BOTH user_types: "Location" first, then "Company" for agency-level installs.
+        # GHL marketplace installs can be at Location OR Company level depending on
+        # how the user installed the app. If Location fails with 400, try Company.
         token_url = "https://services.leadconnectorhq.com/oauth/token"
-        payload = {
+        base_payload = {
             "client_id": client_id,
             "client_secret": client_secret,
             "grant_type": "authorization_code",
             "code": code,
-            "user_type": "Location",
             "redirect_uri": f"{domain}/oauth/callback"
         }
 
-        token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
-                                               timeout=15, label="Token exchange")
-        if token_resp is None:
-            logger.error(f"Token exchange failed after retries: {token_err}")
-            flash("Failed to connect to Lead Connector. Please try again.", "danger")
-            return redirect(url_for('home'))
+        token_data = None
+        token_user_type_used = None
+        for user_type in ["Location", "Company"]:
+            payload = {**base_payload, "user_type": user_type}
+            logger.info(f"Token exchange attempt with user_type={user_type}")
 
-        if not token_resp.ok:
-            logger.error(f"Token exchange rejected: {token_resp.status_code} {token_resp.text[:500]}")
-            if token_resp.status_code == 400:
-                flash("Authorization code expired or invalid. Please try connecting again.", "danger")
+            token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
+                                                   timeout=15, label=f"Token exchange ({user_type})")
+
+            if token_resp is None:
+                logger.warning(f"Token exchange ({user_type}) unreachable: {token_err}")
+                continue
+
+            if token_resp.ok:
+                try:
+                    token_data = token_resp.json()
+                    token_user_type_used = user_type
+                    logger.info(f"Token exchange SUCCESS with user_type={user_type}")
+                    break
+                except ValueError:
+                    logger.error(f"Token exchange ({user_type}) returned non-JSON: {token_resp.text[:500]}")
+                    continue
+            elif token_resp.status_code == 400:
+                logger.warning(f"Token exchange ({user_type}) got 400: {token_resp.text[:300]} — trying next user_type")
+                continue
             else:
-                flash("Failed to exchange authorization code. Please try again.", "danger")
-            return redirect(url_for('home'))
+                logger.error(f"Token exchange ({user_type}) rejected: {token_resp.status_code} {token_resp.text[:500]}")
+                continue
 
-        try:
-            token_data = token_resp.json()
-        except ValueError:
-            logger.error(f"Token exchange returned non-JSON: {token_resp.text[:500]}")
-            flash("Unexpected response from Lead Connector. Please try again.", "danger")
+        if not token_data:
+            err_msg = f"Token exchange failed for all user_types (Location, Company)"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
+                                  err_msg, details={"state": state, "code_present": bool(code)})
+            except Exception:
+                pass
+            flash("Failed to connect to Lead Connector. Please try again.", "danger")
             return redirect(url_for('home'))
 
         access_token = token_data.get('access_token')
         if not access_token:
-            logger.error(f"Token exchange missing access_token: {json.dumps(token_data)[:500]}")
+            err_msg = f"Token exchange missing access_token: {json.dumps(token_data)[:500]}"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_no_access_token", "error",
+                                  err_msg, details=token_data)
+            except Exception:
+                pass
             flash("Authorization failed — no access token received. Please try again.", "danger")
             return redirect(url_for('home'))
 
         primary_location_id = token_data.get('locationId')
+        company_id = token_data.get('companyId')
         refresh_token = token_data.get('refresh_token')
         expires_in = token_data.get('expires_in', 86400)
 
-        logger.info(f"Step 1 complete: Token exchange OK. locationId={primary_location_id}, expires_in={expires_in}")
+        logger.info(f"Step 1 complete: Token exchange OK via user_type={token_user_type_used}. "
+                    f"locationId={primary_location_id}, companyId={company_id}, expires_in={expires_in}")
+
+        # If Company-level install, locationId may be empty — we get locations from /locations/ later
+        # Log this critical info for debugging
+        try:
+            log_webhook_event(primary_location_id or company_id or "unknown", "oauth_token_success", "success",
+                              f"Token exchange OK: user_type={token_user_type_used}, "
+                              f"locationId={primary_location_id}, companyId={company_id}",
+                              details={"user_type_used": token_user_type_used,
+                                       "locationId": primary_location_id,
+                                       "companyId": company_id,
+                                       "scopes": token_data.get('scope', 'unknown')})
+        except Exception:
+            pass
 
         headers = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
@@ -3295,7 +3868,23 @@ def oauth_callback():
             logger.error(f"/users/me unreachable: {me_err}")
 
         if not user_email:
-            logger.error(f"Could not retrieve user email. me_data={json.dumps(me_data)[:300]}")
+            # Try to extract email from token_data (some GHL token responses include it)
+            user_email = token_data.get('userEmail') or token_data.get('email')
+            if user_email:
+                logger.info(f"Got email from token_data instead of /users/me: {user_email}")
+
+        if not user_email:
+            err_msg = (f"Could not retrieve user email from /users/me OR token_data. "
+                       f"me_data={json.dumps(me_data)[:300]}, "
+                       f"token_keys={list(token_data.keys())}")
+            logger.error(err_msg)
+            try:
+                log_webhook_event(primary_location_id or "unknown", "oauth_no_email", "error",
+                                  err_msg, details={"me_status": me_resp.status_code if me_resp else "no_response",
+                                                    "me_body": me_resp.text[:300] if me_resp else me_err,
+                                                    "token_keys": list(token_data.keys())})
+            except Exception:
+                pass
             flash("Could not retrieve your email from Lead Connector. Please try again.", "danger")
             return redirect(url_for('home'))
 
@@ -3584,6 +4173,16 @@ def oauth_callback():
         except Exception as e:
             logger.warning(f"Failed to set install_completed_at: {e}")
 
+        # 8a-3. Mark marketplace install as OAuth-complete (links back to app.installed webhook)
+        try:
+            if primary_location_id:
+                mark_install_oauth_complete(location_id=primary_location_id)
+            if company_id:
+                mark_install_oauth_complete(company_id=company_id)
+            logger.info(f"Marketplace install marked OAuth-complete: location={primary_location_id}, company={company_id}")
+        except Exception as e:
+            logger.debug(f"mark_install_oauth_complete note: {e}")
+
         # 8b. Persistent alerts for scope/location issues
         if using_location_fallback:
             try:
@@ -3762,25 +4361,55 @@ def oauth_callback():
             logger.info(f"Step 9 complete: Logged in {user_email}")
         else:
             logger.error(f"User.get({user_email}) returned None after successful DB commit — login failed")
-            flash("Account created but login failed. Please log in manually.", "warning")
-            return redirect(url_for('login'))
+            # Still continue for marketplace installs — they don't need to be logged in
+            if is_website_user:
+                flash("Account created but login failed. Please log in manually.", "warning")
+                return redirect(url_for('login'))
 
-        # MARKETPLACE INSTALLATION: Route to home page so user can subscribe
+        # MARKETPLACE INSTALLATION: Route to dashboard (they're now logged in)
         if not is_website_user:
-            logger.info(f"Marketplace install complete for {user_email} — routing to home for subscription")
-            flash("App installed! Please subscribe to activate your bot.", "success")
-            return redirect("/")
+            logger.info(f"=== MARKETPLACE INSTALL COMPLETE for {user_email} ===")
+            try:
+                log_webhook_event(primary_location_id or "unknown", "oauth_complete", "success",
+                                  f"Marketplace install complete for {user_email} "
+                                  f"(tier={plan_tier}, user_type_used={token_user_type_used})")
+            except Exception:
+                pass
+            if user:
+                flash("App installed successfully! Complete your dashboard setup to activate your bot.", "success")
+                if use_agency_flow:
+                    return redirect(url_for('agency_dashboard'))
+                return redirect(url_for('dashboard'))
+            else:
+                # User couldn't be logged in — send to login page
+                flash("App installed! Please log in or create a password to access your dashboard.", "success")
+                return redirect(url_for('login'))
 
         # PRIVATE APP FLOW: Route through OAuth loading screen
-        logger.info(f"Private app OAuth complete for {user_email} — routing to loading screen")
+        logger.info(f"=== PRIVATE APP OAUTH COMPLETE for {user_email} ===")
+        try:
+            log_webhook_event(primary_location_id or "unknown", "oauth_complete", "success",
+                              f"Private app OAuth complete for {user_email} (tier={plan_tier})")
+        except Exception:
+            pass
         return redirect("/oauth/loading")
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_network_error", "error",
+                              f"OAuth network error: {e}")
+        except Exception:
+            pass
         flash("Failed to connect to Lead Connector. Please try again.", "danger")
         return redirect(url_for('home'))
     except Exception as e:
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_critical_error", "error",
+                              f"Critical OAuth failure: {e}")
+        except Exception:
+            pass
         flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
 

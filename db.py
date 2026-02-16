@@ -645,6 +645,39 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"reminder columns migration note: {e}")
 
+        # 16. MIGRATION: Create marketplace_installs table for capturing GHL installs
+        # This captures install events even if OAuth callback never fires (e.g., broken redirect URL)
+        try:
+            cur8 = conn.cursor()
+            cur8.execute("""
+                CREATE TABLE IF NOT EXISTS marketplace_installs (
+                    id SERIAL PRIMARY KEY,
+                    app_id TEXT,
+                    company_id TEXT,
+                    location_id TEXT,
+                    user_id TEXT,
+                    user_email TEXT,
+                    user_name TEXT,
+                    plan_id TEXT,
+                    install_type TEXT,
+                    raw_payload JSONB DEFAULT '{}'::jsonb,
+                    oauth_completed BOOLEAN DEFAULT FALSE,
+                    oauth_completed_at TIMESTAMP,
+                    setup_email_sent BOOLEAN DEFAULT FALSE,
+                    setup_email_sent_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_company ON marketplace_installs(company_id)")
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_location ON marketplace_installs(location_id)")
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_email ON marketplace_installs(user_email)")
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_created ON marketplace_installs(created_at DESC)")
+            conn.commit()
+            cur8.close()
+            logger.info("✅ Migration: Created marketplace_installs table")
+        except Exception as e:
+            logger.debug(f"marketplace_installs migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1178,6 +1211,149 @@ def mark_reminder_sent(email: str, reminder_type: str, user_type: str = "individ
         return success
     except psycopg2.Error as e:
         logger.error(f"mark_reminder_sent failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def save_marketplace_install(payload: dict) -> Optional[int]:
+    """Save a GHL marketplace install event. Returns the row ID or None on failure."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        # Extract fields from GHL app.installed webhook payload
+        data = payload.get("data", payload)
+        app_id = data.get("appId") or data.get("app_id") or payload.get("appId")
+        company_id = data.get("companyId") or data.get("company_id") or payload.get("companyId")
+        location_id = data.get("locationId") or data.get("location_id") or payload.get("locationId")
+        user_id = data.get("userId") or data.get("user_id")
+        user_email = data.get("email") or data.get("userEmail")
+        user_name = data.get("name") or data.get("userName") or data.get("firstName", "")
+        plan_id = data.get("planId") or data.get("plan_id")
+        install_type = data.get("installType") or data.get("install_type") or "unknown"
+
+        cur.execute("""
+            INSERT INTO marketplace_installs
+                (app_id, company_id, location_id, user_id, user_email, user_name,
+                 plan_id, install_type, raw_payload)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (app_id, company_id, location_id, user_id, user_email,
+              user_name, plan_id, install_type, json.dumps(payload)))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        install_id = row["id"] if row else None
+        logger.info(f"Saved marketplace install: id={install_id}, company={company_id}, "
+                     f"location={location_id}, email={user_email}")
+        return install_id
+    except psycopg2.Error as e:
+        logger.error(f"save_marketplace_install failed: {e}")
+        conn.rollback()
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def mark_install_oauth_complete(company_id: str = None, location_id: str = None):
+    """Mark a marketplace install as having completed OAuth."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        if location_id:
+            cur.execute("""
+                UPDATE marketplace_installs
+                SET oauth_completed = TRUE, oauth_completed_at = NOW()
+                WHERE location_id = %s AND oauth_completed = FALSE
+            """, (location_id,))
+        elif company_id:
+            cur.execute("""
+                UPDATE marketplace_installs
+                SET oauth_completed = TRUE, oauth_completed_at = NOW()
+                WHERE company_id = %s AND oauth_completed = FALSE
+            """, (company_id,))
+        conn.commit()
+        cur.close()
+    except psycopg2.Error as e:
+        logger.error(f"mark_install_oauth_complete failed: {e}")
+        conn.rollback()
+    finally:
+        return_db_connection(conn)
+
+
+def get_incomplete_installs() -> list:
+    """Get marketplace installs that never completed OAuth — these are the 'lost' users."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, app_id, company_id, location_id, user_id, user_email, user_name,
+                   plan_id, install_type, oauth_completed, setup_email_sent,
+                   setup_email_sent_at, created_at
+            FROM marketplace_installs
+            WHERE oauth_completed = FALSE
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except psycopg2.Error as e:
+        logger.error(f"get_incomplete_installs failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def get_all_marketplace_installs() -> list:
+    """Get all marketplace installs for admin view."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, app_id, company_id, location_id, user_id, user_email, user_name,
+                   plan_id, install_type, oauth_completed, oauth_completed_at,
+                   setup_email_sent, setup_email_sent_at, created_at
+            FROM marketplace_installs
+            ORDER BY created_at DESC
+            LIMIT 200
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except psycopg2.Error as e:
+        logger.error(f"get_all_marketplace_installs failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def mark_setup_email_sent(install_id: int) -> bool:
+    """Mark that a setup email was sent for a specific install."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE marketplace_installs
+            SET setup_email_sent = TRUE, setup_email_sent_at = NOW()
+            WHERE id = %s
+        """, (install_id,))
+        conn.commit()
+        success = cur.rowcount > 0
+        cur.close()
+        return success
+    except psycopg2.Error as e:
+        logger.error(f"mark_setup_email_sent failed for install {install_id}: {e}")
         conn.rollback()
         return False
     finally:
