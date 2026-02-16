@@ -1957,6 +1957,34 @@ def api_dismiss_alert(alert_id):
     return safe_jsonify({"success": True})
 
 
+def _is_admin_request():
+    """
+    Check if the current request is authorized as admin.
+    Accepts EITHER:
+      1. Logged-in user whose email is in ADMIN_EMAILS
+      2. ?key={CRON_SECRET} query parameter
+      3. Authorization: Bearer {CRON_SECRET} header
+    Returns True if authorized.
+    """
+    # Method 1: Logged-in admin
+    try:
+        if current_user.is_authenticated:
+            if current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]:
+                return True
+    except Exception:
+        pass
+
+    # Method 2: Secret key (same as cron endpoint)
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth_header = request.headers.get("Authorization", "")
+        query_key = request.args.get("key", "")
+        if auth_header == f"Bearer {cron_secret}" or query_key == cron_secret:
+            return True
+
+    return False
+
+
 @app.route("/api/cron/send-reminders", methods=["GET", "POST"])
 def api_send_reminders():
     """
@@ -2038,11 +2066,11 @@ def api_send_reminders():
 
 
 @app.route("/api/admin/marketplace-installs", methods=["GET"])
-@login_required
 def api_marketplace_installs():
-    """Admin endpoint: view all marketplace installs and their OAuth status."""
-    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
-        return safe_jsonify({"error": "Admin access required"}), 403
+    """Admin endpoint: view all marketplace installs and their OAuth status.
+    Auth: login as admin OR ?key={CRON_SECRET}"""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
     show = request.args.get("show", "all")  # "all", "incomplete", "complete"
 
@@ -2068,11 +2096,11 @@ def api_marketplace_installs():
 
 
 @app.route("/api/admin/marketplace-installs/<int:install_id>/send-setup-email", methods=["POST"])
-@login_required
 def api_send_install_setup_email(install_id):
-    """Admin action: manually send setup email to a marketplace installer."""
-    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
-        return safe_jsonify({"error": "Admin access required"}), 403
+    """Admin action: manually send setup email to a marketplace installer.
+    Auth: login as admin OR ?key={CRON_SECRET}"""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
     # Get the specific install
     installs = get_all_marketplace_installs()
@@ -2107,11 +2135,11 @@ def api_send_install_setup_email(install_id):
 
 
 @app.route("/api/admin/marketplace-installs/send-all-setup-emails", methods=["POST"])
-@login_required
 def api_send_all_setup_emails():
-    """Admin action: send setup emails to ALL incomplete installs that have an email."""
-    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
-        return safe_jsonify({"error": "Admin access required"}), 403
+    """Admin action: send setup emails to ALL incomplete installs that have an email.
+    Auth: login as admin OR ?key={CRON_SECRET}"""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
     from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
@@ -2156,7 +2184,6 @@ def api_send_all_setup_emails():
 
 
 @app.route("/api/admin/discover-installs", methods=["GET", "POST"])
-@login_required
 def api_discover_installs():
     """
     Admin endpoint: Query GHL API to discover who installed the marketplace app.
@@ -2165,8 +2192,10 @@ def api_discover_installs():
 
     This is the only way to find the 'lost' installers since GHL's marketplace
     dashboard only shows totals, not individual location details.
+
+    Auth: login as admin OR ?key={CRON_SECRET}
     """
-    if current_user.email.lower() not in [e.lower() for e in ADMIN_EMAILS]:
+    if not _is_admin_request():
         return safe_jsonify({"error": "Admin access required"}), 403
 
     client_id = os.getenv("GHL_CLIENT_ID")
