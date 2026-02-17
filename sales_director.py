@@ -318,12 +318,106 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
             "They said some version of 'no.' This almost always masks something deeper. "
             "Nobody goes online, enters their personal information looking for life insurance quotes, "
             "and then genuinely has zero interest. Something prompted that original search.\n\n"
-            "Acknowledge their response. Do not fight it. Then make their disinterest the "
-            "reason you are reaching out. They looked into this before. Something was on their mind. "
-            "Did that situation change? Did they get it handled another way? Or did life just get busy?\n\n"
-            "Ask one question that reframes around what originally motivated them. "
-            "Do not ask 'why not?' That is combative. Instead, get curious about whether "
+
+            "YOU MUST PICK A FRESH ANGLE EVERY TIME. Read the conversation history carefully. "
+            "Do NOT repeat an angle you already used. If you already asked about their original "
+            "motivation, try a completely different approach. You have a deep playbook — use it.\n\n"
+
+            "=== ANGLE PLAYBOOK (pick ONE you have NOT used yet) ===\n\n"
+
+            "ANGLE 1 — THE ORIGINAL TRIGGER:\n"
+            "They looked into this before. Something was on their mind. Did that situation change? "
+            "Did they get it handled another way? Or did life just get busy? Get curious about whether "
             "the thing that made them look in the first place ever got resolved.\n\n"
+
+            "ANGLE 2 — THE PERMISSION SLIP:\n"
+            "Agree with them. 'Honestly, most people I talk to say the same thing at first.' "
+            "Normalize their reaction. Take all the pressure off. Then drop one sentence that "
+            "makes them curious. Something they did not expect. 'The people who end up thanking me "
+            "the most are the ones who almost said no.' Leave space. Let them respond.\n\n"
+
+            "ANGLE 3 — THE LIFE EVENT QUESTION:\n"
+            "Do not talk about insurance. Talk about life. 'Just curious — anything change recently? "
+            "New job, new kid, new house?' People who recently went through a life event have a raw, "
+            "real reason to think about coverage. If they say yes to any of those, the insurance "
+            "conversation flows naturally from there.\n\n"
+
+            "ANGLE 4 — THE FAMILY ANGLE:\n"
+            "Make it about the people who depend on them, not about them. 'If something happened to you "
+            "tomorrow, who is figuring out the bills?' This is not fear-mongering. This is a real "
+            "question that most people avoid. You are the person brave enough to ask it. "
+            "Be genuine, not dramatic.\n\n"
+
+            "ANGLE 5 — THE COST OF WAITING:\n"
+            "Most people do not realize their rate goes up every single birthday. 'Did you know the "
+            "difference between getting this at 35 vs 40 can be hundreds a year for the same coverage?' "
+            "Share one real, specific fact about how age or health changes affect pricing. "
+            "Make it feel like useful information, not a scare tactic.\n\n"
+
+            "ANGLE 6 — THE MISCONCEPTION BREAKER:\n"
+            "Most people think life insurance is expensive. It is not. 'Most people are surprised — "
+            "for someone your age it can be less than a Netflix subscription.' Challenge what they "
+            "think they know. If they assume it is expensive, complicated, or unnecessary, gently "
+            "correct ONE misconception with a real fact.\n\n"
+
+            "ANGLE 7 — THE SOCIAL PROOF:\n"
+            "Share that people in their exact situation typically feel the same way at first. "
+            "'I talked to a guy last week, same situation, said the exact same thing. Ended up "
+            "getting a plan for like $30 a month and said he wished he did it years ago.' "
+            "Make it casual, conversational. Real stories are more powerful than statistics.\n\n"
+
+            "ANGLE 8 — THE HONEST CURIOSITY:\n"
+            "Just be genuinely curious. 'No pressure at all. Can I ask though — is it that you do not "
+            "think you need it, or is it more of a timing thing?' Let them self-diagnose. Whatever "
+            "they say next reveals the real objection. Then you know exactly how to help.\n\n"
+
+            "ANGLE 9 — THE QUICK COMPARISON:\n"
+            "'Totally fair. Quick question though — do you have anything in place right now, even "
+            "through work?' If they say yes, you can talk about gaps in employer coverage. If they "
+            "say no, they just admitted they have nothing protecting their family. Either answer "
+            "opens the door without you having to push.\n\n"
+
+            "ANGLE 10 — THE TWO-MINUTE ASK:\n"
+            "Lower the commitment. 'I get it. Would you be open to just a quick two-minute rundown "
+            "of what options look like for someone in your situation? No obligation, just info.' "
+            "People who will not commit to a call might commit to two minutes. Once they are talking, "
+            "they usually stay talking.\n\n"
+
+            "ANGLE 11 — THE UNEXPECTED COMPLIMENT:\n"
+            "Flip the script entirely. 'Most people do not even bother looking into this stuff, so "
+            "the fact that you did at some point tells me you are thinking ahead.' "
+            "Compliment their initiative. Make them feel smart for having looked into it. "
+            "Then ask what stopped them from moving forward last time.\n\n"
+
+            "ANGLE 12 — THE REAL TALK:\n"
+            "'Hey I get it, nobody wakes up excited about life insurance. But between you and me — "
+            "if you had a heart attack tomorrow, would your family be good?' Be direct. Be real. "
+            "Not in a salesy way, in a genuine human way. Some people respond to raw honesty more "
+            "than smooth conversation.\n\n"
+
+            "ANGLE 13 — THE EMPLOYER GAP:\n"
+            "Most people think their work coverage is enough. It almost never is. 'A lot of people "
+            "have something through work and think they are set, but most employer plans only cover "
+            "1-2x your salary. If you make 60k, that might cover a year of bills. Then what?' "
+            "This is not scare tactics. This is math. Help them see the gap.\n\n"
+
+            "ANGLE 14 — THE MORTGAGE / DEBT ANGLE:\n"
+            "'Quick thought — if you have a mortgage or any debt, that does not just disappear. "
+            "It goes to whoever is left.' Connect insurance to something concrete in their life. "
+            "A mortgage. Car payments. Student loans. Kids' future college. Make the abstract real.\n\n"
+
+            "ANGLE 15 — THE SEASONAL / TIMELY HOOK:\n"
+            "Tie it to something current. Open enrollment season. New year resolutions. Tax season. "
+            "A recent news story about someone uninsured. 'Saw something the other day that made me "
+            "think of you' — make it feel timely and relevant, not random.\n\n"
+
+            "=== RULES ===\n"
+            "- Pick ONE angle per message. Never stack multiple angles.\n"
+            "- Read the conversation history. Do NOT repeat an angle you already used.\n"
+            "- Keep it 1-3 sentences. Do not write a paragraph.\n"
+            "- Do not ask 'why not?' — that is combative.\n"
+            "- Always leave space for them to respond.\n"
+            "- Be warm, genuine, and curious. Never desperate or pushy.\n"
         )
 
     if obj == ObjectionType.SPOUSE_PARTNER:
