@@ -163,16 +163,27 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     if not text:
         return ObjectionType.NONE, ObjectionNature.NONE
 
-    text_lower = text.lower()
+    text_lower = text.lower().strip()
 
     # Order matters: check most specific patterns first
 
     not_interested_kw = [
         "not interested", "no thanks", "no thank you", "dont want", "don't want",
         "nah im good", "nah i'm good", "no i'm good", "no im good",
-        "i'm good", "im good", "don't need", "dont need", "not for me",
-        "not looking", "no need", "i'll pass", "ill pass"
+        "don't need", "dont need", "not for me",
+        "not looking", "no need", "i'll pass", "ill pass",
     ]
+
+    # "i'm good" / "im good" are ONLY objections when they are the entire message
+    # or clearly dismissive (short message, no positive context).
+    # "yeah im good with 3pm" or "im good to go" are NOT objections.
+    im_good_patterns = ["i'm good", "im good"]
+    positive_context = ["good with", "good to", "good for", "good on that", "good let"]
+    if any(p in text_lower for p in im_good_patterns):
+        has_positive = any(p in text_lower for p in positive_context)
+        is_short = len(text_lower.split()) <= 4
+        if not has_positive and is_short:
+            not_interested_kw.append(text_lower)  # match itself so the check below hits
 
     spouse_kw = [
         "talk to my wife", "talk to my husband", "ask my spouse", "ask my wife",
