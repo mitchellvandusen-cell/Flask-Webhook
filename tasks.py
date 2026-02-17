@@ -130,6 +130,40 @@ def _extract_times_from_text(text: str) -> list:
             "day_hint": day_hint
         })
 
+    # Pass 2: Match times WITHOUT am/pm like "7:30", "at about 7:30"
+    # Negative lookahead avoids re-matching times already caught with AM/PM
+    bare_time_pattern = r'(\d{1,2}):(\d{2})(?!\s*(?:pm|p\.m\.|am|a\.m\.))'
+    for match in re.finditer(bare_time_pattern, text_lower):
+        h = int(match.group(1))
+        m = int(match.group(2))
+
+        # Infer AM/PM from business hours context
+        # Insurance sales calls typically happen during business hours
+        if 1 <= h <= 7:
+            h += 12  # Assume PM (1:00-7:59 -> 13:00-19:59)
+        elif h == 12:
+            h = 12  # Noon
+        # 8-11 stays as-is (morning hours)
+
+        # Look for day context near this match (within 30 chars)
+        context_start = max(0, match.start() - 30)
+        context_end = min(len(text_lower), match.end() + 30)
+        context = text_lower[context_start:context_end]
+        day_hint = ""
+        if "tomorrow" in context:
+            day_hint = "tomorrow"
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            if day in context:
+                day_hint = day
+                break
+
+        results.append({
+            "hour": h,
+            "minute": m,
+            "original": match.group().strip(),
+            "day_hint": day_hint
+        })
+
     return results
 
 
@@ -390,13 +424,15 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
             logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
             return True, resolved
 
-    # Case 4: Stage is BOOKING + any acceptance
-    if stage == "booking" and is_acceptance:
+    # Case 4: Stage is BOOKING + acceptance — ONLY if bot offered specific times recently
+    # This prevents random messages from triggering bookings just because stage is "booking"
+    # e.g., "Back to work I go" should never book just because conversation was in booking stage
+    if stage == "booking" and is_acceptance and bot_offered_times:
         if has_time_reference:
             resolved = _resolve_time_with_context(message)
         else:
             resolved = _resolve_time_with_context(message, use_bot_first=True)
-        logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | resolved='{resolved}'")
+        logger.info(f"BOOKING CASE 4: Booking stage + Bot offered times + Acceptance | resolved='{resolved}'")
         return True, resolved
 
     # Case 5: Explicit "that time works" / "works for me"
