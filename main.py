@@ -866,7 +866,7 @@ def register():
 
             # 2. Check if location_id already exists in subscribers (from OAuth/Marketplace)
             cur.execute("""
-                SELECT email, parent_agency_email, invite_token, onboarding_status
+                SELECT email, parent_agency_email, onboarding_status
                 FROM subscribers
                 WHERE location_id = %s
                 LIMIT 1
@@ -881,7 +881,7 @@ def register():
             password_hash = generate_password_hash(password)
 
             # Check if this is a sub-user who should use /claim-account
-            if match['parent_agency_email'] and match['invite_token']:
+            if match['parent_agency_email'] and match.get('onboarding_status') == 'invited':
                 flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
                 return redirect(url_for("login"))
 
@@ -4214,21 +4214,17 @@ def oauth_callback():
 
                 cur.execute("""
                     INSERT INTO subscribers (
-                        location_id, email, agent_email, full_name, role, subscription_tier,
+                        location_id, email, full_name, role, subscription_tier,
                         parent_agency_email, access_token, refresh_token,
                         token_expires_at, timezone, crm_user_id,
                         onboarding_status, oauth_app_type, created_at, updated_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s,
                         NOW() + interval '%s seconds',
                         %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (location_id) DO UPDATE SET
                         email = EXCLUDED.email,
-                        agent_email = CASE
-                            WHEN subscribers.agent_email IS NULL THEN EXCLUDED.agent_email
-                            ELSE subscribers.agent_email
-                        END,
                         full_name = EXCLUDED.full_name,
                         role = EXCLUDED.role,
                         subscription_tier = EXCLUDED.subscription_tier,
@@ -4241,7 +4237,7 @@ def oauth_callback():
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
-                    sub_id, email_this, agent_email, agent_name, role, plan_tier,
+                    sub_id, email_this, agent_name, role, plan_tier,
                     parent_agency_email, access_token_this, refresh_token_this,
                     expires_in,
                     sub_timezone or 'America/Chicago', agent_crm_user_id,
