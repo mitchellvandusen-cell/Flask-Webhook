@@ -93,8 +93,8 @@ def generate_strategic_directive(
     if logic.objection_type == ObjectionType.NONE and logic.message_context == MessageContext.INBOUND_REPLY:
         if any(word in full_lower for word in [
             "book", "schedule", "appointment", "hop on", "quick call",
-            "time work", "works for", "lets do", "yeah lets",
-            "tell me more", "when works", "set up", "set something up"
+            "works for me", "lets do", "yeah lets",
+            "set up", "set something up"
         ]):
             stage_value = ConversationStage.BOOKING.value
 

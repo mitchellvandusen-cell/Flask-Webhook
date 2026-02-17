@@ -130,6 +130,40 @@ def _extract_times_from_text(text: str) -> list:
             "day_hint": day_hint
         })
 
+    # Pass 2: Match times WITHOUT am/pm like "7:30", "at about 7:30"
+    # Negative lookahead avoids re-matching times already caught with AM/PM
+    bare_time_pattern = r'(\d{1,2}):(\d{2})(?!\s*(?:pm|p\.m\.|am|a\.m\.))'
+    for match in re.finditer(bare_time_pattern, text_lower):
+        h = int(match.group(1))
+        m = int(match.group(2))
+
+        # Infer AM/PM from business hours context
+        # Insurance sales calls typically happen during business hours
+        if 1 <= h <= 7:
+            h += 12  # Assume PM (1:00-7:59 -> 13:00-19:59)
+        elif h == 12:
+            h = 12  # Noon
+        # 8-11 stays as-is (morning hours)
+
+        # Look for day context near this match (within 30 chars)
+        context_start = max(0, match.start() - 30)
+        context_end = min(len(text_lower), match.end() + 30)
+        context = text_lower[context_start:context_end]
+        day_hint = ""
+        if "tomorrow" in context:
+            day_hint = "tomorrow"
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            if day in context:
+                day_hint = day
+                break
+
+        results.append({
+            "hour": h,
+            "minute": m,
+            "original": match.group().strip(),
+            "day_hint": day_hint
+        })
+
     return results
 
 
@@ -249,17 +283,11 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
 
     logger.debug(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
 
-    # Detect if bot offered times in last message
-    time_offer_indicators = [
-        "i've got", "i have", "available", "how about", "works for you",
-        "tomorrow", "pm", "am", "morning", "afternoon", "slot",
-        "does", "work", "free at", "open at", "2:00", "3:00", "4:00",
-        "9:00", "10:00", "11:00", "friday", "monday", "tuesday"
-    ]
-    bot_offered_times = any(indicator in last_bot_msg for indicator in time_offer_indicators)
-
-    # Pre-extract structured times from bot's message for matching
-    bot_time_structs = _extract_times_from_text(last_bot_msg_original) if bot_offered_times else []
+    # Detect if bot offered times in last message — use actual time extraction, not keywords
+    # Old approach used generic words like "work", "am", "does" which matched nearly everything
+    # New approach: bot only "offered times" if its message contains actual parseable times
+    bot_time_structs = _extract_times_from_text(last_bot_msg_original)
+    bot_offered_times = len(bot_time_structs) > 0
 
     # === EXPLICIT BOOKING KEYWORDS (works anytime) ===
     explicit_booking_keywords = [
@@ -290,6 +318,9 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     has_time_reference = time_match is not None
 
     # === ACCEPTANCE PHRASES (only valid if bot offered times) ===
+    # Use word-boundary matching to prevent false positives from substrings
+    # e.g., old approach: "k" in "back to work" → True (BAD)
+    # new approach: word boundary check ensures "k" only matches standalone "k"
     acceptance_phrases = [
         "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "k",
         "sounds good", "perfect", "great", "works", "that works",
@@ -297,7 +328,10 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         "let's do it", "lets do it", "do it", "go for it", "down",
         "fine", "cool", "bet", "alright"
     ]
-    is_acceptance = any(phrase in msg_lower for phrase in acceptance_phrases)
+    is_acceptance = any(
+        re.search(r'(?:^|[\s,!?.])' + re.escape(phrase) + r'(?:$|[\s,!?.])', msg_lower)
+        for phrase in acceptance_phrases
+    )
 
     # Log detection signals
     logger.info(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
@@ -366,13 +400,15 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
         return True, resolved
 
-    # Case 4: Stage is BOOKING + any acceptance
-    if stage == "booking" and is_acceptance:
+    # Case 4: Stage is BOOKING + acceptance — ONLY if bot offered specific times recently
+    # This prevents random messages from triggering bookings just because stage is "booking"
+    # e.g., "Back to work I go" should never book just because conversation was in booking stage
+    if stage == "booking" and is_acceptance and bot_offered_times:
         if has_time_reference:
             resolved = _resolve_time_with_context(message)
         else:
             resolved = _resolve_time_with_context(message, use_bot_first=True)
-        logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | resolved='{resolved}'")
+        logger.info(f"BOOKING CASE 4: Booking stage + Bot offered times + Acceptance | resolved='{resolved}'")
         return True, resolved
 
     # Case 5: Explicit "that time works" / "works for me"
