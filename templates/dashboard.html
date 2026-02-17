@@ -342,6 +342,64 @@
             color: #666;
             margin-top: 6px;
         }
+
+        /* Onboarding issue banner */
+        .onboarding-banner {
+            background: linear-gradient(135deg, rgba(255, 152, 0, 0.12) 0%, rgba(255, 193, 7, 0.08) 100%);
+            border: 1px solid rgba(255, 152, 0, 0.35);
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .onboarding-banner .banner-icon {
+            font-size: 1.5rem;
+            color: #ff9800;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .onboarding-banner .banner-body h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffb74d;
+            margin: 0 0 6px 0;
+        }
+        .onboarding-banner .banner-body p {
+            font-size: 0.9rem;
+            color: #bbb;
+            margin: 0 0 10px 0;
+            line-height: 1.5;
+        }
+        .onboarding-banner .banner-link {
+            display: inline-block;
+            background: rgba(255, 152, 0, 0.15);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            color: #ffb74d;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .onboarding-banner .banner-link:hover {
+            background: rgba(255, 152, 0, 0.25);
+            border-color: rgba(255, 152, 0, 0.5);
+            color: #fff;
+        }
+        .onboarding-banner .banner-dismiss {
+            background: none;
+            border: none;
+            color: #777;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-left: auto;
+            flex-shrink: 0;
+            padding: 0;
+        }
+        .onboarding-banner .banner-dismiss:hover { color: #fff; }
     </style>
 </head>
 <body>
@@ -483,6 +541,42 @@
 
         <!-- Persistent Alerts (DB-backed, survive page reloads) -->
         <div id="persistent-alerts-container"></div>
+
+        {% if is_placeholder is defined and is_placeholder %}
+        <!-- PLACEHOLDER ACCOUNT BANNER — email could not be determined during OAuth -->
+        <div class="onboarding-banner" id="placeholderBanner">
+            <i class="fa-solid fa-triangle-exclamation banner-icon"></i>
+            <div class="banner-body">
+                <h4>Action Required: Complete Your Account Setup</h4>
+                <p>
+                    We weren't able to retrieve your email or user details during the connection process.
+                    This is usually caused by pending scope approvals on the GoHighLevel marketplace.
+                    Your bot won't be fully active until your account details are confirmed.
+                </p>
+                <a href="/support" class="banner-link">
+                    <i class="fa-solid fa-headset me-1"></i> Get Help &amp; Fix This
+                </a>
+            </div>
+            <button class="banner-dismiss" onclick="this.closest('.onboarding-banner').style.display='none'" aria-label="Dismiss">&times;</button>
+        </div>
+        {% elif is_incomplete is defined and is_incomplete and not needs_oauth %}
+        <!-- INCOMPLETE ACCOUNT BANNER — missing CRM user ID or location -->
+        <div class="onboarding-banner" id="incompleteBanner">
+            <i class="fa-solid fa-circle-info banner-icon"></i>
+            <div class="banner-body">
+                <h4>Almost There: Some Details Are Missing</h4>
+                <p>
+                    Your account connected successfully, but some CRM details (User ID or Location) could not
+                    be auto-populated. This can happen when certain GoHighLevel scopes are still pending approval.
+                    You can enter them manually below, or contact support for assistance.
+                </p>
+                <a href="/support" class="banner-link">
+                    <i class="fa-solid fa-headset me-1"></i> Learn More &amp; Get Help
+                </a>
+            </div>
+            <button class="banner-dismiss" onclick="this.closest('.onboarding-banner').style.display='none'" aria-label="Dismiss">&times;</button>
+        </div>
+        {% endif %}
 
         {% if needs_subscription %}
         <div class="alert alert-warning mb-5" style="border-radius: 16px; border: 2px solid #ffc107; background: linear-gradient(135deg, rgba(255,193,7,0.1) 0%, rgba(255,193,7,0.05) 100%); padding: 30px;">

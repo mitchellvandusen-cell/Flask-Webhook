@@ -140,6 +140,72 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            Missing User ID, Location, or placeholder email on my dashboard
+                        </button>
+                    </h2>
+                    <div id="inst5" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>If your dashboard shows a placeholder email (e.g. <code>install_...@placeholder.grokbot</code>),
+                            a missing User ID, or missing Location ID, this is caused by <strong>GoHighLevel marketplace scope approvals
+                            still being processed</strong>.</p>
+                            <p><strong>What's happening:</strong></p>
+                            <ul>
+                                <li>When you install from the GHL Marketplace, certain API permissions (<code>users.readonly</code>,
+                                <code>locations.readonly</code>) must be approved by GoHighLevel before we can retrieve your full
+                                account details.</li>
+                                <li>Until those scopes are approved, we save your connection with placeholder data so you
+                                don't lose your setup progress.</li>
+                                <li>This is a temporary state &mdash; once scopes are approved, reconnecting will populate
+                                all fields automatically.</li>
+                            </ul>
+                            <p><strong>How to fix:</strong></p>
+                            <ol>
+                                <li>Wait 24&ndash;48 hours for GoHighLevel to approve the pending scopes.</li>
+                                <li>Once approved, go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a>
+                                and click <strong>"Connect Lead Connector"</strong> to re-authorize.</li>
+                                <li>Your User ID, Location ID, and email will be populated automatically.</li>
+                                <li>If the issue persists after 48 hours, contact us at
+                                <a href="mailto:mitchell_vandusen@hotmail.com" style="color: var(--accent);">mitchell_vandusen@hotmail.com</a>
+                                and we'll manually resolve it.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inst6"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            I installed from the Marketplace but can't log in
+                        </button>
+                    </h2>
+                    <div id="inst6" class="accordion-collapse collapse" data-bs-parent="#installAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Marketplace installs create your account automatically during the OAuth connection process.
+                            If you can't log in, it's likely because:</p>
+                            <ul>
+                                <li><strong>No password was set</strong> &mdash; your account was created via OAuth and doesn't have
+                                a password yet.</li>
+                                <li><strong>Email mismatch</strong> &mdash; the email in your GHL account may differ from what you're
+                                trying to log in with.</li>
+                            </ul>
+                            <p><strong>How to fix:</strong></p>
+                            <ol>
+                                <li>Go to <a href="/forgot-password" style="color: var(--accent);">Forgot Password</a> and enter
+                                the email associated with your GoHighLevel account.</li>
+                                <li>You'll receive a password reset link to set up your login credentials.</li>
+                                <li>If you're unsure which email was used, contact us at
+                                <a href="mailto:mitchell_vandusen@hotmail.com" style="color: var(--accent);">mitchell_vandusen@hotmail.com</a>
+                                and we'll look it up.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

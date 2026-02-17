@@ -33,7 +33,7 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 get_users_needing_reminders, mark_reminder_sent,
                 save_marketplace_install, mark_install_oauth_complete,
                 get_incomplete_installs, get_all_marketplace_installs,
-                mark_setup_email_sent)
+                mark_setup_email_sent, find_marketplace_email)
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -1617,6 +1617,10 @@ def dashboard():
     if not cal_ok:
         missing_fields.append('calendar_id')
 
+    # --- 6. PLACEHOLDER / INCOMPLETE ACCOUNT DETECTION ---
+    is_placeholder = bool(current_user.email and current_user.email.endswith('@placeholder.grokbot'))
+    is_incomplete = bool(not current_user.crm_user_id or not current_user.location_id)
+
     from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
     return render_template('dashboard.html',
         form=form,
@@ -1629,6 +1633,8 @@ def dashboard():
         needs_oauth=needs_oauth,
         show_congrats=show_congrats,
         missing_fields=missing_fields,
+        is_placeholder=is_placeholder,
+        is_incomplete=is_incomplete,
         crm_config_fields=CRM_CONFIG_FIELDS,
         crm_display_names=CRM_DISPLAY_NAMES
     )
@@ -3977,20 +3983,34 @@ def oauth_callback():
         else:
             logger.error(f"/users/me unreachable: {me_err}")
 
+        # --- ROBUST EMAIL RECOVERY CHAIN ---
+        # OAuth must NEVER fail. Try every source, create placeholder as last resort.
+        # Each step is independent — if one fails, the next one tries.
+
+        # Fallback 1: token_data may include email
         if not user_email:
-            # Try to extract email from token_data (some GHL token responses include it)
             user_email = token_data.get('userEmail') or token_data.get('email')
             if user_email:
-                logger.info(f"Got email from token_data instead of /users/me: {user_email}")
+                logger.info(f"Fallback 1: Got email from token_data: {user_email}")
 
+        # Fallback 2: website users are already logged in
         if not user_email and is_website_user and current_user.is_authenticated:
-            # Website users are already logged in — we know their email
             user_email = current_user.email
             user_name = current_user.full_name or user_name
-            logger.info(f"Using logged-in user's email (website_user flow): {user_email}")
+            logger.info(f"Fallback 2: Using logged-in user's email: {user_email}")
 
+        # Fallback 3: BRIDGE — check marketplace_installs table
         if not user_email:
-            # Last resort: check if userId is in token and try to find in our DB
+            market_data = find_marketplace_email(
+                location_id=primary_location_id, company_id=company_id
+            )
+            if market_data:
+                user_email = market_data.get('user_email')
+                user_name = market_data.get('user_name') or user_name
+                logger.info(f"Fallback 3: BRIDGED email from marketplace_installs: {user_email}")
+
+        # Fallback 4: check existing subscribers by userId
+        if not user_email:
             ghl_user_id = token_data.get('userId')
             if ghl_user_id:
                 try:
@@ -4001,26 +4021,76 @@ def oauth_callback():
                         found = cur_lookup.fetchone()
                         if found:
                             user_email = found['email']
-                            logger.info(f"Found email via userId lookup: {user_email}")
+                            logger.info(f"Fallback 4: Found email via userId lookup: {user_email}")
                         cur_lookup.close()
                         return_db_connection(conn_lookup)
                 except Exception:
                     pass
 
+        # Fallback 5: PLACEHOLDER — create a temporary identity so onboarding completes
         if not user_email:
-            err_msg = (f"Could not retrieve user email from /users/me OR token_data. "
-                       f"me_data={json.dumps(me_data)[:300]}, "
-                       f"token_keys={list(token_data.keys())}")
-            logger.error(err_msg)
+            ghl_user_id = token_data.get('userId') or 'unknown'
+            user_email = f"install_{ghl_user_id}@placeholder.grokbot"
+            user_name = "New User (Update Email)"
+            logger.warning(f"Fallback 5: ALL email sources exhausted. Using placeholder: {user_email}")
+
+            # Log to webhook_logs for visibility
             try:
-                log_webhook_event(primary_location_id or "unknown", "oauth_no_email", "error",
-                                  err_msg, details={"me_status": me_resp.status_code if me_resp else "no_response",
-                                                    "me_body": me_resp.text[:300] if me_resp else me_err,
-                                                    "token_keys": list(token_data.keys())})
+                log_webhook_event(primary_location_id or "unknown", "oauth_placeholder_account", "warning",
+                                  f"Placeholder account created: {user_email} — userId={ghl_user_id}, "
+                                  f"locationId={primary_location_id}, companyId={company_id}",
+                                  details={"userId": ghl_user_id,
+                                           "locationId": primary_location_id,
+                                           "companyId": company_id,
+                                           "token_keys": list(token_data.keys())})
             except Exception:
                 pass
-            flash("Could not retrieve your email from Lead Connector. Please try again.", "danger")
-            return redirect(url_for('home'))
+
+            # ADMIN ALERT: email the admin so they can manually resolve
+            try:
+                from send_email_api import send_email_via_api
+                admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                alert_inner = f'''
+<tr><td style="padding: 20px 40px 30px;">
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
+    <p style="font-size: 15px; color: #ccc; line-height: 1.6;">
+        A user installed the app but GHL permissions blocked their email.
+        A placeholder account was created so they can access the dashboard.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); margin: 20px 0;">
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">GHL User ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{ghl_user_id}</td></tr>
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888;">Location ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{primary_location_id or 'N/A'}</td></tr>
+        <tr><td style="padding: 12px 16px; color: #888;">Company ID</td>
+            <td style="padding: 12px 16px; color: #fff; font-family: monospace;">{company_id or 'N/A'}</td></tr>
+    </table>
+    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your GHL Agency View to find the user's real email, then update their record in the database.</p>
+</td></tr>'''
+                send_email_via_api(
+                    to_email=admin_target,
+                    subject="Ghost Install — Action Required",
+                    html_body=_email_wrapper(alert_inner, domain_url),
+                    text_body=f"Ghost install: userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}"
+                )
+                logger.info(f"Admin ghost-install alert sent to {admin_target}")
+            except Exception as e:
+                logger.error(f"Failed to send admin ghost-install alert: {e}")
+
+            # Save to persistent_alerts too
+            try:
+                save_persistent_alert(
+                    ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
+                    primary_location_id or "unknown",
+                    "ghost_install", "warning",
+                    "Ghost Install — Email Unknown",
+                    f"User installed app but email couldn't be retrieved. "
+                    f"userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}. "
+                    f"Placeholder account: {user_email}"
+                )
+            except Exception:
+                pass
 
         logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
 
@@ -4114,7 +4184,7 @@ def oauth_callback():
                 active_seats = max(0, num_subs - 1)  # Exclude primary
 
                 # Determine OAuth app type
-                app_type = 'private' if is_website_user else 'marketplace'
+                app_type = 'website' if is_website_user else 'marketplace'
 
                 cur.execute("""
                     INSERT INTO agency_billing (
@@ -4161,7 +4231,7 @@ def oauth_callback():
                         refresh_token = %s,
                         token_expires_at = NOW() + interval '%s seconds',
                         crm_user_id = COALESCE(%s, crm_user_id),
-                        oauth_app_type = 'private',
+                        oauth_app_type = 'website',
                         onboarding_status = 'claimed',
                         updated_at = NOW()
                     WHERE email = %s AND location_id LIKE 'temp_%%'
@@ -4214,7 +4284,7 @@ def oauth_callback():
                 role = 'agency_sub_account_user' if use_agency_flow else 'individual'
                 parent_agency_email = user_email if use_agency_flow else None
                 email_this = user_email
-                app_type = 'private' if is_website_user else 'marketplace'
+                app_type = 'website' if is_website_user else 'marketplace'
 
                 cur.execute("""
                     INSERT INTO subscribers (
