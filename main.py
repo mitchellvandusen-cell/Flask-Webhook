@@ -2084,6 +2084,64 @@ def api_send_reminders():
         }), 200  # Return 200 so cron-job.org doesn't mark as failed
 
 
+@app.route("/api/admin/send-email", methods=["GET", "POST"])
+def api_admin_send_email():
+    """
+    Admin endpoint: send an email to anyone.
+    Usage: /api/admin/send-email?key=SECRET&to=email@example.com&subject=Hello&message=Your+message+here
+    """
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
+
+    to_email = request.args.get("to") or (request.get_json(silent=True) or {}).get("to")
+    subject = request.args.get("subject", "Update from InsuranceGrokBot")
+    message = request.args.get("message", "")
+
+    if not to_email:
+        return safe_jsonify({"error": "Missing 'to' parameter"}), 400
+    if not message:
+        return safe_jsonify({"error": "Missing 'message' parameter"}), 400
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+    # Build a clean branded email with the custom message
+    inner = f'''
+<tr>
+<td style="padding: 0 40px 30px;">
+    <h1 style="margin: 0 0 16px; font-size: 24px; font-weight: 800; color: #ffffff; line-height: 1.3;">
+        {subject}
+    </h1>
+    <div style="font-size: 15px; color: #ccc; line-height: 1.7;">
+        {message.replace(chr(10), "<br>")}
+    </div>
+</td>
+</tr>
+<tr>
+<td align="center" style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0">
+    <tr>
+    <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 12px; padding: 16px 48px;">
+        <a href="{domain_url}/login" style="color: #000; font-size: 17px; font-weight: 800; text-decoration: none;">
+            Go to Dashboard &rarr;
+        </a>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+'''
+    html_body = _email_wrapper(inner, domain_url)
+    text_body = f"{subject}\n\n{message}\n\nDashboard: {domain_url}/login"
+
+    sent = send_email_via_api(to_email=to_email, subject=subject,
+                              html_body=html_body, text_body=text_body)
+    if sent:
+        return safe_jsonify({"success": True, "message": f"Email sent to {to_email}"})
+    else:
+        return safe_jsonify({"error": f"Failed to send email to {to_email}"}), 500
+
+
 @app.route("/api/admin/marketplace-installs", methods=["GET"])
 def api_marketplace_installs():
     """Admin endpoint: view all marketplace installs and their OAuth status.
