@@ -3957,7 +3957,7 @@ def oauth_callback():
                                          headers=headers, timeout=10, label="/users/me")
         me_data = {}
         user_email = None
-        user_name = 'Agency Admin'
+        user_name = None
         # Pre-populate me_data with userId from token (fallback if /users/me fails)
         ghl_user_id = token_data.get('userId')
         if ghl_user_id:
@@ -3967,7 +3967,7 @@ def oauth_callback():
             try:
                 me_data = me_resp.json()
                 user_email = me_data.get('email')
-                user_name = me_data.get('name', 'Agency Admin')
+                user_name = me_data.get('name')
             except ValueError:
                 logger.error(f"/users/me returned non-JSON: {me_resp.text[:300]}")
         elif me_resp:
