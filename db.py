@@ -1358,3 +1358,49 @@ def mark_setup_email_sent(install_id: int) -> bool:
         return False
     finally:
         return_db_connection(conn)
+
+
+def find_marketplace_email(location_id: str = None, company_id: str = None) -> Optional[dict]:
+    """
+    Bridge function: search marketplace_installs for a matching user email.
+    When OAuth scopes block /users/me, this recovers the email from the
+    install webhook data we already captured.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        # 1. Strongest match: Location ID (specific sub-account)
+        if location_id:
+            cur.execute("""
+                SELECT user_email, user_name
+                FROM marketplace_installs
+                WHERE location_id = %s AND user_email IS NOT NULL AND user_email != ''
+                ORDER BY created_at DESC LIMIT 1
+            """, (location_id,))
+            row = cur.fetchone()
+            if row:
+                cur.close()
+                return dict(row)
+
+        # 2. Fallback: Company ID (agency-level install)
+        if company_id:
+            cur.execute("""
+                SELECT user_email, user_name
+                FROM marketplace_installs
+                WHERE company_id = %s AND user_email IS NOT NULL AND user_email != ''
+                ORDER BY created_at DESC LIMIT 1
+            """, (company_id,))
+            row = cur.fetchone()
+            if row:
+                cur.close()
+                return dict(row)
+
+        cur.close()
+        return None
+    except psycopg2.Error as e:
+        logger.error(f"find_marketplace_email failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
