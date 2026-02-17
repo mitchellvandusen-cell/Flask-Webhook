@@ -2,6 +2,7 @@
 import os
 import logging
 import uuid
+import threading
 import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
@@ -33,71 +34,122 @@ if creds_dict:
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# --- Connection Pool (replaces per-request connections) ---
+# --- Connection Pool with Semaphore Queue ---
+# At 500 concurrent webhooks, we can't open 500 DB connections (Postgres caps out).
+# Instead we keep a bounded pool and use a semaphore so overflow requests WAIT
+# for a free connection rather than opening unbounded direct connections.
 _connection_pool = None
+_pool_semaphore = None
+_pool_lock = threading.Lock()
+
+# Max real DB connections. Most managed Postgres (Render, Railway, Supabase) allow
+# 20-97 depending on plan. Set conservatively; the semaphore handles the queuing.
+_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
+# How many requests can wait for a connection before we reject/fallback
+_POOL_WAITERS_MAX = int(os.getenv("DB_POOL_WAITERS", "500"))
+# Seconds to wait for a pooled connection before falling back to direct
+_POOL_WAIT_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "10"))
 
 def _get_pool():
-    """Lazy-init a threaded connection pool (min 2, max 20 connections)."""
-    global _connection_pool
+    """Lazy-init a threaded connection pool with semaphore queuing."""
+    global _connection_pool, _pool_semaphore
     if _connection_pool is None and DATABASE_URL:
-        try:
-            _connection_pool = pool.ThreadedConnectionPool(
-                minconn=2,
-                maxconn=20,
-                dsn=DATABASE_URL,
-                connect_timeout=10,
-                cursor_factory=RealDictCursor,
-            )
-            logger.info("Database connection pool initialized (2-20 connections)")
-        except psycopg2.Error as e:
-            logger.error(f"Connection pool creation failed: {e}", exc_info=True)
+        with _pool_lock:
+            if _connection_pool is None:
+                try:
+                    _connection_pool = pool.ThreadedConnectionPool(
+                        minconn=2,
+                        maxconn=_POOL_MAX,
+                        dsn=DATABASE_URL,
+                        connect_timeout=10,
+                        cursor_factory=RealDictCursor,
+                    )
+                    _pool_semaphore = threading.Semaphore(_POOL_MAX)
+                    logger.info(f"Database connection pool initialized (2-{_POOL_MAX} connections, "
+                                f"{_POOL_WAITERS_MAX} max waiters, {_POOL_WAIT_TIMEOUT}s timeout)")
+                except psycopg2.Error as e:
+                    logger.error(f"Connection pool creation failed: {e}", exc_info=True)
     return _connection_pool
 
 def get_db_connection() -> Optional[psycopg2.extensions.connection]:
-    """Get a connection from the pool. Falls back to direct connect if pool unavailable."""
+    """
+    Get a connection from the pool. Up to _POOL_MAX concurrent connections;
+    additional callers wait up to _POOL_WAIT_TIMEOUT seconds for a free slot.
+    Falls back to a direct connection only if the pool itself is broken.
+    """
     if not DATABASE_URL:
         logger.critical("DATABASE_URL not set")
         return None
     p = _get_pool()
-    if p:
+    if p and _pool_semaphore:
+        # Wait for a pool slot (blocks if all connections are checked out)
+        acquired = _pool_semaphore.acquire(timeout=_POOL_WAIT_TIMEOUT)
+        if not acquired:
+            logger.warning(f"Connection pool wait timed out after {_POOL_WAIT_TIMEOUT}s, "
+                           "using direct connection")
+            return _direct_connect()
+        conn = None
         try:
             conn = p.getconn()
             # Validate the connection is alive (catches stale SSL drops)
             try:
-                conn.isolation_level
                 cur = conn.cursor()
                 cur.execute("SELECT 1")
                 cur.close()
+                conn.rollback()
             except Exception:
                 logger.warning("Stale pooled connection detected, replacing")
                 try:
                     p.putconn(conn, close=True)
                 except Exception:
                     pass
+                conn = None
                 conn = psycopg2.connect(
                     DATABASE_URL, connect_timeout=10, cursor_factory=RealDictCursor)
             conn.autocommit = False
             return conn
-        except psycopg2.Error as e:
+        except Exception as e:
+            # Return semaphore slot since we failed to get a usable connection
+            _pool_semaphore.release()
+            if conn is not None:
+                try:
+                    p.putconn(conn)
+                except Exception:
+                    pass
             logger.warning(f"Pool getconn failed, falling back to direct: {e}")
+            return _direct_connect()
+    return _direct_connect()
+
+def _direct_connect() -> Optional[psycopg2.extensions.connection]:
+    """Fallback: open a direct connection outside the pool."""
     try:
-        return psycopg2.connect(
+        conn = psycopg2.connect(
             DATABASE_URL,
             connect_timeout=10,
             cursor_factory=RealDictCursor,
         )
+        conn.autocommit = False
+        return conn
     except psycopg2.Error as e:
         logger.error(f"Database connection failed: {e}", exc_info=True)
         return None
 
 def return_db_connection(conn):
-    """Return a connection to the pool (or close it if no pool)."""
+    """Return a connection to the pool (or close if not pooled)."""
     if conn is None:
         return
+    # Always rollback any uncommitted transaction before returning to pool
+    try:
+        conn.rollback()
+    except Exception:
+        pass
     p = _get_pool()
     if p:
         try:
             p.putconn(conn)
+            # Release semaphore slot so a waiting request can proceed
+            if _pool_semaphore:
+                _pool_semaphore.release()
             return
         except Exception:
             pass

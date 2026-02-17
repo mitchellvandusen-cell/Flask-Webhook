@@ -69,6 +69,7 @@ This is the realistic option for people 60 and older who need coverage and are o
 
 
 --- GROUP / EMPLOYER LIFE INSURANCE ---
+(USAGE RULE: This section is REFERENCE ONLY. Do NOT bring up group or employer coverage unless the lead specifically tells you they have it. NEVER assume someone has a work policy. Never mention "work policy", "group life", or "employer coverage" on cold outbound or early follow-up.)
 
 What it is: Coverage provided through an employer, typically as part of a benefits package. Usually offers 1 to 2 times annual salary in death benefit. Often free or heavily subsidized.
 

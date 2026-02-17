@@ -283,11 +283,26 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
 
     logger.debug(f"🔍 BOOKING CONTEXT | last_bot_msg_preview='{last_bot_msg[:100]}'...")
 
-    # Detect if bot offered times in last message — use actual time extraction, not keywords
-    # Old approach used generic words like "work", "am", "does" which matched nearly everything
-    # New approach: bot only "offered times" if its message contains actual parseable times
+    # Detect if bot offered ACTUAL appointment times in last message
+    # First: extract structured times (e.g., "2:00 pm", "9 am") - strongest signal
     bot_time_structs = _extract_times_from_text(last_bot_msg_original)
-    bot_offered_times = len(bot_time_structs) > 0
+
+    # If structured times found, bot definitely offered times
+    # If not, check for strong time-offering phrases (NOT loose words like "am", "does", "work")
+    if bot_time_structs:
+        bot_offered_times = True
+    else:
+        # Only match phrases that clearly indicate time slot offers
+        strong_time_phrases = [
+            "i've got", "how about", "works for you", "free at", "open at",
+            "available at", "slot", "what time works", "when works",
+            "schedule for", "book for", "set up for"
+        ]
+        # Also match day+time combos (e.g., "tomorrow morning", "friday afternoon")
+        day_words = ["tomorrow", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        time_words = ["morning", "afternoon", "evening"]
+        has_day_time = any(d in last_bot_msg for d in day_words) and any(t in last_bot_msg for t in time_words)
+        bot_offered_times = has_day_time or any(phrase in last_bot_msg for phrase in strong_time_phrases)
 
     # === EXPLICIT BOOKING KEYWORDS (works anytime) ===
     explicit_booking_keywords = [
@@ -318,20 +333,24 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
     has_time_reference = time_match is not None
 
     # === ACCEPTANCE PHRASES (only valid if bot offered times) ===
-    # Use word-boundary matching to prevent false positives from substrings
-    # e.g., old approach: "k" in "back to work" → True (BAD)
-    # new approach: word boundary check ensures "k" only matches standalone "k"
+    # IMPORTANT: Use word-boundary regex to prevent substring false positives
+    # e.g., "k" in "think" was causing false bookings on hostile messages
     acceptance_phrases = [
-        "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "k",
-        "sounds good", "perfect", "great", "works", "that works",
-        "works for me", "i can do", "i'm free", "im free", "good for me",
-        "let's do it", "lets do it", "do it", "go for it", "down",
-        "fine", "cool", "bet", "alright"
+        r"\byes\b", r"\byeah\b", r"\byep\b", r"\byup\b", r"\bsure\b",
+        r"\bok\b", r"\bokay\b", r"\bsounds good\b", r"\bperfect\b",
+        r"\bgreat\b", r"\bthat works\b", r"\bworks for me\b",
+        r"\bi can do\b", r"\bi'm free\b", r"\bim free\b", r"\bgood for me\b",
+        r"\blet's do it\b", r"\blets do it\b", r"\bgo for it\b",
+        r"\bfine\b", r"\bcool\b", r"\bbet\b", r"\balright\b"
     ]
-    is_acceptance = any(
-        re.search(r'(?:^|[\s,!?.])' + re.escape(phrase) + r'(?:$|[\s,!?.])', msg_lower)
-        for phrase in acceptance_phrases
-    )
+    is_acceptance = any(re.search(phrase, msg_lower) for phrase in acceptance_phrases)
+
+    # Additional guard: long messages with question marks are NOT simple acceptance
+    # Real acceptance is short ("yes", "sounds good", "ok cool")
+    is_hostile_or_question = len(msg_lower) > 60 or msg_lower.count("?") >= 1
+    if is_acceptance and is_hostile_or_question:
+        logger.info(f"🔍 ACCEPTANCE OVERRIDDEN: Message too long ({len(msg_lower)} chars) or has questions ({msg_lower.count('?')}q) | msg='{message[:80]}'")
+        is_acceptance = False
 
     # Log detection signals
     logger.info(f"🔍 BOOKING SIGNALS | bot_offered_times={bot_offered_times} | has_explicit_intent={has_explicit_intent} | has_time_reference={has_time_reference} | is_acceptance={is_acceptance}")
@@ -395,10 +414,15 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
         return True, resolved
 
     # Case 3: Bot offered times + simple acceptance (grab FIRST time from bot's msg)
+    # GUARD: Only trigger if bot actually had PARSEABLE times (not just vague phrases)
+    # AND the lead's message is genuinely a short acceptance (not a hostile question)
     if bot_offered_times and is_acceptance and not has_time_reference:
-        resolved = _resolve_time_with_context(message, use_bot_first=True)
-        logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
-        return True, resolved
+        if not bot_time_structs:
+            logger.info(f"🚫 BOOKING CASE 3 SKIPPED: bot_offered_times=True but no parseable times in bot msg | msg='{message[:60]}'")
+        else:
+            resolved = _resolve_time_with_context(message, use_bot_first=True)
+            logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
+            return True, resolved
 
     # Case 4: Stage is BOOKING + acceptance — ONLY if bot offered specific times recently
     # This prevents random messages from triggering bookings just because stage is "booking"
