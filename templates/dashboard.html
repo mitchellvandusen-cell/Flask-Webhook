@@ -400,6 +400,53 @@
             padding: 0;
         }
         .onboarding-banner .banner-dismiss:hover { color: #fff; }
+
+        /* Carrier chip styles */
+        .carrier-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .carrier-chip:hover {
+            border-color: rgba(0, 255, 136, 0.2);
+            background: rgba(0, 255, 136, 0.04);
+        }
+        .carrier-chip.selected {
+            background: rgba(0, 255, 136, 0.08);
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+        .carrier-chip .carrier-check {
+            width: 20px; height: 20px;
+            border-radius: 6px;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem;
+            color: transparent;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .carrier-chip.selected .carrier-check {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+        }
+        .carrier-chip .carrier-name {
+            font-size: 0.85rem;
+            color: #ccc;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .carrier-chip.selected .carrier-name { color: #fff; }
+        .carrier-chip.hidden { display: none; }
     </style>
 </head>
 <body>
@@ -609,6 +656,9 @@
             </li>
             <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#connect" type="button"><i class="fa-solid fa-plug me-1"></i> Connect</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#carriers" type="button"><i class="fa-solid fa-building-columns me-1"></i> Carriers</button>
             </li>
             <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button"><i class="fa-solid fa-credit-card me-1"></i> Billing</button>
@@ -964,6 +1014,65 @@
                         <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
                     </div>
                     {% endif %}
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- CARRIERS TAB — Select contracted carriers -->
+            <!-- ============================================================ -->
+            <div class="tab-pane fade" id="carriers" role="tabpanel">
+                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h3 style="font-weight:700; margin: 0;">Contracted Carriers</h3>
+                        <span id="carrierCount" style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">
+                            {{ selected_carriers|length if selected_carriers else 0 }} selected
+                        </span>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px;">
+                        Select the carriers you're contracted with. GrokBot will <strong>only</strong> reference these carriers
+                        when talking to your leads — no more recommending products you can't sell.
+                    </p>
+
+                    <!-- Search filter -->
+                    <div style="margin-bottom: 20px;">
+                        <input type="text" id="carrierSearch" placeholder="Search carriers..."
+                               style="width: 100%; padding: 10px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.9rem; outline: none;"
+                               oninput="filterCarriers(this.value)">
+                    </div>
+
+                    <!-- Select All / Clear All -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <button type="button" onclick="selectAllCarriers()" style="background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); color: var(--accent); padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            Select All
+                        </button>
+                        <button type="button" onclick="clearAllCarriers()" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #aaa; padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;">
+                            Clear All
+                        </button>
+                    </div>
+
+                    <!-- Carrier grid -->
+                    <div id="carrierGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 450px; overflow-y: auto; padding-right: 8px;">
+                        {% for carrier in carrier_list %}
+                        <label class="carrier-chip {% if carrier.key in selected_carriers %}selected{% endif %}"
+                               data-key="{{ carrier.key }}" data-name="{{ carrier.name|lower }}">
+                            <input type="checkbox" value="{{ carrier.key }}" {% if carrier.key in selected_carriers %}checked{% endif %}
+                                   style="display: none;" onchange="updateCarrierCount()">
+                            <span class="carrier-check"><i class="fa-solid fa-check"></i></span>
+                            <span class="carrier-name">{{ carrier.name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Save button -->
+                    <div style="margin-top: 24px; display: flex; justify-content: flex-end; align-items: center; gap: 16px;">
+                        <span id="carrierSaveStatus" style="color: var(--accent); font-size: 0.85rem; display: none;">
+                            <i class="fa-solid fa-check me-1"></i> Saved!
+                        </span>
+                        <button type="button" id="saveCarriersBtn" onclick="saveCarriers()"
+                                style="background: var(--accent); color: #000; font-weight: 700; padding: 12px 32px; border: none; border-radius: 10px; font-size: 0.95rem; cursor: pointer; transition: all 0.2s;">
+                            <i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1405,6 +1514,83 @@
             .then(data => renderAlerts(data.alerts || []))
             .catch(() => {});
     })();
+    </script>
+
+    <!-- Carrier Picker JS -->
+    <script>
+    // Toggle carrier chip on click
+    document.querySelectorAll('.carrier-chip').forEach(chip => {
+        chip.addEventListener('click', function() {
+            const cb = this.querySelector('input[type="checkbox"]');
+            cb.checked = !cb.checked;
+            this.classList.toggle('selected', cb.checked);
+            updateCarrierCount();
+        });
+    });
+
+    function updateCarrierCount() {
+        const checked = document.querySelectorAll('.carrier-chip input:checked').length;
+        const el = document.getElementById('carrierCount');
+        if (el) el.textContent = checked + ' selected';
+    }
+
+    function filterCarriers(query) {
+        const q = query.toLowerCase().trim();
+        document.querySelectorAll('.carrier-chip').forEach(chip => {
+            const name = chip.getAttribute('data-name') || '';
+            chip.classList.toggle('hidden', q && !name.includes(q));
+        });
+    }
+
+    function selectAllCarriers() {
+        document.querySelectorAll('.carrier-chip:not(.hidden)').forEach(chip => {
+            chip.classList.add('selected');
+            chip.querySelector('input[type="checkbox"]').checked = true;
+        });
+        updateCarrierCount();
+    }
+
+    function clearAllCarriers() {
+        document.querySelectorAll('.carrier-chip').forEach(chip => {
+            chip.classList.remove('selected');
+            chip.querySelector('input[type="checkbox"]').checked = false;
+        });
+        updateCarrierCount();
+    }
+
+    function saveCarriers() {
+        const btn = document.getElementById('saveCarriersBtn');
+        const status = document.getElementById('carrierSaveStatus');
+        const selected = [];
+        document.querySelectorAll('.carrier-chip input:checked').forEach(cb => {
+            selected.push(cb.value);
+        });
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Saving...';
+
+        fetch('/api/carriers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({carriers: selected})
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
+            if (data.status === 'success') {
+                status.style.display = 'inline';
+                setTimeout(() => { status.style.display = 'none'; }, 3000);
+            } else {
+                alert('Failed to save carriers: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
+            alert('Network error saving carriers.');
+        });
+    }
     </script>
 </body>
 </html>

@@ -647,6 +647,15 @@ def process_webhook_task(payload: dict):
         timezone = subscriber.get('timezone', 'America/Chicago')
         personal_website = subscriber.get('personal_website') or ""
 
+        # === Contracted Carriers ===
+        contracted_carriers = subscriber.get('contracted_carriers') or []
+        if isinstance(contracted_carriers, str):
+            import json as _json
+            try:
+                contracted_carriers = _json.loads(contracted_carriers)
+            except Exception:
+                contracted_carriers = []
+
         # Process ALL messages - trust the LLM to understand context
         # "k", "ya", "ok" are all valid text responses that need processing
 
@@ -800,6 +809,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 context_nudge=final_nudge,
                 lead_vendor=lead_vendor,
                 personal_website=personal_website,
+                contracted_carriers=contracted_carriers,
             )
 
             # === STRUCTURAL REASONING SEPARATION ===
