@@ -45,6 +45,7 @@ class ObjectionType(Enum):
     PRICE_MONEY         = "price_money"            # "too expensive", "can't afford it"
     ALREADY_COVERED     = "already_covered"        # "already have life insurance", "I'm covered"
     BUSY_TIMING         = "busy_timing"            # "busy right now", "call back later"
+    THINK_ABOUT_IT      = "think_about_it"         # "let me think about it", "need to think", "not sure yet"
 
 class ObjectionNature(Enum):
     NONE                = "none"
@@ -188,7 +189,11 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
     spouse_kw = [
         "talk to my wife", "talk to my husband", "ask my spouse", "ask my wife",
         "ask my husband", "check with my", "run it by my", "discuss with my",
-        "talk to my partner", "other half", "talk it over", "spouse"
+        "talk to my partner", "other half", "talk it over", "spouse",
+        "talk to my daughter", "talk to my son", "ask my daughter", "ask my son",
+        "ask my accountant", "ask my lawyer", "ask my attorney", "ask my advisor",
+        "check with my financial", "run it by my accountant", "talk to my agent",
+        "ask my family", "talk to my mom", "talk to my dad", "ask my parents"
     ]
 
     price_kw = [
@@ -205,6 +210,15 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
         "employer", "work provides"
     ]
 
+    think_kw = [
+        "think about it", "think on it", "think it over", "think about this",
+        "let me think", "need to think", "gotta think", "got to think",
+        "sleep on it", "sit on it", "mull it over", "consider it",
+        "need some time", "give me some time", "not sure yet", "not ready",
+        "need to process", "lot to think about", "big decision",
+        "need a minute", "need a day", "need a few days"
+    ]
+
     busy_kw = [
         "busy right now", "call back later", "another time", "not a good time",
         "bad time", "not now", "maybe later", "call me back", "reach out later",
@@ -217,6 +231,9 @@ def detect_objection_keywords(text: str) -> Tuple[ObjectionType, ObjectionNature
 
     if any(kw in text_lower for kw in spouse_kw):
         return ObjectionType.SPOUSE_PARTNER, ObjectionNature.FEAR_BASED
+
+    if any(kw in text_lower for kw in think_kw):
+        return ObjectionType.THINK_ABOUT_IT, ObjectionNature.FEAR_BASED
 
     if any(kw in text_lower for kw in price_kw):
         return ObjectionType.PRICE_MONEY, ObjectionNature.LOGISTICAL
@@ -506,12 +523,13 @@ INTENT FIELDS (true/false):
 - articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
 OBJECTION FIELDS (based on the MOST RECENT lead message only):
-- objection_type: one of "none", "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing"
+- objection_type: one of "none", "not_interested", "spouse_partner", "price_money", "already_covered", "busy_timing", "think_about_it"
   "not_interested" = any form of no, pass, not interested, don't need this
-  "spouse_partner" = needs to consult spouse, partner, or family member before deciding
+  "spouse_partner" = needs to consult spouse, partner, family member, accountant, lawyer, or any third party before deciding
   "price_money" = concerns about cost, affordability, budget, expense
   "already_covered" = claims to already have life insurance or be covered
   "busy_timing" = too busy, bad time, call back later, not now
+  "think_about_it" = needs to think about it, not sure yet, wants time to decide, big decision, sleep on it
   "none" = no objection, or message is positive/neutral/engaged
 
 - objection_nature: one of "none", "fear_based", "logistical"

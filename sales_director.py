@@ -424,36 +424,154 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
 
     if obj == ObjectionType.SPOUSE_PARTNER:
         return header + (
-            "OBJECTION: Need to talk to spouse/partner.\n"
-            "This is usually about not wanting to make a decision alone, not about actually "
-            "needing the partner's permission. Respect it completely. Do not minimize it.\n\n"
-            "Get on their side. Acknowledge that this is absolutely a decision worth discussing together. "
-            "Then reframe the next step as information gathering, not committing. "
-            "A quick call is not signing anything. It is getting the actual numbers and details "
-            "so they have something real to discuss with their partner, instead of guessing.\n\n"
-            "Position it as: would it not be better to bring actual information to that conversation "
-            "instead of going in blind? The call gives them what they need to have that discussion properly.\n\n"
-            "If they still want to wait, offer to schedule a time after they have had that conversation. "
-            "Give them a specific timeframe to reconnect. Do not leave it open-ended.\n\n"
+            "OBJECTION: Need to talk to spouse, partner, family member, or third party.\n"
+            "This could be a spouse, partner, daughter, son, parent, accountant, lawyer, "
+            "financial advisor, or anyone they defer decisions to. Respect it completely. "
+            "Never minimize who they want to consult. Never imply they do not need permission.\n\n"
+
+            "YOU MUST PICK A FRESH ANGLE EVERY TIME. Read the conversation history carefully. "
+            "Do NOT repeat an angle you already used. Say it in YOUR words every time. "
+            "Never use canned phrases. Never sound scripted.\n\n"
+
+            "=== ANGLE PLAYBOOK (pick ONE you have NOT used yet) ===\n\n"
+
+            "ANGLE 1 — INFORMATION GATHERING REFRAME:\n"
+            "Separate information gathering from decision making. A quick call is not committing to "
+            "anything — it is getting the actual details, numbers, and options so they have "
+            "something concrete to bring to that conversation instead of going in with assumptions. "
+            "The psychology: the next step feels smaller when it is about learning, not deciding.\n\n"
+
+            "ANGLE 2 — ARM THEM FOR THE CONVERSATION:\n"
+            "Position yourself as helping them prepare for that discussion. When they sit down with "
+            "their spouse, accountant, or whoever, they will want real numbers and specifics. "
+            "Help them gather what they need so the conversation is productive and informed, "
+            "not vague and hypothetical.\n\n"
+
+            "ANGLE 3 — INCLUDE THE OTHER PERSON:\n"
+            "Offer to include the other person directly. If it is a spouse, they can both join a call. "
+            "If it is a financial advisor or accountant, offer to provide them with the details directly. "
+            "This shows you have nothing to hide and removes the game of telephone.\n\n"
+
+            "ANGLE 4 — VALIDATE AND ANCHOR A FOLLOW-UP:\n"
+            "Fully agree that this is a decision worth discussing. Then anchor to a specific time to "
+            "reconnect after they have had the conversation. Do not leave it open-ended. "
+            "The psychology: vague follow-ups die. Specific dates survive.\n\n"
+
+            "ANGLE 5 — EXPLORE THE REAL CONCERN:\n"
+            "Sometimes consulting someone else is the real objection. Sometimes it masks "
+            "their own uncertainty. Get curious about what specifically they want to discuss with "
+            "the other person. If they cannot articulate it, the real concern is internal "
+            "and you can help them work through it right now.\n\n"
+
+            "ANGLE 6 — THE JOINT DECISION ANGLE:\n"
+            "If it is a spouse or partner, acknowledge that this is inherently a decision that "
+            "affects both of them. Ask about what the other person values — financial security, "
+            "keeping the mortgage paid, the kids' education. Understanding the other person's "
+            "priorities lets you frame the conversation in terms that resonate with both.\n\n"
+
+            "ANGLE 7 — WHAT THEY ALREADY KNOW:\n"
+            "Ask what they have figured out so far on their own. What do they already know they want? "
+            "What questions do they still have? Getting them to articulate their own position "
+            "often reveals they are further along than they think and may not need external "
+            "validation as much as they assumed.\n\n"
+
+            "ANGLE 8 — TIME SENSITIVITY:\n"
+            "Without being pushy, surface that rates and insurability are time-sensitive. "
+            "Health changes, birthdays, and life events can all affect what is available to them. "
+            "Getting the information now does not lock them in, but it gives them a snapshot "
+            "at their current age and health while they take time to decide.\n\n"
+
+            "=== RULES ===\n"
+            "- Pick ONE angle per message. Never combine angles.\n"
+            "- Read conversation history. NEVER repeat an angle you already tried.\n"
+            "- Keep it 1-3 sentences max.\n"
+            "- Say it in your own words. Never use canned phrases or scripts.\n"
+            "- NEVER minimize who they want to consult. Full respect always.\n"
+            "- Be warm and curious, never desperate or pushy.\n"
         )
 
     if obj == ObjectionType.PRICE_MONEY:
         return header + (
-            "OBJECTION: Price / Money / Too expensive.\n"
-            "First, figure out which kind of money objection this is. There are two:\n\n"
-            "1. Value objection (fear-based): They are not sure this is worth the money. "
-            "They do not see the ROI or urgency. This is really about not understanding what "
-            "happens to their family financially if something happens to them. "
-            "The conversation here is about the cost of NOT having coverage versus the cost of having it. "
-            "What does their family's financial situation look like if they are gone tomorrow? "
-            "That is not a scare tactic. It is the entire point of life insurance.\n\n"
-            "2. Cash flow objection (logistical): They literally cannot fit another bill right now. "
-            "This is real and you respect it. But also know that there are more flexible options "
-            "than most people realize. Coverage amounts, term lengths, and structures vary widely. "
-            "A real advisor on a call can find something that actually fits their budget.\n\n"
-            "In either case, you cannot quote prices over text. That is a hard rule. "
-            "Acknowledge the concern, then position the call as the way to find out what "
-            "options actually exist in their price range. No commitment, just real numbers.\n\n"
+            "OBJECTION: Price / Money / Too expensive / Cannot afford it.\n"
+            "There are two kinds of money objections: value (they do not see the worth) and "
+            "cash flow (they genuinely cannot fit another bill). Both are valid. Never dismiss either.\n\n"
+
+            "YOU MUST PICK A FRESH ANGLE EVERY TIME. Read the conversation history carefully. "
+            "Do NOT repeat an angle you already used. Say it in YOUR words every time. "
+            "Never use canned phrases. Never sound scripted.\n\n"
+
+            "IMPORTANT: You CANNOT quote specific prices over text. That is a hard rule. "
+            "Every angle should move toward a call where they can get real numbers.\n\n"
+
+            "=== ANGLE PLAYBOOK (pick ONE you have NOT used yet) ===\n\n"
+
+            "ANGLE 1 — COST OF NOT HAVING IT:\n"
+            "Reframe from the cost of the policy to the cost of not having one. "
+            "What does their family's financial situation look like without their income? "
+            "The monthly premium is a fraction of what their family would lose. "
+            "The psychology: loss aversion. The pain of losing is stronger than the pain of paying.\n\n"
+
+            "ANGLE 2 — CHEAPER THAN THEY THINK:\n"
+            "Most people wildly overestimate the cost of life insurance. The average person thinks it "
+            "costs 3-5x more than it actually does. Without quoting a specific number, convey that "
+            "they might be pleasantly surprised. A quick call gives them real numbers for their "
+            "specific situation — no commitment, just information.\n\n"
+
+            "ANGLE 3 — FLEXIBLE OPTIONS:\n"
+            "Coverage is not one-size-fits-all. There are different amounts, term lengths, and "
+            "structures that fit different budgets. Something is better than nothing. "
+            "An advisor on a call can find what actually fits their financial reality, "
+            "not a generic plan that does not match their situation.\n\n"
+
+            "ANGLE 4 — THE DAILY COST BREAKDOWN:\n"
+            "People think in monthly bills but respond to daily costs. When something costs less per "
+            "day than a cup of coffee, it shifts perception. Do not make up a number, but convey "
+            "that the daily cost of coverage for someone their age is often shockingly low. "
+            "A call gives them the exact math.\n\n"
+
+            "ANGLE 5 — WHAT THEY ARE ALREADY SPENDING:\n"
+            "People spend money on subscriptions, dining out, and things they do not think about. "
+            "Life insurance is often less than entertainment expenses they would not miss. "
+            "This is not about guilt-tripping their spending — it is about showing where this "
+            "fits in the hierarchy of things they pay for without thinking.\n\n"
+
+            "ANGLE 6 — AGE AND HEALTH WINDOW:\n"
+            "Rates are based on current age and health. Every year they wait, it gets more expensive. "
+            "A health change can make them uninsurable entirely. Getting a quote now does not commit "
+            "them to anything, but it locks in what their options look like today. "
+            "The psychology: scarcity. This specific window closes.\n\n"
+
+            "ANGLE 7 — SEPARATE THE QUOTE FROM THE COMMITMENT:\n"
+            "Shrink the ask. They do not have to buy anything. They do not have to commit to anything. "
+            "Getting a personalized quote is free and takes minutes. Once they have real numbers, "
+            "they can decide on their own terms. Remove every ounce of pressure from the next step.\n\n"
+
+            "ANGLE 8 — DEBT AND OBLIGATIONS MATH:\n"
+            "Ask about their mortgage, car payments, kids' education costs, or other obligations. "
+            "These do not disappear when someone dies. Someone inherits that burden. "
+            "Connecting the cost of insurance to the cost of their actual obligations makes "
+            "the premium feel like protection, not an expense.\n\n"
+
+            "ANGLE 9 — THE VALUE COMPARISON:\n"
+            "Compare the value of what they get to other things in their financial life. "
+            "Insurance is the only product that guarantees a payout to your family when they need it most. "
+            "No investment, savings account, or retirement plan does what life insurance does. "
+            "It is not competing with their budget — it is protecting everything else in it.\n\n"
+
+            "ANGLE 10 — START SMALL:\n"
+            "If budget is tight, there are starter options that provide a base layer of protection "
+            "at a minimal cost. They can always increase coverage later when finances allow. "
+            "The worst outcome is having zero protection while waiting for the perfect time. "
+            "Something beats nothing every time.\n\n"
+
+            "=== RULES ===\n"
+            "- Pick ONE angle per message. Never combine angles.\n"
+            "- Read conversation history. NEVER repeat an angle you already tried.\n"
+            "- Keep it 1-3 sentences max.\n"
+            "- Say it in your own words. Never use canned phrases or scripts.\n"
+            "- NEVER quote specific dollar amounts over text.\n"
+            "- Never shame their financial situation. Full respect.\n"
+            "- Be warm and curious, never desperate or pushy.\n"
         )
 
     if obj == ObjectionType.ALREADY_COVERED:
@@ -547,27 +665,131 @@ def _build_objection_guidance(logic: LogicSignal) -> str:
             "- Be warm and curious, never desperate or pushy.\n"
         )
 
+    if obj == ObjectionType.THINK_ABOUT_IT:
+        return header + (
+            "OBJECTION: Need to think about it / Not sure yet / Big decision.\n"
+            "This is one of the most common stall tactics, but it is not always stalling. "
+            "Sometimes they genuinely need processing time. Sometimes they are avoiding a decision. "
+            "Your job is to figure out which it is without being pushy about it.\n\n"
+
+            "YOU MUST PICK A FRESH ANGLE EVERY TIME. Read the conversation history carefully. "
+            "Do NOT repeat an angle you already used. Say it in YOUR words every time. "
+            "Never use canned phrases. Never sound scripted.\n\n"
+
+            "=== ANGLE PLAYBOOK (pick ONE you have NOT used yet) ===\n\n"
+
+            "ANGLE 1 — ISOLATE THE UNCERTAINTY:\n"
+            "Help them figure out what specifically they need to think about. Is it the cost? "
+            "The timing? Whether they need it at all? Whether they trust the process? "
+            "When someone cannot name what they are unsure about, the uncertainty is emotional, "
+            "not logical. If they CAN name it, you can address that specific concern right now.\n\n"
+
+            "ANGLE 2 — VALIDATE AND SHRINK THE NEXT STEP:\n"
+            "Fully agree that it is worth thinking about. Then make the next step feel tiny. "
+            "They do not need to decide anything. A quick conversation just gives them the "
+            "information they need to make a smart decision on their own timeline. "
+            "The psychology: people avoid big commitments but accept small ones.\n\n"
+
+            "ANGLE 3 — WHAT WOULD MAKE IT A YES:\n"
+            "Get curious about what would need to be true for them to feel good about moving forward. "
+            "This forces them to articulate their actual criteria instead of sitting in vague uncertainty. "
+            "Whatever they say becomes the roadmap for the rest of the conversation.\n\n"
+
+            "ANGLE 4 — THE INFORMATION ADVANTAGE:\n"
+            "Thinking with real information is better than thinking with assumptions. "
+            "Most people try to decide without knowing what their actual options or costs are. "
+            "A quick call gives them the specifics so they can think about something concrete "
+            "instead of something abstract.\n\n"
+
+            "ANGLE 5 — TIME IS A FACTOR:\n"
+            "Without being pushy, surface that insurance pricing is based on current age and health. "
+            "Thinking about it is fine, but the numbers they would be thinking about change over time. "
+            "Getting a snapshot now gives them something accurate to consider. "
+            "The psychology: they can still think — but now they are thinking with real data.\n\n"
+
+            "ANGLE 6 — WHAT HAPPENED LAST TIME:\n"
+            "Most people who say they need to think about it have said the same thing before — "
+            "to another agent, to themselves, to a website. Ask how long this has been on their mind. "
+            "If they have been thinking about it for months or years, the thinking is not the problem. "
+            "The problem is they never had someone walk them through it properly.\n\n"
+
+            "ANGLE 7 — THE DECISION ITSELF IS SMALL:\n"
+            "Life insurance feels like a massive decision because it deals with heavy topics. "
+            "But the actual decision is straightforward — a monthly amount that ensures their "
+            "family is protected. Help them separate the emotional weight from the practical simplicity. "
+            "The psychology: reframing complexity reduces paralysis.\n\n"
+
+            "ANGLE 8 — ANCHOR A FOLLOW-UP:\n"
+            "If they truly want time, respect that completely. But anchor to something specific — "
+            "a date, a day of the week, a timeframe. Vague follow-ups disappear. "
+            "Specific ones survive. Do not leave it as an open loop. "
+            "Confirm when you will check back and keep the door open warmly.\n\n"
+
+            "=== RULES ===\n"
+            "- Pick ONE angle per message. Never combine angles.\n"
+            "- Read conversation history. NEVER repeat an angle you already tried.\n"
+            "- Keep it 1-3 sentences max.\n"
+            "- Say it in your own words. Never use canned phrases or scripts.\n"
+            "- Respect their need for time. Never make them feel rushed.\n"
+            "- Be warm and curious, never desperate or pushy.\n"
+        )
+
     if obj == ObjectionType.BUSY_TIMING:
         return header + (
-            "OBJECTION: Busy / Bad timing / Call back later.\n"
+            "OBJECTION: Busy / Bad timing / Call back later / Not now.\n"
             "Respect the timing completely. Do not push through a busy signal.\n\n"
-            "Acknowledge it briefly, then offer a specific alternative time. "
-            "Do not say 'when is a better time?' because that puts the work on them and "
-            "they will never follow through. Instead, suggest a specific day or window.\n\n"
-            "You can also gently surface that the thing they were looking into has not gone away "
-            "just because today is hectic. The gap between 'I will handle it later' and "
-            "actually handling it is where families end up unprotected. But say this lightly, "
-            "not as a guilt trip.\n\n"
-            "If they give you a specific callback time, take it and confirm you will reach out then. "
-            "If they are vague ('yeah sometime later'), pin it down. "
-            "Later this week? Next Monday? Give them something concrete to agree to."
+
+            "YOU MUST PICK A FRESH ANGLE EVERY TIME. Read the conversation history carefully. "
+            "Do NOT repeat an angle you already used. Say it in YOUR words every time. "
+            "Never use canned phrases. Never sound scripted.\n\n"
+
+            "=== ANGLE PLAYBOOK (pick ONE you have NOT used yet) ===\n\n"
+
+            "ANGLE 1 — SPECIFIC ALTERNATIVE:\n"
+            "Acknowledge they are busy and suggest a specific alternative time. Do not ask "
+            "when is better — that puts the work on them and they will never follow through. "
+            "Propose a day and window. People accept specific offers more than open invitations.\n\n"
+
+            "ANGLE 2 — THE 60-SECOND VERSION:\n"
+            "Shrink the ask to almost nothing. You are not asking for a full consultation. "
+            "A quick text exchange or 60-second overview might be all they need right now. "
+            "If they are truly busy, a tiny commitment is still a commitment.\n\n"
+
+            "ANGLE 3 — PIN DOWN THE VAGUE:\n"
+            "If they say something vague like later, sometime, or eventually, help them narrow it. "
+            "This week or next? Morning or afternoon? Making the vague specific is the difference "
+            "between a follow-up that happens and one that does not.\n\n"
+
+            "ANGLE 4 — THE ISSUE DOES NOT WAIT:\n"
+            "Without guilt-tripping, surface that their schedule being busy does not pause "
+            "the need they originally looked into. Life keeps going regardless of their calendar. "
+            "Frame it lightly — not as pressure, but as a reason to carve out a small window soon.\n\n"
+
+            "ANGLE 5 — TEXT-BASED PROGRESS:\n"
+            "They do not have to get on a call right now. Offer to handle some of the preliminary "
+            "stuff over text while they are on the go. Name, basic situation, what they are looking for. "
+            "That way when they do have a free moment, the real conversation starts further along.\n\n"
+
+            "ANGLE 6 — RESPECT AND ANCHOR:\n"
+            "Fully respect the timing. Confirm that you will check back at a specific time. "
+            "Make the follow-up feel like a courtesy, not a chase. "
+            "The psychology: when someone feels respected, they are more likely to re-engage.\n\n"
+
+            "=== RULES ===\n"
+            "- Pick ONE angle per message. Never combine angles.\n"
+            "- Read conversation history. NEVER repeat an angle you already tried.\n"
+            "- Keep it 1-3 sentences max.\n"
+            "- Say it in your own words. Never use canned phrases or scripts.\n"
+            "- Always respect their time. Never guilt-trip about being busy.\n"
+            "- Be warm and brief, never desperate or pushy.\n"
         )
 
     # Generic fallback (should rarely hit)
     return header + (
         "They have raised a concern. Acknowledge it first. "
         "Then ask a question that helps you understand what is really behind it. "
-        "Move the conversation forward by getting curious, not by pushing."
+        "Move the conversation forward by getting curious, not by pushing. "
+        "Say it in your own words. Keep it 1-3 sentences. Do not sound scripted."
     )
 
 
