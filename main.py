@@ -3958,6 +3958,10 @@ def oauth_callback():
         me_data = {}
         user_email = None
         user_name = 'Agency Admin'
+        # Pre-populate me_data with userId from token (fallback if /users/me fails)
+        ghl_user_id = token_data.get('userId')
+        if ghl_user_id:
+            me_data['id'] = ghl_user_id
 
         if me_resp and me_resp.ok:
             try:
