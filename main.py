@@ -40,6 +40,7 @@ from llm_caller import generate_clean_reply
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
+    "admin",
     "mitchell_vandusen@hotmail.com",
     "mitchvandusenlife@gmail.com",
     "mitchell.vandusen@gmail.com",
