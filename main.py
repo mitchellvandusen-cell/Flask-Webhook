@@ -40,6 +40,7 @@ from llm_caller import generate_clean_reply
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
+    "admin",
     "mitchell_vandusen@hotmail.com",
     "mitchvandusenlife@gmail.com",
     "mitchell.vandusen@gmail.com",
@@ -2007,66 +2008,80 @@ def api_send_reminders():
     if not authorized:
         return safe_jsonify({"error": "Unauthorized"}), 401
 
-    from send_email_api import send_email_via_api
-    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    try:
+        from send_email_api import send_email_via_api
+        domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
-    users = get_users_needing_reminders()
-    sent_count = 0
-    errors = []
+        users = get_users_needing_reminders()
+        sent_count = 0
+        errors = []
 
-    for user in users:
-        email = user.get("email")
-        name = user.get("full_name") or "there"
-        reminder_type = user.get("reminder_type")
-        user_type = user.get("user_type", "individual")
-        missing = user.get("missing_fields", [])
+        # Skip admin emails — they don't need reminders
+        admin_emails_lower = [e.lower() for e in ADMIN_EMAILS]
 
-        try:
-            if reminder_type == "24h":
-                subject = "Your AI Sales Assistant is Ready — Let's Get You Live"
-                html_body = _build_reminder_24h_email(name, domain_url, user_type, missing)
-                text_body = (
-                    f"Hi {name}, your InsuranceGrokBot account was created 24 hours ago. "
-                    f"Complete your setup to start converting leads automatically: {domain_url}/dashboard"
+        for user in users:
+            email = user.get("email")
+            if not email or email.lower() in admin_emails_lower:
+                continue
+
+            name = user.get("full_name") or "there"
+            reminder_type = user.get("reminder_type")
+            user_type = user.get("user_type", "individual")
+            missing = user.get("missing_fields", [])
+
+            try:
+                if reminder_type == "24h":
+                    subject = "Your AI Sales Assistant is Ready — Let's Get You Live"
+                    html_body = _build_reminder_24h_email(name, domain_url, user_type, missing)
+                    text_body = (
+                        f"Hi {name}, your InsuranceGrokBot account was created 24 hours ago. "
+                        f"Complete your setup to start converting leads automatically: {domain_url}/dashboard"
+                    )
+                else:
+                    subject = "You're Missing Leads Right Now — Activate InsuranceGrokBot"
+                    html_body = _build_reminder_72h_email(name, domain_url, user_type, missing)
+                    text_body = (
+                        f"Hi {name}, it's been 3 days since you signed up for InsuranceGrokBot. "
+                        f"Your bot is waiting to work your leads 24/7: {domain_url}/dashboard"
+                    )
+
+                sent = send_email_via_api(
+                    to_email=email,
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body
                 )
-            else:
-                subject = "You're Missing Leads Right Now — Activate InsuranceGrokBot"
-                html_body = _build_reminder_72h_email(name, domain_url, user_type, missing)
-                text_body = (
-                    f"Hi {name}, it's been 3 days since you signed up for InsuranceGrokBot. "
-                    f"Your bot is waiting to work your leads 24/7: {domain_url}/dashboard"
-                )
 
-            sent = send_email_via_api(
-                to_email=email,
-                subject=subject,
-                html_body=html_body,
-                text_body=text_body
-            )
+                if sent:
+                    mark_reminder_sent(email, reminder_type, user_type)
+                    log_webhook_event(
+                        user.get("location_id", "unknown"),
+                        f"reminder_{reminder_type}",
+                        "success",
+                        f"{reminder_type} reminder sent to {email} (missing: {', '.join(missing)})"
+                    )
+                    sent_count += 1
+                    logger.info(f"Reminder {reminder_type} sent to {email} | missing={missing}")
+                else:
+                    errors.append(f"{email}: send failed")
+                    logger.warning(f"Reminder {reminder_type} failed for {email}")
+            except Exception as e:
+                errors.append(f"{email}: {str(e)}")
+                logger.error(f"Reminder email error for {email}: {e}")
 
-            if sent:
-                mark_reminder_sent(email, reminder_type, user_type)
-                log_webhook_event(
-                    user.get("location_id", "unknown"),
-                    f"reminder_{reminder_type}",
-                    "success",
-                    f"{reminder_type} reminder sent to {email} (missing: {', '.join(missing)})"
-                )
-                sent_count += 1
-                logger.info(f"Reminder {reminder_type} sent to {email} | missing={missing}")
-            else:
-                errors.append(f"{email}: send failed")
-                logger.warning(f"Reminder {reminder_type} failed for {email}")
-        except Exception as e:
-            errors.append(f"{email}: {str(e)}")
-            logger.error(f"Reminder email error for {email}: {e}")
+        return safe_jsonify({
+            "success": True,
+            "checked": len(users),
+            "sent": sent_count,
+            "errors": errors
+        })
 
-    return safe_jsonify({
-        "success": True,
-        "checked": len(users),
-        "sent": sent_count,
-        "errors": errors
-    })
+    except Exception as e:
+        logger.error(f"Cron send-reminders crashed: {e}", exc_info=True)
+        return safe_jsonify({
+            "success": False,
+            "error": str(e)
+        }), 200  # Return 200 so cron-job.org doesn't mark as failed
 
 
 @app.route("/api/admin/marketplace-installs", methods=["GET"])
