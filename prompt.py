@@ -269,6 +269,7 @@ def build_system_prompt(
     context_nudge: str = "",
     lead_vendor: str = "",
     personal_website: str = "",
+    contracted_carriers: list = None,
 ) -> str:
 
     identity = f"You are {bot_first_name}, conversational life insurance advisor."
@@ -322,6 +323,33 @@ def build_system_prompt(
 
     mindset = CORE_UNIFIED_MINDSET.replace("{bot_first_name}", bot_first_name)
 
+    # Build contracted carriers context
+    carriers_str = ""
+    if contracted_carriers and len(contracted_carriers) > 0:
+        from carrier_list import get_carrier_names
+        carrier_names = get_carrier_names(contracted_carriers)
+        if carrier_names:
+            carrier_list_text = ", ".join(carrier_names)
+            carriers_str = (
+                f"\n=== YOUR CONTRACTED CARRIERS ===\n"
+                f"Your agent is contracted with these carriers: {carrier_list_text}\n\n"
+                f"CARRIER RULES (CRITICAL):\n"
+                f"- ONLY recommend or reference products from the carriers listed above.\n"
+                f"- If the lead asks about a carrier NOT on your list, explain that you work with "
+                f"a curated panel of carriers and focus on finding the best fit from your options.\n"
+                f"- When comparing plans, pre-qualifying, or suggesting coverage, ONLY use carriers from your list.\n"
+                f"- If the lead currently has coverage with a carrier NOT on your list, you may acknowledge "
+                f"their current carrier but always pivot to what you can offer from YOUR carriers.\n"
+                f"- Never make up carrier names or products. Stick to what you know about your contracted carriers."
+            )
+    else:
+        carriers_str = (
+            "\n=== YOUR CONTRACTED CARRIERS ===\n"
+            "No specific carrier panel configured. You work with multiple carriers "
+            "to find the best fit for each person's situation. Speak generally about "
+            "carrier options without naming specific companies unless the lead brings one up."
+        )
+
     return f"""
 {mindset}
 
@@ -344,6 +372,7 @@ CURRENT STAGE: {stage}
 {nudge_str}
 {calendar_str}
 {website_str}
+{carriers_str}
 
 RECENT CONVERSATION:
 {flow_str}

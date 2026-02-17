@@ -33,7 +33,9 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 get_users_needing_reminders, mark_reminder_sent,
                 save_marketplace_install, mark_install_oauth_complete,
                 get_incomplete_installs, get_all_marketplace_installs,
-                mark_setup_email_sent, find_marketplace_email)
+                mark_setup_email_sent, find_marketplace_email,
+                save_contracted_carriers, get_contracted_carriers)
+from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
@@ -1149,6 +1151,8 @@ def agency_dashboard():
                 'phone': current_user.phone or '',
                 'bio': current_user.bio or ''
             },
+            carrier_list=CARRIER_LIST,
+            selected_carriers=[],
             sub_accounts=[],
             stats={
                 'max_seats': 0,
@@ -1334,6 +1338,7 @@ def agency_dashboard():
     finally:
         cur.close()
         return_db_connection(conn)
+    agency_carriers = get_contracted_carriers(current_user.email)
     return render_template('agency-dashboard.html',
                            form=form,
                            access_token_display=access_token_display,
@@ -1344,7 +1349,9 @@ def agency_dashboard():
                            profile=profile,
                            sub_accounts=sub_accounts,
                            stats=agency_stats,
-                           user=current_user)
+                           user=current_user,
+                           carrier_list=CARRIER_LIST,
+                           selected_carriers=agency_carriers)
 def save_profile():
     data = request.get_json()
     if not data:
@@ -1621,6 +1628,9 @@ def dashboard():
     is_placeholder = bool(current_user.email and current_user.email.endswith('@placeholder.grokbot'))
     is_incomplete = bool(not current_user.crm_user_id or not current_user.location_id)
 
+    # --- 7. CONTRACTED CARRIERS ---
+    selected_carriers = get_contracted_carriers(current_user.email)
+
     from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
     return render_template('dashboard.html',
         form=form,
@@ -1635,6 +1645,8 @@ def dashboard():
         missing_fields=missing_fields,
         is_placeholder=is_placeholder,
         is_incomplete=is_incomplete,
+        carrier_list=CARRIER_LIST,
+        selected_carriers=selected_carriers,
         crm_config_fields=CRM_CONFIG_FIELDS,
         crm_display_names=CRM_DISPLAY_NAMES
     )
@@ -1685,6 +1697,30 @@ def save_profile():
     finally:
         cur.close()
         return_db_connection(conn)
+
+@app.route("/api/carriers", methods=["GET"])
+@login_required
+def get_carriers():
+    """Return the master carrier list + this agent's selections."""
+    selected = get_contracted_carriers(current_user.email)
+    return flask_jsonify({
+        "carriers": CARRIER_LIST,
+        "selected": selected
+    })
+
+@app.route("/api/carriers", methods=["POST"])
+@login_required
+def save_carriers():
+    """Save this agent's contracted carrier selections."""
+    data = request.get_json()
+    if not data or "carriers" not in data:
+        return flask_jsonify({"error": "Missing carriers list"}), 400
+    carriers = validate_carrier_keys(data["carriers"])
+    ok = save_contracted_carriers(current_user.email, carriers)
+    if ok:
+        return flask_jsonify({"status": "success", "saved": carriers, "count": len(carriers)})
+    return flask_jsonify({"error": "Failed to save carriers"}), 500
+
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
