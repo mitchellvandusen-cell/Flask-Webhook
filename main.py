@@ -3921,6 +3921,30 @@ def oauth_callback():
             if user_email:
                 logger.info(f"Got email from token_data instead of /users/me: {user_email}")
 
+        if not user_email and is_website_user and current_user.is_authenticated:
+            # Website users are already logged in — we know their email
+            user_email = current_user.email
+            user_name = current_user.full_name or user_name
+            logger.info(f"Using logged-in user's email (website_user flow): {user_email}")
+
+        if not user_email:
+            # Last resort: check if userId is in token and try to find in our DB
+            ghl_user_id = token_data.get('userId')
+            if ghl_user_id:
+                try:
+                    conn_lookup = get_db_connection()
+                    if conn_lookup:
+                        cur_lookup = conn_lookup.cursor()
+                        cur_lookup.execute("SELECT email FROM subscribers WHERE crm_user_id = %s LIMIT 1", (ghl_user_id,))
+                        found = cur_lookup.fetchone()
+                        if found:
+                            user_email = found['email']
+                            logger.info(f"Found email via userId lookup: {user_email}")
+                        cur_lookup.close()
+                        return_db_connection(conn_lookup)
+                except Exception:
+                    pass
+
         if not user_email:
             err_msg = (f"Could not retrieve user email from /users/me OR token_data. "
                        f"me_data={json.dumps(me_data)[:300]}, "
