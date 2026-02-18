@@ -28,7 +28,8 @@ def generate_strategic_directive(
     message: str,
     first_name: str,
     age: str | None,
-    address: str | None = None
+    address: str | None = None,
+    bot_settings: dict = None,
 ) -> Dict[str, Any]:
     """
     Returns lean context + tactical situation for the texting agent.
@@ -103,7 +104,7 @@ def generate_strategic_directive(
         stage_value = ConversationStage.BOOKED.value
 
     # ─── 7. GENERATE TACTICAL DIRECTIVE ───
-    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower)
+    tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower, bot_settings or {})
 
     # ─── 8. FINAL OUTPUT ───
     return {
@@ -122,7 +123,7 @@ def generate_strategic_directive(
 # TACTICAL GUIDANCE BUILDER
 # ═══════════════════════════════════════════════════
 
-def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str) -> str:
+def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: str, full_lower: str, bot_settings: dict = None) -> str:
     """
     Build the tactical narrative that tells the LLM what to do right now.
     Uses message context, stage, and objection signals.
@@ -154,7 +155,7 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
     # CONTEXT 2: FOLLOW-UP — No reply from lead
     # ═══════════════════════════════════════════════════
     if logic.message_context == MessageContext.FOLLOW_UP_NO_REPLY:
-        return _build_followup_guidance(logic)
+        return _build_followup_guidance(logic, bot_settings or {})
 
     # ═══════════════════════════════════════════════════
     # CONTEXT 3: INBOUND REPLY — Lead responded
@@ -208,7 +209,7 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 
     # --- OBJECTION HANDLING ---
     if stage_value == ConversationStage.OBJECTION_HANDLING.value:
-        return _build_objection_guidance(logic)
+        return _build_objection_guidance(logic, bot_settings or {})
 
     # --- QUALIFYING / DISCOVERY ---
     return _build_qualifying_guidance(logic, first_name, full_lower)
@@ -218,14 +219,16 @@ def _build_tactical_guidance(logic: LogicSignal, stage_value: str, first_name: s
 # FOLLOW-UP GUIDANCE (No reply scenarios)
 # ═══════════════════════════════════════════════════
 
-def _build_followup_guidance(logic: LogicSignal) -> str:
+def _build_followup_guidance(logic: LogicSignal, bot_settings: dict = None) -> str:
     """
     Follow-up guidance for unanswered messages.
     Always creative, always different.
     At 5+ unanswered: alternate between humor and insurance value.
-    Joke → insurance topic → joke → insurance topic (not all jokes).
+    Humor can be disabled via bot_settings.humor_enabled.
     """
     n = logic.consecutive_bot_messages
+    settings = bot_settings or {}
+    humor_enabled = settings.get("humor_enabled", True)
 
     base = (
         "SITUATION: FOLLOW-UP. The lead has NOT responded.\n"
@@ -236,7 +239,7 @@ def _build_followup_guidance(logic: LogicSignal) -> str:
 
     if n >= 5:
         # Alternate: odd = humor, even = insurance value
-        is_humor_turn = (n % 2 == 1)
+        is_humor_turn = (n % 2 == 1) and humor_enabled
 
         if is_humor_turn:
             return base + (
@@ -252,14 +255,13 @@ def _build_followup_guidance(logic: LogicSignal) -> str:
         else:
             return base + (
                 f"You have sent {n} messages with zero response.\n"
-                "Your last message was humorous. Now pivot back to insurance value.\n"
                 "Share something genuinely useful — a quick tip, a surprising fact about "
                 "coverage, a real-world scenario where insurance saved someone, or a timely "
                 "reminder (open enrollment, rate changes, seasonal risks).\n"
                 "Keep it short, one to two sentences. Make it feel like helpful info, "
                 "not a sales pitch.\n"
                 "Be warm and conversational, not pushy.\n"
-                "Goal: re-engage them with something valuable. Then humor again next time."
+                "Goal: re-engage them with something valuable."
             )
 
     return base + (
@@ -276,21 +278,39 @@ def _build_followup_guidance(logic: LogicSignal) -> str:
 # OBJECTION HANDLING GUIDANCE
 # ═══════════════════════════════════════════════════
 
-def _build_objection_guidance(logic: LogicSignal) -> str:
+def _build_objection_guidance(logic: LogicSignal, bot_settings: dict = None) -> str:
     """
     Build tactical guidance for handling the detected objection.
     Follows the framework: acknowledge, reframe, question.
     Differentiates between fear-based and logistical objections.
+    Respects objection_persistence setting for graceful exits.
     """
     obj = logic.objection_type
     nature = logic.objection_nature
+    settings = bot_settings or {}
+    persistence = settings.get("objection_persistence", 3)
 
     # Header with the core principle
+    persistence_note = ""
+    if persistence <= 2:
+        persistence_note = (
+            f"\nPERSISTENCE: Low ({persistence}). If this is the {persistence}th+ time they have "
+            "objected, gracefully exit. Say something warm like 'Totally understand, no pressure at all. "
+            "If anything changes, feel free to reach back out.' Do NOT keep pushing.\n"
+        )
+    elif persistence >= 4:
+        persistence_note = (
+            f"\nPERSISTENCE: High ({persistence}). Keep finding new angles even if they have objected "
+            "multiple times. Be creative. Each attempt must come from a genuinely different direction. "
+            "Only exit gracefully after {persistence}+ distinct attempts.\n"
+        )
+
     header = (
         "OBJECTION DETECTED. Do not argue. Do not pitch. Do not get defensive.\n\n"
         "Core approach: Acknowledge what they said genuinely. Then shift from 'you vs them' "
         "to 'both of you looking at their situation together.' Then ask a question that "
-        "moves the conversation forward. Let them arrive at their own conclusion.\n\n"
+        "moves the conversation forward. Let them arrive at their own conclusion.\n"
+        f"{persistence_note}\n"
     )
 
     if nature == ObjectionNature.FEAR_BASED:

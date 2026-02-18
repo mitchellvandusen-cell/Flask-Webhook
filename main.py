@@ -34,7 +34,8 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 save_marketplace_install, mark_install_oauth_complete,
                 get_incomplete_installs, get_all_marketplace_installs,
                 mark_setup_email_sent, find_marketplace_email,
-                save_contracted_carriers, get_contracted_carriers)
+                save_contracted_carriers, get_contracted_carriers,
+                get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS)
 from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
@@ -1153,6 +1154,7 @@ def agency_dashboard():
             },
             carrier_list=CARRIER_LIST,
             selected_carriers=[],
+            bot_settings=dict(BOT_SETTINGS_DEFAULTS),
             sub_accounts=[],
             stats={
                 'max_seats': 0,
@@ -1339,6 +1341,7 @@ def agency_dashboard():
         cur.close()
         return_db_connection(conn)
     agency_carriers = get_contracted_carriers(current_user.email)
+    agency_bot_settings = get_bot_settings(current_user.email)
     return render_template('agency-dashboard.html',
                            form=form,
                            access_token_display=access_token_display,
@@ -1351,7 +1354,8 @@ def agency_dashboard():
                            stats=agency_stats,
                            user=current_user,
                            carrier_list=CARRIER_LIST,
-                           selected_carriers=agency_carriers)
+                           selected_carriers=agency_carriers,
+                           bot_settings=agency_bot_settings)
 def save_profile():
     data = request.get_json()
     if not data:
@@ -1631,6 +1635,9 @@ def dashboard():
     # --- 7. CONTRACTED CARRIERS ---
     selected_carriers = get_contracted_carriers(current_user.email)
 
+    # --- 8. BOT SETTINGS ---
+    bot_settings = get_bot_settings(current_user.email)
+
     from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
     return render_template('dashboard.html',
         form=form,
@@ -1647,6 +1654,7 @@ def dashboard():
         is_incomplete=is_incomplete,
         carrier_list=CARRIER_LIST,
         selected_carriers=selected_carriers,
+        bot_settings=bot_settings,
         crm_config_fields=CRM_CONFIG_FIELDS,
         crm_display_names=CRM_DISPLAY_NAMES
     )
@@ -1720,6 +1728,45 @@ def save_carriers():
     if ok:
         return flask_jsonify({"status": "success", "saved": carriers, "count": len(carriers)})
     return flask_jsonify({"error": "Failed to save carriers"}), 500
+
+
+@app.route("/api/bot-settings", methods=["GET"])
+@login_required
+def get_bot_settings_api():
+    """Return this subscriber's bot settings merged with defaults."""
+    settings = get_bot_settings(current_user.email)
+    return flask_jsonify({"settings": settings, "defaults": BOT_SETTINGS_DEFAULTS})
+
+@app.route("/api/bot-settings", methods=["POST"])
+@login_required
+def save_bot_settings_api():
+    """Save this subscriber's bot settings."""
+    data = request.get_json()
+    if not data or "settings" not in data:
+        return flask_jsonify({"error": "Missing settings object"}), 400
+
+    incoming = data["settings"]
+    # Validate and sanitize — only allow known keys
+    clean = {}
+    for key, default_val in BOT_SETTINGS_DEFAULTS.items():
+        if key in incoming:
+            val = incoming[key]
+            # Type-check against the default
+            if isinstance(default_val, bool):
+                clean[key] = bool(val)
+            elif isinstance(default_val, int):
+                clean[key] = max(0, min(5, int(val)))  # clamp 0-5
+            elif isinstance(default_val, list):
+                clean[key] = val if isinstance(val, list) else []
+            elif isinstance(default_val, str):
+                clean[key] = str(val)[:2000]  # cap length
+            else:
+                clean[key] = val
+
+    ok = save_bot_settings(current_user.email, clean)
+    if ok:
+        return flask_jsonify({"status": "success", "saved": clean})
+    return flask_jsonify({"error": "Failed to save settings"}), 500
 
 
 @app.route("/create-portal-session", methods=["POST"])

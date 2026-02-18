@@ -695,6 +695,23 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"contracted_carriers migration note: {e}")
 
+        # 18. MIGRATION: Add bot_settings JSONB column for advanced settings
+        try:
+            cur10 = conn.cursor()
+            cur10.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS bot_settings JSONB DEFAULT '{}'::jsonb
+            """)
+            cur10.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS bot_settings JSONB DEFAULT '{}'::jsonb
+            """)
+            conn.commit()
+            cur10.close()
+            logger.info("✅ Migration: Added bot_settings column to subscribers and agency_billing")
+        except Exception as e:
+            logger.debug(f"bot_settings migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1492,5 +1509,112 @@ def get_contracted_carriers_by_location(location_id: str) -> list:
     except Exception as e:
         logger.error(f"get_contracted_carriers_by_location failed: {e}")
         return []
+    finally:
+        return_db_connection(conn)
+
+
+# ===================================================
+# BOT SETTINGS HELPERS
+# ===================================================
+
+# Default settings — any key missing from a subscriber's stored settings
+# falls back to these values. This keeps the system backwards-compatible:
+# existing subscribers with no bot_settings get the original behavior.
+BOT_SETTINGS_DEFAULTS = {
+    "humor_enabled": True,
+    "professionalism_level": 0,       # 0 = current casual style, 5 = ultra-professional
+    "custom_behavior": "",             # Free-text behavior instructions
+    "outbound_messages": [],           # Custom text drip messages
+    "auto_emoji": True,                # Whether bot uses emojis
+    "after_hours_enabled": False,      # After-hours auto-reply mode
+    "after_hours_start": "18:00",      # When after-hours kicks in (HH:MM)
+    "after_hours_end": "09:00",        # When after-hours ends
+    "response_length": "balanced",     # "short", "balanced", or "detailed"
+    "booking_confirmation": True,      # Double-confirm before booking
+    "objection_persistence": 3,        # How many angles before graceful exit (1-5)
+    "lead_reengagement": True,         # Whether to do follow-up sequences
+    "conversation_memory": True,       # Whether bot references past conversation details
+    "speed_to_lead": True,             # Respond immediately to new leads
+    "multi_language": False,           # Detect and respond in lead's language
+}
+
+
+def get_bot_settings(email: str) -> dict:
+    """Load a subscriber's bot_settings, merged with defaults for any missing keys."""
+    conn = get_db_connection()
+    if not conn:
+        return dict(BOT_SETTINGS_DEFAULTS)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT bot_settings FROM subscribers WHERE email = %s LIMIT 1", (email,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT bot_settings FROM agency_billing WHERE agency_email = %s LIMIT 1", (email,))
+            row = cur.fetchone()
+        cur.close()
+        stored = {}
+        if row and row.get('bot_settings'):
+            stored = row['bot_settings']
+            if isinstance(stored, str):
+                stored = json.loads(stored)
+        # Merge: stored values override defaults
+        merged = dict(BOT_SETTINGS_DEFAULTS)
+        merged.update(stored)
+        return merged
+    except Exception as e:
+        logger.error(f"get_bot_settings failed for {email}: {e}")
+        return dict(BOT_SETTINGS_DEFAULTS)
+    finally:
+        return_db_connection(conn)
+
+
+def get_bot_settings_by_location(location_id: str) -> dict:
+    """Load bot_settings by location_id (used in webhook/task context)."""
+    conn = get_db_connection()
+    if not conn:
+        return dict(BOT_SETTINGS_DEFAULTS)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT bot_settings FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
+        row = cur.fetchone()
+        cur.close()
+        stored = {}
+        if row and row.get('bot_settings'):
+            stored = row['bot_settings']
+            if isinstance(stored, str):
+                stored = json.loads(stored)
+        merged = dict(BOT_SETTINGS_DEFAULTS)
+        merged.update(stored)
+        return merged
+    except Exception as e:
+        logger.error(f"get_bot_settings_by_location failed: {e}")
+        return dict(BOT_SETTINGS_DEFAULTS)
+    finally:
+        return_db_connection(conn)
+
+
+def save_bot_settings(email: str, settings: dict) -> bool:
+    """Save a subscriber's bot_settings."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET bot_settings = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (json.dumps(settings), email))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing SET bot_settings = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (json.dumps(settings), email))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"save_bot_settings failed for {email}: {e}")
+        conn.rollback()
+        return False
     finally:
         return_db_connection(conn)
