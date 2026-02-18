@@ -612,15 +612,18 @@ async def handle_voice_stream(ws):
         DEFAULT_VOICE
     )
 
-    # Build system prompt
-    system_prompt = build_voice_system_prompt(
-        subscriber=subscriber,
-        contact_name=contact_name,
-        contact_id=contact_id if contact_id else None,
-    )
+    # Build MINIMAL prompt for instant connect (full context loaded async below)
+    bot_name = subscriber.get("bot_first_name", "your advisor")
+    bot_settings = subscriber.get("bot_settings") or {}
+    custom_voice_instructions = voice_config.get("voice_instructions", "")
+    minimal_prompt = f"""You are {bot_name}, a friendly and professional life insurance advisor.
+You are on a LIVE PHONE CALL. Speak naturally and conversationally.
+Keep responses SHORT (1-3 sentences). NEVER use emojis, bullet points, or text formatting.
+Say numbers naturally. Be warm, professional, and confident.
+{f"CUSTOM INSTRUCTIONS: {custom_voice_instructions}" if custom_voice_instructions else ""}
+Every word you output will be spoken aloud by a voice engine."""
 
     # Build greeting for outbound calls
-    bot_name = subscriber.get("bot_first_name", "your advisor")
     greeting = voice_config.get("greeting", "")
     if not greeting:
         if direction == "outbound" and contact_name != "there":
@@ -628,7 +631,7 @@ async def handle_voice_stream(ws):
         else:
             greeting = f"Hi, thanks for calling. This is {bot_name}. How can I help you today?"
 
-    logger.info(f"🎙️ Connecting to XAI Realtime API (voice={voice_name})")
+    logger.info(f"🎙️ Fast-connecting to XAI Realtime API (voice={voice_name})")
 
     # Log the call start
     try:
@@ -658,7 +661,7 @@ async def handle_voice_stream(ws):
             close_timeout=5,
         ) as xai_ws:
 
-            # Configure the XAI session
+            # Configure the XAI session with MINIMAL prompt for fast greeting
             session_config = {
                 "type": "session.update",
                 "session": {
@@ -681,12 +684,12 @@ async def handle_voice_stream(ws):
                     "input_audio_transcription": {
                         "model": "whisper-1"
                     },
-                    "instructions": system_prompt,
+                    "instructions": minimal_prompt,
                     "tools": get_voice_tools(),
                 }
             }
             await xai_ws.send(json.dumps(session_config))
-            logger.info("🎙️ XAI session configured")
+            logger.info("🎙️ XAI session configured (minimal prompt, greeting sent)")
 
             # For outbound calls, have the AI speak first with the greeting
             if direction == "outbound" or greeting:
@@ -705,6 +708,29 @@ async def handle_voice_stream(ws):
                 }
                 await xai_ws.send(json.dumps(initial_item))
                 await xai_ws.send(json.dumps({"type": "response.create"}))
+
+            # ── Background: build full prompt with sales context + calendar ──
+            async def enrich_session():
+                """Load full sales director context and calendar, then update the session."""
+                try:
+                    full_prompt = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: build_voice_system_prompt(
+                            subscriber=subscriber,
+                            contact_name=contact_name,
+                            contact_id=contact_id if contact_id else None,
+                        )
+                    )
+                    session_update = {
+                        "type": "session.update",
+                        "session": {
+                            "instructions": full_prompt,
+                        }
+                    }
+                    await xai_ws.send(json.dumps(session_update))
+                    logger.info("🎙️ Session enriched with full sales context + calendar")
+                except Exception as e:
+                    logger.warning(f"🎙️ Session enrichment failed (using minimal prompt): {e}")
 
             # Connection state
             latest_media_timestamp = 0
@@ -895,10 +921,11 @@ async def handle_voice_stream(ws):
                     logger.error(f"🎙️ XAI receive error: {e}")
                     call_active = False
 
-            # Run both directions concurrently
+            # Run audio bridge + background enrichment concurrently
             await asyncio.gather(
                 receive_from_twilio(),
                 receive_from_xai(),
+                enrich_session(),
                 return_exceptions=True
             )
 
@@ -1283,8 +1310,8 @@ def recording_status_callback():
     logger.info(f"🎙️ Recording callback: SID={call_sid} rec={recording_sid} status={recording_status} dur={recording_duration}s")
 
     if recording_status == 'completed' and recording_url:
-        # Append .mp3 for playable URL
-        mp3_url = recording_url + ".mp3"
+        # Use our proxy URL so browser can play without Twilio auth
+        proxy_url = f"/voice/recording/{recording_sid}"
 
         conn = get_db_connection()
         if conn:
@@ -1294,7 +1321,7 @@ def recording_status_callback():
                     UPDATE call_history
                     SET recording_url = %s, recording_sid = %s, duration = %s
                     WHERE call_sid = %s
-                """, (mp3_url, recording_sid, int(recording_duration or 0), call_sid))
+                """, (proxy_url, recording_sid, int(recording_duration or 0), call_sid))
                 conn.commit()
                 cur.close()
                 logger.info(f"🎙️ Recording saved for call {call_sid}: {mp3_url}")
@@ -1305,6 +1332,37 @@ def recording_status_callback():
                 return_db_connection(conn)
 
     return '', 204
+
+
+@voice_bp.route('/voice/recording/<recording_sid>', methods=['GET'])
+@login_required
+def stream_recording(recording_sid):
+    """
+    Proxy a Twilio recording so the browser can play it without Twilio auth.
+    Streams the MP3 directly through our server.
+    """
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    account_sid = vc.get('twilio_account_sid', '')
+    auth_token = vc.get('twilio_auth_token', '')
+
+    twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Recordings/{recording_sid}.mp3"
+
+    try:
+        resp = http_requests.get(twilio_url, auth=(account_sid, auth_token), stream=True, timeout=30)
+        if resp.status_code != 200:
+            return jsonify({"error": f"Twilio returned {resp.status_code}"}), resp.status_code
+
+        return Response(
+            resp.iter_content(chunk_size=8192),
+            content_type='audio/mpeg',
+            headers={'Content-Disposition': f'inline; filename="{recording_sid}.mp3"'}
+        )
+    except Exception as e:
+        logger.error(f"Recording proxy failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ──────────────────────────────────────────────────────────────
