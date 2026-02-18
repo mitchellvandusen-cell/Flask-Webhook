@@ -466,12 +466,27 @@ def trigger_outbound_call():
             from_=twilio_number,
             url=answer_url,
             method="POST",
+            record=True,
+            recording_channels="dual",
+            recording_status_callback=f"https://{host}/voice/recording-status",
+            recording_status_callback_method="POST",
             status_callback=f"https://{host}/voice/status",
             status_callback_event=["initiated", "ringing", "answered", "completed"],
             status_callback_method="POST",
         )
 
         logger.info(f"📞 Outbound call initiated: {twilio_number} -> {lead_phone} (SID: {call.sid})")
+
+        # Persist to call_history DB
+        save_call_to_history(
+            location_id=location_id,
+            call_sid=call.sid,
+            phone=lead_phone,
+            contact_id=contact_id,
+            contact_name=lead_name,
+            direction='outbound',
+            status='initiated'
+        )
 
         # Log the event
         try:
@@ -510,6 +525,13 @@ def voice_status():
     if call_sid in _active_calls:
         _active_calls[call_sid]["status"] = call_status
         _active_calls[call_sid]["duration"] = int(duration or 0)
+
+    # Persist to call_history DB
+    if call_sid:
+        try:
+            update_call_history_status(call_sid, call_status, duration)
+        except Exception as e:
+            logger.debug(f"call_history update note: {e}")
 
     return '', 204
 
@@ -619,6 +641,9 @@ async def handle_voice_stream(ws):
     except Exception:
         pass
 
+    # Transcript accumulator for this call (outside try for finally access)
+    call_transcript = []
+
     # Connect to XAI Realtime API and bridge audio
     try:
         async with websockets.connect(
@@ -650,6 +675,9 @@ async def handle_voice_stream(ws):
                             "format": {"type": "audio/pcmu"},
                             "voice": voice_name,
                         }
+                    },
+                    "input_audio_transcription": {
+                        "model": "whisper-1"
                     },
                     "instructions": system_prompt,
                     "tools": get_voice_tools(),
@@ -839,6 +867,20 @@ async def handle_voice_stream(ws):
                             # Trigger XAI to generate a response using the tool result
                             await xai_ws.send(json.dumps({"type": "response.create"}))
 
+                        # Transcription: user speech -> text
+                        elif event_type == 'conversation.item.input_audio_transcription.completed':
+                            transcript_text = response.get('transcript', '').strip()
+                            if transcript_text:
+                                call_transcript.append({"role": "lead", "text": transcript_text})
+                                logger.info(f"🎙️ Lead said: {transcript_text[:80]}")
+
+                        # Transcription: AI response -> text
+                        elif event_type == 'response.audio_transcript.done':
+                            transcript_text = response.get('transcript', '').strip()
+                            if transcript_text:
+                                call_transcript.append({"role": "assistant", "text": transcript_text})
+                                logger.info(f"🎙️ AI said: {transcript_text[:80]}")
+
                         # Error handling
                         elif event_type == 'error':
                             error_msg = response.get('error', {})
@@ -864,6 +906,13 @@ async def handle_voice_stream(ws):
         logger.error(f"🚨 Voice bridge error: {e}")
     finally:
         logger.info(f"🎙️ Voice stream ended: SID={stream_sid}")
+        # Save transcript to call_history if we have any
+        if call_sid and call_transcript:
+            try:
+                save_call_transcript(call_sid, call_transcript)
+                logger.info(f"🎙️ Saved transcript ({len(call_transcript)} turns) for call {call_sid}")
+            except Exception as e:
+                logger.error(f"Failed to save transcript: {e}")
         # Log call end
         try:
             log_webhook_event(
@@ -872,7 +921,8 @@ async def handle_voice_stream(ws):
                 event_type="voice_call_ended",
                 status="info",
                 summary=f"Voice call ended ({direction})",
-                details={"stream_sid": stream_sid, "call_sid": call_sid}
+                details={"stream_sid": stream_sid, "call_sid": call_sid,
+                          "transcript_turns": len(call_transcript) if call_transcript else 0}
             )
         except Exception:
             pass
@@ -1011,14 +1061,14 @@ def call_panel():
         return "Database error", 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id, voice_config, bot_name FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, voice_config, bot_first_name FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row:
             return "Account not found", 404
         location_id = row['location_id'] or ''
         voice_config = row['voice_config'] or {}
-        bot_name = row['bot_name'] or 'AI Agent'
+        bot_name = row['bot_first_name'] or 'AI Agent'
         return render_template('call_panel.html',
             location_id=location_id,
             voice_config=voice_config,
@@ -1163,6 +1213,10 @@ def dial_contact():
             url=answer_url,
             method="POST",
             timeout=30,
+            record=True,
+            recording_channels="dual",
+            recording_status_callback=f"https://{host}/voice/recording-status",
+            recording_status_callback_method="POST",
             status_callback=f"https://{host}/voice/status",
             status_callback_event=["initiated", "ringing", "answered", "completed"],
             status_callback_method="POST",
@@ -1176,6 +1230,17 @@ def dial_contact():
             "phone": phone,
             "name": first_name
         }
+
+        # Persist to call_history DB
+        save_call_to_history(
+            location_id=location_id,
+            call_sid=call.sid,
+            phone=phone,
+            contact_id=contact_id,
+            contact_name=first_name,
+            direction='outbound',
+            status='initiated'
+        )
 
         logger.info(f"📞 Dialer call: {twilio_number} -> {phone} ({first_name}) SID={call.sid}")
         return jsonify({"status": "calling", "call_sid": call.sid})
@@ -1198,3 +1263,167 @@ def get_call_status(call_sid):
             return jsonify(status_copy)
         return jsonify(info)
     return jsonify({"status": "unknown"}), 404
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Recording status callback from Twilio
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/recording-status', methods=['POST'])
+def recording_status_callback():
+    """Twilio posts here when a call recording is ready."""
+    call_sid = request.form.get('CallSid', '')
+    recording_sid = request.form.get('RecordingSid', '')
+    recording_url = request.form.get('RecordingUrl', '')
+    recording_status = request.form.get('RecordingStatus', '')
+    recording_duration = request.form.get('RecordingDuration', '0')
+
+    logger.info(f"🎙️ Recording callback: SID={call_sid} rec={recording_sid} status={recording_status} dur={recording_duration}s")
+
+    if recording_status == 'completed' and recording_url:
+        # Append .mp3 for playable URL
+        mp3_url = recording_url + ".mp3"
+
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE call_history
+                    SET recording_url = %s, recording_sid = %s, duration = %s
+                    WHERE call_sid = %s
+                """, (mp3_url, recording_sid, int(recording_duration or 0), call_sid))
+                conn.commit()
+                cur.close()
+                logger.info(f"🎙️ Recording saved for call {call_sid}: {mp3_url}")
+            except Exception as e:
+                logger.error(f"Failed to save recording: {e}")
+                conn.rollback()
+            finally:
+                return_db_connection(conn)
+
+    return '', 204
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Call history API
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/call-history', methods=['GET'])
+@login_required
+def get_call_history():
+    """Fetch call history for the current user."""
+    limit = min(int(request.args.get('limit', 50)), 200)
+    offset = int(request.args.get('offset', 0))
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+
+        cur.execute("""
+            SELECT id, contact_id, contact_name, phone, direction, call_sid,
+                   status, duration, recording_url, recording_sid, transcript,
+                   started_at, ended_at, created_at
+            FROM call_history
+            WHERE location_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, (location_id, limit, offset))
+        rows = cur.fetchall()
+        cur.close()
+
+        calls = []
+        for r in rows:
+            call = dict(r)
+            # Convert timestamps to ISO strings
+            for ts_field in ('started_at', 'ended_at', 'created_at'):
+                if call.get(ts_field):
+                    call[ts_field] = call[ts_field].isoformat()
+            calls.append(call)
+
+        return jsonify({"calls": calls, "total": len(calls)})
+    except Exception as e:
+        logger.error(f"Failed to fetch call history: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+def save_call_to_history(location_id, call_sid, phone, contact_id=None,
+                         contact_name=None, direction='outbound', status='initiated'):
+    """Save a new call record to the call_history table."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO call_history (location_id, contact_id, contact_name, phone,
+                                      direction, call_sid, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (call_sid) DO NOTHING
+        """, (location_id, contact_id, contact_name, phone, direction, call_sid, status))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Failed to save call history: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
+def update_call_history_status(call_sid, status, duration=0):
+    """Update call status and duration in call_history."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        ended_clause = ", ended_at = NOW()" if status in ('completed', 'busy', 'no-answer', 'failed', 'canceled') else ""
+        cur.execute(f"""
+            UPDATE call_history
+            SET status = %s, duration = %s{ended_clause}
+            WHERE call_sid = %s
+        """, (status, int(duration or 0), call_sid))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Failed to update call history: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
+
+
+def save_call_transcript(call_sid, transcript):
+    """Save transcript JSON to call_history."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE call_history SET transcript = %s WHERE call_sid = %s
+        """, (json.dumps(transcript), call_sid))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Failed to save transcript: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        return_db_connection(conn)
