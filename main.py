@@ -1767,6 +1767,7 @@ def save_voice_config():
         "twilio_auth_token": (data.get("twilio_auth_token") or "").strip(),
         "twilio_phone_number": (data.get("twilio_phone_number") or "").strip(),
         "voice": (data.get("voice") or "tara").strip().lower(),
+        "voice_bot_name": (data.get("voice_bot_name") or "").strip(),
         "greeting": (data.get("greeting") or "").strip(),
         "voice_instructions": (data.get("voice_instructions") or "").strip(),
     }

@@ -1535,6 +1535,13 @@
                     <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-microphone me-2"></i>Voice Settings</h6>
 
                     <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Voice Bot Name</label>
+                            <input type="text" class="form-control" id="voiceBotName" placeholder="e.g., Ava, Sarah, James..."
+                                value="{{ voice_config.get('voice_bot_name', '') }}"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                            <small style="color:#666; font-size:0.75rem;">The name the AI uses on calls. Leave blank to use your SMS bot name ({{ subscriber.bot_first_name or 'Alex' }}). Use a different name if your voice doesn't match your SMS persona.</small>
+                        </div>
                         <div class="col-12">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Greeting (what the AI says first on outbound calls)</label>
                             <textarea class="form-control" id="voiceGreeting" rows="2" placeholder="Hi {{'{{'}}name{{'}}'}}, this is {{'{{'}}bot_name{{'}}'}} calling about the life insurance information you requested. Do you have a quick minute?"
@@ -2234,6 +2241,7 @@
                 twilio_auth_token: document.getElementById('voiceTwilioToken').value.trim(),
                 twilio_phone_number: document.getElementById('voiceTwilioNumber').value.trim(),
                 voice: document.getElementById('voiceSelection').value,
+                voice_bot_name: document.getElementById('voiceBotName').value.trim(),
                 greeting: document.getElementById('voiceGreeting').value.trim(),
                 voice_instructions: document.getElementById('voiceInstructions').value.trim()
             };
