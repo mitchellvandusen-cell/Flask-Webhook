@@ -1590,13 +1590,101 @@
                         <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); display:flex; align-items:center; justify-content:center; margin-right: 16px;">
                             <i class="fa-solid fa-phone-volume" style="color: #00d9ff; font-size: 1.2rem;"></i>
                         </div>
-                        <div>
-                            <h4 style="margin:0; font-weight:700;">AI Power Dialer</h4>
-                            <p style="margin:0; color:#888; font-size:0.85rem;">Fetch contacts, select, and auto-dial with AI voice agent</p>
+                        <div style="flex:1;">
+                            <h4 style="margin:0; font-weight:700;">Power Dialer</h4>
+                            <p style="margin:0; color:#888; font-size:0.85rem;">AI calling + browser VoIP calling with CRM contacts</p>
+                        </div>
+                        <div id="voipStatus" style="display:none; background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.2); border-radius:8px; padding:4px 10px; font-size:0.72rem; color:var(--accent); font-weight:600;">
+                            <i class="fa-solid fa-headset me-1"></i>VoIP Ready
                         </div>
                     </div>
 
-                    <!-- Active Call Banner -->
+                    <!-- Call Mode Toggle -->
+                    <div class="mb-4 p-2" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div style="display:flex; gap:4px;">
+                            <button id="modeAiBtn" onclick="setDialerMode('ai')"
+                                style="flex:1; padding:10px; border-radius:8px; border:none; background:linear-gradient(135deg,#00d9ff,#0099cc); color:#000; font-weight:700; font-size:0.82rem; cursor:pointer; transition:all .2s;">
+                                <i class="fa-solid fa-robot me-1"></i>AI Calls
+                            </button>
+                            <button id="modeHumanBtn" onclick="setDialerMode('human')"
+                                style="flex:1; padding:10px; border-radius:8px; border:none; background:rgba(255,255,255,0.04); color:#888; font-weight:700; font-size:0.82rem; cursor:pointer; transition:all .2s;">
+                                <i class="fa-solid fa-headset me-1"></i>I'll Call (VoIP)
+                            </button>
+                        </div>
+                        <div id="modeDescription" style="text-align:center; padding:6px 0 2px; font-size:0.75rem; color:#666;">
+                            AI voice agent calls leads and handles the conversation automatically
+                        </div>
+                    </div>
+
+                    <!-- VoIP Setup Banner (shown when human mode selected but not set up) -->
+                    <div id="voipSetupBanner" style="display:none; background:rgba(255,165,0,0.06); border:1px solid rgba(255,165,0,0.15); border-radius:12px; padding:12px 16px; margin-bottom:16px;">
+                        <div class="d-flex align-items-center gap-3">
+                            <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500; font-size:1.1rem;"></i>
+                            <div style="flex:1;">
+                                <div style="font-weight:700; font-size:0.85rem;">Browser calling requires one-time setup</div>
+                                <div style="font-size:0.75rem; color:#888;">Creates a secure key for your browser to make calls through Twilio</div>
+                            </div>
+                            <button onclick="setupVoIP()" id="voipSetupBtn"
+                                style="background:linear-gradient(135deg,#ffa500,#cc8400); border:none; color:#000; border-radius:8px; padding:7px 16px; font-weight:700; font-size:0.8rem; cursor:pointer; white-space:nowrap;">
+                                <i class="fa-solid fa-gear me-1"></i>Setup VoIP
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- In-Call Panel (shows during active human VoIP call) -->
+                    <div id="voipCallPanel" style="display:none; background:rgba(0,255,136,0.03); border:1px solid rgba(0,255,136,0.12); border-radius:14px; padding:16px; margin-bottom:16px;">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div style="width:40px;height:40px;border-radius:50%;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;">
+                                <i class="fa-solid fa-phone" style="color:var(--accent); animation: dialerPulse 1.5s infinite;"></i>
+                            </div>
+                            <div style="flex:1;">
+                                <div id="voipCallName" style="font-weight:700; font-size:0.95rem;">-</div>
+                                <div id="voipCallPhone" style="font-size:0.78rem; color:#888;">-</div>
+                            </div>
+                            <div id="voipCallTimer" style="font-family:monospace; font-size:1.1rem; color:var(--accent); font-weight:700;">00:00</div>
+                        </div>
+
+                        <!-- Call Controls -->
+                        <div class="d-flex justify-content-center gap-3 mb-3">
+                            <button id="voipMuteBtn" onclick="voipToggleMute()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.9rem;" title="Mute">
+                                <i class="fa-solid fa-microphone"></i>
+                            </button>
+                            <button id="voipKeypadBtn" onclick="voipToggleKeypad()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.9rem;" title="Keypad">
+                                <i class="fa-solid fa-grip"></i>
+                            </button>
+                            <button onclick="voipHangup()" style="width:56px;height:44px;border-radius:22px;background:linear-gradient(135deg,#ef4444,#cc2222);border:none;color:#fff;cursor:pointer;font-size:0.9rem;font-weight:700;" title="End Call">
+                                <i class="fa-solid fa-phone-slash"></i>
+                            </button>
+                        </div>
+
+                        <!-- DTMF Keypad (hidden by default) -->
+                        <div id="voipKeypad" style="display:none; max-width:200px; margin:0 auto;">
+                            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+                                <button onclick="voipSendDTMF('1')" class="dtmf-key">1</button>
+                                <button onclick="voipSendDTMF('2')" class="dtmf-key">2</button>
+                                <button onclick="voipSendDTMF('3')" class="dtmf-key">3</button>
+                                <button onclick="voipSendDTMF('4')" class="dtmf-key">4</button>
+                                <button onclick="voipSendDTMF('5')" class="dtmf-key">5</button>
+                                <button onclick="voipSendDTMF('6')" class="dtmf-key">6</button>
+                                <button onclick="voipSendDTMF('7')" class="dtmf-key">7</button>
+                                <button onclick="voipSendDTMF('8')" class="dtmf-key">8</button>
+                                <button onclick="voipSendDTMF('9')" class="dtmf-key">9</button>
+                                <button onclick="voipSendDTMF('*')" class="dtmf-key">*</button>
+                                <button onclick="voipSendDTMF('0')" class="dtmf-key">0</button>
+                                <button onclick="voipSendDTMF('#')" class="dtmf-key">#</button>
+                            </div>
+                        </div>
+                        <style>.dtmf-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}.dtmf-key:hover{background:rgba(0,217,255,0.15);}</style>
+
+                        <!-- Contact Detail (shown during call) -->
+                        <div id="voipContactDetail" style="display:none; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px; margin-top:8px;">
+                            <h6 style="color:#00d9ff; font-weight:700; font-size:0.8rem; margin-bottom:8px;"><i class="fa-solid fa-user me-1"></i>Contact Info</h6>
+                            <div id="voipContactInfo" style="font-size:0.8rem; color:#aaa;"></div>
+                            <div id="voipContactNotes" style="max-height:150px; overflow-y:auto; margin-top:8px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Active Call Banner (AI mode) -->
                     <div id="dialerCallBanner" style="display:none; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; align-items: center; gap: 10px;">
                         <div style="width:10px; height:10px; border-radius:50%; background: var(--accent); animation: dialerPulse 1.5s infinite;"></div>
                         <div style="flex:1;">
@@ -1702,6 +1790,71 @@
                         <div id="dialerHistoryList" style="max-height:400px; overflow-y:auto;">
                             <div style="text-align:center; padding:20px; color:#555; font-size:0.82rem;">
                                 Call history will appear here after making calls
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trust Hub / Phone Numbers -->
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="d-flex align-items-center justify-content-between mb-3" style="cursor:pointer;" onclick="document.getElementById('trustHubContent').style.display=document.getElementById('trustHubContent').style.display==='none'?'block':'none'">
+                            <h6 style="color: #aaa; font-weight: 700; margin:0;"><i class="fa-solid fa-shield-halved me-2"></i>Trust Hub & Phone Numbers</h6>
+                            <i class="fa-solid fa-chevron-down" style="color:#555; font-size:0.75rem;"></i>
+                        </div>
+                        <div id="trustHubContent" style="display:none;">
+                            <!-- STIR/SHAKEN Status -->
+                            <div class="mb-3 p-3" style="background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:10px;">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <div style="font-weight:700; font-size:0.88rem;">STIR/SHAKEN</div>
+                                        <div style="font-size:0.78rem; color:#888;">Call authentication to prevent "Spam Likely" labeling. Register via your Twilio account.</div>
+                                    </div>
+                                    <span id="stirStatus" style="background:rgba(255,255,255,0.06); color:#888; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:600;">Checking...</span>
+                                </div>
+                            </div>
+
+                            <!-- Spam Protection Info -->
+                            <div class="mb-3 p-3" style="background:rgba(0,255,136,0.03); border:1px solid rgba(0,255,136,0.08); border-radius:10px;">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <div style="font-weight:700; font-size:0.88rem;">Spam Protection</div>
+                                        <div style="font-size:0.78rem; color:#888;">STIR/SHAKEN verified calls show as verified on AT&T, T-Mobile, and Verizon. Register your business identity in Twilio Console.</div>
+                                    </div>
+                                    <a href="https://console.twilio.com/us1/develop/phone-numbers/manage/trust-hub" target="_blank"
+                                        style="background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.2); color:var(--accent); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; text-decoration:none; white-space:nowrap;">
+                                        Register
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Phone Numbers Table -->
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 style="color:#ccc; font-weight:700; font-size:0.85rem; margin:0;">Your Phone Numbers</h6>
+                                <div class="d-flex gap-2">
+                                    <button onclick="loadTrustHubNumbers()" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; border-radius:6px; padding:3px 8px; font-size:0.72rem; cursor:pointer;">
+                                        <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                    </button>
+                                    <button onclick="document.getElementById('buyNumberPanel').style.display=document.getElementById('buyNumberPanel').style.display==='none'?'block':'none'"
+                                        style="background:rgba(0,217,255,0.1); border:1px solid rgba(0,217,255,0.2); color:#00d9ff; border-radius:6px; padding:3px 8px; font-size:0.72rem; cursor:pointer;">
+                                        <i class="fa-solid fa-plus me-1"></i>Buy Number
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Buy Number Panel (hidden) -->
+                            <div id="buyNumberPanel" style="display:none; margin-bottom:10px; padding:10px; background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:8px;">
+                                <div class="d-flex gap-2 mb-2">
+                                    <input type="text" id="buyAreaCode" placeholder="Area code (e.g. 336)" style="width:120px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; outline:none;">
+                                    <input type="text" id="buyState" placeholder="State (e.g. NC)" style="width:80px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; outline:none;">
+                                    <button onclick="searchAvailableNumbers()" style="background:linear-gradient(135deg,#00d9ff,#0099cc); border:none; color:#000; border-radius:6px; padding:6px 14px; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                                        <i class="fa-solid fa-magnifying-glass me-1"></i>Search
+                                    </button>
+                                </div>
+                                <div id="availableNumbersList" style="max-height:200px; overflow-y:auto; font-size:0.82rem;"></div>
+                            </div>
+
+                            <!-- Numbers List -->
+                            <div id="trustHubNumbersList" style="max-height:300px; overflow-y:auto;">
+                                <div style="text-align:center; padding:12px; color:#555; font-size:0.8rem;">Click Refresh to load your numbers</div>
                             </div>
                         </div>
                     </div>
@@ -2465,9 +2618,371 @@
         }
         function closeTranscriptModal() { document.getElementById('transcriptModal').style.display = 'none'; }
 
-        // Load call history when Voice Dialer tab is shown
+        // ===== CALL MODE MANAGEMENT =====
+        let dialerMode = 'ai'; // 'ai' or 'human'
+        let voipDevice = null;
+        let voipConnection = null;
+        let voipReady = false;
+        let voipTimerInterval = null;
+        let voipTimerSeconds = 0;
+        let voipSetupDone = false;
+        let voipCurrentContact = null;
+
+        function setDialerMode(mode) {
+            dialerMode = mode;
+            const aiBtn = document.getElementById('modeAiBtn');
+            const humanBtn = document.getElementById('modeHumanBtn');
+            const desc = document.getElementById('modeDescription');
+
+            if (mode === 'ai') {
+                aiBtn.style.background = 'linear-gradient(135deg,#00d9ff,#0099cc)';
+                aiBtn.style.color = '#000';
+                humanBtn.style.background = 'rgba(255,255,255,0.04)';
+                humanBtn.style.color = '#888';
+                desc.textContent = 'AI voice agent calls leads and handles the conversation automatically';
+                document.getElementById('voipSetupBanner').style.display = 'none';
+            } else {
+                humanBtn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)';
+                humanBtn.style.color = '#000';
+                aiBtn.style.background = 'rgba(255,255,255,0.04)';
+                aiBtn.style.color = '#888';
+                desc.textContent = 'You talk to leads through your browser — like a phone in your browser';
+                // Check if VoIP is set up
+                if (!voipSetupDone) {
+                    document.getElementById('voipSetupBanner').style.display = 'block';
+                } else if (!voipReady) {
+                    initVoIPDevice();
+                }
+            }
+        }
+
+        async function setupVoIP() {
+            const btn = document.getElementById('voipSetupBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...';
+            btn.disabled = true;
+            try {
+                const r = await fetch('/voice/setup-voip', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+                const d = await r.json();
+                if (!r.ok) { alert(d.error || 'Setup failed'); return; }
+                voipSetupDone = true;
+                document.getElementById('voipSetupBanner').style.display = 'none';
+                await initVoIPDevice();
+            } catch(e) {
+                alert('Network error during VoIP setup');
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-gear me-1"></i>Setup VoIP';
+                btn.disabled = false;
+            }
+        }
+
+        async function initVoIPDevice() {
+            try {
+                const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+                const d = await r.json();
+                if (!r.ok) {
+                    if (d.error && d.error.includes('not set up')) {
+                        document.getElementById('voipSetupBanner').style.display = 'block';
+                        voipSetupDone = false;
+                    }
+                    return;
+                }
+
+                if (typeof Twilio === 'undefined') {
+                    // Load Twilio SDK dynamically
+                    await new Promise((resolve, reject) => {
+                        const s = document.createElement('script');
+                        s.src = 'https://media.twiliocdn.com/sdk/js/client/releases/1.14/twilio.min.js';
+                        s.onload = resolve;
+                        s.onerror = reject;
+                        document.head.appendChild(s);
+                    });
+                }
+
+                voipDevice = new Twilio.Device(d.token, {
+                    codecPreferences: ['opus', 'pcmu'],
+                    enableRingingState: true,
+                });
+
+                voipDevice.on('ready', function() {
+                    voipReady = true;
+                    voipSetupDone = true;
+                    document.getElementById('voipStatus').style.display = 'block';
+                    document.getElementById('voipSetupBanner').style.display = 'none';
+                    logger_log('VoIP device ready');
+                });
+
+                voipDevice.on('connect', function(conn) {
+                    voipConnection = conn;
+                    voipStartTimer();
+                    document.getElementById('voipCallPanel').style.display = 'block';
+                    logger_log('VoIP connected');
+                });
+
+                voipDevice.on('disconnect', function() {
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                    document.getElementById('voipKeypad').style.display = 'none';
+                    document.getElementById('voipContactDetail').style.display = 'none';
+                    // Refresh history and advance queue if running
+                    dialerLoadHistory();
+                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                    logger_log('VoIP disconnected');
+                });
+
+                voipDevice.on('error', function(err) {
+                    logger_log('VoIP error: ' + err.message);
+                    voipReady = false;
+                    document.getElementById('voipStatus').style.display = 'none';
+                });
+
+            } catch(e) {
+                console.error('VoIP init error:', e);
+            }
+        }
+        function logger_log(msg) { console.log('[VoIP] ' + msg); }
+
+        // Override the startCall function to handle both modes
+        const _origStartCall = dialerStartCall;
+        dialerStartCall = async function(phone, firstName, contactId, displayName) {
+            if (dialerMode === 'human' && voipReady) {
+                voipMakeCall(phone, firstName, contactId, displayName);
+            } else {
+                // AI mode - use original behavior
+                await _origStartCall(phone, firstName, contactId, displayName);
+            }
+        };
+
+        function voipMakeCall(phone, firstName, contactId, displayName) {
+            if (!voipDevice || !voipReady) { alert('VoIP not ready. Please wait or click Setup VoIP.'); return; }
+
+            voipCurrentContact = { phone, firstName, contactId, displayName };
+            document.getElementById('voipCallName').textContent = displayName || firstName;
+            document.getElementById('voipCallPhone').textContent = phone;
+            document.getElementById('voipCallTimer').textContent = '00:00';
+
+            // Get caller ID from voice config
+            const callerId = '{{ voice_config.get("twilio_phone_number", "") }}';
+
+            // Connect via browser VoIP (call history saved by voip-answer endpoint)
+            voipDevice.connect({
+                To: phone,
+                CallerId: callerId,
+                ContactId: contactId || '',
+                ContactName: displayName || firstName || '',
+            });
+
+            // Load contact detail
+            if (contactId) {
+                loadContactDetail(contactId);
+            }
+
+            // Track in queue
+            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                dialerQueue[dialerCallIdx].status = 'in-progress';
+                dialerRenderQueue();
+            }
+        }
+
+        function voipToggleMute() {
+            if (!voipConnection) return;
+            const muted = !voipConnection.isMuted();
+            voipConnection.mute(muted);
+            const btn = document.getElementById('voipMuteBtn');
+            if (muted) {
+                btn.style.background = 'rgba(239,68,68,0.15)';
+                btn.style.borderColor = 'rgba(239,68,68,0.3)';
+                btn.style.color = '#ef4444';
+                btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+            } else {
+                btn.style.background = 'rgba(255,255,255,0.04)';
+                btn.style.borderColor = 'rgba(255,255,255,0.1)';
+                btn.style.color = '#ccc';
+                btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+            }
+        }
+
+        function voipToggleKeypad() {
+            const kp = document.getElementById('voipKeypad');
+            kp.style.display = kp.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function voipSendDTMF(digit) {
+            if (voipConnection) voipConnection.sendDigits(digit);
+        }
+
+        function voipHangup() {
+            if (voipDevice) voipDevice.disconnectAll();
+        }
+
+        function voipStartTimer() {
+            voipTimerSeconds = 0;
+            voipStopTimer();
+            voipTimerInterval = setInterval(() => {
+                voipTimerSeconds++;
+                const m = Math.floor(voipTimerSeconds / 60);
+                const s = voipTimerSeconds % 60;
+                document.getElementById('voipCallTimer').textContent =
+                    String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            }, 1000);
+        }
+
+        function voipStopTimer() {
+            if (voipTimerInterval) { clearInterval(voipTimerInterval); voipTimerInterval = null; }
+        }
+
+        async function loadContactDetail(contactId) {
+            const infoDiv = document.getElementById('voipContactInfo');
+            const notesDiv = document.getElementById('voipContactNotes');
+            const detailDiv = document.getElementById('voipContactDetail');
+            detailDiv.style.display = 'block';
+            infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i> Loading...';
+            notesDiv.innerHTML = '';
+            try {
+                const r = await fetch('/voice/contact/' + contactId);
+                if (!r.ok) { infoDiv.innerHTML = '<span style="color:#888;">Could not load contact</span>'; return; }
+                const c = await r.json();
+                let html = '';
+                if (c.email) html += '<div><i class="fa-solid fa-envelope me-1" style="color:#555;"></i>' + dialerEsc(c.email) + '</div>';
+                if (c.address || c.city || c.state) html += '<div><i class="fa-solid fa-location-dot me-1" style="color:#555;"></i>' + dialerEsc([c.address, c.city, c.state].filter(Boolean).join(', ')) + '</div>';
+                if (c.source) html += '<div><i class="fa-solid fa-link me-1" style="color:#555;"></i>Source: ' + dialerEsc(c.source) + '</div>';
+                if (c.tags && c.tags.length) html += '<div style="margin-top:4px;">' + c.tags.map(t => '<span style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.7rem;margin-right:4px;">' + dialerEsc(t) + '</span>').join('') + '</div>';
+                infoDiv.innerHTML = html || '<span style="color:#888;">No additional info</span>';
+
+                if (c.notes && c.notes.length) {
+                    notesDiv.innerHTML = '<div style="font-weight:600;font-size:.75rem;color:#888;margin-bottom:4px;">Notes:</div>' +
+                        c.notes.map(n => '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:.78rem;color:#bbb;">' + dialerEsc(n.body) + '</div>').join('');
+                }
+            } catch(e) {
+                infoDiv.innerHTML = '<span style="color:#888;">Failed to load</span>';
+            }
+        }
+
+        // ===== TRUST HUB FUNCTIONS =====
+        async function loadTrustHubNumbers() {
+            const list = document.getElementById('trustHubNumbersList');
+            list.innerHTML = '<div style="text-align:center;padding:12px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            try {
+                // Fetch numbers and trust hub status in parallel
+                const [numR, trustR] = await Promise.all([
+                    fetch('/voice/numbers'),
+                    fetch('/voice/trust-hub')
+                ]);
+                const numD = await numR.json();
+                const trustD = trustR.ok ? await trustR.json() : {};
+
+                // Update STIR/SHAKEN badge
+                const stirEl = document.getElementById('stirStatus');
+                const stirStatus = trustD.stir_shaken?.status || 'not_configured';
+                const stirColors = { 'twilio-approved': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Registered' }, 'in-review': { bg:'rgba(0,217,255,0.15)', color:'#00d9ff', text:'In Review' }, 'draft': { bg:'rgba(255,165,0,0.15)', color:'#ffa500', text:'Draft' }, 'business_registered': { bg:'rgba(0,217,255,0.1)', color:'#00d9ff', text:'Business Registered' } };
+                const stirStyle = stirColors[stirStatus] || { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' };
+                stirEl.style.background = stirStyle.bg;
+                stirEl.style.color = stirStyle.color;
+                stirEl.textContent = stirStyle.text;
+
+                // Render numbers
+                const numbers = numD.numbers || [];
+                if (!numbers.length) {
+                    list.innerHTML = '<div style="text-align:center;padding:12px;color:#555;font-size:.82rem;">No phone numbers found in your Twilio account</div>';
+                    return;
+                }
+
+                const isRegistered = ['twilio-approved', 'in-review', 'business_registered'].includes(stirStatus);
+                list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0;font-size:.75rem;border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;">' +
+                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;">Number</div>' +
+                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">Status</div>' +
+                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">AT&T</div>' +
+                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">T-Mobile</div>' +
+                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">Verizon</div>' +
+                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;"></div>' +
+                    numbers.map(n => {
+                        const checkIcon = isRegistered ? '<i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>' : '<i class="fa-regular fa-circle" style="color:#555;"></i>';
+                        return '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</div>' +
+                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><span style="color:var(--accent);font-size:.7rem;">Active</span></div>' +
+                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + checkIcon + '</div>' +
+                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + checkIcon + '</div>' +
+                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + checkIcon + '</div>' +
+                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><button onclick="releaseNumber(\'' + n.sid + '\',\'' + dialerEsc(n.phone) + '\')" style="background:none;border:none;color:#555;cursor:pointer;font-size:.7rem;" title="Release number"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>';
+                    }).join('') +
+                '</div>';
+            } catch(e) {
+                list.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:8px;">Failed to load numbers</div>';
+            }
+        }
+
+        function formatPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '(' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
+        }
+
+        async function searchAvailableNumbers() {
+            const area = document.getElementById('buyAreaCode').value.trim();
+            const state = document.getElementById('buyState').value.trim();
+            const list = document.getElementById('availableNumbersList');
+            list.innerHTML = '<div style="text-align:center;padding:8px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            try {
+                let url = '/voice/numbers/search?';
+                if (area) url += 'area_code=' + encodeURIComponent(area) + '&';
+                if (state) url += 'state=' + encodeURIComponent(state);
+                const r = await fetch(url);
+                const d = await r.json();
+                if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;">' + (d.error || 'Search failed') + '</div>'; return; }
+                const nums = d.numbers || [];
+                if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:6px;">No numbers found. Try a different area code.</div>'; return; }
+                list.innerHTML = nums.map(n =>
+                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 4px;border-bottom:1px solid rgba(255,255,255,0.03);">' +
+                        '<span style="color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</span>' +
+                        '<span style="color:#666;font-size:.72rem;">' + dialerEsc(n.locality || '') + ', ' + dialerEsc(n.region || '') + '</span>' +
+                        '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:var(--accent);border:none;color:#000;border-radius:4px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">$1.15/mo</button>' +
+                    '</div>'
+                ).join('');
+            } catch(e) {
+                list.innerHTML = '<div style="color:#ef4444;">Network error</div>';
+            }
+        }
+
+        async function buyNumber(phone) {
+            if (!confirm('Purchase ' + phone + ' for ~$1.15/month?')) return;
+            try {
+                const r = await fetch('/voice/numbers/buy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone_number: phone })
+                });
+                const d = await r.json();
+                if (!r.ok) { alert(d.error || 'Purchase failed'); return; }
+                alert('Number purchased: ' + d.phone);
+                document.getElementById('buyNumberPanel').style.display = 'none';
+                loadTrustHubNumbers();
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function releaseNumber(sid, phone) {
+            if (!confirm('Release ' + phone + '? This cannot be undone.')) return;
+            try {
+                const r = await fetch('/voice/numbers/release', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sid: sid })
+                });
+                const d = await r.json();
+                if (!r.ok) { alert(d.error || 'Failed'); return; }
+                loadTrustHubNumbers();
+            } catch(e) { alert('Network error'); }
+        }
+
+        // Load data when Voice Dialer tab is shown
         document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', function() {
             dialerLoadHistory();
+            // Check if VoIP is already set up by trying to get a token
+            if (!voipSetupDone && dialerMode === 'human') {
+                fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+                    .then(r => { if (r.ok) { voipSetupDone = true; initVoIPDevice(); } })
+                    .catch(() => {});
+            }
         });
     </script>
 
