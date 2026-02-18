@@ -1549,6 +1549,24 @@
                         </div>
                     </div>
 
+                    <!-- AI Dialer (Power Dialer) -->
+                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-phone-volume me-2"></i>AI Power Dialer</h6>
+                    <div class="mb-4 p-3" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 12px;">
+                        <p style="color:#aaa; font-size:0.82rem; margin-bottom: 12px;">
+                            Click-to-call any contact or queue up a list for auto-dialing. Pulls contacts from your CRM. Works as a standalone page or embedded in your CRM as an iframe.
+                        </p>
+                        <div class="d-flex gap-3 align-items-center flex-wrap">
+                            <a href="/voice/call-panel" target="_blank" class="btn px-4 py-2"
+                                style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600; text-decoration: none;">
+                                <i class="fa-solid fa-up-right-from-square me-2"></i>Open AI Dialer
+                            </a>
+                            <div style="font-size: 0.78rem; color: #666;">
+                                <strong style="color:#aaa;">Embed URL:</strong>
+                                <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; color: #ccc; margin-left: 4px; user-select: all;">https://{{ request.host }}/voice/call-panel</code>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Actions -->
                     <div class="d-flex gap-3">
                         <button class="btn px-4 py-2" onclick="saveVoiceConfig()"

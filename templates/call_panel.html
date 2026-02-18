@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dialer | {{ bot_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #00ff88;
+            --cyan: #00d9ff;
+            --bg: #0a0a0f;
+            --card: rgba(255,255,255,0.03);
+            --border: rgba(255,255,255,0.06);
+            --text: #fff;
+            --text-dim: #888;
+            --danger: #ef4444;
+            --warning: #ffa500;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        /* Header */
+        .panel-header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 16px; padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .panel-header h5 { font-weight: 700; margin: 0; font-size: 1.1rem; }
+        .panel-header .badge-active {
+            background: rgba(0,255,136,0.12); color: var(--accent);
+            border: 1px solid rgba(0,255,136,0.25); padding: 3px 10px;
+            border-radius: 12px; font-size: 0.7rem; font-weight: 600;
+        }
+
+        /* Search bar */
+        .search-wrap {
+            position: relative; margin-bottom: 14px;
+        }
+        .search-wrap input {
+            width: 100%; background: var(--card); border: 1px solid var(--border);
+            color: var(--text); padding: 10px 14px 10px 38px; border-radius: 10px;
+            font-size: 0.88rem; outline: none; transition: border-color 0.2s;
+        }
+        .search-wrap input:focus { border-color: rgba(0,217,255,0.4); }
+        .search-wrap input::placeholder { color: #555; }
+        .search-wrap i {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            color: #555; font-size: 0.85rem;
+        }
+
+        /* Tabs */
+        .panel-tabs {
+            display: flex; gap: 4px; margin-bottom: 14px;
+        }
+        .panel-tabs button {
+            flex: 1; background: var(--card); border: 1px solid var(--border);
+            color: var(--text-dim); padding: 8px; border-radius: 8px;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .panel-tabs button.active {
+            background: rgba(0,217,255,0.08); border-color: rgba(0,217,255,0.25);
+            color: var(--cyan);
+        }
+        .panel-tabs button:hover:not(.active) { background: rgba(255,255,255,0.04); }
+
+        /* Contact list */
+        .contact-list { max-height: 340px; overflow-y: auto; margin-bottom: 14px; }
+        .contact-list::-webkit-scrollbar { width: 4px; }
+        .contact-list::-webkit-scrollbar-track { background: transparent; }
+        .contact-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+        .contact-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border: 1px solid transparent;
+            border-radius: 10px; cursor: pointer; transition: all 0.15s;
+        }
+        .contact-row:hover { background: rgba(255,255,255,0.03); border-color: var(--border); }
+
+        .contact-avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.75rem; color: var(--cyan);
+            flex-shrink: 0;
+        }
+        .contact-info { flex: 1; min-width: 0; }
+        .contact-name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .contact-phone { font-size: 0.75rem; color: var(--text-dim); }
+
+        .contact-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .btn-call {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.25);
+            color: var(--accent); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.75rem; transition: all 0.2s;
+        }
+        .btn-call:hover { background: rgba(0,255,136,0.2); transform: scale(1.1); }
+        .btn-queue {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15);
+            color: var(--cyan); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.75rem; transition: all 0.2s;
+        }
+        .btn-queue:hover { background: rgba(0,217,255,0.15); }
+        .btn-queue.queued { background: rgba(0,217,255,0.2); border-color: var(--cyan); }
+
+        /* Queue panel */
+        .queue-panel {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 14px;
+        }
+        .queue-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .queue-header h6 { margin: 0; font-weight: 700; font-size: 0.88rem; }
+        .queue-count {
+            background: rgba(0,217,255,0.1); color: var(--cyan);
+            padding: 2px 10px; border-radius: 10px; font-size: 0.72rem; font-weight: 600;
+        }
+        .queue-list { max-height: 150px; overflow-y: auto; margin-bottom: 10px; }
+        .queue-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 8px; border-radius: 6px; font-size: 0.8rem;
+        }
+        .queue-item.active-call {
+            background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15);
+        }
+        .queue-item .queue-num {
+            width: 20px; height: 20px; border-radius: 50%;
+            background: rgba(255,255,255,0.06); display: flex; align-items: center;
+            justify-content: center; font-size: 0.65rem; font-weight: 700;
+            color: var(--text-dim); flex-shrink: 0;
+        }
+        .queue-item.active-call .queue-num {
+            background: rgba(0,255,136,0.15); color: var(--accent);
+        }
+        .queue-item .qi-name { flex: 1; }
+        .queue-item .qi-status { font-size: 0.7rem; color: var(--text-dim); }
+        .queue-item .qi-remove {
+            background: none; border: none; color: #555; cursor: pointer;
+            font-size: 0.7rem; padding: 2px 4px;
+        }
+        .queue-item .qi-remove:hover { color: var(--danger); }
+
+        /* Queue controls */
+        .queue-controls { display: flex; gap: 8px; }
+        .btn-start-queue {
+            flex: 1; padding: 10px; border-radius: 10px; border: none;
+            background: linear-gradient(135deg, var(--accent), #00b36b);
+            color: #000; font-weight: 700; font-size: 0.85rem;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn-start-queue:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(0,255,136,0.2); }
+        .btn-start-queue:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-start-queue.running {
+            background: linear-gradient(135deg, var(--danger), #cc3333);
+            color: #fff;
+        }
+        .btn-clear-queue {
+            padding: 10px 16px; border-radius: 10px;
+            background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+            color: var(--text-dim); font-weight: 600; font-size: 0.85rem;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn-clear-queue:hover { background: rgba(255,255,255,0.06); }
+
+        /* Active call banner */
+        .active-call-banner {
+            background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15);
+            border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+            display: none; align-items: center; gap: 10px;
+        }
+        .active-call-banner.visible { display: flex; }
+        .call-pulse {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent); animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .call-info { flex: 1; }
+        .call-info .call-name { font-weight: 700; font-size: 0.88rem; }
+        .call-info .call-status { font-size: 0.75rem; color: var(--accent); }
+        .btn-hangup {
+            background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
+            color: var(--danger); border-radius: 8px; padding: 6px 14px;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-hangup:hover { background: rgba(239,68,68,0.25); }
+
+        /* Manual dial */
+        .manual-dial {
+            display: flex; gap: 8px; margin-bottom: 14px;
+        }
+        .manual-dial input {
+            flex: 1; background: var(--card); border: 1px solid var(--border);
+            color: var(--text); padding: 8px 12px; border-radius: 8px;
+            font-size: 0.85rem; outline: none;
+        }
+        .manual-dial input:focus { border-color: rgba(0,217,255,0.4); }
+        .manual-dial input::placeholder { color: #444; }
+        .manual-dial button {
+            padding: 8px 16px; border-radius: 8px; border: none;
+            background: var(--accent); color: #000; font-weight: 700;
+            font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+        }
+
+        /* Loading */
+        .loading-spinner { text-align: center; padding: 30px; color: var(--text-dim); }
+        .loading-spinner i { font-size: 1.5rem; color: var(--cyan); }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 30px; color: #555; font-size: 0.85rem; }
+
+        /* Status colors */
+        .status-completed { color: var(--accent); }
+        .status-no-answer, .status-busy { color: var(--warning); }
+        .status-failed { color: var(--danger); }
+        .status-ringing, .status-initiated { color: var(--cyan); }
+        .status-in-progress { color: var(--accent); }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="panel-header">
+        <i class="fa-solid fa-phone-volume" style="color: var(--cyan); font-size: 1.1rem;"></i>
+        <h5>AI Dialer</h5>
+        <span class="badge-active"><i class="fa-solid fa-circle" style="font-size: 0.4rem; vertical-align: middle; margin-right: 4px;"></i>Voice AI</span>
+    </div>
+
+    <!-- Active Call Banner -->
+    <div class="active-call-banner" id="activeCallBanner">
+        <div class="call-pulse"></div>
+        <div class="call-info">
+            <div class="call-name" id="activeCallName">-</div>
+            <div class="call-status" id="activeCallStatus">Connecting...</div>
+        </div>
+        <button class="btn-hangup" onclick="hangupCall()" title="Stop queue after this call"><i class="fa-solid fa-phone-slash me-1"></i>End</button>
+    </div>
+
+    <!-- Manual Dial -->
+    <div class="manual-dial">
+        <input type="text" id="manualPhone" placeholder="+1 (555) 123-4567">
+        <button onclick="dialManual()"><i class="fa-solid fa-phone me-1"></i>Call</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="panel-tabs">
+        <button class="active" onclick="switchTab('contacts', this)"><i class="fa-solid fa-address-book me-1"></i>Contacts</button>
+        <button onclick="switchTab('queue', this)"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="queueBadge" style="display:none;">(0)</span></button>
+    </div>
+
+    <!-- Contacts Tab -->
+    <div id="contactsTab">
+        <div class="search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Search contacts by name, phone, or email..." oninput="debounceSearch()">
+        </div>
+        <div class="contact-list" id="contactList">
+            <div class="loading-spinner">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <p style="margin-top: 8px;">Loading contacts...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue Tab -->
+    <div id="queueTab" style="display: none;">
+        <div class="queue-panel">
+            <div class="queue-header">
+                <h6><i class="fa-solid fa-list-ol me-2" style="color: var(--cyan);"></i>Call Queue</h6>
+                <span class="queue-count" id="queueCount">0 contacts</span>
+            </div>
+            <div class="queue-list" id="queueList">
+                <div class="empty-state">No contacts in queue. Click <i class="fa-solid fa-plus"></i> next to a contact to add them.</div>
+            </div>
+            <div class="queue-controls">
+                <button class="btn-start-queue" id="btnStartQueue" onclick="toggleQueue()" disabled>
+                    <i class="fa-solid fa-play me-1"></i>Start Auto-Dial
+                </button>
+                <button class="btn-clear-queue" onclick="clearQueue()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ═══════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════
+    const LOCATION_ID = "{{ location_id }}";
+    let contacts = [];
+    let callQueue = [];
+    let queueRunning = false;
+    let currentCallSid = null;
+    let currentCallIndex = -1;
+    let pollInterval = null;
+    let searchTimeout = null;
+
+    // ═══════════════════════════════════════════════════════════
+    // TAB SWITCHING
+    // ═══════════════════════════════════════════════════════════
+    function switchTab(tab, btn) {
+        document.querySelectorAll('.panel-tabs button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('contactsTab').style.display = tab === 'contacts' ? 'block' : 'none';
+        document.getElementById('queueTab').style.display = tab === 'queue' ? 'block' : 'none';
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // CONTACT SEARCH & FETCH
+    // ═══════════════════════════════════════════════════════════
+    function debounceSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            fetchContacts(document.getElementById('searchInput').value);
+        }, 400);
+    }
+
+    async function fetchContacts(query = '') {
+        const list = document.getElementById('contactList');
+        list.innerHTML = '<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i><p style="margin-top:8px;">Searching...</p></div>';
+
+        try {
+            const resp = await fetch(`/voice/contacts?q=${encodeURIComponent(query)}&limit=50`);
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                list.innerHTML = `<div class="empty-state" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation me-1"></i>${data.error || 'Failed to load contacts'}</div>`;
+                return;
+            }
+
+            contacts = data.contacts || [];
+            renderContacts();
+        } catch (e) {
+            list.innerHTML = '<div class="empty-state" style="color:var(--danger);">Network error loading contacts</div>';
+        }
+    }
+
+    function renderContacts() {
+        const list = document.getElementById('contactList');
+        if (contacts.length === 0) {
+            list.innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-slash me-2"></i>No contacts found</div>';
+            return;
+        }
+
+        list.innerHTML = contacts.map(c => {
+            const initials = (c.firstName || c.name || '?')[0].toUpperCase();
+            const inQueue = callQueue.some(q => q.id === c.id);
+            return `
+                <div class="contact-row">
+                    <div class="contact-avatar">${initials}</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${esc(c.name)}</div>
+                        <div class="contact-phone">${esc(c.phone)}${c.email ? ' &middot; ' + esc(c.email) : ''}</div>
+                    </div>
+                    <div class="contact-actions">
+                        <button class="btn-queue ${inQueue ? 'queued' : ''}" onclick="toggleQueueContact('${c.id}')" title="${inQueue ? 'Remove from queue' : 'Add to queue'}">
+                            <i class="fa-solid ${inQueue ? 'fa-check' : 'fa-plus'}"></i>
+                        </button>
+                        <button class="btn-call" onclick="dialContact('${c.id}')" title="Call now">
+                            <i class="fa-solid fa-phone"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // DIALING
+    // ═══════════════════════════════════════════════════════════
+    async function dialContact(contactId) {
+        const c = contacts.find(x => x.id === contactId);
+        if (!c) return;
+        await startCall(c.phone, c.firstName || c.name, c.id, c.name);
+    }
+
+    async function dialManual() {
+        let phone = document.getElementById('manualPhone').value.trim();
+        if (!phone) return;
+        // Clean up phone format
+        phone = phone.replace(/[\s\-\(\)\.]/g, '');
+        if (!phone.startsWith('+')) phone = '+1' + phone;
+        await startCall(phone, 'Manual Call', '', phone);
+    }
+
+    async function startCall(phone, firstName, contactId, displayName) {
+        // Show active call banner
+        showCallBanner(displayName || firstName, 'Initiating...');
+
+        try {
+            const resp = await fetch('/voice/dial', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    phone: phone,
+                    first_name: firstName,
+                    contact_id: contactId
+                })
+            });
+
+            const data = await resp.json();
+            if (!resp.ok) {
+                showCallBanner(displayName || firstName, data.error || 'Call failed', true);
+                setTimeout(hideCallBanner, 4000);
+                if (queueRunning) advanceQueue('failed');
+                return;
+            }
+
+            currentCallSid = data.call_sid;
+            showCallBanner(displayName || firstName, 'Ringing...');
+            startPolling();
+
+        } catch (e) {
+            showCallBanner(displayName || firstName, 'Network error', true);
+            setTimeout(hideCallBanner, 4000);
+            if (queueRunning) advanceQueue('failed');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // CALL STATUS POLLING
+    // ═══════════════════════════════════════════════════════════
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async () => {
+            if (!currentCallSid) { clearInterval(pollInterval); return; }
+
+            try {
+                const resp = await fetch(`/voice/call-status/${currentCallSid}`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+
+                const statusText = formatStatus(data.status);
+                const banner = document.getElementById('activeCallBanner');
+                const statusEl = document.getElementById('activeCallStatus');
+
+                if (data.status === 'in-progress') {
+                    statusEl.textContent = 'Connected';
+                    statusEl.className = 'call-status status-in-progress';
+                } else if (data.status === 'ringing') {
+                    statusEl.textContent = 'Ringing...';
+                    statusEl.className = 'call-status status-ringing';
+                } else if (['completed', 'busy', 'no-answer', 'failed', 'canceled'].includes(data.status)) {
+                    clearInterval(pollInterval);
+
+                    const duration = data.duration ? ` (${data.duration}s)` : '';
+                    statusEl.textContent = statusText + duration;
+                    statusEl.className = 'call-status status-' + data.status;
+
+                    // Update queue item status
+                    if (currentCallIndex >= 0 && currentCallIndex < callQueue.length) {
+                        callQueue[currentCallIndex].status = data.status;
+                        callQueue[currentCallIndex].duration = data.duration || 0;
+                    }
+
+                    currentCallSid = null;
+
+                    // Auto-advance queue after a short delay
+                    if (queueRunning) {
+                        setTimeout(() => advanceQueue(data.status), 2000);
+                    } else {
+                        setTimeout(hideCallBanner, 3000);
+                    }
+
+                    renderQueue();
+                }
+            } catch (e) { /* retry next interval */ }
+        }, 1500);
+    }
+
+    function formatStatus(s) {
+        const map = {
+            'initiated': 'Connecting...',
+            'ringing': 'Ringing...',
+            'in-progress': 'Connected',
+            'completed': 'Completed',
+            'busy': 'Busy',
+            'no-answer': 'No Answer',
+            'failed': 'Failed',
+            'canceled': 'Canceled'
+        };
+        return map[s] || s;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // CALL BANNER
+    // ═══════════════════════════════════════════════════════════
+    function showCallBanner(name, status, isError) {
+        const banner = document.getElementById('activeCallBanner');
+        document.getElementById('activeCallName').textContent = name;
+        const statusEl = document.getElementById('activeCallStatus');
+        statusEl.textContent = status;
+        if (isError) statusEl.style.color = 'var(--danger)';
+        else statusEl.style.color = '';
+        banner.classList.add('visible');
+    }
+
+    function hideCallBanner() {
+        document.getElementById('activeCallBanner').classList.remove('visible');
+    }
+
+    function hangupCall() {
+        // Stop the queue, let current call finish naturally
+        if (queueRunning) {
+            queueRunning = false;
+            updateQueueButton();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // QUEUE MANAGEMENT
+    // ═══════════════════════════════════════════════════════════
+    function toggleQueueContact(contactId) {
+        const idx = callQueue.findIndex(q => q.id === contactId);
+        if (idx >= 0) {
+            callQueue.splice(idx, 1);
+        } else {
+            const c = contacts.find(x => x.id === contactId);
+            if (c) {
+                callQueue.push({
+                    id: c.id,
+                    name: c.name,
+                    firstName: c.firstName,
+                    phone: c.phone,
+                    status: 'pending'
+                });
+            }
+        }
+        renderContacts();
+        renderQueue();
+        updateQueueBadge();
+    }
+
+    function renderQueue() {
+        const list = document.getElementById('queueList');
+        const count = document.getElementById('queueCount');
+        const btn = document.getElementById('btnStartQueue');
+
+        count.textContent = callQueue.length + ' contact' + (callQueue.length !== 1 ? 's' : '');
+        btn.disabled = callQueue.length === 0;
+
+        if (callQueue.length === 0) {
+            list.innerHTML = '<div class="empty-state">No contacts in queue. Click <i class="fa-solid fa-plus"></i> next to a contact to add them.</div>';
+            return;
+        }
+
+        list.innerHTML = callQueue.map((q, i) => {
+            const isActive = queueRunning && i === currentCallIndex;
+            const statusIcon = getStatusIcon(q.status);
+            return `
+                <div class="queue-item ${isActive ? 'active-call' : ''}">
+                    <div class="queue-num">${i + 1}</div>
+                    <div class="qi-name">${esc(q.name)}</div>
+                    <div class="qi-status">${statusIcon}</div>
+                    ${!queueRunning ? `<button class="qi-remove" onclick="removeFromQueue(${i})" title="Remove"><i class="fa-solid fa-xmark"></i></button>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function getStatusIcon(status) {
+        const map = {
+            'pending': '<span style="color:#555;">Waiting</span>',
+            'initiated': '<i class="fa-solid fa-spinner fa-spin" style="color:var(--cyan);"></i>',
+            'ringing': '<span style="color:var(--cyan);">Ringing</span>',
+            'in-progress': '<span style="color:var(--accent);">On Call</span>',
+            'completed': '<i class="fa-solid fa-check" style="color:var(--accent);"></i>',
+            'no-answer': '<span style="color:var(--warning);">No Answer</span>',
+            'busy': '<span style="color:var(--warning);">Busy</span>',
+            'failed': '<i class="fa-solid fa-xmark" style="color:var(--danger);"></i>',
+        };
+        return map[status] || status;
+    }
+
+    function removeFromQueue(idx) {
+        callQueue.splice(idx, 1);
+        renderContacts();
+        renderQueue();
+        updateQueueBadge();
+    }
+
+    function clearQueue() {
+        if (queueRunning) return;
+        callQueue = [];
+        currentCallIndex = -1;
+        renderContacts();
+        renderQueue();
+        updateQueueBadge();
+    }
+
+    function updateQueueBadge() {
+        const badge = document.getElementById('queueBadge');
+        if (callQueue.length > 0) {
+            badge.textContent = '(' + callQueue.length + ')';
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function updateQueueButton() {
+        const btn = document.getElementById('btnStartQueue');
+        if (queueRunning) {
+            btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop Queue';
+            btn.classList.add('running');
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Start Auto-Dial';
+            btn.classList.remove('running');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // AUTO-DIAL QUEUE
+    // ═══════════════════════════════════════════════════════════
+    function toggleQueue() {
+        if (queueRunning) {
+            queueRunning = false;
+            updateQueueButton();
+            return;
+        }
+
+        // Find first pending contact
+        currentCallIndex = callQueue.findIndex(q => q.status === 'pending');
+        if (currentCallIndex < 0) {
+            // Reset all non-completed to pending for re-run
+            callQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; });
+            currentCallIndex = callQueue.findIndex(q => q.status === 'pending');
+            if (currentCallIndex < 0) return;
+        }
+
+        queueRunning = true;
+        updateQueueButton();
+        dialQueueItem();
+    }
+
+    function dialQueueItem() {
+        if (!queueRunning || currentCallIndex < 0 || currentCallIndex >= callQueue.length) {
+            queueRunning = false;
+            updateQueueButton();
+            hideCallBanner();
+            renderQueue();
+            return;
+        }
+
+        const item = callQueue[currentCallIndex];
+        item.status = 'initiated';
+        renderQueue();
+        startCall(item.phone, item.firstName || item.name, item.id, item.name);
+    }
+
+    function advanceQueue(lastStatus) {
+        if (!queueRunning) {
+            hideCallBanner();
+            return;
+        }
+
+        // Find next pending contact
+        currentCallIndex = callQueue.findIndex((q, i) => i > currentCallIndex && q.status === 'pending');
+
+        if (currentCallIndex < 0) {
+            // Done with queue
+            queueRunning = false;
+            updateQueueButton();
+            hideCallBanner();
+            renderQueue();
+            return;
+        }
+
+        dialQueueItem();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // UTILS
+    // ═══════════════════════════════════════════════════════════
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════
+    fetchContacts();
+    </script>
+</body>
+</html>

@@ -12,11 +12,18 @@ import threading
 import time
 import asyncio
 import websockets
-from flask import Blueprint, request, Response, jsonify
+import requests as http_requests
+from flask import Blueprint, request, Response, jsonify, render_template
+from flask_login import login_required, current_user
 from twilio.rest import Client as TwilioClient
 from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
 
 from db import get_db_connection, return_db_connection, log_webhook_event
+from ghl_api import get_valid_token
+
+# In-memory call status tracking for the dialer queue
+# { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
+_active_calls = {}
 from ghl_calendar import consolidated_calendar_op
 from memory import get_recent_messages, get_known_facts, get_narrative
 from sales_director import generate_strategic_directive
@@ -498,6 +505,12 @@ def voice_status():
     duration = request.form.get('CallDuration', '0')
 
     logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
+
+    # Track status in memory for dialer queue polling
+    if call_sid in _active_calls:
+        _active_calls[call_sid]["status"] = call_status
+        _active_calls[call_sid]["duration"] = int(duration or 0)
+
     return '', 204
 
 
@@ -979,3 +992,209 @@ def test_voice_connection():
                 results["errors"].append("Twilio credentials not configured")
 
     return jsonify(results)
+
+
+# ──────────────────────────────────────────────────────────────
+# CALL PANEL: Power dialer with GHL contact search + queue
+# ──────────────────────────────────────────────────────────────
+
+GHL_API_BASE = "https://services.leadconnectorhq.com"
+GHL_API_VERSION = "2021-07-28"
+
+
+@voice_bp.route('/voice/call-panel')
+@login_required
+def call_panel():
+    """Serve the call panel page (works standalone or in iframe)."""
+    conn = get_db_connection()
+    if not conn:
+        return "Database error", 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id, voice_config, bot_name FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return "Account not found", 404
+        location_id = row['location_id'] or ''
+        voice_config = row['voice_config'] or {}
+        bot_name = row['bot_name'] or 'AI Agent'
+        return render_template('call_panel.html',
+            location_id=location_id,
+            voice_config=voice_config,
+            bot_name=bot_name
+        )
+    finally:
+        return_db_connection(conn)
+
+
+@voice_bp.route('/voice/contacts', methods=['GET'])
+@login_required
+def fetch_contacts():
+    """
+    Fetch contacts from GHL for the current user's location.
+    Query params: q (search query), limit (default 50)
+    """
+    query = request.args.get('q', '').strip()
+    limit = min(int(request.args.get('limit', 50)), 100)
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    # Get valid OAuth token
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid auth token. Reconnect your CRM."}), 401
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Version": GHL_API_VERSION,
+            "Content-Type": "application/json"
+        }
+
+        params = {"locationId": location_id, "limit": limit}
+        if query:
+            params["query"] = query
+
+        resp = http_requests.get(
+            f"{GHL_API_BASE}/contacts/",
+            headers=headers,
+            params=params,
+            timeout=15
+        )
+
+        if resp.status_code != 200:
+            logger.error(f"GHL contacts fetch failed: {resp.status_code} {resp.text[:200]}")
+            return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
+
+        data = resp.json()
+        contacts = data.get("contacts", [])
+
+        # Return simplified contact list
+        result = []
+        for c in contacts:
+            phone = c.get("phone", "")
+            if not phone:
+                continue  # Skip contacts without phone numbers
+            result.append({
+                "id": c.get("id", ""),
+                "name": f"{c.get('firstName', '')} {c.get('lastName', '')}".strip() or "Unknown",
+                "firstName": c.get("firstName", ""),
+                "phone": phone,
+                "email": c.get("email", ""),
+                "tags": c.get("tags", []),
+            })
+
+        return jsonify({"contacts": result, "total": len(result)})
+
+    except Exception as e:
+        logger.error(f"Failed to fetch contacts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/dial', methods=['POST'])
+@login_required
+def dial_contact():
+    """
+    Initiate an outbound call to a specific contact.
+    Used by the call panel. Returns call_sid for status tracking.
+    """
+    data = request.json or {}
+    contact_id = data.get('contact_id', '')
+    phone = data.get('phone', '')
+    first_name = data.get('first_name', 'there')
+
+    if not phone:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    # Get subscriber info
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        subscriber = dict(row)
+    finally:
+        return_db_connection(conn)
+
+    location_id = subscriber.get('location_id', '')
+    voice_config = subscriber.get('voice_config') or {}
+
+    if not voice_config.get('enabled'):
+        return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
+
+    twilio_sid = voice_config.get('twilio_account_sid', '')
+    twilio_token = voice_config.get('twilio_auth_token', '')
+    twilio_number = voice_config.get('twilio_phone_number', '')
+
+    if not all([twilio_sid, twilio_token, twilio_number]):
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    try:
+        client = TwilioClient(twilio_sid, twilio_token)
+        host = request.host
+        answer_url = (
+            f"https://{host}/voice/outbound-answer"
+            f"?location_id={location_id}"
+            f"&contact_id={contact_id}"
+            f"&name={first_name}"
+        )
+
+        call = client.calls.create(
+            to=phone,
+            from_=twilio_number,
+            url=answer_url,
+            method="POST",
+            timeout=30,
+            status_callback=f"https://{host}/voice/status",
+            status_callback_event=["initiated", "ringing", "answered", "completed"],
+            status_callback_method="POST",
+        )
+
+        # Track this call for the dialer queue
+        _active_calls[call.sid] = {
+            "status": "initiated",
+            "duration": 0,
+            "contact_id": contact_id,
+            "phone": phone,
+            "name": first_name
+        }
+
+        logger.info(f"📞 Dialer call: {twilio_number} -> {phone} ({first_name}) SID={call.sid}")
+        return jsonify({"status": "calling", "call_sid": call.sid})
+
+    except Exception as e:
+        logger.error(f"Dialer call failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/call-status/<call_sid>', methods=['GET'])
+@login_required
+def get_call_status(call_sid):
+    """Poll call status for the dialer queue."""
+    if call_sid in _active_calls:
+        info = _active_calls[call_sid]
+        # Clean up completed calls after returning status
+        if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled"):
+            status_copy = dict(info)
+            del _active_calls[call_sid]
+            return jsonify(status_copy)
+        return jsonify(info)
+    return jsonify({"status": "unknown"}), 404
