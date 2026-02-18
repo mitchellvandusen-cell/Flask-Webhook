@@ -37,5 +37,10 @@ stripe
 redis
 rq
 
+# Voice AI (Twilio Media Streams <-> XAI Realtime bridge)
+flask-sock
+websockets
+twilio
+
 # Optional (only if you use outcome_learning / classify_vibe)
 scikit-learn
