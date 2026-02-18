@@ -1031,6 +1031,70 @@
                         <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
                     </div>
                     {% endif %}
+
+                    <!-- ════════════════════════════════════════════════ -->
+                    <!-- API ACCESS (Enterprise Integration) -->
+                    <!-- ════════════════════════════════════════════════ -->
+                    <hr style="border-color: var(--glass-border); margin: 30px 0;">
+                    <h4 style="font-weight:700;"><i class="fa-solid fa-code me-2" style="color:var(--accent);"></i>API Access</h4>
+                    <p style="color:#999; font-size:0.85rem; margin-bottom:16px;">
+                        Integrate any CRM, mobile app, or custom system using our OpenAI-compatible API.
+                        Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
+                    </p>
+
+                    <div id="apiKeySection">
+                        <div id="apiKeyStatus" style="padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                <div>
+                                    <strong style="color:#fff;">API Key:</strong>
+                                    <span id="apiKeyDisplay" style="color:#888; font-family:monospace; font-size:0.85rem; margin-left:8px;">Loading...</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-success" onclick="generateApiKey()" id="btnGenKey">
+                                        <i class="fa-solid fa-key me-1"></i> Generate Key
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="revokeApiKey()" id="btnRevokeKey" style="display:none;">
+                                        <i class="fa-solid fa-ban me-1"></i> Revoke
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Webhook URL -->
+                        <div style="margin-top: 14px; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:250px;">
+                                <label style="color:#bbb; font-size:0.8rem; margin-bottom:4px; display:block;">Outbound Webhook URL (HTTPS)</label>
+                                <input type="url" id="apiWebhookUrl" class="form-control form-control-sm"
+                                       placeholder="https://your-app.com/webhook/grokbot"
+                                       style="background: rgba(255,255,255,0.05); border-color: var(--glass-border); color:#fff;">
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="saveWebhookUrl()" style="height:31px;">
+                                <i class="fa-solid fa-save me-1"></i> Save
+                            </button>
+                        </div>
+
+                        <!-- Webhook Secret Preview -->
+                        <div style="margin-top:10px;">
+                            <small style="color:#888;">
+                                <i class="fa-solid fa-shield-halved me-1"></i> Webhook Secret:
+                                <span id="webhookSecretPreview" style="font-family:monospace; color:#666;">—</span>
+                            </small>
+                        </div>
+
+                        <!-- Quick Reference -->
+                        <div style="margin-top:16px; padding:14px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.1); border-radius:10px;">
+                            <strong style="color:var(--accent); font-size:0.85rem;">Quick Start</strong>
+                            <pre style="color:#ccc; font-size:0.75rem; margin:8px 0 0; white-space:pre-wrap; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">curl -X POST {{ request.host_url }}api/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_id": "lead-123",
+    "messages": [{"role": "user", "content": "How much is life insurance?"}],
+    "first_name": "Maria"
+  }'</pre>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1992,6 +2056,84 @@
         document.getElementById('outboundContainer').innerHTML = '';
         saveAdvancedSettings();
     }
+
+    // ═══════════════════════════════════════════
+    // API KEY MANAGEMENT
+    // ═══════════════════════════════════════════
+    function loadApiStatus() {
+        fetch('/api/api-status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.has_key) {
+                    document.getElementById('apiKeyDisplay').textContent = data.key_prefix || '••••••••';
+                    document.getElementById('btnGenKey').style.display = 'none';
+                    document.getElementById('btnRevokeKey').style.display = '';
+                    document.getElementById('apiWebhookUrl').value = data.webhook_url || '';
+                    document.getElementById('webhookSecretPreview').textContent = data.webhook_secret_preview || '—';
+                } else {
+                    document.getElementById('apiKeyDisplay').textContent = 'No key generated';
+                    document.getElementById('btnGenKey').style.display = '';
+                    document.getElementById('btnRevokeKey').style.display = 'none';
+                    document.getElementById('webhookSecretPreview').textContent = '—';
+                }
+            })
+            .catch(() => {
+                document.getElementById('apiKeyDisplay').textContent = 'Error loading';
+            });
+    }
+
+    function generateApiKey() {
+        if (!confirm('Generate a new API key? Any existing key will be replaced.')) return;
+        fetch('/api/generate-key', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+            .then(r => r.json())
+            .then(data => {
+                if (data.api_key) {
+                    alert('API Key (copy now — shown only once):\n\n' + data.api_key + '\n\nWebhook Secret:\n' + data.webhook_secret);
+                    loadApiStatus();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Request failed: ' + err));
+    }
+
+    function revokeApiKey() {
+        if (!confirm('Revoke your API key? All API integrations using this key will stop working.')) return;
+        fetch('/api/revoke-key', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('API key revoked.');
+                    loadApiStatus();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Request failed: ' + err));
+    }
+
+    function saveWebhookUrl() {
+        const url = document.getElementById('apiWebhookUrl').value.trim();
+        if (!url) { alert('Enter a webhook URL'); return; }
+        if (!url.startsWith('https://')) { alert('Webhook URL must use HTTPS'); return; }
+        fetch('/api/webhook-url', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ url: url })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Webhook URL saved.');
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Request failed: ' + err));
+    }
+
+    // Load API status on page load
+    document.addEventListener('DOMContentLoaded', loadApiStatus);
     </script>
 </body>
 </html>

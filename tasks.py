@@ -553,7 +553,8 @@ def process_webhook_task(payload: dict):
             return {"status": "error", "reason": "missing location_id"}
 
         is_demo = location_id in {'DEMO', 'DEMO_LOC', 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
-        
+        is_api_source = payload.get("_source") == "universal_api"
+
         if is_demo:
             subscriber = {
                 'bot_first_name': 'Grok',
@@ -565,6 +566,14 @@ def process_webhook_task(payload: dict):
                 'location_id': 'DEMO'
             }
             auth_token = 'DEMO'
+        elif is_api_source:
+            # API-sourced request — subscriber info comes from DB, no GHL token needed
+            subscriber = get_subscriber_info_hybrid(location_id)
+            if not subscriber:
+                logger.error(f"❌ ABORT: No subscriber config for API source {location_id}")
+                return {"status": "error", "reason": "no subscriber config"}
+            auth_token = subscriber.get('access_token') or ''
+            logger.info(f"🔌 API SOURCE | location={location_id} | contact={contact_id}")
         else:
             subscriber = get_subscriber_info_hybrid(location_id)
             if not subscriber:
@@ -576,7 +585,7 @@ def process_webhook_task(payload: dict):
                 logger.error(f"❌ ABORT: Token refresh failed for {location_id}")
                 return {"status": "error", "reason": "token refresh failed"}
 
-        # Inject fresh token
+        # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
 
         # === USE PAYLOAD DATA AS-IS (Source of Truth from GHL) ===
@@ -601,9 +610,9 @@ def process_webhook_task(payload: dict):
         if initial_facts and contact_id != "unknown":
             save_new_facts(contact_id, initial_facts)
 
-        # === History Sync (only if DB empty or gap) ===
+        # === History Sync (only if DB empty or gap, skip for API sources) ===
         db_count = get_message_count(contact_id)
-        if not is_demo:
+        if not is_demo and not is_api_source:
             if db_count == 0:
                 logger.info(f"🚨 DB empty for {contact_id} — fetching full GHL history")
                 ghl_history = fetch_targeted_ghl_history(contact_id, location_id, auth_token, limit=50)
@@ -928,7 +937,35 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")
 
-            if not is_demo:
+            if is_api_source:
+                # API-sourced: deliver reply via outbound webhook
+                from webhook_delivery import deliver_webhook, build_api_reply_payload
+                webhook_url = payload.get("_outbound_webhook_url", "")
+                webhook_secret = payload.get("_webhook_secret", "")
+                api_metadata = payload.get("_api_metadata", {})
+
+                out_payload = build_api_reply_payload(
+                    contact_id=contact_id,
+                    reply=reply,
+                    booking_made=booking_made,
+                    metadata=api_metadata,
+                )
+                success, status_code, error = deliver_webhook(
+                    url=webhook_url, payload=out_payload, secret=webhook_secret
+                )
+                save_message(contact_id, reply, "assistant")
+                if success:
+                    logger.info(f"✅ API reply delivered via webhook -> {status_code}")
+                    log_webhook_event(location_id, "api_webhook_sent", "success",
+                                      f"Reply delivered via webhook ({len(reply)} chars)",
+                                      contact_id=contact_id, details={"preview": reply[:80], "status_code": status_code})
+                else:
+                    logger.warning(f"⚠️ API webhook delivery failed: {error}")
+                    log_webhook_event(location_id, "api_webhook_failed", "error",
+                                      f"Webhook delivery failed: {error}",
+                                      contact_id=contact_id, details={"error": error, "status_code": status_code})
+
+            elif not is_demo:
                 if use_crm_adapter:
                     # Non-GHL CRM: Use adapter for messaging
                     try:
