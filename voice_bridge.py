@@ -2595,6 +2595,9 @@ def get_pipelines():
             params={"locationId": location_id},
             timeout=10
         )
+        if resp.status_code in (401, 403):
+            # opportunities.readonly scope not yet granted — signal the UI to use manual entry
+            return jsonify({"pipelines": [], "scope_missing": True})
         if resp.status_code != 200:
             return jsonify({"pipelines": []})
 
