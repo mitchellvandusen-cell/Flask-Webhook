@@ -779,6 +779,36 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"voice_config migration note: {e}")
 
+        # 21. MIGRATION: Create call_history table for AI Voice call tracking
+        try:
+            cur_calls = conn.cursor()
+            cur_calls.execute("""
+                CREATE TABLE IF NOT EXISTS call_history (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT,
+                    contact_name TEXT,
+                    phone TEXT NOT NULL,
+                    direction TEXT DEFAULT 'outbound',
+                    call_sid TEXT UNIQUE,
+                    status TEXT DEFAULT 'initiated',
+                    duration INTEGER DEFAULT 0,
+                    recording_url TEXT,
+                    recording_sid TEXT,
+                    transcript JSONB DEFAULT '[]'::jsonb,
+                    started_at TIMESTAMP DEFAULT NOW(),
+                    ended_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location ON call_history(location_id)")
+            cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_call_sid ON call_history(call_sid)")
+            conn.commit()
+            cur_calls.close()
+            logger.info("✅ Migration: Created call_history table")
+        except Exception as e:
+            logger.debug(f"call_history migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)

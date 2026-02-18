@@ -681,6 +681,9 @@
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voice" type="button"><i class="fa-solid fa-phone me-1"></i> Voice</button>
             </li>
             <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button"><i class="fa-solid fa-phone-volume me-1"></i> Voice Dialer</button>
+            </li>
+            <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button"><i class="fa-solid fa-credit-card me-1"></i> Billing</button>
             </li>
         </ul>
@@ -1549,24 +1552,6 @@
                         </div>
                     </div>
 
-                    <!-- AI Dialer (Power Dialer) -->
-                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-phone-volume me-2"></i>AI Power Dialer</h6>
-                    <div class="mb-4 p-3" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 12px;">
-                        <p style="color:#aaa; font-size:0.82rem; margin-bottom: 12px;">
-                            Click-to-call any contact or queue up a list for auto-dialing. Pulls contacts from your CRM. Works as a standalone page or embedded in your CRM as an iframe.
-                        </p>
-                        <div class="d-flex gap-3 align-items-center flex-wrap">
-                            <a href="/voice/call-panel" target="_blank" class="btn px-4 py-2"
-                                style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600; text-decoration: none;">
-                                <i class="fa-solid fa-up-right-from-square me-2"></i>Open AI Dialer
-                            </a>
-                            <div style="font-size: 0.78rem; color: #666;">
-                                <strong style="color:#aaa;">Embed URL:</strong>
-                                <code style="background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; color: #ccc; margin-left: 4px; user-select: all;">https://{{ request.host }}/voice/call-panel</code>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Actions -->
                     <div class="d-flex gap-3">
                         <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
@@ -1593,6 +1578,146 @@
                             <strong>Pricing:</strong> Voice calls use XAI at $0.05/min connection time + Twilio voice rates (~$0.014/min). Average 5-min call costs ~$0.32.
                         </p>
                     </div>
+                </div>
+            </div>
+
+            <!-- ========== VOICE DIALER TAB ========== -->
+            <div class="tab-pane fade" id="voicedialer" role="tabpanel">
+                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+
+                    <!-- Header -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); display:flex; align-items:center; justify-content:center; margin-right: 16px;">
+                            <i class="fa-solid fa-phone-volume" style="color: #00d9ff; font-size: 1.2rem;"></i>
+                        </div>
+                        <div>
+                            <h4 style="margin:0; font-weight:700;">AI Power Dialer</h4>
+                            <p style="margin:0; color:#888; font-size:0.85rem;">Fetch contacts, select, and auto-dial with AI voice agent</p>
+                        </div>
+                    </div>
+
+                    <!-- Active Call Banner -->
+                    <div id="dialerCallBanner" style="display:none; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; align-items: center; gap: 10px;">
+                        <div style="width:10px; height:10px; border-radius:50%; background: var(--accent); animation: dialerPulse 1.5s infinite;"></div>
+                        <div style="flex:1;">
+                            <div id="dialerCallName" style="font-weight:700; font-size:0.85rem;">-</div>
+                            <div id="dialerCallStatus" style="font-size:0.75rem; color: var(--accent);">Connecting...</div>
+                        </div>
+                        <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); color:#ef4444; border-radius:8px; padding:5px 12px; font-size:0.75rem; font-weight:600; cursor:pointer;">
+                            <i class="fa-solid fa-stop me-1"></i>Stop
+                        </button>
+                    </div>
+                    <style>@keyframes dialerPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }</style>
+
+                    <!-- Get Contacts Section -->
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 style="color: #00d9ff; font-weight: 700; margin:0;"><i class="fa-solid fa-address-book me-2"></i>Contacts</h6>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="position:relative;">
+                                    <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#444; font-size:0.75rem;"></i>
+                                    <input type="text" id="dialerSearch" placeholder="Search..."
+                                        oninput="dialerDebounceSearch()"
+                                        style="width:180px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:7px 10px 7px 30px; border-radius:8px; font-size:0.8rem; outline:none;">
+                                </div>
+                                <button id="dialerGetContactsBtn" onclick="dialerFetchContacts('')"
+                                    style="background: linear-gradient(135deg, #00d9ff, #0099cc); color: #000; border: none; border-radius: 8px; padding: 7px 16px; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap;">
+                                    <i class="fa-solid fa-download me-1"></i>Get Contacts
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Select All / Actions Bar -->
+                        <div id="dialerActionsBar" style="display:none; margin-bottom: 10px;">
+                            <div class="d-flex align-items-center justify-content-between" style="background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:8px; padding:6px 12px;">
+                                <label style="color:#ccc; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" style="accent-color:#00d9ff; width:16px; height:16px; cursor:pointer;">
+                                    Select All <span id="dialerSelectedCount" style="color:#00d9ff; font-weight:600;"></span>
+                                </label>
+                                <div class="d-flex gap-2">
+                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" style="background:rgba(0,217,255,0.1); border:1px solid rgba(0,217,255,0.2); color:#00d9ff; border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:600; cursor:pointer;" disabled>
+                                        <i class="fa-solid fa-plus me-1"></i>Add to Queue
+                                    </button>
+                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" style="background:linear-gradient(135deg,var(--accent),#00b36b); border:none; color:#000; border-radius:6px; padding:4px 12px; font-size:0.75rem; font-weight:700; cursor:pointer;" disabled>
+                                        <i class="fa-solid fa-phone me-1"></i>Call Selected
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contact List -->
+                        <div id="dialerContactList" style="max-height:350px; overflow-y:auto;">
+                            <div style="text-align:center; padding:30px; color:#555; font-size:0.85rem;">
+                                <i class="fa-solid fa-address-book" style="font-size:2rem; color:#333; margin-bottom:10px; display:block;"></i>
+                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load your CRM contacts
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Queue Section -->
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 style="color: var(--accent); font-weight: 700; margin:0;">
+                                <i class="fa-solid fa-list-ol me-2"></i>Call Queue
+                                <span id="dialerQueueBadge" style="display:none; background:rgba(0,217,255,0.15); color:#00d9ff; padding:1px 7px; border-radius:8px; font-size:0.68rem; margin-left:6px;"></span>
+                            </h6>
+                            <span id="dialerQueueCount" style="background:rgba(0,217,255,0.1); color:#00d9ff; padding:2px 10px; border-radius:10px; font-size:0.7rem; font-weight:600;">0</span>
+                        </div>
+                        <div id="dialerQueueList" style="max-height:200px; overflow-y:auto; margin-bottom:10px;">
+                            <div style="text-align:center; padding:14px; color:#555; font-size:0.82rem;">Select contacts above and add to queue, or click Call Selected</div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled
+                                style="flex:1; padding:10px; border-radius:10px; border:none; background:linear-gradient(135deg, var(--accent), #00b36b); color:#000; font-weight:700; font-size:0.82rem; cursor:pointer;">
+                                <i class="fa-solid fa-play me-1"></i>Start Auto-Dial
+                            </button>
+                            <button onclick="dialerClearQueue()"
+                                style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); color:#888; font-weight:600; font-size:0.82rem; cursor:pointer;">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Manual Dial -->
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <h6 style="color: #aaa; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-keyboard me-2"></i>Manual Dial</h6>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567"
+                                style="flex:1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:10px 12px; border-radius:10px; font-size:0.88rem; outline:none;">
+                            <button onclick="dialerManualCall()"
+                                style="padding:10px 20px; border-radius:10px; border:none; background:var(--accent); color:#000; font-weight:700; font-size:0.85rem; cursor:pointer; white-space:nowrap;">
+                                <i class="fa-solid fa-phone me-1"></i>Call
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Call History -->
+                    <div class="p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 style="color: #aaa; font-weight: 700; margin:0;"><i class="fa-solid fa-clock-rotate-left me-2"></i>Call History</h6>
+                            <button onclick="dialerLoadHistory()" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:600; cursor:pointer;">
+                                <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                            </button>
+                        </div>
+                        <div id="dialerHistoryList" style="max-height:400px; overflow-y:auto;">
+                            <div style="text-align:center; padding:20px; color:#555; font-size:0.82rem;">
+                                Call history will appear here after making calls
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transcript Modal -->
+                    <div id="transcriptModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); z-index:10000; align-items:center; justify-content:center;">
+                        <div style="background:rgba(12,12,12,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:16px; max-width:600px; width:90%; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
+                            <div style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between;">
+                                <h5 style="margin:0; font-weight:700;"><i class="fa-solid fa-file-lines me-2" style="color:#00d9ff;"></i>Call Transcript</h5>
+                                <button onclick="closeTranscriptModal()" style="background:none; border:none; color:#888; cursor:pointer; font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div id="transcriptContent" style="padding:16px 20px; overflow-y:auto; flex:1;">
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -1998,6 +2123,352 @@
                 resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
             });
         }
+
+        // ===== VOICE DIALER TAB =====
+        let dialerContacts = [];
+        let dialerSelected = new Set();
+        let dialerQueue = [];
+        let dialerQueueRunning = false;
+        let dialerCallSid = null;
+        let dialerCallIdx = -1;
+        let dialerPollTimer = null;
+        let dialerSearchTimer = null;
+        let dialerContactsLoaded = false;
+
+        function dialerDebounceSearch() {
+            clearTimeout(dialerSearchTimer);
+            dialerSearchTimer = setTimeout(() => {
+                dialerFetchContacts(document.getElementById('dialerSearch').value);
+            }, 400);
+        }
+
+        async function dialerFetchContacts(q) {
+            const list = document.getElementById('dialerContactList');
+            const btn = document.getElementById('dialerGetContactsBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...';
+            btn.disabled = true;
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i><p style="margin-top:8px;font-size:.82rem;">Fetching contacts...</p></div>';
+            try {
+                const r = await fetch('/voice/contacts?q=' + encodeURIComponent(q || '') + '&limit=100');
+                const d = await r.json();
+                if (!r.ok) {
+                    list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to fetch contacts') + '</div>';
+                    return;
+                }
+                dialerContacts = d.contacts || [];
+                dialerSelected.clear();
+                dialerContactsLoaded = true;
+                dialerRenderContacts();
+                dialerUpdateSelectionUI();
+            } catch(e) {
+                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;">Network error fetching contacts</div>';
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-download me-1"></i>Get Contacts';
+                btn.disabled = false;
+            }
+        }
+
+        function dialerRenderContacts() {
+            const list = document.getElementById('dialerContactList');
+            const actionsBar = document.getElementById('dialerActionsBar');
+
+            if (!dialerContacts.length) {
+                list.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.82rem;"><i class="fa-solid fa-user-slash me-2"></i>No contacts found</div>';
+                actionsBar.style.display = 'none';
+                return;
+            }
+
+            actionsBar.style.display = 'block';
+
+            list.innerHTML = dialerContacts.map(c => {
+                const init = (c.firstName || c.name || '?')[0].toUpperCase();
+                const sel = dialerSelected.has(c.id);
+                const inQ = dialerQueue.some(q => q.id === c.id);
+                return '<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;transition:background .15s;' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '" onmouseover="if(!this.style.background.includes(\'0,217,255\'))this.style.background=\'rgba(255,255,255,0.03)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'transparent\'">' +
+                    '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff; width:16px; height:16px; cursor:pointer; flex-shrink:0;">' +
+                    '<div style="width:32px;height:32px;border-radius:50%;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.7rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
+                    '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div><div style="font-size:.72rem;color:#666;">' + dialerEsc(c.phone) + (c.email ? ' &middot; ' + dialerEsc(c.email) : '') + '</div></div>' +
+                    '<button onclick="dialerToggleQ(\'' + c.id + '\')" style="width:28px;height:28px;border-radius:50%;background:' + (inQ ? 'rgba(0,217,255,0.2)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (inQ ? '#00d9ff' : 'rgba(0,217,255,0.12)') + ';color:#00d9ff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.7rem;" title="' + (inQ ? 'Remove from queue' : 'Add to queue') + '"><i class="fa-solid ' + (inQ ? 'fa-check' : 'fa-plus') + '"></i></button>' +
+                    '<button onclick="dialerCallContact(\'' + c.id + '\')" style="width:28px;height:28px;border-radius:50%;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.7rem;" title="Call now"><i class="fa-solid fa-phone"></i></button>' +
+                '</div>';
+            }).join('');
+        }
+
+        function dialerToggleSelect(id) {
+            if (dialerSelected.has(id)) dialerSelected.delete(id);
+            else dialerSelected.add(id);
+            dialerUpdateSelectionUI();
+            dialerRenderContacts();
+        }
+
+        function dialerToggleSelectAll() {
+            const cb = document.getElementById('dialerSelectAll');
+            if (cb.checked) {
+                dialerContacts.forEach(c => dialerSelected.add(c.id));
+            } else {
+                dialerSelected.clear();
+            }
+            dialerUpdateSelectionUI();
+            dialerRenderContacts();
+        }
+
+        function dialerUpdateSelectionUI() {
+            const cnt = dialerSelected.size;
+            const countEl = document.getElementById('dialerSelectedCount');
+            const addBtn = document.getElementById('dialerAddSelectedBtn');
+            const callBtn = document.getElementById('dialerCallSelectedBtn');
+            const selectAll = document.getElementById('dialerSelectAll');
+
+            countEl.textContent = cnt > 0 ? '(' + cnt + ')' : '';
+            addBtn.disabled = cnt === 0;
+            callBtn.disabled = cnt === 0;
+            if (selectAll) selectAll.checked = dialerContacts.length > 0 && cnt === dialerContacts.length;
+        }
+
+        function dialerAddSelectedToQueue() {
+            dialerSelected.forEach(id => {
+                if (!dialerQueue.some(q => q.id === id)) {
+                    const c = dialerContacts.find(x => x.id === id);
+                    if (c) dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+                }
+            });
+            dialerSelected.clear();
+            dialerRenderContacts();
+            dialerRenderQueue();
+            dialerUpdateBadge();
+            dialerUpdateSelectionUI();
+        }
+
+        function dialerCallSelected() {
+            // Add selected to queue and immediately start dialing
+            dialerAddSelectedToQueue();
+            if (dialerQueue.length > 0 && !dialerQueueRunning) {
+                dialerToggleQueue();
+            }
+        }
+
+        function dialerCallContact(id) {
+            const c = dialerContacts.find(x => x.id === id);
+            if (c) dialerStartCall(c.phone, c.firstName || c.name, c.id, c.name);
+        }
+
+        function dialerManualCall() {
+            let ph = document.getElementById('dialerManualPhone').value.trim().replace(/[\s\-\(\)\.]/g, '');
+            if (!ph) return;
+            if (!ph.startsWith('+')) ph = '+1' + ph;
+            dialerStartCall(ph, 'Manual', '', ph);
+        }
+
+        async function dialerStartCall(phone, firstName, contactId, displayName) {
+            dialerShowBanner(displayName || firstName, 'Initiating...');
+            try {
+                const r = await fetch('/voice/dial', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone, first_name: firstName, contact_id: contactId })
+                });
+                const d = await r.json();
+                if (!r.ok) {
+                    dialerShowBanner(displayName, d.error || 'Failed', true);
+                    setTimeout(dialerHideBanner, 4000);
+                    if (dialerQueueRunning) dialerAdvance();
+                    return;
+                }
+                dialerCallSid = d.call_sid;
+                dialerShowBanner(displayName, 'Ringing...');
+                dialerStartPoll();
+            } catch(e) {
+                dialerShowBanner(displayName, 'Network error', true);
+                setTimeout(dialerHideBanner, 4000);
+                if (dialerQueueRunning) dialerAdvance();
+            }
+        }
+
+        function dialerStartPoll() {
+            if (dialerPollTimer) clearInterval(dialerPollTimer);
+            dialerPollTimer = setInterval(async () => {
+                if (!dialerCallSid) { clearInterval(dialerPollTimer); return; }
+                try {
+                    const r = await fetch('/voice/call-status/' + dialerCallSid);
+                    if (!r.ok) return;
+                    const d = await r.json();
+                    const el = document.getElementById('dialerCallStatus');
+                    if (d.status === 'in-progress') { el.textContent = 'Connected'; el.style.color = 'var(--accent)'; }
+                    else if (d.status === 'ringing') { el.textContent = 'Ringing...'; el.style.color = '#00d9ff'; }
+                    else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
+                        clearInterval(dialerPollTimer);
+                        const dur = d.duration ? ' (' + d.duration + 's)' : '';
+                        el.textContent = d.status.replace('-',' ') + dur;
+                        el.style.color = d.status === 'completed' ? 'var(--accent)' : '#ffa500';
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                            dialerQueue[dialerCallIdx].status = d.status;
+                        }
+                        dialerCallSid = null;
+                        if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                        else { setTimeout(dialerHideBanner, 3000); dialerLoadHistory(); }
+                        dialerRenderQueue();
+                    }
+                } catch(e) {}
+            }, 1500);
+        }
+
+        function dialerShowBanner(name, status, isErr) {
+            const b = document.getElementById('dialerCallBanner');
+            document.getElementById('dialerCallName').textContent = name;
+            const s = document.getElementById('dialerCallStatus');
+            s.textContent = status;
+            s.style.color = isErr ? '#ef4444' : 'var(--accent)';
+            b.style.display = 'flex';
+        }
+        function dialerHideBanner() { document.getElementById('dialerCallBanner').style.display = 'none'; }
+        function dialerStopQueue() { dialerQueueRunning = false; dialerUpdateBtn(); }
+
+        // Queue management
+        function dialerToggleQ(id) {
+            const idx = dialerQueue.findIndex(q => q.id === id);
+            if (idx >= 0) { dialerQueue.splice(idx, 1); }
+            else {
+                const c = dialerContacts.find(x => x.id === id);
+                if (c) dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+            }
+            dialerRenderContacts();
+            dialerRenderQueue();
+            dialerUpdateBadge();
+        }
+
+        function dialerRenderQueue() {
+            const list = document.getElementById('dialerQueueList');
+            const cnt = document.getElementById('dialerQueueCount');
+            const btn = document.getElementById('dialerStartBtn');
+            cnt.textContent = dialerQueue.length;
+            btn.disabled = !dialerQueue.length;
+            if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:14px;color:#555;font-size:.82rem;">Select contacts above and add to queue, or click Call Selected</div>'; return; }
+            const icons = { pending:'<span style="color:#555;">Waiting</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ringing</span>', 'in-progress':'<span style="color:var(--accent);">On Call</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">No Answer</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
+            list.innerHTML = dialerQueue.map((q, i) => {
+                const active = dialerQueueRunning && i === dialerCallIdx;
+                return '<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:.8rem;' + (active ? 'background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.12);' : '') + '">' +
+                    '<div style="width:20px;height:20px;border-radius:50%;background:' + (active ? 'rgba(0,255,136,0.12)' : 'rgba(255,255,255,0.05)') + ';display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:' + (active ? 'var(--accent)' : '#666') + ';">' + (i+1) + '</div>' +
+                    '<div style="flex:1;">' + dialerEsc(q.name) + '</div>' +
+                    '<div>' + (icons[q.status] || q.status) + '</div>' +
+                    (!dialerQueueRunning ? '<button onclick="dialerRemoveQ(' + i + ')" style="background:none;border:none;color:#555;cursor:pointer;font-size:.7rem;padding:2px 4px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
+                '</div>';
+            }).join('');
+        }
+
+        function dialerRemoveQ(i) { dialerQueue.splice(i, 1); dialerRenderContacts(); dialerRenderQueue(); dialerUpdateBadge(); }
+        function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); dialerUpdateBadge(); }
+        function dialerUpdateBadge() {
+            const b = document.getElementById('dialerQueueBadge');
+            if (dialerQueue.length) { b.textContent = dialerQueue.length; b.style.display = 'inline'; }
+            else b.style.display = 'none';
+        }
+        function dialerUpdateBtn() {
+            const btn = document.getElementById('dialerStartBtn');
+            if (dialerQueueRunning) { btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop Queue'; btn.style.background = 'linear-gradient(135deg,#ef4444,#cc3333)'; btn.style.color = '#fff'; }
+            else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Start Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
+        }
+
+        function dialerToggleQueue() {
+            if (dialerQueueRunning) { dialerQueueRunning = false; dialerUpdateBtn(); return; }
+            dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
+            if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
+            dialerQueueRunning = true;
+            dialerUpdateBtn();
+            dialerDialNext();
+        }
+
+        function dialerDialNext() {
+            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) {
+                dialerQueueRunning = false;
+                dialerUpdateBtn();
+                dialerHideBanner();
+                dialerRenderQueue();
+                dialerLoadHistory();
+                return;
+            }
+            const item = dialerQueue[dialerCallIdx];
+            item.status = 'initiated';
+            dialerRenderQueue();
+            dialerStartCall(item.phone, item.firstName || item.name, item.id, item.name);
+        }
+
+        function dialerAdvance() {
+            if (!dialerQueueRunning) { dialerHideBanner(); return; }
+            dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
+            if (dialerCallIdx < 0) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); dialerLoadHistory(); return; }
+            dialerDialNext();
+        }
+
+        function dialerEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+        // ===== CALL HISTORY =====
+        async function dialerLoadHistory() {
+            const list = document.getElementById('dialerHistoryList');
+            try {
+                const r = await fetch('/voice/call-history?limit=50');
+                if (!r.ok) { list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;">Failed to load history</div>'; return; }
+                const d = await r.json();
+                const calls = d.calls || [];
+                if (!calls.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.82rem;">No call history yet</div>'; return; }
+
+                list.innerHTML = calls.map(c => {
+                    const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444', canceled:'#888' };
+                    const statusColor = statusColors[c.status] || '#00d9ff';
+                    const durMin = c.duration ? Math.floor(c.duration / 60) + ':' + String(c.duration % 60).padStart(2, '0') : '--:--';
+                    const dt = c.started_at ? new Date(c.started_at).toLocaleString() : '';
+                    const hasRec = !!c.recording_url;
+                    const hasTx = c.transcript && c.transcript.length > 0;
+
+                    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.82rem;">' +
+                        '<div style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.contact_name || c.phone) + '</div>' +
+                            '<div style="font-size:.72rem;color:#666;">' + dialerEsc(c.phone) + ' &middot; ' + dt + '</div>' +
+                        '</div>' +
+                        '<div style="color:' + statusColor + ';font-size:.75rem;font-weight:600;white-space:nowrap;">' + (c.status || '').replace('-',' ') + '</div>' +
+                        '<div style="color:#888;font-size:.75rem;min-width:40px;text-align:right;">' + durMin + '</div>' +
+                        (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:6px;padding:3px 8px;font-size:.7rem;cursor:pointer;" title="Play recording"><i class="fa-solid fa-play"></i></button>' : '') +
+                        (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:var(--accent);border-radius:6px;padding:3px 8px;font-size:.7rem;cursor:pointer;" title="View transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                    '</div>';
+                }).join('');
+            } catch(e) {
+                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;">Error loading history</div>';
+            }
+        }
+
+        // Recording playback
+        let _audioPlayer = null;
+        function playRecording(url) {
+            if (_audioPlayer) { _audioPlayer.pause(); _audioPlayer = null; }
+            _audioPlayer = new Audio(url);
+            _audioPlayer.play().catch(e => alert('Unable to play recording: ' + e.message));
+        }
+
+        // Transcript modal
+        function showTranscript(transcript) {
+            const modal = document.getElementById('transcriptModal');
+            const content = document.getElementById('transcriptContent');
+            if (!transcript || !transcript.length) {
+                content.innerHTML = '<p style="color:#888;">No transcript available</p>';
+            } else {
+                content.innerHTML = transcript.map(t => {
+                    const isLead = t.role === 'lead';
+                    return '<div style="margin-bottom:12px; display:flex; flex-direction:column; align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';">' +
+                        '<div style="font-size:.7rem; color:#888; margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
+                        '<div style="background:' + (isLead ? 'rgba(0,217,255,0.08)' : 'rgba(0,255,136,0.08)') + '; border:1px solid ' + (isLead ? 'rgba(0,217,255,0.15)' : 'rgba(0,255,136,0.15)') + '; border-radius:10px; padding:8px 12px; max-width:85%; font-size:.84rem; color:#ddd;">' +
+                            dialerEsc(t.text) +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+            }
+            modal.style.display = 'flex';
+        }
+        function closeTranscriptModal() { document.getElementById('transcriptModal').style.display = 'none'; }
+
+        // Load call history when Voice Dialer tab is shown
+        document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', function() {
+            dialerLoadHistory();
+        });
     </script>
 
     <!-- Save Overlay -->
