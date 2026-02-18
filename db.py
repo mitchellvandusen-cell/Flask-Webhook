@@ -762,6 +762,23 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"API platform migration note: {e}")
 
+        # 20. MIGRATION: Add voice_config JSONB column for AI Voice calling
+        try:
+            cur_voice = conn.cursor()
+            cur_voice.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS voice_config JSONB DEFAULT '{}'::jsonb
+            """)
+            cur_voice.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS voice_config JSONB DEFAULT '{}'::jsonb
+            """)
+            conn.commit()
+            cur_voice.close()
+            logger.info("✅ Migration: Added voice_config column to subscribers and agency_billing")
+        except Exception as e:
+            logger.debug(f"voice_config migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -835,6 +852,9 @@ class User(UserMixin):
 
         # Agent personal website (shared by bot when lead asks)
         self.personal_website = data.get('personal_website')
+
+        # Voice AI configuration
+        self.voice_config = data.get('voice_config') or {}
 
         # Timestamps
         self.created_at = data.get('created_at')

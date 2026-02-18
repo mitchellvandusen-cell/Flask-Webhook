@@ -678,6 +678,9 @@
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#advanced" type="button"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Advanced</button>
             </li>
             <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voice" type="button"><i class="fa-solid fa-phone me-1"></i> Voice</button>
+            </li>
+            <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button"><i class="fa-solid fa-credit-card me-1"></i> Billing</button>
             </li>
         </ul>
@@ -1416,6 +1419,165 @@
                 </div>
             </div>
 
+            <!-- ═══════ VOICE AI TAB ═══════ -->
+            <div class="tab-pane fade" id="voice" role="tabpanel">
+                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+
+                    <!-- Header -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); display:flex; align-items:center; justify-content:center; margin-right: 16px;">
+                            <i class="fa-solid fa-phone" style="color: #00d9ff; font-size: 1.2rem;"></i>
+                        </div>
+                        <div>
+                            <h4 style="margin:0; font-weight:700;">Voice AI Agent</h4>
+                            <p style="margin:0; color:#888; font-size:0.85rem;">Real-time AI voice calls powered by Grok Speech-to-Speech</p>
+                        </div>
+                        <div class="ms-auto">
+                            <span id="voiceStatusBadge" class="badge" style="background: {% if voice_config.get('enabled') %}rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3){% else %}rgba(255,255,255,0.06); color: #666; border: 1px solid rgba(255,255,255,0.08){% endif %}; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem;">
+                                {% if voice_config.get('enabled') %}<i class="fa-solid fa-circle me-1" style="font-size:0.5rem; vertical-align:middle;"></i> Active{% else %}Inactive{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- How It Works -->
+                    <div class="mb-4 p-3" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 12px;">
+                        <h6 style="color: #00d9ff; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-diagram-project me-2"></i>How It Works</h6>
+                        <div class="row g-2" style="font-size: 0.82rem; color: #aaa;">
+                            <div class="col-md-3 text-center">
+                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-phone-volume"></i></div>
+                                <strong style="color:#ccc;">Call Connects</strong><br>Lead calls your AI number or bot dials out
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-microphone"></i></div>
+                                <strong style="color:#ccc;">Audio Streams</strong><br>Twilio sends live audio to our server
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-brain"></i></div>
+                                <strong style="color:#ccc;">Grok Thinks</strong><br>XAI processes speech and responds in real-time
+                            </div>
+                            <div class="col-md-3 text-center">
+                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-calendar-check"></i></div>
+                                <strong style="color:#ccc;">Books Appointments</strong><br>AI checks your calendar and books live
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enable Toggle -->
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="form-check form-switch d-flex align-items-center">
+                            <input class="form-check-input me-3" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
+                                style="width: 3em; height: 1.5em; cursor: pointer;">
+                            <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">Enable Voice AI Agent</label>
+                        </div>
+                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your Twilio number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
+                    </div>
+
+                    <!-- Twilio Credentials -->
+                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-key me-2"></i>Twilio Credentials</h6>
+                    <p style="color:#888; font-size:0.82rem; margin-bottom: 16px;">
+                        You need a Twilio account with a phone number. Get one at <a href="https://www.twilio.com" target="_blank" style="color: var(--accent);">twilio.com</a> (numbers start at $1.15/mo).
+                    </p>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Account SID</label>
+                            <input type="text" class="form-control" id="voiceTwilioSid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                value="{{ voice_config.get('twilio_account_sid', '') }}"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auth Token</label>
+                            <input type="password" class="form-control" id="voiceTwilioToken" placeholder="Your Twilio Auth Token"
+                                value="{{ voice_config.get('twilio_auth_token', '') }}"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Phone Number</label>
+                            <input type="text" class="form-control" id="voiceTwilioNumber" placeholder="+15551234567"
+                                value="{{ voice_config.get('twilio_phone_number', '') }}"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                            <small style="color:#666; font-size:0.75rem;">The Twilio number leads will call / be called from</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">AI Voice</label>
+                            <select class="form-control" id="voiceSelection"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="ara" {% if voice_config.get('voice', 'ara') == 'ara' %}selected{% endif %}>Ara (Warm, Professional)</option>
+                                <option value="eve" {% if voice_config.get('voice') == 'eve' %}selected{% endif %}>Eve (Confident, Clear)</option>
+                                <option value="leo" {% if voice_config.get('voice') == 'leo' %}selected{% endif %}>Leo (Calm, Authoritative)</option>
+                                <option value="rex" {% if voice_config.get('voice') == 'rex' %}selected{% endif %}>Rex (Bold, Energetic)</option>
+                                <option value="sal" {% if voice_config.get('voice') == 'sal' %}selected{% endif %}>Sal (Friendly, Approachable)</option>
+                                <option value="mika" {% if voice_config.get('voice') == 'mika' %}selected{% endif %}>Mika (Warm, Conversational)</option>
+                                <option value="vale" {% if voice_config.get('voice') == 'vale' %}selected{% endif %}>Vale (Professional, Measured)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Voice Settings -->
+                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-microphone me-2"></i>Voice Settings</h6>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Greeting (what the AI says first on outbound calls)</label>
+                            <textarea class="form-control" id="voiceGreeting" rows="2" placeholder="Hi {{'{{'}}name{{'}}'}}, this is {{'{{'}}bot_name{{'}}'}} calling about the life insurance information you requested. Do you have a quick minute?"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.9rem;">{{ voice_config.get('greeting', '') }}</textarea>
+                            <small style="color:#666; font-size:0.75rem;">Leave blank for default. The bot's name and lead's name are automatically inserted.</small>
+                        </div>
+                        <div class="col-12">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Custom Voice Instructions (optional)</label>
+                            <textarea class="form-control" id="voiceInstructions" rows="3" placeholder="Additional behavior instructions for voice calls, e.g., 'Always mention our 30-day free look period' or 'Speak slowly and clearly'"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.9rem;">{{ voice_config.get('voice_instructions', '') }}</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Outbound Webhook URL -->
+                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Outbound Call Trigger</h6>
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <p style="color:#aaa; font-size:0.82rem; margin-bottom: 8px;">To trigger an AI call from your CRM, send a POST request to:</p>
+                        <div class="d-flex align-items-center gap-2">
+                            <code style="background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); padding: 8px 14px; border-radius: 8px; color: var(--accent); font-size: 0.85rem; flex: 1; word-break: break-all;">
+                                POST https://{{ request.host }}/voice/outbound-call
+                            </code>
+                            <button class="btn btn-sm" onclick="copyToClipboard('https://{{ request.host }}/voice/outbound-call')"
+                                style="background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; white-space: nowrap;">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="mt-3" style="font-size: 0.8rem; color: #777;">
+                            <strong style="color:#aaa;">JSON Body:</strong>
+                            <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.78rem; overflow-x: auto;">{ "location_id": "{{ sub.location_id or 'your_location_id' }}", "phone": "+15551234567", "first_name": "John", "contact_id": "contact_abc123" }</pre>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex gap-3">
+                        <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
+                            style="background: linear-gradient(135deg, var(--accent), #00b36b); color: #000; font-weight: 700; border-radius: 10px; border: none;">
+                            <i class="fa-solid fa-floppy-disk me-2"></i>Save Voice Settings
+                        </button>
+                        <button class="btn px-4 py-2" onclick="testVoiceConnection()"
+                            style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600;">
+                            <i class="fa-solid fa-vial me-2"></i>Test Connection
+                        </button>
+                        <button class="btn px-4 py-2" onclick="configureVoiceNumber()"
+                            style="background: rgba(255,255,255,0.04); color: #aaa; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-weight: 600;">
+                            <i class="fa-solid fa-gear me-2"></i>Configure Number
+                        </button>
+                    </div>
+
+                    <!-- Status output -->
+                    <div id="voiceTestResult" class="mt-3" style="display:none;"></div>
+
+                    <!-- Pricing Info -->
+                    <div class="mt-4 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 12px;">
+                        <p style="color:#aaa; font-size:0.8rem; margin:0;">
+                            <i class="fa-solid fa-circle-info me-1" style="color: #ffa500;"></i>
+                            <strong>Pricing:</strong> Voice calls use XAI at $0.05/min connection time + Twilio voice rates (~$0.014/min). Average 5-min call costs ~$0.32.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div class="tab-pane fade" id="billing" role="tabpanel">
                 <div class="glass-panel text-center py-5" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
                     <div style="font-size:3rem; color:var(--accent); margin-bottom:20px;"><i class="fa-solid fa-credit-card"></i></div>
@@ -1706,6 +1868,114 @@
                     resultDiv.innerHTML = `<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ${d.message}</span>`;
                 }
                 setTimeout(() => resultDiv.innerHTML = '', 6000);
+            }).catch(e => {
+                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+            });
+        }
+
+        // ===== VOICE TAB =====
+        function saveVoiceConfig() {
+            const resultDiv = document.getElementById('voiceTestResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Saving voice settings...</span>';
+
+            const config = {
+                enabled: document.getElementById('voiceEnabled').checked,
+                twilio_account_sid: document.getElementById('voiceTwilioSid').value.trim(),
+                twilio_auth_token: document.getElementById('voiceTwilioToken').value.trim(),
+                twilio_phone_number: document.getElementById('voiceTwilioNumber').value.trim(),
+                voice: document.getElementById('voiceSelection').value,
+                greeting: document.getElementById('voiceGreeting').value.trim(),
+                voice_instructions: document.getElementById('voiceInstructions').value.trim()
+            };
+
+            fetch('/api/voice-config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'success') {
+                    resultDiv.innerHTML = '<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> Voice settings saved successfully!</span>';
+                    // Update badge
+                    const badge = document.getElementById('voiceStatusBadge');
+                    if (config.enabled) {
+                        badge.style.background = 'rgba(0,255,136,0.15)';
+                        badge.style.color = '#00ff88';
+                        badge.style.border = '1px solid rgba(0,255,136,0.3)';
+                        badge.innerHTML = '<i class="fa-solid fa-circle me-1" style="font-size:0.5rem; vertical-align:middle;"></i> Active';
+                    } else {
+                        badge.style.background = 'rgba(255,255,255,0.06)';
+                        badge.style.color = '#666';
+                        badge.style.border = '1px solid rgba(255,255,255,0.08)';
+                        badge.innerHTML = 'Inactive';
+                    }
+                } else {
+                    resultDiv.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ' + (d.error || 'Failed to save') + '</span>';
+                }
+                setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
+            }).catch(e => {
+                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error saving voice config</span>';
+            });
+        }
+
+        function testVoiceConnection() {
+            const resultDiv = document.getElementById('voiceTestResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Testing connections...</span>';
+
+            fetch('/voice/test', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ location_id: '{{ sub.location_id or "" }}' })
+            }).then(r => r.json()).then(d => {
+                let html = '<div style="font-size:0.85rem;">';
+                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">XAI Realtime API:</strong> ';
+                html += d.xai ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Connected</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
+                html += '</div>';
+                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Twilio Account:</strong> ';
+                html += d.twilio ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
+                html += '</div>';
+                if (d.errors && d.errors.length > 0) {
+                    html += '<div style="color:#ffa500; margin-top:8px; font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + d.errors.join('<br>') + '</div>';
+                }
+                html += '</div>';
+                resultDiv.innerHTML = html;
+                setTimeout(() => { resultDiv.style.display = 'none'; }, 10000);
+            }).catch(e => {
+                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+            });
+        }
+
+        function configureVoiceNumber() {
+            const sid = document.getElementById('voiceTwilioSid').value.trim();
+            const token = document.getElementById('voiceTwilioToken').value.trim();
+            const number = document.getElementById('voiceTwilioNumber').value.trim();
+
+            if (!sid || !token || !number) {
+                alert('Please fill in all Twilio credentials first, then save.');
+                return;
+            }
+
+            const resultDiv = document.getElementById('voiceTestResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Configuring your Twilio number to route calls to AI...</span>';
+
+            fetch('/voice/configure-number', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    location_id: '{{ sub.location_id or "" }}',
+                    twilio_account_sid: sid,
+                    twilio_auth_token: token,
+                    twilio_phone_number: number
+                })
+            }).then(r => r.json()).then(d => {
+                if (d.status === 'configured') {
+                    resultDiv.innerHTML = '<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> Number configured! Calls to ' + number + ' will now connect to your AI agent.</span>';
+                } else {
+                    resultDiv.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ' + (d.error || 'Configuration failed') + '</span>';
+                }
+                setTimeout(() => { resultDiv.style.display = 'none'; }, 8000);
             }).catch(e => {
                 resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
             });

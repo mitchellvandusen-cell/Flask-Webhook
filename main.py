@@ -140,6 +140,17 @@ init_db()
 from api_v1 import api_bp
 app.register_blueprint(api_bp)
 
+# === REGISTER VOICE BRIDGE BLUEPRINT + WEBSOCKET ===
+from flask_sock import Sock
+from voice_bridge import voice_bp, run_voice_stream
+app.register_blueprint(voice_bp)
+sock = Sock(app)
+
+@sock.route('/voice/stream')
+def ws_voice_stream(ws):
+    """WebSocket endpoint for Twilio Media Streams <-> XAI Voice bridge."""
+    run_voice_stream(ws)
+
 # == SECRET SESSION ==
 app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
 
@@ -1649,6 +1660,10 @@ def dashboard():
     bot_settings = get_bot_settings(current_user.email)
 
     from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
+
+    # --- 9. VOICE CONFIG ---
+    voice_config = current_user.voice_config or {}
+
     return render_template('dashboard.html',
         form=form,
         access_token_display=access_token_display,
@@ -1666,7 +1681,8 @@ def dashboard():
         selected_carriers=selected_carriers,
         bot_settings=bot_settings,
         crm_config_fields=CRM_CONFIG_FIELDS,
-        crm_display_names=CRM_DISPLAY_NAMES
+        crm_display_names=CRM_DISPLAY_NAMES,
+        voice_config=voice_config
     )
 @app.route("/save-profile", methods=["POST"])
 @login_required
@@ -1715,6 +1731,68 @@ def save_profile():
     finally:
         cur.close()
         return_db_connection(conn)
+
+@app.route("/api/voice-config", methods=["GET"])
+@login_required
+def get_voice_config():
+    """Return current voice configuration."""
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        config = (row['voice_config'] if row else {}) or {}
+        return flask_jsonify({"voice_config": config})
+    except Exception as e:
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@app.route("/api/voice-config", methods=["POST"])
+@login_required
+def save_voice_config():
+    """Save voice AI configuration (Twilio credentials, voice settings)."""
+    data = request.get_json()
+    if not data:
+        return flask_jsonify({"error": "No data provided"}), 400
+
+    # Build voice_config object
+    voice_config = {
+        "enabled": bool(data.get("enabled", False)),
+        "twilio_account_sid": (data.get("twilio_account_sid") or "").strip(),
+        "twilio_auth_token": (data.get("twilio_auth_token") or "").strip(),
+        "twilio_phone_number": (data.get("twilio_phone_number") or "").strip(),
+        "voice": (data.get("voice") or "tara").strip().lower(),
+        "greeting": (data.get("greeting") or "").strip(),
+        "voice_instructions": (data.get("voice_instructions") or "").strip(),
+    }
+
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers
+            SET voice_config = %s::jsonb,
+                updated_at = NOW()
+            WHERE email = %s
+        """, (json.dumps(voice_config), current_user.email))
+        conn.commit()
+        cur.close()
+        logger.info(f"Voice config saved for {current_user.email}: enabled={voice_config['enabled']}")
+        return flask_jsonify({"status": "success", "voice_config": voice_config})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Failed to save voice config: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
 
 @app.route("/api/carriers", methods=["GET"])
 @login_required
