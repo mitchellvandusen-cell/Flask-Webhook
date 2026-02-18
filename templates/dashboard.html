@@ -1608,294 +1608,273 @@
 
             <!-- ========== VOICE DIALER TAB ========== -->
             <div class="tab-pane fade" id="voicedialer" role="tabpanel">
-                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+                <style>
+                    @keyframes dialerPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
+                    .dtmf-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}
+                    .dtmf-key:hover{background:rgba(0,217,255,0.15);}
+                    .dlr-col{background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;overflow:hidden;}
+                    .dlr-col-hdr{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+                    .dlr-col-hdr h6{margin:0;font-weight:700;font-size:0.8rem;color:#00d9ff;}
+                    .dlr-col-body{flex:1;overflow-y:auto;padding:0;}
+                    .dlr-contact-row{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(255,255,255,0.02);}
+                    .dlr-contact-row:hover{background:rgba(255,255,255,0.03);}
+                    .dlr-contact-row.active{background:rgba(0,217,255,0.06);border-left:2px solid #00d9ff;}
+                    .dlr-msg-bubble{max-width:85%;padding:8px 12px;border-radius:12px;font-size:0.82rem;line-height:1.4;margin-bottom:2px;}
+                    .dlr-msg-lead{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ddd;border-bottom-left-radius:4px;}
+                    .dlr-msg-bot{background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#ccc;border-bottom-right-radius:4px;margin-left:auto;}
+                    .dlr-field-label{font-size:0.68rem;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;}
+                    .dlr-field-value{font-size:0.82rem;color:#ddd;margin-bottom:8px;}
+                    .dlr-tab-btn{background:none;border:none;color:#666;font-size:0.75rem;font-weight:600;padding:6px 12px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+                    .dlr-tab-btn.active{color:#00d9ff;border-bottom-color:#00d9ff;}
+                    .dlr-tab-btn:hover{color:#aaa;}
+                </style>
 
-                    <!-- Header -->
-                    <div class="d-flex align-items-center mb-4">
-                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); display:flex; align-items:center; justify-content:center; margin-right: 16px;">
-                            <i class="fa-solid fa-phone-volume" style="color: #00d9ff; font-size: 1.2rem;"></i>
-                        </div>
-                        <div style="flex:1;">
-                            <h4 style="margin:0; font-weight:700;">Power Dialer</h4>
-                            <p style="margin:0; color:#888; font-size:0.85rem;">AI calling + browser VoIP calling with CRM contacts</p>
-                        </div>
-                        <div id="voipStatus" style="display:none; background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.2); border-radius:8px; padding:4px 10px; font-size:0.72rem; color:var(--accent); font-weight:600;">
-                            <i class="fa-solid fa-headset me-1"></i>VoIP Ready
-                        </div>
+                <!-- Top Bar -->
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:14px;">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;">
+                        <i class="fa-solid fa-phone-volume" style="color:#00d9ff;font-size:1rem;"></i>
                     </div>
-
-                    <!-- Call Mode Toggle -->
-                    <div class="mb-4 p-2" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <div style="display:flex; gap:4px;">
-                            <button id="modeAiBtn" onclick="setDialerMode('ai')"
-                                style="flex:1; padding:10px; border-radius:8px; border:none; background:linear-gradient(135deg,#00d9ff,#0099cc); color:#000; font-weight:700; font-size:0.82rem; cursor:pointer; transition:all .2s;">
-                                <i class="fa-solid fa-robot me-1"></i>AI Calls
-                            </button>
-                            <button id="modeHumanBtn" onclick="setDialerMode('human')"
-                                style="flex:1; padding:10px; border-radius:8px; border:none; background:rgba(255,255,255,0.04); color:#888; font-weight:700; font-size:0.82rem; cursor:pointer; transition:all .2s;">
-                                <i class="fa-solid fa-headset me-1"></i>I'll Call (VoIP)
-                            </button>
-                        </div>
-                        <div id="modeDescription" style="text-align:center; padding:6px 0 2px; font-size:0.75rem; color:#666;">
-                            AI voice agent calls leads and handles the conversation automatically
-                        </div>
+                    <div style="flex:1;">
+                        <h5 style="margin:0;font-weight:700;font-size:1rem;">Power Dialer</h5>
                     </div>
-
-                    <!-- VoIP Setup Banner (shown when human mode selected but not set up) -->
-                    <div id="voipSetupBanner" style="display:none; background:rgba(255,165,0,0.06); border:1px solid rgba(255,165,0,0.15); border-radius:12px; padding:12px 16px; margin-bottom:16px;">
-                        <div class="d-flex align-items-center gap-3">
-                            <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500; font-size:1.1rem;"></i>
-                            <div style="flex:1;">
-                                <div style="font-weight:700; font-size:0.85rem;">Browser calling requires one-time setup</div>
-                                <div style="font-size:0.75rem; color:#888;">Creates a secure key for your browser to make calls through Twilio</div>
-                            </div>
-                            <button onclick="setupVoIP()" id="voipSetupBtn"
-                                style="background:linear-gradient(135deg,#ffa500,#cc8400); border:none; color:#000; border-radius:8px; padding:7px 16px; font-weight:700; font-size:0.8rem; cursor:pointer; white-space:nowrap;">
-                                <i class="fa-solid fa-gear me-1"></i>Setup VoIP
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- In-Call Panel (shows during active human VoIP call) -->
-                    <div id="voipCallPanel" style="display:none; background:rgba(0,255,136,0.03); border:1px solid rgba(0,255,136,0.12); border-radius:14px; padding:16px; margin-bottom:16px;">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div style="width:40px;height:40px;border-radius:50%;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;">
-                                <i class="fa-solid fa-phone" style="color:var(--accent); animation: dialerPulse 1.5s infinite;"></i>
-                            </div>
-                            <div style="flex:1;">
-                                <div id="voipCallName" style="font-weight:700; font-size:0.95rem;">-</div>
-                                <div id="voipCallPhone" style="font-size:0.78rem; color:#888;">-</div>
-                            </div>
-                            <div id="voipCallTimer" style="font-family:monospace; font-size:1.1rem; color:var(--accent); font-weight:700;">00:00</div>
-                        </div>
-
-                        <!-- Call Controls -->
-                        <div class="d-flex justify-content-center gap-3 mb-3">
-                            <button id="voipMuteBtn" onclick="voipToggleMute()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.9rem;" title="Mute">
-                                <i class="fa-solid fa-microphone"></i>
-                            </button>
-                            <button id="voipKeypadBtn" onclick="voipToggleKeypad()" style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.9rem;" title="Keypad">
-                                <i class="fa-solid fa-grip"></i>
-                            </button>
-                            <button onclick="voipHangup()" style="width:56px;height:44px;border-radius:22px;background:linear-gradient(135deg,#ef4444,#cc2222);border:none;color:#fff;cursor:pointer;font-size:0.9rem;font-weight:700;" title="End Call">
-                                <i class="fa-solid fa-phone-slash"></i>
-                            </button>
-                        </div>
-
-                        <!-- DTMF Keypad (hidden by default) -->
-                        <div id="voipKeypad" style="display:none; max-width:200px; margin:0 auto;">
-                            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
-                                <button onclick="voipSendDTMF('1')" class="dtmf-key">1</button>
-                                <button onclick="voipSendDTMF('2')" class="dtmf-key">2</button>
-                                <button onclick="voipSendDTMF('3')" class="dtmf-key">3</button>
-                                <button onclick="voipSendDTMF('4')" class="dtmf-key">4</button>
-                                <button onclick="voipSendDTMF('5')" class="dtmf-key">5</button>
-                                <button onclick="voipSendDTMF('6')" class="dtmf-key">6</button>
-                                <button onclick="voipSendDTMF('7')" class="dtmf-key">7</button>
-                                <button onclick="voipSendDTMF('8')" class="dtmf-key">8</button>
-                                <button onclick="voipSendDTMF('9')" class="dtmf-key">9</button>
-                                <button onclick="voipSendDTMF('*')" class="dtmf-key">*</button>
-                                <button onclick="voipSendDTMF('0')" class="dtmf-key">0</button>
-                                <button onclick="voipSendDTMF('#')" class="dtmf-key">#</button>
-                            </div>
-                        </div>
-                        <style>.dtmf-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}.dtmf-key:hover{background:rgba(0,217,255,0.15);}</style>
-
-                        <!-- Contact Detail (shown during call) -->
-                        <div id="voipContactDetail" style="display:none; border-top:1px solid rgba(255,255,255,0.06); padding-top:12px; margin-top:8px;">
-                            <h6 style="color:#00d9ff; font-weight:700; font-size:0.8rem; margin-bottom:8px;"><i class="fa-solid fa-user me-1"></i>Contact Info</h6>
-                            <div id="voipContactInfo" style="font-size:0.8rem; color:#aaa;"></div>
-                            <div id="voipContactNotes" style="max-height:150px; overflow-y:auto; margin-top:8px;"></div>
-                        </div>
-                    </div>
-
-                    <!-- Active Call Banner (AI mode) -->
-                    <div id="dialerCallBanner" style="display:none; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; align-items: center; gap: 10px;">
-                        <div style="width:10px; height:10px; border-radius:50%; background: var(--accent); animation: dialerPulse 1.5s infinite;"></div>
-                        <div style="flex:1;">
-                            <div id="dialerCallName" style="font-weight:700; font-size:0.85rem;">-</div>
-                            <div id="dialerCallStatus" style="font-size:0.75rem; color: var(--accent);">Connecting...</div>
-                        </div>
-                        <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); color:#ef4444; border-radius:8px; padding:5px 12px; font-size:0.75rem; font-weight:600; cursor:pointer;">
-                            <i class="fa-solid fa-stop me-1"></i>Stop
+                    <!-- Mode Toggle -->
+                    <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:2px;">
+                        <button id="modeAiBtn" onclick="setDialerMode('ai')" style="padding:6px 14px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;transition:all .2s;">
+                            <i class="fa-solid fa-robot me-1"></i>AI Calls
+                        </button>
+                        <button id="modeHumanBtn" onclick="setDialerMode('human')" style="padding:6px 14px;border-radius:6px;border:none;background:transparent;color:#888;font-weight:700;font-size:0.75rem;cursor:pointer;transition:all .2s;">
+                            <i class="fa-solid fa-headset me-1"></i>VoIP
                         </button>
                     </div>
-                    <style>@keyframes dialerPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }</style>
+                    <div id="voipStatus" style="display:none;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);border-radius:6px;padding:3px 8px;font-size:0.68rem;color:var(--accent);font-weight:600;">
+                        <i class="fa-solid fa-circle me-1" style="font-size:0.4rem;vertical-align:middle;"></i>VoIP Ready
+                    </div>
+                </div>
 
-                    <!-- Get Contacts Section -->
-                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 style="color: #00d9ff; font-weight: 700; margin:0;"><i class="fa-solid fa-address-book me-2"></i>Contacts</h6>
-                            <div class="d-flex align-items-center gap-2">
-                                <div style="position:relative;">
-                                    <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#444; font-size:0.75rem;"></i>
-                                    <input type="text" id="dialerSearch" placeholder="Search..."
-                                        oninput="dialerDebounceSearch()"
-                                        style="width:180px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:7px 10px 7px 30px; border-radius:8px; font-size:0.8rem; outline:none;">
+                <!-- VoIP Setup Banner -->
+                <div id="voipSetupBanner" style="display:none;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>
+                        <div style="flex:1;font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure key for Twilio calls</span></div>
+                        <button onclick="setupVoIP()" id="voipSetupBtn" style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
+                            <i class="fa-solid fa-gear me-1"></i>Setup VoIP
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Call Banner (AI mode) -->
+                <div id="dialerCallBanner" style="display:none;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;">
+                    <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);animation:dialerPulse 1.5s infinite;"></div>
+                    <div style="flex:1;">
+                        <div id="dialerCallName" style="font-weight:700;font-size:0.85rem;">-</div>
+                        <div id="dialerCallStatus" style="font-size:0.75rem;color:var(--accent);">Connecting...</div>
+                    </div>
+                    <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">
+                        <i class="fa-solid fa-stop me-1"></i>Stop
+                    </button>
+                </div>
+
+                <!-- VoIP In-Call Bar -->
+                <div id="voipCallPanel" style="display:none;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;">
+                            <i class="fa-solid fa-phone" style="color:var(--accent);animation:dialerPulse 1.5s infinite;"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div id="voipCallName" style="font-weight:700;font-size:0.88rem;">-</div>
+                            <div id="voipCallPhone" style="font-size:0.72rem;color:#888;">-</div>
+                        </div>
+                        <div id="voipCallTimer" style="font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
+                        <button id="voipMuteBtn" onclick="voipToggleMute()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.8rem;" title="Mute">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <button onclick="voipToggleKeypad()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.8rem;" title="Keypad">
+                            <i class="fa-solid fa-grip"></i>
+                        </button>
+                        <button onclick="voipHangup()" style="width:44px;height:36px;border-radius:18px;background:linear-gradient(135deg,#ef4444,#cc2222);border:none;color:#fff;cursor:pointer;font-size:0.8rem;font-weight:700;" title="End Call">
+                            <i class="fa-solid fa-phone-slash"></i>
+                        </button>
+                    </div>
+                    <!-- DTMF Keypad (hidden) -->
+                    <div id="voipKeypad" style="display:none;max-width:200px;margin:8px auto 0;">
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+                            <button onclick="voipSendDTMF('1')" class="dtmf-key">1</button><button onclick="voipSendDTMF('2')" class="dtmf-key">2</button><button onclick="voipSendDTMF('3')" class="dtmf-key">3</button>
+                            <button onclick="voipSendDTMF('4')" class="dtmf-key">4</button><button onclick="voipSendDTMF('5')" class="dtmf-key">5</button><button onclick="voipSendDTMF('6')" class="dtmf-key">6</button>
+                            <button onclick="voipSendDTMF('7')" class="dtmf-key">7</button><button onclick="voipSendDTMF('8')" class="dtmf-key">8</button><button onclick="voipSendDTMF('9')" class="dtmf-key">9</button>
+                            <button onclick="voipSendDTMF('*')" class="dtmf-key">*</button><button onclick="voipSendDTMF('0')" class="dtmf-key">0</button><button onclick="voipSendDTMF('#')" class="dtmf-key">#</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ 3-Column Layout ═══ -->
+                <div style="display:flex;gap:8px;height:calc(100vh - 320px);min-height:500px;">
+
+                    <!-- ── LEFT: Contacts ── -->
+                    <div class="dlr-col" style="width:30%;border-radius:12px;">
+                        <div class="dlr-col-hdr">
+                            <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
+                            <button id="dialerGetContactsBtn" onclick="dialerFetchContacts()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.7rem;cursor:pointer;">
+                                <i class="fa-solid fa-download me-1"></i>Get Contacts
+                            </button>
+                        </div>
+                        <!-- Search + Filters -->
+                        <div style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                            <div style="position:relative;margin-bottom:6px;">
+                                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#444;font-size:0.7rem;"></i>
+                                <input type="text" id="dialerSearch" placeholder="Search contacts..." oninput="dialerDebounceSearch()"
+                                    style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:6px 8px 6px 28px;border-radius:6px;font-size:0.78rem;outline:none;">
+                            </div>
+                            <select id="dialerPipelineFilter" onchange="dialerOnPipelineChange()" style="width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;margin-bottom:4px;">
+                                <option value="">All Contacts</option>
+                            </select>
+                            <select id="dialerStageFilter" onchange="dialerFetchContacts()" style="display:none;width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;">
+                                <option value="">All Stages</option>
+                            </select>
+                        </div>
+                        <!-- Select Actions -->
+                        <div id="dialerActionsBar" style="display:none;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <label style="color:#ccc;font-size:0.72rem;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;">
+                                    All <span id="dialerSelectedCount" style="color:#00d9ff;font-weight:600;"></span>
+                                </label>
+                                <div class="d-flex gap-2">
+                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:600;cursor:pointer;" disabled>
+                                        <i class="fa-solid fa-plus me-1"></i>Queue
+                                    </button>
+                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;" disabled>
+                                        <i class="fa-solid fa-phone me-1"></i>Dial
+                                    </button>
                                 </div>
-                                <button id="dialerGetContactsBtn" onclick="dialerFetchContacts('')"
-                                    style="background: linear-gradient(135deg, #00d9ff, #0099cc); color: #000; border: none; border-radius: 8px; padding: 7px 16px; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap;">
-                                    <i class="fa-solid fa-download me-1"></i>Get Contacts
+                            </div>
+                        </div>
+                        <!-- Contact List -->
+                        <div id="dialerContactList" class="dlr-col-body">
+                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
+                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
+                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
+                            </div>
+                        </div>
+                        <!-- Queue (bottom) -->
+                        <div style="border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                            <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
+                                <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dialerQueueCount" style="color:#00d9ff;">0</span></span>
+                                <i class="fa-solid fa-chevron-up" style="color:#555;font-size:0.6rem;"></i>
+                            </div>
+                            <div id="dialerQueueBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
+                                <div id="dialerQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
+                                    <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Empty queue</div>
+                                </div>
+                                <div style="display:flex;gap:4px;padding:6px 8px;">
+                                    <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled style="flex:1;padding:6px;border-radius:6px;border:none;background:linear-gradient(135deg,var(--accent),#00b36b);color:#000;font-weight:700;font-size:0.72rem;cursor:pointer;">
+                                        <i class="fa-solid fa-play me-1"></i>Auto-Dial
+                                    </button>
+                                    <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.72rem;cursor:pointer;">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Manual Dial -->
+                        <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;display:flex;gap:6px;">
+                            <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.78rem;outline:none;">
+                            <button onclick="dialerManualCall()" style="padding:6px 12px;border-radius:6px;border:none;background:var(--accent);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;white-space:nowrap;">
+                                <i class="fa-solid fa-phone"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ── MIDDLE: Contact Detail ── -->
+                    <div class="dlr-col" style="width:35%;border-radius:12px;">
+                        <div class="dlr-col-hdr">
+                            <h6><i class="fa-solid fa-user me-1"></i>Contact Detail</h6>
+                            <div id="dlrDetailActions" style="display:none;display:flex;gap:4px;">
+                                <button id="dlrCallContactBtn" onclick="dialerCallActiveContact()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.7rem;cursor:pointer;">
+                                    <i class="fa-solid fa-phone me-1"></i>Call
+                                </button>
+                                <button onclick="dialerAddActiveToQueue()" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:6px;padding:4px 10px;font-weight:600;font-size:0.7rem;cursor:pointer;">
+                                    <i class="fa-solid fa-plus me-1"></i>Queue
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Select All / Actions Bar -->
-                        <div id="dialerActionsBar" style="display:none; margin-bottom: 10px;">
-                            <div class="d-flex align-items-center justify-content-between" style="background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:8px; padding:6px 12px;">
-                                <label style="color:#ccc; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" style="accent-color:#00d9ff; width:16px; height:16px; cursor:pointer;">
-                                    Select All <span id="dialerSelectedCount" style="color:#00d9ff; font-weight:600;"></span>
-                                </label>
-                                <div class="d-flex gap-2">
-                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" style="background:rgba(0,217,255,0.1); border:1px solid rgba(0,217,255,0.2); color:#00d9ff; border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:600; cursor:pointer;" disabled>
-                                        <i class="fa-solid fa-plus me-1"></i>Add to Queue
-                                    </button>
-                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" style="background:linear-gradient(135deg,var(--accent),#00b36b); border:none; color:#000; border-radius:6px; padding:4px 12px; font-size:0.75rem; font-weight:700; cursor:pointer;" disabled>
-                                        <i class="fa-solid fa-phone me-1"></i>Call Selected
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Contact List -->
-                        <div id="dialerContactList" style="max-height:350px; overflow-y:auto;">
-                            <div style="text-align:center; padding:30px; color:#555; font-size:0.85rem;">
-                                <i class="fa-solid fa-address-book" style="font-size:2rem; color:#333; margin-bottom:10px; display:block;"></i>
-                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load your CRM contacts
+                        <div id="dlrDetailContent" class="dlr-col-body" style="padding:16px;">
+                            <div style="text-align:center;padding:60px 20px;color:#333;">
+                                <i class="fa-solid fa-user-large" style="font-size:2.5rem;color:#1a1a2e;margin-bottom:12px;display:block;"></i>
+                                <div style="color:#555;font-size:0.82rem;">Select a contact to view details</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Queue Section -->
-                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <h6 style="color: var(--accent); font-weight: 700; margin:0;">
-                                <i class="fa-solid fa-list-ol me-2"></i>Call Queue
-                                <span id="dialerQueueBadge" style="display:none; background:rgba(0,217,255,0.15); color:#00d9ff; padding:1px 7px; border-radius:8px; font-size:0.68rem; margin-left:6px;"></span>
-                            </h6>
-                            <span id="dialerQueueCount" style="background:rgba(0,217,255,0.1); color:#00d9ff; padding:2px 10px; border-radius:10px; font-size:0.7rem; font-weight:600;">0</span>
-                        </div>
-                        <div id="dialerQueueList" style="max-height:200px; overflow-y:auto; margin-bottom:10px;">
-                            <div style="text-align:center; padding:14px; color:#555; font-size:0.82rem;">Select contacts above and add to queue, or click Call Selected</div>
-                        </div>
-                        <div style="display:flex; gap:8px;">
-                            <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled
-                                style="flex:1; padding:10px; border-radius:10px; border:none; background:linear-gradient(135deg, var(--accent), #00b36b); color:#000; font-weight:700; font-size:0.82rem; cursor:pointer;">
-                                <i class="fa-solid fa-play me-1"></i>Start Auto-Dial
-                            </button>
-                            <button onclick="dialerClearQueue()"
-                                style="padding:10px 14px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); color:#888; font-weight:600; font-size:0.82rem; cursor:pointer;">
-                                Clear
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Manual Dial -->
-                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <h6 style="color: #aaa; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-keyboard me-2"></i>Manual Dial</h6>
-                        <div style="display:flex; gap:8px;">
-                            <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567"
-                                style="flex:1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:10px 12px; border-radius:10px; font-size:0.88rem; outline:none;">
-                            <button onclick="dialerManualCall()"
-                                style="padding:10px 20px; border-radius:10px; border:none; background:var(--accent); color:#000; font-weight:700; font-size:0.85rem; cursor:pointer; white-space:nowrap;">
-                                <i class="fa-solid fa-phone me-1"></i>Call
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Call History -->
-                    <div class="p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 style="color: #aaa; font-weight: 700; margin:0;"><i class="fa-solid fa-clock-rotate-left me-2"></i>Call History</h6>
-                            <button onclick="dialerLoadHistory()" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:600; cursor:pointer;">
-                                <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
-                            </button>
-                        </div>
-                        <div id="dialerHistoryList" style="max-height:400px; overflow-y:auto;">
-                            <div style="text-align:center; padding:20px; color:#555; font-size:0.82rem;">
-                                Call history will appear here after making calls
+                    <!-- ── RIGHT: History ── -->
+                    <div class="dlr-col" style="width:35%;border-radius:12px;">
+                        <div class="dlr-col-hdr">
+                            <h6><i class="fa-solid fa-clock-rotate-left me-1"></i>History</h6>
+                            <div style="display:flex;gap:0;">
+                                <button class="dlr-tab-btn active" id="dlrTabMsgs" onclick="dialerSwitchHistoryTab('messages')">Messages</button>
+                                <button class="dlr-tab-btn" id="dlrTabCalls" onclick="dialerSwitchHistoryTab('calls')">Calls</button>
+                                <button class="dlr-tab-btn" id="dlrTabTrust" onclick="dialerSwitchHistoryTab('trust')">Trust Hub</button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Trust Hub / Phone Numbers -->
-                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <div class="d-flex align-items-center justify-content-between mb-3" style="cursor:pointer;" onclick="document.getElementById('trustHubContent').style.display=document.getElementById('trustHubContent').style.display==='none'?'block':'none'">
-                            <h6 style="color: #aaa; font-weight: 700; margin:0;"><i class="fa-solid fa-shield-halved me-2"></i>Trust Hub & Phone Numbers</h6>
-                            <i class="fa-solid fa-chevron-down" style="color:#555; font-size:0.75rem;"></i>
+                        <!-- Messages Tab -->
+                        <div id="dlrHistoryMessages" class="dlr-col-body" style="padding:10px;">
+                            <div style="text-align:center;padding:60px 20px;color:#333;">
+                                <i class="fa-solid fa-comments" style="font-size:2rem;color:#1a1a2e;margin-bottom:10px;display:block;"></i>
+                                <div style="color:#555;font-size:0.82rem;">Select a contact to view messages</div>
+                            </div>
                         </div>
-                        <div id="trustHubContent" style="display:none;">
-                            <!-- STIR/SHAKEN Status -->
-                            <div class="mb-3 p-3" style="background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:10px;">
+                        <!-- Calls Tab -->
+                        <div id="dlrHistoryCalls" class="dlr-col-body" style="display:none;padding:0;">
+                            <div id="dialerHistoryList" style="padding:4px;">
+                                <div style="text-align:center;padding:20px;color:#555;font-size:0.82rem;">Call history appears after making calls</div>
+                            </div>
+                        </div>
+                        <!-- Trust Hub Tab -->
+                        <div id="dlrHistoryTrust" class="dlr-col-body" style="display:none;padding:10px;">
+                            <!-- STIR/SHAKEN -->
+                            <div class="mb-2 p-2" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
                                 <div class="d-flex align-items-center justify-content-between">
-                                    <div>
-                                        <div style="font-weight:700; font-size:0.88rem;">STIR/SHAKEN</div>
-                                        <div style="font-size:0.78rem; color:#888;">Call authentication to prevent "Spam Likely" labeling. Register via your Twilio account.</div>
-                                    </div>
-                                    <span id="stirStatus" style="background:rgba(255,255,255,0.06); color:#888; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:600;">Checking...</span>
+                                    <div><div style="font-weight:700;font-size:0.82rem;">STIR/SHAKEN</div><div style="font-size:0.72rem;color:#888;">Call authentication to prevent "Spam Likely"</div></div>
+                                    <span id="stirStatus" style="background:rgba(255,255,255,0.06);color:#888;padding:3px 8px;border-radius:5px;font-size:0.68rem;font-weight:600;">Checking...</span>
                                 </div>
                             </div>
-
-                            <!-- Spam Protection Info -->
-                            <div class="mb-3 p-3" style="background:rgba(0,255,136,0.03); border:1px solid rgba(0,255,136,0.08); border-radius:10px;">
+                            <!-- Spam Protection -->
+                            <div class="mb-2 p-2" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:8px;">
                                 <div class="d-flex align-items-center justify-content-between">
-                                    <div>
-                                        <div style="font-weight:700; font-size:0.88rem;">Spam Protection</div>
-                                        <div style="font-size:0.78rem; color:#888;">STIR/SHAKEN verified calls show as verified on AT&T, T-Mobile, and Verizon. Register your business identity in Twilio Console.</div>
-                                    </div>
-                                    <a href="https://console.twilio.com/us1/develop/phone-numbers/manage/trust-hub" target="_blank"
-                                        style="background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.2); color:var(--accent); border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; text-decoration:none; white-space:nowrap;">
-                                        Register
-                                    </a>
+                                    <div><div style="font-weight:700;font-size:0.82rem;">Spam Protection</div><div style="font-size:0.72rem;color:#888;">Register business identity in Twilio Console</div></div>
+                                    <a href="https://console.twilio.com/us1/develop/phone-numbers/manage/trust-hub" target="_blank" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:0.68rem;font-weight:600;text-decoration:none;">Register</a>
                                 </div>
                             </div>
-
-                            <!-- Phone Numbers Table -->
+                            <!-- Numbers -->
                             <div class="d-flex align-items-center justify-content-between mb-2">
-                                <h6 style="color:#ccc; font-weight:700; font-size:0.85rem; margin:0;">Your Phone Numbers</h6>
+                                <span style="font-weight:700;font-size:0.78rem;color:#ccc;">Phone Numbers</span>
                                 <div class="d-flex gap-2">
-                                    <button onclick="loadTrustHubNumbers()" style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; border-radius:6px; padding:3px 8px; font-size:0.72rem; cursor:pointer;">
-                                        <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
-                                    </button>
-                                    <button onclick="document.getElementById('buyNumberPanel').style.display=document.getElementById('buyNumberPanel').style.display==='none'?'block':'none'"
-                                        style="background:rgba(0,217,255,0.1); border:1px solid rgba(0,217,255,0.2); color:#00d9ff; border-radius:6px; padding:3px 8px; font-size:0.72rem; cursor:pointer;">
-                                        <i class="fa-solid fa-plus me-1"></i>Buy Number
-                                    </button>
+                                    <button onclick="loadTrustHubNumbers()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:4px;padding:2px 6px;font-size:0.68rem;cursor:pointer;"><i class="fa-solid fa-arrows-rotate"></i></button>
+                                    <button onclick="document.getElementById('buyNumberPanel').style.display=document.getElementById('buyNumberPanel').style.display==='none'?'block':'none'" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:0.68rem;cursor:pointer;"><i class="fa-solid fa-plus me-1"></i>Buy</button>
                                 </div>
                             </div>
-
-                            <!-- Buy Number Panel (hidden) -->
-                            <div id="buyNumberPanel" style="display:none; margin-bottom:10px; padding:10px; background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:8px;">
+                            <div id="buyNumberPanel" style="display:none;margin-bottom:8px;padding:8px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;">
                                 <div class="d-flex gap-2 mb-2">
-                                    <input type="text" id="buyAreaCode" placeholder="Area code (e.g. 336)" style="width:120px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; outline:none;">
-                                    <input type="text" id="buyState" placeholder="State (e.g. NC)" style="width:80px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; outline:none;">
-                                    <button onclick="searchAvailableNumbers()" style="background:linear-gradient(135deg,#00d9ff,#0099cc); border:none; color:#000; border-radius:6px; padding:6px 14px; font-size:0.78rem; font-weight:700; cursor:pointer;">
-                                        <i class="fa-solid fa-magnifying-glass me-1"></i>Search
-                                    </button>
+                                    <input type="text" id="buyAreaCode" placeholder="Area code" style="width:90px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;outline:none;">
+                                    <input type="text" id="buyState" placeholder="State" style="width:60px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;outline:none;">
+                                    <button onclick="searchAvailableNumbers()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:4px 10px;font-size:0.72rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
-                                <div id="availableNumbersList" style="max-height:200px; overflow-y:auto; font-size:0.82rem;"></div>
+                                <div id="availableNumbersList" style="max-height:150px;overflow-y:auto;font-size:0.78rem;"></div>
                             </div>
-
-                            <!-- Numbers List -->
-                            <div id="trustHubNumbersList" style="max-height:300px; overflow-y:auto;">
-                                <div style="text-align:center; padding:12px; color:#555; font-size:0.8rem;">Click Refresh to load your numbers</div>
+                            <div id="trustHubNumbersList" style="font-size:0.78rem;">
+                                <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Click refresh to load numbers</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Transcript Modal -->
-                    <div id="transcriptModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); z-index:10000; align-items:center; justify-content:center;">
-                        <div style="background:rgba(12,12,12,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:16px; max-width:600px; width:90%; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
-                            <div style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between;">
-                                <h5 style="margin:0; font-weight:700;"><i class="fa-solid fa-file-lines me-2" style="color:#00d9ff;"></i>Call Transcript</h5>
-                                <button onclick="closeTranscriptModal()" style="background:none; border:none; color:#888; cursor:pointer; font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                            <div id="transcriptContent" style="padding:16px 20px; overflow-y:auto; flex:1;">
-                            </div>
-                        </div>
-                    </div>
+                </div>
 
+                <!-- Transcript Modal -->
+                <div id="transcriptModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;">
+                    <div style="background:rgba(12,12,12,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
+                        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+                            <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-lines me-2" style="color:#00d9ff;"></i>Call Transcript</h5>
+                            <button onclick="closeTranscriptModal()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div id="transcriptContent" style="padding:16px 20px;overflow-y:auto;flex:1;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -2360,96 +2339,298 @@
         let dialerCallIdx = -1;
         let dialerPollTimer = null;
         let dialerSearchTimer = null;
-        let dialerContactsLoaded = false;
+        let dialerActiveContact = null; // currently selected contact in middle panel
+        let dialerPipelines = [];
 
-        function dialerDebounceSearch() {
-            clearTimeout(dialerSearchTimer);
-            dialerSearchTimer = setTimeout(() => {
-                dialerFetchContacts(document.getElementById('dialerSearch').value);
-            }, 400);
+        function dialerEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function formatPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '(' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
         }
 
-        async function dialerFetchContacts(q) {
+        // ── Pipeline filter ──
+        async function dialerLoadPipelines() {
+            try {
+                const r = await fetch('/voice/pipelines');
+                if (!r.ok) return;
+                const d = await r.json();
+                dialerPipelines = d.pipelines || [];
+                const sel = document.getElementById('dialerPipelineFilter');
+                sel.innerHTML = '<option value="">All Contacts</option>' +
+                    dialerPipelines.map(p => '<option value="' + p.id + '">' + dialerEsc(p.name) + '</option>').join('');
+            } catch(e) {}
+        }
+
+        function dialerOnPipelineChange() {
+            const pipelineId = document.getElementById('dialerPipelineFilter').value;
+            const stageSel = document.getElementById('dialerStageFilter');
+            if (pipelineId) {
+                const p = dialerPipelines.find(x => x.id === pipelineId);
+                if (p && p.stages.length) {
+                    stageSel.innerHTML = '<option value="">All Stages</option>' +
+                        p.stages.map(s => '<option value="' + s.id + '">' + dialerEsc(s.name) + '</option>').join('');
+                    stageSel.style.display = 'block';
+                } else {
+                    stageSel.style.display = 'none';
+                }
+            } else {
+                stageSel.style.display = 'none';
+            }
+            dialerFetchContacts();
+        }
+
+        // ── Search ──
+        function dialerDebounceSearch() {
+            clearTimeout(dialerSearchTimer);
+            dialerSearchTimer = setTimeout(() => dialerFetchContacts(), 400);
+        }
+
+        // ── Fetch ALL contacts (paginated on backend) ──
+        async function dialerFetchContacts() {
             const list = document.getElementById('dialerContactList');
             const btn = document.getElementById('dialerGetContactsBtn');
+            const q = (document.getElementById('dialerSearch').value || '').trim();
+            const pipeline = document.getElementById('dialerPipelineFilter').value;
+            const stage = document.getElementById('dialerStageFilter').value;
+
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...';
             btn.disabled = true;
-            list.innerHTML = '<div style="text-align:center;padding:20px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i><p style="margin-top:8px;font-size:.82rem;">Fetching contacts...</p></div>';
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Fetching all contacts...</p></div>';
             try {
-                const r = await fetch('/voice/contacts?q=' + encodeURIComponent(q || '') + '&limit=100');
+                let url = '/voice/contacts?';
+                if (q) url += 'q=' + encodeURIComponent(q) + '&';
+                if (pipeline) url += 'pipeline=' + encodeURIComponent(pipeline) + '&';
+                if (stage) url += 'stage=' + encodeURIComponent(stage);
+                const r = await fetch(url);
                 const d = await r.json();
                 if (!r.ok) {
-                    list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to fetch contacts') + '</div>';
+                    list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed') + '</div>';
                     return;
                 }
                 dialerContacts = d.contacts || [];
                 dialerSelected.clear();
-                dialerContactsLoaded = true;
                 dialerRenderContacts();
                 dialerUpdateSelectionUI();
             } catch(e) {
-                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;">Network error fetching contacts</div>';
+                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;">Network error</div>';
             } finally {
                 btn.innerHTML = '<i class="fa-solid fa-download me-1"></i>Get Contacts';
                 btn.disabled = false;
             }
         }
 
+        // ── Render contact list (left panel) ──
         function dialerRenderContacts() {
             const list = document.getElementById('dialerContactList');
             const actionsBar = document.getElementById('dialerActionsBar');
 
             if (!dialerContacts.length) {
-                list.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.82rem;"><i class="fa-solid fa-user-slash me-2"></i>No contacts found</div>';
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#444;font-size:.78rem;"><i class="fa-solid fa-user-slash" style="font-size:1.5rem;color:#2a2a3e;margin-bottom:8px;display:block;"></i>No contacts found</div>';
                 actionsBar.style.display = 'none';
                 return;
             }
 
             actionsBar.style.display = 'block';
-
             list.innerHTML = dialerContacts.map(c => {
                 const init = (c.firstName || c.name || '?')[0].toUpperCase();
                 const sel = dialerSelected.has(c.id);
+                const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
                 const inQ = dialerQueue.some(q => q.id === c.id);
-                return '<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;transition:background .15s;' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '" onmouseover="if(!this.style.background.includes(\'0,217,255\'))this.style.background=\'rgba(255,255,255,0.03)\'" onmouseout="if(!this.querySelector(\'input\').checked)this.style.background=\'transparent\'">' +
-                    '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff; width:16px; height:16px; cursor:pointer; flex-shrink:0;">' +
-                    '<div style="width:32px;height:32px;border-radius:50%;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.7rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
-                    '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div><div style="font-size:.72rem;color:#666;">' + dialerEsc(c.phone) + (c.email ? ' &middot; ' + dialerEsc(c.email) : '') + '</div></div>' +
-                    '<button onclick="dialerToggleQ(\'' + c.id + '\')" style="width:28px;height:28px;border-radius:50%;background:' + (inQ ? 'rgba(0,217,255,0.2)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (inQ ? '#00d9ff' : 'rgba(0,217,255,0.12)') + ';color:#00d9ff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.7rem;" title="' + (inQ ? 'Remove from queue' : 'Add to queue') + '"><i class="fa-solid ' + (inQ ? 'fa-check' : 'fa-plus') + '"></i></button>' +
-                    '<button onclick="dialerCallContact(\'' + c.id + '\')" style="width:28px;height:28px;border-radius:50%;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.7rem;" title="Call now"><i class="fa-solid fa-phone"></i></button>' +
+                return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
+                    '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
+                    '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.65rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
+                    '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div><div style="font-size:.68rem;color:#555;">' + dialerEsc(c.phone) + '</div></div>' +
+                    (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.6rem;" title="In queue"></i>' : '') +
                 '</div>';
             }).join('');
         }
 
+        // ── Select contact → load detail + messages ──
+        function dialerSelectContact(id) {
+            const c = dialerContacts.find(x => x.id === id);
+            if (!c) return;
+            dialerActiveContact = c;
+            dialerRenderContacts(); // highlight active
+            dialerLoadContactDetail(c.id);
+            dialerLoadContactMessages(c.id);
+            document.getElementById('dlrDetailActions').style.display = 'flex';
+        }
+
+        // ── Middle panel: full contact detail ──
+        async function dialerLoadContactDetail(contactId) {
+            const panel = document.getElementById('dlrDetailContent');
+            panel.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
+            try {
+                const r = await fetch('/voice/contact/' + contactId);
+                if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Could not load contact</div>'; return; }
+                const c = await r.json();
+
+                let html = '';
+                // Name header
+                html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06);">';
+                html += '<div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;color:#00d9ff;">' + (c.firstName || c.name || '?')[0].toUpperCase() + '</div>';
+                html += '<div><div style="font-weight:700;font-size:1.05rem;">' + dialerEsc(c.name || 'Unknown') + '</div>';
+                html += '<div style="font-size:.78rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div></div></div>';
+
+                // Info grid
+                const fields = [
+                    { label: 'Email', value: c.email, icon: 'fa-envelope' },
+                    { label: 'Phone', value: formatPhone(c.phone), icon: 'fa-phone' },
+                    { label: 'Address', value: [c.address, c.city, c.state].filter(Boolean).join(', '), icon: 'fa-location-dot' },
+                    { label: 'Source', value: c.source, icon: 'fa-link' },
+                    { label: 'Date Added', value: c.dateAdded ? new Date(c.dateAdded).toLocaleDateString() : '', icon: 'fa-calendar' },
+                ];
+                fields.forEach(f => {
+                    if (f.value) {
+                        html += '<div class="dlr-field-label"><i class="fa-solid ' + f.icon + ' me-1" style="width:12px;"></i>' + f.label + '</div>';
+                        html += '<div class="dlr-field-value">' + dialerEsc(f.value) + '</div>';
+                    }
+                });
+
+                // Tags
+                if (c.tags && c.tags.length) {
+                    html += '<div class="dlr-field-label">Tags</div>';
+                    html += '<div style="margin-bottom:10px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:.72rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div>';
+                }
+
+                // Custom Fields
+                if (c.customFields && c.customFields.length) {
+                    const filled = c.customFields.filter(cf => cf.value);
+                    if (filled.length) {
+                        html += '<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
+                        html += '<div style="font-size:.72rem;font-weight:700;color:#00d9ff;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
+                        filled.forEach(cf => {
+                            const name = cf.name || cf.fieldKey || 'Field';
+                            html += '<div class="dlr-field-label">' + dialerEsc(name) + '</div>';
+                            html += '<div class="dlr-field-value">' + dialerEsc(String(cf.value)) + '</div>';
+                        });
+                        html += '</div>';
+                    }
+                }
+
+                // Notes
+                if (c.notes && c.notes.length) {
+                    html += '<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
+                    html += '<div style="font-size:.72rem;font-weight:700;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
+                    c.notes.forEach(n => {
+                        html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:.78rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.65rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
+                    });
+                    html += '</div>';
+                }
+
+                panel.innerHTML = html;
+            } catch(e) {
+                panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Failed to load contact</div>';
+            }
+        }
+
+        // ── Right panel: messages + call history for selected contact ──
+        async function dialerLoadContactMessages(contactId) {
+            const msgPanel = document.getElementById('dlrHistoryMessages');
+            msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            try {
+                const r = await fetch('/voice/contact/' + contactId + '/messages');
+                if (!r.ok) { msgPanel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;font-size:.82rem;">Could not load messages</div>'; return; }
+                const d = await r.json();
+                const msgs = d.messages || [];
+                const calls = d.calls || [];
+
+                // Render messages
+                if (!msgs.length) {
+                    msgPanel.innerHTML = '<div style="text-align:center;padding:30px;color:#444;font-size:.82rem;"><i class="fa-solid fa-comments" style="font-size:1.5rem;color:#1a1a2e;margin-bottom:8px;display:block;"></i>No messages yet</div>';
+                } else {
+                    msgPanel.innerHTML = msgs.map(m => {
+                        const isLead = m.role === 'lead';
+                        const time = m.timestamp ? new Date(m.timestamp).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+                        return '<div style="display:flex;flex-direction:column;align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';margin-bottom:6px;">' +
+                            '<div class="dlr-msg-bubble ' + (isLead ? 'dlr-msg-lead' : 'dlr-msg-bot') + '">' + dialerEsc(m.text) + '</div>' +
+                            '<div style="font-size:.62rem;color:#555;padding:0 4px;">' + time + '</div>' +
+                        '</div>';
+                    }).join('');
+                }
+
+                // Render contact-specific call history in calls tab
+                const callPanel = document.getElementById('dialerHistoryList');
+                if (!calls.length) {
+                    callPanel.innerHTML = '<div style="text-align:center;padding:20px;color:#444;font-size:.82rem;">No calls with this contact</div>';
+                } else {
+                    callPanel.innerHTML = calls.map(c => {
+                        const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444' };
+                        const statusColor = statusColors[c.status] || '#00d9ff';
+                        const durMin = c.duration ? Math.floor(c.duration / 60) + ':' + String(c.duration % 60).padStart(2, '0') : '--:--';
+                        const dt = c.started_at ? new Date(c.started_at).toLocaleString() : '';
+                        const hasRec = !!c.recording_url;
+                        const hasTx = c.transcript && c.transcript.length > 0;
+                        return '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
+                            '<div style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
+                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + (c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
+                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + (c.status || '').replace('-',' ') + '</div>' +
+                            '<div style="color:#888;font-size:.7rem;">' + durMin + '</div>' +
+                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        '</div>';
+                    }).join('');
+                }
+            } catch(e) {
+                msgPanel.innerHTML = '<div style="color:#ef4444;padding:16px;text-align:center;font-size:.82rem;">Error loading messages</div>';
+            }
+        }
+
+        // ── History tab switching ──
+        function dialerSwitchHistoryTab(tab) {
+            ['messages','calls','trust'].forEach(t => {
+                document.getElementById('dlrHistory' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
+                document.getElementById('dlrTab' + t.charAt(0).toUpperCase() + t.slice(1)).className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
+            });
+            // Capitalize first letter for tab IDs
+        }
+        function dialerSwitchHistoryTab(tab) {
+            const tabs = {messages:'Messages', calls:'Calls', trust:'Trust'};
+            Object.keys(tabs).forEach(t => {
+                document.getElementById('dlrHistory' + tabs[t]).style.display = t === tab ? 'block' : 'none';
+                document.getElementById('dlrTab' + tabs[t]).className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
+            });
+        }
+
+        // ── Contact actions from middle panel ──
+        function dialerCallActiveContact() {
+            if (!dialerActiveContact) return;
+            const c = dialerActiveContact;
+            dialerStartCall(c.phone, c.firstName || c.name, c.id, c.name);
+        }
+        function dialerAddActiveToQueue() {
+            if (!dialerActiveContact) return;
+            const c = dialerActiveContact;
+            if (!dialerQueue.some(q => q.id === c.id)) {
+                dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+                dialerRenderContacts();
+                dialerRenderQueue();
+            }
+        }
+
+        // ── Selection ──
         function dialerToggleSelect(id) {
             if (dialerSelected.has(id)) dialerSelected.delete(id);
             else dialerSelected.add(id);
             dialerUpdateSelectionUI();
-            dialerRenderContacts();
         }
-
         function dialerToggleSelectAll() {
             const cb = document.getElementById('dialerSelectAll');
-            if (cb.checked) {
-                dialerContacts.forEach(c => dialerSelected.add(c.id));
-            } else {
-                dialerSelected.clear();
-            }
+            if (cb.checked) dialerContacts.forEach(c => dialerSelected.add(c.id));
+            else dialerSelected.clear();
             dialerUpdateSelectionUI();
             dialerRenderContacts();
         }
-
         function dialerUpdateSelectionUI() {
             const cnt = dialerSelected.size;
-            const countEl = document.getElementById('dialerSelectedCount');
-            const addBtn = document.getElementById('dialerAddSelectedBtn');
-            const callBtn = document.getElementById('dialerCallSelectedBtn');
-            const selectAll = document.getElementById('dialerSelectAll');
-
-            countEl.textContent = cnt > 0 ? '(' + cnt + ')' : '';
-            addBtn.disabled = cnt === 0;
-            callBtn.disabled = cnt === 0;
-            if (selectAll) selectAll.checked = dialerContacts.length > 0 && cnt === dialerContacts.length;
+            document.getElementById('dialerSelectedCount').textContent = cnt > 0 ? '(' + cnt + ')' : '';
+            document.getElementById('dialerAddSelectedBtn').disabled = cnt === 0;
+            document.getElementById('dialerCallSelectedBtn').disabled = cnt === 0;
+            const sa = document.getElementById('dialerSelectAll');
+            if (sa) sa.checked = dialerContacts.length > 0 && cnt === dialerContacts.length;
         }
 
         function dialerAddSelectedToQueue() {
@@ -2462,21 +2643,12 @@
             dialerSelected.clear();
             dialerRenderContacts();
             dialerRenderQueue();
-            dialerUpdateBadge();
             dialerUpdateSelectionUI();
         }
 
         function dialerCallSelected() {
-            // Add selected to queue and immediately start dialing
             dialerAddSelectedToQueue();
-            if (dialerQueue.length > 0 && !dialerQueueRunning) {
-                dialerToggleQueue();
-            }
-        }
-
-        function dialerCallContact(id) {
-            const c = dialerContacts.find(x => x.id === id);
-            if (c) dialerStartCall(c.phone, c.firstName || c.name, c.id, c.name);
+            if (dialerQueue.length > 0 && !dialerQueueRunning) dialerToggleQueue();
         }
 
         function dialerManualCall() {
@@ -2486,6 +2658,7 @@
             dialerStartCall(ph, 'Manual', '', ph);
         }
 
+        // ── Calling (AI mode) ──
         async function dialerStartCall(phone, firstName, contactId, displayName) {
             dialerShowBanner(displayName || firstName, 'Initiating...');
             try {
@@ -2524,15 +2697,12 @@
                     else if (d.status === 'ringing') { el.textContent = 'Ringing...'; el.style.color = '#00d9ff'; }
                     else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
                         clearInterval(dialerPollTimer);
-                        const dur = d.duration ? ' (' + d.duration + 's)' : '';
-                        el.textContent = d.status.replace('-',' ') + dur;
+                        el.textContent = d.status.replace('-',' ') + (d.duration ? ' (' + d.duration + 's)' : '');
                         el.style.color = d.status === 'completed' ? 'var(--accent)' : '#ffa500';
-                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
-                            dialerQueue[dialerCallIdx].status = d.status;
-                        }
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
                         dialerCallSid = null;
                         if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
-                        else { setTimeout(dialerHideBanner, 3000); dialerLoadHistory(); }
+                        else setTimeout(dialerHideBanner, 3000);
                         dialerRenderQueue();
                     }
                 } catch(e) {}
@@ -2540,61 +2710,40 @@
         }
 
         function dialerShowBanner(name, status, isErr) {
-            const b = document.getElementById('dialerCallBanner');
             document.getElementById('dialerCallName').textContent = name;
             const s = document.getElementById('dialerCallStatus');
-            s.textContent = status;
-            s.style.color = isErr ? '#ef4444' : 'var(--accent)';
-            b.style.display = 'flex';
+            s.textContent = status; s.style.color = isErr ? '#ef4444' : 'var(--accent)';
+            document.getElementById('dialerCallBanner').style.display = 'flex';
         }
         function dialerHideBanner() { document.getElementById('dialerCallBanner').style.display = 'none'; }
         function dialerStopQueue() { dialerQueueRunning = false; dialerUpdateBtn(); }
 
-        // Queue management
-        function dialerToggleQ(id) {
-            const idx = dialerQueue.findIndex(q => q.id === id);
-            if (idx >= 0) { dialerQueue.splice(idx, 1); }
-            else {
-                const c = dialerContacts.find(x => x.id === id);
-                if (c) dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
-            }
-            dialerRenderContacts();
-            dialerRenderQueue();
-            dialerUpdateBadge();
-        }
-
+        // ── Queue management ──
         function dialerRenderQueue() {
             const list = document.getElementById('dialerQueueList');
             const cnt = document.getElementById('dialerQueueCount');
             const btn = document.getElementById('dialerStartBtn');
             cnt.textContent = dialerQueue.length;
             btn.disabled = !dialerQueue.length;
-            if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:14px;color:#555;font-size:.82rem;">Select contacts above and add to queue, or click Call Selected</div>'; return; }
-            const icons = { pending:'<span style="color:#555;">Waiting</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ringing</span>', 'in-progress':'<span style="color:var(--accent);">On Call</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">No Answer</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
+            if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">Empty queue</div>'; return; }
+            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
-                return '<div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:.8rem;' + (active ? 'background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.12);' : '') + '">' +
-                    '<div style="width:20px;height:20px;border-radius:50%;background:' + (active ? 'rgba(0,255,136,0.12)' : 'rgba(255,255,255,0.05)') + ';display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:' + (active ? 'var(--accent)' : '#666') + ';">' + (i+1) + '</div>' +
-                    '<div style="flex:1;">' + dialerEsc(q.name) + '</div>' +
-                    '<div>' + (icons[q.status] || q.status) + '</div>' +
-                    (!dialerQueueRunning ? '<button onclick="dialerRemoveQ(' + i + ')" style="background:none;border:none;color:#555;cursor:pointer;font-size:.7rem;padding:2px 4px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
+                return '<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(0,255,136,0.05);' : '') + '">' +
+                    '<span style="color:' + (active ? 'var(--accent)' : '#555') + ';font-weight:700;width:16px;text-align:center;">' + (i+1) + '</span>' +
+                    '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(q.name) + '</span>' +
+                    '<span>' + (icons[q.status] || q.status) + '</span>' +
+                    (!dialerQueueRunning ? '<button onclick="dialerQueue.splice('+i+',1);dialerRenderContacts();dialerRenderQueue();" style="background:none;border:none;color:#444;cursor:pointer;font-size:.6rem;padding:0 2px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
                 '</div>';
             }).join('');
         }
 
-        function dialerRemoveQ(i) { dialerQueue.splice(i, 1); dialerRenderContacts(); dialerRenderQueue(); dialerUpdateBadge(); }
-        function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); dialerUpdateBadge(); }
-        function dialerUpdateBadge() {
-            const b = document.getElementById('dialerQueueBadge');
-            if (dialerQueue.length) { b.textContent = dialerQueue.length; b.style.display = 'inline'; }
-            else b.style.display = 'none';
-        }
+        function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); }
         function dialerUpdateBtn() {
             const btn = document.getElementById('dialerStartBtn');
-            if (dialerQueueRunning) { btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop Queue'; btn.style.background = 'linear-gradient(135deg,#ef4444,#cc3333)'; btn.style.color = '#fff'; }
-            else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Start Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
+            if (dialerQueueRunning) { btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop'; btn.style.background = 'linear-gradient(135deg,#ef4444,#cc3333)'; btn.style.color = '#fff'; }
+            else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
         }
-
         function dialerToggleQueue() {
             if (dialerQueueRunning) { dialerQueueRunning = false; dialerUpdateBtn(); return; }
             dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
@@ -2603,89 +2752,39 @@
             dialerUpdateBtn();
             dialerDialNext();
         }
-
         function dialerDialNext() {
-            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) {
-                dialerQueueRunning = false;
-                dialerUpdateBtn();
-                dialerHideBanner();
-                dialerRenderQueue();
-                dialerLoadHistory();
-                return;
-            }
+            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
             const item = dialerQueue[dialerCallIdx];
             item.status = 'initiated';
             dialerRenderQueue();
+            // Auto-select contact in detail panel
+            dialerSelectContact(item.id);
             dialerStartCall(item.phone, item.firstName || item.name, item.id, item.name);
         }
-
         function dialerAdvance() {
             if (!dialerQueueRunning) { dialerHideBanner(); return; }
             dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
-            if (dialerCallIdx < 0) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); dialerLoadHistory(); return; }
+            if (dialerCallIdx < 0) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
             dialerDialNext();
         }
 
-        function dialerEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-
-        // ===== CALL HISTORY =====
-        async function dialerLoadHistory() {
-            const list = document.getElementById('dialerHistoryList');
-            try {
-                const r = await fetch('/voice/call-history?limit=50');
-                if (!r.ok) { list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;">Failed to load history</div>'; return; }
-                const d = await r.json();
-                const calls = d.calls || [];
-                if (!calls.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.82rem;">No call history yet</div>'; return; }
-
-                list.innerHTML = calls.map(c => {
-                    const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444', canceled:'#888' };
-                    const statusColor = statusColors[c.status] || '#00d9ff';
-                    const durMin = c.duration ? Math.floor(c.duration / 60) + ':' + String(c.duration % 60).padStart(2, '0') : '--:--';
-                    const dt = c.started_at ? new Date(c.started_at).toLocaleString() : '';
-                    const hasRec = !!c.recording_url;
-                    const hasTx = c.transcript && c.transcript.length > 0;
-
-                    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.82rem;">' +
-                        '<div style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
-                        '<div style="flex:1;min-width:0;">' +
-                            '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.contact_name || c.phone) + '</div>' +
-                            '<div style="font-size:.72rem;color:#666;">' + dialerEsc(c.phone) + ' &middot; ' + dt + '</div>' +
-                        '</div>' +
-                        '<div style="color:' + statusColor + ';font-size:.75rem;font-weight:600;white-space:nowrap;">' + (c.status || '').replace('-',' ') + '</div>' +
-                        '<div style="color:#888;font-size:.75rem;min-width:40px;text-align:right;">' + durMin + '</div>' +
-                        (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:6px;padding:3px 8px;font-size:.7rem;cursor:pointer;" title="Play recording"><i class="fa-solid fa-play"></i></button>' : '') +
-                        (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:var(--accent);border-radius:6px;padding:3px 8px;font-size:.7rem;cursor:pointer;" title="View transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
-                    '</div>';
-                }).join('');
-            } catch(e) {
-                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.82rem;">Error loading history</div>';
-            }
-        }
-
-        // Recording playback
+        // ── Recording + Transcript ──
         let _audioPlayer = null;
         function playRecording(url) {
             if (_audioPlayer) { _audioPlayer.pause(); _audioPlayer = null; }
             _audioPlayer = new Audio(url);
-            _audioPlayer.play().catch(e => alert('Unable to play recording: ' + e.message));
+            _audioPlayer.play().catch(e => alert('Unable to play: ' + e.message));
         }
-
-        // Transcript modal
         function showTranscript(transcript) {
             const modal = document.getElementById('transcriptModal');
             const content = document.getElementById('transcriptContent');
-            if (!transcript || !transcript.length) {
-                content.innerHTML = '<p style="color:#888;">No transcript available</p>';
-            } else {
+            if (!transcript || !transcript.length) { content.innerHTML = '<p style="color:#888;">No transcript</p>'; }
+            else {
                 content.innerHTML = transcript.map(t => {
                     const isLead = t.role === 'lead';
-                    return '<div style="margin-bottom:12px; display:flex; flex-direction:column; align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';">' +
-                        '<div style="font-size:.7rem; color:#888; margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
-                        '<div style="background:' + (isLead ? 'rgba(0,217,255,0.08)' : 'rgba(0,255,136,0.08)') + '; border:1px solid ' + (isLead ? 'rgba(0,217,255,0.15)' : 'rgba(0,255,136,0.15)') + '; border-radius:10px; padding:8px 12px; max-width:85%; font-size:.84rem; color:#ddd;">' +
-                            dialerEsc(t.text) +
-                        '</div>' +
-                    '</div>';
+                    return '<div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';">' +
+                        '<div style="font-size:.68rem;color:#888;margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
+                        '<div class="dlr-msg-bubble ' + (isLead ? 'dlr-msg-lead' : 'dlr-msg-bot') + '">' + dialerEsc(t.text) + '</div></div>';
                 }).join('');
             }
             modal.style.display = 'flex';
@@ -2693,7 +2792,7 @@
         function closeTranscriptModal() { document.getElementById('transcriptModal').style.display = 'none'; }
 
         // ===== CALL MODE MANAGEMENT =====
-        let dialerMode = 'ai'; // 'ai' or 'human'
+        let dialerMode = 'ai';
         let voipDevice = null;
         let voipConnection = null;
         let voipReady = false;
@@ -2706,34 +2805,21 @@
             dialerMode = mode;
             const aiBtn = document.getElementById('modeAiBtn');
             const humanBtn = document.getElementById('modeHumanBtn');
-            const desc = document.getElementById('modeDescription');
-
             if (mode === 'ai') {
-                aiBtn.style.background = 'linear-gradient(135deg,#00d9ff,#0099cc)';
-                aiBtn.style.color = '#000';
-                humanBtn.style.background = 'rgba(255,255,255,0.04)';
-                humanBtn.style.color = '#888';
-                desc.textContent = 'AI voice agent calls leads and handles the conversation automatically';
+                aiBtn.style.background = 'linear-gradient(135deg,#00d9ff,#0099cc)'; aiBtn.style.color = '#000';
+                humanBtn.style.background = 'transparent'; humanBtn.style.color = '#888';
                 document.getElementById('voipSetupBanner').style.display = 'none';
             } else {
-                humanBtn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)';
-                humanBtn.style.color = '#000';
-                aiBtn.style.background = 'rgba(255,255,255,0.04)';
-                aiBtn.style.color = '#888';
-                desc.textContent = 'You talk to leads through your browser — like a phone in your browser';
-                // Check if VoIP is set up
-                if (!voipSetupDone) {
-                    document.getElementById('voipSetupBanner').style.display = 'block';
-                } else if (!voipReady) {
-                    initVoIPDevice();
-                }
+                humanBtn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; humanBtn.style.color = '#000';
+                aiBtn.style.background = 'transparent'; aiBtn.style.color = '#888';
+                if (!voipSetupDone) document.getElementById('voipSetupBanner').style.display = 'block';
+                else if (!voipReady) initVoIPDevice();
             }
         }
 
         async function setupVoIP() {
             const btn = document.getElementById('voipSetupBtn');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...';
-            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...'; btn.disabled = true;
             try {
                 const r = await fetch('/voice/setup-voip', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
@@ -2741,255 +2827,102 @@
                 voipSetupDone = true;
                 document.getElementById('voipSetupBanner').style.display = 'none';
                 await initVoIPDevice();
-            } catch(e) {
-                alert('Network error during VoIP setup');
-            } finally {
-                btn.innerHTML = '<i class="fa-solid fa-gear me-1"></i>Setup VoIP';
-                btn.disabled = false;
-            }
+            } catch(e) { alert('Network error during VoIP setup'); }
+            finally { btn.innerHTML = '<i class="fa-solid fa-gear me-1"></i>Setup VoIP'; btn.disabled = false; }
         }
 
         async function initVoIPDevice() {
             try {
                 const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
-                if (!r.ok) {
-                    if (d.error && d.error.includes('not set up')) {
-                        document.getElementById('voipSetupBanner').style.display = 'block';
-                        voipSetupDone = false;
-                    }
-                    return;
-                }
-
+                if (!r.ok) { if (d.error && d.error.includes('not set up')) { document.getElementById('voipSetupBanner').style.display = 'block'; voipSetupDone = false; } return; }
                 if (typeof Twilio === 'undefined') {
-                    // Load Twilio SDK dynamically
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
                         s.src = 'https://media.twiliocdn.com/sdk/js/client/releases/1.14/twilio.min.js';
-                        s.onload = resolve;
-                        s.onerror = reject;
+                        s.onload = resolve; s.onerror = reject;
                         document.head.appendChild(s);
                     });
                 }
-
-                voipDevice = new Twilio.Device(d.token, {
-                    codecPreferences: ['opus', 'pcmu'],
-                    enableRingingState: true,
-                });
-
-                voipDevice.on('ready', function() {
-                    voipReady = true;
-                    voipSetupDone = true;
-                    document.getElementById('voipStatus').style.display = 'block';
-                    document.getElementById('voipSetupBanner').style.display = 'none';
-                    logger_log('VoIP device ready');
-                });
-
-                voipDevice.on('connect', function(conn) {
-                    voipConnection = conn;
-                    voipStartTimer();
-                    document.getElementById('voipCallPanel').style.display = 'block';
-                    logger_log('VoIP connected');
-                });
-
-                voipDevice.on('disconnect', function() {
-                    voipConnection = null;
-                    voipStopTimer();
+                voipDevice = new Twilio.Device(d.token, { codecPreferences: ['opus', 'pcmu'], enableRingingState: true });
+                voipDevice.on('ready', () => { voipReady = true; voipSetupDone = true; document.getElementById('voipStatus').style.display = 'block'; document.getElementById('voipSetupBanner').style.display = 'none'; });
+                voipDevice.on('connect', (conn) => { voipConnection = conn; voipStartTimer(); document.getElementById('voipCallPanel').style.display = 'block'; });
+                voipDevice.on('disconnect', () => {
+                    voipConnection = null; voipStopTimer();
                     document.getElementById('voipCallPanel').style.display = 'none';
                     document.getElementById('voipKeypad').style.display = 'none';
-                    document.getElementById('voipContactDetail').style.display = 'none';
-                    // Refresh history and advance queue if running
-                    dialerLoadHistory();
                     if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
-                    logger_log('VoIP disconnected');
                 });
-
-                voipDevice.on('error', function(err) {
-                    logger_log('VoIP error: ' + err.message);
-                    voipReady = false;
-                    document.getElementById('voipStatus').style.display = 'none';
-                });
-
-            } catch(e) {
-                console.error('VoIP init error:', e);
-            }
+                voipDevice.on('error', (err) => { console.error('VoIP error:', err.message); voipReady = false; document.getElementById('voipStatus').style.display = 'none'; });
+            } catch(e) { console.error('VoIP init error:', e); }
         }
-        function logger_log(msg) { console.log('[VoIP] ' + msg); }
 
-        // Override the startCall function to handle both modes
+        // Override startCall for dual mode
         const _origStartCall = dialerStartCall;
         dialerStartCall = async function(phone, firstName, contactId, displayName) {
-            if (dialerMode === 'human' && voipReady) {
-                voipMakeCall(phone, firstName, contactId, displayName);
-            } else {
-                // AI mode - use original behavior
-                await _origStartCall(phone, firstName, contactId, displayName);
-            }
+            if (dialerMode === 'human' && voipReady) voipMakeCall(phone, firstName, contactId, displayName);
+            else await _origStartCall(phone, firstName, contactId, displayName);
         };
 
         function voipMakeCall(phone, firstName, contactId, displayName) {
-            if (!voipDevice || !voipReady) { alert('VoIP not ready. Please wait or click Setup VoIP.'); return; }
-
+            if (!voipDevice || !voipReady) { alert('VoIP not ready.'); return; }
             voipCurrentContact = { phone, firstName, contactId, displayName };
             document.getElementById('voipCallName').textContent = displayName || firstName;
             document.getElementById('voipCallPhone').textContent = phone;
             document.getElementById('voipCallTimer').textContent = '00:00';
-
-            // Get caller ID from voice config
             const callerId = '{{ voice_config.get("twilio_phone_number", "") }}';
-
-            // Connect via browser VoIP (call history saved by voip-answer endpoint)
-            voipDevice.connect({
-                To: phone,
-                CallerId: callerId,
-                ContactId: contactId || '',
-                ContactName: displayName || firstName || '',
-            });
-
-            // Load contact detail
-            if (contactId) {
-                loadContactDetail(contactId);
-            }
-
-            // Track in queue
-            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
-                dialerQueue[dialerCallIdx].status = 'in-progress';
-                dialerRenderQueue();
-            }
+            voipDevice.connect({ To: phone, CallerId: callerId, ContactId: contactId || '', ContactName: displayName || firstName || '' });
+            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) { dialerQueue[dialerCallIdx].status = 'in-progress'; dialerRenderQueue(); }
         }
 
         function voipToggleMute() {
             if (!voipConnection) return;
-            const muted = !voipConnection.isMuted();
-            voipConnection.mute(muted);
+            const muted = !voipConnection.isMuted(); voipConnection.mute(muted);
             const btn = document.getElementById('voipMuteBtn');
-            if (muted) {
-                btn.style.background = 'rgba(239,68,68,0.15)';
-                btn.style.borderColor = 'rgba(239,68,68,0.3)';
-                btn.style.color = '#ef4444';
-                btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
-            } else {
-                btn.style.background = 'rgba(255,255,255,0.04)';
-                btn.style.borderColor = 'rgba(255,255,255,0.1)';
-                btn.style.color = '#ccc';
-                btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
-            }
+            btn.style.background = muted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
+            btn.style.color = muted ? '#ef4444' : '#ccc';
+            btn.innerHTML = muted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
         }
-
-        function voipToggleKeypad() {
-            const kp = document.getElementById('voipKeypad');
-            kp.style.display = kp.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function voipSendDTMF(digit) {
-            if (voipConnection) voipConnection.sendDigits(digit);
-        }
-
-        function voipHangup() {
-            if (voipDevice) voipDevice.disconnectAll();
-        }
-
+        function voipToggleKeypad() { const kp = document.getElementById('voipKeypad'); kp.style.display = kp.style.display === 'none' ? 'block' : 'none'; }
+        function voipSendDTMF(digit) { if (voipConnection) voipConnection.sendDigits(digit); }
+        function voipHangup() { if (voipDevice) voipDevice.disconnectAll(); }
         function voipStartTimer() {
-            voipTimerSeconds = 0;
-            voipStopTimer();
-            voipTimerInterval = setInterval(() => {
-                voipTimerSeconds++;
-                const m = Math.floor(voipTimerSeconds / 60);
-                const s = voipTimerSeconds % 60;
-                document.getElementById('voipCallTimer').textContent =
-                    String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-            }, 1000);
+            voipTimerSeconds = 0; voipStopTimer();
+            voipTimerInterval = setInterval(() => { voipTimerSeconds++; const m = Math.floor(voipTimerSeconds/60); const s = voipTimerSeconds%60; document.getElementById('voipCallTimer').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }, 1000);
         }
+        function voipStopTimer() { if (voipTimerInterval) { clearInterval(voipTimerInterval); voipTimerInterval = null; } }
 
-        function voipStopTimer() {
-            if (voipTimerInterval) { clearInterval(voipTimerInterval); voipTimerInterval = null; }
-        }
-
-        async function loadContactDetail(contactId) {
-            const infoDiv = document.getElementById('voipContactInfo');
-            const notesDiv = document.getElementById('voipContactNotes');
-            const detailDiv = document.getElementById('voipContactDetail');
-            detailDiv.style.display = 'block';
-            infoDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i> Loading...';
-            notesDiv.innerHTML = '';
-            try {
-                const r = await fetch('/voice/contact/' + contactId);
-                if (!r.ok) { infoDiv.innerHTML = '<span style="color:#888;">Could not load contact</span>'; return; }
-                const c = await r.json();
-                let html = '';
-                if (c.email) html += '<div><i class="fa-solid fa-envelope me-1" style="color:#555;"></i>' + dialerEsc(c.email) + '</div>';
-                if (c.address || c.city || c.state) html += '<div><i class="fa-solid fa-location-dot me-1" style="color:#555;"></i>' + dialerEsc([c.address, c.city, c.state].filter(Boolean).join(', ')) + '</div>';
-                if (c.source) html += '<div><i class="fa-solid fa-link me-1" style="color:#555;"></i>Source: ' + dialerEsc(c.source) + '</div>';
-                if (c.tags && c.tags.length) html += '<div style="margin-top:4px;">' + c.tags.map(t => '<span style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.7rem;margin-right:4px;">' + dialerEsc(t) + '</span>').join('') + '</div>';
-                infoDiv.innerHTML = html || '<span style="color:#888;">No additional info</span>';
-
-                if (c.notes && c.notes.length) {
-                    notesDiv.innerHTML = '<div style="font-weight:600;font-size:.75rem;color:#888;margin-bottom:4px;">Notes:</div>' +
-                        c.notes.map(n => '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:.78rem;color:#bbb;">' + dialerEsc(n.body) + '</div>').join('');
-                }
-            } catch(e) {
-                infoDiv.innerHTML = '<span style="color:#888;">Failed to load</span>';
-            }
-        }
-
-        // ===== TRUST HUB FUNCTIONS =====
+        // ===== TRUST HUB =====
         async function loadTrustHubNumbers() {
             const list = document.getElementById('trustHubNumbersList');
-            list.innerHTML = '<div style="text-align:center;padding:12px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            list.innerHTML = '<div style="text-align:center;padding:10px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
             try {
-                // Fetch numbers and trust hub status in parallel
-                const [numR, trustR] = await Promise.all([
-                    fetch('/voice/numbers'),
-                    fetch('/voice/trust-hub')
-                ]);
+                const [numR, trustR] = await Promise.all([fetch('/voice/numbers'), fetch('/voice/trust-hub')]);
                 const numD = await numR.json();
                 const trustD = trustR.ok ? await trustR.json() : {};
 
-                // Update STIR/SHAKEN badge
                 const stirEl = document.getElementById('stirStatus');
                 const stirStatus = trustD.stir_shaken?.status || 'not_configured';
-                const stirColors = { 'twilio-approved': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Registered' }, 'in-review': { bg:'rgba(0,217,255,0.15)', color:'#00d9ff', text:'In Review' }, 'draft': { bg:'rgba(255,165,0,0.15)', color:'#ffa500', text:'Draft' }, 'business_registered': { bg:'rgba(0,217,255,0.1)', color:'#00d9ff', text:'Business Registered' } };
-                const stirStyle = stirColors[stirStatus] || { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' };
-                stirEl.style.background = stirStyle.bg;
-                stirEl.style.color = stirStyle.color;
-                stirEl.textContent = stirStyle.text;
+                const stirColors = { 'twilio-approved': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Registered' }, 'in-review': { bg:'rgba(0,217,255,0.15)', color:'#00d9ff', text:'In Review' }, 'draft': { bg:'rgba(255,165,0,0.15)', color:'#ffa500', text:'Draft' } };
+                const ss = stirColors[stirStatus] || { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' };
+                stirEl.style.background = ss.bg; stirEl.style.color = ss.color; stirEl.textContent = ss.text;
 
-                // Render numbers
                 const numbers = numD.numbers || [];
-                if (!numbers.length) {
-                    list.innerHTML = '<div style="text-align:center;padding:12px;color:#555;font-size:.82rem;">No phone numbers found in your Twilio account</div>';
-                    return;
-                }
+                if (!numbers.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.78rem;">No numbers found</div>'; return; }
 
-                const isRegistered = ['twilio-approved', 'in-review', 'business_registered'].includes(stirStatus);
-                list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0;font-size:.75rem;border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;">' +
-                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;">Number</div>' +
-                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">Status</div>' +
-                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">AT&T</div>' +
-                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">T-Mobile</div>' +
-                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;">Verizon</div>' +
-                    '<div style="padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#aaa;text-align:center;"></div>' +
+                const isReg = ['twilio-approved', 'in-review'].includes(stirStatus);
+                list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0;font-size:.7rem;border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">' +
+                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;">Number</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">Status</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">AT&T</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">T-Mo</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">VZW</div><div style="padding:6px;background:rgba(255,255,255,0.03);"></div>' +
                     numbers.map(n => {
-                        const checkIcon = isRegistered ? '<i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>' : '<i class="fa-regular fa-circle" style="color:#555;"></i>';
-                        return '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</div>' +
-                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><span style="color:var(--accent);font-size:.7rem;">Active</span></div>' +
-                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + checkIcon + '</div>' +
-                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + checkIcon + '</div>' +
-                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + checkIcon + '</div>' +
-                            '<div style="padding:8px 10px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><button onclick="releaseNumber(\'' + n.sid + '\',\'' + dialerEsc(n.phone) + '\')" style="background:none;border:none;color:#555;cursor:pointer;font-size:.7rem;" title="Release number"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>';
-                    }).join('') +
-                '</div>';
-            } catch(e) {
-                list.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:8px;">Failed to load numbers</div>';
-            }
-        }
-
-        function formatPhone(p) {
-            if (!p) return '';
-            const d = p.replace(/\D/g, '');
-            if (d.length === 11 && d[0] === '1') return '(' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
-            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
-            return p;
+                        const chk = isReg ? '<i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>' : '<i class="fa-regular fa-circle" style="color:#444;"></i>';
+                        return '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</div>' +
+                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:var(--accent);font-size:.65rem;">Active</div>' +
+                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + chk + '</div>' +
+                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + chk + '</div>' +
+                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + chk + '</div>' +
+                            '<div style="padding:6px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><button onclick="releaseNumber(\'' + n.sid + '\',\'' + dialerEsc(n.phone) + '\')" style="background:none;border:none;color:#444;cursor:pointer;font-size:.65rem;"><i class="fa-solid fa-trash"></i></button></div>';
+                    }).join('') + '</div>';
+            } catch(e) { list.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Failed to load</div>'; }
         }
 
         async function searchAvailableNumbers() {
@@ -3003,59 +2936,42 @@
                 if (state) url += 'state=' + encodeURIComponent(state);
                 const r = await fetch(url);
                 const d = await r.json();
-                if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;">' + (d.error || 'Search failed') + '</div>'; return; }
+                if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;">' + (d.error || 'Failed') + '</div>'; return; }
                 const nums = d.numbers || [];
-                if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:6px;">No numbers found. Try a different area code.</div>'; return; }
+                if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found</div>'; return; }
                 list.innerHTML = nums.map(n =>
-                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 4px;border-bottom:1px solid rgba(255,255,255,0.03);">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.75rem;">' +
                         '<span style="color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</span>' +
-                        '<span style="color:#666;font-size:.72rem;">' + dialerEsc(n.locality || '') + ', ' + dialerEsc(n.region || '') + '</span>' +
-                        '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:var(--accent);border:none;color:#000;border-radius:4px;padding:2px 8px;font-size:.72rem;font-weight:700;cursor:pointer;">$1.15/mo</button>' +
+                        '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:var(--accent);border:none;color:#000;border-radius:3px;padding:1px 6px;font-size:.68rem;font-weight:700;cursor:pointer;">Buy</button>' +
                     '</div>'
                 ).join('');
-            } catch(e) {
-                list.innerHTML = '<div style="color:#ef4444;">Network error</div>';
-            }
+            } catch(e) { list.innerHTML = '<div style="color:#ef4444;">Error</div>'; }
         }
-
         async function buyNumber(phone) {
-            if (!confirm('Purchase ' + phone + ' for ~$1.15/month?')) return;
+            if (!confirm('Purchase ' + phone + '?')) return;
             try {
-                const r = await fetch('/voice/numbers/buy', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ phone_number: phone })
-                });
+                const r = await fetch('/voice/numbers/buy', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone_number: phone }) });
                 const d = await r.json();
-                if (!r.ok) { alert(d.error || 'Purchase failed'); return; }
-                alert('Number purchased: ' + d.phone);
+                if (!r.ok) { alert(d.error || 'Failed'); return; }
+                alert('Purchased: ' + d.phone);
                 document.getElementById('buyNumberPanel').style.display = 'none';
                 loadTrustHubNumbers();
             } catch(e) { alert('Network error'); }
         }
-
         async function releaseNumber(sid, phone) {
-            if (!confirm('Release ' + phone + '? This cannot be undone.')) return;
+            if (!confirm('Release ' + phone + '? Cannot undo.')) return;
             try {
-                const r = await fetch('/voice/numbers/release', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ sid: sid })
-                });
-                const d = await r.json();
-                if (!r.ok) { alert(d.error || 'Failed'); return; }
-                loadTrustHubNumbers();
+                const r = await fetch('/voice/numbers/release', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sid: sid }) });
+                if (!(await r.json()).error) loadTrustHubNumbers();
             } catch(e) { alert('Network error'); }
         }
 
-        // Load data when Voice Dialer tab is shown
+        // ── Init on tab show ──
         document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', function() {
-            dialerLoadHistory();
-            // Check if VoIP is already set up by trying to get a token
+            dialerLoadPipelines();
             if (!voipSetupDone && dialerMode === 'human') {
                 fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} })
-                    .then(r => { if (r.ok) { voipSetupDone = true; initVoIPDevice(); } })
-                    .catch(() => {});
+                    .then(r => { if (r.ok) { voipSetupDone = true; initVoIPDevice(); } }).catch(() => {});
             }
         });
     </script>

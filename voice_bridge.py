@@ -23,7 +23,7 @@ from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 
 from db import get_db_connection, return_db_connection, log_webhook_event
-from ghl_api import get_valid_token
+from ghl_api import get_valid_token, fetch_targeted_ghl_history
 
 # In-memory call status tracking for the dialer queue
 # { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
@@ -1251,11 +1251,12 @@ def call_panel():
 @login_required
 def fetch_contacts():
     """
-    Fetch contacts from GHL for the current user's location.
-    Query params: q (search query), limit (default 50)
+    Fetch ALL contacts from GHL (paginates automatically).
+    Query params: q (search query), pipeline, stage
     """
     query = request.args.get('q', '').strip()
-    limit = min(int(request.args.get('limit', 50)), 100)
+    pipeline_id = request.args.get('pipeline', '').strip()
+    stage_id = request.args.get('stage', '').strip()
 
     conn = get_db_connection()
     if not conn:
@@ -1271,7 +1272,6 @@ def fetch_contacts():
     finally:
         return_db_connection(conn)
 
-    # Get valid OAuth token
     access_token = get_valid_token(location_id)
     if not access_token:
         return jsonify({"error": "No valid auth token. Reconnect your CRM."}), 401
@@ -1283,37 +1283,86 @@ def fetch_contacts():
             "Content-Type": "application/json"
         }
 
-        params = {"locationId": location_id, "limit": limit}
-        if query:
-            params["query"] = query
+        all_contacts = []
+        page_limit = 100  # GHL max per page
+        max_pages = 50    # Safety cap: 5000 contacts max
 
-        resp = http_requests.get(
-            f"{GHL_API_BASE}/contacts/",
-            headers=headers,
-            params=params,
-            timeout=15
-        )
+        if pipeline_id or stage_id:
+            # POST /contacts/search with pagination
+            page = 1
+            while page <= max_pages:
+                search_body = {
+                    "locationId": location_id,
+                    "pageSize": page_limit,
+                    "page": page,
+                    "filters": []
+                }
+                if pipeline_id:
+                    search_body["filters"].append({"field": "pipeline", "operator": "eq", "value": pipeline_id})
+                if stage_id:
+                    search_body["filters"].append({"field": "pipelineStage", "operator": "eq", "value": stage_id})
+                if query:
+                    search_body["query"] = query
 
-        if resp.status_code != 200:
-            logger.error(f"GHL contacts fetch failed: {resp.status_code} {resp.text[:200]}")
-            return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
+                resp = http_requests.post(f"{GHL_API_BASE}/contacts/search", headers=headers, json=search_body, timeout=15)
+                if resp.status_code != 200:
+                    if not all_contacts:
+                        return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
+                    break
 
-        data = resp.json()
-        contacts = data.get("contacts", [])
+                data = resp.json()
+                contacts = data.get("contacts", [])
+                if not contacts:
+                    break
+                all_contacts.extend(contacts)
+                # Stop if we got fewer than page_limit (last page)
+                if len(contacts) < page_limit:
+                    break
+                page += 1
+        else:
+            # GET /contacts/ with startAfterId pagination
+            start_after = None
+            for _ in range(max_pages):
+                params = {"locationId": location_id, "limit": page_limit}
+                if query:
+                    params["query"] = query
+                if start_after:
+                    params["startAfterId"] = start_after
+
+                resp = http_requests.get(f"{GHL_API_BASE}/contacts/", headers=headers, params=params, timeout=15)
+                if resp.status_code != 200:
+                    if not all_contacts:
+                        return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
+                    break
+
+                data = resp.json()
+                contacts = data.get("contacts", [])
+                if not contacts:
+                    break
+                all_contacts.extend(contacts)
+                # GHL uses startAfterId for cursor pagination
+                meta = data.get("meta", {})
+                start_after = meta.get("startAfterId") or meta.get("nextPageUrl")
+                if not start_after or len(contacts) < page_limit:
+                    break
+
+        logger.info(f"Fetched {len(all_contacts)} total contacts for {location_id}")
 
         # Return simplified contact list
         result = []
-        for c in contacts:
+        for c in all_contacts:
             phone = c.get("phone", "")
             if not phone:
-                continue  # Skip contacts without phone numbers
+                continue
             result.append({
                 "id": c.get("id", ""),
                 "name": f"{c.get('firstName', '')} {c.get('lastName', '')}".strip() or "Unknown",
                 "firstName": c.get("firstName", ""),
+                "lastName": c.get("lastName", ""),
                 "phone": phone,
                 "email": c.get("email", ""),
                 "tags": c.get("tags", []),
+                "dateAdded": c.get("dateAdded", ""),
             })
 
         return jsonify({"contacts": result, "total": len(result)})
@@ -2134,3 +2183,118 @@ def get_contact_detail(contact_id):
     except Exception as e:
         logger.error(f"Failed to fetch contact detail: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/contact/<contact_id>/messages', methods=['GET'])
+@login_required
+def get_contact_messages(contact_id):
+    """Fetch SMS/conversation history for a contact from GHL."""
+    limit = min(int(request.args.get('limit', 40)), 100)
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid auth token"}), 401
+
+    try:
+        messages = fetch_targeted_ghl_history(contact_id, location_id, access_token, limit)
+
+        # Also fetch call history for this contact from our DB
+        calls = []
+        ch_conn = get_db_connection()
+        if ch_conn:
+            try:
+                cur = ch_conn.cursor()
+                cur.execute("""
+                    SELECT call_sid, direction, status, duration, recording_url,
+                           recording_sid, transcript, started_at, ended_at
+                    FROM call_history
+                    WHERE contact_id = %s AND location_id = %s
+                    ORDER BY created_at DESC LIMIT 20
+                """, (contact_id, location_id))
+                for r in cur.fetchall():
+                    calls.append({
+                        "call_sid": r['call_sid'],
+                        "direction": r['direction'],
+                        "status": r['status'],
+                        "duration": r['duration'] or 0,
+                        "recording_url": r['recording_url'],
+                        "transcript": r['transcript'],
+                        "started_at": r['started_at'].isoformat() if r['started_at'] else None,
+                    })
+                cur.close()
+            finally:
+                return_db_connection(ch_conn)
+
+        return jsonify({"messages": messages, "calls": calls})
+
+    except Exception as e:
+        logger.error(f"Failed to fetch contact messages: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/pipelines', methods=['GET'])
+@login_required
+def get_pipelines():
+    """Fetch pipelines and stages for contact filtering (uses contacts.readonly scope)."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid auth token"}), 401
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Version": GHL_API_VERSION,
+        }
+        resp = http_requests.get(
+            f"{GHL_API_BASE}/opportunities/pipelines",
+            headers=headers,
+            params={"locationId": location_id},
+            timeout=10
+        )
+        if resp.status_code != 200:
+            return jsonify({"pipelines": []})
+
+        pipelines = resp.json().get("pipelines", [])
+        result = []
+        for p in pipelines:
+            result.append({
+                "id": p.get("id", ""),
+                "name": p.get("name", ""),
+                "stages": [
+                    {"id": s.get("id", ""), "name": s.get("name", "")}
+                    for s in p.get("stages", [])
+                ]
+            })
+        return jsonify({"pipelines": result})
+
+    except Exception as e:
+        logger.error(f"Failed to fetch pipelines: {e}")
+        return jsonify({"pipelines": []})
