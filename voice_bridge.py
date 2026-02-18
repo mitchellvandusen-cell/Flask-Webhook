@@ -11,6 +11,8 @@ import logging
 import threading
 import time
 import asyncio
+import struct
+import base64
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
@@ -60,6 +62,93 @@ LOG_EVENT_TYPES = [
     'input_audio_buffer.speech_stopped', 'input_audio_buffer.speech_started',
     'session.created', 'session.updated'
 ]
+
+# Pre-compute mu-law decode lookup table (256 entries) for voice preview WAV generation
+_MULAW_DECODE = []
+for _i in range(256):
+    _b = ~_i & 0xFF
+    _sign = (_b & 0x80)
+    _exp = (_b >> 4) & 0x07
+    _man = _b & 0x0F
+    _sample = (_man << (_exp + 3)) + (1 << (_exp + 3)) - 132
+    _MULAW_DECODE.append(-_sample if _sign else _sample)
+
+
+def _mulaw_to_wav(mulaw_data, sample_rate=8000):
+    """Convert mu-law audio bytes to a PCM16 WAV file (universal browser support)."""
+    pcm_samples = [_MULAW_DECODE[b] for b in mulaw_data]
+    pcm_data = struct.pack(f'<{len(pcm_samples)}h', *pcm_samples)
+    data_size = len(pcm_data)
+    header = struct.pack('<4sI4s4sIHHIIHH4sI',
+        b'RIFF', 36 + data_size, b'WAVE',
+        b'fmt ', 16, 1, 1, sample_rate,
+        sample_rate * 2, 2, 16,
+        b'data', data_size
+    )
+    return header + pcm_data
+
+
+async def _generate_voice_preview(voice_name):
+    """Connect to XAI Realtime API and generate a short voice sample."""
+    audio_chunks = []
+
+    try:
+        async with websockets.connect(
+            XAI_REALTIME_URL,
+            additional_headers={"Authorization": f"Bearer {XAI_API_KEY}"},
+            close_timeout=5,
+        ) as ws:
+            session_config = {
+                "type": "session.update",
+                "session": {
+                    "output_modalities": ["audio"],
+                    "audio": {
+                        "output": {
+                            "format": {"type": "audio/pcmu"},
+                            "voice": voice_name,
+                        }
+                    },
+                    "instructions": "You are a friendly voice assistant. Say exactly what is requested, nothing more.",
+                }
+            }
+            await ws.send(json.dumps(session_config))
+
+            item = {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{
+                        "type": "input_text",
+                        "text": "Say exactly this: 'Hi there! I'm your AI voice assistant. I can help with life insurance questions and booking appointments. How can I help you today?'"
+                    }]
+                }
+            }
+            await ws.send(json.dumps(item))
+            await ws.send(json.dumps({"type": "response.create"}))
+
+            # Collect audio response with deadline
+            deadline = asyncio.get_event_loop().time() + 15
+            async for message in ws:
+                if asyncio.get_event_loop().time() > deadline:
+                    break
+                data = json.loads(message)
+                event_type = data.get('type', '')
+
+                if event_type in ('response.audio.delta', 'response.output_audio.delta'):
+                    if 'delta' in data:
+                        audio_chunks.append(base64.b64decode(data['delta']))
+                elif event_type == 'response.done':
+                    break
+                elif event_type == 'error':
+                    logger.error(f"Voice preview error: {data}")
+                    break
+
+    except Exception as e:
+        logger.error(f"Voice preview generation failed: {e}")
+        return None
+
+    return b''.join(audio_chunks) if audio_chunks else None
 
 
 # ──────────────────────────────────────────────────────────────
@@ -170,6 +259,32 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
         except Exception as e:
             logger.warning(f"Voice: Could not fetch calendar slots: {e}")
 
+    # Fetch GHL contact custom fields (beneficiary, etc.) for the AI to reference
+    contact_fields_str = ""
+    if contact_id:
+        try:
+            location_id = subscriber.get('location_id', '')
+            access_token = get_valid_token(location_id) if location_id else None
+            if access_token:
+                cf_resp = http_requests.get(
+                    f"https://services.leadconnectorhq.com/contacts/{contact_id}",
+                    headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                    timeout=5
+                )
+                if cf_resp.status_code == 200:
+                    contact_data = cf_resp.json().get("contact", {})
+                    custom_fields = contact_data.get("customFields", [])
+                    field_lines = []
+                    for cf in custom_fields:
+                        val = cf.get('value', '')
+                        name = cf.get('name', '') or cf.get('fieldKey', '')
+                        if val and name:
+                            field_lines.append(f"  - {name}: {val}")
+                    if field_lines:
+                        contact_fields_str = "CONTACT CUSTOM FIELDS (from CRM — use these in conversation):\n" + "\n".join(field_lines)
+        except Exception as e:
+            logger.debug(f"Voice: Could not fetch contact custom fields: {e}")
+
     # Build the base prompt using the existing system
     base_prompt = build_system_prompt(
         bot_first_name=bot_name,
@@ -211,6 +326,8 @@ TONE:
 - Use the lead's name occasionally to build rapport
 
 {f"CUSTOM VOICE INSTRUCTIONS: {custom_voice_instructions}" if custom_voice_instructions else ""}
+
+{contact_fields_str}
 
 IMPORTANT: You are speaking out loud. Every word you output will be spoken by a voice engine.
 Do NOT output anything you wouldn't say on a phone call.
@@ -612,15 +729,18 @@ async def handle_voice_stream(ws):
         DEFAULT_VOICE
     )
 
-    # Build system prompt
-    system_prompt = build_voice_system_prompt(
-        subscriber=subscriber,
-        contact_name=contact_name,
-        contact_id=contact_id if contact_id else None,
-    )
+    # Build MINIMAL prompt for instant connect (full context loaded async below)
+    bot_name = subscriber.get("bot_first_name", "your advisor")
+    bot_settings = subscriber.get("bot_settings") or {}
+    custom_voice_instructions = voice_config.get("voice_instructions", "")
+    minimal_prompt = f"""You are {bot_name}, a friendly and professional life insurance advisor.
+You are on a LIVE PHONE CALL. Speak naturally and conversationally.
+Keep responses SHORT (1-3 sentences). NEVER use emojis, bullet points, or text formatting.
+Say numbers naturally. Be warm, professional, and confident.
+{f"CUSTOM INSTRUCTIONS: {custom_voice_instructions}" if custom_voice_instructions else ""}
+Every word you output will be spoken aloud by a voice engine."""
 
     # Build greeting for outbound calls
-    bot_name = subscriber.get("bot_first_name", "your advisor")
     greeting = voice_config.get("greeting", "")
     if not greeting:
         if direction == "outbound" and contact_name != "there":
@@ -628,7 +748,7 @@ async def handle_voice_stream(ws):
         else:
             greeting = f"Hi, thanks for calling. This is {bot_name}. How can I help you today?"
 
-    logger.info(f"🎙️ Connecting to XAI Realtime API (voice={voice_name})")
+    logger.info(f"🎙️ Fast-connecting to XAI Realtime API (voice={voice_name})")
 
     # Log the call start
     try:
@@ -658,7 +778,7 @@ async def handle_voice_stream(ws):
             close_timeout=5,
         ) as xai_ws:
 
-            # Configure the XAI session
+            # Configure the XAI session with MINIMAL prompt for fast greeting
             session_config = {
                 "type": "session.update",
                 "session": {
@@ -681,12 +801,12 @@ async def handle_voice_stream(ws):
                     "input_audio_transcription": {
                         "model": "whisper-1"
                     },
-                    "instructions": system_prompt,
+                    "instructions": minimal_prompt,
                     "tools": get_voice_tools(),
                 }
             }
             await xai_ws.send(json.dumps(session_config))
-            logger.info("🎙️ XAI session configured")
+            logger.info("🎙️ XAI session configured (minimal prompt, greeting sent)")
 
             # For outbound calls, have the AI speak first with the greeting
             if direction == "outbound" or greeting:
@@ -705,6 +825,29 @@ async def handle_voice_stream(ws):
                 }
                 await xai_ws.send(json.dumps(initial_item))
                 await xai_ws.send(json.dumps({"type": "response.create"}))
+
+            # ── Background: build full prompt with sales context + calendar ──
+            async def enrich_session():
+                """Load full sales director context and calendar, then update the session."""
+                try:
+                    full_prompt = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: build_voice_system_prompt(
+                            subscriber=subscriber,
+                            contact_name=contact_name,
+                            contact_id=contact_id if contact_id else None,
+                        )
+                    )
+                    session_update = {
+                        "type": "session.update",
+                        "session": {
+                            "instructions": full_prompt,
+                        }
+                    }
+                    await xai_ws.send(json.dumps(session_update))
+                    logger.info("🎙️ Session enriched with full sales context + calendar")
+                except Exception as e:
+                    logger.warning(f"🎙️ Session enrichment failed (using minimal prompt): {e}")
 
             # Connection state
             latest_media_timestamp = 0
@@ -895,10 +1038,11 @@ async def handle_voice_stream(ws):
                     logger.error(f"🎙️ XAI receive error: {e}")
                     call_active = False
 
-            # Run both directions concurrently
+            # Run audio bridge + background enrichment concurrently
             await asyncio.gather(
                 receive_from_twilio(),
                 receive_from_xai(),
+                enrich_session(),
                 return_exceptions=True
             )
 
@@ -1044,6 +1188,29 @@ def test_voice_connection():
                 results["errors"].append("Twilio credentials not configured")
 
     return jsonify(results)
+
+
+@voice_bp.route('/voice/preview/<voice_name>', methods=['GET'])
+@login_required
+def preview_voice(voice_name):
+    """Generate a short audio sample for the selected voice."""
+    voice = VOICE_OPTIONS.get(voice_name.lower(), DEFAULT_VOICE)
+
+    if not XAI_API_KEY:
+        return jsonify({"error": "XAI API key not configured"}), 400
+
+    loop = asyncio.new_event_loop()
+    try:
+        audio_data = loop.run_until_complete(_generate_voice_preview(voice))
+    finally:
+        loop.close()
+
+    if not audio_data:
+        return jsonify({"error": "Failed to generate preview"}), 500
+
+    wav_data = _mulaw_to_wav(audio_data)
+    return Response(wav_data, content_type='audio/wav',
+                    headers={'Cache-Control': 'public, max-age=3600'})
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1283,8 +1450,8 @@ def recording_status_callback():
     logger.info(f"🎙️ Recording callback: SID={call_sid} rec={recording_sid} status={recording_status} dur={recording_duration}s")
 
     if recording_status == 'completed' and recording_url:
-        # Append .mp3 for playable URL
-        mp3_url = recording_url + ".mp3"
+        # Use our proxy URL so browser can play without Twilio auth
+        proxy_url = f"/voice/recording/{recording_sid}"
 
         conn = get_db_connection()
         if conn:
@@ -1294,10 +1461,10 @@ def recording_status_callback():
                     UPDATE call_history
                     SET recording_url = %s, recording_sid = %s, duration = %s
                     WHERE call_sid = %s
-                """, (mp3_url, recording_sid, int(recording_duration or 0), call_sid))
+                """, (proxy_url, recording_sid, int(recording_duration or 0), call_sid))
                 conn.commit()
                 cur.close()
-                logger.info(f"🎙️ Recording saved for call {call_sid}: {mp3_url}")
+                logger.info(f"🎙️ Recording saved for call {call_sid}: {proxy_url}")
             except Exception as e:
                 logger.error(f"Failed to save recording: {e}")
                 conn.rollback()
@@ -1305,6 +1472,37 @@ def recording_status_callback():
                 return_db_connection(conn)
 
     return '', 204
+
+
+@voice_bp.route('/voice/recording/<recording_sid>', methods=['GET'])
+@login_required
+def stream_recording(recording_sid):
+    """
+    Proxy a Twilio recording so the browser can play it without Twilio auth.
+    Streams the MP3 directly through our server.
+    """
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    account_sid = vc.get('twilio_account_sid', '')
+    auth_token = vc.get('twilio_auth_token', '')
+
+    twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Recordings/{recording_sid}.mp3"
+
+    try:
+        resp = http_requests.get(twilio_url, auth=(account_sid, auth_token), stream=True, timeout=30)
+        if resp.status_code != 200:
+            return jsonify({"error": f"Twilio returned {resp.status_code}"}), resp.status_code
+
+        return Response(
+            resp.iter_content(chunk_size=8192),
+            content_type='audio/mpeg',
+            headers={'Content-Disposition': f'inline; filename="{recording_sid}.mp3"'}
+        )
+    except Exception as e:
+        logger.error(f"Recording proxy failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ──────────────────────────────────────────────────────────────
