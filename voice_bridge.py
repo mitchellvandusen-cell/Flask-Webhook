@@ -35,6 +35,10 @@ from ghl_api import get_valid_token, fetch_targeted_ghl_history
 # In-memory call status tracking for the dialer queue
 # { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
 _active_calls = {}
+
+# Simple in-memory cache for GHL custom field definitions: { location_id: {field_id: field_name} }
+# Populated on first contact detail fetch per location; GHL field definitions rarely change.
+_custom_field_defs: dict = {}
 from ghl_calendar import consolidated_calendar_op
 from memory import get_recent_messages, get_known_facts, get_narrative
 from sales_director import generate_strategic_directive
@@ -2472,6 +2476,35 @@ def get_trust_hub_status():
 # CONTACT DETAIL: Full GHL contact info for in-call display
 # ──────────────────────────────────────────────────────────────
 
+def _get_custom_field_defs(location_id: str, headers: dict) -> dict:
+    """
+    Return {field_id: field_name} for every custom field in this location.
+    Results are cached in _custom_field_defs for the lifetime of the process.
+    GHL endpoint: GET /locations/{locationId}/customFields
+    """
+    if location_id in _custom_field_defs:
+        return _custom_field_defs[location_id]
+    try:
+        resp = http_requests.get(
+            f"{GHL_API_BASE}/locations/{location_id}/customFields",
+            headers=headers,
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            defs = resp.json().get("customFields", [])
+            _custom_field_defs[location_id] = {
+                d["id"]: d.get("name") or d.get("fieldKey") or d["id"]
+                for d in defs
+                if "id" in d
+            }
+        else:
+            _custom_field_defs[location_id] = {}
+    except Exception as e:
+        logger.warning(f"Could not fetch custom field defs for {location_id}: {e}")
+        _custom_field_defs[location_id] = {}
+    return _custom_field_defs[location_id]
+
+
 @voice_bp.route('/voice/contact/<contact_id>', methods=['GET'])
 @login_required
 def get_contact_detail(contact_id):
@@ -2524,6 +2557,18 @@ def get_contact_detail(contact_id):
         except Exception:
             pass
 
+        # Enrich custom fields with human-readable names from the location's field definitions
+        field_defs = _get_custom_field_defs(location_id, headers)
+        raw_custom_fields = contact.get("customFields", [])
+        enriched_custom_fields = [
+            {
+                **cf,
+                "name": field_defs.get(cf.get("id", "")) or cf.get("name") or cf.get("fieldKey") or "Field",
+            }
+            for cf in raw_custom_fields
+            if isinstance(cf, dict)
+        ]
+
         result = {
             "id": contact.get("id", ""),
             "firstName": contact.get("firstName", ""),
@@ -2537,7 +2582,7 @@ def get_contact_detail(contact_id):
             "state": contact.get("state", ""),
             "source": contact.get("source", ""),
             "dateAdded": contact.get("dateAdded", ""),
-            "customFields": contact.get("customFields", []),
+            "customFields": enriched_custom_fields,
             "notes": [
                 {
                     "id": n.get("id", ""),
