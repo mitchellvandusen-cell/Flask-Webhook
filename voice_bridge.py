@@ -131,7 +131,7 @@ async def _generate_voice_preview(voice_name):
                     "output_modalities": ["audio"],
                     "audio": {
                         "output": {
-                            "format": {"type": "pcm16"},
+                            "format": {"type": "audio/pcm", "rate": XAI_SAMPLE_RATE},
                             "voice": voice_name,
                         }
                     },
@@ -168,8 +168,11 @@ async def _generate_voice_preview(voice_name):
                 elif event_type == 'response.done':
                     break
                 elif event_type == 'error':
-                    logger.error(f"Voice preview error: {data}")
+                    err = data.get('error', data)
+                    logger.error(f"Voice preview XAI error: code={err.get('code')} msg={err.get('message')} full={data}")
                     break
+                elif event_type == 'session.updated':
+                    logger.info(f"Voice preview session updated: {data.get('session', {}).get('audio', {})}")
 
     except Exception as e:
         logger.error(f"Voice preview generation failed: {e}")
@@ -1128,8 +1131,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     "output_modalities": ["audio"],
                     "audio": {
                         "input": {
-                            # PCM16 at 16 kHz — resampled up from Twilio's 8 kHz mulaw
-                            "format": {"type": "pcm16"},
+                            # audio/pcm at 16 kHz — upsampled from Twilio's 8 kHz mulaw
+                            "format": {"type": "audio/pcm", "rate": XAI_SAMPLE_RATE},
                             "turn_detection": {
                                 "type": "server_vad",
                                 "threshold": 0.5,
@@ -1138,8 +1141,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                             }
                         },
                         "output": {
-                            # PCM16 at 16 kHz — resampled down to 8 kHz mulaw for Twilio
-                            "format": {"type": "pcm16"},
+                            # audio/pcm at 16 kHz — downsampled to 8 kHz mulaw for Twilio
+                            "format": {"type": "audio/pcm", "rate": XAI_SAMPLE_RATE},
                             "voice": voice_name,
                         }
                     },
@@ -1224,8 +1227,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                         if data['event'] == 'media':
                             latest_media_timestamp = int(data['media']['timestamp'])
-                            # Twilio payload: base64-encoded G.711 μ-law at 8 kHz.
-                            # Upsample to 16 kHz PCM16 before forwarding to xAI.
+                            # Twilio: base64 G.711 μ-law 8 kHz → upsample to PCM16 16 kHz for xAI
                             mulaw_bytes = base64.b64decode(data['media']['payload'])
                             pcm8k = audioop.ulaw2lin(mulaw_bytes, 2)
                             pcm16k, _twilio_to_xai_state[0] = audioop.ratecv(
@@ -1266,7 +1268,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # Audio response from XAI -> resample PCM16 16 kHz -> mulaw 8 kHz -> Twilio
+                        # xAI PCM16 16 kHz → downsample to mulaw 8 kHz → Twilio
                         if event_type == 'response.audio.delta' and 'delta' in response:
                             pcm16k = base64.b64decode(response['delta'])
                             pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
