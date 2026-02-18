@@ -712,6 +712,56 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"bot_settings migration note: {e}")
 
+        # 19. MIGRATION: API Platform — api_key, webhook, usage logging
+        try:
+            cur11 = conn.cursor()
+            # Add API columns to subscribers
+            cur11.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS api_key TEXT UNIQUE,
+                ADD COLUMN IF NOT EXISTS api_key_created_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS outbound_webhook_url TEXT,
+                ADD COLUMN IF NOT EXISTS webhook_secret TEXT
+            """)
+            # Add API columns to agency_billing too
+            cur11.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS api_key TEXT UNIQUE,
+                ADD COLUMN IF NOT EXISTS api_key_created_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS outbound_webhook_url TEXT,
+                ADD COLUMN IF NOT EXISTS webhook_secret TEXT
+            """)
+            # API usage log table for rate limiting and analytics
+            cur11.execute("""
+                CREATE TABLE IF NOT EXISTS api_usage_logs (
+                    id SERIAL PRIMARY KEY,
+                    api_key_prefix TEXT NOT NULL,
+                    location_id TEXT,
+                    endpoint TEXT NOT NULL,
+                    method TEXT DEFAULT 'POST',
+                    status_code INTEGER,
+                    response_time_ms INTEGER,
+                    contact_id TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur11.execute("""
+                CREATE INDEX IF NOT EXISTS idx_api_usage_created
+                ON api_usage_logs (created_at DESC)
+            """)
+            cur11.execute("""
+                CREATE INDEX IF NOT EXISTS idx_api_usage_key_prefix
+                ON api_usage_logs (api_key_prefix, created_at DESC)
+            """)
+            conn.commit()
+            cur11.close()
+            logger.info("✅ Migration: Added API platform columns and api_usage_logs table")
+        except Exception as e:
+            logger.debug(f"API platform migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1616,5 +1666,182 @@ def save_bot_settings(email: str, settings: dict) -> bool:
         logger.error(f"save_bot_settings failed for {email}: {e}")
         conn.rollback()
         return False
+    finally:
+        return_db_connection(conn)
+
+
+# ===================================================
+# API KEY HELPERS
+# ===================================================
+
+import secrets
+import hmac as _hmac
+import hashlib
+
+def generate_api_key() -> str:
+    """Generate a secure API key with sk_live_ prefix."""
+    return f"sk_live_{secrets.token_urlsafe(32)}"
+
+
+def generate_webhook_secret() -> str:
+    """Generate a secure webhook signing secret."""
+    return f"whsec_{secrets.token_urlsafe(32)}"
+
+
+def api_key_prefix(key: str) -> str:
+    """Get a safe prefix for logging (first 12 chars)."""
+    return key[:12] + "..." if key and len(key) > 12 else key or ""
+
+
+def create_api_key_for_user(email: str) -> dict:
+    """Generate and save a new API key + webhook secret for a subscriber."""
+    api_key = generate_api_key()
+    webhook_secret = generate_webhook_secret()
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "Database unavailable"}
+    try:
+        cur = conn.cursor()
+        # Try subscribers first
+        cur.execute("""
+            UPDATE subscribers
+            SET api_key = %s, webhook_secret = %s, api_key_created_at = NOW(), updated_at = NOW()
+            WHERE email = %s
+        """, (api_key, webhook_secret, email))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing
+                SET api_key = %s, webhook_secret = %s, api_key_created_at = NOW(), updated_at = NOW()
+                WHERE agency_email = %s
+            """, (api_key, webhook_secret, email))
+        conn.commit()
+        cur.close()
+        return {"api_key": api_key, "webhook_secret": webhook_secret}
+    except psycopg2.Error as e:
+        logger.error(f"create_api_key_for_user failed for {email}: {e}")
+        conn.rollback()
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+
+def revoke_api_key(email: str) -> bool:
+    """Revoke a user's API key."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET api_key = NULL, webhook_secret = NULL, updated_at = NOW()
+            WHERE email = %s
+        """, (email,))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing SET api_key = NULL, webhook_secret = NULL, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (email,))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"revoke_api_key failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def save_outbound_webhook_url(email: str, url: str) -> bool:
+    """Save a subscriber's outbound webhook URL for API reply delivery."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET outbound_webhook_url = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (url, email))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing SET outbound_webhook_url = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (url, email))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"save_outbound_webhook_url failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_subscriber_by_api_key(api_key: str) -> dict:
+    """Look up a subscriber by their API key. Returns full subscriber dict or None."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE api_key = %s LIMIT 1", (api_key,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT * FROM agency_billing WHERE api_key = %s LIMIT 1", (api_key,))
+            row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"get_subscriber_by_api_key failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def log_api_usage(api_key_pfx: str, location_id: str, endpoint: str,
+                  status_code: int, response_time_ms: int = 0,
+                  contact_id: str = None, ip_address: str = None,
+                  user_agent: str = None, error_message: str = None):
+    """Log an API request for analytics and rate limiting."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO api_usage_logs
+                (api_key_prefix, location_id, endpoint, status_code, response_time_ms,
+                 contact_id, ip_address, user_agent, error_message)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (api_key_pfx, location_id, endpoint, status_code, response_time_ms,
+              contact_id, ip_address, user_agent, error_message))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.debug(f"log_api_usage failed: {e}")
+    finally:
+        return_db_connection(conn)
+
+
+def get_api_request_count(api_key_pfx: str, window_seconds: int = 60) -> int:
+    """Count API requests in the last N seconds for rate limiting."""
+    conn = get_db_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) as cnt FROM api_usage_logs
+            WHERE api_key_prefix = %s
+            AND created_at > NOW() - INTERVAL '%s seconds'
+        """, (api_key_pfx, window_seconds))
+        row = cur.fetchone()
+        cur.close()
+        return row['cnt'] if row else 0
+    except Exception as e:
+        logger.debug(f"get_api_request_count failed: {e}")
+        return 0
     finally:
         return_db_connection(conn)

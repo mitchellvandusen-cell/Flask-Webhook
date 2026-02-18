@@ -35,7 +35,8 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 get_incomplete_installs, get_all_marketplace_installs,
                 mark_setup_email_sent, find_marketplace_email,
                 save_contracted_carriers, get_contracted_carriers,
-                get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS)
+                get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS,
+                create_api_key_for_user, revoke_api_key, save_outbound_webhook_url)
 from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
@@ -133,7 +134,11 @@ ensure_redis()
 
 # === INITIALIZATION ===
 sync_subscribers()
-init_db() 
+init_db()
+
+# === REGISTER API BLUEPRINT ===
+from api_v1 import api_bp
+app.register_blueprint(api_bp)
 
 # == SECRET SESSION ==
 app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
@@ -1767,6 +1772,91 @@ def save_bot_settings_api():
     if ok:
         return flask_jsonify({"status": "success", "saved": clean})
     return flask_jsonify({"error": "Failed to save settings"}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+# API KEY MANAGEMENT ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/generate-key", methods=["POST"])
+@login_required
+def generate_key_endpoint():
+    """Generate a new API key + webhook secret for the authenticated user."""
+    result = create_api_key_for_user(current_user.email)
+    if "error" in result:
+        return flask_jsonify({"error": result["error"]}), 500
+    return flask_jsonify({
+        "status": "success",
+        "api_key": result["api_key"],
+        "webhook_secret": result["webhook_secret"],
+        "message": "Store your API key securely. It will not be shown again in full."
+    })
+
+
+@app.route("/api/revoke-key", methods=["POST"])
+@login_required
+def revoke_key_endpoint():
+    """Revoke the user's current API key."""
+    ok = revoke_api_key(current_user.email)
+    if ok:
+        return flask_jsonify({"status": "success", "message": "API key revoked."})
+    return flask_jsonify({"error": "Failed to revoke key"}), 500
+
+
+@app.route("/api/webhook-url", methods=["POST"])
+@login_required
+def save_webhook_url_endpoint():
+    """Save the user's outbound webhook URL for API reply delivery."""
+    data = request.get_json()
+    if not data or not data.get("url"):
+        return flask_jsonify({"error": "Missing 'url' field"}), 400
+    url = data["url"].strip()
+    if not url.startswith("https://"):
+        return flask_jsonify({"error": "Webhook URL must use HTTPS"}), 400
+    ok = save_outbound_webhook_url(current_user.email, url)
+    if ok:
+        return flask_jsonify({"status": "success", "url": url})
+    return flask_jsonify({"error": "Failed to save webhook URL"}), 500
+
+
+@app.route("/api/api-status", methods=["GET"])
+@login_required
+def api_status_endpoint():
+    """Return current API key status for dashboard display."""
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        # Check subscribers first
+        cur.execute("""
+            SELECT api_key, webhook_secret, outbound_webhook_url, api_key_created_at
+            FROM subscribers WHERE email = %s LIMIT 1
+        """, (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("""
+                SELECT api_key, webhook_secret, outbound_webhook_url, api_key_created_at
+                FROM agency_billing WHERE agency_email = %s LIMIT 1
+            """, (current_user.email,))
+            row = cur.fetchone()
+        cur.close()
+        if not row:
+            return flask_jsonify({"has_key": False})
+
+        api_key = row.get("api_key") or ""
+        return flask_jsonify({
+            "has_key": bool(api_key),
+            "key_prefix": (api_key[:12] + "..." + api_key[-4:]) if len(api_key) > 16 else "",
+            "webhook_url": row.get("outbound_webhook_url") or "",
+            "webhook_secret_preview": (row.get("webhook_secret") or "")[:10] + "..." if row.get("webhook_secret") else "",
+            "created_at": str(row.get("api_key_created_at") or ""),
+        })
+    except Exception as e:
+        logger.error(f"api_status_endpoint error: {e}")
+        return flask_jsonify({"error": "Failed to fetch status"}), 500
+    finally:
+        return_db_connection(conn)
 
 
 @app.route("/create-portal-session", methods=["POST"])
