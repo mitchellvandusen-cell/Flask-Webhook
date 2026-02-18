@@ -1501,14 +1501,14 @@
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">AI Voice</label>
                             <select class="form-control" id="voiceSelection"
-                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                                <option value="ara" {% if voice_config.get('voice', 'ara') == 'ara' %}selected{% endif %}>Ara (Warm, Professional)</option>
-                                <option value="eve" {% if voice_config.get('voice') == 'eve' %}selected{% endif %}>Eve (Confident, Clear)</option>
-                                <option value="leo" {% if voice_config.get('voice') == 'leo' %}selected{% endif %}>Leo (Calm, Authoritative)</option>
-                                <option value="rex" {% if voice_config.get('voice') == 'rex' %}selected{% endif %}>Rex (Bold, Energetic)</option>
-                                <option value="sal" {% if voice_config.get('voice') == 'sal' %}selected{% endif %}>Sal (Friendly, Approachable)</option>
-                                <option value="mika" {% if voice_config.get('voice') == 'mika' %}selected{% endif %}>Mika (Warm, Conversational)</option>
-                                <option value="vale" {% if voice_config.get('voice') == 'vale' %}selected{% endif %}>Vale (Professional, Measured)</option>
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="ara" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice', 'ara') == 'ara' %}selected{% endif %}>Ara (Warm, Professional)</option>
+                                <option value="eve" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'eve' %}selected{% endif %}>Eve (Confident, Clear)</option>
+                                <option value="leo" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'leo' %}selected{% endif %}>Leo (Calm, Authoritative)</option>
+                                <option value="rex" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'rex' %}selected{% endif %}>Rex (Bold, Energetic)</option>
+                                <option value="sal" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'sal' %}selected{% endif %}>Sal (Friendly, Approachable)</option>
+                                <option value="mika" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'mika' %}selected{% endif %}>Mika (Warm, Conversational)</option>
+                                <option value="vale" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'vale' %}selected{% endif %}>Vale (Professional, Measured)</option>
                             </select>
                         </div>
                     </div>

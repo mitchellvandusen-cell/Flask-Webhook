@@ -56,6 +56,12 @@
                 <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">API &amp; Logs</div>
             </a>
         </div>
+        <div class="col-md-3 col-6">
+            <a href="#voice-ai" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-phone text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Voice AI</div>
+            </a>
+        </div>
     </div>
 
     <!-- ============================================================ -->
@@ -1221,6 +1227,142 @@
                             <p>Switching CRMs does not delete your conversation data or bot settings. Only the CRM connection and SMS delivery method changes.</p>
                             <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
                                 <i class="fa-solid fa-info-circle me-1"></i> Remember to update the webhook URL in your new CRM's automation settings so inbound messages are routed correctly.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 10: VOICE AI -->
+    <!-- ============================================================ -->
+    <div id="voice-ai" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
+                <i class="fa-solid fa-phone me-2 text-accent"></i>Voice AI
+            </h3>
+
+            <div class="accordion" id="voiceAiAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voice1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How does Voice AI work?
+                        </button>
+                    </h2>
+                    <div id="voice1" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Voice AI uses <strong>Twilio Media Streams</strong> to capture the raw audio from an inbound or outbound phone call and forward it in real-time to our server. Our server sends the audio directly to the <strong>XAI Grok speech-to-speech</strong> model, which generates a spoken response without any intermediate transcription step.</p>
+                            <p>Because there is no speech-to-text or text-to-speech conversion in between, the result is a natural, low-latency conversation with <strong>no transcription delay</strong>. The AI speaks back to the caller as fluidly as a human agent would.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voice2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What do I need to use Voice AI?
+                        </button>
+                    </h2>
+                    <div id="voice2" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>You need two things to get started:</p>
+                            <ol>
+                                <li><strong>A Twilio account with a phone number</strong> &mdash; This is the number that will receive and place Voice AI calls. You can purchase a number directly from your Twilio console.</li>
+                                <li><strong>Enable Voice AI in your dashboard</strong> &mdash; Go to <strong>Dashboard &gt; Voice</strong> tab and toggle Voice AI on. Enter your Twilio credentials and select the phone number you want to use.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> Your Twilio phone number must have voice capabilities enabled. Most standard local and toll-free numbers include this by default.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voice3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How much does Voice AI cost?
+                        </button>
+                    </h2>
+                    <div id="voice3" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Voice AI usage is billed based on two components:</p>
+                            <ul>
+                                <li><strong>XAI Grok speech-to-speech:</strong> $0.05 per minute of conversation.</li>
+                                <li><strong>Twilio voice transport:</strong> ~$0.014 per minute (varies slightly by number type and destination).</li>
+                            </ul>
+                            <p>A typical <strong>5-minute call costs approximately $0.32</strong>. This makes Voice AI significantly cheaper than hiring live agents while delivering instant, 24/7 availability.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voice4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            Can the AI book appointments during a call?
+                        </button>
+                    </h2>
+                    <div id="voice4" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p><strong>Yes.</strong> Voice AI uses the same calendar booking engine as the text-based chatbot. During a live call, the AI can:</p>
+                            <ol>
+                                <li>Check your real-time calendar availability.</li>
+                                <li>Offer the caller open time slots.</li>
+                                <li>Book the appointment on the spot once the caller confirms.</li>
+                            </ol>
+                            <p>The booking is created instantly in your connected calendar, and both you and the lead receive confirmation &mdash; all without leaving the phone call.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voice5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What voices are available?
+                        </button>
+                    </h2>
+                    <div id="voice5" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>There are <strong>7 voices</strong> to choose from:</p>
+                            <ul>
+                                <li><strong>Ara</strong></li>
+                                <li><strong>Eve</strong></li>
+                                <li><strong>Leo</strong></li>
+                                <li><strong>Rex</strong></li>
+                                <li><strong>Sal</strong></li>
+                                <li><strong>Mika</strong></li>
+                                <li><strong>Vale</strong></li>
+                            </ul>
+                            <p>You can select your preferred voice in <strong>Dashboard &gt; Voice</strong> tab. Each voice has a distinct tone and personality, so try a few to find the one that best fits your brand.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#voice6"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I trigger outbound calls?
+                        </button>
+                    </h2>
+                    <div id="voice6" class="accordion-collapse collapse" data-bs-parent="#voiceAiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Send a <code>POST</code> request to the <code>/voice/outbound-call</code> endpoint. This can be triggered from:</p>
+                            <ul>
+                                <li><strong>CRM automation:</strong> Set up a workflow in your CRM that fires a webhook to <code>/voice/outbound-call</code> when a lead reaches a specific stage or meets certain criteria.</li>
+                                <li><strong>External webhook:</strong> Any system that can make HTTP POST requests can trigger an outbound call &mdash; Zapier, Make, n8n, or custom scripts.</li>
+                            </ul>
+                            <p>The request body should include the lead's phone number and any context you want the AI to have for the call. The AI will dial the lead and begin the conversation automatically.</p>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> Outbound calls follow all the same Voice AI settings (voice selection, calendar booking, system prompt) configured in your dashboard.
                             </div>
                         </div>
                     </div>
