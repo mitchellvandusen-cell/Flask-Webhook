@@ -16,7 +16,9 @@ import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
 from twilio.rest import Client as TwilioClient
-from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
+from twilio.twiml.voice_response import VoiceResponse, Connect, Stream, Dial
+from twilio.jwt.access_token import AccessToken
+from twilio.jwt.access_token.grants import VoiceGrant
 
 from db import get_db_connection, return_db_connection, log_webhook_event
 from ghl_api import get_valid_token
@@ -1427,3 +1429,510 @@ def save_call_transcript(call_sid, transcript):
             pass
     finally:
         return_db_connection(conn)
+
+
+# ──────────────────────────────────────────────────────────────
+# HELPER: Get subscriber + Twilio client for current user
+# ──────────────────────────────────────────────────────────────
+
+def _get_current_subscriber_voice():
+    """Get subscriber, voice_config, and Twilio client for the logged-in user."""
+    conn = get_db_connection()
+    if not conn:
+        return None, None, None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return None, None, None
+        subscriber = dict(row)
+        vc = subscriber.get('voice_config') or {}
+        sid = vc.get('twilio_account_sid', '')
+        tok = vc.get('twilio_auth_token', '')
+        if not sid or not tok:
+            return subscriber, vc, None
+        client = TwilioClient(sid, tok)
+        return subscriber, vc, client
+    except Exception as e:
+        logger.error(f"_get_current_subscriber_voice: {e}")
+        return None, None, None
+    finally:
+        return_db_connection(conn)
+
+
+def _save_voice_config(email, voice_config):
+    """Persist voice_config JSON for a subscriber."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+            (json.dumps(voice_config), email)
+        )
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save voice_config: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+# ──────────────────────────────────────────────────────────────
+# BROWSER VoIP: Twilio Client JS SDK support
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/setup-voip', methods=['POST'])
+@login_required
+def setup_voip():
+    """
+    One-time setup: create a Twilio API Key and TwiML App for browser-based VoIP.
+    Stores api_key_sid, api_key_secret, and twiml_app_sid in voice_config.
+    """
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    host = request.host
+    try:
+        # Create TwiML App if not exists
+        twiml_app_sid = vc.get('twiml_app_sid', '')
+        if not twiml_app_sid:
+            app = client.applications.create(
+                friendly_name='InsuranceGrokBot Dialer',
+                voice_url=f'https://{host}/voice/voip-answer',
+                voice_method='POST',
+                status_callback=f'https://{host}/voice/status',
+                status_callback_method='POST',
+            )
+            twiml_app_sid = app.sid
+            logger.info(f"Created TwiML App: {twiml_app_sid}")
+        else:
+            # Update existing app URL in case host changed
+            try:
+                client.applications(twiml_app_sid).update(
+                    voice_url=f'https://{host}/voice/voip-answer',
+                    voice_method='POST',
+                )
+            except Exception:
+                # App may have been deleted; create new one
+                app = client.applications.create(
+                    friendly_name='InsuranceGrokBot Dialer',
+                    voice_url=f'https://{host}/voice/voip-answer',
+                    voice_method='POST',
+                    status_callback=f'https://{host}/voice/status',
+                    status_callback_method='POST',
+                )
+                twiml_app_sid = app.sid
+
+        # Create API Key if not exists
+        api_key_sid = vc.get('api_key_sid', '')
+        api_key_secret = vc.get('api_key_secret', '')
+        if not api_key_sid or not api_key_secret:
+            new_key = client.new_keys.create(friendly_name='InsuranceGrokBot Browser')
+            api_key_sid = new_key.sid
+            api_key_secret = new_key.secret
+            logger.info(f"Created API Key: {api_key_sid}")
+
+        # Save to voice_config
+        vc['twiml_app_sid'] = twiml_app_sid
+        vc['api_key_sid'] = api_key_sid
+        vc['api_key_secret'] = api_key_secret
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({"status": "ready", "twiml_app_sid": twiml_app_sid})
+
+    except Exception as e:
+        logger.error(f"VoIP setup failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/token', methods=['POST'])
+@login_required
+def generate_voice_token():
+    """Generate a short-lived Twilio Client access token for browser-based calling."""
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
+    account_sid = vc.get('twilio_account_sid', '')
+    api_key_sid = vc.get('api_key_sid', '')
+    api_key_secret = vc.get('api_key_secret', '')
+    twiml_app_sid = vc.get('twiml_app_sid', '')
+
+    if not all([account_sid, api_key_sid, api_key_secret, twiml_app_sid]):
+        return jsonify({"error": "Browser calling not set up. Click Setup VoIP first."}), 400
+
+    try:
+        # Create access token
+        identity = f"agent_{subscriber.get('location_id', 'unknown')}"
+        token = AccessToken(
+            account_sid,
+            api_key_sid,
+            api_key_secret,
+            identity=identity,
+            ttl=3600,  # 1 hour
+        )
+
+        # Add Voice grant
+        voice_grant = VoiceGrant(
+            outgoing_application_sid=twiml_app_sid,
+            incoming_allow=True,
+        )
+        token.add_grant(voice_grant)
+
+        return jsonify({
+            "token": token.to_jwt(),
+            "identity": identity,
+        })
+
+    except Exception as e:
+        logger.error(f"Token generation failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/voip-answer', methods=['POST'])
+def voip_answer():
+    """
+    TwiML endpoint for browser-originated calls.
+    Twilio hits this when the browser-based agent initiates an outbound call.
+    """
+    to_number = request.form.get('To', '')
+    from_number = request.form.get('From', '')
+    caller_id = request.form.get('CallerId', '') or request.values.get('callerId', '')
+    call_sid = request.form.get('CallSid', '')
+    contact_id = request.form.get('ContactId', '')
+    contact_name = request.form.get('ContactName', '')
+
+    logger.info(f"📞 VoIP call: {from_number} -> {to_number} (SID: {call_sid})")
+
+    # Save to call history — look up subscriber by their Twilio phone number
+    if call_sid and to_number:
+        try:
+            conn = get_db_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute(
+                        "SELECT location_id FROM subscribers WHERE voice_config->>'twilio_phone_number' = %s LIMIT 1",
+                        (caller_id,)
+                    )
+                    row = cur.fetchone()
+                    loc_id = row[0] if row else ''
+                    cur.close()
+                finally:
+                    return_db_connection(conn)
+                save_call_to_history(
+                    location_id=loc_id,
+                    call_sid=call_sid,
+                    phone=to_number,
+                    contact_id=contact_id or None,
+                    contact_name=contact_name or None,
+                    direction='outbound-voip',
+                    status='initiated'
+                )
+        except Exception as e:
+            logger.debug(f"VoIP call history save note: {e}")
+
+    response = VoiceResponse()
+
+    if to_number:
+        # Use provided caller ID or default
+        dial = Dial(
+            caller_id=caller_id if caller_id else from_number,
+            record='record-from-answer-dual',
+            recording_status_callback=f'https://{request.host}/voice/recording-status',
+            recording_status_callback_method='POST',
+            action=f'https://{request.host}/voice/status',
+        )
+        dial.number(to_number)
+        response.append(dial)
+    else:
+        response.say("No phone number specified.", voice="Polly.Matthew")
+        response.hangup()
+
+    return Response(str(response), mimetype='application/xml')
+
+
+# ──────────────────────────────────────────────────────────────
+# TRUST HUB: Phone number management + STIR/SHAKEN
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/numbers', methods=['GET'])
+@login_required
+def list_twilio_numbers():
+    """List all phone numbers in the user's Twilio account with status."""
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    try:
+        numbers = client.incoming_phone_numbers.list(limit=50)
+        result = []
+        for n in numbers:
+            result.append({
+                "sid": n.sid,
+                "phone": n.phone_number,
+                "friendly_name": n.friendly_name,
+                "capabilities": {
+                    "voice": n.capabilities.get("voice", False),
+                    "sms": n.capabilities.get("sms", False),
+                },
+                "status": "active",
+                "voice_url": n.voice_url or "",
+            })
+
+        return jsonify({"numbers": result, "total": len(result)})
+
+    except Exception as e:
+        logger.error(f"Failed to list Twilio numbers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/numbers/search', methods=['GET'])
+@login_required
+def search_available_numbers():
+    """Search for available Twilio phone numbers to purchase."""
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    area_code = request.args.get('area_code', '')
+    state = request.args.get('state', '')
+    contains = request.args.get('contains', '')
+
+    try:
+        params = {"voice_enabled": True, "limit": 20}
+        if area_code:
+            params["area_code"] = area_code
+        if state:
+            params["in_region"] = state
+        if contains:
+            params["contains"] = contains
+
+        available = client.available_phone_numbers("US").local.list(**params)
+        result = []
+        for n in available:
+            result.append({
+                "phone": n.phone_number,
+                "friendly_name": n.friendly_name,
+                "locality": n.locality or "",
+                "region": n.region or "",
+                "capabilities": {
+                    "voice": n.capabilities.get("voice", False),
+                    "sms": n.capabilities.get("sms", False),
+                },
+            })
+
+        return jsonify({"numbers": result, "total": len(result)})
+
+    except Exception as e:
+        logger.error(f"Number search failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/numbers/buy', methods=['POST'])
+@login_required
+def buy_twilio_number():
+    """Purchase a Twilio phone number and configure it for voice."""
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    data = request.json or {}
+    phone_number = data.get('phone_number', '')
+    if not phone_number:
+        return jsonify({"error": "Phone number is required"}), 400
+
+    host = request.host
+    try:
+        number = client.incoming_phone_numbers.create(
+            phone_number=phone_number,
+            voice_url=f"https://{host}/voice/inbound",
+            voice_method="POST",
+            status_callback=f"https://{host}/voice/status",
+            status_callback_method="POST",
+            friendly_name="InsuranceGrokBot AI",
+        )
+
+        logger.info(f"Purchased number: {number.phone_number} (SID: {number.sid})")
+        return jsonify({
+            "status": "purchased",
+            "phone": number.phone_number,
+            "sid": number.sid,
+        })
+
+    except Exception as e:
+        logger.error(f"Number purchase failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/numbers/release', methods=['POST'])
+@login_required
+def release_twilio_number():
+    """Release (cancel) a Twilio phone number."""
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    data = request.json or {}
+    phone_sid = data.get('sid', '')
+    if not phone_sid:
+        return jsonify({"error": "Number SID is required"}), 400
+
+    try:
+        client.incoming_phone_numbers(phone_sid).delete()
+        logger.info(f"Released number SID: {phone_sid}")
+        return jsonify({"status": "released"})
+
+    except Exception as e:
+        logger.error(f"Number release failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/trust-hub', methods=['GET'])
+@login_required
+def get_trust_hub_status():
+    """
+    Get STIR/SHAKEN and business identity status from Twilio.
+    Returns registration status and any business profiles.
+    """
+    subscriber, vc, client = _get_current_subscriber_voice()
+    if not client:
+        return jsonify({"error": "Twilio credentials not configured"}), 400
+
+    result = {
+        "stir_shaken": {"status": "unknown", "profiles": []},
+        "business_profiles": [],
+    }
+
+    try:
+        # Check for SHAKEN/STIR business profiles
+        try:
+            trust_products = client.trusthub.v1.trust_products.list(limit=10)
+            for tp in trust_products:
+                result["business_profiles"].append({
+                    "sid": tp.sid,
+                    "friendly_name": tp.friendly_name,
+                    "status": tp.status,
+                    "policy_sid": tp.policy_sid,
+                })
+                if "shaken" in (tp.friendly_name or "").lower() or "stir" in (tp.friendly_name or "").lower():
+                    result["stir_shaken"]["status"] = tp.status
+                    result["stir_shaken"]["profiles"].append({
+                        "sid": tp.sid,
+                        "name": tp.friendly_name,
+                        "status": tp.status,
+                    })
+        except Exception as e:
+            logger.debug(f"Trust products check: {e}")
+            result["stir_shaken"]["status"] = "not_configured"
+
+        # If no STIR/SHAKEN profile found, check if any business identity exists
+        if result["stir_shaken"]["status"] == "unknown":
+            if result["business_profiles"]:
+                result["stir_shaken"]["status"] = "business_registered"
+            else:
+                result["stir_shaken"]["status"] = "not_configured"
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Trust hub check failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ──────────────────────────────────────────────────────────────
+# CONTACT DETAIL: Full GHL contact info for in-call display
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/contact/<contact_id>', methods=['GET'])
+@login_required
+def get_contact_detail(contact_id):
+    """Fetch full GHL contact details including notes and tags."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid auth token"}), 401
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": GHL_API_VERSION,
+    }
+
+    try:
+        # Fetch contact details
+        resp = http_requests.get(
+            f"{GHL_API_BASE}/contacts/{contact_id}",
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
+
+        contact = resp.json().get("contact", {})
+
+        # Fetch notes
+        notes = []
+        try:
+            notes_resp = http_requests.get(
+                f"{GHL_API_BASE}/contacts/{contact_id}/notes",
+                headers=headers,
+                timeout=10
+            )
+            if notes_resp.status_code == 200:
+                notes = notes_resp.json().get("notes", [])
+        except Exception:
+            pass
+
+        result = {
+            "id": contact.get("id", ""),
+            "firstName": contact.get("firstName", ""),
+            "lastName": contact.get("lastName", ""),
+            "name": f"{contact.get('firstName', '')} {contact.get('lastName', '')}".strip(),
+            "phone": contact.get("phone", ""),
+            "email": contact.get("email", ""),
+            "tags": contact.get("tags", []),
+            "address": contact.get("address1", ""),
+            "city": contact.get("city", ""),
+            "state": contact.get("state", ""),
+            "source": contact.get("source", ""),
+            "dateAdded": contact.get("dateAdded", ""),
+            "customFields": contact.get("customFields", []),
+            "notes": [
+                {
+                    "id": n.get("id", ""),
+                    "body": n.get("body", ""),
+                    "dateAdded": n.get("dateAdded", ""),
+                }
+                for n in notes[:20]  # Limit to 20 most recent
+            ],
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch contact detail: {e}")
+        return jsonify({"error": str(e)}), 500
