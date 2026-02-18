@@ -2,7 +2,13 @@
 # Real-time bidirectional audio streaming via WebSocket
 # Architecture: Lead <-> Twilio Media Streams <-> This Bridge <-> XAI Realtime API
 #
-# Audio format: audio/pcmu (G.711 μ-law) — native to both Twilio and XAI, zero transcoding
+# Audio format: PCM16 at 16 kHz (linear, 16-bit, mono, little-endian) for xAI.
+# Twilio Media Streams is locked to G.711 μ-law at 8 kHz; this bridge resamples
+# in both directions using audioop (Python stdlib, zero external deps):
+#   Twilio → Bridge: mulaw 8 kHz → PCM16 16 kHz → xAI
+#   xAI → Bridge:   PCM16 16 kHz → mulaw 8 kHz → Twilio
+# Doubling the sample rate extends the captured frequency range from ~4 kHz to
+# ~8 kHz, preserving consonants, sibilance, and prosody that mulaw discards.
 # XAI endpoint: wss://api.x.ai/v1/realtime (OpenAI Realtime API compatible)
 
 import json
@@ -13,6 +19,7 @@ import time
 import asyncio
 import struct
 import base64
+import audioop
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
@@ -55,6 +62,10 @@ VOICE_OPTIONS = {
 # Default voice
 DEFAULT_VOICE = "Ara"
 
+# Audio sample rates
+TWILIO_SAMPLE_RATE = 8000   # Twilio Media Streams: always 8 kHz G.711 μ-law (fixed by Twilio)
+XAI_SAMPLE_RATE    = 16000  # xAI Realtime: PCM16 at 16 kHz — 2× the captured bandwidth vs. mulaw
+
 # Events to log from XAI
 LOG_EVENT_TYPES = [
     'error', 'response.content.done', 'rate_limits.updated',
@@ -88,6 +99,18 @@ def _mulaw_to_wav(mulaw_data, sample_rate=8000):
     return header + pcm_data
 
 
+def _pcm16_to_wav(pcm_data, sample_rate=XAI_SAMPLE_RATE):
+    """Wrap raw PCM16 bytes in a WAV container for browser playback."""
+    data_size = len(pcm_data)
+    header = struct.pack('<4sI4s4sIHHIIHH4sI',
+        b'RIFF', 36 + data_size, b'WAVE',
+        b'fmt ', 16, 1, 1, sample_rate,
+        sample_rate * 2, 2, 16,
+        b'data', data_size
+    )
+    return header + pcm_data
+
+
 async def _generate_voice_preview(voice_name):
     """Connect to XAI Realtime API and generate a short voice sample."""
     audio_chunks = []
@@ -104,7 +127,7 @@ async def _generate_voice_preview(voice_name):
                     "output_modalities": ["audio"],
                     "audio": {
                         "output": {
-                            "format": {"type": "audio/pcmu"},
+                            "format": {"type": "pcm16"},
                             "voice": voice_name,
                         }
                     },
@@ -1101,7 +1124,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     "output_modalities": ["audio"],
                     "audio": {
                         "input": {
-                            "format": {"type": "audio/pcmu"},
+                            # PCM16 at 16 kHz — resampled up from Twilio's 8 kHz mulaw
+                            "format": {"type": "pcm16"},
                             "turn_detection": {
                                 "type": "server_vad",
                                 "threshold": 0.5,
@@ -1110,7 +1134,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                             }
                         },
                         "output": {
-                            "format": {"type": "audio/pcmu"},
+                            # PCM16 at 16 kHz — resampled down to 8 kHz mulaw for Twilio
+                            "format": {"type": "pcm16"},
                             "voice": voice_name,
                         }
                     },
@@ -1172,6 +1197,12 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             response_start_timestamp = None
             call_active = True
 
+            # Resampling state — audioop.ratecv carries internal filter state between
+            # chunks so the upsampler/downsampler produces seamless audio across packets.
+            # Use a list so the nested async closures can mutate the value (no nonlocal needed).
+            _twilio_to_xai_state = [None]   # 8 kHz mulaw → 16 kHz PCM16
+            _xai_to_twilio_state = [None]   # 16 kHz PCM16 → 8 kHz mulaw
+
             # ── Twilio -> XAI: Forward audio from the phone to XAI ──
             async def receive_from_twilio():
                 nonlocal stream_sid, latest_media_timestamp, call_active
@@ -1189,9 +1220,18 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                         if data['event'] == 'media':
                             latest_media_timestamp = int(data['media']['timestamp'])
+                            # Twilio payload: base64-encoded G.711 μ-law at 8 kHz.
+                            # Upsample to 16 kHz PCM16 before forwarding to xAI.
+                            mulaw_bytes = base64.b64decode(data['media']['payload'])
+                            pcm8k = audioop.ulaw2lin(mulaw_bytes, 2)
+                            pcm16k, _twilio_to_xai_state[0] = audioop.ratecv(
+                                pcm8k, 2, 1,
+                                TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE,
+                                _twilio_to_xai_state[0]
+                            )
                             audio_append = {
                                 "type": "input_audio_buffer.append",
-                                "audio": data['media']['payload']
+                                "audio": base64.b64encode(pcm16k).decode('utf-8')
                             }
                             await xai_ws.send(json.dumps(audio_append))
 
@@ -1222,13 +1262,20 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # Audio response from XAI -> send to Twilio
+                        # Audio response from XAI -> resample PCM16 16 kHz -> mulaw 8 kHz -> Twilio
                         if event_type == 'response.audio.delta' and 'delta' in response:
+                            pcm16k = base64.b64decode(response['delta'])
+                            pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
+                                pcm16k, 2, 1,
+                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
+                                _xai_to_twilio_state[0]
+                            )
+                            mulaw_out = audioop.lin2ulaw(pcm8k, 2)
                             audio_delta = {
                                 "event": "media",
                                 "streamSid": stream_sid,
                                 "media": {
-                                    "payload": response['delta']
+                                    "payload": base64.b64encode(mulaw_out).decode('utf-8')
                                 }
                             }
                             ws.send(json.dumps(audio_delta))
@@ -1251,11 +1298,18 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                         # Also handle the newer event name variant
                         elif event_type == 'response.output_audio.delta' and 'delta' in response:
+                            pcm16k = base64.b64decode(response['delta'])
+                            pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
+                                pcm16k, 2, 1,
+                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
+                                _xai_to_twilio_state[0]
+                            )
+                            mulaw_out = audioop.lin2ulaw(pcm8k, 2)
                             audio_delta = {
                                 "event": "media",
                                 "streamSid": stream_sid,
                                 "media": {
-                                    "payload": response['delta']
+                                    "payload": base64.b64encode(mulaw_out).decode('utf-8')
                                 }
                             }
                             ws.send(json.dumps(audio_delta))
@@ -1524,7 +1578,7 @@ def preview_voice(voice_name):
     if not audio_data:
         return jsonify({"error": "Failed to generate preview"}), 500
 
-    wav_data = _mulaw_to_wav(audio_data)
+    wav_data = _pcm16_to_wav(audio_data)
     return Response(wav_data, content_type='audio/wav',
                     headers={'Cache-Control': 'public, max-age=3600'})
 

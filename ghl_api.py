@@ -154,7 +154,18 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         msg_res = requests.get(msg_url, headers=headers, timeout=10)
         msg_res.raise_for_status()
 
-        raw_messages = msg_res.json().get("messages", [])
+        # GHL returns either:
+        #   {"messages": [...]}                               (older format — flat list)
+        #   {"messages": {"messages": [...], "lastMessageId": ..., "nextPage": ...}}  (newer format — nested)
+        # Iterating a dict yields its keys (strings), not message dicts, hence the
+        # "Skipping invalid message item (not dict): lastMessageId" warnings.
+        messages_payload = msg_res.json().get("messages", [])
+        if isinstance(messages_payload, dict):
+            raw_messages = messages_payload.get("messages", [])
+        elif isinstance(messages_payload, list):
+            raw_messages = messages_payload
+        else:
+            raw_messages = []
         formatted_history = []
 
         for m in raw_messages:
