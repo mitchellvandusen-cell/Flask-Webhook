@@ -6,7 +6,7 @@ import os
 import time
 from typing import Tuple, Optional
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -692,6 +692,9 @@ def process_webhook_task(payload: dict):
             except Exception:
                 contracted_carriers = []
 
+        # === Bot Settings ===
+        bot_settings = get_bot_settings_by_location(location_id)
+
         # Process ALL messages - trust the LLM to understand context
         # "k", "ya", "ok" are all valid text responses that need processing
 
@@ -700,7 +703,8 @@ def process_webhook_task(payload: dict):
             message=message,
             first_name=first_name,
             age=age,
-            address=address
+            address=address,
+            bot_settings=bot_settings,
         )
 
         recent_exchanges = director_output["recent_exchanges"]
@@ -819,17 +823,37 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             extra_context = f"{extra_context}\n[COMPANY INTEL] {director_output['company_context']}".strip()
         final_nudge = f"{context_nudge}\n{extra_context}".strip()
 
-        # === INITIAL MESSAGE BYPASS ===
-        # If the subscriber configured an initial_message and this is the very first
-        # contact (no inbound message, no conversation history), send it verbatim.
-        # All subsequent messages are LLM-generated.
+        # === LEAD RE-ENGAGEMENT CHECK ===
+        # If re-engagement is disabled and this is a follow-up (no inbound message),
+        # skip responding entirely — let the lead come to us.
+        if not message and not bot_settings.get("lead_reengagement", True):
+            bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+            if len(bot_msgs) >= 1:
+                logger.info(f"🚫 RE-ENGAGEMENT DISABLED | Skipping follow-up for {contact_id}")
+                return {"status": "skipped", "reason": "lead_reengagement disabled", "contact_id": contact_id}
+
+        # === INITIAL MESSAGE / OUTBOUND DRIP BYPASS ===
         initial_msg = subscriber.get('initial_message', '').strip()
+        outbound_msgs = bot_settings.get("outbound_messages", [])
         reply = ""
 
-        if initial_msg and not message and not recent_exchanges:
+        if not message and not recent_exchanges and initial_msg:
+            # First ever contact — use configured initial message
             reply = initial_msg
             logger.info(f"📨 USING CONFIGURED INITIAL MESSAGE | contact={contact_id} | msg='{reply[:60]}'")
-        else:
+
+        elif not message and outbound_msgs:
+            # Custom outbound drip: check how many bot messages have been sent,
+            # send the next custom template if available
+            bot_msgs_sent = len([m for m in recent_exchanges if m['role'] == 'assistant'])
+            # The initial_message counts as message 0, custom drip starts at index 0
+            # after the initial message. If no initial_message, drip starts immediately.
+            drip_index = bot_msgs_sent - (1 if initial_msg else 0)
+            if 0 <= drip_index < len(outbound_msgs):
+                reply = outbound_msgs[drip_index]
+                logger.info(f"📨 OUTBOUND DRIP #{drip_index + 1}/{len(outbound_msgs)} | contact={contact_id} | msg='{reply[:60]}'")
+
+        if not reply:
             # === NORMAL LLM FLOW ===
             system_prompt = build_system_prompt(
                 bot_first_name=bot_first_name,
@@ -846,6 +870,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 lead_vendor=lead_vendor,
                 personal_website=personal_website,
                 contracted_carriers=contracted_carriers,
+                bot_settings=bot_settings,
             )
 
             # === STRUCTURAL REASONING SEPARATION ===
