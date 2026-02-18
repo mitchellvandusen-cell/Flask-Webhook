@@ -622,7 +622,7 @@ def _build_install_welcome_email(name: str, domain_url: str) -> str:
             One Step Left to Activate Your Bot
         </p>
         <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;">
-            Click the button below to connect your GoHighLevel CRM. This authorizes InsuranceGrokBot
+            Click the button below to connect your Lead Connector CRM. This authorizes InsuranceGrokBot
             to respond to your leads, book appointments, and manage conversations automatically.
         </p>
     </td>
@@ -1486,6 +1486,11 @@ def onboarding_status():
 def support_page():
     """Self-service support and troubleshooting hub."""
     return render_template('support.html')
+
+@app.route("/setup-guide")
+def setup_guide():
+    """Comprehensive step-by-step setup guide."""
+    return render_template('setup-guide.html')
 
 
 @app.route("/dashboard", methods=["GET", "POST"])
@@ -4228,18 +4233,18 @@ def oauth_callback():
 <tr><td style="padding: 20px 40px 30px;">
     <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
     <p style="font-size: 15px; color: #ccc; line-height: 1.6;">
-        A user installed the app but GHL permissions blocked their email.
+        A user installed the app but Lead Connector permissions blocked their email.
         A placeholder account was created so they can access the dashboard.
     </p>
     <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); margin: 20px 0;">
-        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">GHL User ID</td>
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">LC User ID</td>
             <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{ghl_user_id}</td></tr>
         <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888;">Location ID</td>
             <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{primary_location_id or 'N/A'}</td></tr>
         <tr><td style="padding: 12px 16px; color: #888;">Company ID</td>
             <td style="padding: 12px 16px; color: #fff; font-family: monospace;">{company_id or 'N/A'}</td></tr>
     </table>
-    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your GHL Agency View to find the user's real email, then update their record in the database.</p>
+    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your Lead Connector Agency View to find the user's real email, then update their record in the database.</p>
 </td></tr>'''
                 send_email_via_api(
                     to_email=admin_target,
@@ -4561,7 +4566,7 @@ def oauth_callback():
             try:
                 alert_msg = (
                     "Your Lead Connector account connected successfully, but the "
-                    "locations.readonly scope is not yet approved in the GHL marketplace. "
+                    "locations.readonly scope is not yet approved in the Lead Connector marketplace. "
                     "Your primary location is active and the bot is operational. "
                 )
                 if use_agency_flow:

@@ -611,7 +611,7 @@
                 <h4>Action Required: Complete Your Account Setup</h4>
                 <p>
                     We weren't able to retrieve your email or user details during the connection process.
-                    This is usually caused by pending scope approvals on the GoHighLevel marketplace.
+                    This is usually caused by pending scope approvals on the Lead Connector marketplace.
                     Your bot won't be fully active until your account details are confirmed.
                 </p>
                 <a href="/support" class="banner-link">
@@ -628,7 +628,7 @@
                 <h4>Almost There: Some Details Are Missing</h4>
                 <p>
                     Your account connected successfully, but some CRM details (User ID or Location) could not
-                    be auto-populated. This can happen when certain GoHighLevel scopes are still pending approval.
+                    be auto-populated. This can happen when certain Lead Connector scopes are still pending approval.
                     You can enter them manually below, or contact support for assistance.
                 </p>
                 <a href="/support" class="banner-link">
@@ -1633,7 +1633,7 @@
             const guide = document.getElementById('crmGuide-' + crmType);
             if (guide) guide.style.display = 'block';
 
-            // Show config form for non-GHL CRMs
+            // Show config form for non-LeadConnector CRMs
             const configForm = document.getElementById('integrationConfigForm');
             if (crmType === 'ghl') {
                 configForm.style.display = 'none';

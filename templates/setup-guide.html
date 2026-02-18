@@ -1,0 +1,855 @@
+{% extends "base.html" %}
+{% block title %}Setup Guide | InsuranceGrokBot{% endblock %}
+{% block content %}
+<div class="container" style="padding-top: 120px; padding-bottom: 80px; max-width: 960px;">
+
+    <!-- Header -->
+    <div class="text-center mb-5" data-aos="fade-down">
+        <h1 style="font-weight: 900; font-size: 2.8rem; margin-bottom: 10px;">
+            Complete Setup <span class="text-accent">Guide</span>
+        </h1>
+        <p class="text-secondary" style="font-size: 1.1rem; max-width: 650px; margin: 0 auto;">
+            Everything you need to go from zero to live in one sitting. Follow each step in order and your bot will be booking appointments by the end.
+        </p>
+    </div>
+
+    <!-- Progress / Table of Contents -->
+    <div class="card glass-card mb-5" data-aos="fade-up">
+        <div class="card-body p-4">
+            <h5 style="font-weight: 700; color: var(--accent); margin-bottom: 16px;">
+                <i class="fa-solid fa-map me-2"></i>Jump To Section
+            </h5>
+            <div class="row g-2">
+                <div class="col-md-4 col-6">
+                    <a href="#step-1" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 1</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Choose Your Path</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-2" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 2</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Account &amp; Subscription</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-3" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 3</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Dashboard Overview</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-4" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 4</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Connect Your CRM</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-5" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 5</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Configure Your Bot</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-6" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 6</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Set Up Webhooks</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-7" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 7</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Twilio SMS (Optional)</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-8" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 8</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Test Everything</div>
+                    </a>
+                </div>
+                <div class="col-md-4 col-6">
+                    <a href="#step-9" class="d-block glass-card p-2 text-decoration-none text-center" style="border-color: rgba(0,255,136,0.1);">
+                        <small style="color: var(--accent); font-weight: 700;">Step 9</small>
+                        <div style="color: #ccc; font-size: 0.8rem;">Go Live</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 1: CHOOSE YOUR PATH -->
+    <!-- ============================================================ -->
+    <div id="step-1" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">1</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Choose Your Setup Path</h3>
+            </div>
+            <p style="color: #aaa;">There are two ways to get started. Pick the one that matches your situation.</p>
+
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="glass-card p-4 h-100" style="border-color: rgba(0,217,255,0.2);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-cloud-arrow-down me-2"></i>Path A: LeadConnector Marketplace</h5>
+                        <p style="color: #aaa; font-size: 0.9rem;">Best for users who already have a LeadConnector account. The install handles OAuth, tokens, and Location ID automatically.</p>
+                        <div style="color: #ccc; font-size: 0.9rem;">
+                            <strong>This path is for you if:</strong>
+                            <ul class="mt-2" style="color: #888;">
+                                <li>You use LeadConnector as your CRM</li>
+                                <li>You want a one-click install with no manual configuration</li>
+                                <li>You manage leads inside your LeadConnector sub-account</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-4 h-100" style="border-color: rgba(0,255,136,0.2);">
+                        <h5 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-bolt me-2"></i>Path B: Direct Registration</h5>
+                        <p style="color: #aaa; font-size: 0.9rem;">Best for users on Salesforce, HubSpot, Pipedrive, Zoho, Insureio, or Zapier. You register directly, subscribe, then connect your CRM.</p>
+                        <div style="color: #ccc; font-size: 0.9rem;">
+                            <strong>This path is for you if:</strong>
+                            <ul class="mt-2" style="color: #888;">
+                                <li>You use a CRM other than LeadConnector</li>
+                                <li>You want to connect via API keys and webhooks</li>
+                                <li>You want to use Zapier to bridge any unsupported CRM</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 2: ACCOUNT & SUBSCRIPTION -->
+    <!-- ============================================================ -->
+    <div id="step-2" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">2</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Create Your Account &amp; Subscribe</h3>
+            </div>
+
+            <!-- Path A -->
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(0,217,255,0.15);">
+                <h5 style="color: #00d9ff; font-weight: 700;">Path A: Marketplace Install</h5>
+                <ol style="color: #ccc; font-size: 0.95rem; line-height: 2;">
+                    <li>Log into your <strong>LeadConnector</strong> account at <code>app.leadconnectorhq.com</code>.</li>
+                    <li>In the left sidebar, click <strong>Marketplace</strong>.</li>
+                    <li>In the search bar at the top, type <strong>"Insurance Grok Bot"</strong> and press Enter.</li>
+                    <li>Click on the InsuranceGrokBot listing to open the details page.</li>
+                    <li>Click the green <strong>Install</strong> button.</li>
+                    <li>A permissions dialog will appear. You need to approve access to:
+                        <ul style="color: #888;">
+                            <li><strong>Contacts</strong> &mdash; so the bot can look up and create leads</li>
+                            <li><strong>Calendars</strong> &mdash; so the bot can read free slots and book appointments</li>
+                            <li><strong>Conversations</strong> &mdash; so the bot can read and send messages</li>
+                            <li><strong>Locations</strong> &mdash; so the bot can identify your sub-account</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Approve</strong>. You will be redirected to InsuranceGrokBot.</li>
+                    <li>On the redirect page, you'll be asked to <strong>set a password</strong>. Choose a strong password and confirm it.</li>
+                    <li>You'll be taken to the <strong>Stripe checkout page</strong>. Choose your plan:
+                        <div class="row g-2 my-2">
+                            <div class="col-md-4"><div class="glass-card p-2 text-center"><small style="color: var(--accent); font-weight: 700;">Individual</small><div style="color: #fff; font-size: 0.85rem;">$98.99/mo</div><div style="color: #888; font-size: 0.75rem;">Solo agents</div></div></div>
+                            <div class="col-md-4"><div class="glass-card p-2 text-center"><small style="color: var(--accent); font-weight: 700;">Agency Starter</small><div style="color: #fff; font-size: 0.85rem;">$797.99/mo</div><div style="color: #888; font-size: 0.75rem;">Up to 14 sub-accounts</div></div></div>
+                            <div class="col-md-4"><div class="glass-card p-2 text-center"><small style="color: var(--accent); font-weight: 700;">Agency Pro</small><div style="color: #fff; font-size: 0.85rem;">$1,597.99/mo</div><div style="color: #888; font-size: 0.75rem;">Unlimited sub-accounts</div></div></div>
+                        </div>
+                    </li>
+                    <li>Complete the Stripe checkout. All plans include a <strong>7-day free trial</strong>.</li>
+                    <li>After checkout, you'll be redirected to your <strong>Dashboard</strong>. Your Location ID, OAuth tokens, and CRM User ID are already filled in automatically.</li>
+                </ol>
+                <div class="alert alert-info mt-2" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                    <i class="fa-solid fa-info-circle me-1"></i> If the redirect fails or you close the tab prematurely, don't worry. Go to <a href="/login" style="color: var(--accent);">Login</a> and sign in with the email from your LeadConnector account. Visit <a href="/onboarding-status" style="color: var(--accent);">Setup Progress</a> to see exactly where you left off.
+                </div>
+            </div>
+
+            <!-- Path B -->
+            <div class="glass-card p-4" style="border-color: rgba(0,255,136,0.15);">
+                <h5 style="color: var(--accent); font-weight: 700;">Path B: Direct Registration</h5>
+                <ol style="color: #ccc; font-size: 0.95rem; line-height: 2;">
+                    <li>Go to <a href="/register" style="color: var(--accent);">Register</a>.</li>
+                    <li>Enter your <strong>email address</strong> and choose a <strong>password</strong>.</li>
+                    <li>Click <strong>Create Account</strong>.</li>
+                    <li>You'll be redirected to the <strong>Stripe checkout page</strong>. Choose your plan (same three tiers as above).</li>
+                    <li>Complete the Stripe checkout. 7-day free trial included.</li>
+                    <li>After checkout, you'll land on your <strong>Dashboard</strong>. Since you didn't install via Marketplace, your dashboard will show empty fields that need to be filled in manually.</li>
+                </ol>
+                <div class="alert alert-warning mt-2" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
+                    <i class="fa-solid fa-exclamation-triangle me-1"></i> Make sure you use the <strong>same email address</strong> for both registration and Stripe checkout. If they don't match, the system can't link your payment to your account.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 3: DASHBOARD OVERVIEW -->
+    <!-- ============================================================ -->
+    <div id="step-3" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">3</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Understand Your Dashboard</h3>
+            </div>
+            <p style="color: #aaa;">Your dashboard is the control center for everything. Here's what each section does.</p>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <div class="glass-card p-3 h-100" style="border-color: rgba(255,255,255,0.08);">
+                        <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-sliders me-2"></i>Bot Config Tab</h6>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">This is where you set up the bot's identity and behavior. It contains:</p>
+                        <ul style="color: #888; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0;">
+                            <li><strong>Location ID</strong> &mdash; Your CRM sub-account identifier. Auto-filled if you installed via Marketplace.</li>
+                            <li><strong>Calendar</strong> &mdash; Which calendar the bot books appointments on. You must click "Load" to fetch your calendars, then select one.</li>
+                            <li><strong>CRM User ID</strong> &mdash; The user account the bot sends messages as (LeadConnector only).</li>
+                            <li><strong>Timezone</strong> &mdash; Must match your business hours. Times shown to leads depend on this.</li>
+                            <li><strong>Bot First Name</strong> &mdash; The name the bot uses in conversation (e.g., "Sarah", "Mike").</li>
+                            <li><strong>Initial Message</strong> &mdash; The first outreach message the bot sends to new leads.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-3 h-100" style="border-color: rgba(255,255,255,0.08);">
+                        <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-plug me-2"></i>Connect Tab</h6>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">This is where you connect your CRM and configure integrations:</p>
+                        <ul style="color: #888; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0;">
+                            <li><strong>Webhook URL</strong> &mdash; Your unique endpoint URL. Copy this and paste it into your CRM's webhook settings.</li>
+                            <li><strong>CRM Selection</strong> &mdash; Click a CRM button to see its setup guide and configuration fields.</li>
+                            <li><strong>Save &amp; Test</strong> &mdash; Enter your API credentials, save, then test the connection.</li>
+                            <li><strong>Built-In Intelligence</strong> &mdash; Shows the 270+ carrier database, live underwriting, and webhook API that work automatically.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-3 h-100" style="border-color: rgba(255,255,255,0.08);">
+                        <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-list me-2"></i>Logs Tab</h6>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Real-time activity log showing every event:</p>
+                        <ul style="color: #888; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0;">
+                            <li><strong>webhook_received</strong> &mdash; An inbound message arrived</li>
+                            <li><strong>booking_attempt / booking_success / booking_failed</strong> &mdash; Appointment booking lifecycle</li>
+                            <li><strong>message_sent / message_failed</strong> &mdash; Outbound SMS status</li>
+                            <li><strong>error</strong> &mdash; Something went wrong (check details for specifics)</li>
+                            <li>Filter by event type and status. 50 logs per page with pagination.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-3 h-100" style="border-color: rgba(255,255,255,0.08);">
+                        <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-diagram-project me-2"></i>Workflows Tab</h6>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Step-by-step guides for setting up CRM automations:</p>
+                        <ul style="color: #888; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0;">
+                            <li><strong>Re-Engage Workflow</strong> &mdash; 7-step guide for building a lead re-engagement automation in LeadConnector</li>
+                            <li><strong>SMS Reply Workflow</strong> &mdash; 3-step guide for routing inbound SMS replies to the bot's webhook</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-3 h-100" style="border-color: rgba(255,255,255,0.08);">
+                        <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-credit-card me-2"></i>Billing Tab</h6>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Manage your subscription via Stripe:</p>
+                        <ul style="color: #888; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0;">
+                            <li>View your current plan and billing period</li>
+                            <li>Open the Stripe portal to update payment methods</li>
+                            <li>Cancel or change your subscription anytime</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-3 h-100" style="border-color: rgba(255,255,255,0.08);">
+                        <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-sidebar me-2"></i>Sidebar</h6>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Quick-access panel on the left side:</p>
+                        <ul style="color: #888; font-size: 0.85rem; margin-top: 6px; margin-bottom: 0;">
+                            <li><strong>System Params</strong> &mdash; Read-only display of your Location ID, Access Token, and Refresh Token</li>
+                            <li><strong>Operator Profile</strong> &mdash; Your name, phone, and bio (displayed to leads)</li>
+                            <li><strong>Connect LeadConnector</strong> button &mdash; Starts the OAuth flow</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 4: CONNECT YOUR CRM -->
+    <!-- ============================================================ -->
+    <div id="step-4" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">4</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Connect Your CRM</h3>
+            </div>
+            <p style="color: #aaa;">Click the tab for your CRM below. Follow every step exactly.</p>
+
+            <!-- CRM Nav Pills -->
+            <ul class="nav nav-pills mb-4 flex-wrap gap-2" id="crmTabs" role="tablist" style="border: none;">
+                <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#setup-ghl" type="button" style="background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">LeadConnector</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#setup-sf" type="button" style="background: rgba(255,255,255,0.03); color: #aaa; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">Salesforce</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#setup-hs" type="button" style="background: rgba(255,255,255,0.03); color: #aaa; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">HubSpot</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#setup-pd" type="button" style="background: rgba(255,255,255,0.03); color: #aaa; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">Pipedrive</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#setup-zoho" type="button" style="background: rgba(255,255,255,0.03); color: #aaa; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">Zoho CRM</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#setup-zapier" type="button" style="background: rgba(255,255,255,0.03); color: #aaa; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">Zapier</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#setup-insureio" type="button" style="background: rgba(255,255,255,0.03); color: #aaa; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 0.85rem; font-weight: 600;">Insureio</button></li>
+            </ul>
+
+            <div class="tab-content">
+
+                <!-- LeadConnector -->
+                <div class="tab-pane fade show active" id="setup-ghl" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,255,136,0.15);">
+                        <h5 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-bolt me-2"></i>LeadConnector</h5>
+                        <p style="color: #888; font-size: 0.9rem;">Native integration. Deepest feature set. SMS, calendar, contacts, and OAuth all work out of the box.</p>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">If you installed via Marketplace (Path A):</h6>
+                        <p style="color: #ccc; font-size: 0.9rem;">Your OAuth tokens, Location ID, and CRM User ID were set automatically during install. You can verify them in the sidebar of your dashboard under "System Params". If all three show values (not blank), you're connected. Skip to <a href="#step-5" style="color: var(--accent);">Step 5</a>.</p>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">If you registered directly (Path B) and want to use LeadConnector:</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>On your dashboard, look for the green <strong>"Connect Lead Connector"</strong> button in the sidebar.</li>
+                            <li>Click it. You'll be redirected to LeadConnector's OAuth authorization page.</li>
+                            <li>Select the <strong>sub-account (location)</strong> you want to connect. This is important if you have multiple locations.</li>
+                            <li>Click <strong>Approve</strong>. You'll be redirected back to your dashboard.</li>
+                            <li>Your <strong>Location ID</strong>, <strong>Access Token</strong>, and <strong>Refresh Token</strong> will now be filled in automatically.</li>
+                            <li>Verify them in the sidebar under "System Params". All three should show values.</li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Finding your CRM User ID:</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>In LeadConnector, go to <strong>Settings &rarr; My Staff</strong> (or <strong>Team Management</strong>).</li>
+                            <li>Click on your user profile.</li>
+                            <li>The User ID is in the browser URL: <code>...users/<strong>YOUR_USER_ID</strong></code></li>
+                            <li>Copy it and paste it into the <strong>CRM User ID</strong> field on your dashboard's Bot Config tab.</li>
+                            <li>Click <strong>Save Configuration</strong>.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Salesforce -->
+                <div class="tab-pane fade" id="setup-sf" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-cloud me-2"></i>Salesforce</h5>
+                        <p style="color: #888; font-size: 0.9rem;">OAuth 2.0 integration. Requires a Connected App in Salesforce. SMS goes through Twilio.</p>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4a: Create a Connected App in Salesforce</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Log into Salesforce and go to <strong>Setup</strong> (gear icon &rarr; Setup).</li>
+                            <li>In the Quick Find box, search for <strong>"App Manager"</strong> and click it.</li>
+                            <li>Click <strong>New Connected App</strong> in the top right.</li>
+                            <li>Fill in the required fields:
+                                <ul style="color: #888;">
+                                    <li><strong>Connected App Name:</strong> InsuranceGrokBot</li>
+                                    <li><strong>API Name:</strong> InsuranceGrokBot (auto-fills)</li>
+                                    <li><strong>Contact Email:</strong> your email address</li>
+                                </ul>
+                            </li>
+                            <li>Under <strong>API (Enable OAuth Settings)</strong>, check the box.</li>
+                            <li>Set the <strong>Callback URL</strong> to: <code>https://login.salesforce.com/services/oauth2/callback</code></li>
+                            <li>Under <strong>Selected OAuth Scopes</strong>, add:
+                                <ul style="color: #888;">
+                                    <li><code>Full access (full)</code></li>
+                                    <li><code>Perform requests at any time (refresh_token, offline_access)</code></li>
+                                    <li><code>Manage user data via APIs (api)</code></li>
+                                </ul>
+                            </li>
+                            <li>Click <strong>Save</strong>. Wait 2-10 minutes for Salesforce to register the app.</li>
+                            <li>After it's ready, go back to App Manager, find your app, click the dropdown arrow, and select <strong>View</strong>.</li>
+                            <li>Copy the <strong>Consumer Key</strong> (this is your Client ID) and click <strong>Reveal</strong> to copy the <strong>Consumer Secret</strong>.</li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4b: Get your Access Token and Refresh Token</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>The easiest way is to use <strong>Salesforce Workbench</strong>: go to <code>workbench.developerforce.com</code></li>
+                            <li>Select your environment (Production or Sandbox), accept the terms, and click <strong>Login with Salesforce</strong>.</li>
+                            <li>Authorize the app. After authorization, note the <strong>Access Token</strong> and <strong>Refresh Token</strong> from the OAuth response.</li>
+                            <li>Alternatively, your IT team can generate tokens via the standard OAuth2 authorization code flow.</li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials in InsuranceGrokBot</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
+                            <li>Click the <strong>Salesforce</strong> button.</li>
+                            <li>Fill in the configuration fields:
+                                <ul style="color: #888;">
+                                    <li><strong>Instance URL:</strong> <code>https://yourorg.my.salesforce.com</code> (check your browser URL bar when logged into Salesforce)</li>
+                                    <li><strong>Access Token:</strong> paste from Step 4b</li>
+                                    <li><strong>Refresh Token:</strong> paste from Step 4b</li>
+                                    <li><strong>Client ID:</strong> Consumer Key from Step 4a</li>
+                                    <li><strong>Client Secret:</strong> Consumer Secret from Step 4a</li>
+                                </ul>
+                            </li>
+                            <li>Click <strong>Save Configuration</strong>.</li>
+                            <li>Click <strong>Test Connection</strong>. You should see a green success message.</li>
+                        </ol>
+
+                        <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                            <i class="fa-solid fa-info-circle me-1"></i> Salesforce tokens auto-refresh. You only need to enter them once. The system uses your Refresh Token and Client credentials to obtain new Access Tokens automatically when they expire.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HubSpot -->
+                <div class="tab-pane fade" id="setup-hs" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-h me-2"></i>HubSpot</h5>
+                        <p style="color: #888; font-size: 0.9rem;">Private App integration. Simple token-based auth. SMS goes through Twilio.</p>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4a: Create a Private App</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Log into HubSpot and go to <strong>Settings</strong> (gear icon).</li>
+                            <li>In the left sidebar, navigate to <strong>Integrations &rarr; Private Apps</strong>.</li>
+                            <li>Click <strong>Create a private app</strong>.</li>
+                            <li>Give it a name (e.g., "InsuranceGrokBot") and optionally a description.</li>
+                            <li>Go to the <strong>Scopes</strong> tab and enable:
+                                <ul style="color: #888;">
+                                    <li><code>crm.objects.contacts.read</code> and <code>crm.objects.contacts.write</code></li>
+                                    <li><code>crm.objects.deals.read</code> and <code>crm.objects.deals.write</code></li>
+                                    <li><code>sales-email-read</code> (optional, for email tracking)</li>
+                                </ul>
+                            </li>
+                            <li>Click <strong>Create app</strong> and then <strong>Continue creating</strong> in the confirmation dialog.</li>
+                            <li>Copy the <strong>Access Token</strong> shown on the next page. This is the only time it's fully visible, so save it securely.</li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4b: Find your Owner ID (optional but recommended)</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>In HubSpot, go to <strong>Settings &rarr; Users &amp; Teams</strong>.</li>
+                            <li>Click on your name. In the URL bar, you'll see: <code>...users/<strong>YOUR_OWNER_ID</strong></code></li>
+                            <li>Copy this number. It's used to assign meetings to you when the bot books appointments.</li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials in InsuranceGrokBot</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
+                            <li>Click the <strong>HubSpot</strong> button.</li>
+                            <li>Paste your <strong>Access Token</strong> and (optionally) your <strong>Owner ID</strong>.</li>
+                            <li>Click <strong>Save Configuration</strong>, then <strong>Test Connection</strong>.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Pipedrive -->
+                <div class="tab-pane fade" id="setup-pd" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-handshake me-2"></i>Pipedrive</h5>
+                        <p style="color: #888; font-size: 0.9rem;">API token integration. New contacts automatically get a deal created. SMS goes through Twilio.</p>
+
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Log into Pipedrive and go to <strong>Settings</strong> (gear icon in top right).</li>
+                            <li>Navigate to <strong>Personal Preferences &rarr; API</strong>.</li>
+                            <li>Copy your <strong>Personal API Token</strong>.</li>
+                            <li>Note your <strong>Company Domain</strong>. This is the subdomain part of your Pipedrive URL. If your URL is <code>yourcompany.pipedrive.com</code>, your domain is <strong>yourcompany</strong>.</li>
+                            <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
+                            <li>Click <strong>Pipedrive</strong>.</li>
+                            <li>Enter your <strong>Company Domain</strong> and <strong>API Token</strong>.</li>
+                            <li>(Optional) Enter your <strong>User ID</strong>, <strong>Pipeline ID</strong>, and <strong>Stage ID</strong> if you want deals assigned to a specific pipeline and stage.</li>
+                            <li>Click <strong>Save Configuration</strong>, then <strong>Test Connection</strong>.</li>
+                        </ol>
+                        <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                            <i class="fa-solid fa-info-circle me-1"></i> Pipedrive automatically creates a <strong>Deal</strong> for every new contact the bot creates. Messages are logged as <strong>Notes</strong> on the Person record.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zoho -->
+                <div class="tab-pane fade" id="setup-zoho" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-database me-2"></i>Zoho CRM</h5>
+                        <p style="color: #888; font-size: 0.9rem;">OAuth 2.0 integration with auto token refresh. Zoho tokens expire every hour so a Refresh Token is mandatory.</p>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4a: Create a Self Client in Zoho API Console</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Go to <a href="https://api-console.zoho.com/" style="color: var(--accent);" target="_blank">Zoho API Console</a> and log in.</li>
+                            <li>Click <strong>Add Client</strong> &rarr; select <strong>Self Client</strong>.</li>
+                            <li>Copy your <strong>Client ID</strong> and <strong>Client Secret</strong> from the Client Secret tab.</li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4b: Generate tokens</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>In the API Console, go to the <strong>Generate Code</strong> tab.</li>
+                            <li>Enter scopes: <code>ZohoCRM.modules.ALL,ZohoCRM.users.READ</code></li>
+                            <li>Set a description and choose your data center region.</li>
+                            <li>Click <strong>Create</strong> to generate a <strong>Grant Token</strong>.</li>
+                            <li>Use the Grant Token to request an Access Token and Refresh Token:
+                                <ul style="color: #888;">
+                                    <li>Make a POST request to: <code>https://accounts.zoho.com/oauth/v2/token</code></li>
+                                    <li>Parameters: <code>grant_type=authorization_code</code>, <code>client_id</code>, <code>client_secret</code>, <code>code=YOUR_GRANT_TOKEN</code></li>
+                                    <li>The response contains your <strong>access_token</strong> and <strong>refresh_token</strong>.</li>
+                                </ul>
+                            </li>
+                        </ol>
+
+                        <h6 style="color: #fff; font-weight: 700; margin-top: 20px;">Step 4c: Enter credentials</h6>
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab &rarr; <strong>Zoho CRM</strong>.</li>
+                            <li>Enter: <strong>Client ID</strong>, <strong>Client Secret</strong>, <strong>Access Token</strong>, <strong>Refresh Token</strong>, and your <strong>Data Center</strong> (com, eu, in, com.au, or jp).</li>
+                            <li>Click <strong>Save Configuration</strong>, then <strong>Test Connection</strong>.</li>
+                        </ol>
+
+                        <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
+                            <i class="fa-solid fa-exclamation-triangle me-1"></i> The <strong>Refresh Token is required</strong>. Zoho access tokens expire every hour. Without a refresh token, the connection will break after 60 minutes.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zapier -->
+                <div class="tab-pane fade" id="setup-zapier" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-plug me-2"></i>Zapier (Universal Connector)</h5>
+                        <p style="color: #888; font-size: 0.9rem;">Use Zapier to connect any CRM or app that isn't directly supported. Works via webhook relay.</p>
+
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Log into <a href="https://zapier.com" style="color: var(--accent);" target="_blank">Zapier</a>.</li>
+                            <li>Click <strong>Create Zap</strong>.</li>
+                            <li>For the <strong>Trigger</strong>, choose <strong>"Webhooks by Zapier"</strong> &rarr; <strong>"Catch Hook"</strong>.</li>
+                            <li>Zapier will give you a unique <strong>Catch Hook URL</strong>. Copy this URL.</li>
+                            <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab &rarr; <strong>Zapier</strong>.</li>
+                            <li>Paste the Catch Hook URL into the <strong>Webhook URL</strong> field.</li>
+                            <li>(Optional) Create separate Zaps for bookings, messages, and contacts with their own hook URLs.</li>
+                            <li>Click <strong>Save Configuration</strong>.</li>
+                            <li>Back in Zapier, click <strong>Test trigger</strong> to receive sample data (you may need to send a test message first).</li>
+                            <li>Add your <strong>Action</strong> steps (e.g., create record in your CRM, send email, log to Google Sheets, etc.).</li>
+                            <li><strong>Important:</strong> Create a <strong>second Zap</strong> that routes inbound messages from your CRM to the InsuranceGrokBot webhook URL shown on your Connect tab.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Insureio -->
+                <div class="tab-pane fade" id="setup-insureio" role="tabpanel">
+                    <div class="glass-card p-4" style="border-color: rgba(0,217,255,0.15);">
+                        <h5 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-shield-halved me-2"></i>Insureio</h5>
+                        <p style="color: #888; font-size: 0.9rem;">Insurance-specific CRM integration. API key based. SMS goes through Twilio.</p>
+
+                        <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                            <li>Log into your Insureio account.</li>
+                            <li>Go to <strong>Account Settings &rarr; API</strong> and copy your <strong>API Key</strong>.</li>
+                            <li>Navigate to your <strong>Brands</strong> section and note your <strong>Brand/Profile ID</strong>. This is required for lead creation.</li>
+                            <li>(Optional) Note your <strong>Subdomain</strong> if your Insureio account uses a custom subdomain.</li>
+                            <li>Go to your <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab &rarr; <strong>Insureio</strong>.</li>
+                            <li>Enter your <strong>API Key</strong>, <strong>Brand ID</strong>, and (optionally) <strong>Subdomain</strong>.</li>
+                            <li>Click <strong>Save Configuration</strong>, then <strong>Test Connection</strong>.</li>
+                        </ol>
+
+                        <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                            <i class="fa-solid fa-info-circle me-1"></i> Insureio doesn't have a native calendar API. For appointment booking, add a <strong>Booking Webhook URL</strong> (e.g., Calendly or Acuity) in your integration settings. The bot will send booking data to that URL.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 5: CONFIGURE YOUR BOT -->
+    <!-- ============================================================ -->
+    <div id="step-5" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">5</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Configure Your Bot</h3>
+            </div>
+            <p style="color: #aaa;">Go to your Dashboard &rarr; Bot Config tab and set each field.</p>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">A. Select Your Calendar</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>On the Bot Config tab, find the <strong>Calendar</strong> dropdown.</li>
+                    <li>Click the <strong>"Load"</strong> button next to it. This fetches all calendars from your connected CRM.</li>
+                    <li>If you see "None" or an empty list, you need to create a calendar in your CRM first. In LeadConnector, go to <strong>Calendars</strong> in the sidebar and create one.</li>
+                    <li>Select the calendar you want the bot to use for booking appointments.</li>
+                    <li>Make sure the calendar has <strong>available hours configured</strong>. The bot can only book during your available slots. If no availability is set, the bot has nothing to offer.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">B. Set Your Timezone</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>Select the timezone that matches your <strong>business operating hours</strong>.</li>
+                    <li>This affects how the bot displays available time slots to leads.</li>
+                    <li>Common US timezones:
+                        <ul style="color: #888;">
+                            <li><code>America/New_York</code> &mdash; Eastern</li>
+                            <li><code>America/Chicago</code> &mdash; Central</li>
+                            <li><code>America/Denver</code> &mdash; Mountain</li>
+                            <li><code>America/Los_Angeles</code> &mdash; Pacific</li>
+                        </ul>
+                    </li>
+                    <li>Make sure this matches your CRM calendar's timezone. Mismatched timezones will show wrong appointment times.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">C. Set Bot Name &amp; Initial Message</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li><strong>Bot First Name:</strong> Enter a natural first name. This is how the bot introduces itself (e.g., "Hey, this is <em>Sarah</em>..."). Use a real-sounding name, not "InsuranceBot".</li>
+                    <li><strong>Initial Message:</strong> This is the very first text the bot sends to a new lead. Keep it short, conversational, and curiosity-driven. The bot uses this as the opening line and builds from there.</li>
+                    <li>If you leave Initial Message blank, the bot will generate its own opening based on the lead's profile and the outreach strategy.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">D. Operator Profile (Sidebar)</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>In the sidebar, fill in your <strong>Name</strong>, <strong>Phone</strong>, and <strong>Bio</strong>.</li>
+                    <li>The bot uses this information as context. For example, your bio might say "Licensed life insurance agent specializing in term and whole life" and the bot will reference that expertise naturally in conversations.</li>
+                </ol>
+            </div>
+
+            <div style="text-align: center; margin-top: 16px;">
+                <p style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">Click "Save Configuration" when everything is set.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 6: SET UP WEBHOOKS IN YOUR CRM -->
+    <!-- ============================================================ -->
+    <div id="step-6" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">6</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Set Up Webhooks in Your CRM</h3>
+            </div>
+            <p style="color: #aaa;">This is the step that actually connects your CRM to the bot. When a lead sends a message, your CRM needs to forward it to InsuranceGrokBot's webhook URL.</p>
+
+            <div class="alert alert-info mb-4" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                <i class="fa-solid fa-info-circle me-1"></i> Your unique webhook URL is displayed on the <strong>Connect</strong> tab of your dashboard. It looks like: <code>https://yourdomain.com/webhook</code>. Copy this URL and use it in the instructions below.
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(0,255,136,0.15);">
+                <h6 style="color: var(--accent); font-weight: 700;"><i class="fa-solid fa-bolt me-2"></i>LeadConnector</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>In LeadConnector, go to <strong>Automation &rarr; Workflows</strong>.</li>
+                    <li>Click <strong>Create Workflow &rarr; Start from Scratch</strong>.</li>
+                    <li>Add a <strong>Trigger</strong>: select <strong>"Customer Replied"</strong>. This fires every time a lead sends an inbound SMS.</li>
+                    <li>Filter the trigger by <strong>Reply Channel: SMS</strong> (so email replies don't trigger the bot).</li>
+                    <li>Add an <strong>Action</strong>: select <strong>"Webhook"</strong> (under External Communications).</li>
+                    <li>Set the Method to <strong>POST</strong>.</li>
+                    <li>Paste your InsuranceGrokBot <strong>webhook URL</strong> from the Connect tab.</li>
+                    <li>Under Body, ensure it sends the default LeadConnector payload (contact name, phone, message, etc.).</li>
+                    <li>Click <strong>Save</strong>, then <strong>Publish</strong> the workflow.</li>
+                    <li><strong>Test it:</strong> Send a test SMS to your LeadConnector number. Check your InsuranceGrokBot Logs tab to see if the webhook arrived.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(0,217,255,0.15);">
+                <h6 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-cloud me-2"></i>Salesforce</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>In Salesforce, go to <strong>Setup &rarr; Process Automation &rarr; Flows</strong> (or use Apex Triggers if preferred).</li>
+                    <li>Create a <strong>Record-Triggered Flow</strong> on the <strong>Task</strong> or <strong>EmailMessage</strong> object (depending on how inbound messages arrive).</li>
+                    <li>Add a <strong>Send HTTP Request</strong> action pointed at your webhook URL.</li>
+                    <li>Set the method to <strong>POST</strong> and the content type to <strong>application/json</strong>.</li>
+                    <li>Map the lead's phone, name, and message body into the JSON payload.</li>
+                    <li>Activate the Flow.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(0,217,255,0.15);">
+                <h6 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-h me-2"></i>HubSpot</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>In HubSpot, go to <strong>Automation &rarr; Workflows</strong>.</li>
+                    <li>Create a <strong>Contact-based workflow</strong>.</li>
+                    <li>Set the <strong>Trigger</strong>: "Contact property changed" (choose a property that updates when a message arrives, like "Last Activity Date" or a custom property).</li>
+                    <li>Add an <strong>Action</strong>: choose <strong>"Send a webhook"</strong> (this requires Operations Hub or a webhook action via the API).</li>
+                    <li>Set the URL to your InsuranceGrokBot webhook URL, method POST.</li>
+                    <li>Map contact fields (phone, name, message) into the payload.</li>
+                    <li>Alternatively, use <strong>Zapier</strong> as a bridge: HubSpot trigger &rarr; Zapier &rarr; webhook to InsuranceGrokBot.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(0,217,255,0.15);">
+                <h6 style="color: #00d9ff; font-weight: 700;"><i class="fa-solid fa-handshake me-2"></i>Pipedrive / <i class="fa-solid fa-database me-2"></i>Zoho / <i class="fa-solid fa-shield-halved me-2"></i>Insureio</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>These CRMs typically route inbound messages via <strong>Zapier</strong> or their native <strong>Workflow/Automation</strong> tools.</li>
+                    <li>Create an automation rule that triggers when a new message, activity, or note is created.</li>
+                    <li>The action should send a <strong>POST webhook</strong> to your InsuranceGrokBot webhook URL.</li>
+                    <li>The JSON payload must include at minimum: the lead's <strong>phone number</strong> and <strong>message text</strong>.</li>
+                    <li>The bot auto-detects field names (camelCase, snake_case, nested objects), so most default payloads work without modification.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 7: TWILIO SMS (OPTIONAL) -->
+    <!-- ============================================================ -->
+    <div id="step-7" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">7</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Set Up Twilio SMS <small style="color: #888; font-size: 0.7em;">(Non-LeadConnector users only)</small></h3>
+            </div>
+
+            <div class="alert alert-info mb-4" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                <i class="fa-solid fa-info-circle me-1"></i> <strong>LeadConnector users can skip this step.</strong> SMS works natively through the LeadConnector API. This step is only for Salesforce, HubSpot, Pipedrive, Zoho, Insureio, and Zapier users.
+            </div>
+
+            <ol style="color: #ccc; font-size: 0.95rem; line-height: 2.2;">
+                <li>Go to <a href="https://www.twilio.com/try-twilio" style="color: var(--accent);" target="_blank">twilio.com</a> and create a free account (or log in if you have one).</li>
+                <li>Complete the account verification process (phone number verification, email confirmation).</li>
+                <li>From the <strong>Twilio Console Dashboard</strong>, copy your:
+                    <ul style="color: #888;">
+                        <li><strong>Account SID</strong> &mdash; starts with "AC..."</li>
+                        <li><strong>Auth Token</strong> &mdash; click the eye icon to reveal it</li>
+                    </ul>
+                </li>
+                <li>Go to <strong>Phone Numbers &rarr; Manage &rarr; Buy a Number</strong>.</li>
+                <li>Search for a number with <strong>SMS capability</strong> in your area code.</li>
+                <li>Purchase the number. Note: Twilio charges ~$1.15/month per number and ~$0.0079 per outbound SMS.</li>
+                <li>Copy the phone number in <strong>+1XXXXXXXXXX</strong> format (include the +1 country code).</li>
+                <li>Go to your InsuranceGrokBot <a href="/dashboard" style="color: var(--accent);">Dashboard</a> &rarr; <strong>Connect</strong> tab.</li>
+                <li>In the integration configuration section, enter:
+                    <ul style="color: #888;">
+                        <li><strong>Twilio Account SID</strong></li>
+                        <li><strong>Twilio Auth Token</strong></li>
+                        <li><strong>Twilio Phone Number</strong> (in +1XXXXXXXXXX format)</li>
+                    </ul>
+                </li>
+                <li>Click <strong>Save Configuration</strong>. The bot will now send all outbound SMS through your Twilio number.</li>
+            </ol>
+
+            <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
+                <i class="fa-solid fa-exclamation-triangle me-1"></i> Make sure your Twilio account has a <strong>billing method</strong> set up. Without it, SMS sending will fail after the trial credits run out. You can add a payment method under <strong>Billing &rarr; Payment Methods</strong> in the Twilio console.
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 8: TEST EVERYTHING -->
+    <!-- ============================================================ -->
+    <div id="step-8" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">8</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Test Everything Before Going Live</h3>
+            </div>
+
+            <p style="color: #aaa;">Run through this checklist before sending the bot to real leads.</p>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">A. Try the Demo First</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>Go to <a href="/demo-chat" style="color: var(--accent);">Demo Chat</a>.</li>
+                    <li>Have a full conversation with the bot. Ask about life insurance, mention health conditions, ask about pricing, try to book an appointment.</li>
+                    <li>This uses a demo account so nothing affects real leads.</li>
+                    <li>Use the <strong>Reset</strong> button to start fresh conversations.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">B. Test Your CRM Connection</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>On your Dashboard &rarr; Connect tab, click <strong>Test Connection</strong>. You should see a green success message.</li>
+                    <li>If it fails, re-check your credentials (see <a href="/support#webhook-api" style="color: var(--accent);">Troubleshooting Guide</a>).</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">C. Send a Test Message</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>Send an SMS to your CRM-connected phone number from your personal phone.</li>
+                    <li>Wait 5-10 seconds. You should receive a response from the bot.</li>
+                    <li>Check the <strong>Logs</strong> tab on your dashboard. You should see:
+                        <ul style="color: #888;">
+                            <li>A <code>webhook_received</code> event (inbound message arrived)</li>
+                            <li>A <code>message_sent</code> event (bot responded)</li>
+                        </ul>
+                    </li>
+                    <li>If you see <code>webhook_received</code> but no <code>message_sent</code>, check for errors in the logs.</li>
+                    <li>If you see nothing in the logs, the webhook isn't reaching the bot. Verify your CRM webhook URL is correct.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4 mb-3" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">D. Test Booking</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>Continue the test conversation. Express interest in meeting.</li>
+                    <li>When the bot offers time slots, accept one (reply "yes" or "sounds good").</li>
+                    <li>Check your CRM calendar to verify the appointment was created.</li>
+                    <li>In the Logs tab, look for <code>booking_success</code>.</li>
+                </ol>
+            </div>
+
+            <div class="glass-card p-4" style="border-color: rgba(255,255,255,0.08);">
+                <h6 style="color: var(--accent); font-weight: 700;">E. Verify Carrier Intelligence</h6>
+                <ol style="color: #ccc; font-size: 0.9rem; line-height: 2;">
+                    <li>In your test conversation, mention a carrier: "I have a policy with MetLife".</li>
+                    <li>The bot should recognize it and respond with carrier-specific knowledge (e.g., mentioning employer group limitations if relevant).</li>
+                    <li>Mention a health condition: "I was diagnosed with diabetes". The bot uses live underwriting data to understand which carriers may still accept the condition.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 9: GO LIVE -->
+    <!-- ============================================================ -->
+    <div id="step-9" class="card glass-card mb-4" data-aos="fade-up">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); margin-right: 14px; flex-shrink: 0;">9</div>
+                <h3 style="font-weight: 700; color: #fff; margin: 0;">Go Live</h3>
+            </div>
+
+            <p style="color: #ccc; font-size: 0.95rem; line-height: 1.8;">
+                Once all tests pass, your bot is ready to handle real leads. Here's what happens from here:
+            </p>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <div class="glass-card p-3 text-center h-100" style="border-color: rgba(0,255,136,0.15);">
+                        <div style="font-size: 1.5rem; color: var(--accent); margin-bottom: 8px;"><i class="fa-solid fa-comments"></i></div>
+                        <h6 style="color: #fff; font-weight: 700;">Conversations</h6>
+                        <p style="color: #888; font-size: 0.8rem; margin: 0;">The bot handles all inbound messages automatically. It qualifies, handles objections, and books appointments 24/7.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-3 text-center h-100" style="border-color: rgba(0,255,136,0.15);">
+                        <div style="font-size: 1.5rem; color: var(--accent); margin-bottom: 8px;"><i class="fa-solid fa-brain"></i></div>
+                        <h6 style="color: #fff; font-weight: 700;">Memory</h6>
+                        <p style="color: #888; font-size: 0.8rem; margin: 0;">Every fact learned about each lead is stored permanently. Conversations resume naturally even after weeks of silence.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-3 text-center h-100" style="border-color: rgba(0,255,136,0.15);">
+                        <div style="font-size: 1.5rem; color: var(--accent); margin-bottom: 8px;"><i class="fa-solid fa-hand"></i></div>
+                        <h6 style="color: #fff; font-weight: 700;">Human Handoff</h6>
+                        <p style="color: #888; font-size: 0.8rem; margin: 0;">To take over a conversation, just reply manually in your CRM. The bot detects your human reply and steps back automatically.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 mt-4" style="border-color: rgba(0,255,136,0.2);">
+                <h6 style="color: var(--accent); font-weight: 700;">What's working automatically behind the scenes:</h6>
+                <ul style="color: #ccc; font-size: 0.9rem; line-height: 2; margin-bottom: 0;">
+                    <li><strong>270+ Carrier Intelligence</strong> &mdash; Recognizes carriers by name, classifies product types, identifies gaps</li>
+                    <li><strong>Live Underwriting Rules</strong> &mdash; Real-time data refreshed every 60 minutes from live sources</li>
+                    <li><strong>5 Sales Frameworks</strong> &mdash; NEPQ, Gap Selling, Chris Voss, Ziglar, Straight Line blended in every message</li>
+                    <li><strong>Smart Booking Detection</strong> &mdash; 5 detection cases with anti-hallucination safeguards</li>
+                    <li><strong>Stage Progression</strong> &mdash; Auto-advances through outreach &rarr; qualifying &rarr; objection handling &rarr; closing &rarr; booked</li>
+                    <li><strong>Re-Engagement Mode</strong> &mdash; Detects dead leads and switches to pattern-breaking approaches</li>
+                    <li><strong>Narrative Memory</strong> &mdash; Stores and recalls every fact about every lead, permanently</li>
+                    <li><strong>Real-Time Logs</strong> &mdash; Every event visible on your Logs tab with filtering</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom CTAs -->
+    <div class="text-center mt-5" data-aos="fade-up">
+        <h4 style="color: #fff; font-weight: 700; margin-bottom: 20px;">Ready to get started?</h4>
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <a href="/register" class="btn btn-primary btn-lg" style="border-radius: 14px; padding: 14px 40px;">
+                <i class="fa-solid fa-bolt me-2"></i>Create Account
+            </a>
+            <a href="/demo-chat" class="btn btn-outline-accent btn-lg" style="border-radius: 14px; padding: 14px 40px;">
+                <i class="fa-solid fa-comment me-2"></i>Try the Demo
+            </a>
+            <a href="/support" class="btn btn-outline-light btn-lg" style="border-radius: 14px; padding: 14px 40px;">
+                <i class="fa-solid fa-life-ring me-2"></i>Support Center
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
