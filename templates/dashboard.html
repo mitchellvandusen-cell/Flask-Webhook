@@ -1540,7 +1540,7 @@
                             <input type="text" class="form-control" id="voiceBotName" placeholder="e.g., Ava, Sarah, James..."
                                 value="{{ voice_config.get('voice_bot_name', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">The name the AI uses on calls. Leave blank to use your SMS bot name ({{ subscriber.bot_first_name or 'Alex' }}). Use a different name if your voice doesn't match your SMS persona.</small>
+                            <small style="color:#666; font-size:0.75rem;">The name the AI uses on calls. Leave blank to use your SMS bot name ({{ sub.bot_first_name or 'Alex' }}). Use a different name if your voice doesn't match your SMS persona.</small>
                         </div>
                         <div class="col-12">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Greeting (what the AI says first on outbound calls)</label>
