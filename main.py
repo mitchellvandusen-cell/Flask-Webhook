@@ -1487,6 +1487,11 @@ def support_page():
     """Self-service support and troubleshooting hub."""
     return render_template('support.html')
 
+@app.route("/setup-guide")
+def setup_guide():
+    """Comprehensive step-by-step setup guide."""
+    return render_template('setup-guide.html')
+
 
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
