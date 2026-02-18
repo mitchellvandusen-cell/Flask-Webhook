@@ -44,6 +44,18 @@
                 <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">CRM Setup</div>
             </a>
         </div>
+        <div class="col-md-3 col-6">
+            <a href="#carrier-intelligence" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-building-columns text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Carriers</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
+            <a href="#webhook-api" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-code text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">API &amp; Logs</div>
+            </a>
+        </div>
     </div>
 
     <!-- ============================================================ -->
@@ -991,6 +1003,224 @@
                             </ol>
                             <div class="alert alert-warning mt-3" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.9rem;">
                                 <i class="fa-solid fa-exclamation-triangle me-1"></i> Twilio charges per SMS (typically ~$0.0079/message). Make sure your Twilio account has a billing method set up.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 8: CARRIER INTELLIGENCE & UNDERWRITING -->
+    <!-- ============================================================ -->
+    <div id="carrier-intelligence" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
+                <i class="fa-solid fa-building-columns me-2 text-accent"></i>Carrier Intelligence &amp; Underwriting
+            </h3>
+
+            <div class="accordion" id="carrierAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#car1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What is carrier intelligence and how does it work?
+                        </button>
+                    </h2>
+                    <div id="car1" class="accordion-collapse collapse" data-bs-parent="#carrierAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>The bot has a built-in database of <strong>270+ insurance carriers</strong> (Northwestern Mutual, MetLife, Prudential, Globe Life, State Farm, and many more). When a lead mentions a carrier by name, the bot automatically:</p>
+                            <ul>
+                                <li><strong>Identifies the carrier</strong> and classifies it (major insurer, regional mutual, specialty, etc.)</li>
+                                <li><strong>Detects product type</strong> (guaranteed issue, employer group, bundled policy)</li>
+                                <li><strong>Adjusts the conversation</strong> based on known limitations of that carrier's products</li>
+                            </ul>
+                            <p>This happens automatically with no configuration required. The bot simply recognizes carrier names in conversation and uses its knowledge to have more informed discussions.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#car2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            The bot didn't recognize a carrier the lead mentioned
+                        </button>
+                    </h2>
+                    <div id="car2" class="accordion-collapse collapse" data-bs-parent="#carrierAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>While the database covers 270+ carriers, some smaller regional or niche companies may not be included. In these cases:</p>
+                            <ul>
+                                <li>The bot continues the conversation normally using its general insurance knowledge.</li>
+                                <li>It will still ask the right discovery questions about coverage type, amount, and limitations.</li>
+                                <li>The conversation quality is not significantly affected. Carrier recognition is an enhancement, not a requirement.</li>
+                            </ul>
+                            <p>If you frequently work with a carrier that isn't recognized, contact support and we can add it to the database.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#car3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            What are live underwriting rules?
+                        </button>
+                    </h2>
+                    <div id="car3" class="accordion-collapse collapse" data-bs-parent="#carrierAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>The bot pulls <strong>real-time underwriting data</strong> from live data sheets that are regularly updated. This covers:</p>
+                            <ul>
+                                <li><strong>Whole Life</strong> underwriting rules by carrier</li>
+                                <li><strong>Term &amp; IUL</strong> underwriting rules by carrier</li>
+                                <li><strong>Universal Life</strong> underwriting rules by carrier</li>
+                            </ul>
+                            <p>When a lead mentions a health condition (diabetes, cancer history, heart issues, etc.), the bot uses this data to understand which carriers may still offer coverage. This helps pre-qualify leads before the advisor call.</p>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> Underwriting data is cached for 60 minutes and automatically refreshes. If the source data is temporarily unavailable, the bot falls back to a local cache.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#car4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            The bot gave incorrect underwriting information
+                        </button>
+                    </h2>
+                    <div id="car4" class="accordion-collapse collapse" data-bs-parent="#carrierAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Underwriting rules change frequently as carriers update their guidelines. If the bot provides outdated information:</p>
+                            <ol>
+                                <li>The underwriting data refreshes automatically every 60 minutes from the live source.</li>
+                                <li>If the source sheets haven't been updated yet, the bot uses the most recent cached data.</li>
+                                <li>The bot <strong>never gives specific pricing or guarantees</strong> to leads. It uses underwriting data to guide the conversation, not to make promises.</li>
+                            </ol>
+                            <p>If you notice consistently incorrect data for a specific carrier or condition, contact support so the source data can be updated.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 9: WEBHOOK API & TROUBLESHOOTING -->
+    <!-- ============================================================ -->
+    <div id="webhook-api" class="card glass-card mb-4">
+        <div class="card-body p-4">
+            <h3 class="mb-4" style="font-weight: 700; color: #fff;">
+                <i class="fa-solid fa-code me-2 text-accent"></i>Webhook API &amp; Troubleshooting
+            </h3>
+
+            <div class="accordion" id="apiAccordion">
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#api1"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How does the webhook API work?
+                        </button>
+                    </h2>
+                    <div id="api1" class="accordion-collapse collapse" data-bs-parent="#apiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Every account gets a unique webhook URL displayed on the <strong>Connect</strong> tab of your dashboard. When your CRM sends a JSON payload to this URL:</p>
+                            <ol>
+                                <li>The bot automatically <strong>detects the field format</strong> (camelCase, snake_case, UPPERCASE, or nested objects).</li>
+                                <li>It <strong>resolves the contact</strong> using phone number + name matching (99% accuracy).</li>
+                                <li>It <strong>processes the message</strong> through the AI engine and sends a response back via your configured SMS channel.</li>
+                            </ol>
+                            <p>The endpoint accepts <code>POST</code> requests with a JSON body. No API key is needed since the URL itself is unique to your account.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#api2"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            Webhooks are hitting but the bot isn't responding
+                        </button>
+                    </h2>
+                    <div id="api2" class="accordion-collapse collapse" data-bs-parent="#apiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>Check these in order:</p>
+                            <ol>
+                                <li><strong>Check your logs:</strong> Go to the <strong>Logs</strong> tab on your dashboard. Look for <code>webhook_received</code> events. If you see them, the webhook is arriving correctly.</li>
+                                <li><strong>Look for errors:</strong> Filter logs by <strong>Status: error</strong>. Common issues include expired OAuth tokens, missing calendar selection, or inactive subscription.</li>
+                                <li><strong>Verify the payload:</strong> Your CRM must send at least a phone number and message text. If either is missing, the bot can't process the message.</li>
+                                <li><strong>Check SMS delivery:</strong> If the bot processes the message but the response doesn't arrive, verify your SMS configuration (LeadConnector OAuth or Twilio credentials).</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#api3"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            "Test Connection" failed for my CRM
+                        </button>
+                    </h2>
+                    <div id="api3" class="accordion-collapse collapse" data-bs-parent="#apiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>The Test Connection button verifies that your saved credentials can reach your CRM's API. If it fails:</p>
+                            <ul>
+                                <li><strong>Salesforce:</strong> Verify your Instance URL (must include <code>https://</code>), Access Token, and that your Connected App has the right scopes.</li>
+                                <li><strong>HubSpot:</strong> Ensure your Private App token hasn't been rotated. Check that the required scopes are still enabled.</li>
+                                <li><strong>Pipedrive:</strong> Verify your Company Domain (just the subdomain, not the full URL) and API Token.</li>
+                                <li><strong>Zoho:</strong> Zoho tokens expire every hour. Make sure you provided a <strong>Refresh Token</strong> (not just an Access Token). Verify your Data Center region matches your account.</li>
+                                <li><strong>Insureio:</strong> Check your API Key and Brand ID. The Insureio API may require you to whitelist our server IP.</li>
+                                <li><strong>Zapier:</strong> Zapier webhooks don't have a test endpoint. Make sure the Catch Hook URL is correct and the Zap is turned on.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#api4"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I read the webhook logs?
+                        </button>
+                    </h2>
+                    <div id="api4" class="accordion-collapse collapse" data-bs-parent="#apiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <p>The <strong>Logs</strong> tab on your dashboard shows every event in real-time. Each log entry includes:</p>
+                            <ul>
+                                <li><strong>Event Type:</strong> <code>webhook_received</code>, <code>booking_attempt</code>, <code>booking_success</code>, <code>booking_failed</code>, <code>message_sent</code>, <code>message_failed</code>, <code>error</code></li>
+                                <li><strong>Status:</strong> <code>success</code>, <code>error</code>, <code>warning</code>, <code>info</code></li>
+                                <li><strong>Timestamp:</strong> Shown in UTC. All times end with "Z" to indicate UTC.</li>
+                                <li><strong>Details:</strong> Click any log entry to expand and see the full payload, error message, or response data.</li>
+                            </ul>
+                            <p>Use the <strong>Filter</strong> dropdowns to narrow down to specific event types or statuses. Logs are paginated at 50 entries per page.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" style="background: transparent; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; border-radius: 10px !important;">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#api5"
+                            style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                            How do I switch from one CRM to another?
+                        </button>
+                    </h2>
+                    <div id="api5" class="accordion-collapse collapse" data-bs-parent="#apiAccordion">
+                        <div class="accordion-body" style="color: #ccc;">
+                            <ol>
+                                <li>Go to the <strong>Connect</strong> tab on your dashboard.</li>
+                                <li>Click the button for your new CRM (e.g., switch from LeadConnector to Salesforce).</li>
+                                <li>Follow the setup guide and enter your new credentials.</li>
+                                <li>Click <strong>Save Configuration</strong> and then <strong>Test Connection</strong>.</li>
+                            </ol>
+                            <p>Switching CRMs does not delete your conversation data or bot settings. Only the CRM connection and SMS delivery method changes.</p>
+                            <div class="alert alert-info mt-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 0.9rem;">
+                                <i class="fa-solid fa-info-circle me-1"></i> Remember to update the webhook URL in your new CRM's automation settings so inbound messages are routed correctly.
                             </div>
                         </div>
                     </div>
