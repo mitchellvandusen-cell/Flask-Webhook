@@ -1,7 +1,6 @@
 /* =========================================
-   1. IMPORTS & VARIABLES
+   1. VARIABLES (fonts loaded in base.html)
    ========================================= */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
     --accent: #00ff88;
@@ -25,6 +24,10 @@
     --sidebar-width: 320px;
     --safe-top: env(safe-area-inset-top, 20px);
     --safe-bottom: env(safe-area-inset-bottom, 20px);
+
+    /* Brand Colors */
+    --agency-blue: #007AFF;
+    --alert: #ff4444;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -151,14 +154,13 @@ footer a:hover { color: var(--accent); }
 }
 
 .section { padding: 100px 0; position: relative; }
-.section-title { text-align: center; font-size: 3rem; font-weight: 700; margin-bottom: 60px; color: #fff; }
+.section-title { text-align: center; font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 700; margin-bottom: 60px; color: #fff; }
 .section-title span { color: var(--accent); }
 
 /* Glass Cards */
 .glass-card {
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     padding: 40px 30px;
@@ -228,7 +230,7 @@ footer a:hover { color: var(--accent); }
     .carousel-container { height: auto; flex-direction: column; gap: 30px; perspective: none; }
     .pricing-card { position: relative; left: auto; transform: none !important; opacity: 1 !important; z-index: 1 !important; filter: none !important; width: 100%; margin: 0 auto 30px; }
 }
-.price-tag { font-size: 4rem; font-weight: 800; color: #fff; line-height: 1; margin: 20px 0; }
+.price-tag { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 800; color: #fff; line-height: 1; margin: 20px 0; }
 .pricing-features { list-style: none; padding: 0; margin: 30px 0; text-align: left; }
 .pricing-features li { margin-bottom: 12px; color: #ccc; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
 .pricing-features li i { color: var(--accent); }
@@ -451,14 +453,6 @@ footer a:hover { color: var(--accent); }
     border-radius: 50px; font-size: 0.75rem; font-weight: 700;
     letter-spacing: 1px; border: 1px solid rgba(0, 255, 136, 0.2);
 }
-.popup-overlay.active { opacity: 1; }
-.popup-card {
-    position: relative; width: 100%; max-width: 450px;
-    background: rgba(20, 20, 20, 0.75); border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px; padding: 40px; text-align: center;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    transform: translateY(30px) scale(0.95); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
 /* =========================================
    9. AGENCY DASHBOARD SPECIFIC
    ========================================= */
@@ -512,9 +506,6 @@ footer a:hover { color: var(--accent); }
 /* =========================================
    10. AGENCY LOGIN SPECIFIC
    ========================================= */
-:root {
-    --agency-blue: #007AFF;
-}
 
 .agency-card {
     width: 100%;
@@ -592,9 +583,6 @@ footer a:hover { color: var(--accent); }
 /* =========================================
    11. CANCEL / ERROR PAGES
    ========================================= */
-:root {
-    --alert: #ff4444; /* Soft Crimson */
-}
 
 .cancel-card {
     width: 100%;
@@ -755,7 +743,7 @@ footer a:hover { color: var(--accent); }
 }
 
 .main-title {
-    font-size: 3.5rem;
+    font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 800;
     background: linear-gradient(135deg, #fff 30%, var(--accent));
     background-clip: text;
@@ -812,7 +800,7 @@ footer a:hover { color: var(--accent); }
 }
 
 .hero-title {
-    font-size: 3rem;
+    font-size: clamp(1.8rem, 4vw, 3rem);
     font-weight: 700;
     color: #fff;
     margin-bottom: 0.5rem;
@@ -927,7 +915,7 @@ footer a:hover { color: var(--accent); }
 }
 
 .faq-main-title {
-    font-size: 3.5rem;
+    font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 800;
     margin-bottom: 20px;
     background: linear-gradient(135deg, #fff 40%, var(--accent));
@@ -1017,7 +1005,7 @@ footer a:hover { color: var(--accent); }
 }
 
 .launch-main-title {
-    font-size: 3.5rem;
+    font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 800;
     margin-bottom: 10px;
     background: linear-gradient(135deg, #fff 50%, #888);
@@ -1029,7 +1017,6 @@ footer a:hover { color: var(--accent); }
 .path-card {
     background: var(--card-glass);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     padding: 40px;
@@ -1062,7 +1049,7 @@ footer a:hover { color: var(--accent); }
     display: flex; align-items: center; justify-content: center;
 }
 
-.card-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 10px; color: #fff; }
+.card-title { font-size: clamp(1.4rem, 2.5vw, 1.8rem); font-weight: 700; margin-bottom: 10px; color: #fff; }
 .card-desc { color: var(--text-secondary); margin-bottom: 40px; min-height: 50px; }
 
 /* Steps List */
@@ -1194,6 +1181,21 @@ footer a:hover { color: var(--accent); }
     box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
     color: #000;
 }
-.popup-overlay.active .popup-card { transform: translateY(0) scale(1); }
-.offer-box { background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; margin-bottom: 30px; }
-.close-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; opacity: 0.5; }
+/* (duplicate popup/offer/close rules removed — defined above) */
+
+/* =========================================
+   18. GLOBAL RESPONSIVE (mobile-first overrides)
+   ========================================= */
+@media (max-width: 991px) {
+    .navbar-collapse .d-flex { flex-direction: column !important; align-items: center !important; width: 100%; padding: 0 20px; }
+    .navbar-collapse .nav-btn { width: 100% !important; max-width: 300px; text-align: center; justify-content: center; padding: 12px 20px !important; }
+    .navbar-nav { text-align: center; width: 100%; }
+    .navbar-nav .nav-item { width: 100%; text-align: center; }
+    .container { overflow-x: hidden; max-width: 100%; padding-left: 15px; padding-right: 15px; }
+}
+
+@media (max-width: 576px) {
+    h1, h2, h3, h4, h5, h6, body, p { overflow-wrap: break-word; }
+    .lead { font-size: 1rem !important; }
+    .btn-lg { font-size: 1rem !important; padding: 10px 20px !important; }
+}

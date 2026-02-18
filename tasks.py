@@ -6,7 +6,7 @@ import os
 import time
 from typing import Tuple, Optional
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -130,15 +130,53 @@ def _extract_times_from_text(text: str) -> list:
             "day_hint": day_hint
         })
 
+    # Pass 2: Match times WITHOUT am/pm like "7:30", "at about 7:30"
+    # Negative lookahead avoids re-matching times already caught with AM/PM
+    bare_time_pattern = r'(\d{1,2}):(\d{2})(?!\s*(?:pm|p\.m\.|am|a\.m\.))'
+    for match in re.finditer(bare_time_pattern, text_lower):
+        h = int(match.group(1))
+        m = int(match.group(2))
+
+        # Infer AM/PM from business hours context
+        # Insurance sales calls typically happen during business hours
+        if 1 <= h <= 7:
+            h += 12  # Assume PM (1:00-7:59 -> 13:00-19:59)
+        elif h == 12:
+            h = 12  # Noon
+        # 8-11 stays as-is (morning hours)
+
+        # Look for day context near this match (within 30 chars)
+        context_start = max(0, match.start() - 30)
+        context_end = min(len(text_lower), match.end() + 30)
+        context = text_lower[context_start:context_end]
+        day_hint = ""
+        if "tomorrow" in context:
+            day_hint = "tomorrow"
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            if day in context:
+                day_hint = day
+                break
+
+        results.append({
+            "hour": h,
+            "minute": m,
+            "original": match.group().strip(),
+            "day_hint": day_hint
+        })
+
     return results
 
 
 def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
     """
-    When the lead says a bare number like "4" or "the 2 one", find the matching
-    time from the bot's offered times and return a full time string with AM/PM.
+    When the lead says a time like "2pm", "4", or "the 2 one", find the matching
+    time from the bot's offered times and return a full time string WITH the day.
 
-    Returns a formatted time string like "4:00 pm tomorrow" or None if no match.
+    This is critical: if bot said "Tuesday at 2pm or Wednesday at 10am" and lead
+    says "2pm", we need to return "2:00 pm tuesday" so the booking code books
+    the right date, not today.
+
+    Returns a formatted time string like "4:00 pm tuesday" or None if no match.
     """
     if not lead_msg or not bot_msg:
         return None
@@ -149,35 +187,75 @@ def _match_lead_time_to_bot_times(lead_msg: str, bot_msg: str) -> Optional[str]:
     if not bot_times:
         return None
 
-    # Extract the bare number from the lead's message
-    bare_num_match = re.search(r'\b(\d{1,2})\b', lead_lower)
-    if not bare_num_match:
+    # --- Step 1: Parse the lead's time (with or without AM/PM) ---
+    lead_times = _extract_times_from_text(lead_msg)
+    lead_hour = None
+    lead_minute = 0
+
+    if lead_times:
+        # Lead gave explicit time like "2pm" or "4:30 pm"
+        lead_hour = lead_times[0]["hour"]
+        lead_minute = lead_times[0]["minute"]
+    else:
+        # Try bare number like "4" or "the 2 one"
+        bare_num_match = re.search(r'\b(\d{1,2})\b', lead_lower)
+        if bare_num_match:
+            lead_num = int(bare_num_match.group(1))
+            # Infer AM/PM from bot's offered context
+            if 1 <= lead_num <= 7:
+                lead_hour = lead_num + 12  # assume PM for business hours
+            elif 8 <= lead_num <= 11:
+                lead_hour = lead_num  # assume AM
+            elif lead_num == 12:
+                lead_hour = 12  # noon
+            else:
+                lead_hour = lead_num
+
+    if lead_hour is None:
         return None
 
-    lead_num = int(bare_num_match.group(1))
-
-    # Try to match against bot's offered times
+    # --- Step 2: Match against bot's offered times ---
     for bt in bot_times:
-        # Match hour (12h format): 4 matches 16:00 (4 PM) and 4:00 (4 AM)
+        # Match hour: compare both 24h and 12h representations
         bot_hour_12 = bt["hour"] % 12 or 12
-        if lead_num == bot_hour_12 or lead_num == bt["hour"]:
+        lead_hour_12 = lead_hour % 12 or 12
+        hour_match = (lead_hour == bt["hour"]) or (lead_hour_12 == bot_hour_12)
+        minute_match = (lead_minute == bt["minute"]) or (lead_minute == 0 and bt["minute"] == 0)
+
+        if hour_match and minute_match:
             period = "am" if bt["hour"] < 12 else "pm"
             minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
-            day_part = f" {bt['day_hint']}" if bt["day_hint"] else ""
+            day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
             result = f"{bot_hour_12}{minute_str} {period}{day_part}"
-            logger.info(f"📅 TIME MATCH: Lead said '{lead_msg}' -> matched to bot's '{bt['original']}' -> booking '{result}'")
+            logger.info(f"📅 TIME MATCH: Lead said '{lead_msg}' -> matched to bot's '{bt['original']}' (day={bt.get('day_hint','none')}) -> booking '{result}'")
             return result
 
-    # If lead said a number 1-7 with no match but bot offered PM times, assume PM
-    if 1 <= lead_num <= 7:
-        pm_times = [bt for bt in bot_times if bt["hour"] >= 12]
-        if pm_times:
-            # Default to PM since bot was offering afternoon slots
-            day_hint = bot_times[0]["day_hint"] if bot_times else ""
-            day_part = f" {day_hint}" if day_hint else ""
-            result = f"{lead_num}:00 pm{day_part}"
-            logger.info(f"📅 TIME INFER PM: Lead said '{lead_msg}' -> no exact match, inferring PM -> booking '{result}'")
+    # --- Step 3: Fuzzy match (within 30 min) ---
+    for bt in bot_times:
+        diff = abs(bt["hour"] * 60 + bt["minute"] - (lead_hour * 60 + lead_minute))
+        if diff <= 30:
+            bot_hour_12 = bt["hour"] % 12 or 12
+            period = "am" if bt["hour"] < 12 else "pm"
+            minute_str = f":{bt['minute']:02d}" if bt["minute"] else ":00"
+            day_part = f" {bt['day_hint']}" if bt.get("day_hint") else ""
+            result = f"{bot_hour_12}{minute_str} {period}{day_part}"
+            logger.info(f"📅 TIME FUZZY MATCH: Lead said '{lead_msg}' -> close to bot's '{bt['original']}' -> booking '{result}'")
             return result
+
+    # --- Step 4: No match but lead gave valid time — carry forward first bot day_hint ---
+    if lead_times:
+        # Lead said "2pm" but no bot time matched — still use bot's day context
+        # if the lead didn't mention their own day
+        lead_has_day = lead_times[0].get("day_hint", "")
+        if not lead_has_day and bot_times:
+            # Use the day_hint from the closest bot time
+            first_day = bot_times[0].get("day_hint", "")
+            if first_day:
+                h12 = lead_hour % 12 or 12
+                period = "am" if lead_hour < 12 else "pm"
+                result = f"{h12}:{lead_minute:02d} {period} {first_day}"
+                logger.info(f"📅 TIME DAY INHERIT: Lead said '{lead_msg}' -> no exact match, inheriting day '{first_day}' -> booking '{result}'")
+                return result
 
     return None
 
@@ -346,13 +424,15 @@ def detect_booking_request(message: str, recent_exchanges: list, stage: str) -> 
             logger.info(f"BOOKING CASE 3: Bot offered + Simple acceptance | resolved='{resolved}'")
             return True, resolved
 
-    # Case 4: Stage is BOOKING + any acceptance
-    if stage == "booking" and is_acceptance:
+    # Case 4: Stage is BOOKING + acceptance — ONLY if bot offered specific times recently
+    # This prevents random messages from triggering bookings just because stage is "booking"
+    # e.g., "Back to work I go" should never book just because conversation was in booking stage
+    if stage == "booking" and is_acceptance and bot_offered_times:
         if has_time_reference:
             resolved = _resolve_time_with_context(message)
         else:
             resolved = _resolve_time_with_context(message, use_bot_first=True)
-        logger.info(f"BOOKING CASE 4: Closing stage + Acceptance | resolved='{resolved}'")
+        logger.info(f"BOOKING CASE 4: Booking stage + Bot offered times + Acceptance | resolved='{resolved}'")
         return True, resolved
 
     # Case 5: Explicit "that time works" / "works for me"
@@ -473,7 +553,8 @@ def process_webhook_task(payload: dict):
             return {"status": "error", "reason": "missing location_id"}
 
         is_demo = location_id in {'DEMO', 'DEMO_LOC', 'DEMO_ACCOUNT_SALES_ONLY', 'TEST_LOCATION_456'}
-        
+        is_api_source = payload.get("_source") == "universal_api"
+
         if is_demo:
             subscriber = {
                 'bot_first_name': 'Grok',
@@ -485,6 +566,14 @@ def process_webhook_task(payload: dict):
                 'location_id': 'DEMO'
             }
             auth_token = 'DEMO'
+        elif is_api_source:
+            # API-sourced request — subscriber info comes from DB, no GHL token needed
+            subscriber = get_subscriber_info_hybrid(location_id)
+            if not subscriber:
+                logger.error(f"❌ ABORT: No subscriber config for API source {location_id}")
+                return {"status": "error", "reason": "no subscriber config"}
+            auth_token = subscriber.get('access_token') or ''
+            logger.info(f"🔌 API SOURCE | location={location_id} | contact={contact_id}")
         else:
             subscriber = get_subscriber_info_hybrid(location_id)
             if not subscriber:
@@ -496,7 +585,7 @@ def process_webhook_task(payload: dict):
                 logger.error(f"❌ ABORT: Token refresh failed for {location_id}")
                 return {"status": "error", "reason": "token refresh failed"}
 
-        # Inject fresh token
+        # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token
 
         # === USE PAYLOAD DATA AS-IS (Source of Truth from GHL) ===
@@ -521,9 +610,9 @@ def process_webhook_task(payload: dict):
         if initial_facts and contact_id != "unknown":
             save_new_facts(contact_id, initial_facts)
 
-        # === History Sync (only if DB empty or gap) ===
+        # === History Sync (only if DB empty or gap, skip for API sources) ===
         db_count = get_message_count(contact_id)
-        if not is_demo:
+        if not is_demo and not is_api_source:
             if db_count == 0:
                 logger.info(f"🚨 DB empty for {contact_id} — fetching full GHL history")
                 ghl_history = fetch_targeted_ghl_history(contact_id, location_id, auth_token, limit=50)
@@ -601,6 +690,19 @@ def process_webhook_task(payload: dict):
         # === Core Conversation Logic ===
         bot_first_name = subscriber.get('bot_first_name', 'Grok')
         timezone = subscriber.get('timezone', 'America/Chicago')
+        personal_website = subscriber.get('personal_website') or ""
+
+        # === Contracted Carriers ===
+        contracted_carriers = subscriber.get('contracted_carriers') or []
+        if isinstance(contracted_carriers, str):
+            import json as _json
+            try:
+                contracted_carriers = _json.loads(contracted_carriers)
+            except Exception:
+                contracted_carriers = []
+
+        # === Bot Settings ===
+        bot_settings = get_bot_settings_by_location(location_id)
 
         # Process ALL messages - trust the LLM to understand context
         # "k", "ya", "ok" are all valid text responses that need processing
@@ -610,7 +712,8 @@ def process_webhook_task(payload: dict):
             message=message,
             first_name=first_name,
             age=age,
-            address=address
+            address=address,
+            bot_settings=bot_settings,
         )
 
         recent_exchanges = director_output["recent_exchanges"]
@@ -729,17 +832,37 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             extra_context = f"{extra_context}\n[COMPANY INTEL] {director_output['company_context']}".strip()
         final_nudge = f"{context_nudge}\n{extra_context}".strip()
 
-        # === INITIAL MESSAGE BYPASS ===
-        # If the subscriber configured an initial_message and this is the very first
-        # contact (no inbound message, no conversation history), send it verbatim.
-        # All subsequent messages are LLM-generated.
+        # === LEAD RE-ENGAGEMENT CHECK ===
+        # If re-engagement is disabled and this is a follow-up (no inbound message),
+        # skip responding entirely — let the lead come to us.
+        if not message and not bot_settings.get("lead_reengagement", True):
+            bot_msgs = [m for m in recent_exchanges if m['role'] == 'assistant']
+            if len(bot_msgs) >= 1:
+                logger.info(f"🚫 RE-ENGAGEMENT DISABLED | Skipping follow-up for {contact_id}")
+                return {"status": "skipped", "reason": "lead_reengagement disabled", "contact_id": contact_id}
+
+        # === INITIAL MESSAGE / OUTBOUND DRIP BYPASS ===
         initial_msg = subscriber.get('initial_message', '').strip()
+        outbound_msgs = bot_settings.get("outbound_messages", [])
         reply = ""
 
-        if initial_msg and not message and not recent_exchanges:
+        if not message and not recent_exchanges and initial_msg:
+            # First ever contact — use configured initial message
             reply = initial_msg
             logger.info(f"📨 USING CONFIGURED INITIAL MESSAGE | contact={contact_id} | msg='{reply[:60]}'")
-        else:
+
+        elif not message and outbound_msgs:
+            # Custom outbound drip: check how many bot messages have been sent,
+            # send the next custom template if available
+            bot_msgs_sent = len([m for m in recent_exchanges if m['role'] == 'assistant'])
+            # The initial_message counts as message 0, custom drip starts at index 0
+            # after the initial message. If no initial_message, drip starts immediately.
+            drip_index = bot_msgs_sent - (1 if initial_msg else 0)
+            if 0 <= drip_index < len(outbound_msgs):
+                reply = outbound_msgs[drip_index]
+                logger.info(f"📨 OUTBOUND DRIP #{drip_index + 1}/{len(outbound_msgs)} | contact={contact_id} | msg='{reply[:60]}'")
+
+        if not reply:
             # === NORMAL LLM FLOW ===
             system_prompt = build_system_prompt(
                 bot_first_name=bot_first_name,
@@ -753,7 +876,10 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 message=message,
                 calendar_slots=calendar_slots,
                 context_nudge=final_nudge,
-                lead_vendor=lead_vendor
+                lead_vendor=lead_vendor,
+                personal_website=personal_website,
+                contracted_carriers=contracted_carriers,
+                bot_settings=bot_settings,
             )
 
             # === STRUCTURAL REASONING SEPARATION ===
@@ -811,7 +937,35 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
         if reply:
             logger.info(f"📨 SENDING: '{reply[:50]}...'")
 
-            if not is_demo:
+            if is_api_source:
+                # API-sourced: deliver reply via outbound webhook
+                from webhook_delivery import deliver_webhook, build_api_reply_payload
+                webhook_url = payload.get("_outbound_webhook_url", "")
+                webhook_secret = payload.get("_webhook_secret", "")
+                api_metadata = payload.get("_api_metadata", {})
+
+                out_payload = build_api_reply_payload(
+                    contact_id=contact_id,
+                    reply=reply,
+                    booking_made=booking_made,
+                    metadata=api_metadata,
+                )
+                success, status_code, error = deliver_webhook(
+                    url=webhook_url, payload=out_payload, secret=webhook_secret
+                )
+                save_message(contact_id, reply, "assistant")
+                if success:
+                    logger.info(f"✅ API reply delivered via webhook -> {status_code}")
+                    log_webhook_event(location_id, "api_webhook_sent", "success",
+                                      f"Reply delivered via webhook ({len(reply)} chars)",
+                                      contact_id=contact_id, details={"preview": reply[:80], "status_code": status_code})
+                else:
+                    logger.warning(f"⚠️ API webhook delivery failed: {error}")
+                    log_webhook_event(location_id, "api_webhook_failed", "error",
+                                      f"Webhook delivery failed: {error}",
+                                      contact_id=contact_id, details={"error": error, "status_code": status_code})
+
+            elif not is_demo:
                 if use_crm_adapter:
                     # Non-GHL CRM: Use adapter for messaging
                     try:

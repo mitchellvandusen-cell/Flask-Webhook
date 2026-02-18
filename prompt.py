@@ -288,6 +288,9 @@ def build_system_prompt(
     calendar_slots: str = "",
     context_nudge: str = "",
     lead_vendor: str = "",
+    personal_website: str = "",
+    contracted_carriers: list = None,
+    bot_settings: dict = None,
 ) -> str:
 
     identity = f"You are {bot_first_name}, conversational life insurance advisor."
@@ -318,8 +321,152 @@ def build_system_prompt(
 
     calendar_str = f"\nAvailable slots:\n{calendar_slots}" if calendar_slots else ""
     nudge_str = f"\nNote: {context_nudge}" if context_nudge else ""
+    website_str = ""
+    if personal_website and personal_website.strip():
+        website_str = (
+            f"\n=== AGENT WEBSITE ===\n"
+            f"Your agent's personal website: {personal_website.strip()}\n"
+            f"If the lead asks for a website, link, more info online, or where to learn more, "
+            f"share this URL naturally along with suggesting they book a call. "
+            f"Do not volunteer it unprompted. Only share when they ask."
+        )
+    else:
+        website_str = (
+            "\n=== AGENT WEBSITE ===\n"
+            "Your agent does NOT have a personal website configured.\n"
+            "If the lead asks for a website or link, do NOT make one up. Instead, explain naturally "
+            "why you do not have a traditional website. You are an independent agent who works with "
+            "multiple carriers to find the best fit for each person's situation. Your value is in "
+            "the personalized comparison, not a generic website. Pivot to offering a quick call "
+            "where you can walk them through their options one on one. Be genuine and conversational "
+            "about it. Never use the same explanation twice. Never sound scripted or apologetic."
+        )
 
     mindset = CORE_UNIFIED_MINDSET.replace("{bot_first_name}", bot_first_name)
+
+    # Build contracted carriers context
+    carriers_str = ""
+    if contracted_carriers and len(contracted_carriers) > 0:
+        from carrier_list import get_carrier_names
+        carrier_names = get_carrier_names(contracted_carriers)
+        if carrier_names:
+            carrier_list_text = ", ".join(carrier_names)
+            carriers_str = (
+                f"\n=== YOUR CONTRACTED CARRIERS ===\n"
+                f"Your agent is contracted with these carriers: {carrier_list_text}\n\n"
+                f"CARRIER RULES (CRITICAL):\n"
+                f"- ONLY recommend or reference products from the carriers listed above.\n"
+                f"- If the lead asks about a carrier NOT on your list, explain that you work with "
+                f"a curated panel of carriers and focus on finding the best fit from your options.\n"
+                f"- When comparing plans, pre-qualifying, or suggesting coverage, ONLY use carriers from your list.\n"
+                f"- If the lead currently has coverage with a carrier NOT on your list, you may acknowledge "
+                f"their current carrier but always pivot to what you can offer from YOUR carriers.\n"
+                f"- Never make up carrier names or products. Stick to what you know about your contracted carriers."
+            )
+    else:
+        carriers_str = (
+            "\n=== YOUR CONTRACTED CARRIERS ===\n"
+            "No specific carrier panel configured. You work with multiple carriers "
+            "to find the best fit for each person's situation. Speak generally about "
+            "carrier options without naming specific companies unless the lead brings one up."
+        )
+
+    # === ADVANCED SETTINGS OVERRIDES ===
+    settings_str = ""
+    if bot_settings:
+        settings_parts = []
+
+        # Professionalism level
+        prof = bot_settings.get("professionalism_level", 0)
+        if prof >= 4:
+            settings_parts.append(
+                "TONE: You are highly professional and formal. No slang, no casual language, "
+                "no contractions. Speak like a senior financial advisor at a major firm. "
+                "Every message should be polished and corporate-ready."
+            )
+        elif prof >= 2:
+            settings_parts.append(
+                "TONE: You are professional but approachable. Use clear, polished language "
+                "but keep it warm. Avoid excessive slang but contractions are fine."
+            )
+        # 0-1 = default casual, no override needed
+
+        # Emoji control
+        if not bot_settings.get("auto_emoji", True):
+            settings_parts.append(
+                "EMOJI RULE: Do NOT use any emojis in your messages. Zero emojis. "
+                "Express emotion and personality through words only."
+            )
+
+        # Response length
+        resp_len = bot_settings.get("response_length", "balanced")
+        if resp_len == "short":
+            settings_parts.append(
+                "LENGTH: Keep every response to 1-2 sentences maximum. Be concise. "
+                "Get to the point fast. No filler."
+            )
+        elif resp_len == "detailed":
+            settings_parts.append(
+                "LENGTH: Give thorough, detailed responses. Explain clearly. "
+                "Use 3-5 sentences when helpful. Provide context and reasoning."
+            )
+
+        # Multi-language
+        if bot_settings.get("multi_language", False):
+            settings_parts.append(
+                "LANGUAGE: If the lead writes in a language other than English, "
+                "detect it and respond in that same language. Match their language naturally. "
+                "If they switch to English, switch back."
+            )
+
+        # Conversation memory
+        if not bot_settings.get("conversation_memory", True):
+            settings_parts.append(
+                "MEMORY: Do not reference specific details from past conversations. "
+                "Treat each interaction as relatively fresh."
+            )
+
+        # After hours
+        if bot_settings.get("after_hours_enabled", False):
+            after_start = bot_settings.get("after_hours_start", "18:00")
+            after_end = bot_settings.get("after_hours_end", "09:00")
+            try:
+                from datetime import datetime as _dt2
+                import pytz as _pytz2
+                tz2 = _pytz2.timezone(timezone)
+                now2 = _dt2.now(tz2)
+                current_time_str = now2.strftime("%H:%M")
+                # Check if current time falls in after-hours window
+                if after_start > after_end:  # crosses midnight (e.g., 18:00 to 09:00)
+                    is_after_hours = current_time_str >= after_start or current_time_str < after_end
+                else:
+                    is_after_hours = after_start <= current_time_str < after_end
+                if is_after_hours:
+                    settings_parts.append(
+                        f"AFTER HOURS: It is currently outside business hours ({after_start} to {after_end}). "
+                        "Acknowledge that it is after hours. Let the lead know you will follow up during "
+                        "business hours. Still be helpful and warm, but do not try to book appointments right now. "
+                        "If they want to schedule, note their preference and confirm during business hours."
+                    )
+            except Exception:
+                pass
+
+        # Booking confirmation
+        if bot_settings.get("booking_confirmation", True):
+            settings_parts.append(
+                "BOOKING: Before booking an appointment, always confirm the specific time with the lead. "
+                "Say something like 'Just to confirm, [time] works for you?' before locking it in."
+            )
+
+        # Custom behavior instructions (most powerful — goes last to take priority)
+        custom = bot_settings.get("custom_behavior", "").strip()
+        if custom:
+            settings_parts.append(
+                f"=== AGENT'S CUSTOM INSTRUCTIONS (FOLLOW THESE) ===\n{custom}"
+            )
+
+        if settings_parts:
+            settings_str = "\n=== ADVANCED SETTINGS ===\n" + "\n\n".join(settings_parts)
 
     return f"""
 {mindset}
@@ -342,6 +489,9 @@ Use this to correctly calculate future dates. If someone says "3 months from now
 CURRENT STAGE: {stage}
 {nudge_str}
 {calendar_str}
+{website_str}
+{carriers_str}
+{settings_str}
 
 RECENT CONVERSATION:
 {flow_str}

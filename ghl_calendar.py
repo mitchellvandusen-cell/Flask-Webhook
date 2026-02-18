@@ -536,6 +536,65 @@ def consolidated_calendar_op(
         start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
         end_dt = start_dt + timedelta(minutes=30)
 
+        # --- SLOT VALIDATION: Cross-reference against actual available slots ---
+        # If the requested datetime is in the past or not actually available,
+        # search cached slots for the nearest future slot matching the requested time.
+        slot_matched = False
+        if slots:
+            parsed_avail = []
+            for s in slots:
+                try:
+                    ss = s.get("startTime") or s.get("start") or (s if isinstance(s, str) else None)
+                    if not ss:
+                        continue
+                    if ss.endswith("Z"):
+                        ss = ss.replace("Z", "+00:00")
+                    parsed_avail.append(datetime.fromisoformat(ss).astimezone(local_tz))
+                except Exception:
+                    continue
+
+            # Check if requested start_dt is actually among available slots (within 5 min tolerance)
+            for avail_dt in parsed_avail:
+                if abs((avail_dt - start_dt).total_seconds()) < 300:
+                    slot_matched = True
+                    start_dt = avail_dt  # snap to exact slot time
+                    end_dt = start_dt + timedelta(minutes=30)
+                    logger.info(f"📅 SLOT MATCH: Exact match found at {start_dt}")
+                    break
+
+            if not slot_matched:
+                logger.warning(f"📅 SLOT MISMATCH: {start_dt} not in available slots — searching for nearest match at {hour}:{minute:02d}")
+                # Find the nearest future slot that matches the requested hour (within 30 min)
+                candidates = []
+                for avail_dt in parsed_avail:
+                    if avail_dt <= now_local:
+                        continue  # skip past slots
+                    time_diff_minutes = abs(avail_dt.hour * 60 + avail_dt.minute - (hour * 60 + minute))
+                    if time_diff_minutes <= 30:
+                        candidates.append(avail_dt)
+
+                if candidates:
+                    candidates.sort()
+                    start_dt = candidates[0]
+                    end_dt = start_dt + timedelta(minutes=30)
+                    slot_matched = True
+                    logger.info(f"📅 SLOT REMAP: Nearest matching slot found at {start_dt} (originally requested {target_date} {hour}:{minute:02d})")
+                else:
+                    # No time-matching slot found — pick the absolute nearest future slot
+                    future_slots = [s for s in parsed_avail if s > now_local]
+                    if future_slots:
+                        future_slots.sort()
+                        start_dt = future_slots[0]
+                        end_dt = start_dt + timedelta(minutes=30)
+                        slot_matched = True
+                        logger.info(f"📅 SLOT NEAREST: No {hour}:{minute:02d} match, using nearest available slot at {start_dt}")
+
+        if not slot_matched and start_dt <= now_local:
+            logger.warning(f"📅 TIME IN PAST: {start_dt} has already passed, shifting to tomorrow")
+            target_date = (now_local + timedelta(days=1)).date()
+            start_dt = datetime.combine(target_date, time(hour, minute), tzinfo=local_tz)
+            end_dt = start_dt + timedelta(minutes=30)
+
         if start_dt.date() > (now_local + timedelta(days=3)).date():
             logger.error(f"🚨 BOOKING BLOCKED: Time more than 3 days ahead | requested={start_dt} | contact={contact_id}")
             return False

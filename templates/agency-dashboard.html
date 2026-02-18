@@ -13,6 +13,42 @@
         </p>
     </div>
 
+    <!-- Persistent Alerts (DB-backed, survive page reloads) -->
+    <style>
+        .persistent-alert {
+            display: flex; align-items: flex-start; gap: 14px;
+            padding: 16px 20px; border-radius: 12px; margin-bottom: 12px;
+            border: 1px solid; position: relative;
+        }
+        .persistent-alert.alert-warning-persistent {
+            background: rgba(255, 193, 7, 0.08); border-color: rgba(255, 193, 7, 0.3);
+        }
+        .persistent-alert.alert-error-persistent {
+            background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);
+        }
+        .persistent-alert.alert-info-persistent {
+            background: rgba(59, 130, 246, 0.08); border-color: rgba(59, 130, 246, 0.3);
+        }
+        .persistent-alert .pa-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+        .alert-warning-persistent .pa-icon { color: #ffc107; }
+        .alert-error-persistent .pa-icon { color: #ef4444; }
+        .alert-info-persistent .pa-icon { color: #3b82f6; }
+        .persistent-alert .pa-body { flex: 1; }
+        .persistent-alert .pa-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+        .alert-warning-persistent .pa-title { color: #ffc107; }
+        .alert-error-persistent .pa-title { color: #ef4444; }
+        .alert-info-persistent .pa-title { color: #3b82f6; }
+        .persistent-alert .pa-message { font-size: 0.88rem; color: #bbb; line-height: 1.5; }
+        .persistent-alert .pa-dismiss {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none; color: #666; cursor: pointer;
+            font-size: 0.9rem; padding: 4px; transition: color 0.2s;
+        }
+        .persistent-alert .pa-dismiss:hover { color: #fff; }
+        .persistent-alert .pa-time { font-size: 0.75rem; color: #666; margin-top: 6px; }
+    </style>
+    <div id="persistent-alerts-container"></div>
+
     {% if needs_subscription %}
     <!-- Subscription Required Message -->
     <div class="card glass-card mb-5" style="border: 2px solid #ffc107;">
@@ -73,7 +109,7 @@
         </div>
         <div class="card-body">
             <!-- Config Form -->
-            <form method="POST">
+            <form method="POST" id="agency-config-form">
                 {{ form.hidden_tag() }}
                 <div class="row g-4">
                     <div class="col-md-6">
@@ -111,9 +147,14 @@
                         <label for="initial_message">Initial Message</label>
                         {{ form.initial_message(class="form-control") }}
                     </div>
+                    <div class="col-md-6 mt-3">
+                        <label for="personal_website">Personal Website (optional)</label>
+                        {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
+                        <small class="text-muted">GrokBot will share this when leads ask for your website</small>
+                    </div>
                 </div>
                 <div class="mt-4 text-end">
-                    {{ form.submit(class="btn btn-primary") }}
+                    <button type="button" class="btn btn-primary px-5" id="agency-save-btn" onclick="saveAgencyConfig()">Save Configuration</button>
                 </div>
             </form>
            
@@ -150,7 +191,295 @@
             </div>
         </div>
     </div>
-   
+
+    <!-- Contracted Carriers Section -->
+    <div class="card glass-card mb-5">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin:0;"><i class="fa-solid fa-building-columns me-2 text-accent"></i>Contracted Carriers</h4>
+            <span id="carrierCount" style="color: var(--accent, #00ff88); font-weight: 700; font-size: 0.9rem;">
+                {{ selected_carriers|length if selected_carriers else 0 }} selected
+            </span>
+        </div>
+        <div class="card-body">
+            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 20px;">
+                Select the carriers your agency is contracted with. GrokBot will <strong>only</strong> reference these carriers
+                when talking to your leads.
+            </p>
+
+            <input type="text" id="carrierSearch" placeholder="Search carriers..."
+                   class="form-control mb-3"
+                   style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff;"
+                   oninput="filterCarriers(this.value)">
+
+            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAllCarriers()">Select All</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllCarriers()">Clear All</button>
+            </div>
+
+            <style>
+                .carrier-chip {
+                    display: flex; align-items: center; gap: 8px;
+                    padding: 10px 14px; background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+                    cursor: pointer; transition: all 0.2s; user-select: none;
+                }
+                .carrier-chip:hover { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); }
+                .carrier-chip.selected { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.3); }
+                .carrier-chip .carrier-check {
+                    width: 20px; height: 20px; border-radius: 6px;
+                    border: 1.5px solid rgba(255,255,255,0.15);
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 0.65rem; color: transparent; transition: all 0.2s; flex-shrink: 0;
+                }
+                .carrier-chip.selected .carrier-check { background: var(--accent, #00ff88); border-color: var(--accent, #00ff88); color: #000; }
+                .carrier-chip .carrier-name { font-size: 0.85rem; color: #ccc; font-weight: 500; }
+                .carrier-chip.selected .carrier-name { color: #fff; }
+                .carrier-chip.hidden { display: none; }
+            </style>
+
+            <div id="carrierGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 8px;">
+                {% for carrier in carrier_list %}
+                <label class="carrier-chip {% if carrier.key in selected_carriers %}selected{% endif %}"
+                       data-key="{{ carrier.key }}" data-name="{{ carrier.name|lower }}">
+                    <input type="checkbox" value="{{ carrier.key }}" {% if carrier.key in selected_carriers %}checked{% endif %}
+                           style="display: none;" onchange="updateCarrierCount()">
+                    <span class="carrier-check"><i class="fa-solid fa-check"></i></span>
+                    <span class="carrier-name">{{ carrier.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 16px;">
+                <span id="carrierSaveStatus" style="color: var(--accent, #00ff88); font-size: 0.85rem; display: none;">
+                    <i class="fa-solid fa-check me-1"></i> Saved!
+                </span>
+                <button type="button" id="saveCarriersBtn" class="btn btn-success" onclick="saveCarriers()">
+                    <i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ADVANCED SETTINGS SECTION -->
+    <!-- ============================================================ -->
+    <div class="card glass-card mb-5">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin:0;"><i class="fa-solid fa-wand-magic-sparkles me-2 text-accent"></i>Advanced Settings</h4>
+            <span id="settingsStatus" style="color: var(--accent, #00ff88); font-weight: 600; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s;"></span>
+        </div>
+        <div class="card-body">
+            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 24px;">
+                Fine-tune how your GrokBot behaves. Changes apply to all future conversations.
+            </p>
+
+            <style>
+                .adv-toggle { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+                .adv-toggle input { opacity: 0; width: 0; height: 0; }
+                .adv-toggle-slider {
+                    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(255,255,255,0.1); border-radius: 26px; transition: 0.3s;
+                }
+                .adv-toggle-slider:before {
+                    content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+                    background: #666; border-radius: 50%; transition: 0.3s;
+                }
+                .adv-toggle input:checked + .adv-toggle-slider { background: rgba(0,255,136,0.25); }
+                .adv-toggle input:checked + .adv-toggle-slider:before { transform: translateX(22px); background: var(--accent, #00ff88); }
+                .adv-setting-row {
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding: 14px 18px; background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;
+                }
+                .adv-setting-row label { font-weight: 600; font-size: 0.9rem; }
+                .adv-setting-row p { color: #777; font-size: 0.78rem; margin: 3px 0 0 0; }
+            </style>
+
+            <!-- Professionalism Slider -->
+            <div style="margin-bottom: 20px; padding: 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label style="font-weight: 600;">Professionalism Level</label>
+                    <span id="profLevelLabel" style="color: var(--accent, #00ff88); font-weight: 700; font-size: 0.9rem;">Casual</span>
+                </div>
+                <input type="range" id="professionalism_level" min="0" max="5" step="1"
+                       value="{{ bot_settings.professionalism_level|default(0) }}"
+                       oninput="updateProfLabel(this.value)"
+                       style="width: 100%; accent-color: var(--accent, #00ff88); cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.72rem; color: #666;">
+                    <span>Casual & Friendly</span><span>Balanced</span><span>Ultra Professional</span>
+                </div>
+            </div>
+
+            <!-- Toggles -->
+            <div class="adv-setting-row">
+                <div><label>Emoji Usage</label><p>Allow GrokBot to use emojis</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="auto_emoji" {{ 'checked' if bot_settings.auto_emoji|default(true) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+            <div class="adv-setting-row">
+                <div><label>Humor Mode</label><p>Send jokes after 5+ unanswered messages</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="humor_enabled" {{ 'checked' if bot_settings.humor_enabled|default(true) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+            <div class="adv-setting-row">
+                <div><label>Lead Re-engagement</label><p>Auto follow up with unresponsive leads</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="lead_reengagement" {{ 'checked' if bot_settings.lead_reengagement|default(true) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+            <div class="adv-setting-row">
+                <div><label>Booking Confirmation</label><p>Double-confirm time before booking</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="booking_confirmation" {{ 'checked' if bot_settings.booking_confirmation|default(true) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+            <div class="adv-setting-row">
+                <div><label>Speed to Lead</label><p>Respond immediately to new leads</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="speed_to_lead" {{ 'checked' if bot_settings.speed_to_lead|default(true) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+            <div class="adv-setting-row">
+                <div><label>Conversation Memory</label><p>Remember details from past conversations</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="conversation_memory" {{ 'checked' if bot_settings.conversation_memory|default(true) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+            <div class="adv-setting-row">
+                <div><label>Multi-Language Detection</label><p>Respond in lead's language (Spanish, etc.)</p></div>
+                <label class="adv-toggle"><input type="checkbox" id="multi_language" {{ 'checked' if bot_settings.multi_language|default(false) }}><span class="adv-toggle-slider"></span></label>
+            </div>
+
+            <!-- Response Length -->
+            <div style="padding: 16px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">Response Length</label>
+                <div style="display: flex; gap: 8px;">
+                    {% for val, label in [('short', 'Short'), ('balanced', 'Balanced'), ('detailed', 'Detailed')] %}
+                    <button type="button" class="btn btn-sm resp-len-btn {{ 'btn-success' if bot_settings.response_length|default('balanced') == val else 'btn-outline-secondary' }}"
+                            data-value="{{ val }}" onclick="selectResponseLength('{{ val }}')" style="flex: 1;">{{ label }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Objection Persistence -->
+            <div style="padding: 16px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div><label style="font-weight: 600;">Objection Persistence</label><p style="color: #777; font-size: 0.78rem; margin: 3px 0 0 0;">How many angles before graceful exit</p></div>
+                    <span id="persistenceLabel" style="color: var(--accent, #00ff88); font-weight: 700;">{{ bot_settings.objection_persistence|default(3) }} angles</span>
+                </div>
+                <input type="range" id="objection_persistence" min="1" max="5" step="1"
+                       value="{{ bot_settings.objection_persistence|default(3) }}"
+                       oninput="document.getElementById('persistenceLabel').textContent = this.value + ' angles'"
+                       style="width: 100%; accent-color: var(--accent, #00ff88); cursor: pointer;">
+            </div>
+
+            <!-- After Hours -->
+            <div style="padding: 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div><label style="font-weight: 600;">After Hours Mode</label><p style="color: #777; font-size: 0.78rem; margin: 3px 0 0 0;">Bot tells leads it's after hours</p></div>
+                    <label class="adv-toggle">
+                        <input type="checkbox" id="after_hours_enabled" {{ 'checked' if bot_settings.after_hours_enabled|default(false) }}
+                               onchange="document.getElementById('afterHoursRange').style.display = this.checked ? 'flex' : 'none'">
+                        <span class="adv-toggle-slider"></span>
+                    </label>
+                </div>
+                <div id="afterHoursRange" style="display: {{ 'flex' if bot_settings.after_hours_enabled|default(false) else 'none' }}; gap: 12px; align-items: center;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.78rem; color: #888;">Starts at</label>
+                        <input type="time" id="after_hours_start" value="{{ bot_settings.after_hours_start|default('18:00') }}" class="form-control form-control-sm" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: #fff;">
+                    </div>
+                    <span style="color: #555; margin-top: 16px;">to</span>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.78rem; color: #888;">Ends at</label>
+                        <input type="time" id="after_hours_end" value="{{ bot_settings.after_hours_end|default('09:00') }}" class="form-control form-control-sm" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: #fff;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Outbound Messages -->
+            <div style="margin-bottom: 16px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 6px;"><i class="fa-solid fa-paper-plane me-1"></i> Custom Outbound Messages</label>
+                <p style="color: #777; font-size: 0.8rem; margin-bottom: 10px;">Each message is sent once per lead then checked off. After all are sent, GrokBot switches to AI. <strong style="color: #aaa;">Hybrid mode.</strong></p>
+                <div id="outboundContainer">
+                    {% for msg in bot_settings.outbound_messages|default([]) %}
+                    <div class="outbound-msg-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <span style="color: var(--accent, #00ff88); font-weight: 700; min-width: 22px; padding-top: 8px;">{{ loop.index }}.</span>
+                        <textarea class="outbound-msg-input form-control form-control-sm" rows="2" style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff;">{{ msg }}</textarea>
+                        <button type="button" onclick="removeOutboundMsg(this)" class="btn btn-sm btn-outline-danger" style="height: 34px;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="button" onclick="addOutboundMsg()" class="btn btn-sm btn-outline-success mt-1"><i class="fa-solid fa-plus me-1"></i> Add Message</button>
+            </div>
+
+            <!-- Custom Behavior Instructions -->
+            <div style="margin-bottom: 20px;">
+                <label style="font-weight: 600; display: block; margin-bottom: 6px;"><i class="fa-solid fa-pen-fancy me-1"></i> Custom Behavior Instructions</label>
+                <p style="color: #777; font-size: 0.8rem; margin-bottom: 8px;">Tell GrokBot exactly how you want it to behave. These instructions override defaults.</p>
+                <textarea id="custom_behavior" rows="5" class="form-control"
+                          placeholder="Example: Always mention that we offer free policy reviews. Never discuss term lengths over the phone — save that for the appointment. If someone mentions they're a veteran, thank them for their service and mention our military discount. Keep responses under 3 sentences."
+                          style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff; resize: vertical;">{{ bot_settings.custom_behavior|default('') }}</textarea>
+            </div>
+
+            <!-- Save -->
+            <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetAdvancedSettings()"><i class="fa-solid fa-rotate-left me-1"></i> Reset</button>
+                <button type="button" id="saveAdvancedBtn" class="btn btn-success" onclick="saveAdvancedSettings()"><i class="fa-solid fa-floppy-disk me-1"></i> Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Access Card -->
+    <div class="card glass-card mb-5">
+        <div class="card-header">
+            <h4 style="margin:0;"><i class="fa-solid fa-code me-2 text-accent"></i>API Access</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Integrate any CRM, mobile app, or custom system using our OpenAI-compatible API.
+                Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
+            </p>
+
+            <div id="apiKeyStatus" style="padding: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <strong style="color:#fff;">API Key:</strong>
+                        <span id="apiKeyDisplay" style="color:#888; font-family:monospace; font-size:0.85rem; margin-left:8px;">Loading...</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-success" onclick="generateApiKey()" id="btnGenKey">
+                            <i class="fa-solid fa-key me-1"></i> Generate Key
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="revokeApiKey()" id="btnRevokeKey" style="display:none;">
+                            <i class="fa-solid fa-ban me-1"></i> Revoke
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 14px; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+                <div style="flex:1; min-width:250px;">
+                    <label class="form-label small text-muted mb-1">Outbound Webhook URL (HTTPS)</label>
+                    <input type="url" id="apiWebhookUrl" class="form-control form-control-sm"
+                           placeholder="https://your-app.com/webhook/grokbot"
+                           style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color:#fff;">
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="saveWebhookUrl()" style="height:31px;">
+                    <i class="fa-solid fa-save me-1"></i> Save
+                </button>
+            </div>
+
+            <div style="margin-top:10px;">
+                <small style="color:#888;">
+                    <i class="fa-solid fa-shield-halved me-1"></i> Webhook Secret:
+                    <span id="webhookSecretPreview" style="font-family:monospace; color:#666;">—</span>
+                </small>
+            </div>
+
+            <div style="margin-top:14px; padding:12px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.1); border-radius:8px;">
+                <strong style="color:var(--accent, #00ff88); font-size:0.85rem;">Quick Start</strong>
+                <pre style="color:#ccc; font-size:0.75rem; margin:8px 0 0; white-space:pre-wrap; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">curl -X POST {{ request.host_url }}api/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_id": "lead-123",
+    "messages": [{"role": "user", "content": "How much is life insurance?"}],
+    "first_name": "Maria"
+  }'</pre>
+            </div>
+        </div>
+    </div>
+
     {% if sub_accounts %}
         <!-- Bulk Actions -->
         <div class="card glass-card mb-4">
@@ -364,6 +693,16 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Save Overlay -->
+<div id="save-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:var(--card-glass, #1a1a2e); border:1px solid var(--glass-border, rgba(255,255,255,0.08)); border-radius:20px; padding:40px 50px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <div id="save-spinner" style="width:40px; height:40px; border:3px solid rgba(255,255,255,0.1); border-top-color:var(--accent, #00ff88); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px;"></div>
+        <div id="save-check" style="display:none; font-size:2.5rem; color:var(--accent, #00ff88); margin-bottom:12px;"><i class="fa-solid fa-circle-check"></i></div>
+        <div id="save-text" style="font-size:1.1rem; font-weight:500; color:#fff;">Saving to database...</div>
+    </div>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 {% endblock %}
 {% block scripts %}
 <script>
@@ -622,5 +961,365 @@
         if (logType) logType.addEventListener('change', refreshAgencyLogs);
         if (logStatus) logStatus.addEventListener('change', refreshAgencyLogs);
     });
+
+    function saveAgencyConfig() {
+        const form = document.getElementById('agency-config-form');
+        const overlay = document.getElementById('save-overlay');
+        const spinner = document.getElementById('save-spinner');
+        const check = document.getElementById('save-check');
+        const text = document.getElementById('save-text');
+        const btn = document.getElementById('agency-save-btn');
+
+        const data = {
+            location_id: form.querySelector('[name="location_id"]')?.value || '',
+            calendar_id: form.querySelector('[name="calendar_id"]')?.value || '',
+            calendar_name: form.querySelector('[name="calendar_name"]')?.value || '',
+            crm_user_id: form.querySelector('[name="crm_user_id"]')?.value || '',
+            bot_name: form.querySelector('[name="bot_name"]')?.value || '',
+            timezone: form.querySelector('[name="timezone"]')?.value || '',
+            initial_message: form.querySelector('[name="initial_message"]')?.value || '',
+            personal_website: form.querySelector('[name="personal_website"]')?.value || ''
+        };
+
+        spinner.style.display = 'block';
+        check.style.display = 'none';
+        text.textContent = 'Saving to database...';
+        text.style.color = '#fff';
+        overlay.style.display = 'flex';
+        btn.disabled = true;
+
+        fetch('/api/save-config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
+                spinner.style.display = 'none';
+                check.style.display = 'block';
+                text.textContent = 'Saved to database';
+                setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; }, 1500);
+            } else {
+                spinner.style.display = 'none';
+                text.textContent = 'Error: ' + (resp.error || 'Save failed');
+                text.style.color = '#ef4444';
+                setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; text.style.color = '#fff'; }, 2500);
+            }
+        })
+        .catch(err => {
+            spinner.style.display = 'none';
+            text.textContent = 'Network error. Please try again.';
+            text.style.color = '#ef4444';
+            setTimeout(() => { overlay.style.display = 'none'; btn.disabled = false; text.style.color = '#fff'; }, 2500);
+        });
+    }
+
+    // --- Persistent Alerts ---
+    (function() {
+        const SEVERITY_MAP = {
+            warning: { cls: 'alert-warning-persistent', icon: 'fa-triangle-exclamation' },
+            error:   { cls: 'alert-error-persistent',   icon: 'fa-circle-xmark' },
+            info:    { cls: 'alert-info-persistent',     icon: 'fa-circle-info' }
+        };
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        function renderAlerts(alerts) {
+            const container = document.getElementById('persistent-alerts-container');
+            if (!container) return;
+            if (!alerts || alerts.length === 0) { container.innerHTML = ''; return; }
+            container.innerHTML = alerts.map(a => {
+                const sev = SEVERITY_MAP[a.severity] || SEVERITY_MAP.warning;
+                const created = a.created_at ? new Date(a.created_at).toLocaleString() : '';
+                return `<div class="persistent-alert ${sev.cls}" data-alert-id="${a.id}">
+                    <i class="fa-solid ${sev.icon} pa-icon"></i>
+                    <div class="pa-body">
+                        <div class="pa-title">${escapeHtml(a.title)}</div>
+                        <div class="pa-message">${escapeHtml(a.message)}</div>
+                        ${created ? `<div class="pa-time">${created}</div>` : ''}
+                    </div>
+                    <button class="pa-dismiss" onclick="dismissAlert(${a.id}, this)" title="Dismiss">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        window.dismissAlert = function(alertId, btn) {
+            const el = btn.closest('.persistent-alert');
+            if (el) el.style.opacity = '0.5';
+            fetch(`/api/alerts/${alertId}/dismiss`, { method: 'POST' })
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.success && el) {
+                        el.style.transition = 'all 0.3s';
+                        el.style.opacity = '0';
+                        el.style.maxHeight = '0';
+                        el.style.padding = '0';
+                        el.style.margin = '0';
+                        el.style.overflow = 'hidden';
+                        setTimeout(() => el.remove(), 350);
+                    }
+                })
+                .catch(() => { if (el) el.style.opacity = '1'; });
+        };
+
+        fetch('/api/alerts')
+            .then(r => r.json())
+            .then(data => renderAlerts(data.alerts || []))
+            .catch(() => {});
+    })();
+
+    // === Carrier Picker ===
+    document.querySelectorAll('.carrier-chip').forEach(chip => {
+        chip.addEventListener('click', function() {
+            const cb = this.querySelector('input[type="checkbox"]');
+            cb.checked = !cb.checked;
+            this.classList.toggle('selected', cb.checked);
+            updateCarrierCount();
+        });
+    });
+
+    function updateCarrierCount() {
+        const checked = document.querySelectorAll('.carrier-chip input:checked').length;
+        const el = document.getElementById('carrierCount');
+        if (el) el.textContent = checked + ' selected';
+    }
+
+    function filterCarriers(query) {
+        const q = query.toLowerCase().trim();
+        document.querySelectorAll('.carrier-chip').forEach(chip => {
+            const name = chip.getAttribute('data-name') || '';
+            chip.classList.toggle('hidden', q && !name.includes(q));
+        });
+    }
+
+    function selectAllCarriers() {
+        document.querySelectorAll('.carrier-chip:not(.hidden)').forEach(chip => {
+            chip.classList.add('selected');
+            chip.querySelector('input[type="checkbox"]').checked = true;
+        });
+        updateCarrierCount();
+    }
+
+    function clearAllCarriers() {
+        document.querySelectorAll('.carrier-chip').forEach(chip => {
+            chip.classList.remove('selected');
+            chip.querySelector('input[type="checkbox"]').checked = false;
+        });
+        updateCarrierCount();
+    }
+
+    function saveCarriers() {
+        const btn = document.getElementById('saveCarriersBtn');
+        const status = document.getElementById('carrierSaveStatus');
+        const selected = [];
+        document.querySelectorAll('.carrier-chip input:checked').forEach(cb => {
+            selected.push(cb.value);
+        });
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Saving...';
+        fetch('/api/carriers', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({carriers: selected})
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
+            if (data.status === 'success') {
+                status.style.display = 'inline';
+                setTimeout(() => { status.style.display = 'none'; }, 3000);
+            } else {
+                alert('Failed to save: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
+            alert('Network error saving carriers.');
+        });
+    }
+
+    // ═══════════════════════════════════════
+    // ADVANCED SETTINGS
+    // ═══════════════════════════════════════
+    const profLabels = ['Casual', 'Relaxed', 'Balanced', 'Polished', 'Formal', 'Ultra Professional'];
+    function updateProfLabel(val) {
+        document.getElementById('profLevelLabel').textContent = profLabels[val] || 'Balanced';
+    }
+    updateProfLabel(document.getElementById('professionalism_level')?.value || 0);
+
+    function selectResponseLength(val) {
+        document.querySelectorAll('.resp-len-btn').forEach(btn => {
+            const isActive = btn.dataset.value === val;
+            btn.className = 'btn btn-sm resp-len-btn ' + (isActive ? 'btn-success' : 'btn-outline-secondary');
+        });
+    }
+
+    function addOutboundMsg(prefill) {
+        const container = document.getElementById('outboundContainer');
+        const idx = container.children.length + 1;
+        const row = document.createElement('div');
+        row.className = 'outbound-msg-row';
+        row.style = 'display: flex; gap: 8px; margin-bottom: 8px;';
+        row.innerHTML = `<span style="color: var(--accent, #00ff88); font-weight: 700; min-width: 22px; padding-top: 8px;">${idx}.</span>
+            <textarea class="outbound-msg-input form-control form-control-sm" rows="2" placeholder="Type your outbound message..."
+                      style="background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: #fff;">${prefill || ''}</textarea>
+            <button type="button" onclick="removeOutboundMsg(this)" class="btn btn-sm btn-outline-danger" style="height: 34px;"><i class="fa-solid fa-xmark"></i></button>`;
+        container.appendChild(row);
+        renumberOutbound();
+    }
+
+    function removeOutboundMsg(btn) { btn.closest('.outbound-msg-row').remove(); renumberOutbound(); }
+
+    function renumberOutbound() {
+        document.querySelectorAll('#outboundContainer .outbound-msg-row').forEach((row, i) => {
+            row.querySelector('span').textContent = (i + 1) + '.';
+        });
+    }
+
+    function collectSettings() {
+        const msgs = [];
+        document.querySelectorAll('.outbound-msg-input').forEach(ta => { const v = ta.value.trim(); if (v) msgs.push(v); });
+        const activeLen = document.querySelector('.resp-len-btn.btn-success');
+        return {
+            humor_enabled: document.getElementById('humor_enabled').checked,
+            professionalism_level: parseInt(document.getElementById('professionalism_level').value),
+            custom_behavior: document.getElementById('custom_behavior').value.trim(),
+            outbound_messages: msgs,
+            auto_emoji: document.getElementById('auto_emoji').checked,
+            after_hours_enabled: document.getElementById('after_hours_enabled').checked,
+            after_hours_start: document.getElementById('after_hours_start').value,
+            after_hours_end: document.getElementById('after_hours_end').value,
+            response_length: activeLen ? activeLen.dataset.value : 'balanced',
+            booking_confirmation: document.getElementById('booking_confirmation').checked,
+            objection_persistence: parseInt(document.getElementById('objection_persistence').value),
+            lead_reengagement: document.getElementById('lead_reengagement').checked,
+            conversation_memory: document.getElementById('conversation_memory').checked,
+            speed_to_lead: document.getElementById('speed_to_lead').checked,
+            multi_language: document.getElementById('multi_language').checked,
+        };
+    }
+
+    function saveAdvancedSettings() {
+        const btn = document.getElementById('saveAdvancedBtn');
+        const status = document.getElementById('settingsStatus');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Saving...';
+        fetch('/api/bot-settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({settings: collectSettings()}) })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Settings';
+            if (data.status === 'success') { status.textContent = 'Saved!'; status.style.opacity = '1'; setTimeout(() => { status.style.opacity = '0'; }, 3000); }
+            else { alert('Failed: ' + (data.error || 'Unknown')); }
+        })
+        .catch(() => { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> Save Settings'; alert('Network error.'); });
+    }
+
+    function resetAdvancedSettings() {
+        if (!confirm('Reset all settings to defaults?')) return;
+        document.getElementById('professionalism_level').value = 0; updateProfLabel(0);
+        document.getElementById('humor_enabled').checked = true;
+        document.getElementById('auto_emoji').checked = true;
+        document.getElementById('after_hours_enabled').checked = false;
+        document.getElementById('afterHoursRange').style.display = 'none';
+        selectResponseLength('balanced');
+        document.getElementById('booking_confirmation').checked = true;
+        document.getElementById('objection_persistence').value = 3;
+        document.getElementById('persistenceLabel').textContent = '3 angles';
+        document.getElementById('lead_reengagement').checked = true;
+        document.getElementById('conversation_memory').checked = true;
+        document.getElementById('speed_to_lead').checked = true;
+        document.getElementById('multi_language').checked = false;
+        document.getElementById('custom_behavior').value = '';
+        document.getElementById('outboundContainer').innerHTML = '';
+        saveAdvancedSettings();
+    }
+
+    // ═══════════════════════════════════════════
+    // API KEY MANAGEMENT
+    // ═══════════════════════════════════════════
+    function loadApiStatus() {
+        fetch('/api/api-status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.has_key) {
+                    document.getElementById('apiKeyDisplay').textContent = data.key_prefix || '••••••••';
+                    document.getElementById('btnGenKey').style.display = 'none';
+                    document.getElementById('btnRevokeKey').style.display = '';
+                    document.getElementById('apiWebhookUrl').value = data.webhook_url || '';
+                    document.getElementById('webhookSecretPreview').textContent = data.webhook_secret_preview || '—';
+                } else {
+                    document.getElementById('apiKeyDisplay').textContent = 'No key generated';
+                    document.getElementById('btnGenKey').style.display = '';
+                    document.getElementById('btnRevokeKey').style.display = 'none';
+                    document.getElementById('webhookSecretPreview').textContent = '—';
+                }
+            })
+            .catch(() => {
+                document.getElementById('apiKeyDisplay').textContent = 'Error loading';
+            });
+    }
+
+    function generateApiKey() {
+        if (!confirm('Generate a new API key? Any existing key will be replaced.')) return;
+        fetch('/api/generate-key', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+            .then(r => r.json())
+            .then(data => {
+                if (data.api_key) {
+                    alert('API Key (copy now — shown only once):\n\n' + data.api_key + '\n\nWebhook Secret:\n' + data.webhook_secret);
+                    loadApiStatus();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Request failed: ' + err));
+    }
+
+    function revokeApiKey() {
+        if (!confirm('Revoke your API key? All API integrations using this key will stop working.')) return;
+        fetch('/api/revoke-key', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('API key revoked.');
+                    loadApiStatus();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => alert('Request failed: ' + err));
+    }
+
+    function saveWebhookUrl() {
+        const url = document.getElementById('apiWebhookUrl').value.trim();
+        if (!url) { alert('Enter a webhook URL'); return; }
+        if (!url.startsWith('https://')) { alert('Webhook URL must use HTTPS'); return; }
+        fetch('/api/webhook-url', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ url: url })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Webhook URL saved.');
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Request failed: ' + err));
+    }
+
+    document.addEventListener('DOMContentLoaded', loadApiStatus);
 </script>
 {% endblock %}

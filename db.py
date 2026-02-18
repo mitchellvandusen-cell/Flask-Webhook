@@ -159,6 +159,87 @@ def return_db_connection(conn):
         pass
 
 
+def save_persistent_alert(email: str, alert_type: str, title: str, message: str,
+                          severity: str = "warning", location_id: str = None):
+    """Save a persistent dashboard alert that stays until dismissed."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        # Prevent duplicate alerts of the same type for the same email
+        cur.execute("""
+            DELETE FROM persistent_alerts
+            WHERE email = %s AND alert_type = %s AND dismissed = FALSE
+        """, (email, alert_type))
+        cur.execute("""
+            INSERT INTO persistent_alerts (email, location_id, alert_type, severity, title, message)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (email, location_id, alert_type, severity, title, message))
+        conn.commit()
+    except Exception as e:
+        logger.debug(f"Failed to save persistent alert: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_persistent_alerts(email: str) -> list:
+    """Fetch undismissed persistent alerts for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM persistent_alerts
+            WHERE email = %s AND dismissed = FALSE
+            ORDER BY created_at DESC
+        """, (email,))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception:
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def dismiss_persistent_alert(alert_id: int, email: str):
+    """Dismiss a persistent alert."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE persistent_alerts SET dismissed = TRUE
+            WHERE id = %s AND email = %s
+        """, (alert_id, email))
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_db_connection_with_retry(max_attempts: int = 3) -> Optional:
+    """Get a DB connection with retry. For critical paths like OAuth."""
+    import time as _time
+    for attempt in range(max_attempts):
+        conn = get_db_connection()
+        if conn:
+            return conn
+        logger.warning(f"DB connection attempt {attempt+1}/{max_attempts} failed")
+        if attempt < max_attempts - 1:
+            _time.sleep(2 ** attempt)  # 1s, 2s backoff
+    logger.error(f"DB connection failed after {max_attempts} attempts")
+    return None
+
+
 def log_webhook_event(location_id: str, event_type: str, status: str = "info",
                       summary: str = "", contact_id: str = None, details: dict = None):
     """Log a webhook/system event for the subscriber's activity log.
@@ -257,6 +338,7 @@ def init_db() -> bool:
                 invite_claimed_at TIMESTAMP,
                 onboarding_status TEXT DEFAULT 'pending',
                 oauth_app_type TEXT DEFAULT 'marketplace',
+                personal_website TEXT,
 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -289,6 +371,7 @@ def init_db() -> bool:
                 active_seats INTEGER DEFAULT 0,
                 stripe_customer_id TEXT,
                 oauth_app_type TEXT DEFAULT 'marketplace',
+                personal_website TEXT,
 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -457,7 +540,24 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"crm_type/crm_config migration note: {e}")
 
-        # 12. MIGRATION: Create webhook_logs table for per-subscriber activity logging
+        # 12. MIGRATION: Add personal_website column for agent website sharing
+        try:
+            cur_pw = conn.cursor()
+            cur_pw.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS personal_website TEXT
+            """)
+            cur_pw.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS personal_website TEXT
+            """)
+            conn.commit()
+            cur_pw.close()
+            logger.info("✅ Migration: Added personal_website column to subscribers and agency_billing")
+        except Exception as e:
+            logger.debug(f"personal_website migration note: {e}")
+
+        # 13. MIGRATION: Create webhook_logs table for per-subscriber activity logging
         try:
             cur5 = conn.cursor()
             cur5.execute("""
@@ -480,6 +580,187 @@ def init_db() -> bool:
             logger.info("✅ Migration: Created webhook_logs table")
         except Exception as e:
             logger.debug(f"webhook_logs migration note: {e}")
+
+        # 14. MIGRATION: Create persistent_alerts table for dashboard notifications
+        try:
+            cur6 = conn.cursor()
+            cur6.execute("""
+                CREATE TABLE IF NOT EXISTS persistent_alerts (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    location_id TEXT,
+                    alert_type TEXT NOT NULL,
+                    severity TEXT DEFAULT 'warning',
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    dismissed BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur6.execute("""
+                CREATE INDEX IF NOT EXISTS idx_persistent_alerts_email
+                ON persistent_alerts(email, dismissed)
+            """)
+            conn.commit()
+            cur6.close()
+            logger.info("✅ Migration: Created persistent_alerts table")
+        except Exception as e:
+            logger.debug(f"persistent_alerts migration note: {e}")
+
+        # 15. MIGRATION: Add install tracking + reminder columns for email sequences
+        try:
+            cur7 = conn.cursor()
+            for col, default in [
+                ("install_completed_at", "NULL"),
+                ("reminder_24h_sent", "FALSE"),
+                ("reminder_72h_sent", "FALSE"),
+            ]:
+                for table in ["subscribers", "agency_billing"]:
+                    try:
+                        if default == "FALSE":
+                            cur7.execute(f"ALTER TABLE {table} ADD COLUMN {col} BOOLEAN DEFAULT FALSE")
+                        else:
+                            cur7.execute(f"ALTER TABLE {table} ADD COLUMN {col} TIMESTAMP")
+                        conn.commit()
+                    except psycopg2.Error:
+                        conn.rollback()
+            # Backfill: set install_completed_at = created_at for existing users
+            # so they get picked up by the reminder system
+            for table, email_col in [("subscribers", "email"), ("agency_billing", "agency_email")]:
+                try:
+                    cur7.execute(f"""
+                        UPDATE {table}
+                        SET install_completed_at = created_at
+                        WHERE install_completed_at IS NULL
+                          AND access_token IS NOT NULL
+                    """)
+                    conn.commit()
+                    if cur7.rowcount > 0:
+                        logger.info(f"✅ Backfilled install_completed_at for {cur7.rowcount} rows in {table}")
+                except psycopg2.Error:
+                    conn.rollback()
+
+            cur7.close()
+            logger.info("✅ Migration: Added install tracking + reminder columns")
+        except Exception as e:
+            logger.debug(f"reminder columns migration note: {e}")
+
+        # 16. MIGRATION: Create marketplace_installs table for capturing GHL installs
+        # This captures install events even if OAuth callback never fires (e.g., broken redirect URL)
+        try:
+            cur8 = conn.cursor()
+            cur8.execute("""
+                CREATE TABLE IF NOT EXISTS marketplace_installs (
+                    id SERIAL PRIMARY KEY,
+                    app_id TEXT,
+                    company_id TEXT,
+                    location_id TEXT,
+                    user_id TEXT,
+                    user_email TEXT,
+                    user_name TEXT,
+                    plan_id TEXT,
+                    install_type TEXT,
+                    raw_payload JSONB DEFAULT '{}'::jsonb,
+                    oauth_completed BOOLEAN DEFAULT FALSE,
+                    oauth_completed_at TIMESTAMP,
+                    setup_email_sent BOOLEAN DEFAULT FALSE,
+                    setup_email_sent_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_company ON marketplace_installs(company_id)")
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_location ON marketplace_installs(location_id)")
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_email ON marketplace_installs(user_email)")
+            cur8.execute("CREATE INDEX IF NOT EXISTS idx_mkt_installs_created ON marketplace_installs(created_at DESC)")
+            conn.commit()
+            cur8.close()
+            logger.info("✅ Migration: Created marketplace_installs table")
+        except Exception as e:
+            logger.debug(f"marketplace_installs migration note: {e}")
+
+        # 17. MIGRATION: Add contracted_carriers column for per-agent carrier selection
+        try:
+            cur9 = conn.cursor()
+            cur9.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS contracted_carriers JSONB DEFAULT '[]'
+            """)
+            cur9.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS contracted_carriers JSONB DEFAULT '[]'
+            """)
+            conn.commit()
+            cur9.close()
+            logger.info("✅ Migration: Added contracted_carriers column to subscribers and agency_billing")
+        except Exception as e:
+            logger.debug(f"contracted_carriers migration note: {e}")
+
+        # 18. MIGRATION: Add bot_settings JSONB column for advanced settings
+        try:
+            cur10 = conn.cursor()
+            cur10.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS bot_settings JSONB DEFAULT '{}'::jsonb
+            """)
+            cur10.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS bot_settings JSONB DEFAULT '{}'::jsonb
+            """)
+            conn.commit()
+            cur10.close()
+            logger.info("✅ Migration: Added bot_settings column to subscribers and agency_billing")
+        except Exception as e:
+            logger.debug(f"bot_settings migration note: {e}")
+
+        # 19. MIGRATION: API Platform — api_key, webhook, usage logging
+        try:
+            cur11 = conn.cursor()
+            # Add API columns to subscribers
+            cur11.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS api_key TEXT UNIQUE,
+                ADD COLUMN IF NOT EXISTS api_key_created_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS outbound_webhook_url TEXT,
+                ADD COLUMN IF NOT EXISTS webhook_secret TEXT
+            """)
+            # Add API columns to agency_billing too
+            cur11.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS api_key TEXT UNIQUE,
+                ADD COLUMN IF NOT EXISTS api_key_created_at TIMESTAMP,
+                ADD COLUMN IF NOT EXISTS outbound_webhook_url TEXT,
+                ADD COLUMN IF NOT EXISTS webhook_secret TEXT
+            """)
+            # API usage log table for rate limiting and analytics
+            cur11.execute("""
+                CREATE TABLE IF NOT EXISTS api_usage_logs (
+                    id SERIAL PRIMARY KEY,
+                    api_key_prefix TEXT NOT NULL,
+                    location_id TEXT,
+                    endpoint TEXT NOT NULL,
+                    method TEXT DEFAULT 'POST',
+                    status_code INTEGER,
+                    response_time_ms INTEGER,
+                    contact_id TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur11.execute("""
+                CREATE INDEX IF NOT EXISTS idx_api_usage_created
+                ON api_usage_logs (created_at DESC)
+            """)
+            cur11.execute("""
+                CREATE INDEX IF NOT EXISTS idx_api_usage_key_prefix
+                ON api_usage_logs (api_key_prefix, created_at DESC)
+            """)
+            conn.commit()
+            cur11.close()
+            logger.info("✅ Migration: Added API platform columns and api_usage_logs table")
+        except Exception as e:
+            logger.debug(f"API platform migration note: {e}")
 
         return True
     except psycopg2.Error as e:
@@ -551,6 +832,9 @@ class User(UserMixin):
         # Multi-CRM integration fields
         self.crm_type = data.get('crm_type', 'ghl')
         self.crm_config = data.get('crm_config') or {}
+
+        # Agent personal website (shared by bot when lead asks)
+        self.personal_website = data.get('personal_website')
 
         # Timestamps
         self.created_at = data.get('created_at')
@@ -889,3 +1173,675 @@ def update_subscriber_token(
             cur.close()
         if conn:
             return_db_connection(conn)
+
+
+def get_users_needing_reminders() -> list:
+    """
+    Find users who need a reminder email. Catches TWO scenarios:
+      A) User has account but never completed OAuth — missing access_token
+         or location_id starts with 'temp_' (incomplete setup)
+      B) User completed OAuth but hasn't subscribed — no stripe_customer_id
+
+    Both scenarios trigger 24h and 72h reminders based on created_at.
+    Each user gets a 'missing_fields' list so the email can say exactly what's needed.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        # Subscribers: anyone with an account that's either unsubscribed or incomplete
+        cur.execute("""
+            SELECT email, full_name, location_id, access_token,
+                   stripe_customer_id, calendar_id, crm_user_id,
+                   reminder_24h_sent, reminder_72h_sent,
+                   COALESCE(install_completed_at, created_at) as ref_time,
+                   'individual' as user_type
+            FROM subscribers
+            WHERE (
+                  stripe_customer_id IS NULL
+                  OR access_token IS NULL
+                  OR location_id LIKE 'temp_%%'
+                  OR calendar_id IS NULL
+                  )
+              AND email IS NOT NULL
+              AND (
+                  (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
+                  OR
+                  (reminder_72h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '72 hours')
+              )
+        """)
+        individual_rows = cur.fetchall()
+
+        # Agency owners
+        cur.execute("""
+            SELECT agency_email as email, full_name, location_id, access_token,
+                   stripe_customer_id, calendar_id, crm_user_id,
+                   reminder_24h_sent, reminder_72h_sent,
+                   COALESCE(install_completed_at, created_at) as ref_time,
+                   'agency_owner' as user_type
+            FROM agency_billing
+            WHERE (
+                  stripe_customer_id IS NULL
+                  OR access_token IS NULL
+                  OR location_id LIKE 'temp_%%'
+                  OR calendar_id IS NULL
+                  )
+              AND agency_email IS NOT NULL
+              AND (
+                  (reminder_24h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '24 hours')
+                  OR
+                  (reminder_72h_sent = FALSE AND COALESCE(install_completed_at, created_at) <= NOW() - INTERVAL '72 hours')
+              )
+        """)
+        agency_rows = cur.fetchall()
+
+        results = []
+        for row in list(individual_rows) + list(agency_rows):
+            r = dict(row)
+            from datetime import datetime as _dt, timezone as _tz
+            ref_time = r.get("ref_time")
+            if not ref_time:
+                continue
+            if hasattr(ref_time, 'tzinfo') and ref_time.tzinfo is None:
+                ref_time = ref_time.replace(tzinfo=_tz.utc)
+            hours_since = (_dt.now(_tz.utc) - ref_time).total_seconds() / 3600
+
+            if hours_since >= 72 and not r.get("reminder_72h_sent"):
+                r["reminder_type"] = "72h"
+            elif hours_since >= 24 and not r.get("reminder_24h_sent"):
+                r["reminder_type"] = "24h"
+            else:
+                continue
+
+            # Build list of what's missing so email can be specific
+            missing = []
+            loc = r.get("location_id") or ""
+            if not r.get("access_token"):
+                missing.append("crm_connection")
+            if not loc or loc.startswith("temp_"):
+                missing.append("location_id")
+            if not r.get("stripe_customer_id"):
+                missing.append("subscription")
+            if not r.get("calendar_id"):
+                missing.append("calendar")
+            r["missing_fields"] = missing
+            results.append(r)
+
+        cur.close()
+        return results
+    except psycopg2.Error as e:
+        logger.error(f"get_users_needing_reminders failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def mark_reminder_sent(email: str, reminder_type: str, user_type: str = "individual") -> bool:
+    """Mark a reminder email as sent for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        col = "reminder_24h_sent" if reminder_type == "24h" else "reminder_72h_sent"
+        if user_type == "agency_owner":
+            cur.execute(f"UPDATE agency_billing SET {col} = TRUE WHERE agency_email = %s", (email,))
+        else:
+            cur.execute(f"UPDATE subscribers SET {col} = TRUE WHERE email = %s", (email,))
+        conn.commit()
+        success = cur.rowcount > 0
+        cur.close()
+        return success
+    except psycopg2.Error as e:
+        logger.error(f"mark_reminder_sent failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def save_marketplace_install(payload: dict) -> Optional[int]:
+    """Save a GHL marketplace install event. Returns the row ID or None on failure."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        # Extract fields from GHL app.installed webhook payload
+        data = payload.get("data", payload)
+        app_id = data.get("appId") or data.get("app_id") or payload.get("appId")
+        company_id = data.get("companyId") or data.get("company_id") or payload.get("companyId")
+        location_id = data.get("locationId") or data.get("location_id") or payload.get("locationId")
+        user_id = data.get("userId") or data.get("user_id")
+        user_email = data.get("email") or data.get("userEmail")
+        user_name = data.get("name") or data.get("userName") or data.get("firstName", "")
+        plan_id = data.get("planId") or data.get("plan_id")
+        install_type = data.get("installType") or data.get("install_type") or "unknown"
+
+        cur.execute("""
+            INSERT INTO marketplace_installs
+                (app_id, company_id, location_id, user_id, user_email, user_name,
+                 plan_id, install_type, raw_payload)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (app_id, company_id, location_id, user_id, user_email,
+              user_name, plan_id, install_type, json.dumps(payload)))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        install_id = row["id"] if row else None
+        logger.info(f"Saved marketplace install: id={install_id}, company={company_id}, "
+                     f"location={location_id}, email={user_email}")
+        return install_id
+    except psycopg2.Error as e:
+        logger.error(f"save_marketplace_install failed: {e}")
+        conn.rollback()
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def mark_install_oauth_complete(company_id: str = None, location_id: str = None):
+    """Mark a marketplace install as having completed OAuth."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        if location_id:
+            cur.execute("""
+                UPDATE marketplace_installs
+                SET oauth_completed = TRUE, oauth_completed_at = NOW()
+                WHERE location_id = %s AND oauth_completed = FALSE
+            """, (location_id,))
+        elif company_id:
+            cur.execute("""
+                UPDATE marketplace_installs
+                SET oauth_completed = TRUE, oauth_completed_at = NOW()
+                WHERE company_id = %s AND oauth_completed = FALSE
+            """, (company_id,))
+        conn.commit()
+        cur.close()
+    except psycopg2.Error as e:
+        logger.error(f"mark_install_oauth_complete failed: {e}")
+        conn.rollback()
+    finally:
+        return_db_connection(conn)
+
+
+def get_incomplete_installs() -> list:
+    """Get marketplace installs that never completed OAuth — these are the 'lost' users."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, app_id, company_id, location_id, user_id, user_email, user_name,
+                   plan_id, install_type, oauth_completed, setup_email_sent,
+                   setup_email_sent_at, created_at
+            FROM marketplace_installs
+            WHERE oauth_completed = FALSE
+            ORDER BY created_at DESC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except psycopg2.Error as e:
+        logger.error(f"get_incomplete_installs failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def get_all_marketplace_installs() -> list:
+    """Get all marketplace installs for admin view."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, app_id, company_id, location_id, user_id, user_email, user_name,
+                   plan_id, install_type, oauth_completed, oauth_completed_at,
+                   setup_email_sent, setup_email_sent_at, created_at
+            FROM marketplace_installs
+            ORDER BY created_at DESC
+            LIMIT 200
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except psycopg2.Error as e:
+        logger.error(f"get_all_marketplace_installs failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def mark_setup_email_sent(install_id: int) -> bool:
+    """Mark that a setup email was sent for a specific install."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE marketplace_installs
+            SET setup_email_sent = TRUE, setup_email_sent_at = NOW()
+            WHERE id = %s
+        """, (install_id,))
+        conn.commit()
+        success = cur.rowcount > 0
+        cur.close()
+        return success
+    except psycopg2.Error as e:
+        logger.error(f"mark_setup_email_sent failed for install {install_id}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def find_marketplace_email(location_id: str = None, company_id: str = None) -> Optional[dict]:
+    """
+    Bridge function: search marketplace_installs for a matching user email.
+    When OAuth scopes block /users/me, this recovers the email from the
+    install webhook data we already captured.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        # 1. Strongest match: Location ID (specific sub-account)
+        if location_id:
+            cur.execute("""
+                SELECT user_email, user_name
+                FROM marketplace_installs
+                WHERE location_id = %s AND user_email IS NOT NULL AND user_email != ''
+                ORDER BY created_at DESC LIMIT 1
+            """, (location_id,))
+            row = cur.fetchone()
+            if row:
+                cur.close()
+                return dict(row)
+
+        # 2. Fallback: Company ID (agency-level install)
+        if company_id:
+            cur.execute("""
+                SELECT user_email, user_name
+                FROM marketplace_installs
+                WHERE company_id = %s AND user_email IS NOT NULL AND user_email != ''
+                ORDER BY created_at DESC LIMIT 1
+            """, (company_id,))
+            row = cur.fetchone()
+            if row:
+                cur.close()
+                return dict(row)
+
+        cur.close()
+        return None
+    except psycopg2.Error as e:
+        logger.error(f"find_marketplace_email failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def save_contracted_carriers(email: str, carriers: list) -> bool:
+    """Save an agent's contracted carrier selections."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET contracted_carriers = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (json.dumps(carriers), email))
+        if cur.rowcount == 0:
+            # Try agency_billing too
+            cur.execute("""
+                UPDATE agency_billing SET contracted_carriers = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (json.dumps(carriers), email))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"save_contracted_carriers failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_contracted_carriers(email: str) -> list:
+    """Load an agent's contracted carrier selections."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT contracted_carriers FROM subscribers WHERE email = %s LIMIT 1", (email,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT contracted_carriers FROM agency_billing WHERE agency_email = %s LIMIT 1", (email,))
+            row = cur.fetchone()
+        cur.close()
+        if row and row.get('contracted_carriers'):
+            carriers = row['contracted_carriers']
+            return carriers if isinstance(carriers, list) else json.loads(carriers)
+        return []
+    except Exception as e:
+        logger.error(f"get_contracted_carriers failed for {email}: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def get_contracted_carriers_by_location(location_id: str) -> list:
+    """Load carriers by location_id (used in webhook/task context where we don't have email)."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT contracted_carriers FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
+        row = cur.fetchone()
+        cur.close()
+        if row and row.get('contracted_carriers'):
+            carriers = row['contracted_carriers']
+            return carriers if isinstance(carriers, list) else json.loads(carriers)
+        return []
+    except Exception as e:
+        logger.error(f"get_contracted_carriers_by_location failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+# ===================================================
+# BOT SETTINGS HELPERS
+# ===================================================
+
+# Default settings — any key missing from a subscriber's stored settings
+# falls back to these values. This keeps the system backwards-compatible:
+# existing subscribers with no bot_settings get the original behavior.
+BOT_SETTINGS_DEFAULTS = {
+    "humor_enabled": True,
+    "professionalism_level": 0,       # 0 = current casual style, 5 = ultra-professional
+    "custom_behavior": "",             # Free-text behavior instructions
+    "outbound_messages": [],           # Custom text drip messages
+    "auto_emoji": True,                # Whether bot uses emojis
+    "after_hours_enabled": False,      # After-hours auto-reply mode
+    "after_hours_start": "18:00",      # When after-hours kicks in (HH:MM)
+    "after_hours_end": "09:00",        # When after-hours ends
+    "response_length": "balanced",     # "short", "balanced", or "detailed"
+    "booking_confirmation": True,      # Double-confirm before booking
+    "objection_persistence": 3,        # How many angles before graceful exit (1-5)
+    "lead_reengagement": True,         # Whether to do follow-up sequences
+    "conversation_memory": True,       # Whether bot references past conversation details
+    "speed_to_lead": True,             # Respond immediately to new leads
+    "multi_language": False,           # Detect and respond in lead's language
+}
+
+
+def get_bot_settings(email: str) -> dict:
+    """Load a subscriber's bot_settings, merged with defaults for any missing keys."""
+    conn = get_db_connection()
+    if not conn:
+        return dict(BOT_SETTINGS_DEFAULTS)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT bot_settings FROM subscribers WHERE email = %s LIMIT 1", (email,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT bot_settings FROM agency_billing WHERE agency_email = %s LIMIT 1", (email,))
+            row = cur.fetchone()
+        cur.close()
+        stored = {}
+        if row and row.get('bot_settings'):
+            stored = row['bot_settings']
+            if isinstance(stored, str):
+                stored = json.loads(stored)
+        # Merge: stored values override defaults
+        merged = dict(BOT_SETTINGS_DEFAULTS)
+        merged.update(stored)
+        return merged
+    except Exception as e:
+        logger.error(f"get_bot_settings failed for {email}: {e}")
+        return dict(BOT_SETTINGS_DEFAULTS)
+    finally:
+        return_db_connection(conn)
+
+
+def get_bot_settings_by_location(location_id: str) -> dict:
+    """Load bot_settings by location_id (used in webhook/task context)."""
+    conn = get_db_connection()
+    if not conn:
+        return dict(BOT_SETTINGS_DEFAULTS)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT bot_settings FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
+        row = cur.fetchone()
+        cur.close()
+        stored = {}
+        if row and row.get('bot_settings'):
+            stored = row['bot_settings']
+            if isinstance(stored, str):
+                stored = json.loads(stored)
+        merged = dict(BOT_SETTINGS_DEFAULTS)
+        merged.update(stored)
+        return merged
+    except Exception as e:
+        logger.error(f"get_bot_settings_by_location failed: {e}")
+        return dict(BOT_SETTINGS_DEFAULTS)
+    finally:
+        return_db_connection(conn)
+
+
+def save_bot_settings(email: str, settings: dict) -> bool:
+    """Save a subscriber's bot_settings."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET bot_settings = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (json.dumps(settings), email))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing SET bot_settings = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (json.dumps(settings), email))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"save_bot_settings failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+# ===================================================
+# API KEY HELPERS
+# ===================================================
+
+import secrets
+import hmac as _hmac
+import hashlib
+
+def generate_api_key() -> str:
+    """Generate a secure API key with sk_live_ prefix."""
+    return f"sk_live_{secrets.token_urlsafe(32)}"
+
+
+def generate_webhook_secret() -> str:
+    """Generate a secure webhook signing secret."""
+    return f"whsec_{secrets.token_urlsafe(32)}"
+
+
+def api_key_prefix(key: str) -> str:
+    """Get a safe prefix for logging (first 12 chars)."""
+    return key[:12] + "..." if key and len(key) > 12 else key or ""
+
+
+def create_api_key_for_user(email: str) -> dict:
+    """Generate and save a new API key + webhook secret for a subscriber."""
+    api_key = generate_api_key()
+    webhook_secret = generate_webhook_secret()
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "Database unavailable"}
+    try:
+        cur = conn.cursor()
+        # Try subscribers first
+        cur.execute("""
+            UPDATE subscribers
+            SET api_key = %s, webhook_secret = %s, api_key_created_at = NOW(), updated_at = NOW()
+            WHERE email = %s
+        """, (api_key, webhook_secret, email))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing
+                SET api_key = %s, webhook_secret = %s, api_key_created_at = NOW(), updated_at = NOW()
+                WHERE agency_email = %s
+            """, (api_key, webhook_secret, email))
+        conn.commit()
+        cur.close()
+        return {"api_key": api_key, "webhook_secret": webhook_secret}
+    except psycopg2.Error as e:
+        logger.error(f"create_api_key_for_user failed for {email}: {e}")
+        conn.rollback()
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+
+def revoke_api_key(email: str) -> bool:
+    """Revoke a user's API key."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET api_key = NULL, webhook_secret = NULL, updated_at = NOW()
+            WHERE email = %s
+        """, (email,))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing SET api_key = NULL, webhook_secret = NULL, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (email,))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"revoke_api_key failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def save_outbound_webhook_url(email: str, url: str) -> bool:
+    """Save a subscriber's outbound webhook URL for API reply delivery."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers SET outbound_webhook_url = %s, updated_at = NOW()
+            WHERE email = %s
+        """, (url, email))
+        if cur.rowcount == 0:
+            cur.execute("""
+                UPDATE agency_billing SET outbound_webhook_url = %s, updated_at = NOW()
+                WHERE agency_email = %s
+            """, (url, email))
+        conn.commit()
+        cur.close()
+        return True
+    except psycopg2.Error as e:
+        logger.error(f"save_outbound_webhook_url failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_subscriber_by_api_key(api_key: str) -> dict:
+    """Look up a subscriber by their API key. Returns full subscriber dict or None."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE api_key = %s LIMIT 1", (api_key,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT * FROM agency_billing WHERE api_key = %s LIMIT 1", (api_key,))
+            row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"get_subscriber_by_api_key failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def log_api_usage(api_key_pfx: str, location_id: str, endpoint: str,
+                  status_code: int, response_time_ms: int = 0,
+                  contact_id: str = None, ip_address: str = None,
+                  user_agent: str = None, error_message: str = None):
+    """Log an API request for analytics and rate limiting."""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO api_usage_logs
+                (api_key_prefix, location_id, endpoint, status_code, response_time_ms,
+                 contact_id, ip_address, user_agent, error_message)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (api_key_pfx, location_id, endpoint, status_code, response_time_ms,
+              contact_id, ip_address, user_agent, error_message))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.debug(f"log_api_usage failed: {e}")
+    finally:
+        return_db_connection(conn)
+
+
+def get_api_request_count(api_key_pfx: str, window_seconds: int = 60) -> int:
+    """Count API requests in the last N seconds for rate limiting."""
+    conn = get_db_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) as cnt FROM api_usage_logs
+            WHERE api_key_prefix = %s
+            AND created_at > NOW() - INTERVAL '%s seconds'
+        """, (api_key_pfx, window_seconds))
+        row = cur.fetchone()
+        cur.close()
+        return row['cnt'] if row else 0
+    except Exception as e:
+        logger.debug(f"get_api_request_count failed: {e}")
+        return 0
+    finally:
+        return_db_connection(conn)

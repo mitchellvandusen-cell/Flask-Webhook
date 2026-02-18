@@ -27,13 +27,24 @@ from rq import Queue
 from psycopg2.extras import RealDictCursor
 
 # === IMPORTS ===
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, init_db, User
+from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connection,
+                init_db, User, get_db_connection_with_retry, log_webhook_event,
+                save_persistent_alert, get_persistent_alerts, dismiss_persistent_alert,
+                get_users_needing_reminders, mark_reminder_sent,
+                save_marketplace_install, mark_install_oauth_complete,
+                get_incomplete_installs, get_all_marketplace_installs,
+                mark_setup_email_sent, find_marketplace_email,
+                save_contracted_carriers, get_contracted_carriers,
+                get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS,
+                create_api_key_for_user, revoke_api_key, save_outbound_webhook_url)
+from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
+    "admin",
     "mitchell_vandusen@hotmail.com",
     "mitchvandusenlife@gmail.com",
     "mitchell.vandusen@gmail.com",
@@ -79,23 +90,62 @@ def safe_jsonify(data):
 
 # === REDIS & RQ SETUP ===
 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-try:
-    conn = redis.from_url(redis_url)
-    
-    # Create TWO queues
-    q_production = Queue('production', connection=conn) # High Priority
-    q_demo       = Queue('demo',       connection=conn) # Low Priority
-    
-    logger.info("✅ Redis Connection Successful")
-except Exception as e:
-    logger.error(f"❌ Redis Connection Failed: {e}")
+redis_conn = None
+q_production = None
+q_demo = None
+
+def get_redis_connection():
+    """Create a Redis connection with proper timeouts so it fails fast instead of hanging."""
+    return redis.from_url(
+        redis_url,
+        socket_timeout=5,
+        socket_connect_timeout=5,
+        retry_on_timeout=True,
+        health_check_interval=30,
+    )
+
+def ensure_redis():
+    """Reconnect to Redis if the connection is dead. Returns True if healthy."""
+    global redis_conn, q_production, q_demo
+    try:
+        if redis_conn:
+            redis_conn.ping()
+            return True
+    except (redis.ConnectionError, redis.TimeoutError, OSError):
+        logger.warning("⚠️ Redis connection lost, attempting reconnect...")
+        redis_conn = None
+
+    try:
+        redis_conn = get_redis_connection()
+        redis_conn.ping()  # Real connectivity check
+        q_production = Queue('production', connection=redis_conn)
+        q_demo       = Queue('demo',       connection=redis_conn)
+        logger.info("✅ Redis connection established")
+        return True
+    except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
+        logger.error(f"❌ Redis reconnect failed: {e}")
+        redis_conn = None
+        q_production = None
+        q_demo = None
+        return False
+
+# Initial connection at startup
+ensure_redis()
 
 # === INITIALIZATION ===
 sync_subscribers()
-init_db() 
+init_db()
+
+# === REGISTER API BLUEPRINT ===
+from api_v1 import api_bp
+app.register_blueprint(api_bp)
 
 # == SECRET SESSION ==
 app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
+
+# == SESSION COOKIE CONFIG (for iframe embedding in LeadConnector) ==
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
@@ -161,12 +211,12 @@ class LoginForm(FlaskForm):
 
 class ConfigForm(FlaskForm):
     location_id = StringField("Location ID", validators=[DataRequired()])
-    crm_api_key = StringField("CRM API Key", validators=[DataRequired()])
-    crm_user_id = StringField("CRM USER ID", validators=[DataRequired()])
+    crm_user_id = StringField("CRM USER ID")
     calendar_id = StringField("Calendar ID", validators=[DataRequired()])
     timezone = StringField("Timezone (e.g. America/Chicago)", validators=[DataRequired()])
     bot_name = StringField("Bot First Name", validators=[DataRequired()])
     initial_message = StringField("Optional Initial Message")
+    personal_website = StringField("Personal Website (optional)")
     submit = SubmitField("Save Settings")
 
 class ReviewForm(FlaskForm):
@@ -373,9 +423,9 @@ def normalize_payload_universal(payload):
 # =====================================================
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    if not q_production or not q_demo:
-        logger.critical("Redis/RQ unavailable")
-        return flask_jsonify({"status": "error"}), 503
+    if not ensure_redis():
+        logger.critical("Redis/RQ unavailable after reconnect attempt")
+        return flask_jsonify({"status": "error", "reason": "redis_unavailable"}), 503
 
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
 
@@ -424,33 +474,260 @@ def webhook():
 
 
 #   2. Enqueue the Brain
-    try:
-        # CHECK IF DEMO
-        is_demo = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
+    is_demo = location_id in ['DEMO_LOC', 'DEMO', 'TEST_LOCATION_456']
+    is_reply = message_body and message_body.strip()
 
-        # Select the appropriate queue
-        target_queue = q_demo if is_demo else q_production
+    for attempt in range(2):
+        try:
+            target_queue = q_demo if is_demo else q_production
+            job = target_queue.enqueue(
+                process_webhook_task,
+                payload,
+                job_timeout=120,
+                result_ttl=86400,
+                at_front=is_reply  # Replies skip to front of queue
+            )
+            return safe_jsonify({"status": "queued", "job_id": job.id}), 202
 
-        # PRIORITY SYSTEM: Replies jump to front, initial outreach goes to back
-        # This prevents 255 initial outreach messages from blocking real conversations
-        # ALL text messages (including "k", "ya", one-word replies) are high priority
-        is_reply = message_body and message_body.strip()
+        except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
+            if attempt == 0:
+                logger.warning(f"⚠️ Enqueue failed (attempt 1), reconnecting: {e}")
+                if not ensure_redis():
+                    logger.error("❌ Redis reconnect failed on retry")
+                    return safe_jsonify({"status": "error", "reason": "redis_unavailable"}), 503
+            else:
+                logger.error(f"❌ Enqueue failed after retry: {e}")
+                return safe_jsonify({"status": "error", "reason": "redis_enqueue_failed"}), 503
 
-        job = target_queue.enqueue(
-            process_webhook_task,
-            payload,
-            job_timeout=120,
-            result_ttl=86400,
-            at_front=is_reply  # Replies skip to front of queue
-        )
-
-        return safe_jsonify({"status": "queued", "job_id": job.id}), 202
-    except Exception as e:
-        logger.error(f"Queue failed: {e}")
-        return safe_jsonify({"status": "error"}), 500
+        except Exception as e:
+            logger.error(f"Queue failed: {e}")
+            return safe_jsonify({"status": "error"}), 500
 
 # =====================================================
-#  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/") 
+#  GHL MARKETPLACE APP.INSTALLED WEBHOOK
+#  Captures install events even if OAuth redirect never fires
+# =====================================================
+
+@app.route("/webhook/app-installed", methods=["POST"])
+def app_installed_webhook():
+    """
+    GHL Marketplace 'app.installed' webhook listener.
+
+    When someone installs the app from GHL Marketplace, GHL sends this webhook
+    BEFORE the OAuth redirect. This captures the install even if:
+    - The redirect URL is broken
+    - The user closes the tab
+    - OAuth fails silently
+
+    Configure in GHL Developer Portal > Webhooks > app.installed
+    URL: https://yourdomain.com/webhook/app-installed
+    """
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+    except Exception:
+        payload = {}
+
+    # Log immediately — this is critical for visibility
+    logger.info(f"=== APP.INSTALLED WEBHOOK === payload keys: {list(payload.keys())}")
+    log_webhook_event("marketplace", "app_installed", "info",
+                      f"App install webhook received",
+                      details={"payload": payload})
+
+    # Extract what we can from the payload
+    data = payload.get("data", payload)
+    company_id = data.get("companyId") or data.get("company_id") or payload.get("companyId") or ""
+    location_id = data.get("locationId") or data.get("location_id") or payload.get("locationId") or ""
+    user_email = data.get("email") or data.get("userEmail") or ""
+    user_name = data.get("name") or data.get("userName") or data.get("firstName") or ""
+
+    # Save to marketplace_installs table
+    install_id = save_marketplace_install(payload)
+
+    if install_id:
+        log_webhook_event("marketplace", "app_installed_saved", "success",
+                          f"Install #{install_id} saved: company={company_id}, "
+                          f"location={location_id}, email={user_email}, name={user_name}")
+
+        # If we have an email, send a welcome/setup email immediately
+        if user_email:
+            try:
+                from send_email_api import send_email_via_api
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                display_name = user_name or "there"
+
+                subject = "Welcome to InsuranceGrokBot — Complete Your Setup"
+                html_body = _build_install_welcome_email(display_name, domain_url)
+                text_body = (
+                    f"Hi {display_name}, thanks for installing InsuranceGrokBot! "
+                    f"Complete your setup to start converting leads automatically: "
+                    f"{domain_url}/oauth/initiate"
+                )
+                sent = send_email_via_api(
+                    to_email=user_email,
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body
+                )
+                if sent:
+                    mark_setup_email_sent(install_id)
+                    log_webhook_event("marketplace", "install_welcome_email", "success",
+                                      f"Welcome email sent to {user_email} for install #{install_id}")
+                    logger.info(f"Install welcome email sent to {user_email}")
+                else:
+                    log_webhook_event("marketplace", "install_welcome_email", "error",
+                                      f"Failed to send welcome email to {user_email}")
+            except Exception as email_err:
+                logger.error(f"Install welcome email error: {email_err}")
+                log_webhook_event("marketplace", "install_welcome_email", "error",
+                                  f"Email error: {email_err}")
+
+        # Notify admin about new installs
+        try:
+            for admin_email in ADMIN_EMAILS[:1]:  # Notify first admin
+                save_persistent_alert(
+                    admin_email, location_id or "marketplace",
+                    "new_install", "info",
+                    "New Marketplace Install",
+                    f"New app install: {user_name or 'Unknown'} ({user_email or 'no email'}) "
+                    f"— Company: {company_id or 'N/A'}, Location: {location_id or 'N/A'}"
+                )
+        except Exception:
+            pass
+
+    return safe_jsonify({"status": "received", "install_id": install_id}), 200
+
+
+def _build_install_welcome_email(name: str, domain_url: str) -> str:
+    """Build premium welcome email for marketplace install — guides them through OAuth setup."""
+    inner = f'''
+<tr>
+<td style="padding: 0 40px 30px;">
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">
+        Welcome aboard, {name}!
+    </h1>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">
+        You just installed <strong style="color: #00c853;">InsuranceGrokBot</strong> &mdash; your AI-powered
+        insurance sales assistant that works your leads 24/7.
+    </p>
+</td>
+</tr>
+
+<!-- Setup Required Notice -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2); border-radius: 12px;">
+    <tr>
+    <td style="padding: 20px 24px;">
+        <p style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #ff6b35;">
+            One Step Left to Activate Your Bot
+        </p>
+        <p style="margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;">
+            Click the button below to connect your GoHighLevel CRM. This authorizes InsuranceGrokBot
+            to respond to your leads, book appointments, and manage conversations automatically.
+        </p>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- CTA Button -->
+<tr>
+<td align="center" style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0">
+    <tr>
+    <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 12px; padding: 16px 48px;">
+        <a href="{domain_url}/oauth/initiate" style="color: #000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: 0.5px;">
+            Connect Your CRM Now &rarr;
+        </a>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- What Happens Next -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <h2 style="margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #fff;">What Happens After You Connect:</h2>
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">1</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Instant Lead Response</strong> &mdash; Bot replies within 5 seconds, 24/7</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">2</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Smart Qualification</strong> &mdash; Asks the right insurance questions automatically</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 10px 0;">
+            <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width: 36px; vertical-align: top;">
+                    <div style="width: 28px; height: 28px; background: rgba(0,200,83,0.15); border-radius: 8px; text-align: center; line-height: 28px; font-size: 14px;">3</div>
+                </td>
+                <td style="padding-left: 12px;">
+                    <p style="margin: 0; font-size: 14px; color: #ddd;"><strong style="color: #fff;">Auto Book Appointments</strong> &mdash; Checks your calendar and books meetings</p>
+                </td>
+            </tr></table>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Stats Row -->
+<tr>
+<td style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06);">
+    <tr>
+        <td align="center" style="padding: 20px; width: 33%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">5s</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Response Time</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 34%; border-right: 1px solid rgba(255,255,255,0.06);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">24/7</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Always On</div>
+        </td>
+        <td align="center" style="padding: 20px; width: 33%;">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853;">Auto</div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Booking</div>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Secondary CTA -->
+<tr>
+<td style="padding: 0 40px 20px;">
+    <p style="margin: 0; font-size: 13px; color: #777; text-align: center;">
+        Need help? Reply to this email or visit
+        <a href="{domain_url}/support" style="color: #00c853; text-decoration: none;">our support page</a>.
+    </p>
+</td>
+</tr>
+'''
+    return _email_wrapper(inner, domain_url)
+
+
+# =====================================================
+#  BELOW THIS LINE: KEEP YOUR EXISTING @app.route("/")
 #  AND OTHER UI CODE EXACTLY AS IT IS
 # =====================================================
                     
@@ -597,7 +874,7 @@ def register():
 
             # 2. Check if location_id already exists in subscribers (from OAuth/Marketplace)
             cur.execute("""
-                SELECT email, parent_agency_email, invite_token, onboarding_status
+                SELECT email, parent_agency_email, onboarding_status
                 FROM subscribers
                 WHERE location_id = %s
                 LIMIT 1
@@ -612,7 +889,7 @@ def register():
             password_hash = generate_password_hash(password)
 
             # Check if this is a sub-user who should use /claim-account
-            if match['parent_agency_email'] and match['invite_token']:
+            if match['parent_agency_email'] and match.get('onboarding_status') == 'invited':
                 flash("This is a sub-account. Please use the invitation link sent to your email to claim your account.", "info")
                 return redirect(url_for("login"))
 
@@ -681,8 +958,12 @@ def login():
         # The dashboard itself handles showing what needs to be done
         # (pulsing Connect button, missing fields, subscription prompt, etc.)
         role = (user.role or 'individual').lower()
+        is_admin = user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
 
-        if role in ['agency_owner', 'admin']:
+        # Admins go to individual dashboard by default (agency-dashboard is optional)
+        if is_admin:
+            return redirect(url_for("dashboard"))
+        elif role in ['agency_owner']:
             return redirect(url_for("agency_dashboard"))
         else:
             return redirect(url_for("dashboard"))
@@ -845,8 +1126,9 @@ def reset_password(token):
 @app.route("/agency-dashboard", methods=["GET", "POST"])
 @login_required
 def agency_dashboard():
-    # 1. Security Check
-    if current_user.role != 'agency_owner':
+    # 1. Security Check — admins can always access
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    if current_user.role != 'agency_owner' and not is_admin:
         flash("Access restricted to agency owners only.", "error")
         return redirect("/dashboard")
 
@@ -859,7 +1141,7 @@ def agency_dashboard():
     if needs_subscription:
         # Enforce the tier detected during onboarding (prevents large agency buying starter)
         detected_tier = current_user.subscription_tier or 'agency_starter'
-        return render_template('agency_dashboard.html',
+        return render_template('agency-dashboard.html',
             needs_subscription=True,
             detected_tier=detected_tier,
             agency_starter_price=797.99,   # Agency Starter: $797.99/month
@@ -875,6 +1157,9 @@ def agency_dashboard():
                 'phone': current_user.phone or '',
                 'bio': current_user.bio or ''
             },
+            carrier_list=CARRIER_LIST,
+            selected_carriers=[],
+            bot_settings=dict(BOT_SETTINGS_DEFAULTS),
             sub_accounts=[],
             stats={
                 'max_seats': 0,
@@ -890,6 +1175,10 @@ def agency_dashboard():
         return redirect("/dashboard")
     form = ConfigForm()
     # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if request.method == 'POST' and not form.validate_on_submit():
+        logger.warning(f"Agency form validation failed for {current_user.email}: {form.errors}")
+        flash("Please fill in all required fields.", "error")
+
     if form.validate_on_submit():
         if not conn:
             flash("Database connection failed", "error")
@@ -909,6 +1198,7 @@ def agency_dashboard():
                         bot_first_name = %s,
                         timezone = %s,
                         initial_message = %s,
+                        personal_website = %s,
                         updated_at = NOW()
                     WHERE agency_email = %s
                 """, (
@@ -919,6 +1209,7 @@ def agency_dashboard():
                     form.bot_name.data,
                     form.timezone.data,
                     form.initial_message.data,
+                    form.personal_website.data or None,
                     current_user.email
                 ))
                 conn.commit()
@@ -937,6 +1228,7 @@ def agency_dashboard():
         form.bot_name.data = current_user.bot_first_name
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
+        form.personal_website.data = current_user.personal_website
     # --- 3. TOKEN LOGIC ---
     access_token_display = ''
     refresh_token_display = ''
@@ -993,8 +1285,7 @@ def agency_dashboard():
             SELECT
                 location_id,
                 full_name,          -- This holds the Location Name (from onboarding)
-                email,              -- Owner email (for billing/parent link)
-                agent_email,        -- Individual agent's email
+                email,              -- Owner/agent email
                 bot_first_name,
                 timezone,
                 access_token,       -- Used to check connection status
@@ -1034,7 +1325,7 @@ def agency_dashboard():
                 'name': sub['full_name'] or 'Unnamed Location',
                 'location_id': sub['location_id'],
                 'email': sub['email'] or 'No Email Assigned',
-                'agent_email': sub['agent_email'] or 'No Agent Email',
+                'agent_email': sub['email'] or 'No Agent Email',
                 'status': 'Active' if is_connected else 'Pending Auth',
                 'status_class': 'success' if is_connected else 'warning',
                 'tier': sub['subscription_tier'].replace('_', ' ').title(),
@@ -1054,7 +1345,9 @@ def agency_dashboard():
     finally:
         cur.close()
         return_db_connection(conn)
-    return render_template('agency_dashboard.html',
+    agency_carriers = get_contracted_carriers(current_user.email)
+    agency_bot_settings = get_bot_settings(current_user.email)
+    return render_template('agency-dashboard.html',
                            form=form,
                            access_token_display=access_token_display,
                            refresh_token_display=refresh_token_display,
@@ -1064,7 +1357,10 @@ def agency_dashboard():
                            profile=profile,
                            sub_accounts=sub_accounts,
                            stats=agency_stats,
-                           user=current_user)
+                           user=current_user,
+                           carrier_list=CARRIER_LIST,
+                           selected_carriers=agency_carriers,
+                           bot_settings=agency_bot_settings)
 def save_profile():
     data = request.get_json()
     if not data:
@@ -1226,6 +1522,11 @@ def dashboard():
     conn = get_db_connection()
    
     # --- 1. HANDLE SAVING CONFIG (POST) ---
+    if request.method == 'POST' and not form.validate_on_submit():
+        # Log validation failures so they're never silent again
+        logger.warning(f"Dashboard form validation failed for {current_user.email}: {form.errors}")
+        flash("Please fill in all required fields.", "error")
+
     if form.validate_on_submit():
         if not conn:
             flash("Database connection failed", "error")
@@ -1245,6 +1546,7 @@ def dashboard():
                         bot_first_name = %s,
                         timezone = %s,
                         initial_message = %s,
+                        personal_website = %s,
                         updated_at = NOW()
                     WHERE email = %s
                 """, (
@@ -1255,6 +1557,7 @@ def dashboard():
                     form.bot_name.data,
                     form.timezone.data,
                     form.initial_message.data,
+                    form.personal_website.data or None,
                     current_user.email
                 ))
                 conn.commit()
@@ -1275,6 +1578,7 @@ def dashboard():
         form.bot_name.data = current_user.bot_first_name
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
+        form.personal_website.data = current_user.personal_website
     # --- 3. TOKEN LOGIC ---
     # We can read this directly from current_user now too!
     access_token_display = ''
@@ -1329,6 +1633,16 @@ def dashboard():
     if not cal_ok:
         missing_fields.append('calendar_id')
 
+    # --- 6. PLACEHOLDER / INCOMPLETE ACCOUNT DETECTION ---
+    is_placeholder = bool(current_user.email and current_user.email.endswith('@placeholder.grokbot'))
+    is_incomplete = bool(not current_user.crm_user_id or not current_user.location_id)
+
+    # --- 7. CONTRACTED CARRIERS ---
+    selected_carriers = get_contracted_carriers(current_user.email)
+
+    # --- 8. BOT SETTINGS ---
+    bot_settings = get_bot_settings(current_user.email)
+
     from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
     return render_template('dashboard.html',
         form=form,
@@ -1341,6 +1655,11 @@ def dashboard():
         needs_oauth=needs_oauth,
         show_congrats=show_congrats,
         missing_fields=missing_fields,
+        is_placeholder=is_placeholder,
+        is_incomplete=is_incomplete,
+        carrier_list=CARRIER_LIST,
+        selected_carriers=selected_carriers,
+        bot_settings=bot_settings,
         crm_config_fields=CRM_CONFIG_FIELDS,
         crm_display_names=CRM_DISPLAY_NAMES
     )
@@ -1391,6 +1710,154 @@ def save_profile():
     finally:
         cur.close()
         return_db_connection(conn)
+
+@app.route("/api/carriers", methods=["GET"])
+@login_required
+def get_carriers():
+    """Return the master carrier list + this agent's selections."""
+    selected = get_contracted_carriers(current_user.email)
+    return flask_jsonify({
+        "carriers": CARRIER_LIST,
+        "selected": selected
+    })
+
+@app.route("/api/carriers", methods=["POST"])
+@login_required
+def save_carriers():
+    """Save this agent's contracted carrier selections."""
+    data = request.get_json()
+    if not data or "carriers" not in data:
+        return flask_jsonify({"error": "Missing carriers list"}), 400
+    carriers = validate_carrier_keys(data["carriers"])
+    ok = save_contracted_carriers(current_user.email, carriers)
+    if ok:
+        return flask_jsonify({"status": "success", "saved": carriers, "count": len(carriers)})
+    return flask_jsonify({"error": "Failed to save carriers"}), 500
+
+
+@app.route("/api/bot-settings", methods=["GET"])
+@login_required
+def get_bot_settings_api():
+    """Return this subscriber's bot settings merged with defaults."""
+    settings = get_bot_settings(current_user.email)
+    return flask_jsonify({"settings": settings, "defaults": BOT_SETTINGS_DEFAULTS})
+
+@app.route("/api/bot-settings", methods=["POST"])
+@login_required
+def save_bot_settings_api():
+    """Save this subscriber's bot settings."""
+    data = request.get_json()
+    if not data or "settings" not in data:
+        return flask_jsonify({"error": "Missing settings object"}), 400
+
+    incoming = data["settings"]
+    # Validate and sanitize — only allow known keys
+    clean = {}
+    for key, default_val in BOT_SETTINGS_DEFAULTS.items():
+        if key in incoming:
+            val = incoming[key]
+            # Type-check against the default
+            if isinstance(default_val, bool):
+                clean[key] = bool(val)
+            elif isinstance(default_val, int):
+                clean[key] = max(0, min(5, int(val)))  # clamp 0-5
+            elif isinstance(default_val, list):
+                clean[key] = val if isinstance(val, list) else []
+            elif isinstance(default_val, str):
+                clean[key] = str(val)[:2000]  # cap length
+            else:
+                clean[key] = val
+
+    ok = save_bot_settings(current_user.email, clean)
+    if ok:
+        return flask_jsonify({"status": "success", "saved": clean})
+    return flask_jsonify({"error": "Failed to save settings"}), 500
+
+
+# ═══════════════════════════════════════════════════════════════
+# API KEY MANAGEMENT ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/generate-key", methods=["POST"])
+@login_required
+def generate_key_endpoint():
+    """Generate a new API key + webhook secret for the authenticated user."""
+    result = create_api_key_for_user(current_user.email)
+    if "error" in result:
+        return flask_jsonify({"error": result["error"]}), 500
+    return flask_jsonify({
+        "status": "success",
+        "api_key": result["api_key"],
+        "webhook_secret": result["webhook_secret"],
+        "message": "Store your API key securely. It will not be shown again in full."
+    })
+
+
+@app.route("/api/revoke-key", methods=["POST"])
+@login_required
+def revoke_key_endpoint():
+    """Revoke the user's current API key."""
+    ok = revoke_api_key(current_user.email)
+    if ok:
+        return flask_jsonify({"status": "success", "message": "API key revoked."})
+    return flask_jsonify({"error": "Failed to revoke key"}), 500
+
+
+@app.route("/api/webhook-url", methods=["POST"])
+@login_required
+def save_webhook_url_endpoint():
+    """Save the user's outbound webhook URL for API reply delivery."""
+    data = request.get_json()
+    if not data or not data.get("url"):
+        return flask_jsonify({"error": "Missing 'url' field"}), 400
+    url = data["url"].strip()
+    if not url.startswith("https://"):
+        return flask_jsonify({"error": "Webhook URL must use HTTPS"}), 400
+    ok = save_outbound_webhook_url(current_user.email, url)
+    if ok:
+        return flask_jsonify({"status": "success", "url": url})
+    return flask_jsonify({"error": "Failed to save webhook URL"}), 500
+
+
+@app.route("/api/api-status", methods=["GET"])
+@login_required
+def api_status_endpoint():
+    """Return current API key status for dashboard display."""
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        # Check subscribers first
+        cur.execute("""
+            SELECT api_key, webhook_secret, outbound_webhook_url, api_key_created_at
+            FROM subscribers WHERE email = %s LIMIT 1
+        """, (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("""
+                SELECT api_key, webhook_secret, outbound_webhook_url, api_key_created_at
+                FROM agency_billing WHERE agency_email = %s LIMIT 1
+            """, (current_user.email,))
+            row = cur.fetchone()
+        cur.close()
+        if not row:
+            return flask_jsonify({"has_key": False})
+
+        api_key = row.get("api_key") or ""
+        return flask_jsonify({
+            "has_key": bool(api_key),
+            "key_prefix": (api_key[:12] + "..." + api_key[-4:]) if len(api_key) > 16 else "",
+            "webhook_url": row.get("outbound_webhook_url") or "",
+            "webhook_secret_preview": (row.get("webhook_secret") or "")[:10] + "..." if row.get("webhook_secret") else "",
+            "created_at": str(row.get("api_key_created_at") or ""),
+        })
+    except Exception as e:
+        logger.error(f"api_status_endpoint error: {e}")
+        return flask_jsonify({"error": "Failed to fetch status"}), 500
+    finally:
+        return_db_connection(conn)
+
 
 @app.route("/create-portal-session", methods=["POST"])
 @login_required
@@ -1468,6 +1935,88 @@ def integrations_page():
     from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
     crms = list_available_crms()
     return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
+
+
+@app.route("/api/save-config", methods=["POST"])
+@login_required
+def api_save_config():
+    """AJAX endpoint to save bot configuration. Returns JSON for overlay feedback."""
+    data = request.get_json()
+    if not data:
+        return safe_jsonify({"success": False, "error": "No data provided"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return safe_jsonify({"success": False, "error": "Database connection failed"}), 500
+
+    try:
+        cur = conn.cursor()
+        calendar_name = data.get('calendar_name', '')
+
+        if current_user.role == 'agency_owner':
+            cur.execute("""
+                UPDATE agency_billing
+                SET location_id = %s,
+                    calendar_id = %s,
+                    calendar_name = %s,
+                    crm_user_id = %s,
+                    bot_first_name = %s,
+                    timezone = %s,
+                    initial_message = %s,
+                    personal_website = %s,
+                    updated_at = NOW()
+                WHERE agency_email = %s
+            """, (
+                data.get('location_id', ''),
+                data.get('calendar_id', ''),
+                calendar_name,
+                data.get('crm_user_id', ''),
+                data.get('bot_name', ''),
+                data.get('timezone', ''),
+                data.get('initial_message', ''),
+                data.get('personal_website') or None,
+                current_user.email
+            ))
+        else:
+            cur.execute("""
+                UPDATE subscribers
+                SET location_id = %s,
+                    calendar_id = %s,
+                    calendar_name = %s,
+                    crm_user_id = %s,
+                    bot_first_name = %s,
+                    timezone = %s,
+                    initial_message = %s,
+                    personal_website = %s,
+                    updated_at = NOW()
+                WHERE email = %s
+            """, (
+                data.get('location_id', ''),
+                data.get('calendar_id', ''),
+                calendar_name,
+                data.get('crm_user_id', ''),
+                data.get('bot_name', ''),
+                data.get('timezone', ''),
+                data.get('initial_message', ''),
+                data.get('personal_website') or None,
+                current_user.email
+            ))
+
+        rows = cur.rowcount
+        conn.commit()
+        if rows == 0:
+            logger.error(f"API config save: UPDATE matched 0 rows for {current_user.email} "
+                        f"(role={current_user.role}). Row may not exist in the target table.")
+            return safe_jsonify({"success": False, "error": "No matching account found in database"}), 404
+        logger.info(f"Config saved via API for {current_user.email} ({rows} row updated)")
+        return safe_jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"API config save failed for {current_user.email}: {e}")
+        return safe_jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        return_db_connection(conn)
 
 
 @app.route("/api/integrations/save", methods=["POST"])
@@ -1571,6 +2120,867 @@ def get_webhook_logs_api():
             log["created_at"] = log["created_at"].isoformat() + "Z"
 
     return safe_jsonify({"logs": logs, "total": len(logs)})
+
+
+@app.route("/api/alerts", methods=["GET"])
+@login_required
+def api_get_alerts():
+    """Fetch undismissed persistent alerts for the current user."""
+    alerts = get_persistent_alerts(current_user.email)
+    for a in alerts:
+        if a.get("created_at"):
+            a["created_at"] = a["created_at"].isoformat() + "Z"
+    return safe_jsonify({"alerts": alerts})
+
+
+@app.route("/api/alerts/<int:alert_id>/dismiss", methods=["POST"])
+@login_required
+def api_dismiss_alert(alert_id):
+    """Dismiss a persistent alert."""
+    dismiss_persistent_alert(alert_id, current_user.email)
+    return safe_jsonify({"success": True})
+
+
+def _is_admin_request():
+    """
+    Check if the current request is authorized as admin.
+    Accepts EITHER:
+      1. Logged-in user whose email is in ADMIN_EMAILS
+      2. ?key={CRON_SECRET} query parameter
+      3. Authorization: Bearer {CRON_SECRET} header
+    Returns True if authorized.
+    """
+    # Method 1: Logged-in admin
+    try:
+        if current_user.is_authenticated:
+            if current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]:
+                return True
+    except Exception:
+        pass
+
+    # Method 2: Secret key (same as cron endpoint)
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth_header = request.headers.get("Authorization", "")
+        query_key = request.args.get("key", "")
+        if auth_header == f"Bearer {cron_secret}" or query_key == cron_secret:
+            return True
+
+    return False
+
+
+@app.route("/api/cron/send-reminders", methods=["GET", "POST"])
+def api_send_reminders():
+    """
+    Cron-triggered endpoint: sends 24h and 72h reminder emails to users
+    who installed but haven't subscribed yet.
+    Accepts auth via:
+      - Authorization: Bearer {CRON_SECRET} header
+      - ?key={CRON_SECRET} query parameter (for cron services like cron-job.org)
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from send_email_api import send_email_via_api
+        domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+        users = get_users_needing_reminders()
+        sent_count = 0
+        errors = []
+
+        # Skip admin emails — they don't need reminders
+        admin_emails_lower = [e.lower() for e in ADMIN_EMAILS]
+
+        for user in users:
+            email = user.get("email")
+            if not email or email.lower() in admin_emails_lower:
+                continue
+
+            name = user.get("full_name") or "there"
+            reminder_type = user.get("reminder_type")
+            user_type = user.get("user_type", "individual")
+            missing = user.get("missing_fields", [])
+
+            try:
+                if reminder_type == "24h":
+                    subject = "Your AI Sales Assistant is Ready — Let's Get You Live"
+                    html_body = _build_reminder_24h_email(name, domain_url, user_type, missing)
+                    text_body = (
+                        f"Hi {name}, your InsuranceGrokBot account was created 24 hours ago. "
+                        f"Complete your setup to start converting leads automatically: {domain_url}/dashboard"
+                    )
+                else:
+                    subject = "You're Missing Leads Right Now — Activate InsuranceGrokBot"
+                    html_body = _build_reminder_72h_email(name, domain_url, user_type, missing)
+                    text_body = (
+                        f"Hi {name}, it's been 3 days since you signed up for InsuranceGrokBot. "
+                        f"Your bot is waiting to work your leads 24/7: {domain_url}/dashboard"
+                    )
+
+                sent = send_email_via_api(
+                    to_email=email,
+                    subject=subject,
+                    html_body=html_body,
+                    text_body=text_body
+                )
+
+                if sent:
+                    mark_reminder_sent(email, reminder_type, user_type)
+                    log_webhook_event(
+                        user.get("location_id", "unknown"),
+                        f"reminder_{reminder_type}",
+                        "success",
+                        f"{reminder_type} reminder sent to {email} (missing: {', '.join(missing)})"
+                    )
+                    sent_count += 1
+                    logger.info(f"Reminder {reminder_type} sent to {email} | missing={missing}")
+                else:
+                    errors.append(f"{email}: send failed")
+                    logger.warning(f"Reminder {reminder_type} failed for {email}")
+            except Exception as e:
+                errors.append(f"{email}: {str(e)}")
+                logger.error(f"Reminder email error for {email}: {e}")
+
+        return safe_jsonify({
+            "success": True,
+            "checked": len(users),
+            "sent": sent_count,
+            "errors": errors
+        })
+
+    except Exception as e:
+        logger.error(f"Cron send-reminders crashed: {e}", exc_info=True)
+        return safe_jsonify({
+            "success": False,
+            "error": str(e)
+        }), 200  # Return 200 so cron-job.org doesn't mark as failed
+
+
+@app.route("/api/admin/send-email", methods=["GET", "POST"])
+def api_admin_send_email():
+    """
+    Admin endpoint: send an email to anyone.
+    Usage: /api/admin/send-email?key=SECRET&to=email@example.com&subject=Hello&message=Your+message+here
+    """
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
+
+    to_email = request.args.get("to") or (request.get_json(silent=True) or {}).get("to")
+    subject = request.args.get("subject", "Update from InsuranceGrokBot")
+    message = request.args.get("message", "")
+
+    if not to_email:
+        return safe_jsonify({"error": "Missing 'to' parameter"}), 400
+    if not message:
+        return safe_jsonify({"error": "Missing 'message' parameter"}), 400
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+    # Build a clean branded email with the custom message
+    inner = f'''
+<tr>
+<td style="padding: 0 40px 30px;">
+    <h1 style="margin: 0 0 16px; font-size: 24px; font-weight: 800; color: #ffffff; line-height: 1.3;">
+        {subject}
+    </h1>
+    <div style="font-size: 15px; color: #ccc; line-height: 1.7;">
+        {message.replace(chr(10), "<br>")}
+    </div>
+</td>
+</tr>
+<tr>
+<td align="center" style="padding: 0 40px 30px;">
+    <table cellpadding="0" cellspacing="0">
+    <tr>
+    <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 12px; padding: 16px 48px;">
+        <a href="{domain_url}/login" style="color: #000; font-size: 17px; font-weight: 800; text-decoration: none;">
+            Go to Dashboard &rarr;
+        </a>
+    </td>
+    </tr>
+    </table>
+</td>
+</tr>
+'''
+    html_body = _email_wrapper(inner, domain_url)
+    text_body = f"{subject}\n\n{message}\n\nDashboard: {domain_url}/login"
+
+    sent = send_email_via_api(to_email=to_email, subject=subject,
+                              html_body=html_body, text_body=text_body)
+    if sent:
+        return safe_jsonify({"success": True, "message": f"Email sent to {to_email}"})
+    else:
+        return safe_jsonify({"error": f"Failed to send email to {to_email}"}), 500
+
+
+@app.route("/api/admin/marketplace-installs", methods=["GET"])
+def api_marketplace_installs():
+    """Admin endpoint: view all marketplace installs and their OAuth status.
+    Auth: login as admin OR ?key={CRON_SECRET}"""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
+
+    show = request.args.get("show", "all")  # "all", "incomplete", "complete"
+
+    if show == "incomplete":
+        installs = get_incomplete_installs()
+    else:
+        installs = get_all_marketplace_installs()
+        if show == "complete":
+            installs = [i for i in installs if i.get("oauth_completed")]
+
+    # Serialize datetimes
+    for inst in installs:
+        for key in ["created_at", "oauth_completed_at", "setup_email_sent_at"]:
+            if inst.get(key):
+                inst[key] = inst[key].isoformat() + "Z"
+
+    return safe_jsonify({
+        "success": True,
+        "count": len(installs),
+        "filter": show,
+        "installs": installs
+    })
+
+
+@app.route("/api/admin/marketplace-installs/<int:install_id>/send-setup-email", methods=["POST"])
+def api_send_install_setup_email(install_id):
+    """Admin action: manually send setup email to a marketplace installer.
+    Auth: login as admin OR ?key={CRON_SECRET}"""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
+
+    # Get the specific install
+    installs = get_all_marketplace_installs()
+    target = next((i for i in installs if i["id"] == install_id), None)
+    if not target:
+        return safe_jsonify({"error": "Install not found"}), 404
+
+    email = target.get("user_email")
+    if not email:
+        return safe_jsonify({"error": "No email address for this install"}), 400
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+    name = target.get("user_name") or "there"
+
+    subject = "Complete Your InsuranceGrokBot Setup"
+    html_body = _build_install_welcome_email(name, domain_url)
+    text_body = (
+        f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+        f"{domain_url}/oauth/initiate"
+    )
+
+    sent = send_email_via_api(to_email=email, subject=subject,
+                              html_body=html_body, text_body=text_body)
+    if sent:
+        mark_setup_email_sent(install_id)
+        log_webhook_event("marketplace", "admin_setup_email", "success",
+                          f"Admin sent setup email to {email} for install #{install_id}")
+        return safe_jsonify({"success": True, "message": f"Setup email sent to {email}"})
+    else:
+        return safe_jsonify({"error": f"Failed to send email to {email}"}), 500
+
+
+@app.route("/api/admin/marketplace-installs/send-all-setup-emails", methods=["POST"])
+def api_send_all_setup_emails():
+    """Admin action: send setup emails to ALL incomplete installs that have an email.
+    Auth: login as admin OR ?key={CRON_SECRET}"""
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
+
+    from send_email_api import send_email_via_api
+    domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+
+    incomplete = get_incomplete_installs()
+    sent_count = 0
+    errors = []
+
+    for inst in incomplete:
+        email = inst.get("user_email")
+        if not email:
+            continue
+        if inst.get("setup_email_sent"):
+            continue  # Already sent
+
+        name = inst.get("user_name") or "there"
+        subject = "Complete Your InsuranceGrokBot Setup"
+        html_body = _build_install_welcome_email(name, domain_url)
+        text_body = (
+            f"Hi {name}, complete your InsuranceGrokBot setup to start converting leads: "
+            f"{domain_url}/oauth/initiate"
+        )
+
+        try:
+            sent = send_email_via_api(to_email=email, subject=subject,
+                                      html_body=html_body, text_body=text_body)
+            if sent:
+                mark_setup_email_sent(inst["id"])
+                sent_count += 1
+                logger.info(f"Setup email sent to {email} for install #{inst['id']}")
+            else:
+                errors.append(f"{email}: send failed")
+        except Exception as e:
+            errors.append(f"{email}: {str(e)}")
+
+    return safe_jsonify({
+        "success": True,
+        "sent": sent_count,
+        "skipped": len(incomplete) - sent_count - len(errors),
+        "errors": errors
+    })
+
+
+@app.route("/api/admin/discover-installs", methods=["GET", "POST"])
+def api_discover_installs():
+    """
+    Admin endpoint: Query GHL API to discover who installed the marketplace app.
+    Uses the GHL OAuth installedLocations endpoint to find all locations
+    that have the app installed, even if OAuth callback never completed.
+
+    This is the only way to find the 'lost' installers since GHL's marketplace
+    dashboard only shows totals, not individual location details.
+
+    Auth: login as admin OR ?key={CRON_SECRET}
+    """
+    if not _is_admin_request():
+        return safe_jsonify({"error": "Admin access required"}), 403
+
+    client_id = os.getenv("GHL_CLIENT_ID")
+    client_secret = os.getenv("GHL_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        return safe_jsonify({"error": "GHL_CLIENT_ID and GHL_CLIENT_SECRET must be set"}), 500
+
+    # The public app ID from the marketplace
+    # User can override via query param if they have multiple apps
+    app_id = request.args.get("appId", client_id)
+
+    results = {
+        "app_id": app_id,
+        "installed_locations": [],
+        "errors": [],
+        "cross_reference": []
+    }
+
+    # --- Method 1: Try GHL's installedLocations endpoint ---
+    # This endpoint requires a Company-level access token or app-level token
+    # First, try to get a fresh app token via client_credentials
+    try:
+        token_url = "https://services.leadconnectorhq.com/oauth/token"
+        token_payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "client_credentials",
+        }
+        token_resp = requests.post(token_url, data=token_payload, timeout=15)
+        if token_resp.ok:
+            app_token = token_resp.json().get("access_token")
+            if app_token:
+                # Fetch installed locations
+                install_url = "https://services.leadconnectorhq.com/oauth/installedLocations"
+                params = {"appId": app_id, "limit": 100, "skip": 0}
+                headers = {
+                    "Authorization": f"Bearer {app_token}",
+                    "Version": "2021-07-28",
+                    "Accept": "application/json"
+                }
+                install_resp = requests.get(install_url, headers=headers, params=params, timeout=15)
+                if install_resp.ok:
+                    data = install_resp.json()
+                    locations = data.get("locations", data.get("data", []))
+                    results["installed_locations"] = locations
+                    results["method"] = "installedLocations_api"
+                    logger.info(f"Discovered {len(locations)} installed locations via GHL API")
+                else:
+                    results["errors"].append(
+                        f"installedLocations API: {install_resp.status_code} — {install_resp.text[:300]}"
+                    )
+
+                # Also try the /oauth/installedLocations/search endpoint
+                try:
+                    search_url = "https://services.leadconnectorhq.com/oauth/installedLocations"
+                    all_locations = []
+                    skip = 0
+                    while True:
+                        params = {"appId": app_id, "limit": 100, "skip": skip}
+                        page_resp = requests.get(search_url, headers=headers, params=params, timeout=15)
+                        if page_resp.ok:
+                            page_data = page_resp.json()
+                            page_locations = page_data.get("locations", page_data.get("data", []))
+                            if not page_locations:
+                                break
+                            all_locations.extend(page_locations)
+                            skip += len(page_locations)
+                            if len(page_locations) < 100:
+                                break
+                        else:
+                            break
+                    if all_locations:
+                        results["installed_locations"] = all_locations
+                except Exception:
+                    pass
+            else:
+                results["errors"].append("client_credentials token had no access_token")
+        else:
+            results["errors"].append(
+                f"client_credentials grant: {token_resp.status_code} — {token_resp.text[:300]}"
+            )
+    except Exception as e:
+        results["errors"].append(f"API discovery error: {str(e)}")
+
+    # --- Method 2: Cross-reference with our database ---
+    # Show which locations in our DB have the app vs. which are missing
+    try:
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            # Get all known subscribers
+            cur.execute("""
+                SELECT location_id, email, full_name, access_token IS NOT NULL as has_token,
+                       calendar_id IS NOT NULL as has_calendar,
+                       stripe_customer_id IS NOT NULL as has_stripe,
+                       created_at, install_completed_at
+                FROM subscribers
+                WHERE location_id NOT LIKE 'temp_%%'
+                ORDER BY created_at DESC
+            """)
+            db_users = [dict(r) for r in cur.fetchall()]
+            for u in db_users:
+                for key in ["created_at", "install_completed_at"]:
+                    if u.get(key):
+                        u[key] = u[key].isoformat() + "Z"
+            results["db_subscribers"] = db_users
+
+            # Also get agency billing entries
+            cur.execute("""
+                SELECT agency_email, company_id, access_token IS NOT NULL as has_token,
+                       created_at
+                FROM agency_billing
+                ORDER BY created_at DESC
+            """)
+            db_agencies = [dict(r) for r in cur.fetchall()]
+            for a in db_agencies:
+                if a.get("created_at"):
+                    a["created_at"] = a["created_at"].isoformat() + "Z"
+            results["db_agencies"] = db_agencies
+
+            # Get marketplace install records
+            cur.execute("""
+                SELECT * FROM marketplace_installs ORDER BY created_at DESC
+            """)
+            mkt_installs = [dict(r) for r in cur.fetchall()]
+            for m in mkt_installs:
+                for key in ["created_at", "oauth_completed_at", "setup_email_sent_at"]:
+                    if m.get(key):
+                        m[key] = m[key].isoformat() + "Z"
+            results["marketplace_installs"] = mkt_installs
+
+            cur.close()
+            return_db_connection(conn)
+
+            # Cross-reference: which GHL-installed locations are NOT in our DB?
+            db_location_ids = {u["location_id"] for u in db_users if u.get("location_id")}
+            for loc in results.get("installed_locations", []):
+                loc_id = loc.get("locationId") or loc.get("location_id") or loc.get("_id")
+                in_db = loc_id in db_location_ids if loc_id else False
+                results["cross_reference"].append({
+                    "location_id": loc_id,
+                    "name": loc.get("name") or loc.get("locationName", "Unknown"),
+                    "email": loc.get("email", ""),
+                    "company_id": loc.get("companyId", ""),
+                    "in_our_database": in_db,
+                    "status": "connected" if in_db else "LOST — needs OAuth"
+                })
+    except Exception as e:
+        results["errors"].append(f"DB cross-reference error: {str(e)}")
+
+    # Log the discovery for audit trail
+    log_webhook_event("admin", "discover_installs", "info",
+                      f"Admin discovered {len(results.get('installed_locations', []))} installs, "
+                      f"{len(results.get('cross_reference', []))} cross-referenced",
+                      details={"errors": results["errors"]})
+
+    return safe_jsonify(results)
+
+
+def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) -> str:
+    """Build a visual setup checklist showing what's done and what's remaining."""
+    dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
+    steps = [
+        ("account", "Create Account", dashboard),
+        ("crm_connection", "Connect Your CRM", f"{domain_url}/oauth/initiate"),
+        ("location_id", "Link Location", dashboard),
+        ("calendar", "Set Up Calendar", dashboard),
+        ("subscription", "Activate Subscription", dashboard),
+    ]
+    rows = ""
+    for key, label, link in steps:
+        is_missing = key in missing
+        if key == "account":
+            is_missing = False  # they have an account if they're getting this email
+        if is_missing:
+            rows += f'''
+            <tr>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; width: 40px; vertical-align: middle;">
+                    <div style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid #ff6b35; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #ff6b35; font-size: 16px; font-weight: bold; line-height: 28px;">&bull;</span>
+                    </div>
+                </td>
+                <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; vertical-align: middle;">
+                    <a href="{link}" style="color: #ff6b35; font-weight: 600; text-decoration: none; font-size: 15px;">{label}</a>
+                    <span style="background: #fff3e0; color: #e65100; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 8px;">NEEDED</span>
+                </td>
+            </tr>'''
+        else:
+            rows += f'''
+            <tr>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; width: 40px; vertical-align: middle;">
+                    <div style="width: 28px; height: 28px; border-radius: 50%; background: #00c853; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: white; font-size: 14px; font-weight: bold; line-height: 28px;">&#10003;</span>
+                    </div>
+                </td>
+                <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; vertical-align: middle;">
+                    <span style="color: #888; font-size: 15px; text-decoration: line-through;">{label}</span>
+                    <span style="color: #00c853; font-size: 11px; font-weight: 700; margin-left: 8px;">DONE</span>
+                </td>
+            </tr>'''
+    return f'<table cellpadding="0" cellspacing="0" style="width: 100%;">{rows}</table>'
+
+
+def _email_wrapper(inner_html: str, domain_url: str) -> str:
+    """Wrap email content in a premium dark-themed email shell."""
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: 'Segoe UI', Arial, sans-serif;">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #0a0a0a;">
+<tr><td align="center" style="padding: 40px 20px;">
+
+<!-- Main Card -->
+<table cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; width: 100%; background: linear-gradient(145deg, #141428 0%, #0d0d1a 100%); border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+
+<!-- Header Bar -->
+<tr>
+<td style="padding: 0;">
+    <div style="height: 4px; background: linear-gradient(90deg, #00c853, #00e676, #69f0ae, #00c853); border-radius: 20px 20px 0 0;"></div>
+</td>
+</tr>
+
+<!-- Logo -->
+<tr>
+<td align="center" style="padding: 35px 40px 20px;">
+    <table cellpadding="0" cellspacing="0"><tr>
+        <td style="background: rgba(0,200,83,0.1); border: 1px solid rgba(0,200,83,0.2); border-radius: 14px; padding: 12px 24px;">
+            <span style="font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Insurance<span style="color: #00c853;">Grok</span>Bot</span>
+        </td>
+    </tr></table>
+</td>
+</tr>
+
+<!-- Content -->
+{inner_html}
+
+<!-- Footer -->
+<tr>
+<td style="padding: 30px 40px 35px; border-top: 1px solid rgba(255,255,255,0.05);">
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td align="center">
+            <p style="margin: 0 0 12px; font-size: 13px; color: #555;">
+                <a href="{domain_url}/support" style="color: #00c853; text-decoration: none;">Support</a>
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <a href="{domain_url}/dashboard" style="color: #00c853; text-decoration: none;">Dashboard</a>
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <a href="{domain_url}/terms" style="color: #00c853; text-decoration: none;">Terms</a>
+            </p>
+            <p style="margin: 0; font-size: 12px; color: #444;">
+                InsuranceGrokBot &mdash; AI-Powered Insurance Sales Assistant
+            </p>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+</table>
+<!-- End Main Card -->
+
+</td></tr></table>
+</body>
+</html>'''
+
+
+def _build_reminder_24h_email(name: str, domain_url: str, user_type: str, missing: list = None) -> str:
+    """Build the 24-hour reminder — premium marketing email with setup checklist."""
+    missing = missing or []
+    dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
+    checklist = _build_setup_checklist_html(missing, domain_url, user_type)
+
+    # Dynamic hero message based on what's missing
+    if "crm_connection" in missing:
+        hero_subtitle = "Connect your CRM to unleash your AI assistant"
+        action_text = "Connect My CRM"
+        action_url = f"{domain_url}/oauth/initiate"
+    elif "subscription" in missing:
+        hero_subtitle = "Subscribe to activate your AI sales machine"
+        action_text = "Activate My Bot"
+        action_url = dashboard
+    else:
+        hero_subtitle = "Complete your setup to start closing leads"
+        action_text = "Finish Setup"
+        action_url = dashboard
+
+    inner = f'''
+<tr>
+<td align="center" style="padding: 0 40px 10px;">
+    <!-- Hero Icon -->
+    <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, rgba(0,200,83,0.15) 0%, rgba(0,200,83,0.05) 100%); border: 2px solid rgba(0,200,83,0.25); margin: 0 auto 20px; line-height: 80px; text-align: center;">
+        <span style="font-size: 36px;">&#9889;</span>
+    </div>
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">Your Bot is Almost Live</h1>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">{hero_subtitle}</p>
+</td>
+</tr>
+
+<!-- Personal greeting -->
+<tr>
+<td style="padding: 25px 40px 15px;">
+    <p style="margin: 0; font-size: 16px; color: #ddd; line-height: 1.7;">
+        Hi {name},
+    </p>
+    <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
+        You signed up for InsuranceGrokBot 24 hours ago. You're almost there — your AI-powered sales assistant is configured and ready to start responding to leads, qualifying prospects, and booking appointments on your calendar.
+    </p>
+</td>
+</tr>
+
+<!-- Setup Progress -->
+<tr>
+<td style="padding: 10px 40px 25px;">
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; margin: 10px 0;">
+        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1.5px;">Setup Progress</p>
+        {checklist}
+    </div>
+</td>
+</tr>
+
+<!-- Stats Row -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 12px 0 0 12px; border: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853; line-height: 1;">5s</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Response Time</div>
+        </td>
+        <td width="34%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-left: 1px solid rgba(0,200,83,0.1); border-right: 1px solid rgba(0,200,83,0.1); border-top: 1px solid rgba(0,200,83,0.1); border-bottom: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853; line-height: 1;">24/7</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Availability</div>
+        </td>
+        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 0 12px 12px 0; border: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 28px; font-weight: 800; color: #00c853; line-height: 1;">Auto</div>
+            <div style="font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Booking</div>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- CTA Button -->
+<tr>
+<td align="center" style="padding: 5px 40px 30px;">
+    <table cellpadding="0" cellspacing="0"><tr>
+        <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,200,83,0.3);">
+            <a href="{action_url}" style="display: inline-block; padding: 18px 48px; color: #000000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: -0.3px;">
+                {action_text} &rarr;
+            </a>
+        </td>
+    </tr></table>
+    <p style="margin: 14px 0 0; font-size: 13px; color: #666;">Takes less than 2 minutes to complete</p>
+</td>
+</tr>
+
+<!-- Testimonial -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <div style="background: rgba(255,255,255,0.02); border-left: 3px solid #00c853; padding: 16px 20px; border-radius: 0 12px 12px 0;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: #ccc; font-style: italic; line-height: 1.6;">
+            "I had 3 appointments booked by the end of my first week without lifting a finger. GrokBot qualifies leads better than most humans."
+        </p>
+        <p style="margin: 0; font-size: 12px; color: #00c853; font-weight: 600;">
+            &mdash; Independent Agent, Texas
+        </p>
+    </div>
+</td>
+</tr>
+
+<!-- Support nudge -->
+<tr>
+<td style="padding: 0 40px 10px;">
+    <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.6; text-align: center;">
+        Need help setting up? <a href="{domain_url}/support" style="color: #00c853; text-decoration: none; font-weight: 600;">Visit our support page</a> or just reply to this email.
+    </p>
+</td>
+</tr>
+'''
+    return _email_wrapper(inner, domain_url)
+
+
+def _build_reminder_72h_email(name: str, domain_url: str, user_type: str, missing: list = None) -> str:
+    """Build the 72-hour reminder — urgency-driven premium marketing email."""
+    missing = missing or []
+    dashboard = f"{domain_url}/agency-dashboard" if user_type == "agency_owner" else f"{domain_url}/dashboard"
+    checklist = _build_setup_checklist_html(missing, domain_url, user_type)
+
+    if "crm_connection" in missing:
+        action_text = "Connect CRM & Go Live"
+        action_url = f"{domain_url}/oauth/initiate"
+    elif "subscription" in missing:
+        action_text = "Subscribe & Activate Now"
+        action_url = dashboard
+    else:
+        action_text = "Complete Setup Now"
+        action_url = dashboard
+
+    inner = f'''
+<tr>
+<td align="center" style="padding: 0 40px 10px;">
+    <!-- Urgency Icon -->
+    <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, rgba(255,107,53,0.15) 0%, rgba(255,152,0,0.05) 100%); border: 2px solid rgba(255,107,53,0.3); margin: 0 auto 20px; line-height: 80px; text-align: center;">
+        <span style="font-size: 36px;">&#9203;</span>
+    </div>
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">Leads Are Slipping Away</h1>
+    <p style="margin: 0; font-size: 16px; color: #ff9800; line-height: 1.5; font-weight: 600;">3 days without your bot = missed revenue</p>
+</td>
+</tr>
+
+<tr>
+<td style="padding: 25px 40px 15px;">
+    <p style="margin: 0; font-size: 16px; color: #ddd; line-height: 1.7;">
+        Hi {name},
+    </p>
+    <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
+        It's been 3 days since you created your InsuranceGrokBot account. Every hour your bot isn't active, new leads are going unworked, follow-ups are being missed, and potential clients are moving on to the next agent who responds first.
+    </p>
+</td>
+</tr>
+
+<!-- The Cost of Waiting -->
+<tr>
+<td style="padding: 10px 40px 20px;">
+    <div style="background: linear-gradient(135deg, rgba(255,107,53,0.08) 0%, rgba(255,152,0,0.04) 100%); border: 1px solid rgba(255,152,0,0.2); border-radius: 16px; padding: 24px;">
+        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #ff9800; text-transform: uppercase; letter-spacing: 1.5px;">The Cost of Waiting</p>
+        <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+                <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#128168;</span></td>
+                        <td style="vertical-align: top;">
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Leads go cold in 5 minutes</span><br>
+                            <span style="color: #999; font-size: 13px;">78% of buyers choose the agent who responds first. Your bot responds in seconds.</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#128197;</span></td>
+                        <td style="vertical-align: top;">
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Missed appointments = missed commission</span><br>
+                            <span style="color: #999; font-size: 13px;">GrokBot qualifies and books automatically — no back-and-forth texting.</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 0;">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="40" style="vertical-align: top;"><span style="font-size: 20px;">&#127769;</span></td>
+                        <td style="vertical-align: top;">
+                            <span style="color: #fff; font-weight: 600; font-size: 14px;">Nights and weekends covered</span><br>
+                            <span style="color: #999; font-size: 13px;">Leads come in at 11 PM. Your bot is there. Without it, they text your competitor.</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</td>
+</tr>
+
+<!-- Setup Progress -->
+<tr>
+<td style="padding: 5px 40px 20px;">
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px;">
+        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #ff9800; text-transform: uppercase; letter-spacing: 1.5px;">Your Setup Status</p>
+        {checklist}
+    </div>
+</td>
+</tr>
+
+<!-- CTA Button -->
+<tr>
+<td align="center" style="padding: 10px 40px 25px;">
+    <table cellpadding="0" cellspacing="0"><tr>
+        <td style="background: linear-gradient(135deg, #ff6b35 0%, #ff9800 100%); border-radius: 14px; box-shadow: 0 4px 20px rgba(255,107,53,0.35);">
+            <a href="{action_url}" style="display: inline-block; padding: 18px 48px; color: #ffffff; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: -0.3px;">
+                {action_text} &rarr;
+            </a>
+        </td>
+    </tr></table>
+    <p style="margin: 14px 0 0; font-size: 13px; color: #666;">Your competitors are already using AI. Don't fall behind.</p>
+</td>
+</tr>
+
+<!-- Before/After -->
+<tr>
+<td style="padding: 0 40px 25px;">
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td width="48%" style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15); border-radius: 12px; padding: 20px; vertical-align: top;">
+            <p style="margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #ef4444; text-transform: uppercase; letter-spacing: 1px;">Without GrokBot</p>
+            <p style="margin: 0; font-size: 13px; color: #999; line-height: 1.7;">
+                &#10060; Leads wait hours for a reply<br>
+                &#10060; Manual follow-up texting<br>
+                &#10060; Missed after-hours leads<br>
+                &#10060; No qualifying before calls
+            </p>
+        </td>
+        <td width="4%">&nbsp;</td>
+        <td width="48%" style="background: rgba(0,200,83,0.06); border: 1px solid rgba(0,200,83,0.15); border-radius: 12px; padding: 20px; vertical-align: top;">
+            <p style="margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1px;">With GrokBot</p>
+            <p style="margin: 0; font-size: 13px; color: #999; line-height: 1.7;">
+                &#10004; 5-second response time<br>
+                &#10004; Automated smart follow-ups<br>
+                &#10004; 24/7 lead coverage<br>
+                &#10004; Pre-qualified appointments
+            </p>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- Support -->
+<tr>
+<td style="padding: 0 40px 10px;">
+    <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.6; text-align: center;">
+        Stuck on something? <a href="{domain_url}/support" style="color: #ff9800; text-decoration: none; font-weight: 600;">Get help here</a> or reply to this email and we'll walk you through it.
+    </p>
+</td>
+</tr>
+'''
+    return _email_wrapper(inner, domain_url)
 
 
 @app.route("/disclaimers")
@@ -2434,17 +3844,23 @@ def oauth_initiate():
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # Required scopes (must match marketplace app configuration)
+    # Required scopes — must match marketplace app configuration in GHL developer portal.
+    # If you add/remove scopes here, update the marketplace app settings too.
     scopes = [
-        "calendars.readonly",
-        "calendars/events.readonly",
-        "calendars/events.write",
-        "conversations/message.write",
-        "conversations/message.readonly",
-        "contacts.readonly",
-        "locations.readonly",
-        "calendars/groups.readonly",
-        "conversations.write"
+        "calendars.readonly",           # List calendars, free slots
+        "calendars/events.readonly",    # Read calendar events
+        "calendars/events.write",       # Book appointments
+        "calendars/groups.readonly",    # Calendar group listing
+        "conversations/message.write",  # Send SMS
+        "conversations/message.readonly",  # Read inbound messages
+        "conversations.write",          # Conversation management
+        "conversations.readonly",       # Search conversations (ghl_api.py)
+        "contacts.readonly",            # Contact lookup & validation
+        "oauth.readonly",              # Token info check (ghl_calendar.py)
+        # TODO: Add these scopes once GHL marketplace approval completes (~10 days):
+        #   "locations.readonly"  — enables /locations/ API for sub-account discovery
+        #   "users.readonly"      — enables /users/ API for user info lookup
+        # Without locations.readonly, the callback falls back to the primary locationId from the token.
     ]
     scope_string = " ".join(scopes)
 
@@ -2453,14 +3869,17 @@ def oauth_initiate():
     state = "website_user"
 
     # Build OAuth URL using public marketplace app
-    oauth_url = (
-        f"https://marketplace.gohighlevel.com/oauth/chooselocation?"
-        f"response_type=code&"
-        f"redirect_uri={redirect_uri}&"
-        f"client_id={client_id}&"
-        f"scope={scope_string}&"
-        f"state={state}"
-    )
+    # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
+    # and cause GHL scope validation failures + state parameter loss
+    from urllib.parse import urlencode
+    oauth_params = urlencode({
+        'response_type': 'code',
+        'redirect_uri': redirect_uri,
+        'client_id': client_id,
+        'scope': scope_string,
+        'state': state
+    })
+    oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
     logger.info(f"Initiating marketplace OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
     return redirect(oauth_url)
@@ -2487,7 +3906,13 @@ def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
         try:
             resp = requests.get(url, headers=headers, timeout=15)
             if not resp.ok:
-                logger.error(f"Failed to fetch {item_key} (page {page_count+1}): {resp.status_code} {resp.text}")
+                if resp.status_code in (401, 403):
+                    logger.warning(f"SCOPE MISSING: /{item_key}/ returned {resp.status_code} — "
+                                  f"'{item_key}.readonly' scope likely not granted. "
+                                  f"Falling back to token-based data.")
+                else:
+                    logger.error(f"Failed to fetch {item_key} (page {page_count+1}): "
+                                f"{resp.status_code} {resp.text[:300]}")
                 break
 
             data = resp.json()
@@ -2518,12 +3943,60 @@ def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
     logger.info(f"✅ Pagination complete: {len(items)} total {item_key} fetched across {page_count} pages")
     return items
 
+def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL API"):
+    """
+    Make a GHL API call with 1 automatic retry on transient errors (5xx, timeout, connection).
+    Returns (response, error_message). On success error_message is None.
+    """
+    last_err = None
+    for attempt in range(2):
+        try:
+            if method == 'POST':
+                resp = requests.post(url, data=data, headers=headers, timeout=timeout)
+            else:
+                resp = requests.get(url, headers=headers, timeout=timeout)
+
+            if resp.status_code < 500:
+                return resp, None
+
+            last_err = f"{label} returned {resp.status_code}"
+            logger.warning(f"{label} attempt {attempt+1}/2 got {resp.status_code}, "
+                         f"body={resp.text[:300]}")
+        except requests.Timeout:
+            last_err = f"{label} timed out after {timeout}s"
+            logger.warning(f"{label} attempt {attempt+1}/2 timed out")
+        except requests.ConnectionError as e:
+            last_err = f"{label} connection error: {e}"
+            logger.warning(f"{label} attempt {attempt+1}/2 connection error: {e}")
+
+    return None, last_err
+
+
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
     state = request.args.get("state")
 
+    # LOG EVERYTHING from the very start — this is the #1 debugging tool
+    logger.info(f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
+                f"args={dict(request.args)}")
+
+    # Always log to webhook_logs so it's visible in dashboard even if everything else fails
+    try:
+        log_webhook_event("oauth_global", "oauth_callback_hit", "info",
+                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
+                          details={"args": dict(request.args)})
+    except Exception:
+        pass
+
     if not code:
+        logger.warning("OAuth callback: No authorization code in request params")
+        try:
+            log_webhook_event("oauth_global", "oauth_callback_error", "error",
+                              "No authorization code in callback params",
+                              details={"args": dict(request.args)})
+        except Exception:
+            pass
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
@@ -2558,257 +4031,758 @@ def oauth_callback():
         else:
             logger.info("OAuth callback: Marketplace installation flow")
 
-        # All OAuth uses the public marketplace app credentials
+        # --- VALIDATE ENV VARS ---
         client_id = os.getenv("GHL_CLIENT_ID")
         client_secret = os.getenv("GHL_CLIENT_SECRET")
+        domain = os.getenv("YOUR_DOMAIN")
 
-        # 1. Exchange Code for Token
+        if not client_id or not client_secret or not domain:
+            logger.error(f"OAuth env vars missing: GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, "
+                        f"GHL_CLIENT_SECRET={'set' if client_secret else 'MISSING'}, "
+                        f"YOUR_DOMAIN={'set' if domain else 'MISSING'}")
+            flash("OAuth is not configured. Please contact support.", "danger")
+            return redirect(url_for('home'))
+
+        # 1. Exchange Code for Token (with retry on transient failures)
+        # TRY BOTH user_types: "Location" first, then "Company" for agency-level installs.
+        # GHL marketplace installs can be at Location OR Company level depending on
+        # how the user installed the app. If Location fails with 400, try Company.
         token_url = "https://services.leadconnectorhq.com/oauth/token"
-        payload = {
+        base_payload = {
             "client_id": client_id,
             "client_secret": client_secret,
             "grant_type": "authorization_code",
             "code": code,
-            "user_type": "Location",
-            "redirect_uri": f"{os.getenv('YOUR_DOMAIN')}/oauth/callback"
+            "redirect_uri": f"{domain}/oauth/callback"
         }
-        response = requests.post(token_url, data=payload, timeout=15)
-        response.raise_for_status()
-        token_data = response.json()
+
+        token_data = None
+        token_user_type_used = None
+        for user_type in ["Location", "Company"]:
+            payload = {**base_payload, "user_type": user_type}
+            logger.info(f"Token exchange attempt with user_type={user_type}")
+
+            token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
+                                                   timeout=15, label=f"Token exchange ({user_type})")
+
+            if token_resp is None:
+                logger.warning(f"Token exchange ({user_type}) unreachable: {token_err}")
+                continue
+
+            if token_resp.ok:
+                try:
+                    token_data = token_resp.json()
+                    token_user_type_used = user_type
+                    logger.info(f"Token exchange SUCCESS with user_type={user_type}")
+                    break
+                except ValueError:
+                    logger.error(f"Token exchange ({user_type}) returned non-JSON: {token_resp.text[:500]}")
+                    continue
+            elif token_resp.status_code == 400:
+                logger.warning(f"Token exchange ({user_type}) got 400: {token_resp.text[:300]} — trying next user_type")
+                continue
+            else:
+                logger.error(f"Token exchange ({user_type}) rejected: {token_resp.status_code} {token_resp.text[:500]}")
+                continue
+
+        if not token_data:
+            err_msg = f"Token exchange failed for all user_types (Location, Company)"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
+                                  err_msg, details={"state": state, "code_present": bool(code)})
+            except Exception:
+                pass
+            flash("Failed to connect to Lead Connector. Please try again.", "danger")
+            return redirect(url_for('home'))
+
+        access_token = token_data.get('access_token')
+        if not access_token:
+            err_msg = f"Token exchange missing access_token: {json.dumps(token_data)[:500]}"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_no_access_token", "error",
+                                  err_msg, details=token_data)
+            except Exception:
+                pass
+            flash("Authorization failed — no access token received. Please try again.", "danger")
+            return redirect(url_for('home'))
 
         primary_location_id = token_data.get('locationId')
-        access_token = token_data['access_token']
+        company_id = token_data.get('companyId')
         refresh_token = token_data.get('refresh_token')
         expires_in = token_data.get('expires_in', 86400)
 
+        logger.info(f"Step 1 complete: Token exchange OK via user_type={token_user_type_used}. "
+                    f"locationId={primary_location_id}, companyId={company_id}, expires_in={expires_in}")
+
+        # If Company-level install, locationId may be empty — we get locations from /locations/ later
+        # Log this critical info for debugging
+        try:
+            log_webhook_event(primary_location_id or company_id or "unknown", "oauth_token_success", "success",
+                              f"Token exchange OK: user_type={token_user_type_used}, "
+                              f"locationId={primary_location_id}, companyId={company_id}",
+                              details={"user_type_used": token_user_type_used,
+                                       "locationId": primary_location_id,
+                                       "companyId": company_id,
+                                       "scopes": token_data.get('scope', 'unknown')})
+        except Exception:
+            pass
+
         headers = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
-        # 2. Get user info
-        me_resp = requests.get("https://services.leadconnectorhq.com/users/me", headers=headers, timeout=10)
-        me_data = me_resp.json() if me_resp.ok else {}
+        # 2. Get user info (with retry)
+        me_resp, me_err = _ghl_api_call('GET', "https://services.leadconnectorhq.com/users/me",
+                                         headers=headers, timeout=10, label="/users/me")
+        me_data = {}
+        user_email = None
+        user_name = None
+        # Pre-populate me_data with userId from token (fallback if /users/me fails)
+        ghl_user_id = token_data.get('userId')
+        if ghl_user_id:
+            me_data['id'] = ghl_user_id
 
-        user_email = me_data.get('email')
-        user_name = me_data.get('name', 'Agency Admin')
+        if me_resp and me_resp.ok:
+            try:
+                me_data = me_resp.json()
+                user_email = me_data.get('email')
+                user_name = me_data.get('name')
+            except ValueError:
+                logger.error(f"/users/me returned non-JSON: {me_resp.text[:300]}")
+        elif me_resp:
+            logger.error(f"/users/me failed: {me_resp.status_code} {me_resp.text[:300]}")
+            if me_resp.status_code in (401, 403):
+                logger.error("SCOPE ISSUE: /users/me returned 401/403 — token may lack required scopes")
+        else:
+            logger.error(f"/users/me unreachable: {me_err}")
 
+        # --- ROBUST EMAIL RECOVERY CHAIN ---
+        # OAuth must NEVER fail. Try every source, create placeholder as last resort.
+        # Each step is independent — if one fails, the next one tries.
+
+        # Fallback 1: token_data may include email
         if not user_email:
-            flash("Could not retrieve user email from Lead Connector.", "danger")
-            return redirect(url_for('home'))
+            user_email = token_data.get('userEmail') or token_data.get('email')
+            if user_email:
+                logger.info(f"Fallback 1: Got email from token_data: {user_email}")
 
-        # 3. Detect agency status
-        agency_resp = requests.get("https://services.leadconnectorhq.com/agencies/", headers=headers, timeout=10)
-        agencies = agency_resp.json().get('agencies', [])
-        is_agency_owner = len(agencies) > 0
+        # Fallback 2: website users are already logged in
+        if not user_email and is_website_user and current_user.is_authenticated:
+            user_email = current_user.email
+            user_name = current_user.full_name or user_name
+            logger.info(f"Fallback 2: Using logged-in user's email: {user_email}")
+
+        # Fallback 3: BRIDGE — check marketplace_installs table
+        if not user_email:
+            market_data = find_marketplace_email(
+                location_id=primary_location_id, company_id=company_id
+            )
+            if market_data:
+                user_email = market_data.get('user_email')
+                user_name = market_data.get('user_name') or user_name
+                logger.info(f"Fallback 3: BRIDGED email from marketplace_installs: {user_email}")
+
+        # Fallback 4: check existing subscribers by userId
+        if not user_email:
+            ghl_user_id = token_data.get('userId')
+            if ghl_user_id:
+                try:
+                    conn_lookup = get_db_connection()
+                    if conn_lookup:
+                        cur_lookup = conn_lookup.cursor()
+                        cur_lookup.execute("SELECT email FROM subscribers WHERE crm_user_id = %s LIMIT 1", (ghl_user_id,))
+                        found = cur_lookup.fetchone()
+                        if found:
+                            user_email = found['email']
+                            logger.info(f"Fallback 4: Found email via userId lookup: {user_email}")
+                        cur_lookup.close()
+                        return_db_connection(conn_lookup)
+                except Exception:
+                    pass
+
+        # Fallback 5: PLACEHOLDER — create a temporary identity so onboarding completes
+        if not user_email:
+            ghl_user_id = token_data.get('userId') or 'unknown'
+            user_email = f"install_{ghl_user_id}@placeholder.grokbot"
+            user_name = "New User (Update Email)"
+            logger.warning(f"Fallback 5: ALL email sources exhausted. Using placeholder: {user_email}")
+
+            # Log to webhook_logs for visibility
+            try:
+                log_webhook_event(primary_location_id or "unknown", "oauth_placeholder_account", "warning",
+                                  f"Placeholder account created: {user_email} — userId={ghl_user_id}, "
+                                  f"locationId={primary_location_id}, companyId={company_id}",
+                                  details={"userId": ghl_user_id,
+                                           "locationId": primary_location_id,
+                                           "companyId": company_id,
+                                           "token_keys": list(token_data.keys())})
+            except Exception:
+                pass
+
+            # ADMIN ALERT: email the admin so they can manually resolve
+            try:
+                from send_email_api import send_email_via_api
+                admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                alert_inner = f'''
+<tr><td style="padding: 20px 40px 30px;">
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
+    <p style="font-size: 15px; color: #ccc; line-height: 1.6;">
+        A user installed the app but GHL permissions blocked their email.
+        A placeholder account was created so they can access the dashboard.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); margin: 20px 0;">
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">GHL User ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{ghl_user_id}</td></tr>
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888;">Location ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{primary_location_id or 'N/A'}</td></tr>
+        <tr><td style="padding: 12px 16px; color: #888;">Company ID</td>
+            <td style="padding: 12px 16px; color: #fff; font-family: monospace;">{company_id or 'N/A'}</td></tr>
+    </table>
+    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your GHL Agency View to find the user's real email, then update their record in the database.</p>
+</td></tr>'''
+                send_email_via_api(
+                    to_email=admin_target,
+                    subject="Ghost Install — Action Required",
+                    html_body=_email_wrapper(alert_inner, domain_url),
+                    text_body=f"Ghost install: userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}"
+                )
+                logger.info(f"Admin ghost-install alert sent to {admin_target}")
+            except Exception as e:
+                logger.error(f"Failed to send admin ghost-install alert: {e}")
+
+            # Save to persistent_alerts too
+            try:
+                save_persistent_alert(
+                    ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
+                    primary_location_id or "unknown",
+                    "ghost_install", "warning",
+                    "Ghost Install — Email Unknown",
+                    f"User installed app but email couldn't be retrieved. "
+                    f"userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}. "
+                    f"Placeholder account: {user_email}"
+                )
+            except Exception:
+                pass
+
+        logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
+
+        # 3. Detect agency status (with retry and safe JSON parsing)
+        is_agency_owner = False
+        agencies = []
+
+        agency_resp, agency_err = _ghl_api_call('GET', "https://services.leadconnectorhq.com/agencies/",
+                                                  headers=headers, timeout=10, label="/agencies/")
+
+        if agency_resp and agency_resp.ok:
+            try:
+                agencies = agency_resp.json().get('agencies', [])
+                is_agency_owner = len(agencies) > 0
+            except (ValueError, KeyError, AttributeError):
+                logger.warning(f"/agencies/ returned unparseable response: {agency_resp.text[:300]}")
+                agencies = []
+        elif agency_resp and agency_resp.status_code < 500:
+            # 4xx — user likely doesn't have agency access, treat as individual
+            logger.info(f"/agencies/ returned {agency_resp.status_code} — treating as individual user")
+        else:
+            # Transient failure after retries — log but continue as individual
+            # Better to onboard as individual than to fail entirely
+            logger.warning(f"/agencies/ unavailable ({agency_err}), defaulting to individual classification")
+
+        logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, count={len(agencies)}")
 
         # 4. Fetch all locations (sub-accounts) with PAGINATION
-        # CRITICAL FIX: Use pagination to get ALL locations (not just first 20)
         sub_accounts = fetch_all_ghl_items(
             "https://services.leadconnectorhq.com/locations/",
             headers,
             item_key='locations'
         )
         num_subs = len(sub_accounts)
-        logger.info(f"📊 Total locations fetched for {user_email}: {num_subs}")
+        logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
 
-        # 5. Determine tier based on sub-account count
-        plan_tier = 'individual'
-        if is_agency_owner:
-            # Agency Starter: 1-14 sub-accounts ($797.99/mo)
-            # Agency Pro: 15+ sub-accounts ($1597.99/mo)
-            plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
+        # Fallback: if /locations/ returned 0 results but we have a locationId from the token,
+        # synthesize a minimal location entry so onboarding still works.
+        # This happens when 'locations.readonly' scope isn't available (pending marketplace approval).
+        using_location_fallback = False
+        if num_subs == 0 and primary_location_id:
+            using_location_fallback = True
+            logger.warning(f"locations.readonly scope likely missing — /locations/ returned 0 results "
+                          f"but token has locationId={primary_location_id}. Using fallback location entry.")
+            sub_accounts = [{
+                'id': primary_location_id,
+                'name': user_name or 'Primary Location',
+                'timezone': None  # Will default to America/Chicago downstream
+            }]
+            num_subs = 1
+            logger.info(f"Fallback: synthesized 1 location entry from token's locationId")
+
+        # 5. Determine tier and whether to use agency onboarding flow
+        # KEY DISTINCTION: Being an agency owner in GHL ≠ subscribing to an agency plan.
+        # An agency owner may only want the bot for themselves (individual plan).
+        # Website users already chose their plan via Stripe — respect that choice.
+        if is_website_user:
+            plan_tier = current_user.subscription_tier or 'individual'
+            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro')
+            logger.info(f"Website user: subscribed tier={plan_tier}, GHL agency={is_agency_owner}, "
+                        f"using agency flow={use_agency_flow}")
+        else:
+            # Marketplace install: auto-detect from GHL account structure
+            plan_tier = 'individual'
+            if is_agency_owner:
+                plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
+            use_agency_flow = is_agency_owner
 
         # 6. Get primary location details
         primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
         primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
         primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
 
-        # 6b. REMOVED: N+1 user fetch loop
-        # CRITICAL FIX: Don't fetch users for each location during OAuth callback
-        # This causes timeout for agencies with many locations (N+1 query problem)
-        # Instead: Set agent_email=NULL initially, let agents claim their locations later
-        # OR: Fetch users async in background job after onboarding completes
-        logger.info(f"⚡ Skipping user fetch loop to prevent timeout (will handle async or via claim flow)")
+        logger.info(f"Step 5-6 complete: tier={plan_tier}, agency_flow={use_agency_flow}, primary_location={primary_name}")
 
-        # 7. Database operations
-        conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
+        # 7. Database operations (with retry — critical path)
+        conn = get_db_connection_with_retry(max_attempts=3)
+        if not conn:
+            logger.error("OAuth callback: Database connection failed after 3 retries — cannot complete onboarding")
+            flash("Database temporarily unavailable. Please try connecting again in a few minutes.", "danger")
+            return redirect(url_for('home'))
 
-                # --- A. Agency Owner Primary Location ---
-                if is_agency_owner:
-                    # Agency Starter: max 14 seats, Agency Pro: unlimited
-                    max_seats = 9999 if plan_tier == 'agency_pro' else 14
-                    active_seats = max(0, num_subs - 1)  # Exclude primary
+        try:
+            cur = conn.cursor()
 
-                    # Determine OAuth app type
-                    app_type = 'private' if is_website_user else 'marketplace'
+            # --- A. Agency Owner Primary Location (only if subscribed to agency tier) ---
+            logger.info(f"Step 7a: use_agency_flow={use_agency_flow}, is_website_user={is_website_user}, primary_location_id={primary_location_id}")
+            if use_agency_flow:
+                # Agency Starter: max 14 seats, Agency Pro: unlimited
+                max_seats = 9999 if plan_tier == 'agency_pro' else 14
+                active_seats = max(0, num_subs - 1)  # Exclude primary
 
-                    cur.execute("""
-                        INSERT INTO agency_billing (
-                            agency_email, location_id, full_name, subscription_tier,
-                            max_seats, active_seats, access_token, refresh_token,
-                            token_expires_at, timezone, crm_user_id, oauth_app_type,
-                            created_at, updated_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s,
-                            NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
-                        )
-                        ON CONFLICT (agency_email) DO UPDATE SET
-                            location_id = EXCLUDED.location_id,
-                            full_name = EXCLUDED.full_name,
-                            subscription_tier = EXCLUDED.subscription_tier,
-                            max_seats = EXCLUDED.max_seats,
-                            active_seats = EXCLUDED.active_seats,
-                            access_token = EXCLUDED.access_token,
-                            refresh_token = EXCLUDED.refresh_token,
-                            token_expires_at = EXCLUDED.token_expires_at,
-                            timezone = EXCLUDED.timezone,
-                            crm_user_id = EXCLUDED.crm_user_id,
-                            oauth_app_type = EXCLUDED.oauth_app_type,
-                            updated_at = NOW()
-                    """, (
-                        user_email, primary_location_id, primary_name, plan_tier,
+                # Determine OAuth app type
+                app_type = 'website' if is_website_user else 'marketplace'
+
+                cur.execute("""
+                    INSERT INTO agency_billing (
+                        agency_email, location_id, full_name, subscription_tier,
                         max_seats, active_seats, access_token, refresh_token,
-                        expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
-                    ))
+                        token_expires_at, timezone, crm_user_id, oauth_app_type,
+                        created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (agency_email) DO UPDATE SET
+                        location_id = EXCLUDED.location_id,
+                        full_name = EXCLUDED.full_name,
+                        subscription_tier = EXCLUDED.subscription_tier,
+                        max_seats = EXCLUDED.max_seats,
+                        active_seats = EXCLUDED.active_seats,
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        timezone = EXCLUDED.timezone,
+                        crm_user_id = EXCLUDED.crm_user_id,
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        updated_at = NOW()
+                """, (
+                    user_email, primary_location_id, primary_name, plan_tier,
+                    max_seats, active_seats, access_token, refresh_token,
+                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
+                ))
 
-                # --- B. Sub-accounts (or individual user) ---
-                # CRITICAL FIXES IMPLEMENTED HERE:
-                # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
-                # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
-                # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
-                #
-                # FIX: For Stripe subscribers connecting OAuth, a row already exists with
-                # a temp location_id. We must update that row first so the INSERT below
-                # doesn't violate the UNIQUE constraint on email.
-                if is_website_user and primary_location_id:
-                    cur.execute("""
-                        UPDATE subscribers
-                        SET location_id = %s,
-                            access_token = %s,
-                            refresh_token = %s,
-                            token_expires_at = NOW() + interval '%s seconds',
-                            crm_user_id = COALESCE(%s, crm_user_id),
-                            oauth_app_type = 'private',
-                            onboarding_status = 'claimed',
-                            updated_at = NOW()
-                        WHERE email = %s AND location_id LIKE 'temp_%%'
-                    """, (primary_location_id, access_token, refresh_token,
-                          expires_in, me_data.get('id'), user_email))
-                    rows_updated = cur.rowcount
-                    if rows_updated > 0:
-                        logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
-
-                for sub in sub_accounts:
-                    sub_id = sub['id']
-                    sub_name = sub.get('name', 'Unknown Location')
-                    sub_timezone = sub.get('timezone')
-
-                    is_primary = (sub_id == primary_location_id)
-
-                    # Skip primary if agency owner (already handled above)
-                    if is_agency_owner and is_primary:
-                        continue
-
-                    # CRITICAL FIX: Agent email will be set when agent claims location
-                    # For now, default to agency owner's email so they can manage
-                    agent_email = user_email if is_agency_owner else user_email
-                    agent_name = sub_name
-                    agent_crm_user_id = me_data.get('id')  # Use owner's CRM ID initially
-
-                    # CRITICAL FIX: Share agency token with ALL sub-accounts
-                    # Agency-level OAuth tokens work for all locations under that agency
-                    # Without this, the bot will fail for all sub-accounts (token starvation)
-                    access_token_this = access_token  # Share token with all subs
-                    refresh_token_this = refresh_token  # Share refresh token too
-
-                    role = 'agency_sub_account_user' if is_agency_owner else 'individual'
-                    parent_agency_email = user_email if is_agency_owner else None
-                    email_this = user_email  # Owner's email for billing/parent link
-                    app_type = 'private' if is_website_user else 'marketplace'
-
-                    cur.execute("""
-                        INSERT INTO subscribers (
-                            location_id, email, agent_email, full_name, role, subscription_tier,
-                            parent_agency_email, access_token, refresh_token,
-                            token_expires_at, timezone, crm_user_id,
-                            onboarding_status, oauth_app_type, created_at, updated_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            NOW() + interval '%s seconds',
-                            %s, %s, %s, %s, NOW(), NOW()
-                        )
-                        ON CONFLICT (location_id) DO UPDATE SET
-                            email = EXCLUDED.email,
-                            agent_email = CASE
-                                WHEN subscribers.agent_email IS NULL THEN EXCLUDED.agent_email
-                                ELSE subscribers.agent_email
-                            END,
-                            full_name = EXCLUDED.full_name,
-                            role = EXCLUDED.role,
-                            subscription_tier = EXCLUDED.subscription_tier,
-                            parent_agency_email = EXCLUDED.parent_agency_email,
-                            access_token = EXCLUDED.access_token,
-                            refresh_token = EXCLUDED.refresh_token,
-                            token_expires_at = EXCLUDED.token_expires_at,
-                            timezone = EXCLUDED.timezone,
-                            crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
-                            oauth_app_type = EXCLUDED.oauth_app_type,
-                            updated_at = NOW()
-                    """, (
-                        sub_id, email_this, agent_email, agent_name, role, plan_tier,
-                        parent_agency_email, access_token_this, refresh_token_this,
-                        expires_in,
-                        sub_timezone or 'America/Chicago', agent_crm_user_id,
-                        'pending', app_type
-                    ))
-
-                conn.commit()
-                logger.info(f"Successfully onboarded {user_email} ({'agency' if is_agency_owner else 'individual'}) with {num_subs} locations.")
-
-                # Check if user needs to set password
-                needs_password = False
-                if is_agency_owner:
-                    cur.execute("SELECT password_hash FROM agency_billing WHERE agency_email = %s", (user_email,))
-                    row = cur.fetchone()
-                    needs_password = not row or not row[0]
+            # --- B. Sub-accounts (or individual user) ---
+            # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
+            # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
+            # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
+            #
+            # FIX: For Stripe subscribers connecting OAuth, a row already exists with
+            # a temp location_id. We must update that row first so the INSERT below
+            # doesn't violate the UNIQUE constraint on email.
+            if is_website_user and primary_location_id:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET location_id = %s,
+                        access_token = %s,
+                        refresh_token = %s,
+                        token_expires_at = NOW() + interval '%s seconds',
+                        crm_user_id = COALESCE(%s, crm_user_id),
+                        oauth_app_type = 'website',
+                        onboarding_status = 'claimed',
+                        updated_at = NOW()
+                    WHERE email = %s AND location_id LIKE 'temp_%%'
+                """, (primary_location_id, access_token, refresh_token,
+                      expires_in, me_data.get('id'), user_email))
+                rows_updated = cur.rowcount
+                if rows_updated > 0:
+                    logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
                 else:
-                    cur.execute("SELECT password_hash FROM subscribers WHERE email = %s", (user_email,))
-                    row = cur.fetchone()
-                    needs_password = not row or not row[0]
+                    logger.warning(f"No temp_ row found for {user_email} — may already be claimed or email mismatch")
 
+            # --- C. Subscriber rows ---
+            # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
+            # Individual flow: only provision the primary location
+            # This ensures agency owners who subscribe as individual don't get all
+            # sub-accounts provisioned — they just want their own location.
+            #
+            # FALLBACK MODE: When locations.readonly is unavailable, we only have the
+            # primary location from the token. Agency owners still need at least their
+            # primary location provisioned as a subscriber row so the bot works.
+            # Sub-accounts will be discovered once the scope is approved.
+            if use_agency_flow and not using_location_fallback:
+                locations_to_provision = [s for s in sub_accounts if s['id'] != primary_location_id]
+            else:
+                # Individual flow OR agency-in-fallback: provision the primary location
+                locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
+
+            if using_location_fallback and use_agency_flow:
+                logger.warning(f"Agency owner {user_email} in FALLBACK MODE: only provisioning primary "
+                              f"location {primary_location_id}. Sub-accounts will be added once "
+                              f"locations.readonly scope is approved.")
+
+            logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} subscriber rows "
+                        f"(agency_flow={use_agency_flow}, fallback={using_location_fallback}, "
+                        f"total_ghl_locations={num_subs})")
+
+            for sub in locations_to_provision:
+                sub_id = sub['id']
+                sub_name = sub.get('name', 'Unknown Location')
+                sub_timezone = sub.get('timezone')
+
+                agent_email = user_email
+                agent_name = sub_name
+                agent_crm_user_id = me_data.get('id')
+
+                # Agency tokens work for all locations under that agency
+                access_token_this = access_token
+                refresh_token_this = refresh_token
+
+                role = 'agency_sub_account_user' if use_agency_flow else 'individual'
+                parent_agency_email = user_email if use_agency_flow else None
+                email_this = user_email
+                app_type = 'website' if is_website_user else 'marketplace'
+
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        location_id, email, full_name, role, subscription_tier,
+                        parent_agency_email, access_token, refresh_token,
+                        token_expires_at, timezone, crm_user_id,
+                        onboarding_status, oauth_app_type, created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds',
+                        %s, %s, %s, %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (location_id) DO UPDATE SET
+                        email = EXCLUDED.email,
+                        full_name = EXCLUDED.full_name,
+                        role = EXCLUDED.role,
+                        subscription_tier = EXCLUDED.subscription_tier,
+                        parent_agency_email = EXCLUDED.parent_agency_email,
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        timezone = EXCLUDED.timezone,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        updated_at = NOW()
+                """, (
+                    sub_id, email_this, agent_name, role, plan_tier,
+                    parent_agency_email, access_token_this, refresh_token_this,
+                    expires_in,
+                    sub_timezone or 'America/Chicago', agent_crm_user_id,
+                    'pending', app_type
+                ))
+
+            conn.commit()
+            logger.info(f"Step 7 complete: Onboarded {user_email} (tier={plan_tier}, agency_flow={use_agency_flow}) "
+                        f"— provisioned {len(locations_to_provision)} locations out of {num_subs} total in GHL.")
+
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Database onboarding error for {user_email}: {e}", exc_info=True)
+            flash("Error completing setup. Please contact support.", "danger")
+            return redirect(url_for('home'))
+        finally:
+            cur.close()
+            return_db_connection(conn)
+
+        # --- 8. POST-ONBOARDING: Logging, Alerts, Email ---
+
+        # 8a. Log onboarding event to webhook_logs (visible in dashboard)
+        try:
+            log_webhook_event(
+                location_id=primary_location_id,
+                event_type="oauth_onboarding",
+                status="success",
+                summary=f"OAuth onboarding complete for {user_email}",
+                details={
+                    "email": user_email,
+                    "tier": plan_tier,
+                    "agency_flow": use_agency_flow,
+                    "locations_provisioned": len(locations_to_provision),
+                    "total_ghl_locations": num_subs,
+                    "fallback_mode": using_location_fallback,
+                    "is_website_user": is_website_user,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log onboarding event: {e}")
+
+        # 8a-2. Stamp install_completed_at for reminder email scheduling
+        try:
+            _conn = get_db_connection_with_retry(2)
+            if _conn:
+                _cur = _conn.cursor()
+                if use_agency_flow:
+                    _cur.execute(
+                        "UPDATE agency_billing SET install_completed_at = NOW() WHERE agency_email = %s AND install_completed_at IS NULL",
+                        (user_email,))
+                else:
+                    _cur.execute(
+                        "UPDATE subscribers SET install_completed_at = NOW() WHERE email = %s AND install_completed_at IS NULL",
+                        (user_email,))
+                _conn.commit()
+                _cur.close()
+                return_db_connection(_conn)
+                logger.info(f"Install timestamp set for {user_email}")
+        except Exception as e:
+            logger.warning(f"Failed to set install_completed_at: {e}")
+
+        # 8a-3. Mark marketplace install as OAuth-complete (links back to app.installed webhook)
+        try:
+            if primary_location_id:
+                mark_install_oauth_complete(location_id=primary_location_id)
+            if company_id:
+                mark_install_oauth_complete(company_id=company_id)
+            logger.info(f"Marketplace install marked OAuth-complete: location={primary_location_id}, company={company_id}")
+        except Exception as e:
+            logger.debug(f"mark_install_oauth_complete note: {e}")
+
+        # 8b. Persistent alerts for scope/location issues
+        if using_location_fallback:
+            try:
+                alert_msg = (
+                    "Your Lead Connector account connected successfully, but the "
+                    "locations.readonly scope is not yet approved in the GHL marketplace. "
+                    "Your primary location is active and the bot is operational. "
+                )
+                if use_agency_flow:
+                    alert_msg += (
+                        f"However, your sub-account locations could not be discovered. "
+                        f"They will be auto-provisioned once the scope is approved. "
+                        f"Contact support if this persists beyond 10 days."
+                    )
+                else:
+                    alert_msg += "No action needed. This will resolve automatically."
+
+                save_persistent_alert(
+                    email=user_email,
+                    alert_type="scope_locations_readonly",
+                    title="Scope Pending: locations.readonly",
+                    message=alert_msg,
+                    severity="warning" if use_agency_flow else "info",
+                    location_id=primary_location_id
+                )
+                log_webhook_event(
+                    location_id=primary_location_id,
+                    event_type="scope_issue",
+                    status="warning",
+                    summary="locations.readonly scope unavailable — using fallback",
+                    details={"fallback": True, "agency_flow": use_agency_flow}
+                )
             except Exception as e:
-                conn.rollback()
-                logger.error(f"Database onboarding error: {e}", exc_info=True)
-                flash("Error completing setup. Please contact support.", "danger")
-                return redirect(url_for('home'))
-            finally:
-                cur.close()
-                return_db_connection(conn)
+                logger.warning(f"Failed to save scope alert: {e}")
 
-        # Login the user via Flask-Login
+        # 8c. Welcome email on install (premium branded template)
+        try:
+            from send_email_api import send_email_via_api
+            domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+            dashboard_link = f"{domain_url}/agency-dashboard" if use_agency_flow else f"{domain_url}/dashboard"
+
+            welcome_inner = f'''
+<tr>
+<td align="center" style="padding: 0 40px 10px;">
+    <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, rgba(0,200,83,0.15) 0%, rgba(0,200,83,0.05) 100%); border: 2px solid rgba(0,200,83,0.25); margin: 0 auto 20px; line-height: 80px; text-align: center;">
+        <span style="font-size: 36px;">&#127881;</span>
+    </div>
+    <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 800; color: #ffffff; line-height: 1.2;">Welcome to InsuranceGrokBot</h1>
+    <p style="margin: 0; font-size: 16px; color: #aaa; line-height: 1.5;">Your AI-powered insurance sales assistant is ready</p>
+</td>
+</tr>
+
+<tr>
+<td style="padding: 25px 40px 15px;">
+    <p style="margin: 0; font-size: 16px; color: #ddd; line-height: 1.7;">Hi {user_name},</p>
+    <p style="margin: 12px 0 0; font-size: 15px; color: #bbb; line-height: 1.7;">
+        Your Lead Connector account has been successfully connected. GrokBot is configured and standing by to handle your leads, qualify prospects with real insurance knowledge, and book appointments directly on your calendar.
+    </p>
+</td>
+</tr>
+
+<!-- Quick Links -->
+<tr>
+<td style="padding: 10px 40px 20px;">
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px;">
+        <p style="margin: 0 0 16px; font-size: 13px; font-weight: 700; color: #00c853; text-transform: uppercase; letter-spacing: 1.5px;">Get Started</p>
+        <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+                <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="36" style="vertical-align: middle;"><span style="font-size: 18px;">&#128640;</span></td>
+                        <td style="vertical-align: middle;">
+                            <a href="{dashboard_link}" style="color: #00c853; font-weight: 600; text-decoration: none; font-size: 15px;">Your Dashboard</a>
+                            <span style="color: #888; font-size: 13px;"> &mdash; Configure your bot, set your calendar, customize settings</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="36" style="vertical-align: middle;"><span style="font-size: 18px;">&#128172;</span></td>
+                        <td style="vertical-align: middle;">
+                            <a href="{domain_url}/support" style="color: #00c853; font-weight: 600; text-decoration: none; font-size: 15px;">Support & FAQ</a>
+                            <span style="color: #888; font-size: 13px;"> &mdash; Questions about setup, integration, or billing</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 12px 0;">
+                    <table cellpadding="0" cellspacing="0" width="100%"><tr>
+                        <td width="36" style="vertical-align: middle;"><span style="font-size: 18px;">&#128203;</span></td>
+                        <td style="vertical-align: middle;">
+                            <a href="{domain_url}/onboarding-status" style="color: #00c853; font-weight: 600; text-decoration: none; font-size: 15px;">Onboarding Status</a>
+                            <span style="color: #888; font-size: 13px;"> &mdash; Track your setup progress in real time</span>
+                        </td>
+                    </tr></table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</td>
+</tr>
+
+<!-- What GrokBot Does -->
+<tr>
+<td style="padding: 5px 40px 20px;">
+    <table cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 12px 0 0 12px; border: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 24px; margin-bottom: 6px;">&#9889;</div>
+            <div style="font-size: 13px; color: #ccc; font-weight: 600;">Instant Replies</div>
+            <div style="font-size: 11px; color: #888; margin-top: 2px;">5-second response</div>
+        </td>
+        <td width="34%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 24px; margin-bottom: 6px;">&#128218;</div>
+            <div style="font-size: 13px; color: #ccc; font-weight: 600;">Expert Knowledge</div>
+            <div style="font-size: 11px; color: #888; margin-top: 2px;">Real insurance IQ</div>
+        </td>
+        <td width="33%" align="center" style="padding: 16px 8px; background: rgba(0,200,83,0.06); border-radius: 0 12px 12px 0; border: 1px solid rgba(0,200,83,0.1);">
+            <div style="font-size: 24px; margin-bottom: 6px;">&#128197;</div>
+            <div style="font-size: 13px; color: #ccc; font-weight: 600;">Auto Booking</div>
+            <div style="font-size: 11px; color: #888; margin-top: 2px;">Straight to calendar</div>
+        </td>
+    </tr>
+    </table>
+</td>
+</tr>
+
+<!-- CTA -->
+<tr>
+<td align="center" style="padding: 10px 40px 25px;">
+    <table cellpadding="0" cellspacing="0"><tr>
+        <td style="background: linear-gradient(135deg, #00c853 0%, #00e676 100%); border-radius: 14px; box-shadow: 0 4px 20px rgba(0,200,83,0.3);">
+            <a href="{dashboard_link}" style="display: inline-block; padding: 18px 48px; color: #000000; font-size: 17px; font-weight: 800; text-decoration: none; letter-spacing: -0.3px;">
+                Open My Dashboard &rarr;
+            </a>
+        </td>
+    </tr></table>
+</td>
+</tr>
+
+<tr>
+<td style="padding: 0 40px 10px;">
+    <p style="margin: 0; font-size: 14px; color: #888; line-height: 1.6; text-align: center;">
+        Questions? <a href="{domain_url}/support" style="color: #00c853; text-decoration: none; font-weight: 600;">Visit support</a> or just reply to this email.
+    </p>
+</td>
+</tr>
+'''
+            welcome_html = _email_wrapper(welcome_inner, domain_url)
+            email_sent = send_email_via_api(
+                to_email=user_email,
+                subject="Welcome to InsuranceGrokBot — Your AI Assistant is Ready",
+                html_body=welcome_html,
+                text_body=f"Welcome to InsuranceGrokBot, {user_name}! "
+                          f"Dashboard: {dashboard_link} | "
+                          f"Support: {domain_url}/support | Status: {domain_url}/onboarding-status"
+            )
+            if email_sent:
+                logger.info(f"Welcome email sent to {user_email}")
+                log_webhook_event(primary_location_id, "welcome_email", "success",
+                                  f"Welcome email sent to {user_email}")
+            else:
+                logger.warning(f"Welcome email failed for {user_email}")
+                log_webhook_event(primary_location_id, "welcome_email", "error",
+                                  f"Welcome email failed for {user_email}")
+        except Exception as e:
+            logger.warning(f"Welcome email error for {user_email}: {e}")
+
+        # --- 9. Login and redirect ---
         user = User.get(user_email)
         if user:
             login_user(user)
+            logger.info(f"Step 9 complete: Logged in {user_email}")
         else:
-            logger.warning(f"User.get({user_email}) returned None after database insertion!")
+            logger.error(f"User.get({user_email}) returned None after successful DB commit — login failed")
+            # Still continue for marketplace installs — they don't need to be logged in
+            if is_website_user:
+                flash("Account created but login failed. Please log in manually.", "warning")
+                return redirect(url_for('login'))
 
-        # MARKETPLACE INSTALLATION: Route to home page so user can subscribe
+        # MARKETPLACE INSTALLATION: Route to dashboard (they're now logged in)
         if not is_website_user:
-            logger.info(f"Marketplace install complete for {user_email} — routing to home for subscription")
-            flash("App installed! Please subscribe to activate your bot.", "success")
-            return redirect("/")
+            logger.info(f"=== MARKETPLACE INSTALL COMPLETE for {user_email} ===")
+            try:
+                log_webhook_event(primary_location_id or "unknown", "oauth_complete", "success",
+                                  f"Marketplace install complete for {user_email} "
+                                  f"(tier={plan_tier}, user_type_used={token_user_type_used})")
+            except Exception:
+                pass
+            if user:
+                flash("App installed successfully! Complete your dashboard setup to activate your bot.", "success")
+                if use_agency_flow:
+                    return redirect(url_for('agency_dashboard'))
+                return redirect(url_for('dashboard'))
+            else:
+                # User couldn't be logged in — send to login page
+                flash("App installed! Please log in or create a password to access your dashboard.", "success")
+                return redirect(url_for('login'))
 
         # PRIVATE APP FLOW: Route through OAuth loading screen
-        logger.info(f"Private app OAuth complete for {user_email} — routing to loading screen")
+        logger.info(f"=== PRIVATE APP OAUTH COMPLETE for {user_email} ===")
+        try:
+            log_webhook_event(primary_location_id or "unknown", "oauth_complete", "success",
+                              f"Private app OAuth complete for {user_email} (tier={plan_tier})")
+        except Exception:
+            pass
         return redirect("/oauth/loading")
 
     except requests.RequestException as e:
-        logger.error(f"OAuth network error: {e}")
+        logger.error(f"OAuth network error: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_network_error", "error",
+                              f"OAuth network error: {e}")
+        except Exception:
+            pass
         flash("Failed to connect to Lead Connector. Please try again.", "danger")
         return redirect(url_for('home'))
     except Exception as e:
         logger.error(f"Critical OAuth failure: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_critical_error", "error",
+                              f"Critical OAuth failure: {e}")
+        except Exception:
+            pass
         flash("An unexpected error occurred. Please try again or contact support.", "danger")
         return redirect(url_for('home'))
 
