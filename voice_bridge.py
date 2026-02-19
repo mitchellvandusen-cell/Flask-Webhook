@@ -1221,7 +1221,11 @@ def trigger_outbound_call():
             },
             timeout=10,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            telnyx_errors = resp.json().get('errors', [{}])
+            telnyx_msg = telnyx_errors[0].get('detail', resp.text) if telnyx_errors else resp.text
+            logger.error(f"Telnyx outbound call error {resp.status_code}: {resp.text}")
+            return jsonify({"error": f"Telnyx {resp.status_code}: {telnyx_msg}"}), 400
         call_data    = resp.json().get("data", {})
         call_leg_id  = call_data.get("call_leg_id", "")
         call_ctrl_id = call_data.get("call_control_id", call_leg_id)
@@ -2150,7 +2154,14 @@ def dial_contact():
             json=call_payload,
             timeout=10,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            telnyx_errors = resp.json().get('errors', [{}])
+            telnyx_msg = telnyx_errors[0].get('detail', resp.text) if telnyx_errors else resp.text
+            logger.error(f"Telnyx dial error {resp.status_code}: {resp.text}")
+            hint = ""
+            if resp.status_code == 403:
+                hint = " — Check: (1) API key has outbound call permissions, (2) Telnyx account is funded, (3) Connection ID matches the phone number's assigned connection in Telnyx portal"
+            return jsonify({"error": f"Telnyx {resp.status_code}: {telnyx_msg}{hint}"}), 400
         call_data    = resp.json().get("data", {})
         call_ctrl_id = call_data.get("call_control_id", call_data.get("call_leg_id", ""))
 
@@ -2535,26 +2546,37 @@ def _save_voice_config(email, voice_config):
 def setup_voip():
     """
     One-time setup: create a Telnyx Telephony Credential for browser-based VoIP.
+    Telephony credentials use Telnyx's WebRTC/SIP infrastructure directly — they
+    do NOT use the Call Control Application ID (which is only for outbound AI calls).
     Stores telnyx_credential_id in voice_config.
     """
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
         return jsonify({"error": "Telnyx API key not configured"}), 400
 
-    connection_id = vc.get('telnyx_connection_id', '')
-    if not connection_id:
-        return jsonify({"error": "Telnyx Connection ID not configured"}), 400
-
     cred_id = vc.get('telnyx_credential_id', '')
     try:
+        # If we have a stored credential ID, verify it still exists
+        if cred_id:
+            check = http_requests.get(
+                f"{TELNYX_API_BASE}/telephony_credentials/{cred_id}",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=8,
+            )
+            if check.status_code == 404:
+                logger.info(f"Stored credential {cred_id} no longer exists — will recreate")
+                cred_id = ''
+                vc.pop('telnyx_credential_id', None)
+
         if not cred_id:
-            # Create new telephony credential linked to the SIP connection
+            # Create telephony credential — no connection_id needed.
+            # Telnyx WebRTC credentials work via the SIP infrastructure independently
+            # of the Call Control Application used for outbound AI calls.
             resp = http_requests.post(
                 f"{TELNYX_API_BASE}/telephony_credentials",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "name": f"agent_{subscriber.get('location_id', 'browser')}",
-                    "connection_id": connection_id,
                 },
                 timeout=10,
             )
