@@ -21,7 +21,7 @@ import struct
 import base64
 import audioop
 import numpy as np
-from scipy.signal import butter, sosfilt, sosfilt_zi
+import soxr
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
@@ -71,12 +71,6 @@ DEFAULT_VOICE = "Ara"
 # Audio sample rates
 TWILIO_SAMPLE_RATE = 8000   # Twilio Media Streams: always 8 kHz G.711 μ-law (fixed by Twilio)
 XAI_SAMPLE_RATE    = 24000  # xAI Realtime: PCM16 at 24 kHz — 3:1 ratio to Twilio 8 kHz (clean, no sibilant aliasing)
-# Anti-aliasing low-pass filter for xAI→Twilio downsample (24kHz → 8kHz).
-# Without this, content above 4kHz aliases back into the audible range, causing
-# the metallic/raised-pitch artifact. Cutoff at 3.4kHz = telephony voice band.
-# 4th-order Butterworth, pre-computed once at import time.
-_LP_SOS     = butter(4, 3400 / (XAI_SAMPLE_RATE / 2), btype='low', output='sos')
-_LP_ZI_INIT = sosfilt_zi(_LP_SOS)  # template initial conditions (shape: n_sections × 2)
 
 # Events to log from XAI
 LOG_EVENT_TYPES = [
@@ -1243,12 +1237,11 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             response_start_timestamp = None
             call_active = True
 
-            # Resampling state — audioop.ratecv carries internal filter state between
-            # chunks so the upsampler/downsampler produces seamless audio across packets.
-            # Use a list so the nested async closures can mutate the value (no nonlocal needed).
-            _twilio_to_xai_state = [None]              # 8 kHz mulaw → 24 kHz PCM16
-            _xai_to_twilio_state = [None]              # 24 kHz PCM16 → 8 kHz mulaw
-            _lp_filter_state     = [_LP_ZI_INIT.copy()]  # anti-alias LP filter state (persists across chunks)
+            # soxr ResampleStream objects — stateful, carry filter memory across chunks
+            # so the resampler is seamless across audio packets (no clicks at boundaries).
+            # 'HQ' = high quality polyphase sinc with built-in anti-aliasing.
+            _resample_up   = soxr.ResampleStream(TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE, 1, dtype=np.int16, quality='HQ')
+            _resample_down = soxr.ResampleStream(XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE, 1, dtype=np.int16, quality='HQ')
 
             # ── Twilio -> XAI: Forward audio from the phone to XAI ──
             async def receive_from_twilio():
@@ -1267,14 +1260,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                         if data['event'] == 'media':
                             latest_media_timestamp = int(data['media']['timestamp'])
-                            # Twilio: base64 G.711 μ-law 8 kHz → upsample to PCM16 16 kHz for xAI
+                            # Twilio: G.711 μ-law 8 kHz → PCM16 8 kHz → soxr upsample → PCM16 24 kHz
                             mulaw_bytes = base64.b64decode(data['media']['payload'])
-                            pcm8k = audioop.ulaw2lin(mulaw_bytes, 2)
-                            pcm16k, _twilio_to_xai_state[0] = audioop.ratecv(
-                                pcm8k, 2, 1,
-                                TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE,
-                                _twilio_to_xai_state[0]
-                            )
+                            pcm8k_np    = np.frombuffer(audioop.ulaw2lin(mulaw_bytes, 2), dtype=np.int16)
+                            pcm16k      = _resample_up.resample_chunk(pcm8k_np).tobytes()
                             audio_append = {
                                 "type": "input_audio_buffer.append",
                                 "audio": base64.b64encode(pcm16k).decode('utf-8')
@@ -1308,19 +1297,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCM16 → anti-alias LP filter → downsample to mulaw 8 kHz → Twilio
-                        # LP filter removes content above 3.4 kHz before the 24→8kHz downsample,
-                        # preventing aliasing that causes the metallic/raised-pitch artifact.
+                        # xAI PCM16 24 kHz → soxr downsample (with built-in anti-aliasing) → μ-law 8 kHz → Twilio
                         if event_type == 'response.audio.delta' and 'delta' in response:
-                            pcm16k = base64.b64decode(response['delta'])
-                            samples = np.frombuffer(pcm16k, dtype=np.int16).astype(np.float32)
-                            filtered, _lp_filter_state[0] = sosfilt(_LP_SOS, samples, zi=_lp_filter_state[0])
-                            pcm16k = np.clip(filtered, -32768, 32767).astype(np.int16).tobytes()
-                            pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
-                                pcm16k, 2, 1,
-                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
-                                _xai_to_twilio_state[0]
-                            )
+                            pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
+                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
                             mulaw_out = audioop.lin2ulaw(pcm8k, 2)
                             audio_delta = {
                                 "event": "media",
@@ -1347,17 +1327,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 ws.send(json.dumps(mark_event))
                                 mark_queue.append('responsePart')
 
-                        # Also handle the newer event name variant (same LP filter + downsample)
+                        # Also handle the newer event name variant (same soxr downsample)
                         elif event_type == 'response.output_audio.delta' and 'delta' in response:
-                            pcm16k = base64.b64decode(response['delta'])
-                            samples = np.frombuffer(pcm16k, dtype=np.int16).astype(np.float32)
-                            filtered, _lp_filter_state[0] = sosfilt(_LP_SOS, samples, zi=_lp_filter_state[0])
-                            pcm16k = np.clip(filtered, -32768, 32767).astype(np.int16).tobytes()
-                            pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
-                                pcm16k, 2, 1,
-                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
-                                _xai_to_twilio_state[0]
-                            )
+                            pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
+                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
                             mulaw_out = audioop.lin2ulaw(pcm8k, 2)
                             audio_delta = {
                                 "event": "media",
