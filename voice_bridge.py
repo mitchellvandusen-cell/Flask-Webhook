@@ -2121,35 +2121,56 @@ def fetch_contacts():
         max_pages = 50    # Safety cap: 5000 contacts max
 
         if pipeline_id or stage_id:
-            # POST /contacts/search with pagination
+            # GHL contacts/search does NOT support pipeline/stage filters.
+            # Use the Opportunities API to find contacts in a pipeline/stage,
+            # then fetch full contact details for each.
             page = 1
+            seen_contact_ids = set()
             while page <= max_pages:
-                search_body = {
-                    "locationId": location_id,
-                    "pageSize": page_limit,
+                opp_params = {
+                    "location_id": location_id,
+                    "pipeline_id": pipeline_id,
+                    "limit": page_limit,
                     "page": page,
-                    "filters": []
                 }
-                if pipeline_id:
-                    search_body["filters"].append({"field": "pipeline", "operator": "eq", "value": pipeline_id})
                 if stage_id:
-                    search_body["filters"].append({"field": "pipelineStage", "operator": "eq", "value": stage_id})
+                    opp_params["pipeline_stage_id"] = stage_id
                 if query:
-                    search_body["query"] = query
+                    opp_params["q"] = query
 
-                resp = http_requests.post(f"{GHL_API_BASE}/contacts/search", headers=headers, json=search_body, timeout=15)
+                resp = http_requests.get(
+                    f"{GHL_API_BASE}/opportunities/search",
+                    headers=headers, params=opp_params, timeout=15,
+                )
                 if resp.status_code != 200:
+                    logger.warning(f"Opportunities search returned {resp.status_code}: {resp.text[:300]}")
                     if not all_contacts:
                         return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
                     break
 
                 data = resp.json()
-                contacts = data.get("contacts", [])
-                if not contacts:
+                opportunities = data.get("opportunities", [])
+                if not opportunities:
                     break
-                all_contacts.extend(contacts)
-                # Stop if we got fewer than page_limit (last page)
-                if len(contacts) < page_limit:
+
+                for opp in opportunities:
+                    contact = opp.get("contact", {})
+                    contact_id = contact.get("id", "")
+                    if contact_id and contact_id not in seen_contact_ids:
+                        seen_contact_ids.add(contact_id)
+                        # Build a contact-like dict from the opportunity's contact data
+                        all_contacts.append({
+                            "id": contact_id,
+                            "firstName": contact.get("name", "").split(" ")[0] if contact.get("name") else "",
+                            "lastName": " ".join(contact.get("name", "").split(" ")[1:]) if contact.get("name") else "",
+                            "phone": contact.get("phone", ""),
+                            "email": contact.get("email", ""),
+                            "tags": contact.get("tags", []),
+                            "dateAdded": contact.get("dateAdded", ""),
+                        })
+
+                meta = data.get("meta", {})
+                if len(opportunities) < page_limit or not meta.get("nextPage"):
                     break
                 page += 1
         else:
