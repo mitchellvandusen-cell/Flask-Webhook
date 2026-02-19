@@ -2692,7 +2692,7 @@ def automate_telnyx_setup():
             'POST',
             f"{TELNYX_API_BASE}/credential_connections",
             {
-                "name": f"GrokBot_WebRTC_{location_id[:20]}",
+                "connection_name": f"GrokBot_WebRTC_{location_id[:20]}",
                 "outbound_voice_profile_id": ovp_id,
             },
             verify_url=f"{TELNYX_API_BASE}/credential_connections/{existing_sip_id}" if existing_sip_id else None,
