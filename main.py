@@ -4513,15 +4513,10 @@ def oauth_callback():
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
                         location_id = EXCLUDED.location_id,
-                        full_name = EXCLUDED.full_name,
-                        subscription_tier = EXCLUDED.subscription_tier,
-                        max_seats = EXCLUDED.max_seats,
-                        active_seats = EXCLUDED.active_seats,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
-                        timezone = EXCLUDED.timezone,
-                        crm_user_id = EXCLUDED.crm_user_id,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
@@ -4530,16 +4525,21 @@ def oauth_callback():
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
                 ))
 
-            # --- B. Sub-accounts (or individual user) ---
-            # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
-            # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
-            # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
-            #
-            # FIX: For Stripe subscribers connecting OAuth, a row already exists with
-            # a temp location_id. We must update that row first so the INSERT below
-            # doesn't violate the UNIQUE constraint on email.
-            if is_website_user and primary_location_id:
-                temp_app_type = 'private' if is_private_app else 'website'
+            # --- B. Reconnect / Reinstall Sync ---
+            # If the user already exists in subscribers (by email OR location_id),
+            # just sync OAuth tokens without wiping any existing data (password,
+            # stripe, voice_config, calendar, bot settings, etc.).
+            # This handles: reinstalls, public→private app switches, re-auths.
+            app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+
+            # B1. Check for existing subscriber by email (covers temp_ and real location_ids)
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (user_email,))
+            existing_row = cur.fetchone()
+
+            if existing_row and primary_location_id:
+                existing_loc = existing_row[0]
+                # Sync OAuth tokens onto existing row — update location_id if it
+                # was a temp placeholder, otherwise keep existing data intact.
                 cur.execute("""
                     UPDATE subscribers
                     SET location_id = %s,
@@ -4548,16 +4548,16 @@ def oauth_callback():
                         token_expires_at = NOW() + interval '%s seconds',
                         crm_user_id = COALESCE(%s, crm_user_id),
                         oauth_app_type = %s,
-                        onboarding_status = 'claimed',
+                        onboarding_status = CASE
+                            WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
+                            ELSE onboarding_status
+                        END,
                         updated_at = NOW()
-                    WHERE email = %s AND location_id LIKE 'temp_%%'
+                    WHERE email = %s
                 """, (primary_location_id, access_token, refresh_token,
-                      expires_in, me_data.get('id'), temp_app_type, user_email))
-                rows_updated = cur.rowcount
-                if rows_updated > 0:
-                    logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
-                else:
-                    logger.warning(f"No temp_ row found for {user_email} — may already be claimed or email mismatch")
+                      expires_in, me_data.get('id'), app_type, user_email))
+                logger.info(f"Synced OAuth tokens for existing subscriber {user_email} "
+                           f"(location: {existing_loc} → {primary_location_id}, app_type={app_type})")
 
             # --- C. Subscriber rows ---
             # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
@@ -4580,7 +4580,13 @@ def oauth_callback():
                               f"location {primary_location_id}. Sub-accounts will be added once "
                               f"locations.readonly scope is approved.")
 
-            logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} subscriber rows "
+            # Skip locations that were already synced above (the primary for the
+            # logged-in user).  Only INSERT truly new locations (agency sub-accounts).
+            if existing_row and primary_location_id:
+                locations_to_provision = [s for s in locations_to_provision
+                                         if s['id'] != primary_location_id]
+
+            logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} NEW subscriber rows "
                         f"(agency_flow={use_agency_flow}, fallback={using_location_fallback}, "
                         f"total_ghl_locations={num_subs})")
 
@@ -4600,7 +4606,6 @@ def oauth_callback():
                 role = 'agency_sub_account_user' if use_agency_flow else 'individual'
                 parent_agency_email = user_email if use_agency_flow else None
                 email_this = user_email
-                app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
 
                 cur.execute("""
                     INSERT INTO subscribers (
@@ -4614,15 +4619,9 @@ def oauth_callback():
                         %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (location_id) DO UPDATE SET
-                        email = EXCLUDED.email,
-                        full_name = EXCLUDED.full_name,
-                        role = EXCLUDED.role,
-                        subscription_tier = EXCLUDED.subscription_tier,
-                        parent_agency_email = EXCLUDED.parent_agency_email,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
-                        timezone = EXCLUDED.timezone,
                         crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
