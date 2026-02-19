@@ -193,14 +193,11 @@ async def _generate_voice_preview(voice_name):
             session_config = {
                 "type": "session.update",
                 "session": {
-                    "output_modalities": ["audio"],
-                    "audio": {
-                        "output": {
-                            "format": {"type": "audio/pcmu"},  # μ-law 8 kHz
-                            "voice": voice_name,
-                        }
-                    },
+                    "voice": voice_name,               # ← session level per xAI schema
                     "instructions": "You are a friendly voice assistant. Say exactly what is requested, nothing more.",
+                    "audio": {
+                        "output": {"format": {"type": "audio/pcmu"}},
+                    },
                 }
             }
             await ws.send(json.dumps(session_config))
@@ -1517,26 +1514,19 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             session_config = {
                 "type": "session.update",
                 "session": {
-                    "output_modalities": ["audio"],
-                    "audio": {
-                        "input": {
-                            "format": {"type": "audio/pcmu"},  # μ-law 8 kHz — Telnyx default
-                            "turn_detection": {
-                                "type": "server_vad",
-                                "threshold": 0.45,
-                                "prefix_padding_ms": 350,
-                                "silence_duration_ms": 400,
-                            }
-                        },
-                        "output": {
-                            "format": {"type": "audio/pcmu"},  # μ-law 8 kHz — passthrough to Telnyx
-                            "voice": voice_name,
-                        }
-                    },
-                    "input_audio_transcription": {
-                        "model": "whisper-1"
-                    },
+                    "voice": voice_name,               # ← session level per xAI schema
                     "instructions": minimal_prompt,
+                    "turn_detection": {                # ← session level per xAI schema
+                        "type": "server_vad",
+                        "threshold": 0.45,
+                        "prefix_padding_ms": 350,
+                        "silence_duration_ms": 400,
+                    },
+                    "audio": {
+                        "input":  {"format": {"type": "audio/pcmu"}},
+                        "output": {"format": {"type": "audio/pcmu"}},
+                    },
+                    "input_audio_transcription": {"model": "whisper-1"},
                     "tools": get_voice_tools(),
                 }
             }
