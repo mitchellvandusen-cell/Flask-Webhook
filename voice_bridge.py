@@ -1024,15 +1024,39 @@ def voice_inbound():
             logger.info(f"📞 Human VoIP call answered for {location_id} — recording started, no AI stream")
             return jsonify({'result': 'ok'}), 200
 
-        # For AI calls, start bidirectional media streaming to the AI bridge
-        _call_control_command(call_ctrl, api_key, 'streaming_start', {
+        # For AI calls, start bidirectional media streaming to the AI bridge.
+        # Run in a background thread so the webhook returns immediately (no blocked
+        # gunicorn worker).  Telnyx occasionally returns 422/90046 "Failed to connect
+        # to destination" when the call state hasn't fully settled; a single retry
+        # after a short backoff resolves it in practice.
+        stream_params = {
             'stream_url':                         f'wss://{host}/voice/stream',
             'stream_track':                       'both_tracks',
             'stream_bidirectional_codec':         'L16',
             'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
             'client_state':                       client_state_raw,
-        })
-        logger.info(f"📞 AI streaming started for {location_id}")
+        }
+
+        def _start_streaming(ctrl, key, params, loc_id):
+            time.sleep(0.8)   # let the call fully settle before streaming_start
+            ok = _call_control_command(ctrl, key, 'streaming_start', params)
+            if ok:
+                logger.info(f"📞 AI streaming started for {loc_id}")
+                return
+            # Telnyx 422/90046 — call state transition not complete; retry once
+            logger.warning(f"📞 streaming_start failed for {loc_id}; retrying in 1.5 s")
+            time.sleep(1.5)
+            ok = _call_control_command(ctrl, key, 'streaming_start', params)
+            if ok:
+                logger.info(f"📞 AI streaming started for {loc_id} (retry ok)")
+            else:
+                logger.error(f"📞 streaming_start failed after retry for {loc_id} — call has no audio bridge")
+
+        threading.Thread(
+            target=_start_streaming,
+            args=(call_ctrl, api_key, stream_params, location_id),
+            daemon=True,
+        ).start()
 
     elif event_type == 'call.machine.detection.ended':
         # AMD result: human / machine / not_sure / fax
