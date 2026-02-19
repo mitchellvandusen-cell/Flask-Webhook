@@ -2733,22 +2733,33 @@ def setup_voip():
     Stores telnyx_credential_id in voice_config.
     """
     subscriber, vc, api_key = _get_current_subscriber_voice()
+    location_id = subscriber.get('location_id', 'unknown') if subscriber else 'unknown'
+    logger.info(f"[setup-voip] request from location_id={location_id}")
     if not api_key:
+        logger.warning(f"[setup-voip] No Telnyx API key for location_id={location_id}")
         return jsonify({"error": "Telnyx API key not configured"}), 400
+    logger.info(f"[setup-voip] API key present (prefix={api_key[:8]}…)")
 
     cred_id = vc.get('telnyx_credential_id', '')
+    sip_conn_id = str(vc.get('telnyx_sip_connection_id', '')).strip()
+    logger.info(f"[setup-voip] stored cred_id={cred_id!r}  sip_connection_id={sip_conn_id!r}")
+
     try:
         # If we have a stored credential ID, verify it still exists
         if cred_id:
+            logger.info(f"[setup-voip] Verifying stored credential {cred_id}")
             check = http_requests.get(
                 f"{TELNYX_API_BASE}/telephony_credentials/{cred_id}",
                 headers={"Authorization": f"Bearer {api_key}"},
                 timeout=8,
             )
+            logger.info(f"[setup-voip] Credential check status: {check.status_code}")
             if check.status_code == 404:
-                logger.info(f"Stored credential {cred_id} no longer exists — will recreate")
+                logger.info(f"[setup-voip] Stored credential {cred_id} no longer exists — will recreate")
                 cred_id = ''
                 vc.pop('telnyx_credential_id', None)
+            elif check.status_code == 200:
+                logger.info(f"[setup-voip] Credential {cred_id} is valid — reusing")
 
         if not cred_id:
             # Telnyx requires connection_id when creating a telephony credential —
@@ -2758,19 +2769,22 @@ def setup_voip():
             # telnyx_connection_id      → AI call routing (call_control_applications)
             # They must stay separate; mixing them causes Telnyx 422 errors.
             # Force to str: values stored as integers in the DB must be strings for Telnyx.
-            connection_id = str(vc.get('telnyx_sip_connection_id', '')).strip()
+            connection_id = sip_conn_id
             if not connection_id:
+                logger.error(f"[setup-voip] No sip_connection_id in voice_config for location_id={location_id} — run automate-setup first")
                 return jsonify({"error": "Browser dialer not configured. Please reconnect your Telnyx API key via the setup wizard."}), 400
 
+            logger.info(f"[setup-voip] Creating telephony credential with connection_id={connection_id}")
             resp = http_requests.post(
                 f"{TELNYX_API_BASE}/telephony_credentials",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
-                    "name": f"agent_{subscriber.get('location_id', 'browser')}",
+                    "name": f"agent_{location_id}",
                     "connection_id": connection_id,
                 },
                 timeout=10,
             )
+            logger.info(f"[setup-voip] Create credential response: {resp.status_code}")
             if resp.status_code not in (200, 201):
                 # Telnyx can return errors as a list OR a dict depending on the
                 # validation path — guard against both to avoid KeyError: 0.
@@ -2782,20 +2796,23 @@ def setup_voip():
                         msg = str(err_data) if err_data else resp.text
                 except Exception:
                     msg = resp.text
+                logger.error(f"[setup-voip] Credential creation failed {resp.status_code}: {msg}")
                 return jsonify({"error": f"Telnyx credential creation failed: {msg}"}), 400
             cred_data = resp.json().get('data', {})
             cred_id = cred_data.get('id', '')
             if not cred_id:
+                logger.error(f"[setup-voip] No credential ID in Telnyx response: {resp.text[:200]}")
                 return jsonify({"error": "No credential ID returned from Telnyx"}), 500
 
             vc['telnyx_credential_id'] = cred_id
             _save_voice_config(current_user.email, vc)
-            logger.info(f"Created Telnyx telephony credential: {cred_id}")
+            logger.info(f"[setup-voip] Created Telnyx telephony credential: {cred_id}")
 
+        logger.info(f"[setup-voip] Ready — returning credential_id={cred_id}")
         return jsonify({"status": "ready", "credential_id": cred_id})
 
     except Exception as e:
-        logger.error(f"VoIP setup failed: {e}")
+        logger.error(f"[setup-voip] Unexpected error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -2811,32 +2828,41 @@ def generate_voice_token():
         return jsonify({"error": "Telnyx API key not configured"}), 400
 
     cred_id = vc.get('telnyx_credential_id', '')
+    location_id = subscriber.get('location_id', 'unknown') if subscriber else 'unknown'
+    logger.info(f"[voice/token] request from location_id={location_id}  cred_id={cred_id!r}")
     if not cred_id:
+        logger.warning(f"[voice/token] No credential_id stored — user needs to run setup-voip first")
         return jsonify({"error": "Browser calling not set up. Click Setup VoIP first."}), 400
 
     try:
+        logger.info(f"[voice/token] Requesting token for cred_id={cred_id}")
         resp = http_requests.post(
             f"{TELNYX_API_BASE}/telephony_credentials/{cred_id}/token",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             timeout=10,
         )
+        logger.info(f"[voice/token] Telnyx token response: {resp.status_code}  body_len={len(resp.text)}")
         if resp.status_code not in (200, 201):
             if resp.status_code == 404:
                 # Credential deleted — clear it so user can re-setup
+                logger.warning(f"[voice/token] Credential {cred_id} not found on Telnyx — clearing stored ID")
                 vc.pop('telnyx_credential_id', None)
                 _save_voice_config(current_user.email, vc)
                 return jsonify({"error": "Browser calling not set up. Click Setup VoIP first."}), 400
+            logger.error(f"[voice/token] Token fetch failed {resp.status_code}: {resp.text[:300]}")
             return jsonify({"error": f"Token generation failed: {resp.text}"}), 400
 
         # Telnyx returns the JWT as plain text, not JSON
         token = resp.text.strip()
         if not token:
+            logger.error(f"[voice/token] Empty token body returned from Telnyx")
             return jsonify({"error": "Empty token returned from Telnyx"}), 500
-        identity = f"agent_{subscriber.get('location_id', 'unknown')}"
+        identity = f"agent_{location_id}"
+        logger.info(f"[voice/token] Token issued successfully — len={len(token)}  identity={identity}")
         return jsonify({"token": token, "identity": identity})
 
     except Exception as e:
-        logger.error(f"Token generation failed: {e}")
+        logger.error(f"[voice/token] Unexpected error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
