@@ -2828,7 +2828,10 @@ def generate_voice_token():
                 return jsonify({"error": "Browser calling not set up. Click Setup VoIP first."}), 400
             return jsonify({"error": f"Token generation failed: {resp.text}"}), 400
 
-        token = resp.json().get('token', '')
+        # Telnyx returns the JWT as plain text, not JSON
+        token = resp.text.strip()
+        if not token:
+            return jsonify({"error": "Empty token returned from Telnyx"}), 500
         identity = f"agent_{subscriber.get('location_id', 'unknown')}"
         return jsonify({"token": token, "identity": identity})
 
@@ -2862,7 +2865,7 @@ def list_telnyx_numbers():
         resp = http_requests.get(
             f"{TELNYX_API_BASE}/phone_numbers",
             headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 50, "filter[voice.carrier]": "telnyx"},
+            params={"page[size]": 50},
             timeout=15,
         )
         if resp.status_code != 200:
