@@ -260,6 +260,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
 
     # Custom voice instructions from dashboard
     custom_voice_instructions = voice_config.get("voice_instructions", "")
+    call_script = voice_config.get("call_script", "").strip()
 
     # ── Gather all context data (same as before) ──
     profile_str = ""
@@ -704,6 +705,12 @@ CURRENT STAGE: {stage}
 {settings_str}
 
 {f"=== CUSTOM VOICE INSTRUCTIONS FROM AGENT ===" + chr(10) + custom_voice_instructions if custom_voice_instructions else ""}
+
+{(
+    "=== CALL SCRIPT REFERENCE ===" + chr(10) +
+    "You have a call script below. Use it as a live reference — pull talking points, objection responses, and flow from it naturally as the conversation unfolds. Do NOT read it word for word. Adapt it to what the lead is actually saying. The script is a guide, not a teleprompter." +
+    chr(10) + chr(10) + call_script
+) if call_script else ""}
 
 {"=== RECENT CONVERSATION ===" + chr(10) + flow_str if flow_str else ""}
 

@@ -1770,6 +1770,7 @@ def save_voice_config():
         "voice_bot_name": (data.get("voice_bot_name") or "").strip(),
         "greeting": (data.get("greeting") or "").strip(),
         "voice_instructions": (data.get("voice_instructions") or "").strip(),
+        "call_script": (data.get("call_script") or "").strip(),
     }
 
     conn = get_db_connection()
