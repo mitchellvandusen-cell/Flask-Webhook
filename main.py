@@ -4134,16 +4134,8 @@ def oauth_callback():
     try:
         # Determine flow based on state parameter
         # state="website_user" → Stripe/website subscriber connecting Lead Connector
-        # No state (or anything else) → Marketplace installation
-        #
-        # CRITICAL FIX: GHL sometimes strips the state parameter from the callback.
-        # When USE_PRIVATE_APP is set, fall back to private_app flow so we don't
-        # accidentally use marketplace credentials and get 401 "Invalid client credentials".
-        use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
-        if not state and use_private_env:
-            state = "private_app"
-            logger.info("OAuth callback: state was None but USE_PRIVATE_APP is set — treating as private_app")
-
+        # state="private_app"  → Logged-in user reconnecting via /oauth/initiate
+        # No state             → Marketplace / private app install link from GHL
         is_website_user = (state == "website_user") or (state == "private_app")
 
         if is_website_user:
@@ -4175,7 +4167,13 @@ def oauth_callback():
         # Pick credentials based on how the OAuth flow was initiated:
         #   state="private_app" → use private app credentials
         #   anything else       → use public marketplace credentials
-        is_private_app = (state == "private_app")
+        #
+        # CRITICAL FIX: Private app install links from GHL never include a
+        # state parameter (state=None).  When USE_PRIVATE_APP is set, always
+        # use private app credentials regardless of state, because the only
+        # app installed is the private app — marketplace creds don't apply.
+        use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
+        is_private_app = (state == "private_app") or (use_private_env and state is None)
         if is_private_app:
             client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
             client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
