@@ -2394,17 +2394,17 @@
             ['settings','numbers','trusthub'].forEach(t => {
                 const panel = document.getElementById('vstab-panel-' + t);
                 const btn   = document.getElementById('vstab-' + t);
-                if (!panel || !btn) return;
                 const active = t === name;
-                panel.style.display = active ? 'block' : 'none';
-                btn.style.background    = active ? 'rgba(0,217,255,0.12)' : 'transparent';
-                btn.style.border        = active ? '1px solid rgba(0,217,255,0.3)' : '1px solid transparent';
-                btn.style.borderBottom  = active ? '2px solid #00d9ff'              : '2px solid transparent';
-                btn.style.color         = active ? '#00d9ff'                        : '#888';
+                // set panel display regardless — don't gate on btn existence
+                if (panel) panel.style.display = active ? 'block' : 'none';
+                if (btn) {
+                    btn.style.background   = active ? 'rgba(0,217,255,0.12)' : 'transparent';
+                    btn.style.border       = active ? '1px solid rgba(0,217,255,0.3)' : '1px solid transparent';
+                    btn.style.borderBottom = active ? '2px solid #00d9ff' : '2px solid transparent';
+                    btn.style.color        = active ? '#00d9ff' : '#888';
+                }
             });
-            // Auto-load numbers when switching to that tab
-            if (name === 'numbers') loadTrustHubNumbers();
-            if (name === 'trusthub') loadTrustHubNumbers(); // populates stirStatus too
+            if (name === 'numbers' || name === 'trusthub') loadTrustHubNumbers();
         }
 
         // ── Magic Wand: one-click Telnyx provisioning ──
@@ -3149,24 +3149,32 @@
         // ===== TRUST HUB =====
         async function loadTrustHubNumbers() {
             const list = document.getElementById('trustHubNumbersList');
-            list.innerHTML = '<div style="text-align:center;padding:10px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            if (!list) { console.error('trustHubNumbersList element not found'); return; }
             try {
+                list.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
                 const [numR, trustR] = await Promise.all([fetch('/voice/numbers'), fetch('/voice/trust-hub')]);
                 const numD = numR.ok ? await numR.json() : {};
                 const trustD = trustR.ok ? await trustR.json() : {};
 
-                // STIR/SHAKEN: Telnyx manages this automatically for verified numbers
+                // STIR/SHAKEN — only update if element exists (it's in Trust Hub panel)
                 const stirEl = document.getElementById('stirStatus');
-                const stirStatus = trustD.stir_shaken?.status || 'not_configured';
-                const stirColors = {
-                    'telnyx_managed': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' },
-                    'not_configured': { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' },
-                };
-                const ss = stirColors[stirStatus] || { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' };
-                stirEl.style.background = ss.bg; stirEl.style.color = ss.color; stirEl.textContent = ss.text;
+                if (stirEl) {
+                    const stirStatus = trustD.stir_shaken?.status || 'not_configured';
+                    const stirColors = {
+                        'telnyx_managed': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' },
+                        'not_configured': { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' },
+                    };
+                    const ss = stirColors[stirStatus] || { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' };
+                    stirEl.style.background = ss.bg; stirEl.style.color = ss.color; stirEl.textContent = ss.text;
+                }
 
                 const numbers = numD.numbers || trustD.numbers || [];
-                if (!numbers.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.78rem;">No numbers found — buy a number with the + button above</div>'; return; }
+                if (!numbers.length) {
+                    const errMsg = numD.error || trustD.error || '';
+                    list.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:.82rem;">' +
+                        (errMsg ? '⚠ ' + errMsg : 'No numbers found — click <strong>Buy Number</strong> above to get one') + '</div>';
+                    return;
+                }
 
                 list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;font-size:.7rem;border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">' +
                     '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;">Number</div>' +
