@@ -1549,7 +1549,7 @@
                                             <div><strong style="color:#aaa;">Enable:</strong> <span style="color:#ccc;">Delay While Dialing</span> <span style="color:#666;">(toggle on)</span></div>
                                         </div>
                                     </div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:8px 0 0;">Save the app. From the app details page, copy the <strong style="color:#ccc;">Connection ID</strong> and paste it in the <strong style="color:#ccc;">Connection ID</strong> field below.</p>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:8px 0 0;">Save the app. Back on the <strong style="color:#ccc;">Voice API</strong> list, your app's <strong style="color:#ccc;">Application ID</strong> is shown (a long number like <code style="color:#00d9ff; font-size:0.76rem;">2898437271239788074</code>). That is your Connection ID — paste it in the <strong style="color:#ccc;">Connection ID</strong> field below.</p>
                                 </div>
                             </div>
 
@@ -1614,10 +1614,10 @@
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Connection ID</label>
-                            <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                            <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="e.g. 2898437271239788074"
                                 value="{{ voice_config.get('telnyx_connection_id', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">From your Voice API Application details page in Telnyx</small>
+                            <small style="color:#666; font-size:0.75rem;">The Application ID shown on your Voice API app in Telnyx (long numeric string)</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Phone Number</label>

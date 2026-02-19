@@ -1016,52 +1016,10 @@ def voice_inbound():
 @voice_bp.route('/voice/outbound-answer', methods=['POST'])
 def voice_outbound_answer():
     """
-    Receives all Call Control webhook events for outbound calls.
-    (Telnyx posts here because we set webhook_url = this URL at call creation.)
-
-    call.initiated → acknowledge only (call is ringing)
-    call.answered  → issue streaming_start to open the AI audio bridge
-    all others     → acknowledge with 200 OK
+    Backward-compatibility alias — now delegates to voice_inbound.
+    All Call Control events (inbound and outbound) are handled at /voice/inbound.
     """
-    payload    = request.get_json(silent=True) or {}
-    data       = payload.get('data', {})
-    event_type = data.get('event_type', '')
-    call_pl    = data.get('payload', {})
-    call_ctrl  = call_pl.get('call_control_id', '')
-
-    logger.info(f"📞 Outbound event: {event_type} ctrl={call_ctrl[:16] if call_ctrl else 'none'}")
-
-    if event_type == 'call.answered':
-        # Decode metadata we encoded into client_state at call creation
-        client_state_raw = call_pl.get('client_state', '')
-        meta             = _decode_client_state(client_state_raw)
-        location_id      = meta.get('location_id', '')
-
-        if not location_id:
-            logger.warning("call.answered (outbound): no location_id in client_state")
-            return jsonify({'result': 'ok'}), 200
-
-        subscriber = _get_subscriber_by_location(location_id)
-        if not subscriber:
-            return jsonify({'result': 'ok'}), 200
-
-        vc      = subscriber.get('voice_config') or {}
-        api_key = vc.get('telnyx_api_key', '')
-        if not api_key:
-            return jsonify({'result': 'ok'}), 200
-
-        host = request.host
-        _call_control_command(call_ctrl, api_key, 'streaming_start', {
-            'stream_url':                       f'wss://{host}/voice/stream',
-            'stream_track':                     'both_tracks',
-            'stream_bidirectional_mode':        'rtp',
-            'stream_bidirectional_codec':       'L16',
-            'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
-            'client_state':                     client_state_raw,
-        })
-        logger.info(f"📞 Outbound streaming started for {location_id} — {meta.get('contact_name', '')}")
-
-    return jsonify({'result': 'ok'}), 200
+    return voice_inbound()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1113,7 +1071,8 @@ def trigger_outbound_call():
 
     try:
         host         = request.host
-        webhook_url  = f"https://{host}/voice/outbound-answer"
+        # All events (inbound + outbound) go to the single app webhook URL.
+        webhook_url  = f"https://{host}/voice/inbound"
         # Metadata travels as client_state (base64 JSON); Telnyx echoes it in
         # every subsequent webhook event and in the WebSocket start message.
         client_state = _encode_client_state({
@@ -2005,7 +1964,7 @@ def dial_contact():
 
     try:
         host         = request.host
-        webhook_url  = f"https://{host}/voice/outbound-answer"
+        webhook_url  = f"https://{host}/voice/inbound"
         client_state = _encode_client_state({
             'location_id':  location_id,
             'caller':       telnyx_number,
