@@ -3239,49 +3239,79 @@ def voip_answer():
 @voice_bp.route('/voice/numbers', methods=['GET'])
 @login_required
 def list_telnyx_numbers():
-    """List all Telnyx phone numbers on the account with health info."""
+    """List all Telnyx phone numbers on the account with rich health info."""
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
         logger.warning("list_telnyx_numbers: no API key configured")
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+        return jsonify({"error": "Telnyx API key not configured. Go to Settings and click Connect Telnyx."}), 400
+
+    # Fetch nicknames from voice_config
+    nicknames = vc.get('number_nicknames', {})  # { "+1234": "Main Line" }
+    primary_number = vc.get('telnyx_phone_number', '')
 
     try:
-        resp = http_requests.get(
-            f"{TELNYX_API_BASE}/phone_numbers",
-            headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 50},
-            timeout=15,
-        )
-        if resp.status_code != 200:
-            logger.warning(f"list_telnyx_numbers: Telnyx returned {resp.status_code}: {resp.text[:300]}")
-            return jsonify({"error": f"Telnyx API error: {resp.status_code}"}), 400
+        # Paginate through ALL numbers
+        all_numbers = []
+        page = 1
+        while True:
+            resp = http_requests.get(
+                f"{TELNYX_API_BASE}/phone_numbers",
+                headers={"Authorization": f"Bearer {api_key}"},
+                params={"page[size]": 250, "page[number]": page},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                logger.warning(f"list_telnyx_numbers: Telnyx returned {resp.status_code}: {resp.text[:300]}")
+                return jsonify({"error": f"Telnyx API error {resp.status_code}. Check your API key in Settings."}), 400
+            body = resp.json()
+            batch = body.get('data', [])
+            all_numbers.extend(batch)
+            # Check if more pages exist
+            meta = body.get('meta', {})
+            total_pages = meta.get('total_pages', 1)
+            if page >= total_pages or not batch:
+                break
+            page += 1
 
-        data = resp.json().get('data', [])
+        logger.info(f"list_telnyx_numbers: fetched {len(all_numbers)} numbers across {page} page(s)")
+
         result = []
-        for n in data:
+        for n in all_numbers:
             raw_features = n.get('features') or []
             features = {}
             for f in raw_features:
                 if isinstance(f, dict):
                     features[f.get('name', '')] = f.get('enabled', False)
             tags = n.get('tags') or []
+            phone = n.get('phone_number', '')
+            number_id = n.get('id', '')
+            connection_id = n.get('connection_id', '')
+            is_primary = phone == primary_number
+            nickname = nicknames.get(phone, tags[0] if tags else '')
             result.append({
-                "sid": n.get('id', ''),
-                "phone": n.get('phone_number', ''),
-                "friendly_name": tags[0] if tags else n.get('phone_number', ''),
+                "sid": number_id,
+                "phone": phone,
+                "nickname": nickname,
+                "is_primary": is_primary,
                 "capabilities": {
                     "voice": features.get('voice', False),
                     "sms": features.get('sms', False),
+                    "mms": features.get('mms', False),
+                    "fax": features.get('fax', False),
                 },
                 "status": n.get('status', 'active'),
-                "connection_id": n.get('connection_id', ''),
+                "connection_id": connection_id,
                 "cnam_listed": n.get('cnam_listing_enabled', False),
+                "emergency_enabled": n.get('emergency_enabled', False),
+                "created_at": n.get('created_at', ''),
+                "billing_group_id": n.get('billing_group_id', ''),
+                "number_type": n.get('phone_number_type', 'local'),
             })
 
         return jsonify({"numbers": result, "total": len(result)})
 
     except Exception as e:
-        logger.error(f"Failed to list Telnyx numbers: {e}")
+        logger.error(f"Failed to list Telnyx numbers: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -3447,21 +3477,59 @@ def release_telnyx_number():
 def get_trust_hub_status():
     """
     Get number health and carrier trust status for all Telnyx numbers.
-    Shows STIR/SHAKEN status, CNAM registration, and spam remediation guidance.
+    Shows STIR/SHAKEN status, CNAM registration, carrier registration info,
+    and spam remediation guidance — Wavv-style trust dashboard.
     """
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+        return jsonify({"error": "Telnyx API key not configured. Go to Settings and click Connect Telnyx."}), 400
+
+    # Trust hub registration stored in voice_config
+    trust_hub = vc.get('trust_hub', {})
+    business_name = trust_hub.get('business_name', '')
+    ein = trust_hub.get('ein', '')
 
     result = {
-        "stir_shaken": {"status": "telnyx_managed", "note": "Telnyx automatically handles STIR/SHAKEN attestation for verified business numbers."},
+        "stir_shaken": {
+            "status": "telnyx_managed",
+            "attestation": "A",
+            "note": "Telnyx automatically handles STIR/SHAKEN attestation for verified business numbers. Full (A) attestation means carriers trust your calls.",
+        },
+        "business_profile": {
+            "business_name": business_name,
+            "ein": ein,
+            "registered": bool(business_name and ein),
+        },
+        "carrier_registration": {
+            "free_caller_registry": {
+                "name": "Free Caller Registry",
+                "url": "https://www.freecallerregistry.com/fcr/",
+                "status": trust_hub.get('fcr_status', 'not_registered'),
+                "description": "Cross-carrier registry that links your number to your business. Recommended first step.",
+            },
+            "att_hiya": {
+                "name": "AT&T / Hiya",
+                "url": "https://hiya.com/branded-call/",
+                "status": trust_hub.get('att_status', 'not_registered'),
+                "description": "Register with Hiya to display your business name on AT&T devices and reduce spam flags.",
+            },
+            "tmobile": {
+                "name": "T-Mobile",
+                "url": "https://callhub.t-mobile.com/",
+                "status": trust_hub.get('tmobile_status', 'not_registered'),
+                "description": "T-Mobile Verified Caller — display verified business name to T-Mobile subscribers.",
+            },
+            "verizon": {
+                "name": "Verizon",
+                "url": "https://www.verizon.com/business/products/security/spam-call-protection/",
+                "status": trust_hub.get('verizon_status', 'not_registered'),
+                "description": "Register with Verizon to prevent spam flagging on their network.",
+            },
+        },
         "numbers": [],
-        "remediation": {
-            "free_caller_registry": "https://www.freecallerregistry.com/fcr/",
-            "att_registry": "https://hiya.com/branded-call/",
-            "tmobile_registry": "https://www.t-mobile.com/business/resources/contact-us",
-            "verizon_registry": "https://www.verizon.com/business/products/security/spam-call-protection/",
-            "cnam_registration": "Enable CNAM listing in Telnyx portal under phone number settings",
+        "cnam_info": {
+            "description": "CNAM (Caller Name) displays your business name on recipient phones. Enable per-number in the Numbers tab.",
+            "telnyx_portal": "https://portal.telnyx.com/#/app/numbers",
         },
     }
 
@@ -3469,7 +3537,7 @@ def get_trust_hub_status():
         resp = http_requests.get(
             f"{TELNYX_API_BASE}/phone_numbers",
             headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 50},
+            params={"page[size]": 250},
             timeout=15,
         )
         if resp.status_code == 200:
@@ -3482,12 +3550,113 @@ def get_trust_hub_status():
                     "emergency_enabled": n.get('emergency_enabled', False),
                     "connection_id": n.get('connection_id', ''),
                 })
+        else:
+            logger.warning(f"trust-hub: Telnyx phone_numbers returned {resp.status_code}")
 
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"Trust hub check failed: {e}")
+        logger.error(f"Trust hub check failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/numbers/<number_id>/cnam', methods=['POST'])
+@login_required
+def toggle_cnam(number_id):
+    """Toggle CNAM listing for a specific Telnyx phone number."""
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured"}), 400
+
+    data = request.json or {}
+    enable = data.get('enable', True)
+
+    try:
+        resp = http_requests.patch(
+            f"{TELNYX_API_BASE}/phone_numbers/{number_id}",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"cnam_listing_enabled": enable},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": f"Failed to update CNAM: {resp.text[:300]}"}), 400
+
+        return jsonify({"status": "ok", "cnam_listed": enable})
+    except Exception as e:
+        logger.error(f"CNAM toggle failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/numbers/nickname', methods=['POST'])
+@login_required
+def set_number_nickname():
+    """Set a friendly nickname for a phone number (stored in voice_config)."""
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+
+    data = request.json or {}
+    phone = data.get('phone', '')
+    nickname = data.get('nickname', '').strip()
+
+    if not phone:
+        return jsonify({"error": "Phone number required"}), 400
+
+    nicknames = vc.get('number_nicknames', {})
+    if nickname:
+        nicknames[phone] = nickname
+    else:
+        nicknames.pop(phone, None)
+    vc['number_nicknames'] = nicknames
+    _save_voice_config(current_user.email, vc)
+
+    return jsonify({"status": "ok", "nickname": nickname})
+
+
+@voice_bp.route('/voice/numbers/set-primary', methods=['POST'])
+@login_required
+def set_primary_number():
+    """Set a phone number as the primary caller ID."""
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+
+    data = request.json or {}
+    phone = data.get('phone', '')
+    if not phone:
+        return jsonify({"error": "Phone number required"}), 400
+
+    vc['telnyx_phone_number'] = phone
+    _save_voice_config(current_user.email, vc)
+    logger.info(f"Set primary number to {phone}")
+
+    return jsonify({"status": "ok", "phone": phone})
+
+
+@voice_bp.route('/voice/trust-hub/save', methods=['POST'])
+@login_required
+def save_trust_hub():
+    """Save business profile and carrier registration status for Trust Hub."""
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+
+    data = request.json or {}
+    trust_hub = vc.get('trust_hub', {})
+    # Update business profile
+    if 'business_name' in data:
+        trust_hub['business_name'] = data['business_name'].strip()
+    if 'ein' in data:
+        trust_hub['ein'] = data['ein'].strip()
+    # Update carrier registration statuses
+    for carrier in ['fcr_status', 'att_status', 'tmobile_status', 'verizon_status']:
+        if carrier in data:
+            trust_hub[carrier] = data[carrier]
+
+    vc['trust_hub'] = trust_hub
+    _save_voice_config(current_user.email, vc)
+
+    return jsonify({"status": "ok"})
 
 
 # ──────────────────────────────────────────────────────────────
