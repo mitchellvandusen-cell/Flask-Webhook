@@ -1755,21 +1755,21 @@ def get_voice_config():
 @app.route("/api/voice-config", methods=["POST"])
 @login_required
 def save_voice_config():
-    """Save voice AI configuration (Twilio credentials, voice settings)."""
+    """Save voice AI configuration (Telnyx credentials, voice settings)."""
     data = request.get_json()
     if not data:
         return flask_jsonify({"error": "No data provided"}), 400
 
     # Build voice_config object
     voice_config = {
-        "enabled": bool(data.get("enabled", False)),
-        "twilio_account_sid": (data.get("twilio_account_sid") or "").strip(),
-        "twilio_auth_token": (data.get("twilio_auth_token") or "").strip(),
-        "twilio_phone_number": (data.get("twilio_phone_number") or "").strip(),
-        "voice": (data.get("voice") or "tara").strip().lower(),
-        "voice_bot_name": (data.get("voice_bot_name") or "").strip(),
-        "voice_instructions": (data.get("voice_instructions") or "").strip(),
-        "call_script": (data.get("call_script") or "").strip(),
+        "enabled":               bool(data.get("enabled", False)),
+        "telnyx_api_key":        (data.get("telnyx_api_key") or "").strip(),
+        "telnyx_connection_id":  (data.get("telnyx_connection_id") or "").strip(),
+        "telnyx_phone_number":   (data.get("telnyx_phone_number") or "").strip(),
+        "voice":                 (data.get("voice") or "ara").strip().lower(),
+        "voice_bot_name":        (data.get("voice_bot_name") or "").strip(),
+        "voice_instructions":    (data.get("voice_instructions") or "").strip(),
+        "call_script":           (data.get("call_script") or "").strip(),
     }
 
     conn = get_db_connection()

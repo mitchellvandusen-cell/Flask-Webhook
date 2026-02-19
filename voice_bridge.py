@@ -81,6 +81,48 @@ XAI_SAMPLE_RATE    = 24000  # xAI Realtime PCM16 — native rate, no conversion 
 TELNYX_API_BASE = "https://api.telnyx.com/v2"
 
 
+# ──────────────────────────────────────────────────────────────
+# TELNYX CALL CONTROL HELPERS
+# ──────────────────────────────────────────────────────────────
+
+def _call_control_command(call_control_id: str, api_key: str, action: str, params: dict) -> bool:
+    """
+    Send a Call Control API command (answer, streaming_start, hangup, etc.) to a
+    specific call leg.  Returns True on HTTP 2xx, False otherwise.
+    """
+    try:
+        resp = http_requests.post(
+            f"{TELNYX_API_BASE}/calls/{call_control_id}/actions/{action}",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type":  "application/json",
+            },
+            json=params,
+            timeout=8,
+        )
+        if not resp.ok:
+            logger.warning(f"Call Control '{action}' failed: {resp.status_code} {resp.text[:200]}")
+        return resp.ok
+    except Exception as e:
+        logger.error(f"Call Control '{action}' error: {e}")
+        return False
+
+
+def _encode_client_state(data: dict) -> str:
+    """Base64-encode a dict into a Telnyx client_state string."""
+    import base64
+    return base64.b64encode(json.dumps(data).encode()).decode()
+
+
+def _decode_client_state(s: str) -> dict:
+    """Decode a Telnyx client_state string back to a dict."""
+    import base64
+    try:
+        return json.loads(base64.b64decode(s.encode()).decode())
+    except Exception:
+        return {}
+
+
 def _build_texml_stream(stream_url: str, params: dict, sample_rate: int = 24000) -> str:
     """
     Build a Telnyx TeXML Response that opens a bidirectional L16 media stream.
@@ -884,81 +926,100 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
 @voice_bp.route('/voice/inbound', methods=['POST'])
 def voice_inbound():
     """
-    Handle inbound call. Twilio POSTs here when someone calls the AI number.
-    Returns TwiML that opens a Media Stream WebSocket to our bridge.
+    Handle all Call Control webhook events for inbound calls.
+
+    Telnyx Voice API Application sends JSON events; we respond 200 OK and
+    issue Call Control commands as needed:
+      call.initiated  → answer the call (encodes metadata into client_state)
+      call.answered   → start bidirectional L16 media stream to our WebSocket
+      all others      → acknowledge with 200 OK
     """
-    # Telnyx sends webhook as JSON; fall back to form for compatibility
-    payload   = request.get_json(silent=True) or {}
-    call_leg  = payload.get('data', {}).get('payload', {})
-    caller    = call_leg.get('from', request.form.get('From', 'Unknown'))
-    called    = call_leg.get('to',   request.form.get('To',   'Unknown'))
-    call_sid  = call_leg.get('call_control_id', request.form.get('CallSid', ''))
+    payload    = request.get_json(silent=True) or {}
+    data       = payload.get('data', {})
+    event_type = data.get('event_type', '')
+    call_pl    = data.get('payload', {})
+    call_ctrl  = call_pl.get('call_control_id', '')
 
-    logger.info(f"📞 Inbound voice call: {caller} -> {called} (ID: {call_sid})")
+    logger.info(f"📞 Voice inbound event: {event_type} ctrl={call_ctrl[:16] if call_ctrl else 'none'}")
 
-    # Look up subscriber by the called number (their Telnyx phone number)
-    subscriber = _get_subscriber_by_twilio_number(called)
-    if not subscriber:
-        logger.warning(f"No subscriber found for number: {called}")
-        # Return minimal TeXML with a say + hangup
-        return Response(
-            '<?xml version="1.0" encoding="UTF-8"?>'
-            '<Response>'
-              '<Say>Sorry, this number is not currently configured. Please try again later.</Say>'
-              '<Hangup/>'
-            '</Response>',
-            mimetype='application/xml'
-        )
+    if event_type == 'call.initiated':
+        direction = call_pl.get('direction', 'incoming')
+        if direction != 'incoming':
+            # Outbound leg initiated event — no action needed here
+            return jsonify({'result': 'ok'}), 200
 
-    host     = request.host
-    texml    = _build_texml_stream(
-        stream_url=f'wss://{host}/voice/stream',
-        params={
-            'callSid':    call_sid,
-            'caller':     caller,
-            'called':     called,
-            'direction':  'inbound',
-            'locationId': subscriber.get('location_id', ''),
-        }
-    )
-    logger.info(f"📞 Returning TeXML stream URL: wss://{host}/voice/stream")
-    return Response(texml, mimetype='application/xml')
+        caller = call_pl.get('from', 'Unknown')
+        called = call_pl.get('to',   'Unknown')
+
+        subscriber = _get_subscriber_by_twilio_number(called)
+        if not subscriber:
+            logger.warning(f"No subscriber for {called}; letting call timeout")
+            return jsonify({'result': 'ok'}), 200
+
+        vc      = subscriber.get('voice_config') or {}
+        api_key = vc.get('telnyx_api_key', '')
+        if not api_key:
+            logger.warning("Inbound call but no Telnyx API key configured")
+            return jsonify({'result': 'ok'}), 200
+
+        # Encode metadata into client_state — echoed back in call.answered and
+        # the WebSocket start event so the bridge knows location/direction.
+        client_state = _encode_client_state({
+            'location_id':  subscriber.get('location_id', ''),
+            'caller':       caller,
+            'called':       called,
+            'direction':    'inbound',
+            'contact_id':   '',
+            'contact_name': 'there',
+        })
+
+        _call_control_command(call_ctrl, api_key, 'answer', {
+            'client_state': client_state,
+        })
+        logger.info(f"📞 Answered inbound call: {caller} -> {called}")
+
+    elif event_type == 'call.answered':
+        # Retrieve metadata we encoded at answer time
+        client_state_raw = call_pl.get('client_state', '')
+        meta             = _decode_client_state(client_state_raw)
+        location_id      = meta.get('location_id', '')
+
+        if not location_id:
+            logger.warning("call.answered: no location_id in client_state")
+            return jsonify({'result': 'ok'}), 200
+
+        subscriber = _get_subscriber_by_location(location_id)
+        if not subscriber:
+            return jsonify({'result': 'ok'}), 200
+
+        vc      = subscriber.get('voice_config') or {}
+        api_key = vc.get('telnyx_api_key', '')
+        if not api_key:
+            return jsonify({'result': 'ok'}), 200
+
+        host = request.host
+        _call_control_command(call_ctrl, api_key, 'streaming_start', {
+            'stream_url':                       f'wss://{host}/voice/stream',
+            'stream_track':                     'both_tracks',
+            'stream_bidirectional_mode':        'rtp',
+            'stream_bidirectional_codec':       'L16',
+            'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
+            'client_state':                     client_state_raw,
+        })
+        logger.info(f"📞 Streaming started for {location_id}")
+
+    # All other events (call.hangup, streaming.started, streaming.stopped, etc.)
+    # just need a 200 OK acknowledgement.
+    return jsonify({'result': 'ok'}), 200
 
 
 @voice_bp.route('/voice/outbound-answer', methods=['POST'])
 def voice_outbound_answer():
     """
-    Twilio calls this when the outbound call is answered.
-    Returns TwiML that opens a Media Stream to our bridge.
+    Backward-compatibility alias — now delegates to voice_inbound.
+    All Call Control events (inbound and outbound) are handled at /voice/inbound.
     """
-    # Telnyx sends webhook as JSON; fall back to form for compatibility
-    payload      = request.get_json(silent=True) or {}
-    call_leg     = payload.get('data', {}).get('payload', {})
-    call_sid     = call_leg.get('call_control_id', request.form.get('CallSid', ''))
-    caller       = call_leg.get('from', request.form.get('From', ''))
-    called       = call_leg.get('to',   request.form.get('To',   ''))
-
-    # Custom parameters encoded in the URL when we created the call
-    location_id  = request.args.get('location_id', '')
-    contact_id   = request.args.get('contact_id', '')
-    contact_name = request.args.get('name', 'there')
-
-    logger.info(f"📞 Outbound call answered: {caller} -> {called} (ID: {call_sid})")
-
-    host  = request.host
-    texml = _build_texml_stream(
-        stream_url=f'wss://{host}/voice/stream',
-        params={
-            'callSid':     call_sid,
-            'caller':      caller,
-            'called':      called,
-            'direction':   'outbound',
-            'locationId':  location_id,
-            'contactId':   contact_id,
-            'contactName': contact_name,
-        }
-    )
-    return Response(texml, mimetype='application/xml')
+    return voice_inbound()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -999,7 +1060,7 @@ def trigger_outbound_call():
 
     # Telnyx credentials — stored in voice_config as:
     #   telnyx_api_key        — Telnyx API key (from telnyx.com Mission Control)
-    #   telnyx_connection_id  — TeXML App connection ID (from Telnyx dashboard)
+    #   telnyx_connection_id  — Voice API Application Connection ID (from Telnyx dashboard)
     #   telnyx_phone_number   — E.164 Telnyx number (+1...)
     telnyx_api_key       = voice_config.get("telnyx_api_key", "")
     telnyx_connection_id = voice_config.get("telnyx_connection_id", "")
@@ -1009,13 +1070,19 @@ def trigger_outbound_call():
         return jsonify({"error": "Telnyx credentials not fully configured (need telnyx_api_key, telnyx_connection_id, telnyx_phone_number)"}), 400
 
     try:
-        host       = request.host
-        answer_url = (
-            f"https://{host}/voice/outbound-answer"
-            f"?location_id={location_id}"
-            f"&contact_id={contact_id}"
-            f"&name={lead_name}"
-        )
+        host         = request.host
+        # All events (inbound + outbound) go to the single app webhook URL.
+        webhook_url  = f"https://{host}/voice/inbound"
+        # Metadata travels as client_state (base64 JSON); Telnyx echoes it in
+        # every subsequent webhook event and in the WebSocket start message.
+        client_state = _encode_client_state({
+            'location_id':  location_id,
+            'caller':       telnyx_number,
+            'called':       lead_phone,
+            'direction':    'outbound',
+            'contact_id':   contact_id,
+            'contact_name': lead_name,
+        })
 
         # Telnyx Call Control API — create outbound call
         # Docs: https://developers.telnyx.com/api/call-control/create-call
@@ -1029,10 +1096,9 @@ def trigger_outbound_call():
                 "connection_id":      telnyx_connection_id,
                 "to":                 lead_phone,
                 "from":               telnyx_number,
-                "webhook_url":        answer_url,
+                "webhook_url":        webhook_url,
                 "webhook_url_method": "POST",
-                # Telnyx records via call_control API command after answer;
-                # for now recording is initiated from the outbound-answer webhook.
+                "client_state":       client_state,
             },
             timeout=10,
         )
@@ -1169,21 +1235,28 @@ async def handle_voice_stream(ws):
         start_data = json.loads(start_msg)
 
     if start_data.get('event') == 'start':
-        # Telnyx: streamSid at top level; call_control_id inside start payload
-        stream_sid    = start_data.get('streamSid') or start_data['start'].get('streamSid', '')
-        custom_params = start_data['start'].get('customParameters', {})
-        # Primary call identifier: Telnyx call_control_id (used for Call Control API)
+        start_block = start_data.get('start', {})
+        stream_sid  = start_data.get('streamSid') or start_block.get('streamSid', '') or start_block.get('stream_id', '')
+
+        # Call Control streaming_start passes metadata via client_state (base64 JSON).
+        # TeXML <Parameter> tags arrive as customParameters — support both.
+        custom_params     = start_block.get('customParameters', {})
+        client_state_raw  = start_block.get('client_state', '') or custom_params.get('client_state', '')
+        client_state_meta = _decode_client_state(client_state_raw) if client_state_raw else {}
+
+        # Prefer client_state values; fall back to customParameters for TeXML compat
         call_sid = (
-            start_data['start'].get('callControlId') or
-            start_data['start'].get('call_control_id') or
+            start_block.get('callControlId') or
+            start_block.get('call_control_id') or
+            client_state_meta.get('call_sid', '') or
             custom_params.get('callSid', '')
         )
-        caller       = custom_params.get('caller', '')
-        called       = custom_params.get('called', '')
-        direction    = custom_params.get('direction', 'inbound')
-        location_id  = custom_params.get('locationId', '')
-        contact_id   = custom_params.get('contactId', '')
-        contact_name = custom_params.get('contactName', 'there')
+        caller       = client_state_meta.get('caller',       '') or custom_params.get('caller', '')
+        called       = client_state_meta.get('called',       '') or custom_params.get('called', '')
+        direction    = client_state_meta.get('direction',    'inbound') or custom_params.get('direction', 'inbound')
+        location_id  = client_state_meta.get('location_id', '') or custom_params.get('locationId', '')
+        contact_id   = client_state_meta.get('contact_id',  '') or custom_params.get('contactId', '')
+        contact_name = client_state_meta.get('contact_name','there') or custom_params.get('contactName', 'there')
         logger.info(f"🎙️ Stream started: SID={stream_sid} dir={direction} loc={location_id}")
     else:
         logger.warning(f"Voice stream: Unexpected first event: {start_data.get('event')}")
@@ -1640,24 +1713,26 @@ def test_voice_connection():
     else:
         results["errors"].append("XAI_API_KEY not configured")
 
-    # Test Twilio credentials
+    # Test Telnyx API key — GET /v2/profile with Bearer auth
     if location_id:
         subscriber = _get_subscriber_by_location(location_id)
         if subscriber:
             voice_config = subscriber.get("voice_config") or {}
-            twilio_sid = voice_config.get("twilio_account_sid", "")
-            twilio_token = voice_config.get("twilio_auth_token", "")
-            if twilio_sid and twilio_token:
+            telnyx_api_key = voice_config.get("telnyx_api_key", "")
+            if telnyx_api_key:
                 try:
-                    client = TwilioClient(twilio_sid, twilio_token)
-                    account = client.api.accounts(twilio_sid).fetch()
-                    results["twilio"] = account.status == "active"
-                    if account.status != "active":
-                        results["errors"].append(f"Twilio account status: {account.status}")
+                    r = http_requests.get(
+                        f"{TELNYX_API_BASE}/profile",
+                        headers={"Authorization": f"Bearer {telnyx_api_key}"},
+                        timeout=10,
+                    )
+                    results["twilio"] = r.status_code == 200
+                    if r.status_code != 200:
+                        results["errors"].append(f"Telnyx API returned {r.status_code} — check your API Key")
                 except Exception as e:
-                    results["errors"].append(f"Twilio validation failed: {str(e)}")
+                    results["errors"].append(f"Telnyx connection failed: {str(e)}")
             else:
-                results["errors"].append("Twilio credentials not configured")
+                results["errors"].append("Telnyx API Key not configured")
 
     return jsonify(results)
 
@@ -1880,40 +1955,47 @@ def dial_contact():
     if not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
-    twilio_sid = voice_config.get('twilio_account_sid', '')
-    twilio_token = voice_config.get('twilio_auth_token', '')
-    twilio_number = voice_config.get('twilio_phone_number', '')
+    telnyx_api_key       = voice_config.get('telnyx_api_key', '')
+    telnyx_connection_id = voice_config.get('telnyx_connection_id', '')
+    telnyx_number        = voice_config.get('telnyx_phone_number', '')
 
-    if not all([twilio_sid, twilio_token, twilio_number]):
-        return jsonify({"error": "Twilio credentials not configured"}), 400
+    if not all([telnyx_api_key, telnyx_connection_id, telnyx_number]):
+        return jsonify({"error": "Telnyx credentials not configured (need API Key, Connection ID, Phone Number)"}), 400
 
     try:
-        client = TwilioClient(twilio_sid, twilio_token)
-        host = request.host
-        answer_url = (
-            f"https://{host}/voice/outbound-answer"
-            f"?location_id={location_id}"
-            f"&contact_id={contact_id}"
-            f"&name={first_name}"
-        )
+        host         = request.host
+        webhook_url  = f"https://{host}/voice/inbound"
+        client_state = _encode_client_state({
+            'location_id':  location_id,
+            'caller':       telnyx_number,
+            'called':       phone,
+            'direction':    'outbound',
+            'contact_id':   contact_id,
+            'contact_name': first_name,
+        })
 
-        call = client.calls.create(
-            to=phone,
-            from_=twilio_number,
-            url=answer_url,
-            method="POST",
-            timeout=30,
-            record=True,
-            recording_channels="dual",
-            recording_status_callback=f"https://{host}/voice/recording-status",
-            recording_status_callback_method="POST",
-            status_callback=f"https://{host}/voice/status",
-            status_callback_event=["initiated", "ringing", "answered", "completed"],
-            status_callback_method="POST",
+        resp = http_requests.post(
+            f"{TELNYX_API_BASE}/calls",
+            headers={
+                "Authorization": f"Bearer {telnyx_api_key}",
+                "Content-Type":  "application/json",
+            },
+            json={
+                "connection_id":      telnyx_connection_id,
+                "to":                 phone,
+                "from":               telnyx_number,
+                "webhook_url":        webhook_url,
+                "webhook_url_method": "POST",
+                "client_state":       client_state,
+            },
+            timeout=10,
         )
+        resp.raise_for_status()
+        call_data    = resp.json().get("data", {})
+        call_ctrl_id = call_data.get("call_control_id", call_data.get("call_leg_id", ""))
 
         # Track this call for the dialer queue
-        _active_calls[call.sid] = {
+        _active_calls[call_ctrl_id] = {
             "status": "initiated",
             "duration": 0,
             "contact_id": contact_id,
@@ -1924,7 +2006,7 @@ def dial_contact():
         # Persist to call_history DB
         save_call_to_history(
             location_id=location_id,
-            call_sid=call.sid,
+            call_sid=call_ctrl_id,
             phone=phone,
             contact_id=contact_id,
             contact_name=first_name,
@@ -1932,8 +2014,8 @@ def dial_contact():
             status='initiated'
         )
 
-        logger.info(f"📞 Dialer call: {twilio_number} -> {phone} ({first_name}) SID={call.sid}")
-        return jsonify({"status": "calling", "call_sid": call.sid})
+        logger.info(f"📞 Dialer call: {telnyx_number} -> {phone} ({first_name}) ctrl_id={call_ctrl_id}")
+        return jsonify({"status": "calling", "call_sid": call_ctrl_id})
 
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
