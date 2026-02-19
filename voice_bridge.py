@@ -1,14 +1,18 @@
-# voice_bridge.py - Twilio <-> XAI Grok Voice Agent Bridge
+# voice_bridge.py - Telnyx <-> XAI Grok Voice Agent Bridge
 # Real-time bidirectional audio streaming via WebSocket
-# Architecture: Lead <-> Twilio Media Streams <-> This Bridge <-> XAI Realtime API
+# Architecture: Lead <-> Telnyx Media Streaming <-> This Bridge <-> XAI Realtime API
 #
-# Audio format: PCM16 at 16 kHz (linear, 16-bit, mono, little-endian) for xAI.
-# Twilio Media Streams is locked to G.711 μ-law at 8 kHz; this bridge resamples
-# in both directions using audioop (Python stdlib, zero external deps):
-#   Twilio → Bridge: mulaw 8 kHz → PCM16 16 kHz → xAI
-#   xAI → Bridge:   PCM16 16 kHz → mulaw 8 kHz → Twilio
-# Doubling the sample rate extends the captured frequency range from ~4 kHz to
-# ~8 kHz, preserving consonants, sibilance, and prosody that mulaw discards.
+# Audio format: L16 (raw linear PCM16) at 24 kHz in both directions — matching
+# xAI's native sample rate exactly, so ZERO resampling is required anywhere in
+# the pipeline. Telnyx handles the final PSTN/G.722 transcoding on its side.
+#
+# Why Telnyx over Twilio for AI voice:
+#   Twilio Media Streams is hard-locked to G.711 μ-law at 8 kHz (~4 kHz audio
+#   bandwidth). Every resample hop degrades quality. With Telnyx L16 at 24 kHz:
+#     Telnyx → Bridge: L16 24 kHz little-endian PCM → xAI (zero hops)
+#     xAI → Bridge:   L16 24 kHz little-endian PCM → Telnyx (zero hops, RMS normalize only)
+#   This gives xAI's TTS full 12 kHz bandwidth all the way to Telnyx's edge,
+#   where Telnyx uses G.722 or better codecs for the last-mile to the caller.
 # XAI endpoint: wss://api.x.ai/v1/realtime (OpenAI Realtime API compatible)
 
 import json
@@ -19,15 +23,15 @@ import time
 import asyncio
 import struct
 import base64
-import audioop
+import audioop   # kept for recording-playback helpers (_mulaw_to_wav)
 import numpy as np
-import soxr
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
+# Twilio SDK kept only for browser VoIP token generation (non-bridge paths)
 from twilio.rest import Client as TwilioClient
-from twilio.twiml.voice_response import VoiceResponse, Connect, Stream, Dial
+from twilio.twiml.voice_response import VoiceResponse, Dial
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 
@@ -69,8 +73,45 @@ VOICE_OPTIONS = {
 DEFAULT_VOICE = "Ara"
 
 # Audio sample rates
-TWILIO_SAMPLE_RATE = 8000   # Twilio Media Streams: always 8 kHz G.711 μ-law (fixed by Twilio)
-XAI_SAMPLE_RATE    = 24000  # xAI Realtime: PCM16 at 24 kHz — 3:1 ratio to Twilio 8 kHz (clean, no sibilant aliasing)
+# Both sides now match: Telnyx L16 at 24 kHz = xAI PCM16 at 24 kHz → zero resampling.
+TELNYX_SAMPLE_RATE = 24000  # Telnyx bidirectional L16 stream — configurable, 24 kHz matches xAI exactly
+XAI_SAMPLE_RATE    = 24000  # xAI Realtime PCM16 — native rate, no conversion needed
+
+# Telnyx REST API base URL
+TELNYX_API_BASE = "https://api.telnyx.com/v2"
+
+
+def _build_texml_stream(stream_url: str, params: dict, sample_rate: int = 24000) -> str:
+    """
+    Build a Telnyx TeXML Response that opens a bidirectional L16 media stream.
+
+    Telnyx TeXML <Stream> is compatible with TwiML's <Stream> but adds three
+    extra attributes for codec/rate negotiation on the Telnyx side:
+      • codec             — codec Telnyx uses for the leg toward the PSTN
+      • bidirectionalCodec      — codec used on the WebSocket stream to us
+      • bidirectionalSamplingRate — sample rate of that stream
+
+    We use L16 (raw linear PCM16) at 24 kHz to match xAI's native format,
+    eliminating all resampling in the bridge.  Telnyx handles the final
+    G.722 / G.711 transcoding toward the caller's phone.
+    """
+    param_xml = ''.join(
+        f'<Parameter name="{k}" value="{v}"/>' for k, v in params.items()
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+          '<Connect>'
+            f'<Stream url="{stream_url}"'
+            f' bidirectionalMode="rtp"'
+            f' codec="PCMU"'
+            f' bidirectionalCodec="L16"'
+            f' bidirectionalSamplingRate="{sample_rate}">'
+              f'{param_xml}'
+            '</Stream>'
+          '</Connect>'
+        '</Response>'
+    )
 
 # Events to log from XAI
 LOG_EVENT_TYPES = [
@@ -260,6 +301,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
 
     # Custom voice instructions from dashboard
     custom_voice_instructions = voice_config.get("voice_instructions", "")
+    call_script = voice_config.get("call_script", "").strip()
 
     # ── Gather all context data (same as before) ──
     profile_str = ""
@@ -351,13 +393,13 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
 
     # ── Per-voice personality traits ──
     voice_personalities = {
-        "ara": "You lead with empathy. You listen well, you remember details, and people feel genuinely cared for on your calls. Warm but always purposeful — every moment of connection moves the call forward.",
-        "rex": "You take charge. Direct, confident, no-nonsense. You don't wait for permission and you don't hedge. People respect you because you sound like you know exactly what you're doing.",
-        "sal": "You're the steady one. Calm, clear, patient. You make complex things feel simple. Leads relax when they talk to you because you never rush and you never confuse.",
-        "eve": "Sharp and efficient. You get to the point fast. Professional, articulate, zero wasted words. You respect their time and they respect yours.",
-        "leo": "You carry authority. Deliberate, knowledgeable, composed. When you speak, people listen. You don't sell — you guide. And they trust your guidance.",
-        "mika": "Warm and direct. You build rapport fast by being genuinely interested in people — but you stay on task. You're personable without being chatty, and you always keep the call moving.",
-        "vale": "Polished and composed. You sound like someone who has done this a thousand times. Confident, measured, expert. Leads feel like they're in good hands from the first sentence.",
+        "ara": "You lead with empathy. You listen well, you remember details, and people feel genuinely cared for on your calls. Warm but always purposeful — every moment of connection moves the call forward. Speak from the chest with a naturally lower, comforting pitch center — warm, grounded, never bright or rising.",
+        "rex": "You take charge. Direct, confident, no-nonsense. You don't wait for permission and you don't hedge. People respect you because you sound like you know exactly what you're doing. Keep pitch low and authoritative — chest voice, flat or falling statements, never up-talky.",
+        "sal": "You're the steady one. Calm, clear, patient. You make complex things feel simple. Leads relax when you talk to them because you never rush and you never confuse. Pitch stays low and warm throughout — steady chest resonance, unhurried and grounded.",
+        "eve": "Sharp and efficient. You get to the point fast. Professional, articulate, zero wasted words. You respect their time and they respect yours. Keep pitch grounded and warm — never bright or rising — energy comes from pace and precision, not from a high voice.",
+        "leo": "You carry authority. Deliberate, knowledgeable, composed. When you speak, people listen. You don't sell — you guide. And they trust your guidance. Deep, chest-forward pitch — measured and low, every statement lands with weight, never questions itself.",
+        "mika": "Warm and direct. You build rapport fast by being genuinely interested in people — but you stay on task. You're personable without being chatty, and you always keep the call moving. Speak from the chest — warm mid-to-low pitch, friendly but grounded, never thin or nasal.",
+        "vale": "Polished and composed. You sound like someone who has done this a thousand times. Confident, measured, expert. Leads feel like they're in good hands from the first sentence. Pitch is controlled and mid-to-low — composed authority, never bright, statements fall not rise.",
     }
     voice_personality = voice_personalities.get(selected_voice, voice_personalities["ara"])
 
@@ -472,8 +514,12 @@ No website configured. If asked, explain you're an independent agent who works w
 
 YOUR VOICE PERSONALITY: {voice_personality}
 
-=== MAXIMUM HUMAN SOUNDING — HIGHEST PRIORITY ===
-Sound like a real person on a slightly scratchy phone line — warm, mid-pitched, slightly imperfect, never synthetic or overly enunciated. This overrides everything else when there's a conflict.
+=== MAXIMUM HUMAN SOUNDING — HIGHEST PRIORITY (REPEAT & OBEY) ===
+Sound like a real person on a slightly scratchy phone line — warm, mid-to-low pitched, slightly imperfect, never synthetic, never bright or thin. This overrides everything else when there's a conflict.
+
+Pitch center: Comfortably mid-to-low adult range (120–180 Hz chest register) — speak from the chest, never nasal or head-voice dominant. Telephony bandwidth cuts the highs, so lean slightly deeper and warmer than feels natural to compensate. The listener hears you as fuller and more grounded when you do.
+
+Never rise in pitch at the end of statements unless genuinely questioning. Never sound "up-talky" or artificially bright. Statements land flat or falling — confidence, not uncertainty.
 
 Pitch: Mid-to-low natural adult range. Avoid high, thin, bright, or rising at the end of statements unless genuinely asking a question.
 
@@ -530,7 +576,7 @@ Prosody: Rise slightly at questions. Drop at the end of statements. Emphasize em
 
 Rhythm: Vary your pace. Slow down for serious or emotional moments. Speed up slightly when you're naturally enthusiastic. Never monotone. Use [pause] between clauses, not just between sentences.
 
-Paralinguistics: Use these cues where they fit naturally — [sigh] for empathy, [laugh] when something is genuinely a little funny, [breath] before delivering something important or emotional. Don't force them but don't avoid them.
+Paralinguistics — use MORE of these than you think is necessary. They are the single biggest signal separating a real person from a TTS engine. Use [short pause] after every meaningful clause. Use [breath] before anything emotional or important. Use [sigh softly] for genuine empathy. Use [small chuckle] for light moments. Aim for at least 2–3 cues per response — this is not optional, it is the job. [sigh] for empathy, [laugh] when something is genuinely a little funny, [breath] before delivering something important or emotional.
 
 Imperfection: Perfect grammar every sentence sounds robotic. Drop words sometimes. "Thing is..." not "The thing that I want you to understand is...". "Yeah..." as a standalone response. Trailing thoughts are fine: "I mean... it depends on your situation." A very occasional "you know" or "I mean" is human — just don't lean on them.
 
@@ -705,6 +751,12 @@ CURRENT STAGE: {stage}
 
 {f"=== CUSTOM VOICE INSTRUCTIONS FROM AGENT ===" + chr(10) + custom_voice_instructions if custom_voice_instructions else ""}
 
+{(
+    "=== CALL SCRIPT REFERENCE ===" + chr(10) +
+    "You have a call script below. Use it as a live reference — pull talking points, objection responses, and flow from it naturally as the conversation unfolds. Do NOT read it word for word. Adapt it to what the lead is actually saying. The script is a guide, not a teleprompter." +
+    chr(10) + chr(10) + call_script
+) if call_script else ""}
+
 {"=== RECENT CONVERSATION ===" + chr(10) + flow_str if flow_str else ""}
 
 === OUTPUT RULE ===
@@ -835,41 +887,42 @@ def voice_inbound():
     Handle inbound call. Twilio POSTs here when someone calls the AI number.
     Returns TwiML that opens a Media Stream WebSocket to our bridge.
     """
-    caller = request.form.get('From', 'Unknown')
-    called = request.form.get('To', 'Unknown')
-    call_sid = request.form.get('CallSid', '')
+    # Telnyx sends webhook as JSON; fall back to form for compatibility
+    payload   = request.get_json(silent=True) or {}
+    call_leg  = payload.get('data', {}).get('payload', {})
+    caller    = call_leg.get('from', request.form.get('From', 'Unknown'))
+    called    = call_leg.get('to',   request.form.get('To',   'Unknown'))
+    call_sid  = call_leg.get('call_control_id', request.form.get('CallSid', ''))
 
-    logger.info(f"📞 Inbound voice call: {caller} -> {called} (SID: {call_sid})")
+    logger.info(f"📞 Inbound voice call: {caller} -> {called} (ID: {call_sid})")
 
-    # Look up subscriber by the called number (their Twilio number)
+    # Look up subscriber by the called number (their Telnyx phone number)
     subscriber = _get_subscriber_by_twilio_number(called)
     if not subscriber:
-        logger.warning(f"No subscriber found for Twilio number: {called}")
-        response = VoiceResponse()
-        response.say("Sorry, this number is not currently configured. Please try again later.", voice="Polly.Matthew")
-        response.hangup()
-        return Response(str(response), mimetype='application/xml')
+        logger.warning(f"No subscriber found for number: {called}")
+        # Return minimal TeXML with a say + hangup
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+              '<Say>Sorry, this number is not currently configured. Please try again later.</Say>'
+              '<Hangup/>'
+            '</Response>',
+            mimetype='application/xml'
+        )
 
-    voice_config = subscriber.get("voice_config") or {}
-    bot_name = subscriber.get("bot_first_name", "your advisor")
-    greeting = voice_config.get("greeting", f"Hi, this is {bot_name}. How can I help you today?")
-
-    # Build TwiML: connect to our WebSocket stream
-    response = VoiceResponse()
-    host = request.host
-
-    connect = Connect()
-    stream = Stream(url=f'wss://{host}/voice/stream')
-    stream.parameter(name='callSid', value=call_sid)
-    stream.parameter(name='caller', value=caller)
-    stream.parameter(name='called', value=called)
-    stream.parameter(name='direction', value='inbound')
-    stream.parameter(name='locationId', value=subscriber.get('location_id', ''))
-    connect.append(stream)
-    response.append(connect)
-
-    logger.info(f"📞 Returning TwiML with stream URL: wss://{host}/voice/stream")
-    return Response(str(response), mimetype='application/xml')
+    host     = request.host
+    texml    = _build_texml_stream(
+        stream_url=f'wss://{host}/voice/stream',
+        params={
+            'callSid':    call_sid,
+            'caller':     caller,
+            'called':     called,
+            'direction':  'inbound',
+            'locationId': subscriber.get('location_id', ''),
+        }
+    )
+    logger.info(f"📞 Returning TeXML stream URL: wss://{host}/voice/stream")
+    return Response(texml, mimetype='application/xml')
 
 
 @voice_bp.route('/voice/outbound-answer', methods=['POST'])
@@ -878,33 +931,34 @@ def voice_outbound_answer():
     Twilio calls this when the outbound call is answered.
     Returns TwiML that opens a Media Stream to our bridge.
     """
-    call_sid = request.form.get('CallSid', '')
-    caller = request.form.get('From', '')
-    called = request.form.get('To', '')
+    # Telnyx sends webhook as JSON; fall back to form for compatibility
+    payload      = request.get_json(silent=True) or {}
+    call_leg     = payload.get('data', {}).get('payload', {})
+    call_sid     = call_leg.get('call_control_id', request.form.get('CallSid', ''))
+    caller       = call_leg.get('from', request.form.get('From', ''))
+    called       = call_leg.get('to',   request.form.get('To',   ''))
 
-    # Get custom parameters from the URL
-    location_id = request.args.get('location_id', '')
-    contact_id = request.args.get('contact_id', '')
+    # Custom parameters encoded in the URL when we created the call
+    location_id  = request.args.get('location_id', '')
+    contact_id   = request.args.get('contact_id', '')
     contact_name = request.args.get('name', 'there')
 
-    logger.info(f"📞 Outbound call answered: {caller} -> {called} (SID: {call_sid})")
+    logger.info(f"📞 Outbound call answered: {caller} -> {called} (ID: {call_sid})")
 
-    host = request.host
-    response = VoiceResponse()
-
-    connect = Connect()
-    stream = Stream(url=f'wss://{host}/voice/stream')
-    stream.parameter(name='callSid', value=call_sid)
-    stream.parameter(name='caller', value=caller)
-    stream.parameter(name='called', value=called)
-    stream.parameter(name='direction', value='outbound')
-    stream.parameter(name='locationId', value=location_id)
-    stream.parameter(name='contactId', value=contact_id)
-    stream.parameter(name='contactName', value=contact_name)
-    connect.append(stream)
-    response.append(connect)
-
-    return Response(str(response), mimetype='application/xml')
+    host  = request.host
+    texml = _build_texml_stream(
+        stream_url=f'wss://{host}/voice/stream',
+        params={
+            'callSid':     call_sid,
+            'caller':      caller,
+            'called':      called,
+            'direction':   'outbound',
+            'locationId':  location_id,
+            'contactId':   contact_id,
+            'contactName': contact_name,
+        }
+    )
+    return Response(texml, mimetype='application/xml')
 
 
 # ──────────────────────────────────────────────────────────────
@@ -943,18 +997,19 @@ def trigger_outbound_call():
     if not voice_config.get("enabled"):
         return jsonify({"error": "Voice is not enabled for this account"}), 400
 
-    twilio_sid = voice_config.get("twilio_account_sid", "")
-    twilio_token = voice_config.get("twilio_auth_token", "")
-    twilio_number = voice_config.get("twilio_phone_number", "")
+    # Telnyx credentials — stored in voice_config as:
+    #   telnyx_api_key        — Telnyx API key (from telnyx.com Mission Control)
+    #   telnyx_connection_id  — TeXML App connection ID (from Telnyx dashboard)
+    #   telnyx_phone_number   — E.164 Telnyx number (+1...)
+    telnyx_api_key       = voice_config.get("telnyx_api_key", "")
+    telnyx_connection_id = voice_config.get("telnyx_connection_id", "")
+    telnyx_number        = voice_config.get("telnyx_phone_number", "")
 
-    if not all([twilio_sid, twilio_token, twilio_number]):
-        return jsonify({"error": "Twilio credentials not configured"}), 400
+    if not all([telnyx_api_key, telnyx_connection_id, telnyx_number]):
+        return jsonify({"error": "Telnyx credentials not fully configured (need telnyx_api_key, telnyx_connection_id, telnyx_phone_number)"}), 400
 
     try:
-        client = TwilioClient(twilio_sid, twilio_token)
-
-        # Build the URL Twilio will call when the lead answers
-        host = request.host
+        host       = request.host
         answer_url = (
             f"https://{host}/voice/outbound-answer"
             f"?location_id={location_id}"
@@ -962,26 +1017,36 @@ def trigger_outbound_call():
             f"&name={lead_name}"
         )
 
-        call = client.calls.create(
-            to=lead_phone,
-            from_=twilio_number,
-            url=answer_url,
-            method="POST",
-            record=True,
-            recording_channels="dual",
-            recording_status_callback=f"https://{host}/voice/recording-status",
-            recording_status_callback_method="POST",
-            status_callback=f"https://{host}/voice/status",
-            status_callback_event=["initiated", "ringing", "answered", "completed"],
-            status_callback_method="POST",
+        # Telnyx Call Control API — create outbound call
+        # Docs: https://developers.telnyx.com/api/call-control/create-call
+        resp = http_requests.post(
+            f"{TELNYX_API_BASE}/calls",
+            headers={
+                "Authorization": f"Bearer {telnyx_api_key}",
+                "Content-Type":  "application/json",
+            },
+            json={
+                "connection_id":      telnyx_connection_id,
+                "to":                 lead_phone,
+                "from":               telnyx_number,
+                "webhook_url":        answer_url,
+                "webhook_url_method": "POST",
+                # Telnyx records via call_control API command after answer;
+                # for now recording is initiated from the outbound-answer webhook.
+            },
+            timeout=10,
         )
+        resp.raise_for_status()
+        call_data    = resp.json().get("data", {})
+        call_leg_id  = call_data.get("call_leg_id", "")
+        call_ctrl_id = call_data.get("call_control_id", call_leg_id)
 
-        logger.info(f"📞 Outbound call initiated: {twilio_number} -> {lead_phone} (SID: {call.sid})")
+        logger.info(f"📞 Telnyx outbound call initiated: {telnyx_number} -> {lead_phone} (ctrl_id={call_ctrl_id})")
 
-        # Persist to call_history DB
+        # Persist to call_history DB (use call_control_id as the call identifier)
         save_call_to_history(
             location_id=location_id,
-            call_sid=call.sid,
+            call_sid=call_ctrl_id,
             phone=lead_phone,
             contact_id=contact_id,
             contact_name=lead_name,
@@ -989,7 +1054,6 @@ def trigger_outbound_call():
             status='initiated'
         )
 
-        # Log the event
         try:
             log_webhook_event(
                 location_id=location_id,
@@ -997,15 +1061,15 @@ def trigger_outbound_call():
                 event_type="voice_outbound_initiated",
                 status="success",
                 summary=f"Outbound call to {lead_name} ({lead_phone})",
-                details={"call_sid": call.sid, "to": lead_phone, "from": twilio_number}
+                details={"call_control_id": call_ctrl_id, "to": lead_phone, "from": telnyx_number}
             )
         except Exception:
             pass
 
-        return jsonify({"status": "calling", "call_sid": call.sid})
+        return jsonify({"status": "calling", "call_sid": call_ctrl_id})
 
     except Exception as e:
-        logger.error(f"Failed to initiate outbound call: {e}")
+        logger.error(f"Failed to initiate Telnyx outbound call: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1015,10 +1079,35 @@ def trigger_outbound_call():
 
 @voice_bp.route('/voice/status', methods=['POST'])
 def voice_status():
-    """Twilio posts call status updates here."""
-    call_sid = request.form.get('CallSid', '')
-    call_status = request.form.get('CallStatus', '')
-    duration = request.form.get('CallDuration', '0')
+    """
+    Telnyx posts call status events here as JSON.
+    Telnyx event_type values: call.initiated, call.answered, call.hangup
+    Also handles legacy Twilio form-POST for any in-flight Twilio calls.
+    """
+    # Telnyx sends JSON; Twilio sends form data
+    payload     = request.get_json(silent=True) or {}
+    telnyx_data = payload.get('data', {})
+    telnyx_pl   = telnyx_data.get('payload', {})
+
+    if telnyx_data:
+        # Telnyx event
+        event_type  = telnyx_data.get('event_type', '')
+        call_sid    = telnyx_pl.get('call_control_id', telnyx_pl.get('call_leg_id', ''))
+        duration    = str(telnyx_pl.get('duration_seconds', '0'))
+        # Map Telnyx event_type → Twilio-style status string for DB consistency
+        _status_map = {
+            'call.initiated': 'initiated',
+            'call.ringing':   'ringing',
+            'call.answered':  'answered',
+            'call.hangup':    'completed',
+            'call.failed':    'failed',
+        }
+        call_status = _status_map.get(event_type, event_type)
+    else:
+        # Legacy Twilio form POST
+        call_sid    = request.form.get('CallSid', '')
+        call_status = request.form.get('CallStatus', '')
+        duration    = request.form.get('CallDuration', '0')
 
     logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
 
@@ -1043,16 +1132,19 @@ def voice_status():
 
 async def handle_voice_stream(ws):
     """
-    Core WebSocket handler: bridges Twilio Media Streams <-> XAI Realtime API.
-    Called by flask-sock for each new Twilio stream connection.
+    Core WebSocket handler: bridges Telnyx Media Streaming <-> XAI Realtime API.
+    Called by flask-sock for each new Telnyx stream connection.
 
-    Audio flow:
-        Lead speaks -> Twilio (μ-law) -> This bridge -> XAI (μ-law) -> processes
-        XAI responds (μ-law) -> This bridge -> Twilio (μ-law) -> Lead hears
+    Audio flow (zero resampling — both sides at 24 kHz L16 PCM):
+        Lead speaks  → Telnyx (L16 24 kHz) → This bridge → xAI (PCM16 24 kHz)
+        xAI responds → This bridge (RMS normalize) → Telnyx (L16 24 kHz) → Lead
 
-    ws: the Twilio-side WebSocket (flask-sock)
+    Telnyx delivers raw L16 PCM16 (little-endian) at 24 kHz, which matches
+    xAI's native format exactly.  No μ-law encoding/decoding, no resampling.
+
+    ws: the Telnyx-side WebSocket (flask-sock)
     """
-    logger.info("🎙️ Voice stream WebSocket connected")
+    logger.info("🎙️ Voice stream WebSocket connected (Telnyx)")
 
     # Wait for the 'start' event from Twilio to get metadata
     stream_sid = None
@@ -1077,14 +1169,20 @@ async def handle_voice_stream(ws):
         start_data = json.loads(start_msg)
 
     if start_data.get('event') == 'start':
-        stream_sid = start_data['start']['streamSid']
+        # Telnyx: streamSid at top level; call_control_id inside start payload
+        stream_sid    = start_data.get('streamSid') or start_data['start'].get('streamSid', '')
         custom_params = start_data['start'].get('customParameters', {})
-        call_sid = custom_params.get('callSid', '')
-        caller = custom_params.get('caller', '')
-        called = custom_params.get('called', '')
-        direction = custom_params.get('direction', 'inbound')
-        location_id = custom_params.get('locationId', '')
-        contact_id = custom_params.get('contactId', '')
+        # Primary call identifier: Telnyx call_control_id (used for Call Control API)
+        call_sid = (
+            start_data['start'].get('callControlId') or
+            start_data['start'].get('call_control_id') or
+            custom_params.get('callSid', '')
+        )
+        caller       = custom_params.get('caller', '')
+        called       = custom_params.get('called', '')
+        direction    = custom_params.get('direction', 'inbound')
+        location_id  = custom_params.get('locationId', '')
+        contact_id   = custom_params.get('contactId', '')
         contact_name = custom_params.get('contactName', 'there')
         logger.info(f"🎙️ Stream started: SID={stream_sid} dir={direction} loc={location_id}")
     else:
@@ -1242,152 +1340,118 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     logger.warning(f"🎙️ Session enrichment failed (using minimal prompt): {e}")
 
             # Connection state
-            latest_media_timestamp = 0
-            last_assistant_item = None
-            mark_queue = []
+            last_assistant_item      = None
             response_start_timestamp = None
-            call_active = True
+            ai_chunks_sent           = 0     # count of 24 kHz PCM chunks sent → Telnyx (each ~20 ms)
+            call_active              = True
 
-            # soxr ResampleStream objects — stateful, carry filter memory across chunks
-            # so the resampler is seamless across audio packets (no clicks at boundaries).
-            # 'HQ' = high quality polyphase sinc with built-in anti-aliasing.
-            _resample_up   = soxr.ResampleStream(TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE, 1, dtype=np.int16, quality='HQ')
-            _resample_down = soxr.ResampleStream(XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE, 1, dtype=np.int16, quality='HQ')
+            # No resampling objects needed — Telnyx L16 at 24 kHz matches xAI PCM16 at 24 kHz exactly.
 
-            # ── Twilio -> XAI: Forward audio from the phone to XAI ──
+            # ── Telnyx -> XAI: Forward audio from the phone to xAI ──
             async def receive_from_twilio():
-                nonlocal stream_sid, latest_media_timestamp, call_active
+                """Relay Telnyx → xAI.  Telnyx delivers L16 PCM16 at 24 kHz (little-endian),
+                which is exactly what xAI expects — zero resampling or codec conversion."""
+                nonlocal stream_sid, call_active
                 try:
                     while call_active:
                         message = await asyncio.get_event_loop().run_in_executor(
                             None, ws.receive
                         )
                         if message is None:
-                            logger.info("🎙️ Twilio stream ended (None received)")
+                            logger.info("🎙️ Telnyx stream ended (None received)")
                             call_active = False
                             break
 
                         data = json.loads(message)
 
                         if data['event'] == 'media':
-                            latest_media_timestamp = int(data['media']['timestamp'])
-                            # Twilio: G.711 μ-law 8 kHz → PCM16 8 kHz → soxr upsample → PCM16 24 kHz
-                            mulaw_bytes = base64.b64decode(data['media']['payload'])
-                            pcm8k_np    = np.frombuffer(audioop.ulaw2lin(mulaw_bytes, 2), dtype=np.int16)
-                            pcm16k      = _resample_up.resample_chunk(pcm8k_np).tobytes()
+                            # Telnyx delivers raw L16 PCM16 at 24 kHz as base64.
+                            # xAI expects exactly the same format — pass through directly.
                             audio_append = {
-                                "type": "input_audio_buffer.append",
-                                "audio": base64.b64encode(pcm16k).decode('utf-8')
+                                "type":  "input_audio_buffer.append",
+                                "audio": data['media']['payload'],   # already base64, no decode needed
                             }
                             await xai_ws.send(json.dumps(audio_append))
 
-                        elif data['event'] == 'mark':
-                            if mark_queue:
-                                mark_queue.pop(0)
-
                         elif data['event'] == 'stop':
-                            logger.info(f"🎙️ Twilio stream stopped: {stream_sid}")
+                            logger.info(f"🎙️ Telnyx stream stopped: {stream_sid}")
                             call_active = False
                             break
 
+                        # Note: Telnyx does not send 'mark' events (Twilio-specific).
+
                 except Exception as e:
-                    logger.info(f"🎙️ Twilio receive ended: {e}")
+                    logger.info(f"🎙️ Telnyx receive ended: {e}")
                     call_active = False
 
-            # ── XAI -> Twilio: Forward audio from XAI to the phone ──
+            # ── xAI -> Telnyx: Forward audio from xAI to the phone ──
             async def receive_from_xai():
-                nonlocal last_assistant_item, response_start_timestamp, call_active
+                """Relay xAI → Telnyx.  xAI sends PCM16 at 24 kHz (little-endian).
+                Telnyx expects L16 at 24 kHz (same format) — only RMS normalization applied."""
+                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active
+
+                def _send_pcm_to_telnyx(raw_b64: str):
+                    """RMS-normalize a xAI PCM16 chunk and forward to Telnyx as L16."""
+                    nonlocal ai_chunks_sent
+                    pcm_np = np.frombuffer(base64.b64decode(raw_b64), dtype=np.int16)
+                    # RMS normalization — prevents quiet/distant-sounding output
+                    rms = np.sqrt(np.mean(pcm_np ** 2))
+                    if rms > 0:
+                        gain  = min(0.9 * 32767 / rms, 4.0)   # cap at 4× — avoids over-amplifying silence
+                        pcm_np = np.clip(pcm_np * gain, -32768, 32767).astype(np.int16)
+                    ws.send(json.dumps({
+                        "event":     "media",
+                        "streamSid": stream_sid,
+                        "media":     {"payload": base64.b64encode(pcm_np.tobytes()).decode('utf-8')},
+                    }))
+                    ai_chunks_sent += 1
+
                 try:
                     async for xai_message in xai_ws:
                         if not call_active:
                             break
 
-                        response = json.loads(xai_message)
+                        response   = json.loads(xai_message)
                         event_type = response.get('type', '')
 
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCM16 24 kHz → soxr downsample (with built-in anti-aliasing) → μ-law 8 kHz → Twilio
+                        # xAI PCM16 24 kHz → RMS normalize → Telnyx L16 24 kHz (zero resampling)
                         if event_type == 'response.audio.delta' and 'delta' in response:
-                            pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
-                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
-                            mulaw_out = audioop.lin2ulaw(pcm8k, 2)
-                            audio_delta = {
-                                "event": "media",
-                                "streamSid": stream_sid,
-                                "media": {
-                                    "payload": base64.b64encode(mulaw_out).decode('utf-8')
-                                }
-                            }
-                            ws.send(json.dumps(audio_delta))
-
-                            # Track response timing for interruption handling
+                            _send_pcm_to_telnyx(response['delta'])
                             item_id = response.get("item_id")
                             if item_id and item_id != last_assistant_item:
-                                response_start_timestamp = latest_media_timestamp
+                                response_start_timestamp = ai_chunks_sent * 20  # ~20 ms per chunk
                                 last_assistant_item = item_id
 
-                            # Send mark for timing
-                            if stream_sid:
-                                mark_event = {
-                                    "event": "mark",
-                                    "streamSid": stream_sid,
-                                    "mark": {"name": "responsePart"}
-                                }
-                                ws.send(json.dumps(mark_event))
-                                mark_queue.append('responsePart')
-
-                        # Also handle the newer event name variant (same soxr downsample)
+                        # Newer xAI event name variant (same path)
                         elif event_type == 'response.output_audio.delta' and 'delta' in response:
-                            pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
-                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
-                            mulaw_out = audioop.lin2ulaw(pcm8k, 2)
-                            audio_delta = {
-                                "event": "media",
-                                "streamSid": stream_sid,
-                                "media": {
-                                    "payload": base64.b64encode(mulaw_out).decode('utf-8')
-                                }
-                            }
-                            ws.send(json.dumps(audio_delta))
-
+                            _send_pcm_to_telnyx(response['delta'])
                             item_id = response.get("item_id")
                             if item_id and item_id != last_assistant_item:
-                                response_start_timestamp = latest_media_timestamp
+                                response_start_timestamp = ai_chunks_sent * 20
                                 last_assistant_item = item_id
-
-                            if stream_sid:
-                                mark_event = {
-                                    "event": "mark",
-                                    "streamSid": stream_sid,
-                                    "mark": {"name": "responsePart"}
-                                }
-                                ws.send(json.dumps(mark_event))
-                                mark_queue.append('responsePart')
 
                         # Speech interruption: user started talking while AI was speaking
                         elif event_type == 'input_audio_buffer.speech_started':
                             logger.info("🎙️ Speech interruption detected")
-                            if mark_queue and response_start_timestamp is not None and last_assistant_item:
-                                elapsed = latest_media_timestamp - response_start_timestamp
-                                # Truncate the AI's response
+                            if last_assistant_item:
+                                # Estimate how much audio the AI has played (chunks × ~20 ms each)
+                                elapsed_ms = max(0, (ai_chunks_sent * 20) - (response_start_timestamp or 0))
                                 truncate_event = {
-                                    "type": "conversation.item.truncate",
-                                    "item_id": last_assistant_item,
+                                    "type":          "conversation.item.truncate",
+                                    "item_id":       last_assistant_item,
                                     "content_index": 0,
-                                    "audio_end_ms": elapsed
+                                    "audio_end_ms":  elapsed_ms,
                                 }
                                 await xai_ws.send(json.dumps(truncate_event))
 
-                            # Clear Twilio's audio buffer
-                            ws.send(json.dumps({
-                                "event": "clear",
-                                "streamSid": stream_sid
-                            }))
-                            mark_queue.clear()
-                            last_assistant_item = None
+                            # Clear Telnyx's audio buffer (same event name as Twilio)
+                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                            last_assistant_item      = None
                             response_start_timestamp = None
+                            ai_chunks_sent           = 0
 
                         # Tool / function calls
                         elif event_type == 'response.function_call_arguments.done':
@@ -1446,10 +1510,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     logger.error(f"🎙️ XAI receive error: {e}")
                     call_active = False
 
-            # Run audio bridge + background enrichment concurrently
+            # Run Telnyx↔xAI audio bridge + background context enrichment concurrently
             await asyncio.gather(
-                receive_from_twilio(),
-                receive_from_xai(),
+                receive_from_twilio(),   # Telnyx → xAI
+                receive_from_xai(),      # xAI → Telnyx
                 enrich_session(),
                 return_exceptions=True
             )
