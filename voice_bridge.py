@@ -2684,6 +2684,8 @@ def automate_telnyx_setup():
                 "outbound_voice_profile_id": ovp_id,
                 "first_command_timeout": True,
                 "first_command_timeout_secs": 30,
+                "webhook_timeout_secs": 10,
+                "anchor_site": "Latency",
             },
             step_name="Call Control Application",
         )
