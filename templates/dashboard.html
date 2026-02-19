@@ -2505,7 +2505,7 @@
                 html += d.xai ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Connected</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
                 html += '</div>';
                 html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Telnyx Connection:</strong> ';
-                html += d.twilio ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed — check API Key &amp; Connection ID</span>';
+                html += d.telnyx ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed — check Telnyx API Key</span>';
                 html += '</div>';
                 if (d.errors && d.errors.length > 0) {
                     html += '<div style="color:#ffa500; margin-top:8px; font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + d.errors.join('<br>') + '</div>';
@@ -3019,74 +3019,145 @@
             }
         }
 
-        async function setupVoIP() {
-            const btn = document.getElementById('voipSetupBtn');
+        // Set visual state on both VoIP setup buttons
+        // state: 'idle' (blue), 'loading' (spinner), 'connected' (green), 'error' (red)
+        function setVoipBtnState(state) {
+            const btn  = document.getElementById('voipSetupBtn');
             const btn2 = document.getElementById('voipSetupBtnAlt');
-            const loadingHtml = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...';
-            if (btn) { btn.innerHTML = loadingHtml; btn.disabled = true; }
-            if (btn2) { btn2.innerHTML = loadingHtml; btn2.disabled = true; }
+            const map = {
+                idle:      { bg: 'linear-gradient(135deg,#00d9ff,#0099cc)', icon: 'fa-headset',          label: 'Setup Browser VoIP', disabled: false },
+                loading:   { bg: 'linear-gradient(135deg,#ffa500,#cc8400)', icon: 'fa-spinner fa-spin',  label: 'Connecting…',        disabled: true  },
+                connected: { bg: 'linear-gradient(135deg,#00ff88,#00cc66)', icon: 'fa-circle-check',     label: 'VoIP Connected',     disabled: false },
+                error:     { bg: 'linear-gradient(135deg,#ef4444,#cc2222)', icon: 'fa-rotate-right',     label: 'Retry VoIP Setup',   disabled: false },
+            };
+            const s = map[state] || map.idle;
+            [btn, btn2].forEach(b => {
+                if (!b) return;
+                b.style.background = s.bg;
+                b.style.color = '#000';
+                b.innerHTML = `<i class="fa-solid ${s.icon} me-1"></i>${s.label}`;
+                b.disabled = s.disabled;
+            });
+            // Orange banner button keeps its own icon when loading
+            if (btn && state === 'loading') {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...';
+            }
+        }
+
+        async function setupVoIP() {
+            console.log('[VoIP] setupVoIP() called');
+            setVoipBtnState('loading');
             try {
+                console.log('[VoIP] POST /voice/setup-voip');
                 const r = await fetch('/voice/setup-voip', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
-                if (!r.ok) { alert(d.error || 'Setup failed'); return; }
+                console.log('[VoIP] setup-voip response:', r.status, d);
+                if (!r.ok) {
+                    setVoipBtnState('error');
+                    alert(d.error || 'Setup failed');
+                    return;
+                }
                 voipSetupDone = true;
                 document.getElementById('voipSetupBanner').style.display = 'none';
                 const statusEl = document.getElementById('voipSetupStatus');
                 if (statusEl) statusEl.textContent = 'Credential created — initializing...';
                 await initVoIPDevice();
-            } catch(e) { alert('Network error during VoIP setup'); }
-            finally {
-                if (btn) { btn.innerHTML = '<i class="fa-solid fa-gear me-1"></i>Setup VoIP'; btn.disabled = false; }
-                if (btn2) { btn2.innerHTML = '<i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP'; btn2.disabled = false; }
+            } catch(e) {
+                console.error('[VoIP] setupVoIP error:', e);
+                setVoipBtnState('error');
+                alert('Network error during VoIP setup: ' + e.message);
             }
         }
 
         async function initVoIPDevice() {
+            console.log('[VoIP] initVoIPDevice() called');
+            const _voipStatus = () => document.getElementById('voipSetupStatus');
             try {
+                // Step 1: Fetch token
+                console.log('[VoIP] Fetching token from /voice/token');
+                if (_voipStatus()) _voipStatus().textContent = 'Fetching Telnyx token…';
                 const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
+                console.log('[VoIP] token response:', r.status, d.token ? 'token OK (len=' + d.token.length + ')' : d);
                 if (!r.ok) {
-                    if (d.error && d.error.includes('not set up')) { document.getElementById('voipSetupBanner').style.display = 'block'; voipSetupDone = false; }
-                    const statusEl = document.getElementById('voipSetupStatus');
-                    if (statusEl) statusEl.textContent = d.error || 'Token error';
+                    if (d.error && d.error.includes('not set up')) {
+                        document.getElementById('voipSetupBanner').style.display = 'block';
+                        voipSetupDone = false;
+                    }
+                    if (_voipStatus()) _voipStatus().textContent = d.error || 'Token error';
+                    setVoipBtnState('error');
                     return;
                 }
-                // Load Telnyx WebRTC SDK if not already loaded
+
+                // Step 2: Request microphone permission BEFORE connecting SDK
+                console.log('[VoIP] Requesting microphone permission');
+                if (_voipStatus()) _voipStatus().textContent = 'Requesting microphone access…';
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    // Stop tracks immediately — SDK will open its own stream
+                    stream.getTracks().forEach(t => t.stop());
+                    console.log('[VoIP] Microphone permission granted');
+                } catch(micErr) {
+                    console.error('[VoIP] Microphone permission denied:', micErr);
+                    if (_voipStatus()) _voipStatus().textContent = 'Microphone access denied — please allow mic and retry';
+                    setVoipBtnState('error');
+                    return;
+                }
+
+                // Step 3: Load Telnyx WebRTC SDK if not already loaded
                 if (typeof TelnyxRTC === 'undefined') {
+                    console.log('[VoIP] Loading Telnyx WebRTC SDK…');
+                    if (_voipStatus()) _voipStatus().textContent = 'Loading Telnyx SDK…';
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://cdn.jsdelivr.net/npm/@telnyx/webrtc@latest/dist/telnyx-webrtc.min.js';
-                        s.onload = resolve; s.onerror = reject;
+                        s.src = 'https://cdn.jsdelivr.net/npm/@telnyx/webrtc@2/dist/telnyx-webrtc.min.js';
+                        s.onload = () => { console.log('[VoIP] SDK loaded'); resolve(); };
+                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Telnyx SDK')); };
                         document.head.appendChild(s);
                     });
+                } else {
+                    console.log('[VoIP] Telnyx SDK already loaded');
                 }
-                const _voipStatus = () => document.getElementById('voipSetupStatus');
+
+                // Step 4: Connect
+                console.log('[VoIP] Creating TelnyxRTC instance and connecting');
                 if (_voipStatus()) _voipStatus().textContent = 'Connecting to Telnyx…';
+                setVoipBtnState('loading');
 
                 voipDevice = new TelnyxRTC({ login_token: d.token });
 
-                // Timeout: if telnyx.ready hasn't fired in 12s, show what happened
+                // Timeout: if telnyx.ready hasn't fired in 15s, show diagnostic info
                 const _voipReadyTimer = setTimeout(() => {
-                    if (!voipReady && _voipStatus())
-                        _voipStatus().textContent = 'Timed out waiting for Telnyx — check browser console (F12) for errors';
-                }, 12000);
+                    if (!voipReady) {
+                        console.warn('[VoIP] telnyx.ready not fired after 15s — possible network or token issue');
+                        if (_voipStatus()) _voipStatus().textContent = 'Timed out — check browser console (F12) for errors';
+                        setVoipBtnState('error');
+                    }
+                }, 15000);
 
                 voipDevice.on('telnyx.ready', () => {
                     clearTimeout(_voipReadyTimer);
+                    console.log('[VoIP] telnyx.ready fired — WebRTC connected!');
                     voipReady = true; voipSetupDone = true;
                     document.getElementById('voipStatus').style.display = 'block';
                     document.getElementById('voipSetupBanner').style.display = 'none';
                     if (_voipStatus()) _voipStatus().textContent = 'VoIP ready ✓';
+                    setVoipBtnState('connected');
                 });
+
                 voipDevice.on('telnyx.error', (err) => {
                     clearTimeout(_voipReadyTimer);
-                    console.error('VoIP error:', err);
+                    console.error('[VoIP] telnyx.error event:', err);
                     voipReady = false;
                     document.getElementById('voipStatus').style.display = 'none';
                     const msg = err?.message || err?.error?.message || JSON.stringify(err);
+                    console.error('[VoIP] error message:', msg);
                     if (_voipStatus()) _voipStatus().textContent = 'VoIP error: ' + msg;
+                    setVoipBtnState('error');
                 });
+
                 voipDevice.on('telnyx.notification', (notification) => {
+                    console.log('[VoIP] notification:', notification.type, notification.call?.state);
                     if (notification.type === 'callUpdate') {
                         const call = notification.call;
                         if (call.state === 'active') {
@@ -3102,9 +3173,15 @@
                         }
                     }
                 });
-                // telnyx.error handled above (with status text + timeout clear)
+
+                console.log('[VoIP] Calling voipDevice.connect()');
                 voipDevice.connect();
-            } catch(e) { console.error('VoIP init error:', e); }
+
+            } catch(e) {
+                console.error('[VoIP] initVoIPDevice error:', e);
+                if (_voipStatus()) _voipStatus().textContent = 'Error: ' + e.message;
+                setVoipBtnState('error');
+            }
         }
 
         // Override startCall for dual mode
