@@ -2,17 +2,12 @@
 # Real-time bidirectional audio streaming via WebSocket
 # Architecture: Lead <-> Telnyx Media Streaming <-> This Bridge <-> XAI Realtime API
 #
-# Audio format: L16 (raw linear PCM16) at 24 kHz in both directions — matching
-# xAI's native sample rate exactly, so ZERO resampling is required anywhere in
-# the pipeline. Telnyx handles the final PSTN/G.722 transcoding on its side.
-#
-# Why Telnyx over Twilio for AI voice:
-#   Twilio Media Streams is hard-locked to G.711 μ-law at 8 kHz (~4 kHz audio
-#   bandwidth). Every resample hop degrades quality. With Telnyx L16 at 24 kHz:
-#     Telnyx → Bridge: L16 24 kHz little-endian PCM → xAI (zero hops)
-#     xAI → Bridge:   L16 24 kHz little-endian PCM → Telnyx (zero hops, RMS normalize only)
-#   This gives xAI's TTS full 12 kHz bandwidth all the way to Telnyx's edge,
-#   where Telnyx uses G.722 or better codecs for the last-mile to the caller.
+# Audio format: L16 (raw linear PCM16) at 16 kHz in both directions — ZERO resampling.
+# Telnyx is configured with stream_bidirectional_sampling_rate=16000.
+# xAI session is configured with rate=16000 for both input and output — xAI honours
+# this field and outputs at the requested rate.  Only a byte-order swap is needed:
+#   Telnyx → Bridge: L16 Big-Endian 16 kHz  →  swap to LE  →  xAI PCM16 LE 16 kHz
+#   xAI → Bridge:   PCM16 LE 16 kHz  →  RMS normalize  →  swap to BE  →  Telnyx L16 BE 16 kHz
 # XAI endpoint: wss://api.x.ai/v1/realtime (OpenAI Realtime API compatible)
 
 import json
@@ -68,10 +63,11 @@ VOICE_OPTIONS = {
 DEFAULT_VOICE = "Ara"
 
 # Audio sample rates
-# Both sides locked to 16 kHz: Telnyx L16 strictly requires 16 kHz, and xAI Realtime
-# natively downsamples to 16 kHz when configured — zero resampling hops in the bridge.
-TELNYX_SAMPLE_RATE = 16000  # L16 @ 16 kHz — only rate Telnyx supports for L16 codec
-XAI_SAMPLE_RATE    = 24000  # xAI natively outputs 24 kHz; we resample to/from Telnyx's 16 kHz
+# Both sides are locked to 16 kHz.  Telnyx L16 runs at 16 kHz (per streaming_start param).
+# xAI Realtime API honours the 'rate' field in the session config — we set both input and
+# output to 16 kHz so NO resampling is required anywhere in the bridge.
+TELNYX_SAMPLE_RATE = 16000  # L16 @ 16 kHz — explicit in streaming_start
+XAI_SAMPLE_RATE    = 16000  # xAI session configured to 16 kHz — matches Telnyx exactly
 
 # Telnyx REST API base URL
 TELNYX_API_BASE = "https://api.telnyx.com/v2"
@@ -129,8 +125,9 @@ def _build_texml_stream(stream_url: str, params: dict, sample_rate: int = TELNYX
       • bidirectionalCodec        — codec used on the WebSocket stream to us
       • bidirectionalSamplingRate — sample rate of that WebSocket stream
 
-    We use L16 at TELNYX_SAMPLE_RATE (16 kHz).  The bridge resamples to/from
-    xAI's native 24 kHz.  Telnyx handles G.711 transcoding toward the PSTN.
+    We use L16 at TELNYX_SAMPLE_RATE (16 kHz).  xAI is configured to match
+    (rate=16000) so no resampling is needed.  Telnyx handles G.711 transcoding
+    toward the PSTN caller.
     """
     param_xml = ''.join(
         f'<Parameter name="{k}" value="{v}"/>' for k, v in params.items()
@@ -1388,12 +1385,14 @@ async def handle_voice_stream(ws):
     Core WebSocket handler: bridges Telnyx Media Streaming <-> XAI Realtime API.
     Called by flask-sock for each new Telnyx stream connection.
 
-    Audio flow (with resampling — Telnyx 16 kHz ↔ xAI 24 kHz):
-        Lead speaks  → Telnyx (L16 BE 16 kHz) → swap+upsample → xAI (PCM16 LE 24 kHz)
-        xAI responds → bridge (downsample+RMS normalize) → Telnyx (L16 BE 16 kHz) → Lead
+    Audio flow — ZERO resampling, both sides at 16 kHz:
+        Lead speaks  → Telnyx (L16 BE 16 kHz) → byte-swap → xAI (PCM16 LE 16 kHz)
+        xAI responds → byte-swap + RMS normalize → Telnyx (L16 BE 16 kHz) → Lead
 
-    Telnyx strictly requires 16 kHz L16. xAI natively generates 24 kHz PCM.
-    audioop.ratecv handles the conversion; numpy handles byte-order and normalization.
+    Telnyx streams L16 at 16 kHz (stream_bidirectional_sampling_rate=16000).
+    xAI is configured with rate=16000 for both input and output, so it honours
+    that rate and no resampling is needed.  Only byte-order differs: Telnyx uses
+    Big-Endian (RFC 3551 network order); xAI uses Little-Endian.
 
     ws: the Telnyx-side WebSocket (flask-sock)
     """
@@ -1538,7 +1537,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     "output_modalities": ["audio"],
                     "audio": {
                         "input": {
-                            # audio/pcm at 48 kHz — upsampled from Twilio's 8 kHz mulaw
+                            # audio/pcm at 16 kHz — matches Telnyx L16, no resampling needed
                             "format": {"type": "audio/pcm", "rate": XAI_SAMPLE_RATE},
                             "turn_detection": {
                                 "type": "server_vad",
@@ -1548,7 +1547,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                             }
                         },
                         "output": {
-                            # audio/pcm at 48 kHz — downsampled to 8 kHz mulaw for Twilio
+                            # audio/pcm at 16 kHz — matches Telnyx L16, no resampling needed
                             "format": {"type": "audio/pcm", "rate": XAI_SAMPLE_RATE},
                             "voice": voice_name,
                         }
@@ -1607,18 +1606,15 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             # Connection state
             last_assistant_item      = None
             response_start_timestamp = None
-            ai_chunks_sent           = 0     # count of PCM chunks sent → Telnyx (each ~20 ms)
+            ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Telnyx
             call_active              = True
-
-            # audioop resampling state (must persist across chunks)
-            in_state  = None  # 16 kHz → 24 kHz (Telnyx → xAI)
-            out_state = None  # 24 kHz → 16 kHz (xAI → Telnyx)
 
             # ── Telnyx -> XAI: Forward audio from the phone to xAI ──
             async def receive_from_telnyx():
-                """Relay Telnyx → xAI.  Telnyx delivers L16 PCM16 at 16 kHz (Big-Endian per
-                RFC 3551). xAI expects Little-Endian at 24 kHz — byte-swap then upsample."""
-                nonlocal stream_sid, call_active, in_state
+                """Relay Telnyx → xAI.
+                Telnyx L16 is Big-Endian (RFC 3551); xAI PCM16 is Little-Endian.
+                Both sides are 16 kHz, so only a byte-swap is needed — no resampling."""
+                nonlocal stream_sid, call_active
                 try:
                     while call_active:
                         message = await asyncio.get_event_loop().run_in_executor(
@@ -1633,22 +1629,17 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                         if data['event'] == 'media':
                             raw_audio = base64.b64decode(data['media']['payload'])
-                            # 1. Swap Big-Endian → Little-Endian
+                            # Telnyx sends Big-Endian L16; xAI expects Little-Endian PCM16
                             le_bytes = np.frombuffer(raw_audio, dtype='>i2').astype('<i2').tobytes()
-                            # 2. Upsample 16 kHz → 24 kHz for xAI
-                            upsampled, in_state = audioop.ratecv(le_bytes, 2, 1, 16000, 24000, in_state)
-                            audio_append = {
+                            await xai_ws.send(json.dumps({
                                 "type":  "input_audio_buffer.append",
-                                "audio": base64.b64encode(upsampled).decode('utf-8'),
-                            }
-                            await xai_ws.send(json.dumps(audio_append))
+                                "audio": base64.b64encode(le_bytes).decode('utf-8'),
+                            }))
 
                         elif data['event'] == 'stop':
                             logger.info(f"🎙️ Telnyx stream stopped: {stream_sid}")
                             call_active = False
                             break
-
-                        # Note: Telnyx does not send 'mark' events (Twilio-specific).
 
                 except Exception as e:
                     logger.info(f"🎙️ Telnyx receive ended: {e}")
@@ -1656,27 +1647,25 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
             # ── xAI -> Telnyx: Forward audio from xAI to the phone ──
             async def receive_from_xai():
-                """Relay xAI → Telnyx.  xAI sends PCM16 at 24 kHz (little-endian).
-                Telnyx expects L16 at 16 kHz (big-endian) — downsample + RMS normalize + byte-swap."""
+                """Relay xAI → Telnyx.
+                xAI sends PCM16 Little-Endian at 16 kHz (session configured).
+                Telnyx expects L16 Big-Endian at 16 kHz — only RMS normalize + byte-swap."""
                 nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active
 
                 def _send_pcm_to_telnyx(raw_b64: str):
-                    """Downsample xAI PCM16 24 kHz LE → 16 kHz, RMS-normalize, send to Telnyx as L16 BE."""
-                    nonlocal ai_chunks_sent, out_state
-                    raw_audio = base64.b64decode(raw_b64)
-                    # 1. Downsample 24 kHz → 16 kHz for Telnyx
-                    downsampled, out_state = audioop.ratecv(raw_audio, 2, 1, 24000, 16000, out_state)
-                    # 2. RMS normalization on the downsampled LE bytes
-                    pcm_np = np.frombuffer(downsampled, dtype=np.dtype('<i2')).copy()
+                    """RMS-normalize xAI PCM16 LE 16 kHz, swap to BE, send to Telnyx as L16."""
+                    nonlocal ai_chunks_sent
+                    # xAI sends Little-Endian PCM16 at 16 kHz (matches TELNYX_SAMPLE_RATE)
+                    pcm_np = np.frombuffer(base64.b64decode(raw_b64), dtype='<i2').copy()
+                    # RMS normalization — keeps AI voice at a consistent volume
                     rms = np.sqrt(np.mean(pcm_np.astype(np.float32) ** 2))
                     if rms > 0:
-                        gain   = min(0.9 * 32767 / rms, 4.0)   # cap at 4× — avoids over-amplifying silence
+                        gain   = min(0.9 * 32767 / rms, 4.0)  # cap at 4× to avoid clipping silence
                         pcm_np = np.clip(pcm_np * gain, -32768, 32767).astype(np.int16)
-                    # 3. Swap Little-Endian → Big-Endian (RFC 3551)
-                    be_bytes = pcm_np.astype('>i2').tobytes()
+                    # Telnyx L16 requires Big-Endian (RFC 3551)
                     ws.send(json.dumps({
                         "event": "media",
-                        "media": {"payload": base64.b64encode(be_bytes).decode('utf-8')},
+                        "media": {"payload": base64.b64encode(pcm_np.astype('>i2').tobytes()).decode('utf-8')},
                     }))
                     ai_chunks_sent += 1
 
@@ -1691,7 +1680,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCM16 24 kHz → downsample 16 kHz → RMS normalize → Telnyx L16 BE 16 kHz
+                        # xAI PCM16 LE 16 kHz → RMS normalize → byte-swap → Telnyx L16 BE 16 kHz
                         if event_type == 'response.audio.delta' and 'delta' in response:
                             _send_pcm_to_telnyx(response['delta'])
                             item_id = response.get("item_id")
