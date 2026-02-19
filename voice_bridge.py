@@ -2632,19 +2632,25 @@ def setup_voip():
                 vc.pop('telnyx_credential_id', None)
 
         if not cred_id:
-            # Create telephony credential — no connection_id needed.
-            # Telnyx WebRTC credentials work via the SIP infrastructure independently
-            # of the Call Control Application used for outbound AI calls.
+            # Telnyx requires connection_id when creating a telephony credential —
+            # it ties the WebRTC client to a specific SIP/Call Control connection.
+            connection_id = vc.get('telnyx_connection_id', '')
+            if not connection_id:
+                return jsonify({"error": "Connection ID not configured. Add your Telnyx Connection ID in the Voice settings first."}), 400
+
             resp = http_requests.post(
                 f"{TELNYX_API_BASE}/telephony_credentials",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "name": f"agent_{subscriber.get('location_id', 'browser')}",
+                    "connection_id": connection_id,
                 },
                 timeout=10,
             )
             if resp.status_code not in (200, 201):
-                return jsonify({"error": f"Telnyx credential creation failed: {resp.text}"}), 400
+                err = resp.json().get('errors', [{}])[0]
+                msg = err.get('detail', resp.text)
+                return jsonify({"error": f"Telnyx credential creation failed: {msg}"}), 400
             cred_data = resp.json().get('data', {})
             cred_id = cred_data.get('id', '')
             if not cred_id:
