@@ -3197,6 +3197,7 @@ def list_telnyx_numbers():
     """List all Telnyx phone numbers on the account with health info."""
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
+        logger.warning("list_telnyx_numbers: no API key configured")
         return jsonify({"error": "Telnyx API key not configured"}), 400
 
     try:
@@ -3207,16 +3208,22 @@ def list_telnyx_numbers():
             timeout=15,
         )
         if resp.status_code != 200:
+            logger.warning(f"list_telnyx_numbers: Telnyx returned {resp.status_code}: {resp.text[:300]}")
             return jsonify({"error": f"Telnyx API error: {resp.status_code}"}), 400
 
         data = resp.json().get('data', [])
         result = []
         for n in data:
-            features = {f.get('name', ''): f.get('enabled', False) for f in n.get('features', [])}
+            raw_features = n.get('features') or []
+            features = {}
+            for f in raw_features:
+                if isinstance(f, dict):
+                    features[f.get('name', '')] = f.get('enabled', False)
+            tags = n.get('tags') or []
             result.append({
                 "sid": n.get('id', ''),
                 "phone": n.get('phone_number', ''),
-                "friendly_name": n.get('tags', [{}])[0] if n.get('tags') else n.get('phone_number', ''),
+                "friendly_name": tags[0] if tags else n.get('phone_number', ''),
                 "capabilities": {
                     "voice": features.get('voice', False),
                     "sms": features.get('sms', False),
