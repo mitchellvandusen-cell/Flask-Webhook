@@ -1760,8 +1760,28 @@ def save_voice_config():
     if not data:
         return flask_jsonify({"error": "No data provided"}), 400
 
-    # Build voice_config object
-    voice_config = {
+    # Load existing voice_config to preserve fields set by other routes
+    # (e.g. telnyx_credential_id set by setup_voip, local_presence_numbers, etc.)
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database error"}), 500
+    existing_vc = {}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if row and row[0]:
+            existing_vc = row[0] if isinstance(row[0], dict) else {}
+    except Exception:
+        pass
+    finally:
+        return_db_connection(conn)
+
+    # Start from existing config to preserve credential IDs and number pools
+    voice_config = dict(existing_vc)
+    # Update with form-submitted fields
+    voice_config.update({
         "enabled":               bool(data.get("enabled", False)),
         "telnyx_api_key":        (data.get("telnyx_api_key") or "").strip(),
         "telnyx_connection_id":  (data.get("telnyx_connection_id") or "").strip(),
@@ -1770,7 +1790,12 @@ def save_voice_config():
         "voice_bot_name":        (data.get("voice_bot_name") or "").strip(),
         "voice_instructions":    (data.get("voice_instructions") or "").strip(),
         "call_script":           (data.get("call_script") or "").strip(),
-    }
+        # Dialer settings
+        "dial_attempts":         int(data.get("dial_attempts") or 2),
+        "auto_record":           bool(data.get("auto_record", True)),
+        "auto_transcribe":       bool(data.get("auto_transcribe", False)),
+        "local_presence":        bool(data.get("local_presence", False)),
+    })
 
     conn = get_db_connection()
     if not conn:
