@@ -1771,8 +1771,8 @@ def save_voice_config():
         cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
-        if row and row[0]:
-            existing_vc = row[0] if isinstance(row[0], dict) else {}
+        if row and row['voice_config']:
+            existing_vc = row['voice_config'] if isinstance(row['voice_config'], dict) else {}
     except Exception:
         pass
     finally:
