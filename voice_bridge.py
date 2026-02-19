@@ -1542,26 +1542,27 @@ async def handle_voice_stream(ws):
     if not voice_bot_name:
         voice_bot_name = subscriber.get("bot_first_name", "your advisor")
     custom_voice_instructions = voice_config.get("voice_instructions", "")
-    minimal_prompt = f"""You are {voice_bot_name}, a life insurance advisor on a live phone call. You speak like a real, experienced human — natural, warm, direct, conversational.
+    call_script = voice_config.get("call_script", "").strip()
+    minimal_prompt = f"""You are {voice_bot_name}, a life insurance advisor on a live phone call.
 
-CORE PRINCIPLE: YOU DO NOT NEED THEM TO SAY YES. YOU JUST NEED THEM NOT TO SAY NO. Move assumptively through the call. Never ask permission to continue. Never say "do you have a minute" or "is now a good time." Just start. If they don't stop you, keep going.
+VOICE: You sound like a real person who's been doing this for years. Casual, warm, direct. Use contractions — "I'm", "you're", "can't". Keep responses to 1-2 sentences max. One question per turn. No jargon. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help" — just respond like a human would.
 
-HOW YOU SPEAK: Use contractions always. "I'm", "you're", "it's", "can't", "don't". Vary sentence length. Add [pause] between clauses — not just sentences. Keep turns to 1-3 sentences. One question per turn. No jargon, no lists, no AI pleasantries. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help." Just respond naturally. Use [sigh] for empathy, [laugh] when something is light, [breath] before emotional lines. Vary your pace — slow for serious moments, quicker when enthusiastic. Occasionally drop words or trail off like a real person: "Yeah... makes sense." "I mean, it depends." A very occasional "you know" is fine. Acknowledgments are REACTIONS not connectors — they land as a complete beat, then [pause], then the next thought. NEVER "Fair enough, so..." — always "Fair enough. [pause] ..." Options to rotate: "That makes sense", "Yeah that tracks", "Got it", "Right right", "Ah okay", "Fair enough", "Mm, makes sense" — never the same one twice, never forced. NEVER describe or comment on your own communication style. Never say "I'm just being real", "like we're grabbing coffee", or any phrase that narrates how you're talking. Just talk.
+PACE: You talk like you're on the phone with a friend. Short sentences. Natural pauses. Don't monologue. React to what they say before moving on. "Yeah", "Right", "Got it", "Mm" — quick acknowledgments, then your actual response.
 
-EXPERT REGISTER: You have had this exact conversation hundreds of times. You already know the answers. You recognize their situation immediately: "Yeah, that's a pretty common spot to be in." You don't over-explain — give the relevant piece and move on. You don't hedge: "Most people in that situation haven't thought about it yet" not "Well, it kind of depends." Pauses are fine — you're thinking, not stalling. You assume they're booking. You're not convincing them, just helping them see their situation clearly.
+STYLE: You've had this exact conversation hundreds of times. You already know the answers. You recognize their situation fast. You don't over-explain. You don't ask permission — "do you have a minute" or "is now a good time" are banned. Just talk. If they don't stop you, keep going.
 
-NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}, a real advisor. NEVER give specific pricing or dollar amounts — pivot to booking an appointment instead.
-
+NEVER say you're an AI, a bot, or a virtual assistant. You are {voice_bot_name}. NEVER give specific pricing or dollar amounts — pivot to booking instead.
 {f"CUSTOM INSTRUCTIONS: {custom_voice_instructions}" if custom_voice_instructions else ""}
-Every word you output is spoken aloud through a voice engine. Output ONLY what {voice_bot_name} would say on this call. Nothing else."""
+{f"CALL SCRIPT REFERENCE (use naturally, never read verbatim): {call_script[:2000]}" if call_script else ""}
+Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would say. Nothing else."""
 
-    # Build greeting — assumptive, never permission-seeking
-    greeting = voice_config.get("greeting", "")
+    # Build greeting — short, casual, natural. NOT a script to read verbatim.
+    greeting = voice_config.get("greeting", "").strip()
     if not greeting:
         if direction == "outbound" and contact_name != "there":
-            greeting = f"Hey {contact_name}, this is just {voice_bot_name} I'm not sure if youre going to remember this. I am just trying to get our records updated, hopefully you can help me real quick [pause] Im not sure why this didnt get updated [pause] It looks like you put in some info a little while back about possibly looking at life insurance, did you end up finding something or what ended up happening?"
+            greeting = f"Hey {contact_name}, it's {voice_bot_name}. How's it going?"
         else:
-            greeting = f"Hey, thanks for calling in. This is {voice_bot_name}. How can I help you?"
+            greeting = f"Hey, this is {voice_bot_name}. What's going on?"
 
     logger.info(f"🎙️ Fast-connecting to XAI Realtime API (voice={voice_name})")
 
@@ -1594,16 +1595,17 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
         ) as xai_ws:
 
             # Configure the XAI session — L16 (PCM) 16kHz both directions, matching Telnyx
+            # Aggressive VAD settings for fast turn-taking (~2s response time target)
             session_config = {
                 "type": "session.update",
                 "session": {
-                    "voice": voice_name,               # ← session level per xAI schema
+                    "voice": voice_name,
                     "instructions": minimal_prompt,
-                    "turn_detection": {                # ← session level per xAI schema
+                    "turn_detection": {
                         "type": "server_vad",
-                        "threshold": 0.45,
-                        "prefix_padding_ms": 350,
-                        "silence_duration_ms": 400,
+                        "threshold": 0.35,
+                        "prefix_padding_ms": 200,
+                        "silence_duration_ms": 250,
                     },
                     "audio": {
                         "input":  {"format": {"type": "audio/pcm", "rate": 16000}},
@@ -1614,11 +1616,28 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                 }
             }
             await xai_ws.send(json.dumps(session_config))
-            logger.info("🎙️ XAI session configured (minimal prompt, greeting sent)")
+            logger.info("🎙️ XAI session configured (fast VAD, natural prompt)")
 
-            # For outbound calls, have the AI speak first with the greeting
+            # Greeting: inject as assistant message so xAI speaks it directly
+            # without needing to "interpret" a user command — much faster first response
             if direction == "outbound" or greeting:
-                initial_item = {
+                # Create assistant message with the greeting text
+                greeting_item = {
+                    "type": "conversation.item.create",
+                    "item": {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": greeting,
+                            }
+                        ]
+                    }
+                }
+                await xai_ws.send(json.dumps(greeting_item))
+                # Now create a user message to set context for natural follow-up
+                context_msg = {
                     "type": "conversation.item.create",
                     "item": {
                         "type": "message",
@@ -1626,13 +1645,19 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         "content": [
                             {
                                 "type": "input_text",
-                                "text": f"Read this exact text out loud immediately to start the call: '{greeting}'"
+                                "text": f"[Call just connected. You already said your greeting. Wait for {contact_name if contact_name != 'there' else 'the person'} to respond. When they do, continue the conversation naturally.]"
                             }
                         ]
                     }
                 }
-                await xai_ws.send(json.dumps(initial_item))
-                await xai_ws.send(json.dumps({"type": "response.create"}))
+                await xai_ws.send(json.dumps(context_msg))
+                # Generate the spoken greeting
+                await xai_ws.send(json.dumps({
+                    "type": "response.create",
+                    "response": {
+                        "instructions": f"Say this naturally in your own voice, like a real person would: {greeting}"
+                    }
+                }))
 
             # ── Background: build full prompt with sales context + calendar ──
             async def enrich_session():
@@ -2599,8 +2624,9 @@ def voice_ping():
 def voice_takeover():
     """
     Let a human agent take over an active AI call.
-    Signals the WebSocket bridge to stop AI streaming and transfer
-    the live Telnyx call to the agent's number (via Telnyx WebRTC or PSTN).
+    Executes the transfer DIRECTLY via Telnyx API — does NOT rely on the
+    WebSocket loop to detect the request (which could be blocked on ws.receive).
+    Steps: 1) Stop AI streaming, 2) Transfer call to agent's number.
     """
     data = request.json or {}
     call_sid = data.get('call_sid', '')
@@ -2622,7 +2648,15 @@ def voice_takeover():
 
     target = data.get('target') or voice_cfg.get('transfer_number', '')
     if not target:
-        return jsonify({"error": "No transfer number configured. Set a transfer number in Voice settings."}), 400
+        return jsonify({"error": "No transfer number configured. Set a Transfer Number in Voice Settings first."}), 400
+
+    # Normalize target
+    if not target.startswith('+'):
+        target = '+1' + target.lstrip('1') if len(target.replace('-','').replace(' ','')) <= 10 else '+' + target
+
+    api_key = voice_cfg.get('telnyx_api_key', '')
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured"}), 400
 
     # Verify the call is actually active
     if call_sid not in _active_calls:
@@ -2632,15 +2666,36 @@ def voice_takeover():
     if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
         return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
 
-    # Signal the WebSocket bridge to execute takeover
+    logger.info(f"🔄 Takeover: executing direct transfer for call {call_sid} -> {target}")
+
+    # Also signal the WebSocket bridge to stop the AI audio loop
     _transfer_requests[call_sid] = {
         'type': 'takeover',
         'target': target,
         'reason': 'Agent initiated live takeover',
     }
-    logger.info(f"🔄 Takeover requested for call {call_sid} -> {target}")
 
-    return jsonify({"status": "takeover_requested", "call_sid": call_sid, "target": target})
+    # Step 1: Stop the AI audio stream on this call
+    stop_ok = _call_control_command(call_sid, api_key, 'streaming_stop', {})
+    if stop_ok:
+        logger.info(f"🔄 Takeover: streaming stopped for {call_sid}")
+    else:
+        logger.warning(f"🔄 Takeover: streaming_stop failed for {call_sid} (may already be stopped)")
+
+    # Step 2: Brief pause to let Telnyx process the stream stop
+    time.sleep(0.4)
+
+    # Step 3: Transfer the live call to the agent's number
+    transfer_ok = _call_control_command(call_sid, api_key, 'transfer', {'to': target})
+    if transfer_ok:
+        logger.info(f"🔄 Takeover: call {call_sid} transferred to {target}")
+        _active_calls[call_sid]['status'] = 'transferred'
+        return jsonify({"status": "transferred", "call_sid": call_sid, "target": target})
+    else:
+        logger.error(f"🔄 Takeover: transfer FAILED for call {call_sid} -> {target}")
+        # Clean up the signal
+        _transfer_requests.pop(call_sid, None)
+        return jsonify({"error": "Transfer failed — the call may have ended. Check that your Transfer Number is in +1XXXXXXXXXX format."}), 400
 
 
 # ──────────────────────────────────────────────────────────────
