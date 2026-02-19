@@ -1482,150 +1482,79 @@
                         <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your Telnyx number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
                     </div>
 
-                    <!-- Telnyx Credentials + Setup Guide -->
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h6 style="color: var(--accent); font-weight: 700; margin: 0;"><i class="fa-solid fa-key me-2"></i>Telnyx Credentials</h6>
-                        <a href="#telnyxSetupGuide" data-bs-toggle="collapse" aria-expanded="false" aria-controls="telnyxSetupGuide"
-                            style="font-size: 0.82rem; color: #00d9ff; text-decoration: none; cursor: pointer; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-book-open"></i> How to set up Telnyx
-                            <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; opacity:0.7;"></i>
-                        </a>
+                    <!-- Voice Sub-tabs: Settings | Numbers | Trust Hub -->
+                    <div class="d-flex gap-1 mb-4" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+                        <button class="voice-stab-btn" id="vstab-settings" onclick="switchVoiceSubtab('settings')"
+                            style="background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);border-bottom:2px solid #00d9ff;color:#00d9ff;border-radius:8px 8px 0 0;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;margin-bottom:-1px;">
+                            <i class="fa-solid fa-sliders me-1"></i>Settings
+                        </button>
+                        <button class="voice-stab-btn" id="vstab-numbers" onclick="switchVoiceSubtab('numbers')"
+                            style="background:transparent;border:1px solid transparent;border-bottom:2px solid transparent;color:#888;border-radius:8px 8px 0 0;padding:7px 18px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;margin-bottom:-1px;">
+                            <i class="fa-solid fa-phone-volume me-1"></i>Numbers
+                        </button>
+                        <button class="voice-stab-btn" id="vstab-trusthub" onclick="switchVoiceSubtab('trusthub')"
+                            style="background:transparent;border:1px solid transparent;border-bottom:2px solid transparent;color:#888;border-radius:8px 8px 0 0;padding:7px 18px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;margin-bottom:-1px;">
+                            <i class="fa-solid fa-shield-halved me-1"></i>Trust Hub
+                        </button>
                     </div>
 
-                    <!-- Step-by-step Telnyx setup guide -->
-                    <div class="collapse mb-4" id="telnyxSetupGuide">
-                        <div class="p-4" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.2); border-radius: 14px;">
-                            <div style="color:#00d9ff; font-weight:700; font-size:0.95rem; margin-bottom:18px;">
-                                <i class="fa-solid fa-rocket me-2"></i>Telnyx Setup Guide &mdash; takes about 5 minutes
-                            </div>
+                    <!-- ══ Settings sub-tab ══ -->
+                    <div id="vstab-panel-settings">
 
-                            <!-- Step 1 -->
-                            <div class="d-flex gap-3 mb-4">
-                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">1</div>
-                                <div>
-                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Create a Telnyx account &amp; get your API Key</div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 8px;">Go to <a href="https://telnyx.com" target="_blank" style="color:#00d9ff;">telnyx.com</a> and sign up. Telnyx is pay-as-you-go with no monthly plan. Once in the portal, go to <strong style="color:#ccc;">API Keys</strong> (left sidebar) &rarr; <strong style="color:#ccc;">Create API Key</strong> &rarr; name it anything &rarr; copy the key (starts with <code style="color:#00d9ff; font-size:0.78rem;">KEY...</code>).</p>
-                                    <div style="background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:7px 12px; font-size:0.78rem; color:#888;">
-                                        Paste your API Key in the <strong style="color:#ccc;">API Key</strong> field below.
-                                    </div>
-                                </div>
+                    <!-- Connect Telnyx (Magic Wand) -->
+                    <div class="mb-4 p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;"></i>
                             </div>
-
-                            <!-- Step 2 -->
-                            <div class="d-flex gap-3 mb-4">
-                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">2</div>
-                                <div>
-                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Create a Voice API Application</div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 8px;">Go to <strong style="color:#ccc;">Voice &rarr; Voice API</strong> in the left sidebar &rarr; click <strong style="color:#ccc;">Create new application</strong>. Configure it exactly as shown:</p>
-                                    <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 16px; font-size:0.79rem;">
-                                        <div class="d-flex align-items-start gap-2 mb-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">a</span>
-                                            <div><strong style="color:#aaa;">Application Name:</strong> <span style="color:#ccc;">give it a unique name</span> (e.g. "Voice AI – YourBusiness")</div>
-                                        </div>
-                                        <div class="d-flex align-items-start gap-2 mb-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">b</span>
-                                            <div><strong style="color:#aaa;">Anchor Site:</strong> <span style="color:#ccc;">Latency</span></div>
-                                        </div>
-                                        <div class="d-flex align-items-start gap-2 mb-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">c</span>
-                                            <div>
-                                                <strong style="color:#aaa;">Webhook URL:</strong>
-                                                <code style="color:#00ff88; font-size:0.77rem; word-break:break-all; margin-left:4px;">https://{{ request.host }}/voice/inbound</code>
-                                                <button type="button" onclick="navigator.clipboard.writeText('https://{{ request.host }}/voice/inbound')"
-                                                    style="background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); color:#00ff88; border-radius:5px; padding:1px 8px; font-size:0.7rem; margin-left:6px; cursor:pointer;">copy</button>
-                                                <span style="color:#666; font-size:0.75rem; display:block; margin-top:2px;">This is the only place you set your URL — not on the number.</span>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-start gap-2 mb-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">d</span>
-                                            <div><strong style="color:#aaa;">API Version:</strong> <span style="color:#ccc;">V2</span></div>
-                                        </div>
-                                        <div class="d-flex align-items-start gap-2 mb-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">e</span>
-                                            <div><strong style="color:#aaa;">Enable:</strong> <span style="color:#ccc;">Hang Up on Timeout</span> <span style="color:#666;">(toggle on)</span></div>
-                                        </div>
-                                        <div class="d-flex align-items-start gap-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">f</span>
-                                            <div><strong style="color:#aaa;">Enable:</strong> <span style="color:#ccc;">Delay While Dialing</span> <span style="color:#666;">(toggle on)</span></div>
-                                        </div>
-                                    </div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:8px 0 0;">Save the app. Back on the <strong style="color:#ccc;">Voice API</strong> list, your app's <strong style="color:#ccc;">Application ID</strong> is shown (a long number like <code style="color:#00d9ff; font-size:0.76rem;">2898437271239788074</code>). That is your Connection ID — paste it in the <strong style="color:#ccc;">Connection ID</strong> field below.</p>
-                                </div>
-                            </div>
-
-                            <!-- Step 3 -->
-                            <div class="d-flex gap-3 mb-4">
-                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">3</div>
-                                <div>
-                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Configure Inbound Settings</div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 8px;">Still inside your Voice API Application, click the <strong style="color:#ccc;">Inbound</strong> tab. Configure:</p>
-                                    <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 16px; font-size:0.79rem;">
-                                        <div class="d-flex align-items-start gap-2 mb-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">a</span>
-                                            <div><strong style="color:#aaa;">SIP Subdomain:</strong> <span style="color:#ccc;">create a unique subdomain</span> <span style="color:#666;">(e.g. "myagency-voice" — it just needs to be unique on Telnyx)</span></div>
-                                        </div>
-                                        <div class="d-flex align-items-start gap-2">
-                                            <span style="color:#00d9ff; font-size:0.7rem; margin-top:3px;">b</span>
-                                            <div><strong style="color:#aaa;">Everything else:</strong> <span style="color:#ccc;">leave at defaults</span></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Step 4 -->
-                            <div class="d-flex gap-3 mb-4">
-                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">4</div>
-                                <div>
-                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Select your Outbound Voice Profile (OTP)</div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 8px;">Click the <strong style="color:#ccc;">Outbound</strong> tab inside your Voice API Application. Under <strong style="color:#ccc;">Outbound Voice Profile</strong>, select your existing OTP from the dropdown. If you don't have one yet, go to <strong style="color:#ccc;">Voice &rarr; Outbound Voice Profiles</strong>, create one, then come back and select it here.</p>
-                                </div>
-                            </div>
-
-                            <!-- Step 5 -->
-                            <div class="d-flex gap-3 mb-4">
-                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">5</div>
-                                <div>
-                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Get a phone number &amp; assign it to your app</div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 8px;">Go to <strong style="color:#ccc;">Numbers &rarr; Search &amp; Buy Numbers</strong> &rarr; find a US number &rarr; purchase it (~$1/month). Then go to <strong style="color:#ccc;">Numbers &rarr; My Numbers</strong> &rarr; click the number &rarr; under <strong style="color:#ccc;">Voice Settings</strong>, set the connection to the <strong style="color:#ccc;">Voice API Application</strong> you just created &rarr; <strong style="color:#ccc;">Save</strong>.</p>
-                                    <div style="background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:7px 12px; font-size:0.78rem; color:#888;">
-                                        There are no per-number webhook URL fields — the URL is only set on the app in Step 2. Copy the number in E.164 format (e.g. <code style="color:#00d9ff;">+15551234567</code>) and paste it in the <strong style="color:#ccc;">Phone Number</strong> field below.
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Done -->
-                            <div class="d-flex gap-3">
-                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,255,136,0.15); border:1px solid rgba(0,255,136,0.3); display:flex; align-items:center; justify-content:center; color:#00ff88; flex-shrink:0;"><i class="fa-solid fa-check" style="font-size:0.75rem;"></i></div>
-                                <div>
-                                    <div style="color:#00ff88; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Fill in the fields below &amp; save</div>
-                                    <p style="color:#aaa; font-size:0.8rem; margin:0;">Enter your API Key, Connection ID, and Phone Number in the fields below. Click <strong style="color:#ccc;">Save Voice Settings</strong>, then enable the toggle at the top. You're live.</p>
-                                </div>
+                            <div>
+                                <h6 style="margin:0;font-weight:700;color:#fff;">Connect Telnyx</h6>
+                                <p style="margin:0;color:#888;font-size:0.8rem;">Paste your API key — we'll create your Voice API application, outbound profile, and browser dialer automatically</p>
                             </div>
                         </div>
+                        <div class="d-flex gap-2 align-items-end flex-wrap">
+                            <div style="flex:1;min-width:220px;">
+                                <label style="color:#aaa;font-size:0.78rem;font-weight:600;margin-bottom:4px;display:block;">Telnyx API Key</label>
+                                <input type="text" class="form-control" id="voiceTelnyxApiKey" placeholder="KEY..." autocomplete="off"
+                                    value="{{ voice_config.get('telnyx_api_key', '') }}"
+                                    style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                <small style="color:#666;font-size:0.72rem;">Telnyx Mission Control &rarr; API Keys &rarr; Create Key</small>
+                            </div>
+                            <button onclick="connectTelnyx()" id="connectTelnyxBtn"
+                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Connect Telnyx
+                            </button>
+                        </div>
+                        <!-- Provisioning status -->
+                        <div class="d-flex gap-3 flex-wrap mt-3">
+                            <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                {% if voice_config.get('telnyx_outbound_profile_id') %}
+                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Outbound Profile</span>
+                                {% else %}
+                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Outbound Profile</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                {% if voice_config.get('telnyx_connection_id') %}
+                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice API App</span>
+                                {% else %}
+                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice API App</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                {% if voice_config.get('telnyx_sip_connection_id') %}
+                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Browser Dialer</span>
+                                {% else %}
+                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Browser Dialer</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div id="connectTelnyxResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
                     </div>
 
+
+                    <!-- AI Voice -->
                     <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">API Key</label>
-                            <input type="text" class="form-control" id="voiceTelnyxApiKey" placeholder="KEY..." autocomplete="off"
-                                value="{{ voice_config.get('telnyx_api_key', '') }}"
-                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">From Telnyx Mission Control &rarr; API Keys</small>
-                        </div>
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Connection ID</label>
-                            <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="e.g. 2898437271239788074" autocomplete="off"
-                                value="{{ voice_config.get('telnyx_connection_id', '') }}"
-                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">The Application ID shown on your Voice API app in Telnyx (long numeric string)</small>
-                        </div>
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Phone Number</label>
-                            <input type="text" class="form-control" id="voiceTelnyxNumber" placeholder="+15551234567" autocomplete="off"
-                                value="{{ voice_config.get('telnyx_phone_number', '') }}"
-                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">Your Telnyx number in E.164 format — leads call this / AI calls from this</small>
-                        </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">AI Voice</label>
                             <div class="d-flex align-items-center gap-2">
@@ -1757,7 +1686,7 @@
                                 </div>
                                 <span style="color:#888; font-size:0.8rem;">Match caller ID area code to lead</span>
                             </div>
-                            <small style="color:#666; font-size:0.75rem;">Buy local numbers in Trust Hub &rarr; system selects matching area code. Requires numbers in your pool.</small>
+                            <small style="color:#666; font-size:0.75rem;">Buy numbers in the <strong style="color:#aaa;">Numbers</strong> tab &rarr; system selects matching area code.</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Browser VoIP Setup</label>
@@ -1796,6 +1725,70 @@
                             <strong>Pricing:</strong> Voice calls use xAI at $0.05/min + Telnyx voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.30. Telnyx rates are lower than Twilio's and include HD wideband audio at no extra cost.
                         </p>
                     </div>
+                    </div><!-- /vstab-panel-settings -->
+
+                    <!-- ══ Numbers sub-tab ══ -->
+                    <div id="vstab-panel-numbers" style="display:none;">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Your Phone Numbers</h6>
+                            <div class="d-flex gap-2">
+                                <button onclick="loadTrustHubNumbers()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                </button>
+                                <button onclick="document.getElementById('vstabBuyPanel').style.display=document.getElementById('vstabBuyPanel').style.display==='none'?'block':'none'"
+                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                                    <i class="fa-solid fa-plus me-1"></i>Buy Number
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Buy panel -->
+                        <div id="vstabBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
+                            <h6 style="color:#00d9ff;font-weight:700;margin-bottom:12px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                            <div class="d-flex gap-2 mb-3 flex-wrap">
+                                <input type="text" id="buyAreaCode" placeholder="Area code (e.g. 512)"
+                                    style="width:150px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <input type="text" id="buyState" placeholder="State (e.g. TX)"
+                                    style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <button onclick="searchAvailableNumbers()"
+                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                                    <i class="fa-solid fa-magnifying-glass me-1"></i>Search
+                                </button>
+                            </div>
+                            <div id="availableNumbersList" style="max-height:220px;overflow-y:auto;font-size:0.82rem;"></div>
+                        </div>
+                        <!-- Numbers list -->
+                        <div id="trustHubNumbersList" style="font-size:0.85rem;">
+                            <div style="text-align:center;padding:40px 20px;color:#555;">
+                                <i class="fa-solid fa-phone" style="font-size:1.5rem;margin-bottom:8px;display:block;color:#333;"></i>
+                                Click Refresh to load your numbers
+                            </div>
+                        </div>
+                    </div><!-- /vstab-panel-numbers -->
+
+                    <!-- ══ Trust Hub sub-tab ══ -->
+                    <div id="vstab-panel-trusthub" style="display:none;">
+                        <!-- STIR/SHAKEN -->
+                        <div class="mb-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <div style="font-weight:700;font-size:0.9rem;">STIR/SHAKEN</div>
+                                    <div style="font-size:0.78rem;color:#888;margin-top:2px;">Call authentication status — prevents "Spam Likely" labels on your calls</div>
+                                </div>
+                                <span id="stirStatus" style="background:rgba(255,255,255,0.06);color:#888;padding:4px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;">Checking...</span>
+                            </div>
+                        </div>
+                        <!-- Spam Protection -->
+                        <div class="p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;">
+                            <div style="font-weight:700;font-size:0.9rem;margin-bottom:4px;">Spam Protection</div>
+                            <div style="font-size:0.78rem;color:#888;margin-bottom:12px;">Register your number with the free caller registries to stop "Spam Likely" labels on all major carriers.</div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                <a href="https://www.freecallerregistry.com/fcr/" target="_blank" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;"><i class="fa-solid fa-shield-check me-1"></i>Free Caller Registry</a>
+                                <a href="https://hiya.com/branded-call/" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;"><i class="fa-solid fa-tower-broadcast me-1"></i>AT&amp;T (Hiya)</a>
+                                <a href="https://portal.telnyx.com/#/app/numbers" target="_blank" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Telnyx Portal</a>
+                            </div>
+                        </div>
+                    </div><!-- /vstab-panel-trusthub -->
+
                 </div>
             </div>
             </div>
@@ -2014,7 +2007,7 @@
                             <div style="display:flex;gap:0;">
                                 <button class="dlr-tab-btn active" id="dlrTabMsgs" onclick="dialerSwitchHistoryTab('messages')">Messages</button>
                                 <button class="dlr-tab-btn" id="dlrTabCalls" onclick="dialerSwitchHistoryTab('calls')">Calls</button>
-                                <button class="dlr-tab-btn" id="dlrTabTrust" onclick="dialerSwitchHistoryTab('trust')">Trust Hub</button>
+                                <!-- Trust Hub moved to Voice tab → Trust Hub sub-tab -->
                             </div>
                         </div>
                         <!-- Messages Tab -->
@@ -2030,46 +2023,7 @@
                                 <div style="text-align:center;padding:20px;color:#555;font-size:0.82rem;">Call history appears after making calls</div>
                             </div>
                         </div>
-                        <!-- Trust Hub Tab -->
-                        <div id="dlrHistoryTrust" class="dlr-col-body" style="display:none;padding:10px;">
-                            <!-- STIR/SHAKEN -->
-                            <div class="mb-2 p-2" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div><div style="font-weight:700;font-size:0.82rem;">STIR/SHAKEN</div><div style="font-size:0.72rem;color:#888;">Call authentication to prevent "Spam Likely"</div></div>
-                                    <span id="stirStatus" style="background:rgba(255,255,255,0.06);color:#888;padding:3px 8px;border-radius:5px;font-size:0.68rem;font-weight:600;">Checking...</span>
-                                </div>
-                            </div>
-                            <!-- Spam Protection -->
-                            <div class="mb-2 p-2" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:8px;">
-                                <div class="d-flex align-items-center justify-content-between mb-1">
-                                    <div><div style="font-weight:700;font-size:0.82rem;">Spam Protection</div><div style="font-size:0.72rem;color:#888;">Register with Free Caller Registry + per-carrier portals</div></div>
-                                </div>
-                                <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                                    <a href="https://www.freecallerregistry.com/fcr/" target="_blank" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:5px;padding:2px 7px;font-size:0.65rem;font-weight:600;text-decoration:none;">Free Caller Registry</a>
-                                    <a href="https://hiya.com/branded-call/" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:5px;padding:2px 7px;font-size:0.65rem;font-weight:600;text-decoration:none;">AT&amp;T (Hiya)</a>
-                                    <a href="https://portal.telnyx.com/#/app/numbers" target="_blank" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:5px;padding:2px 7px;font-size:0.65rem;font-weight:600;text-decoration:none;">Telnyx Portal</a>
-                                </div>
-                            </div>
-                            <!-- Numbers -->
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <span style="font-weight:700;font-size:0.78rem;color:#ccc;">Phone Numbers</span>
-                                <div class="d-flex gap-2">
-                                    <button onclick="loadTrustHubNumbers()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:4px;padding:2px 6px;font-size:0.68rem;cursor:pointer;"><i class="fa-solid fa-arrows-rotate"></i></button>
-                                    <button onclick="document.getElementById('buyNumberPanel').style.display=document.getElementById('buyNumberPanel').style.display==='none'?'block':'none'" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:0.68rem;cursor:pointer;"><i class="fa-solid fa-plus me-1"></i>Buy</button>
-                                </div>
-                            </div>
-                            <div id="buyNumberPanel" style="display:none;margin-bottom:8px;padding:8px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;">
-                                <div class="d-flex gap-2 mb-2">
-                                    <input type="text" id="buyAreaCode" placeholder="Area code" style="width:90px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;outline:none;">
-                                    <input type="text" id="buyState" placeholder="State" style="width:60px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;outline:none;">
-                                    <button onclick="searchAvailableNumbers()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:4px 10px;font-size:0.72rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-magnifying-glass"></i></button>
-                                </div>
-                                <div id="availableNumbersList" style="max-height:150px;overflow-y:auto;font-size:0.78rem;"></div>
-                            </div>
-                            <div id="trustHubNumbersList" style="font-size:0.78rem;">
-                                <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Click refresh to load numbers</div>
-                            </div>
-                        </div>
+                        <!-- Trust Hub content moved to Voice tab → Trust Hub sub-tab -->
                     </div>
 
                 </div>
@@ -2435,6 +2389,59 @@
             }
         }
 
+        // ── Voice sub-tab switching (Settings / Numbers / Trust Hub) ──
+        function switchVoiceSubtab(name) {
+            ['settings','numbers','trusthub'].forEach(t => {
+                const panel = document.getElementById('vstab-panel-' + t);
+                const btn   = document.getElementById('vstab-' + t);
+                if (!panel || !btn) return;
+                const active = t === name;
+                panel.style.display = active ? 'block' : 'none';
+                btn.style.background    = active ? 'rgba(0,217,255,0.12)' : 'transparent';
+                btn.style.border        = active ? '1px solid rgba(0,217,255,0.3)' : '1px solid transparent';
+                btn.style.borderBottom  = active ? '2px solid #00d9ff'              : '2px solid transparent';
+                btn.style.color         = active ? '#00d9ff'                        : '#888';
+            });
+            // Auto-load numbers when switching to that tab
+            if (name === 'numbers') loadTrustHubNumbers();
+            if (name === 'trusthub') loadTrustHubStatus();
+        }
+
+        // ── Magic Wand: one-click Telnyx provisioning ──
+        async function connectTelnyx() {
+            const apiKey = document.getElementById('voiceTelnyxApiKey').value.trim();
+            if (!apiKey) { alert('Please paste your Telnyx API key first.'); return; }
+            const btn = document.getElementById('connectTelnyxBtn');
+            const res = document.getElementById('connectTelnyxResult');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Provisioning…';
+            res.style.display = 'block';
+            res.innerHTML = '<span style="color:#888;">Creating Voice API application, outbound profile, and browser dialer…</span>';
+            try {
+                const r = await fetch('/voice/automate-setup', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({api_key: apiKey})
+                });
+                const d = await r.json();
+                if (d.status === 'success') {
+                    res.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + d.message + ' Refresh the page to see updated status.</span>';
+                    // Flash the status badges green without a reload
+                    document.querySelectorAll('#vstab-panel-settings .fa-circle-xmark').forEach(el => {
+                        el.className = 'fa-solid fa-circle-check';
+                        el.style.color = '#00ff88';
+                        el.nextElementSibling.style.color = '#ccc';
+                    });
+                } else {
+                    res.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Provisioning failed') + '</span>';
+                }
+            } catch(e) {
+                res.innerHTML = '<span style="color:#ef4444;">Network error — check your connection and try again</span>';
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Connect Telnyx';
+        }
+
         function saveVoiceConfig() {
             const resultDiv = document.getElementById('voiceTestResult');
             resultDiv.style.display = 'block';
@@ -2443,8 +2450,6 @@
             const config = {
                 enabled: document.getElementById('voiceEnabled').checked,
                 telnyx_api_key: document.getElementById('voiceTelnyxApiKey').value.trim(),
-                telnyx_connection_id: document.getElementById('voiceTelnyxConnectionId').value.trim(),
-                telnyx_phone_number: document.getElementById('voiceTelnyxNumber').value.trim(),
                 voice: document.getElementById('voiceSelection').value,
                 voice_bot_name: document.getElementById('voiceBotName').value.trim(),
                 voice_instructions: document.getElementById('voiceInstructions').value.trim(),
@@ -2783,16 +2788,9 @@
             }
         }
 
-        // ── History tab switching ──
+        // ── History tab switching (Trust Hub removed — now in Voice tab) ──
         function dialerSwitchHistoryTab(tab) {
-            ['messages','calls','trust'].forEach(t => {
-                document.getElementById('dlrHistory' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
-                document.getElementById('dlrTab' + t.charAt(0).toUpperCase() + t.slice(1)).className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
-            });
-            // Capitalize first letter for tab IDs
-        }
-        function dialerSwitchHistoryTab(tab) {
-            const tabs = {messages:'Messages', calls:'Calls', trust:'Trust'};
+            const tabs = {messages:'Messages', calls:'Calls'};
             Object.keys(tabs).forEach(t => {
                 document.getElementById('dlrHistory' + tabs[t]).style.display = t === tab ? 'block' : 'none';
                 document.getElementById('dlrTab' + tabs[t]).className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
