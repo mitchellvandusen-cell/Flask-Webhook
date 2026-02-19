@@ -1221,7 +1221,11 @@ def trigger_outbound_call():
             },
             timeout=10,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            telnyx_errors = resp.json().get('errors', [{}])
+            telnyx_msg = telnyx_errors[0].get('detail', resp.text) if telnyx_errors else resp.text
+            logger.error(f"Telnyx outbound call error {resp.status_code}: {resp.text}")
+            return jsonify({"error": f"Telnyx {resp.status_code}: {telnyx_msg}"}), 400
         call_data    = resp.json().get("data", {})
         call_leg_id  = call_data.get("call_leg_id", "")
         call_ctrl_id = call_data.get("call_control_id", call_leg_id)
@@ -2150,7 +2154,14 @@ def dial_contact():
             json=call_payload,
             timeout=10,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            telnyx_errors = resp.json().get('errors', [{}])
+            telnyx_msg = telnyx_errors[0].get('detail', resp.text) if telnyx_errors else resp.text
+            logger.error(f"Telnyx dial error {resp.status_code}: {resp.text}")
+            hint = ""
+            if resp.status_code == 403:
+                hint = " — Check: (1) API key has outbound call permissions, (2) Telnyx account is funded, (3) Connection ID matches the phone number's assigned connection in Telnyx portal"
+            return jsonify({"error": f"Telnyx {resp.status_code}: {telnyx_msg}{hint}"}), 400
         call_data    = resp.json().get("data", {})
         call_ctrl_id = call_data.get("call_control_id", call_data.get("call_leg_id", ""))
 
