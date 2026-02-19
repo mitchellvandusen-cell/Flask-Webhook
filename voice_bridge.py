@@ -1858,7 +1858,7 @@ def test_voice_connection():
     else:
         results["errors"].append("XAI_API_KEY not configured")
 
-    # Test Telnyx API key — GET /v2/profile with Bearer auth
+    # Test Telnyx API key — list outbound voice profiles as a lightweight auth check
     if location_id:
         subscriber = _get_subscriber_by_location(location_id)
         if subscriber:
@@ -1867,7 +1867,7 @@ def test_voice_connection():
             if telnyx_api_key:
                 try:
                     r = http_requests.get(
-                        f"{TELNYX_API_BASE}/profile",
+                        f"{TELNYX_API_BASE}/outbound_voice_profiles?page[size]=1",
                         headers={"Authorization": f"Bearer {telnyx_api_key}"},
                         timeout=10,
                     )
