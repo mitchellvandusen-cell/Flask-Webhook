@@ -1382,7 +1382,12 @@ async def handle_voice_stream(ws):
 
     if start_data.get('event') == 'start':
         start_block = start_data.get('start', {})
-        stream_sid  = start_data.get('streamSid') or start_block.get('streamSid', '') or start_block.get('stream_id', '')
+        stream_sid  = (
+            start_data.get('streamSid') or       # Twilio top-level
+            start_data.get('stream_id') or        # Telnyx top-level ← was missing
+            start_block.get('streamSid', '') or   # Twilio inside start block
+            start_block.get('stream_id', '')      # Telnyx inside start block (fallback)
+        )
 
         # Call Control streaming_start passes metadata via client_state (base64 JSON).
         # TeXML <Parameter> tags arrive as customParameters — support both.
