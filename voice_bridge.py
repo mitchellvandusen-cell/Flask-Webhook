@@ -2,13 +2,13 @@
 # Real-time bidirectional audio streaming via WebSocket
 # Architecture: Lead <-> Telnyx Media Streaming <-> This Bridge <-> XAI Realtime API
 #
-# Audio format: PURE PCMU (μ-law 8 kHz) PASSTHROUGH — zero conversion, zero resampling.
-# Telnyx defaults to PCMU when no codec is specified in streaming_start.
-# xAI natively supports audio/pcmu as both input and output format.
-#   Telnyx → Bridge: base64 PCMU  →  forward as-is  →  xAI input_audio_buffer.append
-#   xAI → Bridge:   base64 PCMU delta  →  forward as-is  →  Telnyx media event
-# No numpy, no audioop, no byte-swapping — just routing base64 strings.
-# XAI endpoint: wss://api.x.ai/v1/realtime (OpenAI Realtime API compatible)
+# Audio format: L16 (Linear PCM 16-bit) 16 kHz PASSTHROUGH — zero conversion.
+# Telnyx streaming_start configured with stream_bidirectional_codec=L16 at 16 kHz.
+# xAI configured with audio/pcm at 16 kHz for both input and output.
+#   Telnyx → Bridge: base64 L16 16kHz  →  forward as-is  →  xAI input_audio_buffer.append
+#   xAI → Bridge:   base64 L16 16kHz delta  →  forward as-is  →  Telnyx media event
+# No transcoding, no resampling — just routing base64 strings.
+# XAI endpoint: wss://api.x.ai/v1/realtime
 
 import json
 import os
@@ -62,9 +62,9 @@ VOICE_OPTIONS = {
 # Default voice
 DEFAULT_VOICE = "Ara"
 
-# Audio: pure PCMU (μ-law) passthrough — no sample-rate constants needed.
-# Telnyx defaults to PCMU 8 kHz when no codec is specified in streaming_start.
-# xAI natively supports audio/pcmu, so the bridge is a zero-conversion proxy.
+# Audio: L16 (PCM 16-bit) 16 kHz passthrough — both Telnyx and xAI use the same format.
+# Telnyx streaming_start sets stream_bidirectional_codec=L16 at 16 kHz.
+# xAI session configured with audio/pcm at 16 kHz input & output.
 TELNYX_SAMPLE_RATE = 8000   # kept for _mulaw_to_wav / voice-preview WAV wrapping
 
 # Telnyx REST API base URL
@@ -115,10 +115,7 @@ def _decode_client_state(s: str) -> dict:
 
 def _build_texml_stream(stream_url: str, params: dict) -> str:
     """
-    Build a Telnyx TeXML Response that opens a bidirectional PCMU media stream.
-
-    No codec/rate attributes needed — Telnyx defaults to PCMU (μ-law 8 kHz)
-    which is what we want for the zero-conversion passthrough to xAI.
+    Build a Telnyx TeXML Response that opens a bidirectional L16 16kHz media stream.
     """
     param_xml = ''.join(
         f'<Parameter name="{k}" value="{v}"/>' for k, v in params.items()
@@ -128,7 +125,9 @@ def _build_texml_stream(stream_url: str, params: dict) -> str:
         '<Response>'
           '<Connect>'
             f'<Stream url="{stream_url}"'
-            f' bidirectionalMode="rtp">'
+            f' bidirectionalMode="rtp"'
+            f' audio_codec="L16"'
+            f' sample_rate="16000">'
               f'{param_xml}'
             '</Stream>'
           '</Connect>'
@@ -1370,13 +1369,13 @@ async def handle_voice_stream(ws):
     Core WebSocket handler: bridges Telnyx Media Streaming <-> XAI Realtime API.
     Called by flask-sock for each new Telnyx stream connection.
 
-    Audio flow — pure PCMU passthrough, zero conversion:
-        Lead speaks  → Telnyx (PCMU base64) → forward as-is → xAI (audio/pcmu input)
-        xAI responds → (PCMU base64 delta) → forward as-is → Telnyx (media event)
+    Audio flow — L16 (PCM 16-bit) 16 kHz passthrough, zero conversion:
+        Lead speaks  → Telnyx (L16 16kHz base64) → forward as-is → xAI (audio/pcm 16kHz)
+        xAI responds → (L16 16kHz base64 delta)  → forward as-is → Telnyx (media event)
 
-    Telnyx defaults to PCMU (μ-law 8 kHz) when no codec is specified.
-    xAI natively supports audio/pcmu for both input and output.
-    No numpy, no byte-swapping, no resampling — just routing base64 strings.
+    Telnyx streaming_start configured with L16 codec at 16 kHz.
+    xAI configured with audio/pcm 16 kHz for both input and output.
+    No transcoding, no resampling — just routing base64 strings.
 
     ws: the Telnyx-side WebSocket (flask-sock)
     """
@@ -1514,7 +1513,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             close_timeout=5,
         ) as xai_ws:
 
-            # Configure the XAI session — PCMU passthrough, matches Telnyx default
+            # Configure the XAI session — L16 (PCM) 16kHz both directions, matching Telnyx
             session_config = {
                 "type": "session.update",
                 "session": {
@@ -1527,8 +1526,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         "silence_duration_ms": 400,
                     },
                     "audio": {
-                        "input":  {"format": {"type": "audio/pcmu"}},
-                        "output": {"format": {"type": "audio/pcmu"}},
+                        "input":  {"format": {"type": "audio/pcm", "rate": 16000}},
+                        "output": {"format": {"type": "audio/pcm", "rate": 16000}},
                     },
                     "input_audio_transcription": {"model": "whisper-1"},
                     "tools": get_voice_tools(),
@@ -1584,9 +1583,9 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Telnyx
             call_active              = True
 
-            # ── Telnyx -> XAI: Pure PCMU passthrough ──
+            # ── Telnyx -> XAI: L16 16kHz passthrough ──
             async def receive_from_telnyx():
-                """Relay Telnyx → xAI. Pure base64 PCMU passthrough — no decoding."""
+                """Relay Telnyx → xAI. L16 16kHz base64 passthrough — no decoding."""
                 nonlocal stream_sid, call_active
                 try:
                     while call_active:
@@ -1601,7 +1600,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         data = json.loads(message)
 
                         if data['event'] == 'media':
-                            # PCMU passthrough — forward Telnyx base64 directly to xAI
+                            # L16 passthrough — forward Telnyx base64 directly to xAI
                             await xai_ws.send(json.dumps({
                                 "type":  "input_audio_buffer.append",
                                 "audio": data['media']['payload'],
@@ -1616,17 +1615,17 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     logger.info(f"🎙️ Telnyx receive ended: {e}")
                     call_active = False
 
-            # ── xAI -> Telnyx: Pure PCMU passthrough ──
+            # ── xAI -> Telnyx: L16 16kHz passthrough ──
             async def receive_from_xai():
-                """Relay xAI → Telnyx. Pure base64 PCMU passthrough — no encoding."""
+                """Relay xAI → Telnyx. L16 16kHz base64 passthrough — no encoding."""
                 nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active
 
                 def _send_audio_to_telnyx(raw_b64: str):
-                    """Forward xAI PCMU base64 directly to Telnyx — no conversion."""
+                    """Forward xAI L16 (PCM 16kHz) base64 directly to Telnyx — no conversion."""
                     nonlocal ai_chunks_sent
                     ws.send(json.dumps({
                         "event":     "media",
-                        "streamSid": stream_sid,
+                        "stream_id": stream_sid,
                         "media":     {"payload": raw_b64},
                     }))
                     ai_chunks_sent += 1
@@ -1666,7 +1665,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 await xai_ws.send(json.dumps(truncate_event))
 
                             # Clear Telnyx's audio buffer
-                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                            ws.send(json.dumps({"event": "clear", "stream_id": stream_sid}))
                             last_assistant_item      = None
                             response_start_timestamp = None
                             ai_chunks_sent           = 0
