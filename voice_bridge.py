@@ -921,7 +921,10 @@ def voice_inbound():
     if event_type == 'call.initiated':
         direction = call_pl.get('direction', 'incoming')
         if direction != 'incoming':
-            # Outbound leg initiated event — no action needed here
+            # Outbound leg initiated — update _active_calls to 'ringing' for faster polling
+            _out_sid = call_pl.get('call_control_id', call_pl.get('call_leg_id', ''))
+            if _out_sid and _out_sid in _active_calls:
+                _active_calls[_out_sid]['status'] = 'ringing'
             return jsonify({'result': 'ok'}), 200
 
         caller = call_pl.get('from', 'Unknown')
@@ -955,6 +958,11 @@ def voice_inbound():
         logger.info(f"📞 Answered inbound call: {caller} -> {called}")
 
     elif event_type == 'call.answered':
+        # Immediately update _active_calls so dialer polling picks up 'in-progress' status
+        _answered_sid = call_pl.get('call_control_id', call_pl.get('call_leg_id', ''))
+        if _answered_sid and _answered_sid in _active_calls:
+            _active_calls[_answered_sid]['status'] = 'in-progress'
+
         # Retrieve metadata we encoded at answer time
         client_state_raw = call_pl.get('client_state', '')
         meta             = _decode_client_state(client_state_raw)
@@ -1024,14 +1032,14 @@ def voice_inbound():
         }
 
         def _start_streaming(ctrl, key, params, loc_id):
-            time.sleep(0.8)   # let the call fully settle before streaming_start
+            time.sleep(0.3)   # brief settle — reduced from 0.8s for faster AI response
             ok = _call_control_command(ctrl, key, 'streaming_start', params)
             if ok:
                 logger.info(f"📞 AI streaming started for {loc_id}")
                 return
             # Telnyx 422/90046 — call state transition not complete; retry once
-            logger.warning(f"📞 streaming_start failed for {loc_id}; retrying in 1.5 s")
-            time.sleep(1.5)
+            logger.warning(f"📞 streaming_start failed for {loc_id}; retrying in 0.8s")
+            time.sleep(0.8)
             ok = _call_control_command(ctrl, key, 'streaming_start', params)
             if ok:
                 logger.info(f"📞 AI streaming started for {loc_id} (retry ok)")
@@ -1172,7 +1180,37 @@ def voice_inbound():
                 finally:
                     return_db_connection(conn)
 
-    # All other events (call.hangup, streaming.started, streaming.stopped, etc.)
+    elif event_type == 'call.hangup':
+        # Call ended — immediately update _active_calls so dialer polling picks it up
+        hangup_cause = call_pl.get('hangup_cause', 'normal_clearing')
+        sip_code     = call_pl.get('sip_hangup_cause', '')
+        duration_s   = int(call_pl.get('duration_seconds', 0) or 0)
+        call_sid_h   = call_pl.get('call_control_id', call_pl.get('call_leg_id', ''))
+
+        # Map hangup causes to user-friendly statuses
+        if hangup_cause in ('normal_clearing', 'normal_unspecified'):
+            final_status = 'completed'
+        elif hangup_cause in ('user_busy', 'call_rejected'):
+            final_status = 'busy'
+        elif hangup_cause in ('no_answer', 'originator_cancel', 'timeout'):
+            final_status = 'no-answer'
+        else:
+            final_status = 'completed'
+
+        if call_sid_h and call_sid_h in _active_calls:
+            _active_calls[call_sid_h]['status'] = final_status
+            _active_calls[call_sid_h]['duration'] = duration_s
+
+        # Also persist to DB
+        if call_sid_h:
+            try:
+                update_call_history_status(call_sid_h, final_status, duration_s)
+            except Exception:
+                pass
+
+        logger.info(f"📞 Call hangup: {call_sid_h} cause={hangup_cause} sip={sip_code} dur={duration_s}s status={final_status}")
+
+    # All other events (streaming.started, streaming.stopped, etc.)
     # just need a 200 OK acknowledgement.
     return jsonify({'result': 'ok'}), 200
 
@@ -2103,17 +2141,17 @@ def dial_contact():
             "client_state":       client_state,
         }
 
-        # Enable AMD for AI outbound calls
+        # Enable AMD for AI outbound calls — optimized for minimal delay
         if use_amd:
             call_payload["answering_machine_detection"] = "detect_words"
             call_payload["answering_machine_detection_config"] = {
-                "total_analysis_time_millis": 3000,
-                "after_silence_millis": 400,
-                "between_words_millis": 400,
-                "greeting_duration_millis": 1500,
-                "initial_silence_millis": 1500,
-                "maximum_number_of_words": 3,
-                "maximum_word_length_millis": 1500,
+                "total_analysis_time_millis": 2000,
+                "after_silence_millis": 300,
+                "between_words_millis": 300,
+                "greeting_duration_millis": 1200,
+                "initial_silence_millis": 800,
+                "maximum_number_of_words": 2,
+                "maximum_word_length_millis": 1200,
                 "silence_threshold": 256,
             }
 
@@ -2374,6 +2412,61 @@ def stream_recording(recording_sid):
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: Lightweight ping for latency measurement
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/ping', methods=['GET', 'HEAD'])
+@login_required
+def voice_ping():
+    """Lightweight endpoint for the dialer to measure latency."""
+    return '', 204
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Call disposition
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/call-disposition', methods=['POST'])
+@login_required
+def set_call_disposition():
+    """Save a disposition for a completed call."""
+    data = request.json or {}
+    call_sid = data.get('call_sid', '')
+    disposition = data.get('disposition', '')
+    if not call_sid or not disposition:
+        return jsonify({"error": "call_sid and disposition required"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        # Try to add disposition column if it doesn't exist
+        try:
+            cur.execute("""
+                ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL
+            """)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        cur.execute("""
+            UPDATE call_history SET disposition = %s WHERE call_sid = %s
+        """, (disposition, call_sid))
+        conn.commit()
+        cur.close()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        logger.error(f"Failed to save disposition: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+# ──────────────────────────────────────────────────────────────
 # ROUTE: Call history API
 # ──────────────────────────────────────────────────────────────
 
@@ -2395,10 +2488,18 @@ def get_call_history():
             return jsonify({"error": "No location configured"}), 400
         location_id = row['location_id']
 
+        # Ensure disposition column exists
+        try:
+            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
         cur.execute("""
             SELECT id, contact_id, contact_name, phone, direction, call_sid,
                    status, duration, recording_url, recording_sid, transcript,
-                   started_at, ended_at, created_at
+                   started_at, ended_at, created_at,
+                   COALESCE(disposition, '') as disposition
             FROM call_history
             WHERE location_id = %s
             ORDER BY created_at DESC

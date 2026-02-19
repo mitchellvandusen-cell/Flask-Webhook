@@ -468,11 +468,10 @@
 
                     currentCallSid = null;
 
-                    // Auto-advance queue after a short delay
+                    // Hide banner immediately and advance queue
+                    hideCallBanner();
                     if (queueRunning) {
-                        setTimeout(() => advanceQueue(data.status), 2000);
-                    } else {
-                        setTimeout(hideCallBanner, 3000);
+                        setTimeout(() => advanceQueue(data.status), 1200);
                     }
 
                     renderQueue();
