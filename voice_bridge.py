@@ -1373,8 +1373,8 @@ async def handle_voice_stream(ws):
             client_state_meta.get('call_sid', '') or
             custom_params.get('callSid', '')
         )
-        caller       = client_state_meta.get('caller',       '') or custom_params.get('caller', '')
-        called       = client_state_meta.get('called',       '') or custom_params.get('called', '')
+        caller       = client_state_meta.get('caller',       '') or custom_params.get('caller', '') or start_block.get('from', '')
+        called       = client_state_meta.get('called',       '') or custom_params.get('called', '') or start_block.get('to', '')
         direction    = client_state_meta.get('direction',    'inbound') or custom_params.get('direction', 'inbound')
         location_id  = client_state_meta.get('location_id', '') or custom_params.get('locationId', '')
         contact_id   = client_state_meta.get('contact_id',  '') or custom_params.get('contactId', '')
@@ -1395,7 +1395,7 @@ async def handle_voice_stream(ws):
 
     if not subscriber:
         logger.error(f"Voice stream: No subscriber found (loc={location_id}, called={called})")
-        ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+        ws.send(json.dumps({"event": "clear", "stream_id": stream_sid, "streamSid": stream_sid}))
         return
 
     voice_config = subscriber.get("voice_config") or {}
@@ -1544,8 +1544,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
             # ── Telnyx -> XAI: Forward audio from the phone to xAI ──
             async def receive_from_twilio():
-                """Relay Telnyx → xAI.  Telnyx delivers L16 PCM16 at 24 kHz (little-endian),
-                which is exactly what xAI expects — zero resampling or codec conversion."""
+                """Relay Telnyx → xAI.  Telnyx delivers L16 PCM16 at 24 kHz (Big-Endian per
+                RFC 3551). xAI expects Little-Endian — byte order is swapped on each frame."""
                 nonlocal stream_sid, call_active
                 try:
                     while call_active:
@@ -1560,11 +1560,14 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         data = json.loads(message)
 
                         if data['event'] == 'media':
-                            # Telnyx delivers raw L16 PCM16 at 24 kHz as base64.
-                            # xAI expects exactly the same format — pass through directly.
+                            # Telnyx L16 follows RFC 3551 — Big-Endian byte order.
+                            # xAI expects Little-Endian PCM16. Swap before forwarding.
+                            raw_audio = base64.b64decode(data['media']['payload'])
+                            pcm_be    = np.frombuffer(raw_audio, dtype=np.dtype('>i2'))
+                            le_bytes  = pcm_be.astype('<i2').tobytes()
                             audio_append = {
                                 "type":  "input_audio_buffer.append",
-                                "audio": data['media']['payload'],   # already base64, no decode needed
+                                "audio": base64.b64encode(le_bytes).decode('utf-8'),
                             }
                             await xai_ws.send(json.dumps(audio_append))
 
@@ -1588,16 +1591,20 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                 def _send_pcm_to_telnyx(raw_b64: str):
                     """RMS-normalize a xAI PCM16 chunk and forward to Telnyx as L16."""
                     nonlocal ai_chunks_sent
-                    pcm_np = np.frombuffer(base64.b64decode(raw_b64), dtype=np.int16)
+                    # xAI sends Little-Endian PCM16
+                    pcm_np = np.frombuffer(base64.b64decode(raw_b64), dtype=np.dtype('<i2'))
                     # RMS normalization — prevents quiet/distant-sounding output
-                    rms = np.sqrt(np.mean(pcm_np ** 2))
+                    rms = np.sqrt(np.mean(pcm_np.astype(np.float32) ** 2))
                     if rms > 0:
-                        gain  = min(0.9 * 32767 / rms, 4.0)   # cap at 4× — avoids over-amplifying silence
+                        gain   = min(0.9 * 32767 / rms, 4.0)   # cap at 4× — avoids over-amplifying silence
                         pcm_np = np.clip(pcm_np * gain, -32768, 32767).astype(np.int16)
+                    # Telnyx L16 requires Big-Endian (RFC 3551)
+                    be_bytes = pcm_np.astype('>i2').tobytes()
                     ws.send(json.dumps({
                         "event":     "media",
-                        "streamSid": stream_sid,
-                        "media":     {"payload": base64.b64encode(pcm_np.tobytes()).decode('utf-8')},
+                        "stream_id": stream_sid,   # Telnyx requires stream_id
+                        "streamSid": stream_sid,   # Twilio fallback
+                        "media":     {"payload": base64.b64encode(be_bytes).decode('utf-8')},
                     }))
                     ai_chunks_sent += 1
 
@@ -1642,8 +1649,12 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 }
                                 await xai_ws.send(json.dumps(truncate_event))
 
-                            # Clear Telnyx's audio buffer (same event name as Twilio)
-                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                            # Clear Telnyx's audio buffer
+                            ws.send(json.dumps({
+                                "event":     "clear",
+                                "stream_id": stream_sid,   # Telnyx requires stream_id
+                                "streamSid": stream_sid,   # Twilio fallback
+                            }))
                             last_assistant_item      = None
                             response_start_timestamp = None
                             ai_chunks_sent           = 0
