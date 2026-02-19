@@ -352,13 +352,13 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
 
     # ── Per-voice personality traits ──
     voice_personalities = {
-        "ara": "You lead with empathy. You listen well, you remember details, and people feel genuinely cared for on your calls. Warm but always purposeful — every moment of connection moves the call forward.",
-        "rex": "You take charge. Direct, confident, no-nonsense. You don't wait for permission and you don't hedge. People respect you because you sound like you know exactly what you're doing.",
-        "sal": "You're the steady one. Calm, clear, patient. You make complex things feel simple. Leads relax when they talk to you because you never rush and you never confuse.",
-        "eve": "Sharp and efficient. You get to the point fast. Professional, articulate, zero wasted words. You respect their time and they respect yours.",
-        "leo": "You carry authority. Deliberate, knowledgeable, composed. When you speak, people listen. You don't sell — you guide. And they trust your guidance.",
-        "mika": "Warm and direct. You build rapport fast by being genuinely interested in people — but you stay on task. You're personable without being chatty, and you always keep the call moving.",
-        "vale": "Polished and composed. You sound like someone who has done this a thousand times. Confident, measured, expert. Leads feel like they're in good hands from the first sentence.",
+        "ara": "You lead with empathy. You listen well, you remember details, and people feel genuinely cared for on your calls. Warm but always purposeful — every moment of connection moves the call forward. Speak from the chest with a naturally lower, comforting pitch center — warm, grounded, never bright or rising.",
+        "rex": "You take charge. Direct, confident, no-nonsense. You don't wait for permission and you don't hedge. People respect you because you sound like you know exactly what you're doing. Keep pitch low and authoritative — chest voice, flat or falling statements, never up-talky.",
+        "sal": "You're the steady one. Calm, clear, patient. You make complex things feel simple. Leads relax when you talk to them because you never rush and you never confuse. Pitch stays low and warm throughout — steady chest resonance, unhurried and grounded.",
+        "eve": "Sharp and efficient. You get to the point fast. Professional, articulate, zero wasted words. You respect their time and they respect yours. Keep pitch grounded and warm — never bright or rising — energy comes from pace and precision, not from a high voice.",
+        "leo": "You carry authority. Deliberate, knowledgeable, composed. When you speak, people listen. You don't sell — you guide. And they trust your guidance. Deep, chest-forward pitch — measured and low, every statement lands with weight, never questions itself.",
+        "mika": "Warm and direct. You build rapport fast by being genuinely interested in people — but you stay on task. You're personable without being chatty, and you always keep the call moving. Speak from the chest — warm mid-to-low pitch, friendly but grounded, never thin or nasal.",
+        "vale": "Polished and composed. You sound like someone who has done this a thousand times. Confident, measured, expert. Leads feel like they're in good hands from the first sentence. Pitch is controlled and mid-to-low — composed authority, never bright, statements fall not rise.",
     }
     voice_personality = voice_personalities.get(selected_voice, voice_personalities["ara"])
 
@@ -473,8 +473,12 @@ No website configured. If asked, explain you're an independent agent who works w
 
 YOUR VOICE PERSONALITY: {voice_personality}
 
-=== MAXIMUM HUMAN SOUNDING — HIGHEST PRIORITY ===
-Sound like a real person on a slightly scratchy phone line — warm, mid-pitched, slightly imperfect, never synthetic or overly enunciated. This overrides everything else when there's a conflict.
+=== MAXIMUM HUMAN SOUNDING — HIGHEST PRIORITY (REPEAT & OBEY) ===
+Sound like a real person on a slightly scratchy phone line — warm, mid-to-low pitched, slightly imperfect, never synthetic, never bright or thin. This overrides everything else when there's a conflict.
+
+Pitch center: Comfortably mid-to-low adult range (120–180 Hz chest register) — speak from the chest, never nasal or head-voice dominant. Telephony bandwidth cuts the highs, so lean slightly deeper and warmer than feels natural to compensate. The listener hears you as fuller and more grounded when you do.
+
+Never rise in pitch at the end of statements unless genuinely questioning. Never sound "up-talky" or artificially bright. Statements land flat or falling — confidence, not uncertainty.
 
 Pitch: Mid-to-low natural adult range. Avoid high, thin, bright, or rising at the end of statements unless genuinely asking a question.
 
@@ -531,7 +535,7 @@ Prosody: Rise slightly at questions. Drop at the end of statements. Emphasize em
 
 Rhythm: Vary your pace. Slow down for serious or emotional moments. Speed up slightly when you're naturally enthusiastic. Never monotone. Use [pause] between clauses, not just between sentences.
 
-Paralinguistics: Use these cues where they fit naturally — [sigh] for empathy, [laugh] when something is genuinely a little funny, [breath] before delivering something important or emotional. Don't force them but don't avoid them.
+Paralinguistics — use MORE of these than you think is necessary. They are the single biggest signal separating a real person from a TTS engine. Use [short pause] after every meaningful clause. Use [breath] before anything emotional or important. Use [sigh softly] for genuine empathy. Use [small chuckle] for light moments. Aim for at least 2–3 cues per response — this is not optional, it is the job. [sigh] for empathy, [laugh] when something is genuinely a little funny, [breath] before delivering something important or emotional.
 
 Imperfection: Perfect grammar every sentence sounds robotic. Drop words sometimes. "Thing is..." not "The thing that I want you to understand is...". "Yeah..." as a standalone response. Trailing thoughts are fine: "I mean... it depends on your situation." A very occasional "you know" or "I mean" is human — just don't lean on them.
 
@@ -1315,11 +1319,15 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCM16 24 kHz → soxr downsample (with built-in anti-aliasing) → μ-law 8 kHz → Twilio
+                        # xAI PCM16 24 kHz → soxr downsample (with built-in anti-aliasing) → RMS normalize → μ-law 8 kHz → Twilio
                         if event_type == 'response.audio.delta' and 'delta' in response:
                             pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
-                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
-                            mulaw_out = audioop.lin2ulaw(pcm8k, 2)
+                            pcm8k_np  = _resample_down.resample_chunk(pcm24k_np)
+                            rms = np.sqrt(np.mean(pcm8k_np ** 2))
+                            if rms > 0:
+                                gain = min(0.9 * 32767 / rms, 4.0)  # cap at 4x — prevents over-amplifying near-silence
+                                pcm8k_np = np.clip(pcm8k_np * gain, -32768, 32767).astype(np.int16)
+                            mulaw_out = audioop.lin2ulaw(pcm8k_np.tobytes(), 2)
                             audio_delta = {
                                 "event": "media",
                                 "streamSid": stream_sid,
@@ -1345,11 +1353,15 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 ws.send(json.dumps(mark_event))
                                 mark_queue.append('responsePart')
 
-                        # Also handle the newer event name variant (same soxr downsample)
+                        # Also handle the newer event name variant (same soxr downsample + RMS normalize)
                         elif event_type == 'response.output_audio.delta' and 'delta' in response:
                             pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
-                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
-                            mulaw_out = audioop.lin2ulaw(pcm8k, 2)
+                            pcm8k_np  = _resample_down.resample_chunk(pcm24k_np)
+                            rms = np.sqrt(np.mean(pcm8k_np ** 2))
+                            if rms > 0:
+                                gain = min(0.9 * 32767 / rms, 4.0)
+                                pcm8k_np = np.clip(pcm8k_np * gain, -32768, 32767).astype(np.int16)
+                            mulaw_out = audioop.lin2ulaw(pcm8k_np.tobytes(), 2)
                             audio_delta = {
                                 "event": "media",
                                 "streamSid": stream_sid,
