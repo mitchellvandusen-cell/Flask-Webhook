@@ -2631,71 +2631,73 @@ def automate_telnyx_setup():
         "Content-Type": "application/json",
     }
 
-    def _telnyx_get_or_create(method, url, create_json, verify_url=None, step_name="resource"):
+    def _list_or_create(list_url, create_url, create_json, step_name):
         """
-        Idempotent helper: verify an existing resource is still alive (GET verify_url),
-        otherwise POST to create a new one.
-        Returns (id_str, was_created) or raises on hard failure.
+        GET list_url first. If any records exist, reuse the first one.
+        Only POST to create_url if the account has none at all.
+        Returns the resource ID as a string, raises ValueError on failure.
         """
-        if verify_url:
-            check = http_requests.get(verify_url, headers=headers, timeout=10)
-            if check.status_code == 200:
-                existing_id = check.json()['data']['id']
-                logger.info(f"Reusing existing {step_name}: {existing_id}")
-                return str(existing_id), False
-            logger.info(f"Existing {step_name} not found ({check.status_code}) — creating new")
+        list_resp = http_requests.get(list_url, headers=headers, timeout=10)
+        if list_resp.status_code == 200:
+            items = list_resp.json().get('data', [])
+            if items:
+                found_id = str(items[0]['id'])
+                logger.info(f"Found existing {step_name}: {found_id} ({len(items)} total)")
+                return found_id
 
-        resp = http_requests.post(url, headers=headers, json=create_json, timeout=15)
-        if resp.status_code not in (200, 201):
-            logger.error(f"{step_name} creation failed {resp.status_code}: {resp.text}")
-            raise ValueError(f"{step_name} creation failed ({resp.status_code}): {resp.text[:300]}")
-        new_id = str(resp.json()['data']['id'])
+        logger.info(f"No existing {step_name} found — creating")
+        create_resp = http_requests.post(create_url, headers=headers, json=create_json, timeout=15)
+        if create_resp.status_code not in (200, 201):
+            logger.error(f"{step_name} create failed {create_resp.status_code}: {create_resp.text}")
+            raise ValueError(f"{step_name} creation failed ({create_resp.status_code}): {create_resp.text[:400]}")
+        new_id = str(create_resp.json()['data']['id'])
         logger.info(f"Created {step_name}: {new_id}")
-        return new_id, True
+        return new_id
 
     try:
-        # Always update the API key in case it was rotated
         vc['telnyx_api_key'] = api_key
 
-        # 1. Outbound Voice Profile — reuse if already provisioned
-        existing_ovp_id = vc.get('telnyx_outbound_profile_id', '')
-        ovp_id, _ = _telnyx_get_or_create(
-            'POST',
-            f"{TELNYX_API_BASE}/outbound_voice_profiles",
-            {"name": f"GrokBot_{location_id[:20]}"},
-            verify_url=f"{TELNYX_API_BASE}/outbound_voice_profiles/{existing_ovp_id}" if existing_ovp_id else None,
+        # 1. Outbound Voice Profile — use whatever exists in the account, else create one
+        ovp_id = _list_or_create(
+            list_url=f"{TELNYX_API_BASE}/outbound_voice_profiles",
+            create_url=f"{TELNYX_API_BASE}/outbound_voice_profiles",
+            create_json={
+                "name": f"GrokBot_{location_id[:24]}",
+                "traffic_type": "Conversational",
+                "service_plan": "us",
+                "enabled": True,
+                "whitelisted_destinations": ["US"],
+            },
             step_name="Outbound Voice Profile",
         )
         vc['telnyx_outbound_profile_id'] = ovp_id
         _save_voice_config(current_user.email, vc)
 
-        # 2. Call Control Application — reuse if already provisioned
-        existing_cc_id = vc.get('telnyx_connection_id', '')
-        call_control_id, _ = _telnyx_get_or_create(
-            'POST',
-            f"{TELNYX_API_BASE}/call_control_applications",
-            {
-                "application_name": f"GrokBot_AI_{location_id[:20]}",
+        # 2. Call Control Application — use whatever exists, else create one
+        call_control_id = _list_or_create(
+            list_url=f"{TELNYX_API_BASE}/call_control_applications",
+            create_url=f"{TELNYX_API_BASE}/call_control_applications",
+            create_json={
+                "application_name": f"GrokBot_AI_{location_id[:24]}",
                 "webhook_event_url": webhook_url,
                 "webhook_api_version": "2",
                 "outbound_voice_profile_id": ovp_id,
+                "first_command_timeout": True,
+                "first_command_timeout_secs": 30,
             },
-            verify_url=f"{TELNYX_API_BASE}/call_control_applications/{existing_cc_id}" if existing_cc_id else None,
             step_name="Call Control Application",
         )
         vc['telnyx_connection_id'] = call_control_id
         _save_voice_config(current_user.email, vc)
 
-        # 3. SIP Credential Connection — browser WebRTC dialer
-        existing_sip_id = vc.get('telnyx_sip_connection_id', '')
-        sip_connection_id, _ = _telnyx_get_or_create(
-            'POST',
-            f"{TELNYX_API_BASE}/credential_connections",
-            {
+        # 3. SIP Credential Connection — use whatever exists, else create one
+        sip_connection_id = _list_or_create(
+            list_url=f"{TELNYX_API_BASE}/credential_connections",
+            create_url=f"{TELNYX_API_BASE}/credential_connections",
+            create_json={
                 "connection_name": f"GrokBot_WebRTC_{location_id[:20]}",
                 "outbound_voice_profile_id": ovp_id,
             },
-            verify_url=f"{TELNYX_API_BASE}/credential_connections/{existing_sip_id}" if existing_sip_id else None,
             step_name="SIP Credential Connection",
         )
         vc['telnyx_sip_connection_id'] = sip_connection_id
@@ -2707,11 +2709,10 @@ def automate_telnyx_setup():
         })
 
     except ValueError as e:
-        # Hard API error — partial saves already written above; surface the message
         _save_voice_config(current_user.email, vc)
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.error(f"Telnyx automation unexpected error: {e}", exc_info=True)
+        logger.error(f"Telnyx automation error: {e}", exc_info=True)
         _save_voice_config(current_user.email, vc)
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
