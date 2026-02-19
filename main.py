@@ -3992,6 +3992,7 @@ def oauth_initiate():
         scopes += [
             "locations.readonly",       # Sub-account discovery
             "users.readonly",           # User info lookup
+            "opportunities.readonly",   # Pipeline & stage listing for dialer filters
         ]
     scope_string = " ".join(scopes)
 
