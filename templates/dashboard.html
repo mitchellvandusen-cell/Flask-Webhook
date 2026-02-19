@@ -246,6 +246,138 @@
             .log-row { font-size: 0.8rem; padding: 8px; }
         }
 
+        /* ═══ MOBILE RESPONSIVE ═══ */
+
+        /* -- Tablet (≤992px) -- */
+        @media (max-width: 992px) {
+            .glass-panel { padding: 20px !important; }
+        }
+
+        /* -- Mobile (≤768px) -- */
+        @media (max-width: 768px) {
+            /* Main nav tabs: horizontal scroll instead of wrapping */
+            #dashTabs {
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                gap: 4px !important;
+                margin-bottom: 20px !important;
+                padding-bottom: 2px;
+            }
+            #dashTabs::-webkit-scrollbar { display: none; }
+            #dashTabs .nav-link {
+                font-size: 0.72rem !important;
+                padding: 8px 10px !important;
+                white-space: nowrap;
+            }
+            /* Hide tab label text, show only icons on small screens */
+            #dashTabs .nav-link { font-size: 0 !important; }
+            #dashTabs .nav-link i { font-size: 0.9rem !important; margin: 0 !important; }
+
+            /* Glass panels: tighter padding */
+            .glass-panel { padding: 16px !important; border-radius: 12px !important; }
+
+            /* Voice sub-tabs: smaller on mobile */
+            .voice-stab-btn {
+                padding: 6px 10px !important;
+                font-size: 0.72rem !important;
+            }
+
+            /* Voice Dialer: stack columns vertically */
+            .dlr-3col-layout {
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: unset !important;
+            }
+            .dlr-3col-layout > .dlr-col {
+                width: 100% !important;
+                max-height: 350px;
+            }
+            /* Dialer top bar: wrap items */
+            .dlr-top-bar {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .dlr-top-bar .quick-dial-group { max-width: 100% !important; flex: 1 1 100% !important; }
+
+            /* Numbers table: responsive grid */
+            .numbers-grid-header,
+            .numbers-grid-row {
+                grid-template-columns: 1fr 80px 40px !important;
+            }
+            .numbers-col-sms,
+            .numbers-col-cnam,
+            .numbers-col-menu { display: none !important; }
+
+            /* Trust Hub number health grid */
+            .trust-health-header,
+            .trust-health-row {
+                grid-template-columns: 1fr auto !important;
+            }
+            .trust-col-cnam,
+            .trust-col-health { display: none !important; }
+
+            /* How It Works: 2 columns */
+            .voice-how-it-works .col-md-3 {
+                flex: 0 0 50% !important;
+                max-width: 50% !important;
+            }
+
+            /* Congrats overlay */
+            .congrats-card { padding: 30px 20px !important; }
+            .congrats-icon { width: 60px !important; height: 60px !important; }
+
+            /* CRM guide steps */
+            .wf-step { flex-direction: column; align-items: flex-start; }
+
+            /* Forms: full width */
+            .form-control, .form-select, input[type="text"], input[type="url"], textarea, select {
+                font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
+
+            /* Carrier grid: single column */
+            #carrierGrid {
+                grid-template-columns: 1fr !important;
+                max-height: 300px !important;
+            }
+        }
+
+        /* -- Small mobile (≤480px) -- */
+        @media (max-width: 480px) {
+            /* Voice sub-tabs: icon only */
+            .voice-stab-btn {
+                padding: 6px 8px !important;
+                font-size: 0 !important;
+            }
+            .voice-stab-btn i { font-size: 0.85rem !important; margin: 0 !important; }
+
+            /* Stack flex layouts vertically */
+            .mobile-stack {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+            .mobile-stack > * { width: 100% !important; min-width: unset !important; }
+
+            /* Tighter glass panels */
+            .glass-panel { padding: 12px !important; }
+
+            /* Save overlay */
+            .save-overlay-box { padding: 24px 20px !important; }
+
+            /* Webhook URL section */
+            .webhook-url-group {
+                flex-direction: column !important;
+            }
+            .webhook-url-group > div { min-width: unset !important; width: 100% !important; }
+
+            /* Row g-3 columns stack */
+            .row.g-3 > [class*="col-md-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+            }
+        }
+
         /* Save overlay */
         .save-overlay {
             display: none;
@@ -1452,20 +1584,20 @@
                     <!-- How It Works -->
                     <div class="mb-4 p-3" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 12px;">
                         <h6 style="color: #00d9ff; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-diagram-project me-2"></i>How It Works</h6>
-                        <div class="row g-2" style="font-size: 0.82rem; color: #aaa;">
-                            <div class="col-md-3 text-center">
+                        <div class="row g-2 voice-how-it-works" style="font-size: 0.82rem; color: #aaa;">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-phone-volume"></i></div>
                                 <strong style="color:#ccc;">Call Connects</strong><br>Lead calls your AI number or bot dials out
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-microphone"></i></div>
                                 <strong style="color:#ccc;">Audio Streams</strong><br>Telnyx streams HD audio to our server at 24 kHz
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-brain"></i></div>
                                 <strong style="color:#ccc;">Grok Thinks</strong><br>XAI processes speech and responds in real-time
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-calendar-check"></i></div>
                                 <strong style="color:#ccc;">Books Appointments</strong><br>AI checks your calendar and books live
                             </div>
@@ -1890,14 +2022,14 @@
                 </style>
 
                 <!-- Top Bar -->
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:14px;">
+                <div class="dlr-top-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:14px;">
                     <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;">
                         <i class="fa-solid fa-phone-volume" style="color:#00d9ff;font-size:1rem;"></i>
                     </div>
                     <div style="flex:1;display:flex;align-items:center;gap:10px;">
                         <h5 style="margin:0;font-weight:700;font-size:1rem;white-space:nowrap;">Power Dialer</h5>
                         <!-- Inline Quick Dial -->
-                        <div style="display:flex;gap:4px;flex:1;max-width:280px;">
+                        <div class="quick-dial-group" style="display:flex;gap:4px;flex:1;max-width:280px;">
                             <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
                                 style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.75rem;outline:none;min-width:120px;">
                             <button onclick="dialerManualCall()" style="padding:5px 12px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;white-space:nowrap;">
@@ -2018,7 +2150,7 @@
                 </div>
 
                 <!-- ═══ 3-Column Layout ═══ -->
-                <div style="display:flex;gap:8px;height:calc(100vh - 320px);min-height:500px;">
+                <div class="dlr-3col-layout" style="display:flex;gap:8px;height:calc(100vh - 320px);min-height:500px;">
 
                     <!-- ── LEFT: Contacts ── -->
                     <div class="dlr-col" style="width:30%;border-radius:12px;">
@@ -3813,13 +3945,13 @@
             const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
             let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;">';
             // Header
-            html += '<div style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
+            html += '<div class="numbers-grid-header" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
             html += '<div style="' + hdrStyle + '">Number</div>';
             html += '<div style="' + hdrStyle + 'text-align:center;">Status</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">Voice</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">SMS</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">CNAM</div>';
-            html += '<div style="' + hdrStyle + '"></div>';
+            html += '<div class="numbers-col-voice" style="' + hdrStyle + 'text-align:center;">Voice</div>';
+            html += '<div class="numbers-col-sms" style="' + hdrStyle + 'text-align:center;">SMS</div>';
+            html += '<div class="numbers-col-cnam" style="' + hdrStyle + 'text-align:center;">CNAM</div>';
+            html += '<div class="numbers-col-menu" style="' + hdrStyle + '"></div>';
             html += '</div>';
             // Rows
             numbers.forEach(n => {
@@ -3830,18 +3962,18 @@
                 const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
                 const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
                 const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
-                html += '<div style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
+                html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
                 html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + _esc(n.number_type || 'local') + '</span></div>';
                 html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
-                html += '<div style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
-                html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
-                html += '<div style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
-                html += '<div style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
-                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:2px 6px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                html += '<div class="numbers-col-voice" style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
+                html += '<div class="numbers-col-sms" style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
+                html += '<div class="numbers-col-cnam" style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
+                html += '<div class="numbers-col-menu" style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
+                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:6px 8px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                     '<div class="num-menu" style="display:none;position:absolute;right:0;top:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:999;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">' +
-                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ccc;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
-                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ccc;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
-                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ef4444;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ef4444;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
                     '</div></div></div>';
                 html += '</div>';
             });
@@ -3927,10 +4059,10 @@
                             'not_registered': { bg:'rgba(255,255,255,0.04)', color:'#888', icon:'fa-circle-xmark', text:'Not Registered' },
                         };
                         const s = statusMap[carrier.status] || statusMap['not_registered'];
-                        chtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;">';
-                        chtml += '<div style="flex:1;"><div style="font-weight:600;color:#fff;font-size:.82rem;">' + _esc(carrier.name) + '</div>';
+                        chtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;flex-wrap:wrap;gap:8px;">';
+                        chtml += '<div style="flex:1;min-width:180px;"><div style="font-weight:600;color:#fff;font-size:.82rem;">' + _esc(carrier.name) + '</div>';
                         chtml += '<div style="color:#888;font-size:.7rem;margin-top:2px;">' + _esc(carrier.description) + '</div></div>';
-                        chtml += '<div style="display:flex;align-items:center;gap:8px;">';
+                        chtml += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
                         chtml += '<span style="background:' + s.bg + ';color:' + s.color + ';padding:3px 10px;border-radius:4px;font-size:.7rem;font-weight:600;"><i class="fa-solid ' + s.icon + ' me-1"></i>' + s.text + '</span>';
                         chtml += '<a href="' + _esc(carrier.url) + '" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:5px;padding:4px 10px;font-size:.7rem;font-weight:600;text-decoration:none;white-space:nowrap;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Register</a>';
                         if (carrier.status !== 'registered') {
@@ -3948,11 +4080,11 @@
                         healthList.innerHTML = '<div style="color:#888;font-size:.78rem;text-align:center;padding:8px;">No numbers found</div>';
                     } else {
                         let hhtml = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">';
-                        hhtml += '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;">';
+                        hhtml += '<div class="trust-health-header" style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;">';
                         hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;">Number</div>';
                         hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Status</div>';
-                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">CNAM</div>';
-                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Health</div>';
+                        hhtml += '<div class="trust-col-cnam" style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">CNAM</div>';
+                        hhtml += '<div class="trust-col-health" style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Health</div>';
                         hhtml += '</div>';
                         numbers.forEach(n => {
                             const active = n.status === 'active';
@@ -3961,11 +4093,11 @@
                             const healthColor = healthScore >= 3 ? '#00ff88' : (healthScore >= 2 ? '#ffa500' : '#ef4444');
                             const healthText = healthScore >= 3 ? 'Healthy' : (healthScore >= 2 ? 'Fair' : 'Needs Attention');
                             const healthIcon = healthScore >= 3 ? 'fa-heart' : (healthScore >= 2 ? 'fa-heart-crack' : 'fa-triangle-exclamation');
-                            hhtml += '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;align-items:center;">';
+                            hhtml += '<div class="trust-health-row" style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;align-items:center;">';
                             hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;font-size:.78rem;">' + _esc(_fmtPhone(n.phone)) + '</div>';
                             hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:' + (active ? '#00ff88' : '#888') + ';font-size:.7rem;">' + (n.status || 'unknown') + '</div>';
-                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + (cnam ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>') + '</div>';
-                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><span style="color:' + healthColor + ';font-size:.68rem;font-weight:600;"><i class="fa-solid ' + healthIcon + ' me-1"></i>' + healthText + '</span></div>';
+                            hhtml += '<div class="trust-col-cnam" style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + (cnam ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>') + '</div>';
+                            hhtml += '<div class="trust-col-health" style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><span style="color:' + healthColor + ';font-size:.68rem;font-weight:600;"><i class="fa-solid ' + healthIcon + ' me-1"></i>' + healthText + '</span></div>';
                             hhtml += '</div>';
                         });
                         hhtml += '</div>';
