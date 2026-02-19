@@ -3110,7 +3110,7 @@
                     if (_voipStatus()) _voipStatus().textContent = 'Loading Telnyx SDK…';
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://cdn.jsdelivr.net/npm/@telnyx/webrtc@2/dist/telnyx-webrtc.min.js';
+                        s.src = 'https://unpkg.com/@telnyx/webrtc';
                         s.onload = () => { console.log('[VoIP] SDK loaded'); resolve(); };
                         s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Telnyx SDK')); };
                         document.head.appendChild(s);
