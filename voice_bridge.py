@@ -2862,7 +2862,7 @@ def list_telnyx_numbers():
         resp = http_requests.get(
             f"{TELNYX_API_BASE}/phone_numbers",
             headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 50, "filter[voice.carrier]": "telnyx"},
+            params={"page[size]": 50},
             timeout=15,
         )
         if resp.status_code != 200:
