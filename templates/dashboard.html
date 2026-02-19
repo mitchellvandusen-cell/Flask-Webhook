@@ -3255,22 +3255,24 @@
         function dialerDismissDisposition() {
             document.getElementById('dialerDisposition').style.display = 'none';
         }
-        async function dialerSetDisposition(disp) {
-            if (_dialerLastCallSid) {
-                try {
-                    await fetch('/voice/call-disposition', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ call_sid: _dialerLastCallSid, disposition: disp })
-                    });
-                } catch(e) {}
-            }
-            // Highlight the selected button
+        function dialerSetDisposition(disp) {
+            // Highlight immediately (before any async work — window.event is only valid synchronously)
             const btns = document.querySelectorAll('#dialerDisposition .disp-btn');
             btns.forEach(b => { b.style.background = 'rgba(255,255,255,0.04)'; b.style.color = '#ccc'; });
-            event.target.closest('.disp-btn').style.background = 'rgba(0,255,136,0.15)';
-            event.target.closest('.disp-btn').style.color = 'var(--accent)';
+            const clicked = event && event.target ? event.target.closest('.disp-btn') : null;
+            if (clicked) {
+                clicked.style.background = 'rgba(0,255,136,0.15)';
+                clicked.style.color = 'var(--accent)';
+            }
             setTimeout(dialerDismissDisposition, 1200);
+            // Fire-and-forget save to backend
+            if (_dialerLastCallSid) {
+                fetch('/voice/call-disposition', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: _dialerLastCallSid, disposition: disp })
+                }).catch(() => {});
+            }
         }
 
         // ── Latency / Ping ──
