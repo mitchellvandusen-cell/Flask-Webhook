@@ -3992,6 +3992,7 @@ def oauth_initiate():
         scopes += [
             "locations.readonly",       # Sub-account discovery
             "users.readonly",           # User info lookup
+            "opportunities.readonly",   # Pipeline & stage listing for dialer filters
         ]
     scope_string = " ".join(scopes)
 
@@ -4134,6 +4135,15 @@ def oauth_callback():
         # Determine flow based on state parameter
         # state="website_user" → Stripe/website subscriber connecting Lead Connector
         # No state (or anything else) → Marketplace installation
+        #
+        # CRITICAL FIX: GHL sometimes strips the state parameter from the callback.
+        # When USE_PRIVATE_APP is set, fall back to private_app flow so we don't
+        # accidentally use marketplace credentials and get 401 "Invalid client credentials".
+        use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
+        if not state and use_private_env:
+            state = "private_app"
+            logger.info("OAuth callback: state was None but USE_PRIVATE_APP is set — treating as private_app")
+
         is_website_user = (state == "website_user") or (state == "private_app")
 
         if is_website_user:

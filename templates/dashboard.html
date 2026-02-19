@@ -2496,13 +2496,24 @@
                 });
                 const d = await r.json();
                 if (d.status === 'success') {
-                    res.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + d.message + ' Refresh the page to see updated status.</span>';
+                    res.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + d.message + '</span>';
                     // Flash the status badges green without a reload
                     document.querySelectorAll('#vstab-panel-settings .fa-circle-xmark').forEach(el => {
                         el.className = 'fa-solid fa-circle-check';
                         el.style.color = '#00ff88';
                         el.nextElementSibling.style.color = '#ccc';
                     });
+                    // Auto-populate Connection ID and Phone Number fields from the response
+                    if (d.telnyx_connection_id) {
+                        const connEl = document.getElementById('voiceTelnyxConnectionId');
+                        if (connEl) connEl.value = d.telnyx_connection_id;
+                    }
+                    if (d.telnyx_phone_number) {
+                        const phoneEl = document.getElementById('voiceTelnyxPhoneNumber');
+                        if (phoneEl) phoneEl.value = d.telnyx_phone_number;
+                    }
+                    // Refresh the Numbers / Trust Hub lists so they populate immediately
+                    if (typeof loadTrustHubNumbers === 'function') loadTrustHubNumbers();
                 } else {
                     res.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Provisioning failed') + '</span>';
                 }

@@ -2969,9 +2969,36 @@ def automate_telnyx_setup():
         vc['telnyx_sip_connection_id'] = sip_connection_id
         _save_voice_config(current_user.email, vc)
 
+        # 4. Auto-detect phone number — fetch existing numbers from the Telnyx
+        #    account and populate telnyx_phone_number so the user doesn't have to
+        #    paste it manually.  This also feeds the Numbers and Trust Hub tabs.
+        phone_number = vc.get('telnyx_phone_number', '').strip()
+        numbers_list = []
+        if not phone_number:
+            try:
+                num_resp = http_requests.get(
+                    f"{TELNYX_API_BASE}/phone_numbers",
+                    headers=headers,
+                    params={"page[size]": 50},
+                    timeout=10,
+                )
+                if num_resp.status_code == 200:
+                    numbers_list = num_resp.json().get('data', [])
+                    if numbers_list:
+                        phone_number = numbers_list[0].get('phone_number', '')
+                        if phone_number:
+                            vc['telnyx_phone_number'] = phone_number
+                            _save_voice_config(current_user.email, vc)
+                            logger.info(f"Auto-populated Telnyx phone number: {phone_number}")
+            except Exception as e:
+                logger.warning(f"Could not auto-detect Telnyx numbers: {e}")
+
         return jsonify({
             "status": "success",
             "message": "Telnyx infrastructure provisioned!",
+            "telnyx_connection_id": call_control_id,
+            "telnyx_phone_number": phone_number,
+            "numbers_count": len(numbers_list),
         })
 
     except ValueError as e:
@@ -3612,10 +3639,15 @@ def get_pipelines():
             params={"locationId": location_id},
             timeout=10
         )
-        if resp.status_code in (401, 403):
-            # opportunities.readonly scope not yet granted — signal the UI to use manual entry
+        if resp.status_code in (401, 403, 422):
+            # opportunities.readonly scope not yet granted — GHL returns 401/403
+            # for missing scopes, but PITs sometimes return 422 instead.
+            logger.warning(f"Pipelines fetch returned {resp.status_code} — "
+                           f"opportunities.readonly scope likely not granted. "
+                           f"Response: {resp.text[:300]}")
             return jsonify({"pipelines": [], "scope_missing": True})
         if resp.status_code != 200:
+            logger.warning(f"Pipelines fetch returned {resp.status_code}: {resp.text[:300]}")
             return jsonify({"pipelines": []})
 
         pipelines = resp.json().get("pipelines", [])
