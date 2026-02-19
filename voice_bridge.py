@@ -32,6 +32,10 @@ from ghl_api import get_valid_token, fetch_targeted_ghl_history
 # { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
 _active_calls = {}
 
+# Transfer / takeover signaling: set by HTTP endpoints, read by WebSocket bridge
+# { call_sid: {"type": "transfer"|"takeover", "target": "+1...", "reason": "..."} }
+_transfer_requests = {}
+
 # Simple in-memory cache for GHL custom field definitions: { location_id: {field_id: field_name} }
 # Populated on first contact detail fetch per location; GHL field definitions rarely change.
 _custom_field_defs: dict = {}
@@ -180,7 +184,8 @@ def _pcm16_to_wav(pcm_data, sample_rate=24000):
 
 
 async def _generate_voice_preview(voice_name):
-    """Connect to XAI Realtime API and generate a short voice sample."""
+    """Connect to XAI Realtime API and generate a short voice sample.
+    Uses L16 PCM 16kHz — same format as live calls for consistent audio quality."""
     audio_chunks = []
 
     try:
@@ -192,10 +197,10 @@ async def _generate_voice_preview(voice_name):
             session_config = {
                 "type": "session.update",
                 "session": {
-                    "voice": voice_name,               # ← session level per xAI schema
+                    "voice": voice_name,
                     "instructions": "You are a friendly voice assistant. Say exactly what is requested, nothing more.",
                     "audio": {
-                        "output": {"format": {"type": "audio/pcmu"}},
+                        "output": {"format": {"type": "audio/pcm", "rate": 16000}},
                     },
                 }
             }
@@ -825,6 +830,21 @@ def get_voice_tools():
                 "required": ["selected_time"]
             }
         },
+        {
+            "type": "function",
+            "name": "transfer_to_agent",
+            "description": "Transfer this call to a live human agent right now. Use this when the lead is highly interested and ready to take action immediately — for example, they have their policy info ready, are asking detailed pricing questions, or explicitly want to speak with someone who can finalize things. Say something like 'Let me grab my senior advisor to help you right now' before calling this.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Brief reason for the transfer, e.g. 'lead ready to buy', 'needs underwriting details', 'requesting live agent'"
+                    }
+                },
+                "required": []
+            }
+        },
     ]
 
 
@@ -889,6 +909,35 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
         except Exception as e:
             logger.error(f"Voice booking failed: {e}")
             return "Booking failed due to a technical issue. Apologize and ask the lead if you can call back to confirm."
+
+    elif tool_name == "transfer_to_agent":
+        reason = args.get("reason", "lead requested transfer")
+        logger.info(f"🔄 Transfer to agent requested: reason={reason}")
+
+        # Get the transfer number from voice_config
+        transfer_number = subscriber.get("voice_config", {}).get("transfer_number", "")
+        if not transfer_number:
+            logger.warning("Transfer requested but no transfer_number configured")
+            return "Transfer is not available right now — no agent number configured. Continue the conversation and try to book an appointment instead."
+
+        # Signal the WebSocket bridge to perform the transfer
+        # The bridge checks _transfer_requests during audio relay
+        location_id = subscriber.get("location_id", "")
+        # Find the active call_sid for this location
+        for csid, cinfo in _active_calls.items():
+            if cinfo.get("contact_id") == contact_id or cinfo.get("name") == first_name:
+                _transfer_requests[csid] = {
+                    "type": "transfer",
+                    "target": transfer_number,
+                    "reason": reason,
+                }
+                logger.info(f"🔄 Transfer signal set for call {csid} -> {transfer_number}")
+                break
+        else:
+            # Fallback: set by location_id match
+            logger.warning("Could not find active call for transfer — setting global flag")
+
+        return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
 
     else:
         logger.warning(f"Unknown voice tool: {tool_name}")
@@ -1620,6 +1669,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             response_start_timestamp = None
             ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Telnyx
             call_active              = True
+            _pending_transfer        = False  # set True when AI requests transfer; cleared on response.done
 
             # ── Telnyx -> XAI: L16 16kHz passthrough ──
             async def receive_from_telnyx():
@@ -1627,6 +1677,30 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                 nonlocal stream_sid, call_active
                 try:
                     while call_active:
+                        # ── Check for immediate takeover (agent barge-in) ──
+                        # This runs on every loop iteration so takeover is near-instant
+                        if call_sid and call_sid in _transfer_requests:
+                            req = _transfer_requests.get(call_sid, {})
+                            if req.get('type') == 'takeover':
+                                transfer_info = _transfer_requests.pop(call_sid, {})
+                                target = transfer_info.get('target', '')
+                                logger.info(f"🔄 Immediate takeover in receive_from_telnyx: {call_sid} -> {target}")
+
+                                t_api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
+                                if t_api_key and target:
+                                    # 1. Kill AI audio loop
+                                    call_active = False
+                                    # 2. Stop bidirectional streaming
+                                    _call_control_command(call_sid, t_api_key, 'streaming_stop', {})
+                                    # 3. Brief settle
+                                    await asyncio.sleep(0.3)
+                                    # 4. Transfer call to agent
+                                    _call_control_command(call_sid, t_api_key, 'transfer', {'to': target})
+                                    logger.info(f"🔄 Takeover transfer executed: {call_sid} -> {target}")
+                                    if call_sid in _active_calls:
+                                        _active_calls[call_sid]['status'] = 'transferred'
+                                break  # exit the Telnyx receive loop
+
                         message = await asyncio.get_event_loop().run_in_executor(
                             None, ws.receive
                         )
@@ -1712,9 +1786,24 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         elif event_type == 'response.function_call_arguments.done':
                             tool_name = response.get('name', '')
                             tool_args = response.get('arguments', '{}')
-                            call_id = response.get('call_id', '')
+                            call_id_tool = response.get('call_id', '')
 
-                            logger.info(f"🔧 Voice tool call: {tool_name} (call_id={call_id})")
+                            logger.info(f"🔧 Voice tool call: {tool_name} (call_id={call_id_tool})")
+
+                            # For transfer_to_agent, set signal directly using our call_sid
+                            if tool_name == 'transfer_to_agent':
+                                try:
+                                    t_args = json.loads(tool_args) if isinstance(tool_args, str) else tool_args
+                                except Exception:
+                                    t_args = {}
+                                t_reason = t_args.get('reason', 'lead requested transfer')
+                                t_number = (subscriber.get('voice_config') or {}).get('transfer_number', '')
+                                if call_sid and t_number:
+                                    _transfer_requests[call_sid] = {
+                                        'type': 'transfer',
+                                        'target': t_number,
+                                        'reason': t_reason,
+                                    }
 
                             # Execute the tool
                             result = execute_voice_tool(
@@ -1730,7 +1819,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 "type": "conversation.item.create",
                                 "item": {
                                     "type": "function_call_output",
-                                    "call_id": call_id,
+                                    "call_id": call_id_tool,
                                     "output": result
                                 }
                             }
@@ -1738,6 +1827,13 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                             # Trigger XAI to generate a response using the tool result
                             await xai_ws.send(json.dumps({"type": "response.create"}))
+
+                            # If a transfer was requested, let the AI finish its
+                            # handoff message (response.done), then execute transfer
+                            if call_sid and call_sid in _transfer_requests:
+                                # Wait for the AI to finish speaking the handoff message
+                                # by listening for response.done before transferring
+                                _pending_transfer = True
 
                         # Transcription: user speech -> text
                         elif event_type == 'conversation.item.input_audio_transcription.completed':
@@ -1757,6 +1853,63 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         elif event_type == 'error':
                             error_msg = response.get('error', {})
                             logger.error(f"🚨 XAI error: {error_msg}")
+
+                        # response.done — AI finished generating a response
+                        elif event_type == 'response.done':
+                            # Check for pending transfer or takeover
+                            if _pending_transfer and call_sid and call_sid in _transfer_requests:
+                                transfer_info = _transfer_requests.pop(call_sid, {})
+                                target = transfer_info.get('target', '')
+                                t_type = transfer_info.get('type', 'transfer')
+                                reason = transfer_info.get('reason', '')
+                                logger.info(f"🔄 Executing {t_type}: call {call_sid} -> {target} (reason: {reason})")
+
+                                # Get Telnyx API key for transfer commands
+                                t_api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
+                                if t_api_key and target:
+                                    # 1. Stop the AI audio stream
+                                    call_active = False
+
+                                    # 2. Stop bidirectional streaming on Telnyx
+                                    _call_control_command(call_sid, t_api_key, 'streaming_stop', {})
+                                    logger.info(f"🔄 Streaming stopped for {call_sid}")
+
+                                    # 3. Brief pause to let stream teardown settle
+                                    await asyncio.sleep(0.5)
+
+                                    # 4. Transfer the live call to the agent's number
+                                    transfer_ok = _call_control_command(call_sid, t_api_key, 'transfer', {
+                                        'to': target,
+                                    })
+
+                                    if transfer_ok:
+                                        logger.info(f"🔄 Call transferred to {target}")
+                                        # Update call status
+                                        if call_sid in _active_calls:
+                                            _active_calls[call_sid]['status'] = 'transferred'
+                                    else:
+                                        logger.error(f"🔄 Transfer failed for {call_sid}")
+
+                                _pending_transfer = False
+
+                            # Check for takeover request (human barge-in)
+                            elif call_sid and call_sid in _transfer_requests:
+                                transfer_info = _transfer_requests.pop(call_sid, {})
+                                if transfer_info.get('type') == 'takeover':
+                                    target = transfer_info.get('target', '')
+                                    logger.info(f"🔄 Executing takeover: call {call_sid} -> {target}")
+
+                                    t_api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
+                                    if t_api_key and target:
+                                        call_active = False
+                                        _call_control_command(call_sid, t_api_key, 'streaming_stop', {})
+                                        await asyncio.sleep(0.5)
+                                        _call_control_command(call_sid, t_api_key, 'transfer', {
+                                            'to': target,
+                                        })
+                                        logger.info(f"🔄 Takeover transfer to {target}")
+                                        if call_sid in _active_calls:
+                                            _active_calls[call_sid]['status'] = 'transferred'
 
                 except websockets.exceptions.ConnectionClosed:
                     logger.info("🎙️ XAI WebSocket closed")
@@ -1887,7 +2040,8 @@ def preview_voice(voice_name):
     if not audio_data:
         return jsonify({"error": "Failed to generate preview"}), 500
 
-    wav_data = _mulaw_to_wav(audio_data, sample_rate=8000)
+    # Audio is now L16 PCM 16kHz (same as live calls) — wrap in WAV container
+    wav_data = _pcm16_to_wav(audio_data, sample_rate=16000)
     return Response(wav_data, content_type='audio/wav',
                     headers={'Cache-Control': 'public, max-age=3600'})
 
@@ -2420,6 +2574,59 @@ def stream_recording(recording_sid):
 def voice_ping():
     """Lightweight endpoint for the dialer to measure latency."""
     return '', 204
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Live takeover — agent barges into an active AI call
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/takeover', methods=['POST'])
+@login_required
+def voice_takeover():
+    """
+    Let a human agent take over an active AI call.
+    Signals the WebSocket bridge to stop AI streaming and transfer
+    the live Telnyx call to the agent's number (via Telnyx WebRTC or PSTN).
+    """
+    data = request.json or {}
+    call_sid = data.get('call_sid', '')
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    # Look up subscriber voice config for transfer number
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        voice_cfg = (row['voice_config'] if row else None) or {}
+    finally:
+        return_db_connection(conn)
+
+    target = data.get('target') or voice_cfg.get('transfer_number', '')
+    if not target:
+        return jsonify({"error": "No transfer number configured. Set a transfer number in Voice settings."}), 400
+
+    # Verify the call is actually active
+    if call_sid not in _active_calls:
+        return jsonify({"error": "Call not found or already ended"}), 404
+
+    call_info = _active_calls[call_sid]
+    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
+        return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
+
+    # Signal the WebSocket bridge to execute takeover
+    _transfer_requests[call_sid] = {
+        'type': 'takeover',
+        'target': target,
+        'reason': 'Agent initiated live takeover',
+    }
+    logger.info(f"🔄 Takeover requested for call {call_sid} -> {target}")
+
+    return jsonify({"status": "takeover_requested", "call_sid": call_sid, "target": target})
 
 
 # ──────────────────────────────────────────────────────────────
