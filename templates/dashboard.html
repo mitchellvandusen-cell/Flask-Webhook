@@ -1758,7 +1758,7 @@
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Your Phone Numbers</h6>
                             <div class="d-flex gap-2">
-                                <button onclick="loadTrustHubNumbers()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
+                                <button onclick="loadNumbersTab()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
                                     <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                 </button>
                                 <button onclick="document.getElementById('vstabBuyPanel').style.display=document.getElementById('vstabBuyPanel').style.display==='none'?'block':'none'"
@@ -1783,10 +1783,10 @@
                             <div id="availableNumbersList" style="max-height:220px;overflow-y:auto;font-size:0.82rem;"></div>
                         </div>
                         <!-- Numbers list -->
-                        <div id="trustHubNumbersList" style="font-size:0.85rem;">
-                            <div style="text-align:center;padding:40px 20px;color:#555;">
-                                <i class="fa-solid fa-phone" style="font-size:1.5rem;margin-bottom:8px;display:block;color:#333;"></i>
-                                Click Refresh to load your numbers
+                        <div id="numbersListContainer" style="font-size:0.82rem;">
+                            <div style="text-align:center;padding:30px 20px;color:#555;">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem;color:#00d9ff;display:block;margin-bottom:8px;"></i>
+                                Loading numbers...
                             </div>
                         </div>
                     </div><!-- /vstab-panel-numbers -->
@@ -1797,20 +1797,67 @@
                         <div class="mb-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div style="font-weight:700;font-size:0.9rem;">STIR/SHAKEN</div>
-                                    <div style="font-size:0.78rem;color:#888;margin-top:2px;">Call authentication status — prevents "Spam Likely" labels on your calls</div>
+                                    <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-certificate me-2" style="color:#00d9ff;"></i>STIR/SHAKEN</div>
+                                    <div style="font-size:0.78rem;color:#888;margin-top:2px;">Call authentication — prevents "Spam Likely" labels. Telnyx provides automatic Full (A) attestation.</div>
                                 </div>
                                 <span id="stirStatus" style="background:rgba(255,255,255,0.06);color:#888;padding:4px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;">Checking...</span>
                             </div>
                         </div>
-                        <!-- Spam Protection -->
-                        <div class="p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;">
-                            <div style="font-weight:700;font-size:0.9rem;margin-bottom:4px;">Spam Protection</div>
-                            <div style="font-size:0.78rem;color:#888;margin-bottom:12px;">Register your number with the free caller registries to stop "Spam Likely" labels on all major carriers.</div>
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                <a href="https://www.freecallerregistry.com/fcr/" target="_blank" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;"><i class="fa-solid fa-shield-check me-1"></i>Free Caller Registry</a>
-                                <a href="https://hiya.com/branded-call/" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;"><i class="fa-solid fa-tower-broadcast me-1"></i>AT&amp;T (Hiya)</a>
-                                <a href="https://portal.telnyx.com/#/app/numbers" target="_blank" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Telnyx Portal</a>
+
+                        <!-- Business Profile -->
+                        <div class="mb-3 p-3" style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.12);border-radius:10px;">
+                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-2" style="color:#a78bfa;"></i>Business Profile</div>
+                            <div style="font-size:0.78rem;color:#888;margin-bottom:12px;">Register your business to improve caller trust. Must match your IRS documentation exactly.</div>
+                            <div class="d-flex gap-2 flex-wrap mb-2">
+                                <div style="flex:1;min-width:180px;">
+                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (as on IRS docs)</label>
+                                    <input type="text" id="trustBizName" placeholder="ACME Insurance LLC"
+                                        value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
+                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;outline:none;">
+                                </div>
+                                <div style="min-width:140px;">
+                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN</label>
+                                    <input type="text" id="trustEIN" placeholder="XX-XXXXXXX"
+                                        value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
+                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;outline:none;">
+                                </div>
+                                <div style="display:flex;align-items:flex-end;">
+                                    <button onclick="saveTrustHub()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:6px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                        <i class="fa-solid fa-floppy-disk me-1"></i>Save
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="trustBizStatus" style="font-size:0.72rem;color:#888;"></div>
+                        </div>
+
+                        <!-- Carrier Registration -->
+                        <div class="mb-3 p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;">
+                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-shield-halved me-2" style="color:#00ff88;"></i>Carrier Registration & Spam Protection</div>
+                            <div style="font-size:0.78rem;color:#888;margin-bottom:12px;">Register your numbers with each carrier to prevent spam flagging. Click each carrier to register, then mark as complete.</div>
+                            <div id="carrierRegistrationList" style="display:flex;flex-direction:column;gap:8px;">
+                                <div style="text-align:center;padding:12px;color:#555;font-size:.78rem;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading carrier status...</div>
+                            </div>
+                        </div>
+
+                        <!-- CNAM Info -->
+                        <div class="mb-3 p-3" style="background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.1);border-radius:10px;">
+                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-id-card me-2" style="color:#ffa500;"></i>CNAM (Caller Name Display)</div>
+                            <div style="font-size:0.78rem;color:#888;margin-bottom:8px;">When CNAM is enabled, your business name shows on recipient phones instead of just a number. Toggle CNAM per-number in the Numbers tab.</div>
+                            <a href="https://portal.telnyx.com/#/app/numbers" target="_blank" style="background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.2);color:#ffa500;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;display:inline-block;">
+                                <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Manage CNAM in Telnyx Portal
+                            </a>
+                        </div>
+
+                        <!-- Number Health Summary -->
+                        <div class="p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-heart-pulse me-2" style="color:#00d9ff;"></i>Number Health</div>
+                                <button onclick="loadTrustHubData()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                </button>
+                            </div>
+                            <div id="numberHealthList" style="font-size:0.78rem;">
+                                <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</div>
                             </div>
                         </div>
                     </div><!-- /vstab-panel-trusthub -->
@@ -2475,7 +2522,6 @@
                 const panel = document.getElementById('vstab-panel-' + t);
                 const btn   = document.getElementById('vstab-' + t);
                 const active = t === name;
-                // set panel display regardless — don't gate on btn existence
                 if (panel) panel.style.display = active ? 'block' : 'none';
                 if (btn) {
                     btn.style.background   = active ? 'rgba(0,217,255,0.12)' : 'transparent';
@@ -2484,7 +2530,8 @@
                     btn.style.color        = active ? '#00d9ff' : '#888';
                 }
             });
-            if (name === 'numbers' || name === 'trusthub') loadTrustHubNumbers();
+            if (name === 'numbers') loadNumbersTab();
+            if (name === 'trusthub') loadTrustHubData();
         }
 
         // ── Magic Wand: one-click Telnyx provisioning ──
@@ -3718,52 +3765,247 @@
         }
         function voipStopTimer() { if (voipTimerInterval) { clearInterval(voipTimerInterval); voipTimerInterval = null; } }
 
-        // ===== TRUST HUB =====
-        async function loadTrustHubNumbers() {
-            const list = document.getElementById('trustHubNumbersList');
-            if (!list) { console.error('trustHubNumbersList element not found'); return; }
+        // ===== NUMBERS TAB =====
+        let _numbersCache = null;
+        let _trustCache = null;
+
+        async function loadNumbersTab() {
+            const container = document.getElementById('numbersListContainer');
+            if (!container) { console.error('[Numbers] numbersListContainer not found'); return; }
+            container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers from Telnyx...</div></div>';
             try {
-                list.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
-                const [numR, trustR] = await Promise.all([fetch('/voice/numbers'), fetch('/voice/trust-hub')]);
-                const numD = await numR.json().catch(() => ({}));
-                const trustD = await trustR.json().catch(() => ({}));
-
-                // STIR/SHAKEN — only update if element exists (it's in Trust Hub panel)
-                const stirEl = document.getElementById('stirStatus');
-                if (stirEl) {
-                    const stirStatus = trustD.stir_shaken?.status || 'not_configured';
-                    const stirColors = {
-                        'telnyx_managed': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' },
-                        'not_configured': { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' },
-                    };
-                    const ss = stirColors[stirStatus] || { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' };
-                    stirEl.style.background = ss.bg; stirEl.style.color = ss.color; stirEl.textContent = ss.text;
-                }
-
-                const numbers = numD.numbers || trustD.numbers || [];
-                if (!numbers.length) {
-                    const errMsg = numD.error || trustD.error || '';
-                    list.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:.82rem;">' +
-                        (errMsg ? '⚠ ' + errMsg : 'No numbers found — click <strong>Buy Number</strong> above to get one') + '</div>';
+                const r = await fetch('/voice/numbers');
+                const d = await r.json();
+                console.log('[Numbers] Response:', r.status, d);
+                if (!r.ok || d.error) {
+                    container.innerHTML = '<div style="padding:16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load numbers') + '</div>';
                     return;
                 }
-
-                list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;font-size:.7rem;border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">' +
-                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;">Number</div>' +
-                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">Status</div>' +
-                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">CNAM</div>' +
-                    '<div style="padding:6px;background:rgba(255,255,255,0.03);"></div>' +
-                    numbers.map(n => {
-                        const statusColor = n.status === 'active' ? 'var(--accent)' : '#888';
-                        const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>' : '<i class="fa-regular fa-circle" style="color:#444;" title="Enable CNAM in Telnyx portal"></i>';
-                        return '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</div>' +
-                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:' + statusColor + ';font-size:.65rem;">' + (n.status || 'active') + '</div>' +
-                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + cnamIcon + '</div>' +
-                            '<div style="padding:6px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><button onclick="releaseNumber(\'' + (n.sid||n.id||'') + '\',\'' + dialerEsc(n.phone) + '\')" style="background:none;border:none;color:#444;cursor:pointer;font-size:.65rem;" title="Release number"><i class="fa-solid fa-trash"></i></button></div>';
-                    }).join('') + '</div>' +
-                    '<div style="margin-top:6px;padding:6px 8px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:5px;font-size:.68rem;color:#666;">Telnyx automatically handles STIR/SHAKEN attestation. Register business name via <a href="https://www.freecallerregistry.com/fcr/" target="_blank" style="color:#00d9ff;">Free Caller Registry</a> to reduce spam flags.</div>';
-            } catch(e) { list.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Failed to load numbers</div>'; }
+                _numbersCache = d.numbers || [];
+                if (!_numbersCache.length) {
+                    container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888;font-size:.82rem;">' +
+                        '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#444;"></i>' +
+                        'No numbers found on your Telnyx account.<br>Click <strong style="color:#00d9ff;">Buy Number</strong> above to get started.</div>';
+                    return;
+                }
+                _renderNumbersTable(_numbersCache, container);
+            } catch(e) {
+                console.error('[Numbers] Error:', e);
+                container.innerHTML = '<div style="padding:16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading numbers. Check console for details.</div>';
+            }
         }
+
+        function _esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function _fmtPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '+1 (' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
+        }
+
+        function _renderNumbersTable(numbers, container) {
+            const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;';
+            const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
+            let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;">';
+            // Header
+            html += '<div style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
+            html += '<div style="' + hdrStyle + '">Number</div>';
+            html += '<div style="' + hdrStyle + 'text-align:center;">Status</div>';
+            html += '<div style="' + hdrStyle + 'text-align:center;">Voice</div>';
+            html += '<div style="' + hdrStyle + 'text-align:center;">SMS</div>';
+            html += '<div style="' + hdrStyle + 'text-align:center;">CNAM</div>';
+            html += '<div style="' + hdrStyle + '"></div>';
+            html += '</div>';
+            // Rows
+            numbers.forEach(n => {
+                const statusColor = n.status === 'active' ? '#00ff88' : (n.status === 'pending' ? '#ffa500' : '#888');
+                const statusBg = n.status === 'active' ? 'rgba(0,255,136,0.1)' : (n.status === 'pending' ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.04)');
+                const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.6rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
+                const nickname = n.nickname ? '<span style="color:#888;font-size:.7rem;margin-left:4px;">(' + _esc(n.nickname) + ')</span>' : '';
+                const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
+                html += '<div style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
+                html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + _esc(n.number_type || 'local') + '</span></div>';
+                html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
+                html += '<div style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
+                html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
+                html += '<div style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
+                html += '<div style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
+                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:2px 6px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                    '<div class="num-menu" style="display:none;position:absolute;right:0;top:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:999;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ccc;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ccc;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ef4444;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                    '</div></div></div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            // Summary info
+            html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;font-size:.72rem;color:#666;">' +
+                '<strong style="color:#aaa;">' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
+                'Telnyx auto-manages STIR/SHAKEN. Register with carriers in the <strong style="color:#00d9ff;cursor:pointer;" onclick="switchVoiceSubtab(\'trusthub\')">Trust Hub</strong> tab to reduce spam flags.' +
+                '</div>';
+            container.innerHTML = html;
+        }
+
+        function toggleNumMenu(btn) {
+            document.querySelectorAll('.num-menu').forEach(m => { if (m !== btn.nextElementSibling) m.style.display = 'none'; });
+            const menu = btn.nextElementSibling;
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            const closer = (e) => { if (!btn.contains(e.target) && !menu.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', closer); } };
+            setTimeout(() => document.addEventListener('click', closer), 0);
+        }
+
+        async function toggleCNAM(numberId, enable) {
+            try {
+                const r = await fetch('/voice/numbers/' + numberId + '/cnam', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ enable: enable }) });
+                const d = await r.json();
+                if (r.ok) loadNumbersTab();
+                else alert(d.error || 'Failed to update CNAM');
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function setPrimaryNumber(phone) {
+            try {
+                const r = await fetch('/voice/numbers/set-primary', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone }) });
+                if (r.ok) { loadNumbersTab(); alert('Primary number set to ' + phone); }
+            } catch(e) { alert('Network error'); }
+        }
+
+        function promptNickname(phone) {
+            const current = (_numbersCache || []).find(n => n.phone === phone);
+            const name = prompt('Nickname for ' + phone + ':', current?.nickname || '');
+            if (name === null) return;
+            fetch('/voice/numbers/nickname', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone, nickname: name }) })
+                .then(r => { if (r.ok) loadNumbersTab(); })
+                .catch(() => alert('Network error'));
+        }
+
+        // ===== TRUST HUB TAB =====
+        async function loadTrustHubData() {
+            const carrierList = document.getElementById('carrierRegistrationList');
+            const healthList = document.getElementById('numberHealthList');
+            const stirEl = document.getElementById('stirStatus');
+            try {
+                const r = await fetch('/voice/trust-hub');
+                const d = await r.json();
+                console.log('[TrustHub] Response:', r.status, d);
+                if (!r.ok || d.error) {
+                    if (carrierList) carrierList.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
+                    return;
+                }
+                _trustCache = d;
+
+                // STIR/SHAKEN status
+                if (stirEl) {
+                    const status = d.stir_shaken?.status || 'not_configured';
+                    if (status === 'telnyx_managed') {
+                        stirEl.style.background = 'rgba(0,255,136,0.15)';
+                        stirEl.style.color = '#00ff88';
+                        stirEl.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>Attestation A';
+                    } else {
+                        stirEl.style.background = 'rgba(255,255,255,0.06)';
+                        stirEl.style.color = '#888';
+                        stirEl.textContent = 'Not Configured';
+                    }
+                }
+
+                // Carrier registration
+                if (carrierList) {
+                    const carriers = d.carrier_registration || {};
+                    let chtml = '';
+                    Object.entries(carriers).forEach(([key, carrier]) => {
+                        const statusMap = {
+                            'registered': { bg:'rgba(0,255,136,0.12)', color:'#00ff88', icon:'fa-circle-check', text:'Registered' },
+                            'pending': { bg:'rgba(255,165,0,0.12)', color:'#ffa500', icon:'fa-clock', text:'Pending' },
+                            'not_registered': { bg:'rgba(255,255,255,0.04)', color:'#888', icon:'fa-circle-xmark', text:'Not Registered' },
+                        };
+                        const s = statusMap[carrier.status] || statusMap['not_registered'];
+                        chtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;">';
+                        chtml += '<div style="flex:1;"><div style="font-weight:600;color:#fff;font-size:.82rem;">' + _esc(carrier.name) + '</div>';
+                        chtml += '<div style="color:#888;font-size:.7rem;margin-top:2px;">' + _esc(carrier.description) + '</div></div>';
+                        chtml += '<div style="display:flex;align-items:center;gap:8px;">';
+                        chtml += '<span style="background:' + s.bg + ';color:' + s.color + ';padding:3px 10px;border-radius:4px;font-size:.7rem;font-weight:600;"><i class="fa-solid ' + s.icon + ' me-1"></i>' + s.text + '</span>';
+                        chtml += '<a href="' + _esc(carrier.url) + '" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:5px;padding:4px 10px;font-size:.7rem;font-weight:600;text-decoration:none;white-space:nowrap;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Register</a>';
+                        if (carrier.status !== 'registered') {
+                            chtml += '<button onclick="markCarrierRegistered(\'' + key + '\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:5px;padding:4px 10px;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap;" title="Mark as registered after completing registration"><i class="fa-solid fa-check me-1"></i>Done</button>';
+                        }
+                        chtml += '</div></div>';
+                    });
+                    carrierList.innerHTML = chtml;
+                }
+
+                // Number health
+                if (healthList) {
+                    const numbers = d.numbers || [];
+                    if (!numbers.length) {
+                        healthList.innerHTML = '<div style="color:#888;font-size:.78rem;text-align:center;padding:8px;">No numbers found</div>';
+                    } else {
+                        let hhtml = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">';
+                        hhtml += '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;">';
+                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;">Number</div>';
+                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Status</div>';
+                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">CNAM</div>';
+                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Health</div>';
+                        hhtml += '</div>';
+                        numbers.forEach(n => {
+                            const active = n.status === 'active';
+                            const cnam = n.cnam_listed;
+                            const healthScore = (active ? 1 : 0) + (cnam ? 1 : 0) + (n.connection_id ? 1 : 0);
+                            const healthColor = healthScore >= 3 ? '#00ff88' : (healthScore >= 2 ? '#ffa500' : '#ef4444');
+                            const healthText = healthScore >= 3 ? 'Healthy' : (healthScore >= 2 ? 'Fair' : 'Needs Attention');
+                            const healthIcon = healthScore >= 3 ? 'fa-heart' : (healthScore >= 2 ? 'fa-heart-crack' : 'fa-triangle-exclamation');
+                            hhtml += '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;align-items:center;">';
+                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;font-size:.78rem;">' + _esc(_fmtPhone(n.phone)) + '</div>';
+                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:' + (active ? '#00ff88' : '#888') + ';font-size:.7rem;">' + (n.status || 'unknown') + '</div>';
+                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + (cnam ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>') + '</div>';
+                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><span style="color:' + healthColor + ';font-size:.68rem;font-weight:600;"><i class="fa-solid ' + healthIcon + ' me-1"></i>' + healthText + '</span></div>';
+                            hhtml += '</div>';
+                        });
+                        hhtml += '</div>';
+                        healthList.innerHTML = hhtml;
+                    }
+                }
+            } catch(e) {
+                console.error('[TrustHub] Error:', e);
+                if (carrierList) carrierList.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Network error loading trust hub data</div>';
+            }
+        }
+
+        async function markCarrierRegistered(carrierKey) {
+            const statusKey = {
+                'free_caller_registry': 'fcr_status',
+                'att_hiya': 'att_status',
+                'tmobile': 'tmobile_status',
+                'verizon': 'verizon_status',
+            }[carrierKey];
+            if (!statusKey) return;
+            try {
+                const r = await fetch('/voice/trust-hub/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ [statusKey]: 'registered' }) });
+                if (r.ok) loadTrustHubData();
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function saveTrustHub() {
+            const biz = document.getElementById('trustBizName')?.value?.trim() || '';
+            const ein = document.getElementById('trustEIN')?.value?.trim() || '';
+            const statusEl = document.getElementById('trustBizStatus');
+            try {
+                const r = await fetch('/voice/trust-hub/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ business_name: biz, ein: ein }) });
+                if (r.ok) {
+                    if (statusEl) { statusEl.style.color = '#00ff88'; statusEl.textContent = 'Business profile saved!'; setTimeout(() => statusEl.textContent = '', 3000); }
+                } else {
+                    if (statusEl) { statusEl.style.color = '#ef4444'; statusEl.textContent = 'Failed to save'; }
+                }
+            } catch(e) {
+                if (statusEl) { statusEl.style.color = '#ef4444'; statusEl.textContent = 'Network error'; }
+            }
+        }
+
+        // Keep old function name as alias for backward compatibility
+        function loadTrustHubNumbers() { loadNumbersTab(); }
 
         async function searchAvailableNumbers() {
             const area = document.getElementById('buyAreaCode').value.trim();
@@ -3776,33 +4018,38 @@
                 if (state) url += 'state=' + encodeURIComponent(state);
                 const r = await fetch(url);
                 const d = await r.json();
-                if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;">' + (d.error || 'Failed') + '</div>'; return; }
+                if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;padding:4px;">' + _esc(d.error || 'Failed') + '</div>'; return; }
                 const nums = d.numbers || [];
-                if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found</div>'; return; }
+                if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found for that search</div>'; return; }
                 list.innerHTML = nums.map(n =>
-                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.75rem;">' +
-                        '<span style="color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</span>' +
-                        '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:var(--accent);border:none;color:#000;border-radius:3px;padding:1px 6px;font-size:.68rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
+                        '<div><span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
+                        (n.locality ? '<span style="color:#666;font-size:.68rem;margin-left:6px;">' + _esc(n.locality) + (n.region ? ', ' + _esc(n.region) : '') + '</span>' : '') +
+                        '</div>' +
+                        '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">Buy</button>' +
                     '</div>'
                 ).join('');
-            } catch(e) { list.innerHTML = '<div style="color:#ef4444;">Error</div>'; }
+            } catch(e) { list.innerHTML = '<div style="color:#ef4444;">Network error</div>'; }
         }
+
         async function buyNumber(phone) {
-            if (!confirm('Purchase ' + phone + '?')) return;
+            if (!confirm('Purchase ' + phone + '?\nThis will charge your Telnyx account.')) return;
             try {
                 const r = await fetch('/voice/numbers/buy', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone_number: phone }) });
                 const d = await r.json();
                 if (!r.ok) { alert(d.error || 'Failed'); return; }
                 alert('Purchased: ' + d.phone);
                 const buyPanel = document.getElementById('vstabBuyPanel'); if (buyPanel) buyPanel.style.display = 'none';
-                loadTrustHubNumbers();
+                loadNumbersTab();
             } catch(e) { alert('Network error'); }
         }
         async function releaseNumber(sid, phone) {
-            if (!confirm('Release ' + phone + '? Cannot undo.')) return;
+            if (!confirm('Release ' + phone + '?\n\nThis cannot be undone. The number will be removed from your account.')) return;
             try {
                 const r = await fetch('/voice/numbers/release', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sid: sid }) });
-                if (!(await r.json()).error) loadTrustHubNumbers();
+                const d = await r.json();
+                if (!d.error) loadNumbersTab();
+                else alert(d.error);
             } catch(e) { alert('Network error'); }
         }
 
@@ -3820,7 +4067,8 @@
 
         // Auto-load Numbers/Trust Hub when Voice tab is shown
         document.querySelector('[data-bs-target="#voice"]')?.addEventListener('shown.bs.tab', function() {
-            loadTrustHubNumbers();
+            // Pre-load data so Numbers/Trust Hub tabs render instantly
+            loadNumbersTab();
         });
     </script>
 
