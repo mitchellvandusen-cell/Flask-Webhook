@@ -1607,21 +1607,21 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">API Key</label>
-                            <input type="password" class="form-control" id="voiceTelnyxApiKey" placeholder="KEY..."
+                            <input type="text" class="form-control" id="voiceTelnyxApiKey" placeholder="KEY..." autocomplete="off"
                                 value="{{ voice_config.get('telnyx_api_key', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
                             <small style="color:#666; font-size:0.75rem;">From Telnyx Mission Control &rarr; API Keys</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Connection ID</label>
-                            <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="e.g. 2898437271239788074"
+                            <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="e.g. 2898437271239788074" autocomplete="off"
                                 value="{{ voice_config.get('telnyx_connection_id', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
                             <small style="color:#666; font-size:0.75rem;">The Application ID shown on your Voice API app in Telnyx (long numeric string)</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Phone Number</label>
-                            <input type="text" class="form-control" id="voiceTelnyxNumber" placeholder="+15551234567"
+                            <input type="text" class="form-control" id="voiceTelnyxNumber" placeholder="+15551234567" autocomplete="off"
                                 value="{{ voice_config.get('telnyx_phone_number', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
                             <small style="color:#666; font-size:0.75rem;">Your Telnyx number in E.164 format — leads call this / AI calls from this</small>
