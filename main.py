@@ -1783,8 +1783,12 @@ def save_voice_config():
                 updated_at = NOW()
             WHERE email = %s
         """, (json.dumps(voice_config), current_user.email))
+        rows_updated = cur.rowcount
         conn.commit()
         cur.close()
+        if rows_updated == 0:
+            logger.error(f"Voice config save matched 0 rows for email={current_user.email!r}")
+            return flask_jsonify({"error": "Account not found — please log out and back in"}), 400
         logger.info(f"Voice config saved for {current_user.email}: enabled={voice_config['enabled']}")
         return flask_jsonify({"status": "success", "voice_config": voice_config})
     except Exception as e:
