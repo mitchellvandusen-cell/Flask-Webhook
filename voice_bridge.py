@@ -29,8 +29,6 @@ import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
-# Twilio SDK kept only for configure_twilio_number legacy route
-from twilio.rest import Client as TwilioClient
 
 from db import get_db_connection, return_db_connection, log_webhook_event
 from ghl_api import get_valid_token, fetch_targeted_ghl_history
@@ -267,8 +265,8 @@ async def _generate_voice_preview(voice_name):
 # HELPER: Look up subscriber by their Twilio phone number
 # ──────────────────────────────────────────────────────────────
 
-def _get_subscriber_by_twilio_number(phone_number):
-    """Look up subscriber whose voice_config contains this Telnyx (or legacy Twilio) number."""
+def _get_subscriber_by_phone(phone_number):
+    """Look up subscriber whose voice_config.telnyx_phone_number matches the given number."""
     conn = get_db_connection()
     if not conn:
         return None
@@ -286,11 +284,9 @@ def _get_subscriber_by_twilio_number(phone_number):
               AND (
                   REPLACE(REPLACE(voice_config->>'telnyx_phone_number', '+', ''), '1', '') LIKE %s
                   OR voice_config->>'telnyx_phone_number' = %s
-                  OR REPLACE(REPLACE(voice_config->>'twilio_phone_number', '+', ''), '1', '') LIKE %s
-                  OR voice_config->>'twilio_phone_number' = %s
               )
             LIMIT 1
-        """, (f'%{normalized}', phone_number, f'%{normalized}', phone_number))
+        """, (f'%{normalized}', phone_number))
         row = cur.fetchone()
         cur.close()
         return dict(row) if row else None
@@ -950,7 +946,7 @@ def voice_inbound():
         caller = call_pl.get('from', 'Unknown')
         called = call_pl.get('to',   'Unknown')
 
-        subscriber = _get_subscriber_by_twilio_number(called)
+        subscriber = _get_subscriber_by_phone(called)
         if not subscriber:
             logger.warning(f"No subscriber for {called}; letting call timeout")
             return jsonify({'result': 'ok'}), 200
@@ -1022,6 +1018,14 @@ def voice_inbound():
         # For human VoIP calls, skip AI streaming — the browser handles the audio directly
         if dial_mode == 'human':
             logger.info(f"📞 Human VoIP call answered for {location_id} — recording started, no AI stream")
+            return jsonify({'result': 'ok'}), 200
+
+        # For AMD-enabled outbound AI calls, Telnyx plays probe audio immediately after
+        # call.answered to detect answering machines.  Starting bidirectional streaming
+        # at the same time conflicts — Telnyx kills our stream to run its probes.
+        # Defer streaming to call.machine.detection.ended once AMD finishes.
+        if meta.get('use_amd', False):
+            logger.info(f"📞 AMD call answered for {location_id} — deferring stream until AMD resolves")
             return jsonify({'result': 'ok'}), 200
 
         # For AI calls, start bidirectional media streaming to the AI bridge.
@@ -1119,6 +1123,41 @@ def voice_inbound():
                         except Exception as ex:
                             logger.error(f"Redial failed: {ex}")
                     threading.Thread(target=_redial, daemon=True).start()
+
+        else:
+            # Human or not_sure — AMD finished without detecting a machine.
+            # It is now safe to start bidirectional streaming; AMD probe audio is done.
+            if location_id and call_ctrl:
+                subscriber = _get_subscriber_by_location(location_id)
+                if subscriber:
+                    vc      = subscriber.get('voice_config') or {}
+                    api_key = vc.get('telnyx_api_key', '')
+                    if api_key:
+                        host              = request.host
+                        stream_params_amd = {
+                            'stream_url':                         f'wss://{host}/voice/stream',
+                            'stream_track':                       'both_tracks',
+                            'stream_bidirectional_codec':         'L16',
+                            'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
+                            'client_state':                       client_state_raw,
+                        }
+                        _amd_result = amd_result  # capture for closure
+                        def _start_amd_stream(ctrl, key, params, loc_id, result):
+                            ok = _call_control_command(ctrl, key, 'streaming_start', params)
+                            if ok:
+                                logger.info(f"📞 AI streaming started after AMD ({result}) for {loc_id}")
+                                return
+                            time.sleep(1.5)
+                            ok = _call_control_command(ctrl, key, 'streaming_start', params)
+                            if ok:
+                                logger.info(f"📞 AI streaming started after AMD ({result}) for {loc_id} (retry ok)")
+                            else:
+                                logger.error(f"📞 streaming_start failed after AMD for {loc_id}")
+                        threading.Thread(
+                            target=_start_amd_stream,
+                            args=(call_ctrl, api_key, stream_params_amd, location_id, _amd_result),
+                            daemon=True,
+                        ).start()
 
     elif event_type == 'call.recording.saved':
         # Recording completed — persist URL to call_history
@@ -1358,7 +1397,7 @@ async def handle_voice_stream(ws):
     """
     logger.info("🎙️ Voice stream WebSocket connected (Telnyx)")
 
-    # Wait for the 'start' event from Twilio to get metadata
+    # Wait for the 'start' event from Telnyx to get metadata
     stream_sid = None
     call_sid = None
     location_id = None
@@ -1376,13 +1415,18 @@ async def handle_voice_stream(ws):
 
     start_data = json.loads(start_msg)
     if start_data.get('event') == 'connected':
-        # Some Twilio versions send a 'connected' event first
+        # Telnyx may send a 'connected' event before the 'start' event
         start_msg = ws.receive()
         start_data = json.loads(start_msg)
 
     if start_data.get('event') == 'start':
         start_block = start_data.get('start', {})
-        stream_sid  = start_data.get('streamSid') or start_block.get('streamSid', '') or start_block.get('stream_id', '')
+        stream_sid  = (
+            start_data.get('streamSid') or       # Twilio top-level
+            start_data.get('stream_id') or        # Telnyx top-level ← was missing
+            start_block.get('streamSid', '') or   # Twilio inside start block
+            start_block.get('stream_id', '')      # Telnyx inside start block (fallback)
+        )
 
         # Call Control streaming_start passes metadata via client_state (base64 JSON).
         # TeXML <Parameter> tags arrive as customParameters — support both.
@@ -1413,13 +1457,13 @@ async def handle_voice_stream(ws):
     if location_id:
         subscriber = _get_subscriber_by_location(location_id)
     if not subscriber and called:
-        subscriber = _get_subscriber_by_twilio_number(called)
+        subscriber = _get_subscriber_by_phone(called)
     if not subscriber and caller:
-        subscriber = _get_subscriber_by_twilio_number(caller)
+        subscriber = _get_subscriber_by_phone(caller)
 
     if not subscriber:
         logger.error(f"Voice stream: No subscriber found (loc={location_id}, called={called})")
-        ws.send(json.dumps({"event": "clear", "stream_id": stream_sid, "streamSid": stream_sid}))
+        ws.send(json.dumps({"event": "clear"}))
         return
 
     voice_config = subscriber.get("voice_config") or {}
@@ -1567,7 +1611,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             # No resampling objects needed — Telnyx L16 at 24 kHz matches xAI PCM16 at 24 kHz exactly.
 
             # ── Telnyx -> XAI: Forward audio from the phone to xAI ──
-            async def receive_from_twilio():
+            async def receive_from_telnyx():
                 """Relay Telnyx → xAI.  Telnyx delivers L16 PCM16 at 24 kHz (Big-Endian per
                 RFC 3551). xAI expects Little-Endian — byte order is swapped on each frame."""
                 nonlocal stream_sid, call_active
@@ -1625,10 +1669,8 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     # Telnyx L16 requires Big-Endian (RFC 3551)
                     be_bytes = pcm_np.astype('>i2').tobytes()
                     ws.send(json.dumps({
-                        "event":     "media",
-                        "stream_id": stream_sid,   # Telnyx requires stream_id
-                        "streamSid": stream_sid,   # Twilio fallback
-                        "media":     {"payload": base64.b64encode(be_bytes).decode('utf-8')},
+                        "event": "media",
+                        "media": {"payload": base64.b64encode(be_bytes).decode('utf-8')},
                     }))
                     ai_chunks_sent += 1
 
@@ -1674,11 +1716,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 await xai_ws.send(json.dumps(truncate_event))
 
                             # Clear Telnyx's audio buffer
-                            ws.send(json.dumps({
-                                "event":     "clear",
-                                "stream_id": stream_sid,   # Telnyx requires stream_id
-                                "streamSid": stream_sid,   # Twilio fallback
-                            }))
+                            ws.send(json.dumps({"event": "clear"}))
                             last_assistant_item      = None
                             response_start_timestamp = None
                             ai_chunks_sent           = 0
@@ -1742,7 +1780,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
             # Run Telnyx↔xAI audio bridge + background context enrichment concurrently
             await asyncio.gather(
-                receive_from_twilio(),   # Telnyx → xAI
+                receive_from_telnyx(),   # Telnyx → xAI
                 receive_from_xai(),      # xAI → Telnyx
                 enrich_session(),
                 return_exceptions=True
@@ -1789,56 +1827,6 @@ def run_voice_stream(ws):
         loop.close()
 
 
-# ──────────────────────────────────────────────────────────────
-# ROUTE: Configure a Twilio number to point to our voice endpoints
-# ──────────────────────────────────────────────────────────────
-
-@voice_bp.route('/voice/configure-number', methods=['POST'])
-def configure_twilio_number():
-    """
-    One-time setup: configure the user's Twilio number to route calls here.
-    Called from the dashboard when they save their voice config.
-    """
-    data = request.json or {}
-    location_id = data.get('location_id', '')
-    twilio_sid = data.get('twilio_account_sid', '')
-    twilio_token = data.get('twilio_auth_token', '')
-    twilio_number = data.get('twilio_phone_number', '')
-
-    if not all([location_id, twilio_sid, twilio_token, twilio_number]):
-        return jsonify({"error": "All fields required"}), 400
-
-    try:
-        client = TwilioClient(twilio_sid, twilio_token)
-
-        # Find the phone number SID
-        numbers = client.incoming_phone_numbers.list(phone_number=twilio_number)
-        if not numbers:
-            return jsonify({"error": f"Phone number {twilio_number} not found in this Twilio account"}), 404
-
-        phone_sid = numbers[0].sid
-        host = request.host
-
-        # Update the number to point to our voice endpoints
-        numbers[0].update(
-            voice_url=f"https://{host}/voice/inbound",
-            voice_method="POST",
-            status_callback=f"https://{host}/voice/status",
-            status_callback_method="POST",
-        )
-
-        logger.info(f"✅ Configured Twilio number {twilio_number} (SID={phone_sid}) for voice")
-
-        return jsonify({
-            "status": "configured",
-            "phone_sid": phone_sid,
-            "voice_url": f"https://{host}/voice/inbound"
-        })
-
-    except Exception as e:
-        logger.error(f"Failed to configure Twilio number: {e}")
-        return jsonify({"error": str(e)}), 500
-
 
 # ──────────────────────────────────────────────────────────────
 # ROUTE: Test voice connection (health check)
@@ -1846,11 +1834,11 @@ def configure_twilio_number():
 
 @voice_bp.route('/voice/test', methods=['POST'])
 def test_voice_connection():
-    """Test that XAI and Twilio credentials are valid."""
+    """Test that XAI and Telnyx credentials are valid."""
     data = request.json or {}
     location_id = data.get('location_id', '')
 
-    results = {"xai": False, "twilio": False, "errors": []}
+    results = {"xai": False, "telnyx": False, "errors": []}
 
     # Test XAI API key
     if XAI_API_KEY:
@@ -1883,7 +1871,7 @@ def test_voice_connection():
                         headers={"Authorization": f"Bearer {telnyx_api_key}"},
                         timeout=10,
                     )
-                    results["twilio"] = r.status_code == 200
+                    results["telnyx"] = r.status_code == 200
                     if r.status_code != 200:
                         results["errors"].append(f"Telnyx API returned {r.status_code} — check your API Key")
                 except Exception as e:
@@ -2154,6 +2142,7 @@ def dial_contact():
             'max_dial_attempts': max_dial_attempts,
             'auto_record':      auto_record,
             'auto_transcribe':  auto_transcribe,
+            'use_amd':          use_amd,
         })
 
         call_payload = {
@@ -2725,7 +2714,7 @@ def voip_answer():
 
 @voice_bp.route('/voice/numbers', methods=['GET'])
 @login_required
-def list_twilio_numbers():
+def list_telnyx_numbers():
     """List all Telnyx phone numbers on the account with health info."""
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
@@ -2826,7 +2815,7 @@ def search_available_numbers():
 
 @voice_bp.route('/voice/numbers/buy', methods=['POST'])
 @login_required
-def buy_twilio_number():
+def buy_telnyx_number():
     """Purchase a Telnyx phone number and configure it for voice."""
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
@@ -2873,7 +2862,7 @@ def buy_twilio_number():
 
 @voice_bp.route('/voice/numbers/release', methods=['POST'])
 @login_required
-def release_twilio_number():
+def release_telnyx_number():
     """Release (cancel) a Telnyx phone number."""
     subscriber, vc, api_key = _get_current_subscriber_voice()
     if not api_key:
