@@ -512,11 +512,25 @@
         document.getElementById('activeCallBanner').classList.remove('visible');
     }
 
-    function hangupCall() {
-        // Stop the queue, let current call finish naturally
+    async function hangupCall() {
+        // Stop the queue
         if (queueRunning) {
             queueRunning = false;
             updateQueueButton();
+        }
+        // Hang up the live call on Telnyx
+        if (currentCallSid) {
+            const sid = currentCallSid;
+            currentCallSid = null;
+            clearInterval(pollInterval);
+            try {
+                await fetch('/voice/hangup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({call_sid: sid})
+                });
+            } catch (e) { /* call may have already ended */ }
+            setTimeout(hideCallBanner, 1000);
         }
     }
 
