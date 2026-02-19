@@ -1016,10 +1016,12 @@ def voice_inbound():
         # to destination" when the call state hasn't fully settled; a single retry
         # after a short backoff resolves it in practice.
         stream_params = {
-            'stream_url':                f'wss://{host}/voice/stream',
-            'stream_track':              'both_tracks',
-            'stream_bidirectional_mode': 'rtp',
-            'client_state':              client_state_raw,
+            'stream_url':                         f'wss://{host}/voice/stream',
+            'stream_track':                       'inbound_track',
+            'stream_bidirectional_mode':          'rtp',
+            'stream_bidirectional_codec':         'L16',
+            'stream_bidirectional_sampling_rate': 16000,
+            'client_state':                       client_state_raw,
         }
 
         def _start_streaming(ctrl, key, params, loc_id):
@@ -1084,13 +1086,13 @@ def voice_inbound():
                                 "client_state":       new_state,
                                 "answering_machine_detection": "detect_words",
                                 "answering_machine_detection_config": {
-                                    "total_analysis_time_millis": 7000,
-                                    "after_silence_millis": 800,
-                                    "between_words_millis": 800,
+                                    "total_analysis_time_millis": 3000,
+                                    "after_silence_millis": 400,
+                                    "between_words_millis": 400,
                                     "greeting_duration_millis": 1500,
-                                    "initial_silence_millis": 3000,
-                                    "maximum_number_of_words": 5,
-                                    "maximum_word_length_millis": 2000,
+                                    "initial_silence_millis": 1500,
+                                    "maximum_number_of_words": 3,
+                                    "maximum_word_length_millis": 1500,
                                     "silence_threshold": 256,
                                 },
                             }
@@ -1116,10 +1118,12 @@ def voice_inbound():
                     if api_key:
                         host              = request.host
                         stream_params_amd = {
-                            'stream_url':                f'wss://{host}/voice/stream',
-                            'stream_track':              'both_tracks',
-                            'stream_bidirectional_mode': 'rtp',
-                            'client_state':              client_state_raw,
+                            'stream_url':                         f'wss://{host}/voice/stream',
+                            'stream_track':                       'inbound_track',
+                            'stream_bidirectional_mode':          'rtp',
+                            'stream_bidirectional_codec':         'L16',
+                            'stream_bidirectional_sampling_rate': 16000,
+                            'client_state':                       client_state_raw,
                         }
                         _amd_result = amd_result  # capture for closure
                         def _start_amd_stream(ctrl, key, params, loc_id, result):
@@ -1543,7 +1547,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         "content": [
                             {
                                 "type": "input_text",
-                                "text": f"[System: The call just connected. Greet them naturally and assumptively — don't ask permission, just start the conversation. Use this as your guide but make it your own: '{greeting}']"
+                                "text": f"Read this exact text out loud immediately to start the call: '{greeting}'"
                             }
                         ]
                     }
@@ -1621,8 +1625,9 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                     """Forward xAI PCMU base64 directly to Telnyx — no conversion."""
                     nonlocal ai_chunks_sent
                     ws.send(json.dumps({
-                        "event": "media",
-                        "media": {"payload": raw_b64},
+                        "event":     "media",
+                        "streamSid": stream_sid,
+                        "media":     {"payload": raw_b64},
                     }))
                     ai_chunks_sent += 1
 
@@ -1661,7 +1666,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 await xai_ws.send(json.dumps(truncate_event))
 
                             # Clear Telnyx's audio buffer
-                            ws.send(json.dumps({"event": "clear"}))
+                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
                             last_assistant_item      = None
                             response_start_timestamp = None
                             ai_chunks_sent           = 0
@@ -2103,13 +2108,13 @@ def dial_contact():
         if use_amd:
             call_payload["answering_machine_detection"] = "detect_words"
             call_payload["answering_machine_detection_config"] = {
-                "total_analysis_time_millis": 7000,
-                "after_silence_millis": 800,
-                "between_words_millis": 800,
+                "total_analysis_time_millis": 3000,
+                "after_silence_millis": 400,
+                "between_words_millis": 400,
                 "greeting_duration_millis": 1500,
-                "initial_silence_millis": 3000,
-                "maximum_number_of_words": 5,
-                "maximum_word_length_millis": 2000,
+                "initial_silence_millis": 1500,
+                "maximum_number_of_words": 3,
+                "maximum_word_length_millis": 1500,
                 "silence_threshold": 256,
             }
 
