@@ -2664,12 +2664,21 @@ def automate_telnyx_setup():
             f"{TELNYX_API_BASE}/credential_connections",
             headers=headers,
             json={
-                "connection_name": f"GrokBot_WebRTC_{location_id}",
-                "outbound_voice_profile_id": ovp_id,
+                "name": f"GrokBot_WebRTC_{location_id}",
+                "outbound_voice_profile_id": str(ovp_id),
             },
             timeout=15,
         )
-        sip_resp.raise_for_status()
+        if sip_resp.status_code not in (200, 201):
+            # Persist api_key + IDs from steps 1-2 so the user doesn't lose them
+            vc['telnyx_api_key'] = api_key
+            vc['telnyx_connection_id'] = call_control_id
+            vc['telnyx_outbound_profile_id'] = ovp_id
+            _save_voice_config(current_user.email, vc)
+            logger.error(f"credential_connections 422 body: {sip_resp.text}")
+            return jsonify({
+                "error": f"Voice API app created (ID: {call_control_id}) but browser-dialer creation failed: {sip_resp.text}. Voice calling works — browser VoIP needs to be retried."
+            }), 400
         sip_connection_id = sip_resp.json()['data']['id']
         logger.info(f"Created SIP Credential Connection: {sip_connection_id}")
 
