@@ -41,6 +41,7 @@ rq
 flask-sock
 websockets
 twilio
+soxr          # High-quality polyphase sinc resampler (replaces audioop.ratecv + scipy LP filter)
 
 # Optional (only if you use outcome_learning / classify_vibe)
 scikit-learn

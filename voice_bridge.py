@@ -20,6 +20,8 @@ import asyncio
 import struct
 import base64
 import audioop
+import numpy as np
+import soxr
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
@@ -523,7 +525,9 @@ Imperfection: Perfect grammar every sentence sounds robotic. Drop words sometime
 
 Match energy to the moment: Warm and quieter for concern or empathy. Upbeat and curious during discovery. Calm and steady when explaining something important. If they're funny, react. If they're emotional, slow down and soften.
 
-Vary your acknowledgments EVERY turn. Rotate through: "Got it", "Oh yeah", "That makes sense", "Sure thing", "Right right", "Ah okay", "Hmm", "Oh interesting", "Yeah totally", "Fair enough", "Okay okay", "Mm, makes sense", "Yeah that tracks". NEVER use the same one twice in a row.
+Acknowledgments are REACTIONS, not connectors. When you acknowledge something, it is a complete beat — it lands, it breathes, then you move on. NEVER chain it directly into the next question: NOT "Fair enough, so what about..." — instead: "Fair enough. [pause] What about..." The acknowledgment needs to sound like it actually registered what they said, not like a reading from a list.
+
+Rotate naturally through: "Got it", "Oh yeah", "That makes sense", "Sure thing", "Right right", "Ah okay", "Hmm", "Oh interesting", "Yeah totally", "Fair enough", "Okay okay", "Mm, makes sense", "Yeah that tracks". Never the same one twice in a row. Only use one if it genuinely fits — don't force one in just to fill the turn.
 
 Use casual transitions: "so basically", "anyway", "now here's the thing", "so what that means for you is", "the cool part is"
 
@@ -1106,7 +1110,7 @@ async def handle_voice_stream(ws):
 
 CORE PRINCIPLE: YOU DO NOT NEED THEM TO SAY YES. YOU JUST NEED THEM NOT TO SAY NO. Move assumptively through the call. Never ask permission to continue. Never say "do you have a minute" or "is now a good time." Just start. If they don't stop you, keep going.
 
-HOW YOU SPEAK: Use contractions always. "I'm", "you're", "it's", "can't", "don't". Vary sentence length. Add [pause] between clauses — not just sentences. Keep turns to 1-3 sentences. One question per turn. No jargon, no lists, no AI pleasantries. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help." Just respond naturally. Use [sigh] for empathy, [laugh] when something is light, [breath] before emotional lines. Vary your pace — slow for serious moments, quicker when enthusiastic. Occasionally drop words or trail off like a real person: "Yeah... makes sense." "I mean, it depends." A very occasional "you know" is fine. Acknowledgments to rotate through: "That makes sense", "Yeah that tracks", "Got it", "Right right", "Ah okay", "Fair enough", "Mm, makes sense" — never the same one twice in a row. NEVER describe or comment on your own communication style. Never say "I'm just being real", "like we're grabbing coffee", or any phrase that narrates how you're talking. Just talk.
+HOW YOU SPEAK: Use contractions always. "I'm", "you're", "it's", "can't", "don't". Vary sentence length. Add [pause] between clauses — not just sentences. Keep turns to 1-3 sentences. One question per turn. No jargon, no lists, no AI pleasantries. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help." Just respond naturally. Use [sigh] for empathy, [laugh] when something is light, [breath] before emotional lines. Vary your pace — slow for serious moments, quicker when enthusiastic. Occasionally drop words or trail off like a real person: "Yeah... makes sense." "I mean, it depends." A very occasional "you know" is fine. Acknowledgments are REACTIONS not connectors — they land as a complete beat, then [pause], then the next thought. NEVER "Fair enough, so..." — always "Fair enough. [pause] ..." Options to rotate: "That makes sense", "Yeah that tracks", "Got it", "Right right", "Ah okay", "Fair enough", "Mm, makes sense" — never the same one twice, never forced. NEVER describe or comment on your own communication style. Never say "I'm just being real", "like we're grabbing coffee", or any phrase that narrates how you're talking. Just talk.
 
 EXPERT REGISTER: You have had this exact conversation hundreds of times. You already know the answers. You recognize their situation immediately: "Yeah, that's a pretty common spot to be in." You don't over-explain — give the relevant piece and move on. You don't hedge: "Most people in that situation haven't thought about it yet" not "Well, it kind of depends." Pauses are fine — you're thinking, not stalling. You assume they're booking. You're not convincing them, just helping them see their situation clearly.
 
@@ -1233,11 +1237,11 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             response_start_timestamp = None
             call_active = True
 
-            # Resampling state — audioop.ratecv carries internal filter state between
-            # chunks so the upsampler/downsampler produces seamless audio across packets.
-            # Use a list so the nested async closures can mutate the value (no nonlocal needed).
-            _twilio_to_xai_state = [None]   # 8 kHz mulaw → 16 kHz PCM16
-            _xai_to_twilio_state = [None]   # 16 kHz PCM16 → 8 kHz mulaw
+            # soxr ResampleStream objects — stateful, carry filter memory across chunks
+            # so the resampler is seamless across audio packets (no clicks at boundaries).
+            # 'HQ' = high quality polyphase sinc with built-in anti-aliasing.
+            _resample_up   = soxr.ResampleStream(TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE, 1, dtype=np.int16, quality='HQ')
+            _resample_down = soxr.ResampleStream(XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE, 1, dtype=np.int16, quality='HQ')
 
             # ── Twilio -> XAI: Forward audio from the phone to XAI ──
             async def receive_from_twilio():
@@ -1256,14 +1260,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
 
                         if data['event'] == 'media':
                             latest_media_timestamp = int(data['media']['timestamp'])
-                            # Twilio: base64 G.711 μ-law 8 kHz → upsample to PCM16 16 kHz for xAI
+                            # Twilio: G.711 μ-law 8 kHz → PCM16 8 kHz → soxr upsample → PCM16 24 kHz
                             mulaw_bytes = base64.b64decode(data['media']['payload'])
-                            pcm8k = audioop.ulaw2lin(mulaw_bytes, 2)
-                            pcm16k, _twilio_to_xai_state[0] = audioop.ratecv(
-                                pcm8k, 2, 1,
-                                TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE,
-                                _twilio_to_xai_state[0]
-                            )
+                            pcm8k_np    = np.frombuffer(audioop.ulaw2lin(mulaw_bytes, 2), dtype=np.int16)
+                            pcm16k      = _resample_up.resample_chunk(pcm8k_np).tobytes()
                             audio_append = {
                                 "type": "input_audio_buffer.append",
                                 "audio": base64.b64encode(pcm16k).decode('utf-8')
@@ -1297,14 +1297,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCM16 16 kHz → downsample to mulaw 8 kHz → Twilio
+                        # xAI PCM16 24 kHz → soxr downsample (with built-in anti-aliasing) → μ-law 8 kHz → Twilio
                         if event_type == 'response.audio.delta' and 'delta' in response:
-                            pcm16k = base64.b64decode(response['delta'])
-                            pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
-                                pcm16k, 2, 1,
-                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
-                                _xai_to_twilio_state[0]
-                            )
+                            pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
+                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
                             mulaw_out = audioop.lin2ulaw(pcm8k, 2)
                             audio_delta = {
                                 "event": "media",
@@ -1331,14 +1327,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 ws.send(json.dumps(mark_event))
                                 mark_queue.append('responsePart')
 
-                        # Also handle the newer event name variant
+                        # Also handle the newer event name variant (same soxr downsample)
                         elif event_type == 'response.output_audio.delta' and 'delta' in response:
-                            pcm16k = base64.b64decode(response['delta'])
-                            pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
-                                pcm16k, 2, 1,
-                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
-                                _xai_to_twilio_state[0]
-                            )
+                            pcm24k_np = np.frombuffer(base64.b64decode(response['delta']), dtype=np.int16)
+                            pcm8k     = _resample_down.resample_chunk(pcm24k_np).tobytes()
                             mulaw_out = audioop.lin2ulaw(pcm8k, 2)
                             audio_delta = {
                                 "event": "media",
