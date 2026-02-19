@@ -4099,6 +4099,9 @@ def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL A
         except requests.ConnectionError as e:
             last_err = f"{label} connection error: {e}"
             logger.warning(f"{label} attempt {attempt+1}/2 connection error: {e}")
+        except Exception as e:
+            last_err = f"{label} unexpected error: {e}"
+            logger.warning(f"{label} attempt {attempt+1}/2 unexpected error: {e}")
 
     return None, last_err
 
@@ -4315,8 +4318,10 @@ def oauth_callback():
             if user_email:
                 logger.info(f"Fallback 1: Got email from token_data: {user_email}")
 
-        # Fallback 2: website users are already logged in
-        if not user_email and is_website_user and current_user.is_authenticated:
+        # Fallback 2: user is already logged in (website users OR private app installs)
+        # Private app installs come through as marketplace flow (is_website_user=False)
+        # but the user may already be logged in — use their email instead of a placeholder.
+        if not user_email and current_user.is_authenticated:
             user_email = current_user.email
             user_name = current_user.full_name or user_name
             logger.info(f"Fallback 2: Using logged-in user's email: {user_email}")
@@ -4441,8 +4446,12 @@ def oauth_callback():
         logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, count={len(agencies)}")
 
         # 4. Fetch all locations (sub-accounts) with PAGINATION
+        # GHL API v2 uses /locations/search with companyId, not /locations/
+        locations_url = "https://services.leadconnectorhq.com/locations/search"
+        if company_id:
+            locations_url += f"?companyId={company_id}"
         sub_accounts = fetch_all_ghl_items(
-            "https://services.leadconnectorhq.com/locations/",
+            locations_url,
             headers,
             item_key='locations'
         )
