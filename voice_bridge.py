@@ -119,19 +119,18 @@ def _decode_client_state(s: str) -> dict:
         return {}
 
 
-def _build_texml_stream(stream_url: str, params: dict, sample_rate: int = 24000) -> str:
+def _build_texml_stream(stream_url: str, params: dict, sample_rate: int = TELNYX_SAMPLE_RATE) -> str:
     """
     Build a Telnyx TeXML Response that opens a bidirectional L16 media stream.
 
     Telnyx TeXML <Stream> is compatible with TwiML's <Stream> but adds three
     extra attributes for codec/rate negotiation on the Telnyx side:
-      • codec             — codec Telnyx uses for the leg toward the PSTN
-      • bidirectionalCodec      — codec used on the WebSocket stream to us
-      • bidirectionalSamplingRate — sample rate of that stream
+      • codec                     — codec Telnyx uses for the leg toward the PSTN
+      • bidirectionalCodec        — codec used on the WebSocket stream to us
+      • bidirectionalSamplingRate — sample rate of that WebSocket stream
 
-    We use L16 (raw linear PCM16) at 24 kHz to match xAI's native format,
-    eliminating all resampling in the bridge.  Telnyx handles the final
-    G.722 / G.711 transcoding toward the caller's phone.
+    We use L16 at TELNYX_SAMPLE_RATE (16 kHz).  The bridge resamples to/from
+    xAI's native 24 kHz.  Telnyx handles G.711 transcoding toward the PSTN.
     """
     param_xml = ''.join(
         f'<Parameter name="{k}" value="{v}"/>' for k, v in params.items()
@@ -1035,11 +1034,12 @@ def voice_inbound():
         # to destination" when the call state hasn't fully settled; a single retry
         # after a short backoff resolves it in practice.
         stream_params = {
-            'stream_url':                f'wss://{host}/voice/stream',
-            'stream_track':              'both_tracks',
-            'stream_bidirectional_mode': 'rtp',
-            'stream_bidirectional_codec':'L16',
-            'client_state':              client_state_raw,
+            'stream_url':                         f'wss://{host}/voice/stream',
+            'stream_track':                       'both_tracks',
+            'stream_bidirectional_mode':          'rtp',
+            'stream_bidirectional_codec':         'L16',
+            'stream_bidirectional_sampling_rate': TELNYX_SAMPLE_RATE,
+            'client_state':                       client_state_raw,
         }
 
         def _start_streaming(ctrl, key, params, loc_id):
@@ -1136,11 +1136,12 @@ def voice_inbound():
                     if api_key:
                         host              = request.host
                         stream_params_amd = {
-                            'stream_url':                f'wss://{host}/voice/stream',
-                            'stream_track':              'both_tracks',
-                            'stream_bidirectional_mode': 'rtp',
-                            'stream_bidirectional_codec':'L16',
-                            'client_state':              client_state_raw,
+                            'stream_url':                         f'wss://{host}/voice/stream',
+                            'stream_track':                       'both_tracks',
+                            'stream_bidirectional_mode':          'rtp',
+                            'stream_bidirectional_codec':         'L16',
+                            'stream_bidirectional_sampling_rate': TELNYX_SAMPLE_RATE,
+                            'client_state':                       client_state_raw,
                         }
                         _amd_result = amd_result  # capture for closure
                         def _start_amd_stream(ctrl, key, params, loc_id, result):
