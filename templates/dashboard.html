@@ -1459,7 +1459,7 @@
                             </div>
                             <div class="col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-microphone"></i></div>
-                                <strong style="color:#ccc;">Audio Streams</strong><br>Twilio sends live audio to our server
+                                <strong style="color:#ccc;">Audio Streams</strong><br>Telnyx streams HD audio to our server at 24 kHz
                             </div>
                             <div class="col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-brain"></i></div>
@@ -1479,34 +1479,121 @@
                                 style="width: 3em; height: 1.5em; cursor: pointer;">
                             <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">Enable Voice AI Agent</label>
                         </div>
-                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your Twilio number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
+                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your Telnyx number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
                     </div>
 
-                    <!-- Twilio Credentials -->
-                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-key me-2"></i>Twilio Credentials</h6>
-                    <p style="color:#888; font-size:0.82rem; margin-bottom: 16px;">
-                        You need a Twilio account with a phone number. Get one at <a href="https://www.twilio.com" target="_blank" style="color: var(--accent);">twilio.com</a> (numbers start at $1.15/mo).
-                    </p>
+                    <!-- Telnyx Credentials + Setup Guide -->
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 style="color: var(--accent); font-weight: 700; margin: 0;"><i class="fa-solid fa-key me-2"></i>Telnyx Credentials</h6>
+                        <a href="#telnyxSetupGuide" data-bs-toggle="collapse" aria-expanded="false" aria-controls="telnyxSetupGuide"
+                            style="font-size: 0.82rem; color: #00d9ff; text-decoration: none; cursor: pointer; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-book-open"></i> How to set up Telnyx
+                            <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; opacity:0.7;"></i>
+                        </a>
+                    </div>
+
+                    <!-- Step-by-step Telnyx setup guide -->
+                    <div class="collapse mb-4" id="telnyxSetupGuide">
+                        <div class="p-4" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.2); border-radius: 14px;">
+                            <div style="color:#00d9ff; font-weight:700; font-size:0.95rem; margin-bottom:18px;">
+                                <i class="fa-solid fa-rocket me-2"></i>Telnyx Setup Guide &mdash; takes about 5 minutes
+                            </div>
+
+                            <!-- Step 1 -->
+                            <div class="d-flex gap-3 mb-4">
+                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">1</div>
+                                <div>
+                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Create a Telnyx account</div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 6px;">Go to <a href="https://telnyx.com" target="_blank" style="color:#00d9ff;">telnyx.com</a> and sign up for a free account. Telnyx is pay-as-you-go — no monthly plan required. You'll get a small credit to start testing.</p>
+                                </div>
+                            </div>
+
+                            <!-- Step 2 -->
+                            <div class="d-flex gap-3 mb-4">
+                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">2</div>
+                                <div>
+                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Get your API Key</div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 6px;">In the Telnyx Mission Control Portal, go to <strong style="color:#ccc;">API Keys</strong> (left sidebar) &rarr; click <strong style="color:#ccc;">Create API Key</strong> &rarr; give it a name like "Voice AI" &rarr; copy the key (starts with <code style="color:#00d9ff; font-size:0.78rem;">KEY...</code>).</p>
+                                    <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:8px 12px; font-size:0.78rem; color:#888;">
+                                        Paste this in the <strong style="color:#ccc;">API Key</strong> field below.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 3 -->
+                            <div class="d-flex gap-3 mb-4">
+                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">3</div>
+                                <div>
+                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Create a TeXML App (your call routing connection)</div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 8px;">Go to <strong style="color:#ccc;">Voice &rarr; TeXML Apps</strong> in the left sidebar &rarr; click <strong style="color:#ccc;">Add TeXML App</strong>. Fill in:</p>
+                                    <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:10px 14px; font-size:0.79rem; line-height:2;">
+                                        <div><strong style="color:#aaa;">App Name:</strong> <span style="color:#ccc;">Voice AI Agent</span> (anything)</div>
+                                        <div><strong style="color:#aaa;">Inbound Webhook URL:</strong>
+                                            <code style="color:#00ff88; font-size:0.78rem; word-break:break-all;">https://{{ request.host }}/voice/inbound</code>
+                                            <button type="button" onclick="navigator.clipboard.writeText('https://{{ request.host }}/voice/inbound')"
+                                                style="background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); color:#00ff88; border-radius:5px; padding:1px 8px; font-size:0.7rem; margin-left:6px; cursor:pointer;">copy</button>
+                                        </div>
+                                        <div><strong style="color:#aaa;">HTTP Method:</strong> <span style="color:#ccc;">POST</span></div>
+                                        <div><strong style="color:#aaa;">Status Callback URL:</strong>
+                                            <code style="color:#00ff88; font-size:0.78rem; word-break:break-all;">https://{{ request.host }}/voice/status</code>
+                                            <button type="button" onclick="navigator.clipboard.writeText('https://{{ request.host }}/voice/status')"
+                                                style="background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); color:#00ff88; border-radius:5px; padding:1px 8px; font-size:0.7rem; margin-left:6px; cursor:pointer;">copy</button>
+                                        </div>
+                                    </div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:8px 0 0;">After saving, open the app and copy the <strong style="color:#ccc;">Connection ID</strong> shown at the top of the details page. Paste it in the <strong style="color:#ccc;">Connection ID</strong> field below.</p>
+                                </div>
+                            </div>
+
+                            <!-- Step 4 -->
+                            <div class="d-flex gap-3 mb-4">
+                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">4</div>
+                                <div>
+                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Get a phone number</div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 6px;">Go to <strong style="color:#ccc;">Numbers &rarr; Search &amp; Buy Numbers</strong> &rarr; search for a US number &rarr; purchase it (~$1/month). Copy the number in E.164 format (e.g. <code style="color:#00d9ff; font-size:0.78rem;">+15551234567</code>). Paste it in the <strong style="color:#ccc;">Phone Number</strong> field below.</p>
+                                </div>
+                            </div>
+
+                            <!-- Step 5 -->
+                            <div class="d-flex gap-3 mb-4">
+                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,217,255,0.15); border:1px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; color:#00d9ff; font-weight:700; font-size:0.8rem; flex-shrink:0;">5</div>
+                                <div>
+                                    <div style="color:#fff; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Assign the number to your TeXML App</div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:0 0 6px;">Go to <strong style="color:#ccc;">Numbers &rarr; My Numbers</strong> &rarr; click your new number &rarr; under <strong style="color:#ccc;">Voice &amp; Messaging</strong>, set <strong style="color:#ccc;">Connection Type</strong> to <strong style="color:#ccc;">TeXML Application</strong> &rarr; select the app you just created &rarr; click <strong style="color:#ccc;">Save</strong>.</p>
+                                </div>
+                            </div>
+
+                            <!-- Step 6 -->
+                            <div class="d-flex gap-3">
+                                <div style="min-width:28px; height:28px; border-radius:50%; background:rgba(0,255,136,0.15); border:1px solid rgba(0,255,136,0.3); display:flex; align-items:center; justify-content:center; color:#00ff88; font-weight:700; font-size:0.8rem; flex-shrink:0;"><i class="fa-solid fa-check" style="font-size:0.75rem;"></i></div>
+                                <div>
+                                    <div style="color:#00ff88; font-weight:600; font-size:0.88rem; margin-bottom:4px;">Fill in the fields below &amp; save</div>
+                                    <p style="color:#aaa; font-size:0.8rem; margin:0;">Enter your API Key, Connection ID, and Phone Number in the fields below. Click <strong style="color:#ccc;">Save Voice Settings</strong>, then enable the toggle at the top. You're live.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Account SID</label>
-                            <input type="text" class="form-control" id="voiceTwilioSid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                value="{{ voice_config.get('twilio_account_sid', '') }}"
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">API Key</label>
+                            <input type="password" class="form-control" id="voiceTelnyxApiKey" placeholder="KEY..."
+                                value="{{ voice_config.get('telnyx_api_key', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                            <small style="color:#666; font-size:0.75rem;">From Telnyx Mission Control &rarr; API Keys</small>
                         </div>
                         <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auth Token</label>
-                            <input type="password" class="form-control" id="voiceTwilioToken" placeholder="Your Twilio Auth Token"
-                                value="{{ voice_config.get('twilio_auth_token', '') }}"
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Connection ID</label>
+                            <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                value="{{ voice_config.get('telnyx_connection_id', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                            <small style="color:#666; font-size:0.75rem;">From your TeXML App details page in Telnyx</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Phone Number</label>
-                            <input type="text" class="form-control" id="voiceTwilioNumber" placeholder="+15551234567"
-                                value="{{ voice_config.get('twilio_phone_number', '') }}"
+                            <input type="text" class="form-control" id="voiceTelnyxNumber" placeholder="+15551234567"
+                                value="{{ voice_config.get('telnyx_phone_number', '') }}"
                                 style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                            <small style="color:#666; font-size:0.75rem;">The Twilio number leads will call / be called from</small>
+                            <small style="color:#666; font-size:0.75rem;">Your Telnyx number in E.164 format — leads call this / AI calls from this</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">AI Voice</label>
@@ -1593,7 +1680,7 @@
                     </div>
 
                     <!-- Actions -->
-                    <div class="d-flex gap-3">
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
                         <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
                             style="background: linear-gradient(135deg, var(--accent), #00b36b); color: #000; font-weight: 700; border-radius: 10px; border: none;">
                             <i class="fa-solid fa-floppy-disk me-2"></i>Save Voice Settings
@@ -1602,10 +1689,10 @@
                             style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600;">
                             <i class="fa-solid fa-vial me-2"></i>Test Connection
                         </button>
-                        <button class="btn px-4 py-2" onclick="configureVoiceNumber()"
-                            style="background: rgba(255,255,255,0.04); color: #aaa; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-weight: 600;">
-                            <i class="fa-solid fa-gear me-2"></i>Configure Number
-                        </button>
+                        <a href="https://portal.telnyx.com" target="_blank"
+                            style="background: rgba(255,255,255,0.04); color: #aaa; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-weight: 600; padding: 8px 16px; text-decoration: none; font-size: 0.9rem; display:inline-flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>Open Telnyx Dashboard
+                        </a>
                     </div>
 
                     <!-- Status output -->
@@ -1615,7 +1702,7 @@
                     <div class="mt-4 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 12px;">
                         <p style="color:#aaa; font-size:0.8rem; margin:0;">
                             <i class="fa-solid fa-circle-info me-1" style="color: #ffa500;"></i>
-                            <strong>Pricing:</strong> Voice calls use XAI at $0.05/min connection time + Twilio voice rates (~$0.014/min). Average 5-min call costs ~$0.32.
+                            <strong>Pricing:</strong> Voice calls use xAI at $0.05/min + Telnyx voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.30. Telnyx rates are lower than Twilio's and include HD wideband audio at no extra cost.
                         </p>
                     </div>
                 </div>
@@ -2259,9 +2346,9 @@
 
             const config = {
                 enabled: document.getElementById('voiceEnabled').checked,
-                twilio_account_sid: document.getElementById('voiceTwilioSid').value.trim(),
-                twilio_auth_token: document.getElementById('voiceTwilioToken').value.trim(),
-                twilio_phone_number: document.getElementById('voiceTwilioNumber').value.trim(),
+                telnyx_api_key: document.getElementById('voiceTelnyxApiKey').value.trim(),
+                telnyx_connection_id: document.getElementById('voiceTelnyxConnectionId').value.trim(),
+                telnyx_phone_number: document.getElementById('voiceTelnyxNumber').value.trim(),
                 voice: document.getElementById('voiceSelection').value,
                 voice_bot_name: document.getElementById('voiceBotName').value.trim(),
                 voice_instructions: document.getElementById('voiceInstructions').value.trim(),
@@ -2311,8 +2398,8 @@
                 html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">XAI Realtime API:</strong> ';
                 html += d.xai ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Connected</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
                 html += '</div>';
-                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Twilio Account:</strong> ';
-                html += d.twilio ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
+                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Telnyx Connection:</strong> ';
+                html += d.twilio ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed — check API Key &amp; Connection ID</span>';
                 html += '</div>';
                 if (d.errors && d.errors.length > 0) {
                     html += '<div style="color:#ffa500; margin-top:8px; font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + d.errors.join('<br>') + '</div>';
@@ -2325,40 +2412,8 @@
             });
         }
 
-        function configureVoiceNumber() {
-            const sid = document.getElementById('voiceTwilioSid').value.trim();
-            const token = document.getElementById('voiceTwilioToken').value.trim();
-            const number = document.getElementById('voiceTwilioNumber').value.trim();
-
-            if (!sid || !token || !number) {
-                alert('Please fill in all Twilio credentials first, then save.');
-                return;
-            }
-
-            const resultDiv = document.getElementById('voiceTestResult');
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Configuring your Twilio number to route calls to AI...</span>';
-
-            fetch('/voice/configure-number', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    location_id: '{{ sub.location_id or "" }}',
-                    twilio_account_sid: sid,
-                    twilio_auth_token: token,
-                    twilio_phone_number: number
-                })
-            }).then(r => r.json()).then(d => {
-                if (d.status === 'configured') {
-                    resultDiv.innerHTML = '<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> Number configured! Calls to ' + number + ' will now connect to your AI agent.</span>';
-                } else {
-                    resultDiv.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ' + (d.error || 'Configuration failed') + '</span>';
-                }
-                setTimeout(() => { resultDiv.style.display = 'none'; }, 8000);
-            }).catch(e => {
-                resultDiv.innerHTML = '<span style="color:#ef4444;">Network error</span>';
-            });
-        }
+        // configureVoiceNumber() removed — Telnyx number routing is configured in the
+        // Telnyx dashboard (Steps 3–5 of the setup guide above), not via API call.
 
         // ===== VOICE DIALER TAB =====
         let dialerContacts = [];
