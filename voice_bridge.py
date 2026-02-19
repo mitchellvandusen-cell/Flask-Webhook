@@ -68,9 +68,10 @@ VOICE_OPTIONS = {
 DEFAULT_VOICE = "Ara"
 
 # Audio sample rates
-# Both sides now match: Telnyx L16 at 24 kHz = xAI PCM16 at 24 kHz → zero resampling.
-TELNYX_SAMPLE_RATE = 24000  # Telnyx bidirectional L16 stream — configurable, 24 kHz matches xAI exactly
-XAI_SAMPLE_RATE    = 24000  # xAI Realtime PCM16 — native rate, no conversion needed
+# Both sides locked to 16 kHz: Telnyx L16 strictly requires 16 kHz, and xAI Realtime
+# natively downsamples to 16 kHz when configured — zero resampling hops in the bridge.
+TELNYX_SAMPLE_RATE = 16000  # L16 @ 16 kHz — only rate Telnyx supports for L16 codec
+XAI_SAMPLE_RATE    = 16000  # Force xAI to output 16 kHz PCM — matches Telnyx natively
 
 # Telnyx REST API base URL
 TELNYX_API_BASE = "https://api.telnyx.com/v2"
@@ -1034,13 +1035,11 @@ def voice_inbound():
         # to destination" when the call state hasn't fully settled; a single retry
         # after a short backoff resolves it in practice.
         stream_params = {
-            'stream_url':                         f'wss://{host}/voice/stream',
-            'stream_track':                       'both_tracks',
-            'stream_codec':                       'L16',
-            'stream_bidirectional_mode':          'rtp',
-            'stream_bidirectional_codec':         'L16',
-            'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
-            'client_state':                       client_state_raw,
+            'stream_url':                f'wss://{host}/voice/stream',
+            'stream_track':              'both_tracks',
+            'stream_bidirectional_mode': 'rtp',
+            'stream_bidirectional_codec':'L16',
+            'client_state':              client_state_raw,
         }
 
         def _start_streaming(ctrl, key, params, loc_id):
@@ -1137,13 +1136,11 @@ def voice_inbound():
                     if api_key:
                         host              = request.host
                         stream_params_amd = {
-                            'stream_url':                         f'wss://{host}/voice/stream',
-                            'stream_track':                       'both_tracks',
-                            'stream_codec':                       'L16',
-                            'stream_bidirectional_mode':          'rtp',
-                            'stream_bidirectional_codec':         'L16',
-                            'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
-                            'client_state':                       client_state_raw,
+                            'stream_url':                f'wss://{host}/voice/stream',
+                            'stream_track':              'both_tracks',
+                            'stream_bidirectional_mode': 'rtp',
+                            'stream_bidirectional_codec':'L16',
+                            'client_state':              client_state_raw,
                         }
                         _amd_result = amd_result  # capture for closure
                         def _start_amd_stream(ctrl, key, params, loc_id, result):
@@ -1632,11 +1629,10 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         data = json.loads(message)
 
                         if data['event'] == 'media':
-                            # Telnyx L16 follows RFC 3551 — Big-Endian byte order.
-                            # xAI expects Little-Endian PCM16. Swap before forwarding.
+                            # Telnyx sends L16 Big-Endian at 16 kHz (RFC 3551).
+                            # xAI expects Little-Endian PCM16 at 16 kHz — byte-swap only, no resample.
                             raw_audio = base64.b64decode(data['media']['payload'])
-                            pcm_be    = np.frombuffer(raw_audio, dtype=np.dtype('>i2'))
-                            le_bytes  = pcm_be.astype('<i2').tobytes()
+                            le_bytes  = np.frombuffer(raw_audio, dtype='>i2').astype('<i2').tobytes()
                             audio_append = {
                                 "type":  "input_audio_buffer.append",
                                 "audio": base64.b64encode(le_bytes).decode('utf-8'),
@@ -1661,16 +1657,16 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                 nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active
 
                 def _send_pcm_to_telnyx(raw_b64: str):
-                    """RMS-normalize a xAI PCM16 chunk and forward to Telnyx as L16."""
+                    """RMS-normalize xAI PCM16 (16 kHz LE) and forward to Telnyx as L16 BE."""
                     nonlocal ai_chunks_sent
-                    # xAI sends Little-Endian PCM16
-                    pcm_np = np.frombuffer(base64.b64decode(raw_b64), dtype=np.dtype('<i2'))
+                    # xAI sends Little-Endian PCM16 at 16 kHz (configured via XAI_SAMPLE_RATE)
+                    pcm_np = np.frombuffer(base64.b64decode(raw_b64), dtype=np.dtype('<i2')).copy()
                     # RMS normalization — prevents quiet/distant-sounding output
                     rms = np.sqrt(np.mean(pcm_np.astype(np.float32) ** 2))
                     if rms > 0:
                         gain   = min(0.9 * 32767 / rms, 4.0)   # cap at 4× — avoids over-amplifying silence
                         pcm_np = np.clip(pcm_np * gain, -32768, 32767).astype(np.int16)
-                    # Telnyx L16 requires Big-Endian (RFC 3551)
+                    # Telnyx L16 requires Big-Endian (RFC 3551) — swap bytes, no resampling needed
                     be_bytes = pcm_np.astype('>i2').tobytes()
                     ws.send(json.dumps({
                         "event": "media",
