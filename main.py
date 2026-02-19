@@ -1784,8 +1784,6 @@ def save_voice_config():
     voice_config.update({
         "enabled":               bool(data.get("enabled", False)),
         "telnyx_api_key":        (data.get("telnyx_api_key") or "").strip(),
-        "telnyx_connection_id":  (data.get("telnyx_connection_id") or "").strip(),
-        "telnyx_phone_number":   (data.get("telnyx_phone_number") or "").strip(),
         "voice":                 (data.get("voice") or "ara").strip().lower(),
         "voice_bot_name":        (data.get("voice_bot_name") or "").strip(),
         "voice_instructions":    (data.get("voice_instructions") or "").strip(),
@@ -1797,6 +1795,13 @@ def save_voice_config():
         "local_presence":        bool(data.get("local_presence", False)),
         "transfer_number":       (data.get("transfer_number") or "").strip(),
     })
+    # Only overwrite telnyx_connection_id and telnyx_phone_number if explicitly
+    # provided in the request — these are set by auto-provisioning and must not
+    # be wiped when the user saves other voice settings.
+    if "telnyx_connection_id" in data and data["telnyx_connection_id"]:
+        voice_config["telnyx_connection_id"] = data["telnyx_connection_id"].strip()
+    if "telnyx_phone_number" in data and data["telnyx_phone_number"]:
+        voice_config["telnyx_phone_number"] = data["telnyx_phone_number"].strip()
 
     conn = get_db_connection()
     if not conn:

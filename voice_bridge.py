@@ -2260,7 +2260,14 @@ def dial_contact():
                 break
 
     if not all([telnyx_api_key, telnyx_connection_id, telnyx_number]):
-        return jsonify({"error": "Telnyx credentials not configured (need API Key, Connection ID, Phone Number)"}), 400
+        missing = []
+        if not telnyx_api_key:
+            missing.append("API Key")
+        if not telnyx_connection_id:
+            missing.append("Connection ID")
+        if not telnyx_number:
+            missing.append("Phone Number")
+        return jsonify({"error": f"Telnyx credentials not configured (missing: {', '.join(missing)})"}), 400
 
     # Dialer settings
     max_dial_attempts = int(voice_config.get('dial_attempts', 2))
