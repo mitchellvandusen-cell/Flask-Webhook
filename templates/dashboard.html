@@ -3103,6 +3103,7 @@
         // ── Init on tab show ──
         document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', function() {
             dialerLoadPipelines();
+            if (!dialerContacts.length) dialerFetchContacts();
             if (!voipSetupDone && dialerMode === 'human') {
                 fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} })
                     .then(r => { if (r.ok) { voipSetupDone = true; initVoIPDevice(); } }).catch(() => {});
