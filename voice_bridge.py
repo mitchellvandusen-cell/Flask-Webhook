@@ -1036,6 +1036,8 @@ def voice_inbound():
         stream_params = {
             'stream_url':                         f'wss://{host}/voice/stream',
             'stream_track':                       'both_tracks',
+            'stream_codec':                       'L16',
+            'stream_bidirectional_mode':          'rtp',
             'stream_bidirectional_codec':         'L16',
             'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
             'client_state':                       client_state_raw,
@@ -1137,6 +1139,8 @@ def voice_inbound():
                         stream_params_amd = {
                             'stream_url':                         f'wss://{host}/voice/stream',
                             'stream_track':                       'both_tracks',
+                            'stream_codec':                       'L16',
+                            'stream_bidirectional_mode':          'rtp',
                             'stream_bidirectional_codec':         'L16',
                             'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
                             'client_state':                       client_state_raw,
