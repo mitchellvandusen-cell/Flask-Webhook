@@ -1305,7 +1305,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
     greeting = voice_config.get("greeting", "")
     if not greeting:
         if direction == "outbound" and contact_name != "there":
-            greeting = f"Hey {contact_name}, it's {voice_bot_name}. I'm calling about the life insurance info you were looking into [pause] I just had a couple quick questions for you."
+            greeting = f"Hey {contact_name}, it's just {voice_bot_name}. I'm not sure if you're going to remember this. I am just trying to get our records updated, hopefully you can help me real quick. [pause] I'm not sure why this didn't get updated. [pause] It looks like you put in some info about possibly looking at life insurance — did you end up finding something, or what ended up happening?"
         else:
             greeting = f"Hey, thanks for calling in. This is {voice_bot_name}. What can I do for you?"
 
