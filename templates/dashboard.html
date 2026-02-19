@@ -3259,8 +3259,8 @@
             try {
                 list.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
                 const [numR, trustR] = await Promise.all([fetch('/voice/numbers'), fetch('/voice/trust-hub')]);
-                const numD = numR.ok ? await numR.json() : {};
-                const trustD = trustR.ok ? await trustR.json() : {};
+                const numD = await numR.json().catch(() => ({}));
+                const trustD = await trustR.json().catch(() => ({}));
 
                 // STIR/SHAKEN — only update if element exists (it's in Trust Hub panel)
                 const stirEl = document.getElementById('stirStatus');
