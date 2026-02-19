@@ -3053,12 +3053,26 @@
                     if (statusEl) statusEl.textContent = d.error || 'Token error';
                     return;
                 }
-                // Load Telnyx WebRTC SDK if not already loaded
+                // Load Telnyx WebRTC SDK if not already loaded.
+                // Pin to a stable minor version — @latest can pull in builds that contain
+                // leftover debug alert() calls (e.g. alert(0)) which block the UI.
                 if (typeof TelnyxRTC === 'undefined') {
+                    // Suppress bare numeric debug alerts that some SDK builds emit
+                    // internally (e.g. during VERTO handshake). Real user-facing alerts
+                    // are always descriptive strings, never raw numbers.
+                    const _sdkAlert = window.alert;
+                    window.alert = function(msg) {
+                        if (typeof msg === 'number' || (msg !== null && msg !== '' && !isNaN(Number(msg)))) {
+                            console.warn('[Telnyx SDK internal alert suppressed]:', msg);
+                            return;
+                        }
+                        _sdkAlert.apply(this, arguments);
+                    };
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://cdn.jsdelivr.net/npm/@telnyx/webrtc@latest/dist/telnyx-webrtc.min.js';
-                        s.onload = resolve; s.onerror = reject;
+                        s.src = 'https://cdn.jsdelivr.net/npm/@telnyx/webrtc@2.21.5/dist/telnyx-webrtc.min.js';
+                        s.onload = () => { window.alert = _sdkAlert; resolve(); };
+                        s.onerror = () => { window.alert = _sdkAlert; reject(new Error('Failed to load Telnyx SDK')); };
                         document.head.appendChild(s);
                     });
                 }
