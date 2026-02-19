@@ -1101,8 +1101,8 @@ def voice_inbound():
             daemon=True,
         ).start()
 
-    elif event_type == 'call.machine.detection.ended':
-        # AMD result: human / machine / not_sure / fax
+    elif event_type in ('call.machine.detection.ended', 'call.machine.premium.detection.ended'):
+        # AMD result: human / machine / not_sure / human_residence / human_business / silence / fax_detected
         client_state_raw = call_pl.get('client_state', '')
         meta             = _decode_client_state(client_state_raw)
         amd_result       = call_pl.get('result', '')
@@ -1112,7 +1112,7 @@ def voice_inbound():
 
         logger.info(f"📞 AMD result={amd_result} attempt={dial_attempt}/{max_attempts} loc={location_id}")
 
-        machine_results = {'machine_words_present', 'machine_stop', 'machine_silence_after_words', 'machine'}
+        machine_results = {'machine_words_present', 'machine_stop', 'machine_silence_after_words', 'machine', 'fax_detected'}
         if amd_result in machine_results and dial_attempt < max_attempts and location_id:
             subscriber = _get_subscriber_by_location(location_id)
             if subscriber:
@@ -1140,16 +1140,9 @@ def voice_inbound():
                                 "webhook_url":        f"https://{host_url}/voice/inbound",
                                 "webhook_url_method": "POST",
                                 "client_state":       new_state,
-                                "answering_machine_detection": "detect_words",
+                                "answering_machine_detection": "premium",
                                 "answering_machine_detection_config": {
-                                    "total_analysis_time_millis": 3000,
-                                    "after_silence_millis": 400,
-                                    "between_words_millis": 400,
-                                    "greeting_duration_millis": 1500,
-                                    "initial_silence_millis": 1500,
-                                    "maximum_number_of_words": 3,
-                                    "maximum_word_length_millis": 1500,
-                                    "silence_threshold": 256,
+                                    "total_analysis_time_millis": 3500,
                                 },
                             }
                             r = http_requests.post(
@@ -1730,7 +1723,7 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
             # ── xAI -> Telnyx: L16 16kHz passthrough ──
             async def receive_from_xai():
                 """Relay xAI → Telnyx. L16 16kHz base64 passthrough — no encoding."""
-                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active
+                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer
 
                 def _send_audio_to_telnyx(raw_b64: str):
                     """Forward xAI L16 (PCM 16kHz) base64 directly to Telnyx — no conversion."""
@@ -2323,18 +2316,11 @@ def dial_contact():
             "client_state":       client_state,
         }
 
-        # Enable AMD for AI outbound calls — optimized for minimal delay
+        # Enable AMD for AI outbound calls — premium ML-based detection (fastest)
         if use_amd:
-            call_payload["answering_machine_detection"] = "detect_words"
+            call_payload["answering_machine_detection"] = "premium"
             call_payload["answering_machine_detection_config"] = {
-                "total_analysis_time_millis": 2000,
-                "after_silence_millis": 300,
-                "between_words_millis": 300,
-                "greeting_duration_millis": 1200,
-                "initial_silence_millis": 800,
-                "maximum_number_of_words": 2,
-                "maximum_word_length_millis": 1200,
-                "silence_threshold": 256,
+                "total_analysis_time_millis": 3500,
             }
 
         resp = http_requests.post(
@@ -2655,6 +2641,65 @@ def voice_takeover():
     logger.info(f"🔄 Takeover requested for call {call_sid} -> {target}")
 
     return jsonify({"status": "takeover_requested", "call_sid": call_sid, "target": target})
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Live transfer to another phone number
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/transfer', methods=['POST'])
+@login_required
+def voice_transfer():
+    """
+    Transfer an active call to another phone number via Telnyx call control.
+    Uses the transfer command to bridge the caller to the target number.
+    """
+    data = request.json or {}
+    call_sid = data.get('call_sid', '')
+    transfer_to = data.get('transfer_to', '').strip()
+
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+    if not transfer_to:
+        return jsonify({"error": "transfer_to number required"}), 400
+
+    # Normalize phone number
+    if not transfer_to.startswith('+'):
+        transfer_to = '+1' + transfer_to.lstrip('1') if len(transfer_to.replace('-','').replace(' ','')) <= 10 else '+' + transfer_to
+
+    # Verify the call is active
+    if call_sid not in _active_calls:
+        return jsonify({"error": "Call not found or already ended"}), 404
+
+    call_info = _active_calls[call_sid]
+    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
+        return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
+
+    # Get API key
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        voice_cfg = (row['voice_config'] if row else None) or {}
+    finally:
+        return_db_connection(conn)
+
+    api_key = voice_cfg.get('telnyx_api_key', '')
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured"}), 400
+
+    # Execute Telnyx call control transfer
+    success = _call_control_command(call_sid, api_key, 'transfer', {"to": transfer_to})
+    if success:
+        _active_calls[call_sid]['status'] = 'transferred'
+        logger.info(f"📞 Live transfer: call {call_sid} -> {transfer_to}")
+        return jsonify({"status": "transferred", "call_sid": call_sid, "transfer_to": transfer_to})
+
+    return jsonify({"error": "Transfer failed — call may have ended"}), 400
 
 
 # ──────────────────────────────────────────────────────────────
