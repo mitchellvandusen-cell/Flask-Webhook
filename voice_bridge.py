@@ -2658,6 +2658,65 @@ def voice_takeover():
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: Live transfer to another phone number
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/transfer', methods=['POST'])
+@login_required
+def voice_transfer():
+    """
+    Transfer an active call to another phone number via Telnyx call control.
+    Uses the transfer command to bridge the caller to the target number.
+    """
+    data = request.json or {}
+    call_sid = data.get('call_sid', '')
+    transfer_to = data.get('transfer_to', '').strip()
+
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+    if not transfer_to:
+        return jsonify({"error": "transfer_to number required"}), 400
+
+    # Normalize phone number
+    if not transfer_to.startswith('+'):
+        transfer_to = '+1' + transfer_to.lstrip('1') if len(transfer_to.replace('-','').replace(' ','')) <= 10 else '+' + transfer_to
+
+    # Verify the call is active
+    if call_sid not in _active_calls:
+        return jsonify({"error": "Call not found or already ended"}), 404
+
+    call_info = _active_calls[call_sid]
+    if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
+        return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
+
+    # Get API key
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        voice_cfg = (row['voice_config'] if row else None) or {}
+    finally:
+        return_db_connection(conn)
+
+    api_key = voice_cfg.get('telnyx_api_key', '')
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured"}), 400
+
+    # Execute Telnyx call control transfer
+    success = _call_control_command(call_sid, api_key, 'transfer', {"to": transfer_to})
+    if success:
+        _active_calls[call_sid]['status'] = 'transferred'
+        logger.info(f"📞 Live transfer: call {call_sid} -> {transfer_to}")
+        return jsonify({"status": "transferred", "call_sid": call_sid, "transfer_to": transfer_to})
+
+    return jsonify({"error": "Transfer failed — call may have ended"}), 400
+
+
+# ──────────────────────────────────────────────────────────────
 # ROUTE: Call disposition
 # ──────────────────────────────────────────────────────────────
 

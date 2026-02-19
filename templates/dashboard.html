@@ -1891,28 +1891,37 @@
                 </div>
 
                 <!-- Active Call Banner (AI mode) -->
-                <div id="dialerCallBanner" style="display:none;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;">
-                    <div id="dialerCallDot" style="width:10px;height:10px;border-radius:50%;background:#00d9ff;animation:dialerPulse 1.5s infinite;flex-shrink:0;"></div>
-                    <div style="flex:1;">
-                        <div id="dialerCallName" style="font-weight:700;font-size:0.85rem;">-</div>
-                        <div id="dialerCallStatus" style="font-size:0.75rem;color:#00d9ff;">Connecting...</div>
+                <div id="dialerCallBanner" style="display:none;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div id="dialerCallDot" style="width:10px;height:10px;border-radius:50%;background:#00d9ff;animation:dialerPulse 1.5s infinite;flex-shrink:0;"></div>
+                        <div style="flex:1;">
+                            <div id="dialerCallName" style="font-weight:700;font-size:0.85rem;">-</div>
+                            <div id="dialerCallStatus" style="font-size:0.75rem;color:#00d9ff;">Connecting...</div>
+                        </div>
+                        <div id="dialerBannerTimer" style="font-family:monospace;font-size:0.88rem;color:var(--accent);font-weight:700;display:none;">00:00</div>
+                        <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">
+                            <i class="fa-solid fa-phone-slash me-1"></i>Hang Up
+                        </button>
                     </div>
-                    <div id="dialerBannerTimer" style="font-family:monospace;font-size:0.88rem;color:var(--accent);font-weight:700;display:none;">00:00</div>
-                    <!-- Live Listen toggle (AI mode speakerphone) -->
-                    <button id="dialerListenBtn" onclick="dialerToggleListen()" style="display:none;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.75rem;" title="Live Listen (Speakerphone)">
-                        <i class="fa-solid fa-volume-high"></i>
-                    </button>
-                    <!-- Mute toggle (AI mode) -->
-                    <button id="dialerMuteBtn" onclick="dialerToggleMute()" style="display:none;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.75rem;" title="Mute">
-                        <i class="fa-solid fa-microphone"></i>
-                    </button>
-                    <!-- Takeover: agent barges into AI call -->
-                    <button id="dialerTakeoverBtn" onclick="dialerTakeover()" style="display:none;background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.3);color:#ffa500;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;" title="Take over this AI call">
-                        <i class="fa-solid fa-hand me-1"></i>Takeover
-                    </button>
-                    <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">
-                        <i class="fa-solid fa-phone-slash me-1"></i>Hang Up
-                    </button>
+                    <!-- In-call controls: always visible, disabled until connected -->
+                    <div id="dialerCallControls" style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
+                        <!-- Live Listen -->
+                        <button id="dialerListenBtn" onclick="dialerToggleListen()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:30px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.7rem;padding:0 8px;transition:all .2s;" title="Live Listen">
+                            <i class="fa-solid fa-volume-high"></i><span>Listen</span>
+                        </button>
+                        <!-- Mute -->
+                        <button id="dialerMuteBtn" onclick="dialerToggleMute()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:30px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.7rem;padding:0 8px;transition:all .2s;" title="Mute">
+                            <i class="fa-solid fa-microphone"></i><span>Mute</span>
+                        </button>
+                        <!-- Takeover / Human Intercept -->
+                        <button id="dialerTakeoverBtn" onclick="dialerTakeover()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:30px;border-radius:6px;background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.1);color:#664400;cursor:not-allowed;font-size:0.7rem;font-weight:600;padding:0 8px;transition:all .2s;" title="Take over this AI call (Human Intercept)">
+                            <i class="fa-solid fa-hand"></i><span>Intercept</span>
+                        </button>
+                        <!-- Live Transfer -->
+                        <button id="dialerTransferBtn" onclick="dialerTransfer()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:30px;border-radius:6px;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.1);color:#004466;cursor:not-allowed;font-size:0.7rem;font-weight:600;padding:0 8px;transition:all .2s;" title="Transfer call to another number">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>
+                        </button>
+                    </div>
                 </div>
                 <!-- Call Disposition (shown after call ends) -->
                 <div id="dialerDisposition" style="display:none;background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.12);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
@@ -3016,11 +3025,9 @@
                         el.textContent = 'Connected'; el.style.color = 'var(--accent)';
                         _dialerBannerState('connected');
                         dialerStartAiTimer();
-                        // Show mute + listen + takeover buttons when connected
-                        document.getElementById('dialerMuteBtn').style.display = 'flex';
-                        document.getElementById('dialerListenBtn').style.display = 'flex';
-                        document.getElementById('dialerTakeoverBtn').style.display = 'inline-flex';
                         document.getElementById('dialerBannerTimer').style.display = 'block';
+                        // Enable all call controls
+                        _dialerEnableControls(true);
                     } else if (d.status === 'ringing' || d.status === 'initiated') {
                         el.textContent = 'Ringing...'; el.style.color = '#00d9ff';
                         _dialerBannerState('ringing');
@@ -3069,26 +3076,28 @@
                 s.style.color = '#00d9ff';
                 _dialerBannerState('ringing');
             }
-            // Reset timer and buttons
+            // Reset timer
             document.getElementById('dialerBannerTimer').style.display = 'none';
             document.getElementById('dialerBannerTimer').textContent = '00:00';
-            document.getElementById('dialerMuteBtn').style.display = 'none';
-            document.getElementById('dialerListenBtn').style.display = 'none';
-            document.getElementById('dialerTakeoverBtn').style.display = 'none';
+            // Controls are always visible but disabled until connected
+            _dialerEnableControls(false);
             // Hide disposition if showing
             document.getElementById('dialerDisposition').style.display = 'none';
-            document.getElementById('dialerCallBanner').style.display = 'flex';
+            document.getElementById('dialerCallBanner').style.display = 'block';
         }
         function dialerHideBanner() {
             document.getElementById('dialerCallBanner').style.display = 'none';
             dialerStopAiTimer();
-            // Reset takeover button for next call
+            // Reset all control buttons for next call
+            _dialerEnableControls(false);
             const tkBtn = document.getElementById('dialerTakeoverBtn');
-            tkBtn.style.display = 'none';
-            tkBtn.disabled = false;
-            tkBtn.innerHTML = '<i class="fa-solid fa-hand me-1"></i>Takeover';
-            tkBtn.style.color = '#ffa500';
-            tkBtn.style.borderColor = 'rgba(255,165,0,0.3)';
+            tkBtn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+            const trBtn = document.getElementById('dialerTransferBtn');
+            if (trBtn) trBtn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+            const muteBtn = document.getElementById('dialerMuteBtn');
+            muteBtn.innerHTML = '<i class="fa-solid fa-microphone"></i><span>Mute</span>';
+            const listenBtn = document.getElementById('dialerListenBtn');
+            listenBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i><span>Listen</span>';
         }
 
         // ── AI Call Timer ──
@@ -3114,34 +3123,68 @@
             document.getElementById('dialerAiTimer').style.display = 'none';
         }
 
+        // ── Enable / disable all in-call control buttons ──
+        function _dialerEnableControls(enabled) {
+            const btns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
+            btns.forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.disabled = !enabled;
+                btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+            });
+            if (enabled) {
+                const listen = document.getElementById('dialerListenBtn');
+                const mute = document.getElementById('dialerMuteBtn');
+                const takeover = document.getElementById('dialerTakeoverBtn');
+                const transfer = document.getElementById('dialerTransferBtn');
+                listen.style.color = '#ccc'; listen.style.background = 'rgba(255,255,255,0.04)'; listen.style.borderColor = 'rgba(255,255,255,0.1)';
+                mute.style.color = '#ccc'; mute.style.background = 'rgba(255,255,255,0.04)'; mute.style.borderColor = 'rgba(255,255,255,0.1)';
+                takeover.style.color = '#ffa500'; takeover.style.background = 'rgba(255,165,0,0.12)'; takeover.style.borderColor = 'rgba(255,165,0,0.3)';
+                transfer.style.color = '#00d9ff'; transfer.style.background = 'rgba(0,217,255,0.08)'; transfer.style.borderColor = 'rgba(0,217,255,0.15)';
+            } else {
+                // Grayed out / disabled look
+                const allBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
+                allBtns.forEach(id => {
+                    const btn = document.getElementById(id);
+                    if (!btn) return;
+                    btn.style.color = '#444'; btn.style.background = 'rgba(255,255,255,0.03)'; btn.style.borderColor = 'rgba(255,255,255,0.06)';
+                });
+            }
+            // Reset toggle states
+            _dialerListening = false;
+            _dialerMuted = false;
+        }
+
         // ── Live Listen (AI speakerphone toggle) ──
         let _dialerListening = false;
         function dialerToggleListen() {
+            if (document.getElementById('dialerListenBtn').disabled) return;
             _dialerListening = !_dialerListening;
             const btn = document.getElementById('dialerListenBtn');
             btn.style.background = _dialerListening ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)';
             btn.style.color = _dialerListening ? '#00d9ff' : '#ccc';
-            btn.innerHTML = _dialerListening ? '<i class="fa-solid fa-volume-high"></i>' : '<i class="fa-solid fa-volume-xmark"></i>';
+            btn.querySelector('i').className = _dialerListening ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
             // TODO: Connect to live audio stream when backend supports it
         }
 
         // ── Mute (AI mode) ──
         let _dialerMuted = false;
         function dialerToggleMute() {
+            if (document.getElementById('dialerMuteBtn').disabled) return;
             _dialerMuted = !_dialerMuted;
             const btn = document.getElementById('dialerMuteBtn');
             btn.style.background = _dialerMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
             btn.style.color = _dialerMuted ? '#ef4444' : '#ccc';
-            btn.innerHTML = _dialerMuted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
+            btn.querySelector('i').className = _dialerMuted ? 'fa-solid fa-microphone-slash' : 'fa-solid fa-microphone';
             // TODO: Send mute signal to backend when supported
         }
 
-        // ── Takeover: agent barges into AI call ──
+        // ── Takeover / Human Intercept: agent barges into AI call ──
         async function dialerTakeover() {
-            if (!dialerCallSid) return;
+            if (!dialerCallSid || document.getElementById('dialerTakeoverBtn').disabled) return;
             const btn = document.getElementById('dialerTakeoverBtn');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Transferring...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Intercepting...</span>';
             try {
                 const r = await fetch('/voice/takeover', {
                     method: 'POST',
@@ -3150,20 +3193,57 @@
                 });
                 const d = await r.json();
                 if (r.ok) {
-                    btn.innerHTML = '<i class="fa-solid fa-check me-1"></i>Transferred';
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Intercepted</span>';
                     btn.style.color = 'var(--accent)';
                     btn.style.borderColor = 'rgba(0,255,136,0.3)';
                     document.getElementById('dialerCallStatus').textContent = 'Transferring to Agent...';
                     document.getElementById('dialerCallStatus').style.color = '#ffa500';
                 } else {
-                    alert(d.error || 'Takeover failed');
+                    alert(d.error || 'Intercept failed');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-hand me-1"></i>Takeover';
+                    btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
                 }
             } catch(e) {
-                alert('Network error during takeover');
+                alert('Network error during intercept');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-hand me-1"></i>Takeover';
+                btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+            }
+        }
+
+        // ── Live Transfer: transfer call to another number ──
+        async function dialerTransfer() {
+            if (!dialerCallSid || document.getElementById('dialerTransferBtn').disabled) return;
+            const transferNum = (document.getElementById('voiceTransferNumber')?.value || '').trim();
+            let target = transferNum;
+            if (!target) {
+                target = prompt('Enter phone number to transfer to (e.g. +15551234567):');
+                if (!target) return;
+            }
+            const btn = document.getElementById('dialerTransferBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Transferring...</span>';
+            try {
+                const r = await fetch('/voice/transfer', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid, transfer_to: target })
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Transferred</span>';
+                    btn.style.color = 'var(--accent)';
+                    btn.style.borderColor = 'rgba(0,255,136,0.3)';
+                    document.getElementById('dialerCallStatus').textContent = 'Transferred';
+                    document.getElementById('dialerCallStatus').style.color = '#ffa500';
+                } else {
+                    alert(d.error || 'Transfer failed');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+                }
+            } catch(e) {
+                alert('Network error during transfer');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
             }
         }
 
