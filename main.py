@@ -4545,7 +4545,7 @@ def oauth_callback():
             existing_row = cur.fetchone()
 
             if existing_row and primary_location_id:
-                existing_loc = existing_row[0]
+                existing_loc = existing_row['location_id']
                 # Sync OAuth tokens onto existing row — update location_id if it
                 # was a temp placeholder, otherwise keep existing data intact.
                 cur.execute("""
