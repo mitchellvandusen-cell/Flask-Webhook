@@ -3232,6 +3232,8 @@
             const btn = document.getElementById('dialerTakeoverBtn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Intercepting...</span>';
+            const statusEl = document.getElementById('dialerCallStatus');
+            if (statusEl) { statusEl.textContent = 'Intercepting...'; statusEl.style.color = '#ffa500'; }
             try {
                 const r = await fetch('/voice/takeover', {
                     method: 'POST',
@@ -3243,17 +3245,19 @@
                     btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Intercepted</span>';
                     btn.style.color = 'var(--accent)';
                     btn.style.borderColor = 'rgba(0,255,136,0.3)';
-                    document.getElementById('dialerCallStatus').textContent = 'Transferring to Agent...';
-                    document.getElementById('dialerCallStatus').style.color = '#ffa500';
+                    btn.style.background = 'rgba(0,255,136,0.08)';
+                    if (statusEl) { statusEl.textContent = 'Transferred to ' + (d.target || 'Agent'); statusEl.style.color = 'var(--accent)'; }
                 } else {
                     alert(d.error || 'Intercept failed');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+                    if (statusEl) { statusEl.textContent = 'Intercept failed'; statusEl.style.color = '#ef4444'; }
                 }
             } catch(e) {
                 alert('Network error during intercept');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+                if (statusEl) { statusEl.textContent = 'Network error'; statusEl.style.color = '#ef4444'; }
             }
         }
 
