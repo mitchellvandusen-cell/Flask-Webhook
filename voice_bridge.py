@@ -1026,12 +1026,11 @@ def voice_inbound():
 
         # For AI calls, start bidirectional media streaming to the AI bridge
         _call_control_command(call_ctrl, api_key, 'streaming_start', {
-            'stream_url':                       f'wss://{host}/voice/stream',
-            'stream_track':                     'both_tracks',
-            'stream_bidirectional_mode':        'rtp',
-            'stream_bidirectional_codec':       'L16',
+            'stream_url':                         f'wss://{host}/voice/stream',
+            'stream_track':                       'both_tracks',
+            'stream_bidirectional_codec':         'L16',
             'stream_bidirectional_sampling_rate': XAI_SAMPLE_RATE,
-            'client_state':                     client_state_raw,
+            'client_state':                       client_state_raw,
         })
         logger.info(f"📞 AI streaming started for {location_id}")
 
@@ -2208,6 +2207,46 @@ def get_call_status(call_sid):
             return jsonify(status_copy)
         return jsonify(info)
     return jsonify({"status": "unknown"}), 404
+
+
+# ──────────────────────────────────────────────────────────────
+# ROUTE: Hang up an active call from the dialer UI
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/hangup', methods=['POST'])
+@login_required
+def hangup_active_call():
+    """Hang up the currently active call by call_control_id."""
+    data = request.json or {}
+    call_sid = data.get('call_sid', '')
+    if not call_sid:
+        return jsonify({"error": "call_sid required"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        subscriber = dict(row)
+    finally:
+        return_db_connection(conn)
+
+    api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured"}), 400
+
+    success = _call_control_command(call_sid, api_key, 'hangup', {})
+    if call_sid in _active_calls:
+        _active_calls[call_sid]['status'] = 'canceled'
+
+    if success:
+        return jsonify({"status": "hung_up"})
+    return jsonify({"error": "Hangup failed — call may have already ended"}), 400
 
 
 # ──────────────────────────────────────────────────────────────
