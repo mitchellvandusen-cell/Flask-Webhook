@@ -1640,24 +1640,26 @@ def test_voice_connection():
     else:
         results["errors"].append("XAI_API_KEY not configured")
 
-    # Test Twilio credentials
+    # Test Telnyx API key — GET /v2/profile with Bearer auth
     if location_id:
         subscriber = _get_subscriber_by_location(location_id)
         if subscriber:
             voice_config = subscriber.get("voice_config") or {}
-            twilio_sid = voice_config.get("twilio_account_sid", "")
-            twilio_token = voice_config.get("twilio_auth_token", "")
-            if twilio_sid and twilio_token:
+            telnyx_api_key = voice_config.get("telnyx_api_key", "")
+            if telnyx_api_key:
                 try:
-                    client = TwilioClient(twilio_sid, twilio_token)
-                    account = client.api.accounts(twilio_sid).fetch()
-                    results["twilio"] = account.status == "active"
-                    if account.status != "active":
-                        results["errors"].append(f"Twilio account status: {account.status}")
+                    r = http_requests.get(
+                        f"{TELNYX_API_BASE}/profile",
+                        headers={"Authorization": f"Bearer {telnyx_api_key}"},
+                        timeout=10,
+                    )
+                    results["twilio"] = r.status_code == 200
+                    if r.status_code != 200:
+                        results["errors"].append(f"Telnyx API returned {r.status_code} — check your API Key")
                 except Exception as e:
-                    results["errors"].append(f"Twilio validation failed: {str(e)}")
+                    results["errors"].append(f"Telnyx connection failed: {str(e)}")
             else:
-                results["errors"].append("Twilio credentials not configured")
+                results["errors"].append("Telnyx API Key not configured")
 
     return jsonify(results)
 
@@ -1880,15 +1882,14 @@ def dial_contact():
     if not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
-    twilio_sid = voice_config.get('twilio_account_sid', '')
-    twilio_token = voice_config.get('twilio_auth_token', '')
-    twilio_number = voice_config.get('twilio_phone_number', '')
+    telnyx_api_key       = voice_config.get('telnyx_api_key', '')
+    telnyx_connection_id = voice_config.get('telnyx_connection_id', '')
+    telnyx_number        = voice_config.get('telnyx_phone_number', '')
 
-    if not all([twilio_sid, twilio_token, twilio_number]):
-        return jsonify({"error": "Twilio credentials not configured"}), 400
+    if not all([telnyx_api_key, telnyx_connection_id, telnyx_number]):
+        return jsonify({"error": "Telnyx credentials not configured (need API Key, Connection ID, Phone Number)"}), 400
 
     try:
-        client = TwilioClient(twilio_sid, twilio_token)
         host = request.host
         answer_url = (
             f"https://{host}/voice/outbound-answer"
@@ -1897,23 +1898,27 @@ def dial_contact():
             f"&name={first_name}"
         )
 
-        call = client.calls.create(
-            to=phone,
-            from_=twilio_number,
-            url=answer_url,
-            method="POST",
-            timeout=30,
-            record=True,
-            recording_channels="dual",
-            recording_status_callback=f"https://{host}/voice/recording-status",
-            recording_status_callback_method="POST",
-            status_callback=f"https://{host}/voice/status",
-            status_callback_event=["initiated", "ringing", "answered", "completed"],
-            status_callback_method="POST",
+        resp = http_requests.post(
+            f"{TELNYX_API_BASE}/calls",
+            headers={
+                "Authorization": f"Bearer {telnyx_api_key}",
+                "Content-Type":  "application/json",
+            },
+            json={
+                "connection_id":      telnyx_connection_id,
+                "to":                 phone,
+                "from":               telnyx_number,
+                "webhook_url":        answer_url,
+                "webhook_url_method": "POST",
+            },
+            timeout=10,
         )
+        resp.raise_for_status()
+        call_data    = resp.json().get("data", {})
+        call_ctrl_id = call_data.get("call_control_id", call_data.get("call_leg_id", ""))
 
         # Track this call for the dialer queue
-        _active_calls[call.sid] = {
+        _active_calls[call_ctrl_id] = {
             "status": "initiated",
             "duration": 0,
             "contact_id": contact_id,
@@ -1924,7 +1929,7 @@ def dial_contact():
         # Persist to call_history DB
         save_call_to_history(
             location_id=location_id,
-            call_sid=call.sid,
+            call_sid=call_ctrl_id,
             phone=phone,
             contact_id=contact_id,
             contact_name=first_name,
@@ -1932,8 +1937,8 @@ def dial_contact():
             status='initiated'
         )
 
-        logger.info(f"📞 Dialer call: {twilio_number} -> {phone} ({first_name}) SID={call.sid}")
-        return jsonify({"status": "calling", "call_sid": call.sid})
+        logger.info(f"📞 Dialer call: {telnyx_number} -> {phone} ({first_name}) ctrl_id={call_ctrl_id}")
+        return jsonify({"status": "calling", "call_sid": call_ctrl_id})
 
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
