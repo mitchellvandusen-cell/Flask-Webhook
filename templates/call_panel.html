@@ -513,25 +513,40 @@
     }
 
     async function hangupCall() {
-        // Stop the queue
+        // Stop the queue regardless of call state
         if (queueRunning) {
             queueRunning = false;
             updateQueueButton();
         }
-        // Hang up the live call on Telnyx
-        if (currentCallSid) {
-            const sid = currentCallSid;
-            currentCallSid = null;
-            clearInterval(pollInterval);
+
+        const sid = currentCallSid;
+        currentCallSid = null;
+        clearInterval(pollInterval);
+
+        // Update banner to show we're hanging up
+        const statusEl = document.getElementById('activeCallStatus');
+        if (statusEl) {
+            statusEl.textContent = 'Ending call...';
+            statusEl.style.color = 'var(--danger)';
+        }
+
+        if (sid) {
             try {
-                await fetch('/voice/hangup', {
+                const resp = await fetch('/voice/hangup', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({call_sid: sid})
                 });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    console.warn('Hangup failed:', err.error || resp.status);
+                }
             } catch (e) { /* call may have already ended */ }
-            setTimeout(hideCallBanner, 1000);
         }
+
+        // Always hide the banner — call is done from our perspective
+        setTimeout(hideCallBanner, 800);
     }
 
     // ═══════════════════════════════════════════════════════════
