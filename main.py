@@ -1784,8 +1784,6 @@ def save_voice_config():
     voice_config.update({
         "enabled":               bool(data.get("enabled", False)),
         "telnyx_api_key":        (data.get("telnyx_api_key") or "").strip(),
-        "telnyx_connection_id":  (data.get("telnyx_connection_id") or "").strip(),
-        "telnyx_phone_number":   (data.get("telnyx_phone_number") or "").strip(),
         "voice":                 (data.get("voice") or "ara").strip().lower(),
         "voice_bot_name":        (data.get("voice_bot_name") or "").strip(),
         "voice_instructions":    (data.get("voice_instructions") or "").strip(),
@@ -1797,6 +1795,13 @@ def save_voice_config():
         "local_presence":        bool(data.get("local_presence", False)),
         "transfer_number":       (data.get("transfer_number") or "").strip(),
     })
+    # Only overwrite telnyx_connection_id and telnyx_phone_number if explicitly
+    # provided in the request — these are set by auto-provisioning and must not
+    # be wiped when the user saves other voice settings.
+    if "telnyx_connection_id" in data and data["telnyx_connection_id"]:
+        voice_config["telnyx_connection_id"] = data["telnyx_connection_id"].strip()
+    if "telnyx_phone_number" in data and data["telnyx_phone_number"]:
+        voice_config["telnyx_phone_number"] = data["telnyx_phone_number"].strip()
 
     conn = get_db_connection()
     if not conn:
@@ -3950,16 +3955,25 @@ def oauth_initiate():
         else:
             return redirect(url_for('dashboard'))
 
-    client_id = os.getenv("GHL_CLIENT_ID")
+    # Toggle: set USE_PRIVATE_APP=true in .env to route all installs through
+    # the private app while waiting for public marketplace scope approval.
+    use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
+
+    if use_private:
+        client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+        env_label = "PRIVATE_APP_CLIENT_ID"
+    else:
+        client_id = os.getenv("GHL_CLIENT_ID")
+        env_label = "GHL_CLIENT_ID"
+
     domain = os.getenv("YOUR_DOMAIN")
     if not client_id or not domain:
-        logger.error(f"OAuth initiate failed: GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, YOUR_DOMAIN={'set' if domain else 'MISSING'}")
+        logger.error(f"OAuth initiate failed: {env_label}={'set' if client_id else 'MISSING'}, YOUR_DOMAIN={'set' if domain else 'MISSING'}")
         flash("OAuth is not configured. Please contact support.", "error")
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # Required scopes — must match marketplace app configuration in GHL developer portal.
-    # If you add/remove scopes here, update the marketplace app settings too.
+    # Required scopes — must match the app configuration in GHL developer portal.
     scopes = [
         "calendars.readonly",           # List calendars, free slots
         "calendars/events.readonly",    # Read calendar events
@@ -3971,18 +3985,20 @@ def oauth_initiate():
         "conversations.readonly",       # Search conversations (ghl_api.py)
         "contacts.readonly",            # Contact lookup & validation
         "oauth.readonly",              # Token info check (ghl_calendar.py)
-        # TODO: Add these scopes once GHL marketplace approval completes (~10 days):
-        #   "locations.readonly"  — enables /locations/ API for sub-account discovery
-        #   "users.readonly"      — enables /users/ API for user info lookup
-        # Without locations.readonly, the callback falls back to the primary locationId from the token.
     ]
+    # Private app already has all scopes approved — include them now.
+    # For the public app these are still pending marketplace review.
+    if use_private:
+        scopes += [
+            "locations.readonly",       # Sub-account discovery
+            "users.readonly",           # User info lookup
+        ]
     scope_string = " ".join(scopes)
 
-    # State identifies this as a website subscriber (already paid via Stripe)
-    # vs a marketplace install (hasn't subscribed yet)
-    state = "website_user"
+    # State: "private_app" when using private app, "website_user" otherwise.
+    # The callback uses this to pick the right credentials for token exchange.
+    state = "private_app" if use_private else "website_user"
 
-    # Build OAuth URL using public marketplace app
     # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
     # and cause GHL scope validation failures + state parameter loss
     from urllib.parse import urlencode
@@ -3995,7 +4011,7 @@ def oauth_initiate():
     })
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
-    logger.info(f"Initiating marketplace OAuth flow for {current_user.email}. Redirecting to: {oauth_url}")
+    logger.info(f"Initiating OAuth flow for {current_user.email} (private={use_private}). Redirecting to: {oauth_url}")
     return redirect(oauth_url)
 
 def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
@@ -4146,16 +4162,27 @@ def oauth_callback():
             logger.info("OAuth callback: Marketplace installation flow")
 
         # --- VALIDATE ENV VARS ---
-        client_id = os.getenv("GHL_CLIENT_ID")
-        client_secret = os.getenv("GHL_CLIENT_SECRET")
+        # Pick credentials based on how the OAuth flow was initiated:
+        #   state="private_app" → use private app credentials
+        #   anything else       → use public marketplace credentials
+        is_private_app = (state == "private_app")
+        if is_private_app:
+            client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+            client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+            cred_label = "PRIVATE_APP"
+        else:
+            client_id = os.getenv("GHL_CLIENT_ID")
+            client_secret = os.getenv("GHL_CLIENT_SECRET")
+            cred_label = "GHL (marketplace)"
         domain = os.getenv("YOUR_DOMAIN")
 
         if not client_id or not client_secret or not domain:
-            logger.error(f"OAuth env vars missing: GHL_CLIENT_ID={'set' if client_id else 'MISSING'}, "
-                        f"GHL_CLIENT_SECRET={'set' if client_secret else 'MISSING'}, "
+            logger.error(f"OAuth env vars missing ({cred_label}): client_id={'set' if client_id else 'MISSING'}, "
+                        f"client_secret={'set' if client_secret else 'MISSING'}, "
                         f"YOUR_DOMAIN={'set' if domain else 'MISSING'}")
             flash("OAuth is not configured. Please contact support.", "danger")
             return redirect(url_for('home'))
+        logger.info(f"OAuth callback using {cred_label} credentials (state={state})")
 
         # 1. Exchange Code for Token (with retry on transient failures)
         # TRY BOTH user_types: "Location" first, then "Company" for agency-level installs.
@@ -4470,8 +4497,9 @@ def oauth_callback():
                 max_seats = 9999 if plan_tier == 'agency_pro' else 14
                 active_seats = max(0, num_subs - 1)  # Exclude primary
 
-                # Determine OAuth app type
-                app_type = 'website' if is_website_user else 'marketplace'
+                # Determine OAuth app type — private app gets its own type so
+                # token refresh uses the correct client credentials
+                app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
 
                 cur.execute("""
                     INSERT INTO agency_billing (
@@ -4485,15 +4513,10 @@ def oauth_callback():
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
                         location_id = EXCLUDED.location_id,
-                        full_name = EXCLUDED.full_name,
-                        subscription_tier = EXCLUDED.subscription_tier,
-                        max_seats = EXCLUDED.max_seats,
-                        active_seats = EXCLUDED.active_seats,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
-                        timezone = EXCLUDED.timezone,
-                        crm_user_id = EXCLUDED.crm_user_id,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
@@ -4502,15 +4525,21 @@ def oauth_callback():
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
                 ))
 
-            # --- B. Sub-accounts (or individual user) ---
-            # 1. Pagination: Using fetch_all_ghl_items() to get ALL locations (not just first 20)
-            # 2. Token Sharing: All sub-accounts get the agency token (prevents token starvation)
-            # 3. No N+1 Queries: Removed user fetch loop to prevent HTTP 504 timeouts
-            #
-            # FIX: For Stripe subscribers connecting OAuth, a row already exists with
-            # a temp location_id. We must update that row first so the INSERT below
-            # doesn't violate the UNIQUE constraint on email.
-            if is_website_user and primary_location_id:
+            # --- B. Reconnect / Reinstall Sync ---
+            # If the user already exists in subscribers (by email OR location_id),
+            # just sync OAuth tokens without wiping any existing data (password,
+            # stripe, voice_config, calendar, bot settings, etc.).
+            # This handles: reinstalls, public→private app switches, re-auths.
+            app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+
+            # B1. Check for existing subscriber by email (covers temp_ and real location_ids)
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (user_email,))
+            existing_row = cur.fetchone()
+
+            if existing_row and primary_location_id:
+                existing_loc = existing_row[0]
+                # Sync OAuth tokens onto existing row — update location_id if it
+                # was a temp placeholder, otherwise keep existing data intact.
                 cur.execute("""
                     UPDATE subscribers
                     SET location_id = %s,
@@ -4518,17 +4547,17 @@ def oauth_callback():
                         refresh_token = %s,
                         token_expires_at = NOW() + interval '%s seconds',
                         crm_user_id = COALESCE(%s, crm_user_id),
-                        oauth_app_type = 'website',
-                        onboarding_status = 'claimed',
+                        oauth_app_type = %s,
+                        onboarding_status = CASE
+                            WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
+                            ELSE onboarding_status
+                        END,
                         updated_at = NOW()
-                    WHERE email = %s AND location_id LIKE 'temp_%%'
+                    WHERE email = %s
                 """, (primary_location_id, access_token, refresh_token,
-                      expires_in, me_data.get('id'), user_email))
-                rows_updated = cur.rowcount
-                if rows_updated > 0:
-                    logger.info(f"Updated temp row for {user_email} with real location_id {primary_location_id}")
-                else:
-                    logger.warning(f"No temp_ row found for {user_email} — may already be claimed or email mismatch")
+                      expires_in, me_data.get('id'), app_type, user_email))
+                logger.info(f"Synced OAuth tokens for existing subscriber {user_email} "
+                           f"(location: {existing_loc} → {primary_location_id}, app_type={app_type})")
 
             # --- C. Subscriber rows ---
             # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
@@ -4551,7 +4580,13 @@ def oauth_callback():
                               f"location {primary_location_id}. Sub-accounts will be added once "
                               f"locations.readonly scope is approved.")
 
-            logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} subscriber rows "
+            # Skip locations that were already synced above (the primary for the
+            # logged-in user).  Only INSERT truly new locations (agency sub-accounts).
+            if existing_row and primary_location_id:
+                locations_to_provision = [s for s in locations_to_provision
+                                         if s['id'] != primary_location_id]
+
+            logger.info(f"Step 7c: Provisioning {len(locations_to_provision)} NEW subscriber rows "
                         f"(agency_flow={use_agency_flow}, fallback={using_location_fallback}, "
                         f"total_ghl_locations={num_subs})")
 
@@ -4571,7 +4606,6 @@ def oauth_callback():
                 role = 'agency_sub_account_user' if use_agency_flow else 'individual'
                 parent_agency_email = user_email if use_agency_flow else None
                 email_this = user_email
-                app_type = 'website' if is_website_user else 'marketplace'
 
                 cur.execute("""
                     INSERT INTO subscribers (
@@ -4585,15 +4619,9 @@ def oauth_callback():
                         %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (location_id) DO UPDATE SET
-                        email = EXCLUDED.email,
-                        full_name = EXCLUDED.full_name,
-                        role = EXCLUDED.role,
-                        subscription_tier = EXCLUDED.subscription_tier,
-                        parent_agency_email = EXCLUDED.parent_agency_email,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
-                        timezone = EXCLUDED.timezone,
                         crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()

@@ -1550,6 +1550,24 @@
                             </div>
                         </div>
                         <div id="connectTelnyxResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
+
+                        <!-- Manual Telnyx Connection ID & Phone Number -->
+                        <div class="d-flex gap-2 flex-wrap mt-3">
+                            <div style="flex:1;min-width:200px;">
+                                <label style="color:#aaa;font-size:0.78rem;font-weight:600;margin-bottom:4px;display:block;">Connection ID</label>
+                                <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="e.g. 180..."
+                                    value="{{ voice_config.get('telnyx_connection_id', '') }}"
+                                    style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                <small style="color:#666;font-size:0.72rem;">Auto-filled by Connect, or paste from Telnyx &rarr; Voice API App</small>
+                            </div>
+                            <div style="flex:1;min-width:200px;">
+                                <label style="color:#aaa;font-size:0.78rem;font-weight:600;margin-bottom:4px;display:block;">Telnyx Phone Number</label>
+                                <input type="text" class="form-control" id="voiceTelnyxPhoneNumber" placeholder="+1..."
+                                    value="{{ voice_config.get('telnyx_phone_number', '') }}"
+                                    style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                                <small style="color:#666;font-size:0.72rem;">Auto-filled by Connect, or paste your Telnyx number</small>
+                            </div>
+                        </div>
                     </div>
 
 
@@ -2500,6 +2518,8 @@
             resultDiv.style.display = 'block';
             resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Saving voice settings...</span>';
 
+            const connId = document.getElementById('voiceTelnyxConnectionId').value.trim();
+            const phoneNum = document.getElementById('voiceTelnyxPhoneNumber').value.trim();
             const config = {
                 enabled: document.getElementById('voiceEnabled').checked,
                 telnyx_api_key: document.getElementById('voiceTelnyxApiKey').value.trim(),
@@ -2514,6 +2534,9 @@
                 local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
                 transfer_number: document.getElementById('voiceTransferNumber')?.value?.trim() || '',
             };
+            // Include connection ID and phone number only when the user has filled them in
+            if (connId) config.telnyx_connection_id = connId;
+            if (phoneNum) config.telnyx_phone_number = phoneNum;
 
             fetch('/api/voice-config', {
                 method: 'POST',
