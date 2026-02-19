@@ -1850,14 +1850,14 @@
                 </div>
 
                 <!-- Active Call Banner (AI mode) -->
-                <div id="dialerCallBanner" style="display:none;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;">
-                    <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);animation:dialerPulse 1.5s infinite;"></div>
+                <div id="dialerCallBanner" style="display:none;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;align-items:center;gap:10px;">
+                    <div id="dialerCallDot" style="width:10px;height:10px;border-radius:50%;background:#00d9ff;animation:dialerPulse 1.5s infinite;flex-shrink:0;"></div>
                     <div style="flex:1;">
                         <div id="dialerCallName" style="font-weight:700;font-size:0.85rem;">-</div>
-                        <div id="dialerCallStatus" style="font-size:0.75rem;color:var(--accent);">Connecting...</div>
+                        <div id="dialerCallStatus" style="font-size:0.75rem;color:#00d9ff;">Connecting...</div>
                     </div>
                     <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">
-                        <i class="fa-solid fa-stop me-1"></i>Stop
+                        <i class="fa-solid fa-phone-slash me-1"></i>Hang Up
                     </button>
                 </div>
 
@@ -1903,6 +1903,17 @@
                             <button id="dialerGetContactsBtn" onclick="dialerFetchContacts()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.7rem;cursor:pointer;">
                                 <i class="fa-solid fa-download me-1"></i>Get Contacts
                             </button>
+                        </div>
+                        <!-- Quick Dial (top) -->
+                        <div style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                            <div style="font-size:0.68rem;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Enter a Number</div>
+                            <div style="display:flex;gap:6px;">
+                                <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
+                                    style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.2);color:#fff;padding:7px 10px;border-radius:7px;font-size:0.8rem;outline:none;">
+                                <button onclick="dialerManualCall()" style="padding:7px 14px;border-radius:7px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.8rem;cursor:pointer;white-space:nowrap;">
+                                    <i class="fa-solid fa-phone"></i>
+                                </button>
+                            </div>
                         </div>
                         <!-- Search + Filters -->
                         <div style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
@@ -1969,13 +1980,6 @@
                                     <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.72rem;cursor:pointer;">Clear</button>
                                 </div>
                             </div>
-                        </div>
-                        <!-- Manual Dial -->
-                        <div style="padding:8px 12px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;display:flex;gap:6px;">
-                            <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.78rem;outline:none;">
-                            <button onclick="dialerManualCall()" style="padding:6px 12px;border-radius:6px;border:none;background:var(--accent);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;white-space:nowrap;">
-                                <i class="fa-solid fa-phone"></i>
-                            </button>
                         </div>
                     </div>
 
@@ -2886,35 +2890,74 @@
             }
         }
 
+        // Sets banner dot + border color based on state: 'ringing' | 'connected' | 'error' | 'ended'
+        function _dialerBannerState(state) {
+            const banner = document.getElementById('dialerCallBanner');
+            const dot    = document.getElementById('dialerCallDot');
+            if (!banner || !dot) return;
+            const colors = {
+                ringing:   { bg: 'rgba(0,217,255,0.06)', border: 'rgba(0,217,255,0.2)',   dot: '#00d9ff', anim: 'dialerPulse 1.5s infinite' },
+                connected: { bg: 'rgba(0,255,136,0.06)', border: 'rgba(0,255,136,0.2)',   dot: 'var(--accent)', anim: 'dialerPulse 1.5s infinite' },
+                error:     { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)',   dot: '#ef4444', anim: 'none' },
+                ended:     { bg: 'rgba(0,255,136,0.04)', border: 'rgba(255,255,255,0.06)', dot: '#555',  anim: 'none' },
+            };
+            const c = colors[state] || colors.ringing;
+            banner.style.background = c.bg;
+            banner.style.border = '1px solid ' + c.border;
+            dot.style.background = c.dot;
+            dot.style.animation  = c.anim;
+        }
+
         function dialerStartPoll() {
             if (dialerPollTimer) clearInterval(dialerPollTimer);
+            let pollCount = 0, errorCount = 0;
+            const MAX_POLLS = 60, MAX_ERRORS = 5; // 60 × 1.5s = 90s hard timeout
             dialerPollTimer = setInterval(async () => {
-                if (!dialerCallSid) { clearInterval(dialerPollTimer); return; }
+                if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); return; }
+                if (++pollCount > MAX_POLLS) {
+                    clearInterval(dialerPollTimer); dialerCallSid = null;
+                    dialerHideBanner();
+                    if (dialerQueueRunning) dialerAdvance();
+                    return;
+                }
                 try {
                     const r = await fetch('/voice/call-status/' + dialerCallSid);
-                    if (!r.ok) return;
+                    if (!r.ok) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); } return; }
+                    errorCount = 0;
                     const d = await r.json();
                     const el = document.getElementById('dialerCallStatus');
-                    if (d.status === 'in-progress') { el.textContent = 'Connected'; el.style.color = 'var(--accent)'; }
-                    else if (d.status === 'ringing') { el.textContent = 'Ringing...'; el.style.color = '#00d9ff'; }
-                    else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
+                    if (d.status === 'in-progress') {
+                        el.textContent = 'Connected'; el.style.color = 'var(--accent)';
+                        _dialerBannerState('connected');
+                    } else if (d.status === 'ringing' || d.status === 'initiated') {
+                        el.textContent = 'Ringing...'; el.style.color = '#00d9ff';
+                        _dialerBannerState('ringing');
+                    } else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
                         clearInterval(dialerPollTimer);
-                        el.textContent = d.status.replace('-',' ') + (d.duration ? ' (' + d.duration + 's)' : '');
+                        _dialerBannerState('ended');
+                        el.textContent = d.status.replace(/-/g,' ') + (d.duration ? ' (' + d.duration + 's)' : '');
                         el.style.color = d.status === 'completed' ? 'var(--accent)' : '#ffa500';
                         if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
                         dialerCallSid = null;
-                        if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
-                        else { setTimeout(dialerHideBanner, 1500); }
                         dialerRenderQueue();
+                        if (dialerQueueRunning) setTimeout(dialerAdvance, 1500);
+                        else setTimeout(dialerHideBanner, 2000);
                     }
-                } catch(e) {}
+                } catch(e) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); } }
             }, 1500);
         }
 
         function dialerShowBanner(name, status, isErr) {
             document.getElementById('dialerCallName').textContent = name;
             const s = document.getElementById('dialerCallStatus');
-            s.textContent = status; s.style.color = isErr ? '#ef4444' : 'var(--accent)';
+            s.textContent = status;
+            if (isErr) {
+                s.style.color = '#ef4444';
+                _dialerBannerState('error');
+            } else {
+                s.style.color = '#00d9ff';
+                _dialerBannerState('ringing');
+            }
             document.getElementById('dialerCallBanner').style.display = 'flex';
         }
         function dialerHideBanner() { document.getElementById('dialerCallBanner').style.display = 'none'; }
