@@ -3060,13 +3060,31 @@
                         document.head.appendChild(s);
                     });
                 }
+                const _voipStatus = () => document.getElementById('voipSetupStatus');
+                if (_voipStatus()) _voipStatus().textContent = 'Connecting to Telnyx…';
+
                 voipDevice = new TelnyxRTC({ login_token: d.token });
+
+                // Timeout: if telnyx.ready hasn't fired in 12s, show what happened
+                const _voipReadyTimer = setTimeout(() => {
+                    if (!voipReady && _voipStatus())
+                        _voipStatus().textContent = 'Timed out waiting for Telnyx — check browser console (F12) for errors';
+                }, 12000);
+
                 voipDevice.on('telnyx.ready', () => {
+                    clearTimeout(_voipReadyTimer);
                     voipReady = true; voipSetupDone = true;
                     document.getElementById('voipStatus').style.display = 'block';
                     document.getElementById('voipSetupBanner').style.display = 'none';
-                    const statusEl = document.getElementById('voipSetupStatus');
-                    if (statusEl) statusEl.textContent = 'VoIP ready';
+                    if (_voipStatus()) _voipStatus().textContent = 'VoIP ready ✓';
+                });
+                voipDevice.on('telnyx.error', (err) => {
+                    clearTimeout(_voipReadyTimer);
+                    console.error('VoIP error:', err);
+                    voipReady = false;
+                    document.getElementById('voipStatus').style.display = 'none';
+                    const msg = err?.message || err?.error?.message || JSON.stringify(err);
+                    if (_voipStatus()) _voipStatus().textContent = 'VoIP error: ' + msg;
                 });
                 voipDevice.on('telnyx.notification', (notification) => {
                     if (notification.type === 'callUpdate') {
@@ -3084,11 +3102,7 @@
                         }
                     }
                 });
-                voipDevice.on('telnyx.error', (err) => {
-                    console.error('VoIP error:', err);
-                    voipReady = false;
-                    document.getElementById('voipStatus').style.display = 'none';
-                });
+                // telnyx.error handled above (with status text + timeout clear)
                 voipDevice.connect();
             } catch(e) { console.error('VoIP init error:', e); }
         }
