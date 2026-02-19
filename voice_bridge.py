@@ -2935,7 +2935,8 @@ def buy_telnyx_number():
     if not phone_number:
         return jsonify({"error": "Phone number is required"}), 400
 
-    connection_id = vc.get('telnyx_connection_id', '')
+    # str() coercion: IDs stored as int in DB must be strings for Telnyx API
+    connection_id = str(vc.get('telnyx_connection_id', '')).strip()
     try:
         order_payload = {
             "phone_numbers": [{"phone_number": phone_number}],
