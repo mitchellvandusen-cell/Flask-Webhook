@@ -2661,7 +2661,13 @@ def automate_telnyx_setup():
         ovp_id = _list_or_create(
             list_url=f"{TELNYX_API_BASE}/outbound_voice_profiles",
             create_url=f"{TELNYX_API_BASE}/outbound_voice_profiles",
-            create_json={"name": f"GrokBot_{location_id[:24]}"},
+            create_json={
+                "name": f"GrokBot_{location_id[:24]}",
+                "traffic_type": "Conversational",
+                "service_plan": "us",
+                "enabled": True,
+                "whitelisted_destinations": ["US"],
+            },
             step_name="Outbound Voice Profile",
         )
         vc['telnyx_outbound_profile_id'] = ovp_id
@@ -2676,6 +2682,8 @@ def automate_telnyx_setup():
                 "webhook_event_url": webhook_url,
                 "webhook_api_version": "2",
                 "outbound_voice_profile_id": ovp_id,
+                "first_command_timeout": True,
+                "first_command_timeout_secs": 30,
             },
             step_name="Call Control Application",
         )
