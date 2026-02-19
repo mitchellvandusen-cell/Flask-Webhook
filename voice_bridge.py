@@ -2634,7 +2634,9 @@ def setup_voip():
         if not cred_id:
             # Telnyx requires connection_id when creating a telephony credential —
             # it ties the WebRTC client to a specific SIP/Call Control connection.
-            connection_id = vc.get('telnyx_connection_id', '')
+            # Force to str: the value may have been stored as an integer in the DB,
+            # but Telnyx's API strictly expects a string type.
+            connection_id = str(vc.get('telnyx_connection_id', '')).strip()
             if not connection_id:
                 return jsonify({"error": "Connection ID not configured. Add your Telnyx Connection ID in the Voice settings first."}), 400
 
@@ -2648,8 +2650,16 @@ def setup_voip():
                 timeout=10,
             )
             if resp.status_code not in (200, 201):
-                err = resp.json().get('errors', [{}])[0]
-                msg = err.get('detail', resp.text)
+                # Telnyx can return errors as a list OR a dict depending on the
+                # validation path — guard against both to avoid KeyError: 0.
+                try:
+                    err_data = resp.json().get('errors', [])
+                    if isinstance(err_data, list) and err_data and isinstance(err_data[0], dict):
+                        msg = err_data[0].get('detail', resp.text)
+                    else:
+                        msg = str(err_data) if err_data else resp.text
+                except Exception:
+                    msg = resp.text
                 return jsonify({"error": f"Telnyx credential creation failed: {msg}"}), 400
             cred_data = resp.json().get('data', {})
             cred_id = cred_data.get('id', '')
