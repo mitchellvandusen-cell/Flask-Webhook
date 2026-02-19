@@ -3105,19 +3105,30 @@
                 }
 
                 // Step 3: Load Telnyx WebRTC SDK if not already loaded
-                if (typeof TelnyxRTC === 'undefined') {
+                // The bundle exposes the global as window.TelnyxWebRTC.TelnyxRTC
+                const _getTelnyxRTC = () => window.TelnyxWebRTC?.TelnyxRTC || window.TelnyxRTC;
+                if (!_getTelnyxRTC()) {
                     console.log('[VoIP] Loading Telnyx WebRTC SDK…');
                     if (_voipStatus()) _voipStatus().textContent = 'Loading Telnyx SDK…';
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://unpkg.com/@telnyx/webrtc';
-                        s.onload = () => { console.log('[VoIP] SDK loaded'); resolve(); };
+                        s.src = 'https://unpkg.com/@telnyx/webrtc/lib/bundle.js';
+                        s.onload = () => {
+                            console.log('[VoIP] SDK loaded — TelnyxRTC global:', typeof _getTelnyxRTC());
+                            resolve();
+                        };
                         s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Telnyx SDK')); };
                         document.head.appendChild(s);
                     });
                 } else {
                     console.log('[VoIP] Telnyx SDK already loaded');
                 }
+
+                const TelnyxRTC = _getTelnyxRTC();
+                if (!TelnyxRTC) {
+                    throw new Error('Telnyx SDK loaded but TelnyxRTC global not found — check browser console');
+                }
+                console.log('[VoIP] TelnyxRTC constructor ready');
 
                 // Step 4: Connect
                 console.log('[VoIP] Creating TelnyxRTC instance and connecting');
