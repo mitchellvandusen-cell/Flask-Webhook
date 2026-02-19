@@ -2904,7 +2904,7 @@
                         if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
                         dialerCallSid = null;
                         if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
-                        else setTimeout(dialerHideBanner, 3000);
+                        else { setTimeout(dialerHideBanner, 1500); }
                         dialerRenderQueue();
                     }
                 } catch(e) {}
@@ -2918,7 +2918,24 @@
             document.getElementById('dialerCallBanner').style.display = 'flex';
         }
         function dialerHideBanner() { document.getElementById('dialerCallBanner').style.display = 'none'; }
-        function dialerStopQueue() { dialerQueueRunning = false; dialerUpdateBtn(); }
+        function dialerStopQueue() {
+            dialerQueueRunning = false;
+            dialerUpdateBtn();
+            // Hang up any active AI dialer call
+            if (dialerCallSid) {
+                fetch('/voice/hangup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid })
+                }).catch(() => {});
+                dialerCallSid = null;
+            }
+            // Also hang up any active VoIP call
+            if (voipConnection) voipHangup();
+            // Stop poll and hide banner immediately
+            if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
+            dialerHideBanner();
+        }
 
         // ── Queue management ──
         function dialerRenderQueue() {
@@ -3180,6 +3197,7 @@
                             voipStopTimer();
                             document.getElementById('voipCallPanel').style.display = 'none';
                             document.getElementById('voipKeypad').style.display = 'none';
+                            dialerHideBanner();
                             if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
                         }
                     }
