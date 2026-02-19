@@ -1710,6 +1710,66 @@
                         </div>
                     </div>
 
+                    <!-- Dialer Settings -->
+                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px; margin-top: 24px;"><i class="fa-solid fa-sliders me-2"></i>Power Dialer Settings</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Dial Attempts (no-answer/VM)</label>
+                            <select class="form-control" id="voiceDialAttempts"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="1" {% if voice_config.get('dial_attempts', 2)|int == 1 %}selected{% endif %}>1 attempt</option>
+                                <option value="2" {% if voice_config.get('dial_attempts', 2)|int == 2 %}selected{% endif %}>2 attempts (recommended)</option>
+                                <option value="3" {% if voice_config.get('dial_attempts', 2)|int == 3 %}selected{% endif %}>3 attempts</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">AI detects voicemail and retries automatically</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Record All Calls</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoRecord"
+                                        {% if voice_config.get('auto_record', True) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Record every call (MP3)</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">Dual-channel recording via Telnyx</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Transcribe Calls</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoTranscribe"
+                                        {% if voice_config.get('auto_transcribe', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Real-time transcription ($0.025/min)</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">Telnyx AI transcription engine</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Local Presence Dialing</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceLocalPresence"
+                                        {% if voice_config.get('local_presence', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Match caller ID area code to lead</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">Buy local numbers in Trust Hub &rarr; system selects matching area code. Requires numbers in your pool.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Browser VoIP Setup</label>
+                            <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                <button onclick="setupVoIP()" id="voipSetupBtnAlt" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                    <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
+                                </button>
+                                <span id="voipSetupStatus" style="font-size:0.75rem;color:#888;">Create Telnyx credential for human dialing</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Actions -->
                     <div class="d-flex flex-wrap gap-3 align-items-center">
                         <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
@@ -1789,7 +1849,7 @@
                 <div id="voipSetupBanner" style="display:none;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
                     <div class="d-flex align-items-center gap-3">
                         <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>
-                        <div style="flex:1;font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure key for Twilio calls</span></div>
+                        <div style="flex:1;font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure Telnyx credential for VoIP</span></div>
                         <button onclick="setupVoIP()" id="voipSetupBtn" style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
                             <i class="fa-solid fa-gear me-1"></i>Setup VoIP
                         </button>
@@ -1981,9 +2041,13 @@
                             </div>
                             <!-- Spam Protection -->
                             <div class="mb-2 p-2" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:8px;">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div><div style="font-weight:700;font-size:0.82rem;">Spam Protection</div><div style="font-size:0.72rem;color:#888;">Register business identity in Twilio Console</div></div>
-                                    <a href="https://console.twilio.com/us1/develop/phone-numbers/manage/trust-hub" target="_blank" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:5px;padding:3px 8px;font-size:0.68rem;font-weight:600;text-decoration:none;">Register</a>
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <div><div style="font-weight:700;font-size:0.82rem;">Spam Protection</div><div style="font-size:0.72rem;color:#888;">Register with Free Caller Registry + per-carrier portals</div></div>
+                                </div>
+                                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                    <a href="https://www.freecallerregistry.com/fcr/" target="_blank" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);color:var(--accent);border-radius:5px;padding:2px 7px;font-size:0.65rem;font-weight:600;text-decoration:none;">Free Caller Registry</a>
+                                    <a href="https://hiya.com/branded-call/" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:5px;padding:2px 7px;font-size:0.65rem;font-weight:600;text-decoration:none;">AT&amp;T (Hiya)</a>
+                                    <a href="https://portal.telnyx.com/#/app/numbers" target="_blank" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:5px;padding:2px 7px;font-size:0.65rem;font-weight:600;text-decoration:none;">Telnyx Portal</a>
                                 </div>
                             </div>
                             <!-- Numbers -->
@@ -2384,7 +2448,12 @@
                 voice: document.getElementById('voiceSelection').value,
                 voice_bot_name: document.getElementById('voiceBotName').value.trim(),
                 voice_instructions: document.getElementById('voiceInstructions').value.trim(),
-                call_script: document.getElementById('voiceCallScript').value.trim()
+                call_script: document.getElementById('voiceCallScript').value.trim(),
+                // Dialer settings
+                dial_attempts: parseInt(document.getElementById('voiceDialAttempts')?.value || '2'),
+                auto_record: document.getElementById('voiceAutoRecord')?.checked ?? true,
+                auto_transcribe: document.getElementById('voiceAutoTranscribe')?.checked ?? false,
+                local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
             };
 
             fetch('/api/voice-config', {
@@ -2954,41 +3023,75 @@
 
         async function setupVoIP() {
             const btn = document.getElementById('voipSetupBtn');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...'; btn.disabled = true;
+            const btn2 = document.getElementById('voipSetupBtnAlt');
+            const loadingHtml = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...';
+            if (btn) { btn.innerHTML = loadingHtml; btn.disabled = true; }
+            if (btn2) { btn2.innerHTML = loadingHtml; btn2.disabled = true; }
             try {
                 const r = await fetch('/voice/setup-voip', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
                 if (!r.ok) { alert(d.error || 'Setup failed'); return; }
                 voipSetupDone = true;
                 document.getElementById('voipSetupBanner').style.display = 'none';
+                const statusEl = document.getElementById('voipSetupStatus');
+                if (statusEl) statusEl.textContent = 'Credential created — initializing...';
                 await initVoIPDevice();
             } catch(e) { alert('Network error during VoIP setup'); }
-            finally { btn.innerHTML = '<i class="fa-solid fa-gear me-1"></i>Setup VoIP'; btn.disabled = false; }
+            finally {
+                if (btn) { btn.innerHTML = '<i class="fa-solid fa-gear me-1"></i>Setup VoIP'; btn.disabled = false; }
+                if (btn2) { btn2.innerHTML = '<i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP'; btn2.disabled = false; }
+            }
         }
 
         async function initVoIPDevice() {
             try {
                 const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
-                if (!r.ok) { if (d.error && d.error.includes('not set up')) { document.getElementById('voipSetupBanner').style.display = 'block'; voipSetupDone = false; } return; }
-                if (typeof Twilio === 'undefined') {
+                if (!r.ok) {
+                    if (d.error && d.error.includes('not set up')) { document.getElementById('voipSetupBanner').style.display = 'block'; voipSetupDone = false; }
+                    const statusEl = document.getElementById('voipSetupStatus');
+                    if (statusEl) statusEl.textContent = d.error || 'Token error';
+                    return;
+                }
+                // Load Telnyx WebRTC SDK if not already loaded
+                if (typeof TelnyxRTC === 'undefined') {
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://media.twiliocdn.com/sdk/js/client/releases/1.14/twilio.min.js';
+                        s.src = 'https://cdn.jsdelivr.net/npm/@telnyx/webrtc@latest/dist/telnyx-webrtc.min.js';
                         s.onload = resolve; s.onerror = reject;
                         document.head.appendChild(s);
                     });
                 }
-                voipDevice = new Twilio.Device(d.token, { codecPreferences: ['opus', 'pcmu'], enableRingingState: true });
-                voipDevice.on('ready', () => { voipReady = true; voipSetupDone = true; document.getElementById('voipStatus').style.display = 'block'; document.getElementById('voipSetupBanner').style.display = 'none'; });
-                voipDevice.on('connect', (conn) => { voipConnection = conn; voipStartTimer(); document.getElementById('voipCallPanel').style.display = 'block'; });
-                voipDevice.on('disconnect', () => {
-                    voipConnection = null; voipStopTimer();
-                    document.getElementById('voipCallPanel').style.display = 'none';
-                    document.getElementById('voipKeypad').style.display = 'none';
-                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                voipDevice = new TelnyxRTC({ login_token: d.token });
+                voipDevice.on('telnyx.ready', () => {
+                    voipReady = true; voipSetupDone = true;
+                    document.getElementById('voipStatus').style.display = 'block';
+                    document.getElementById('voipSetupBanner').style.display = 'none';
+                    const statusEl = document.getElementById('voipSetupStatus');
+                    if (statusEl) statusEl.textContent = 'VoIP ready';
                 });
-                voipDevice.on('error', (err) => { console.error('VoIP error:', err.message); voipReady = false; document.getElementById('voipStatus').style.display = 'none'; });
+                voipDevice.on('telnyx.notification', (notification) => {
+                    if (notification.type === 'callUpdate') {
+                        const call = notification.call;
+                        if (call.state === 'active') {
+                            voipConnection = call;
+                            voipStartTimer();
+                            document.getElementById('voipCallPanel').style.display = 'flex';
+                        } else if (call.state === 'done') {
+                            voipConnection = null;
+                            voipStopTimer();
+                            document.getElementById('voipCallPanel').style.display = 'none';
+                            document.getElementById('voipKeypad').style.display = 'none';
+                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                        }
+                    }
+                });
+                voipDevice.on('telnyx.error', (err) => {
+                    console.error('VoIP error:', err);
+                    voipReady = false;
+                    document.getElementById('voipStatus').style.display = 'none';
+                });
+                voipDevice.connect();
             } catch(e) { console.error('VoIP init error:', e); }
         }
 
@@ -3000,27 +3103,31 @@
         };
 
         function voipMakeCall(phone, firstName, contactId, displayName) {
-            if (!voipDevice || !voipReady) { alert('VoIP not ready.'); return; }
+            if (!voipDevice || !voipReady) { alert('VoIP not ready. Click Setup VoIP first.'); return; }
             voipCurrentContact = { phone, firstName, contactId, displayName };
             document.getElementById('voipCallName').textContent = displayName || firstName;
             document.getElementById('voipCallPhone').textContent = phone;
             document.getElementById('voipCallTimer').textContent = '00:00';
-            const callerId = '{{ voice_config.get("twilio_phone_number", "") }}';
-            voipDevice.connect({ To: phone, CallerId: callerId, ContactId: contactId || '', ContactName: displayName || firstName || '' });
+            const callerId = '{{ voice_config.get("telnyx_phone_number", "") }}';
+            // Telnyx WebRTC: newCall places a browser-to-PSTN call via the SIP connection
+            const call = voipDevice.newCall({ destinationNumber: phone, callerNumber: callerId });
+            voipConnection = call;
             if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) { dialerQueue[dialerCallIdx].status = 'in-progress'; dialerRenderQueue(); }
         }
 
+        let _voipMuted = false;
         function voipToggleMute() {
             if (!voipConnection) return;
-            const muted = !voipConnection.isMuted(); voipConnection.mute(muted);
+            _voipMuted = !_voipMuted;
+            if (_voipMuted) voipConnection.muteAudio(); else voipConnection.unmuteAudio();
             const btn = document.getElementById('voipMuteBtn');
-            btn.style.background = muted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
-            btn.style.color = muted ? '#ef4444' : '#ccc';
-            btn.innerHTML = muted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
+            btn.style.background = _voipMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
+            btn.style.color = _voipMuted ? '#ef4444' : '#ccc';
+            btn.innerHTML = _voipMuted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
         }
         function voipToggleKeypad() { const kp = document.getElementById('voipKeypad'); kp.style.display = kp.style.display === 'none' ? 'block' : 'none'; }
-        function voipSendDTMF(digit) { if (voipConnection) voipConnection.sendDigits(digit); }
-        function voipHangup() { if (voipDevice) voipDevice.disconnectAll(); }
+        function voipSendDTMF(digit) { if (voipConnection) voipConnection.dtmf(digit); }
+        function voipHangup() { if (voipConnection) voipConnection.hangup(); else if (voipDevice) voipDevice.disconnect(); }
         function voipStartTimer() {
             voipTimerSeconds = 0; voipStopTimer();
             voipTimerInterval = setInterval(() => { voipTimerSeconds++; const m = Math.floor(voipTimerSeconds/60); const s = voipTimerSeconds%60; document.getElementById('voipCallTimer').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }, 1000);
@@ -3033,31 +3140,37 @@
             list.innerHTML = '<div style="text-align:center;padding:10px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
             try {
                 const [numR, trustR] = await Promise.all([fetch('/voice/numbers'), fetch('/voice/trust-hub')]);
-                const numD = await numR.json();
+                const numD = numR.ok ? await numR.json() : {};
                 const trustD = trustR.ok ? await trustR.json() : {};
 
+                // STIR/SHAKEN: Telnyx manages this automatically for verified numbers
                 const stirEl = document.getElementById('stirStatus');
                 const stirStatus = trustD.stir_shaken?.status || 'not_configured';
-                const stirColors = { 'twilio-approved': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Registered' }, 'in-review': { bg:'rgba(0,217,255,0.15)', color:'#00d9ff', text:'In Review' }, 'draft': { bg:'rgba(255,165,0,0.15)', color:'#ffa500', text:'Draft' } };
-                const ss = stirColors[stirStatus] || { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' };
+                const stirColors = {
+                    'telnyx_managed': { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' },
+                    'not_configured': { bg:'rgba(255,255,255,0.06)', color:'#888', text:'Not Configured' },
+                };
+                const ss = stirColors[stirStatus] || { bg:'rgba(0,255,136,0.15)', color:'#00ff88', text:'Telnyx Managed' };
                 stirEl.style.background = ss.bg; stirEl.style.color = ss.color; stirEl.textContent = ss.text;
 
-                const numbers = numD.numbers || [];
-                if (!numbers.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.78rem;">No numbers found</div>'; return; }
+                const numbers = numD.numbers || trustD.numbers || [];
+                if (!numbers.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.78rem;">No numbers found — buy a number with the + button above</div>'; return; }
 
-                const isReg = ['twilio-approved', 'in-review'].includes(stirStatus);
-                list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:0;font-size:.7rem;border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">' +
-                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;">Number</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">Status</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">AT&T</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">T-Mo</div><div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">VZW</div><div style="padding:6px;background:rgba(255,255,255,0.03);"></div>' +
+                list.innerHTML = '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;font-size:.7rem;border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">' +
+                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;">Number</div>' +
+                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">Status</div>' +
+                    '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;text-align:center;">CNAM</div>' +
+                    '<div style="padding:6px;background:rgba(255,255,255,0.03);"></div>' +
                     numbers.map(n => {
-                        const chk = isReg ? '<i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>' : '<i class="fa-regular fa-circle" style="color:#444;"></i>';
+                        const statusColor = n.status === 'active' ? 'var(--accent)' : '#888';
+                        const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:var(--accent);"></i>' : '<i class="fa-regular fa-circle" style="color:#444;" title="Enable CNAM in Telnyx portal"></i>';
                         return '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;">' + dialerEsc(formatPhone(n.phone)) + '</div>' +
-                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:var(--accent);font-size:.65rem;">Active</div>' +
-                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + chk + '</div>' +
-                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + chk + '</div>' +
-                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + chk + '</div>' +
-                            '<div style="padding:6px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><button onclick="releaseNumber(\'' + n.sid + '\',\'' + dialerEsc(n.phone) + '\')" style="background:none;border:none;color:#444;cursor:pointer;font-size:.65rem;"><i class="fa-solid fa-trash"></i></button></div>';
-                    }).join('') + '</div>';
-            } catch(e) { list.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Failed to load</div>'; }
+                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:' + statusColor + ';font-size:.65rem;">' + (n.status || 'active') + '</div>' +
+                            '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + cnamIcon + '</div>' +
+                            '<div style="padding:6px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><button onclick="releaseNumber(\'' + (n.sid||n.id||'') + '\',\'' + dialerEsc(n.phone) + '\')" style="background:none;border:none;color:#444;cursor:pointer;font-size:.65rem;" title="Release number"><i class="fa-solid fa-trash"></i></button></div>';
+                    }).join('') + '</div>' +
+                    '<div style="margin-top:6px;padding:6px 8px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:5px;font-size:.68rem;color:#666;">Telnyx automatically handles STIR/SHAKEN attestation. Register business name via <a href="https://www.freecallerregistry.com/fcr/" target="_blank" style="color:#00d9ff;">Free Caller Registry</a> to reduce spam flags.</div>';
+            } catch(e) { list.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Failed to load numbers</div>'; }
         }
 
         async function searchAvailableNumbers() {
