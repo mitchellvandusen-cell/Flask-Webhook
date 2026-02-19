@@ -69,6 +69,7 @@ DEFAULT_VOICE = "Ara"
 # Audio sample rates
 TWILIO_SAMPLE_RATE = 8000   # Twilio Media Streams: always 8 kHz G.711 μ-law (fixed by Twilio)
 XAI_SAMPLE_RATE    = 24000  # xAI Realtime: PCM16 at 24 kHz — 3:1 ratio to Twilio 8 kHz (clean, no sibilant aliasing)
+PITCH_SHIFT        = 0.95   # Downsample trick: tell ratecv inrate is 5% lower → more output samples → voice plays 5% slower/lower pitched
 
 # Events to log from XAI
 LOG_EVENT_TYPES = [
@@ -523,7 +524,9 @@ Imperfection: Perfect grammar every sentence sounds robotic. Drop words sometime
 
 Match energy to the moment: Warm and quieter for concern or empathy. Upbeat and curious during discovery. Calm and steady when explaining something important. If they're funny, react. If they're emotional, slow down and soften.
 
-Vary your acknowledgments EVERY turn. Rotate through: "Got it", "Oh yeah", "That makes sense", "Sure thing", "Right right", "Ah okay", "Hmm", "Oh interesting", "Yeah totally", "Fair enough", "Okay okay", "Mm, makes sense", "Yeah that tracks". NEVER use the same one twice in a row.
+Acknowledgments are REACTIONS, not connectors. When you acknowledge something, it is a complete beat — it lands, it breathes, then you move on. NEVER chain it directly into the next question: NOT "Fair enough, so what about..." — instead: "Fair enough. [pause] What about..." The acknowledgment needs to sound like it actually registered what they said, not like a reading from a list.
+
+Rotate naturally through: "Got it", "Oh yeah", "That makes sense", "Sure thing", "Right right", "Ah okay", "Hmm", "Oh interesting", "Yeah totally", "Fair enough", "Okay okay", "Mm, makes sense", "Yeah that tracks". Never the same one twice in a row. Only use one if it genuinely fits — don't force one in just to fill the turn.
 
 Use casual transitions: "so basically", "anyway", "now here's the thing", "so what that means for you is", "the cool part is"
 
@@ -1106,7 +1109,7 @@ async def handle_voice_stream(ws):
 
 CORE PRINCIPLE: YOU DO NOT NEED THEM TO SAY YES. YOU JUST NEED THEM NOT TO SAY NO. Move assumptively through the call. Never ask permission to continue. Never say "do you have a minute" or "is now a good time." Just start. If they don't stop you, keep going.
 
-HOW YOU SPEAK: Use contractions always. "I'm", "you're", "it's", "can't", "don't". Vary sentence length. Add [pause] between clauses — not just sentences. Keep turns to 1-3 sentences. One question per turn. No jargon, no lists, no AI pleasantries. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help." Just respond naturally. Use [sigh] for empathy, [laugh] when something is light, [breath] before emotional lines. Vary your pace — slow for serious moments, quicker when enthusiastic. Occasionally drop words or trail off like a real person: "Yeah... makes sense." "I mean, it depends." A very occasional "you know" is fine. Acknowledgments to rotate through: "That makes sense", "Yeah that tracks", "Got it", "Right right", "Ah okay", "Fair enough", "Mm, makes sense" — never the same one twice in a row. NEVER describe or comment on your own communication style. Never say "I'm just being real", "like we're grabbing coffee", or any phrase that narrates how you're talking. Just talk.
+HOW YOU SPEAK: Use contractions always. "I'm", "you're", "it's", "can't", "don't". Vary sentence length. Add [pause] between clauses — not just sentences. Keep turns to 1-3 sentences. One question per turn. No jargon, no lists, no AI pleasantries. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help." Just respond naturally. Use [sigh] for empathy, [laugh] when something is light, [breath] before emotional lines. Vary your pace — slow for serious moments, quicker when enthusiastic. Occasionally drop words or trail off like a real person: "Yeah... makes sense." "I mean, it depends." A very occasional "you know" is fine. Acknowledgments are REACTIONS not connectors — they land as a complete beat, then [pause], then the next thought. NEVER "Fair enough, so..." — always "Fair enough. [pause] ..." Options to rotate: "That makes sense", "Yeah that tracks", "Got it", "Right right", "Ah okay", "Fair enough", "Mm, makes sense" — never the same one twice, never forced. NEVER describe or comment on your own communication style. Never say "I'm just being real", "like we're grabbing coffee", or any phrase that narrates how you're talking. Just talk.
 
 EXPERT REGISTER: You have had this exact conversation hundreds of times. You already know the answers. You recognize their situation immediately: "Yeah, that's a pretty common spot to be in." You don't over-explain — give the relevant piece and move on. You don't hedge: "Most people in that situation haven't thought about it yet" not "Well, it kind of depends." Pauses are fine — you're thinking, not stalling. You assume they're booking. You're not convincing them, just helping them see their situation clearly.
 
@@ -1297,12 +1300,14 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCM16 16 kHz → downsample to mulaw 8 kHz → Twilio
+                        # xAI PCM16 → pitch-shift downsample to mulaw 8 kHz → Twilio
+                        # PITCH_SHIFT trick: declare inrate as XAI_SAMPLE_RATE*PITCH_SHIFT so ratecv
+                        # produces ~5% more output samples → audio plays 5% slower/lower pitch
                         if event_type == 'response.audio.delta' and 'delta' in response:
                             pcm16k = base64.b64decode(response['delta'])
                             pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
                                 pcm16k, 2, 1,
-                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
+                                int(XAI_SAMPLE_RATE * PITCH_SHIFT), TWILIO_SAMPLE_RATE,
                                 _xai_to_twilio_state[0]
                             )
                             mulaw_out = audioop.lin2ulaw(pcm8k, 2)
@@ -1331,12 +1336,12 @@ Every word you output is spoken aloud through a voice engine. Output ONLY what {
                                 ws.send(json.dumps(mark_event))
                                 mark_queue.append('responsePart')
 
-                        # Also handle the newer event name variant
+                        # Also handle the newer event name variant (same pitch-shift trick)
                         elif event_type == 'response.output_audio.delta' and 'delta' in response:
                             pcm16k = base64.b64decode(response['delta'])
                             pcm8k, _xai_to_twilio_state[0] = audioop.ratecv(
                                 pcm16k, 2, 1,
-                                XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE,
+                                int(XAI_SAMPLE_RATE * PITCH_SHIFT), TWILIO_SAMPLE_RATE,
                                 _xai_to_twilio_state[0]
                             )
                             mulaw_out = audioop.lin2ulaw(pcm8k, 2)
