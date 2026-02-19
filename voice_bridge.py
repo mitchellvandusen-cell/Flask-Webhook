@@ -2601,6 +2601,96 @@ def _save_voice_config(email, voice_config):
 
 
 # ──────────────────────────────────────────────────────────────
+# MAGIC WAND: One-shot Telnyx infrastructure provisioning
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/automate-setup', methods=['POST'])
+@login_required
+def automate_telnyx_setup():
+    """
+    Takes a raw Telnyx API key and provisions the full telephony stack:
+      1. Outbound Voice Profile  — grants permission to dial out
+      2. Call Control Application — AI webhook routing
+      3. SIP Credential Connection — browser WebRTC dialer
+    All generated IDs are saved to voice_config so downstream routes
+    (setup_voip, /numbers/buy, etc.) work immediately with no manual config.
+    """
+    data = request.json or {}
+    api_key = data.get('api_key', '').strip()
+
+    if not api_key:
+        return jsonify({"error": "Telnyx API Key is required"}), 400
+
+    subscriber, vc, _ = _get_current_subscriber_voice()
+    location_id = subscriber.get('location_id', 'unknown')
+    host = request.host
+    webhook_url = f"https://{host}/voice/inbound"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        # 1. Outbound Voice Profile — required for any outbound dialling
+        ovp_resp = http_requests.post(
+            f"{TELNYX_API_BASE}/outbound_voice_profiles",
+            headers=headers,
+            json={"name": f"GrokBot_Outbound_{location_id}"},
+            timeout=15,
+        )
+        ovp_resp.raise_for_status()
+        ovp_id = ovp_resp.json()['data']['id']
+        logger.info(f"Created Outbound Voice Profile: {ovp_id}")
+
+        # 2. Call Control Application — AI handles inbound/outbound calls
+        cc_resp = http_requests.post(
+            f"{TELNYX_API_BASE}/call_control_applications",
+            headers=headers,
+            json={
+                "application_name": f"GrokBot_AI_{location_id}",
+                "webhook_event_url": webhook_url,
+                "webhook_api_version": "2",
+                "outbound_voice_profile_id": ovp_id,
+            },
+            timeout=15,
+        )
+        cc_resp.raise_for_status()
+        call_control_id = cc_resp.json()['data']['id']
+        logger.info(f"Created Call Control Application: {call_control_id}")
+
+        # 3. SIP Credential Connection — browser WebRTC dialer only
+        sip_resp = http_requests.post(
+            f"{TELNYX_API_BASE}/credential_connections",
+            headers=headers,
+            json={
+                "connection_name": f"GrokBot_WebRTC_{location_id}",
+                "outbound_voice_profile_id": ovp_id,
+            },
+            timeout=15,
+        )
+        sip_resp.raise_for_status()
+        sip_connection_id = sip_resp.json()['data']['id']
+        logger.info(f"Created SIP Credential Connection: {sip_connection_id}")
+
+        # 4. Persist everything — downstream routes read from here
+        vc['telnyx_api_key'] = api_key
+        vc['telnyx_connection_id'] = call_control_id        # AI routing
+        vc['telnyx_sip_connection_id'] = sip_connection_id  # Browser dialer
+        vc['telnyx_outbound_profile_id'] = ovp_id
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "status": "success",
+            "message": "Telnyx infrastructure completely provisioned!",
+        })
+
+    except Exception as e:
+        logger.error(f"Telnyx automation failed: {e}")
+        return jsonify({"error": f"Automation failed. Check your API key. Details: {str(e)}"}), 500
+
+
+# ──────────────────────────────────────────────────────────────
 # BROWSER VoIP: Telnyx WebRTC SDK support
 # ──────────────────────────────────────────────────────────────
 
@@ -2634,11 +2724,14 @@ def setup_voip():
         if not cred_id:
             # Telnyx requires connection_id when creating a telephony credential —
             # it ties the WebRTC client to a specific SIP/Call Control connection.
-            # Force to str: the value may have been stored as an integer in the DB,
-            # but Telnyx's API strictly expects a string type.
-            connection_id = str(vc.get('telnyx_connection_id', '')).strip()
+            # Use the dedicated SIP credential connection (created during automate-setup).
+            # telnyx_sip_connection_id  → browser WebRTC dialer (credential_connections)
+            # telnyx_connection_id      → AI call routing (call_control_applications)
+            # They must stay separate; mixing them causes Telnyx 422 errors.
+            # Force to str: values stored as integers in the DB must be strings for Telnyx.
+            connection_id = str(vc.get('telnyx_sip_connection_id', '')).strip()
             if not connection_id:
-                return jsonify({"error": "Connection ID not configured. Add your Telnyx Connection ID in the Voice settings first."}), 400
+                return jsonify({"error": "Browser dialer not configured. Please reconnect your Telnyx API key via the setup wizard."}), 400
 
             resp = http_requests.post(
                 f"{TELNYX_API_BASE}/telephony_credentials",
