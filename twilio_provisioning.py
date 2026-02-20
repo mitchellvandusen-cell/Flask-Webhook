@@ -354,8 +354,8 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
         return {
             "call_sid": call.sid,
             "status": call.status,
-            "to": call.to,
-            "from": call.from_,
+            "to": to,
+            "from": from_number,
         }
     except TwilioRestException as e:
         logger.error(f"Failed to create outbound call: {e}")
