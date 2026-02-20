@@ -809,6 +809,57 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"call_history migration note: {e}")
 
+        # 22. MIGRATION: AI Minutes marketplace — balances, purchases, usage logs
+        try:
+            cur_aim = conn.cursor()
+            cur_aim.execute("""
+                CREATE TABLE IF NOT EXISTS ai_minute_balances (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL UNIQUE,
+                    balance_minutes INTEGER NOT NULL DEFAULT 0,
+                    total_purchased INTEGER NOT NULL DEFAULT 0,
+                    total_used INTEGER NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur_aim.execute("""
+                CREATE TABLE IF NOT EXISTS ai_minute_purchases (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    stripe_session_id TEXT UNIQUE,
+                    stripe_payment_intent TEXT,
+                    package_minutes INTEGER NOT NULL,
+                    package_label TEXT,
+                    amount_cents INTEGER,
+                    status TEXT DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    completed_at TIMESTAMP
+                )
+            """)
+            cur_aim.execute("""
+                CREATE TABLE IF NOT EXISTS ai_minute_usage_logs (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    call_sid TEXT,
+                    phone TEXT,
+                    direction TEXT DEFAULT 'outbound',
+                    duration_seconds INTEGER NOT NULL DEFAULT 0,
+                    minutes_deducted INTEGER NOT NULL DEFAULT 0,
+                    balance_after INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur_aim.execute("CREATE INDEX IF NOT EXISTS idx_aim_balances_email ON ai_minute_balances(email)")
+            cur_aim.execute("CREATE INDEX IF NOT EXISTS idx_aim_purchases_email ON ai_minute_purchases(email)")
+            cur_aim.execute("CREATE INDEX IF NOT EXISTS idx_aim_purchases_session ON ai_minute_purchases(stripe_session_id)")
+            cur_aim.execute("CREATE INDEX IF NOT EXISTS idx_aim_usage_email ON ai_minute_usage_logs(email)")
+            cur_aim.execute("CREATE INDEX IF NOT EXISTS idx_aim_usage_created ON ai_minute_usage_logs(created_at DESC)")
+            conn.commit()
+            cur_aim.close()
+            logger.info("✅ Migration: Created AI minutes tables (balances, purchases, usage_logs)")
+        except Exception as e:
+            logger.debug(f"AI minutes migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1893,5 +1944,166 @@ def get_api_request_count(api_key_pfx: str, window_seconds: int = 60) -> int:
     except Exception as e:
         logger.debug(f"get_api_request_count failed: {e}")
         return 0
+    finally:
+        return_db_connection(conn)
+
+
+# ── AI Minutes helpers ──────────────────────────────────────────────────
+
+def get_ai_minute_balance(email: str) -> dict:
+    """Get AI minute balance for a subscriber."""
+    conn = get_db_connection()
+    if not conn:
+        return {"balance_minutes": 0, "total_purchased": 0, "total_used": 0}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_minutes, total_purchased, total_used FROM ai_minute_balances WHERE email = %s", (email,))
+        row = cur.fetchone()
+        cur.close()
+        if row:
+            return dict(row)
+        return {"balance_minutes": 0, "total_purchased": 0, "total_used": 0}
+    except Exception as e:
+        logger.error(f"get_ai_minute_balance failed: {e}")
+        return {"balance_minutes": 0, "total_purchased": 0, "total_used": 0}
+    finally:
+        return_db_connection(conn)
+
+
+def credit_ai_minutes(email: str, minutes: int, stripe_session_id: str = None,
+                      stripe_payment_intent: str = None, package_label: str = None,
+                      amount_cents: int = 0) -> bool:
+    """Credit AI minutes to a subscriber after purchase."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        # Upsert balance
+        cur.execute("""
+            INSERT INTO ai_minute_balances (email, balance_minutes, total_purchased, updated_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (email) DO UPDATE SET
+                balance_minutes = ai_minute_balances.balance_minutes + EXCLUDED.balance_minutes,
+                total_purchased = ai_minute_balances.total_purchased + EXCLUDED.total_purchased,
+                updated_at = NOW()
+        """, (email, minutes, minutes))
+        # Record purchase
+        if stripe_session_id:
+            cur.execute("""
+                INSERT INTO ai_minute_purchases
+                    (email, stripe_session_id, stripe_payment_intent, package_minutes,
+                     package_label, amount_cents, status, completed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 'completed', NOW())
+                ON CONFLICT (stripe_session_id) DO UPDATE SET
+                    status = 'completed', completed_at = NOW()
+            """, (email, stripe_session_id, stripe_payment_intent, minutes,
+                  package_label, amount_cents))
+        conn.commit()
+        cur.close()
+        logger.info(f"✅ Credited {minutes} AI minutes to {email}")
+        return True
+    except Exception as e:
+        logger.error(f"credit_ai_minutes failed: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def deduct_ai_minutes(email: str, duration_seconds: int, call_sid: str = None,
+                      phone: str = None, direction: str = 'outbound') -> dict:
+    """Deduct AI minutes after a call. Returns deduction info."""
+    # Round up to nearest minute
+    import math
+    minutes_used = max(1, math.ceil(duration_seconds / 60))
+
+    conn = get_db_connection()
+    if not conn:
+        return {"success": False, "error": "db_unavailable"}
+    try:
+        cur = conn.cursor()
+        # Get current balance
+        cur.execute("SELECT balance_minutes FROM ai_minute_balances WHERE email = %s FOR UPDATE", (email,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            return {"success": False, "error": "no_balance", "minutes_used": minutes_used}
+
+        current = row['balance_minutes']
+        actual_deduction = min(minutes_used, current)
+        new_balance = max(0, current - minutes_used)
+
+        # Update balance
+        cur.execute("""
+            UPDATE ai_minute_balances
+            SET balance_minutes = %s, total_used = total_used + %s, updated_at = NOW()
+            WHERE email = %s
+        """, (new_balance, actual_deduction, email))
+
+        # Log usage
+        cur.execute("""
+            INSERT INTO ai_minute_usage_logs
+                (email, call_sid, phone, direction, duration_seconds, minutes_deducted, balance_after)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (email, call_sid, phone, direction, duration_seconds, actual_deduction, new_balance))
+
+        conn.commit()
+        cur.close()
+        return {
+            "success": True,
+            "minutes_deducted": actual_deduction,
+            "balance_after": new_balance,
+            "duration_seconds": duration_seconds,
+        }
+    except Exception as e:
+        logger.error(f"deduct_ai_minutes failed: {e}")
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+
+def get_ai_minute_purchases(email: str, limit: int = 20) -> list:
+    """Get purchase history for a subscriber."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT package_minutes, package_label, amount_cents, status, created_at, completed_at
+            FROM ai_minute_purchases
+            WHERE email = %s ORDER BY created_at DESC LIMIT %s
+        """, (email, limit))
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_ai_minute_purchases failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def get_ai_minute_usage(email: str, limit: int = 50) -> list:
+    """Get usage history for a subscriber."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT call_sid, phone, direction, duration_seconds, minutes_deducted,
+                   balance_after, created_at
+            FROM ai_minute_usage_logs
+            WHERE email = %s ORDER BY created_at DESC LIMIT %s
+        """, (email, limit))
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_ai_minute_usage failed: {e}")
+        return []
     finally:
         return_db_connection(conn)

@@ -823,6 +823,9 @@
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button"><i class="fa-solid fa-phone-volume me-1"></i> Voice Dialer</button>
             </li>
             <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#aiminutes" type="button" onclick="loadAiMinutes()"><i class="fa-solid fa-clock me-1"></i> AI Minutes</button>
+            </li>
+            <li class="nav-item">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button"><i class="fa-solid fa-credit-card me-1"></i> Billing</button>
             </li>
         </ul>
@@ -2339,6 +2342,59 @@
                         </div>
                         <div id="transcriptContent" style="padding:16px 20px;overflow-y:auto;flex:1;"></div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ═══════ AI MINUTES MARKETPLACE ═══════ -->
+            <div class="tab-pane fade" id="aiminutes" role="tabpanel">
+                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">
+
+                    <!-- Balance Banner -->
+                    <div id="aimBalanceBanner" style="display:flex; align-items:center; gap:24px; padding:24px 30px; border-radius:16px; background:linear-gradient(135deg, rgba(0,255,136,0.08), rgba(0,153,255,0.08)); border:1px solid rgba(0,255,136,0.15); margin-bottom:32px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:200px;">
+                            <div style="font-size:0.85rem; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Available Balance</div>
+                            <div style="font-size:2.4rem; font-weight:900; color:#fff;" id="aimBalanceValue">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem; color:#555;"></i>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                            <div style="text-align:center;">
+                                <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px;">Purchased</div>
+                                <div style="font-size:1.3rem; font-weight:700; color:var(--accent);" id="aimTotalPurchased">—</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px;">Used</div>
+                                <div style="font-size:1.3rem; font-weight:700; color:#ff6b6b;" id="aimTotalUsed">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Package Cards -->
+                    <h5 style="font-weight:700; margin-bottom:20px;"><i class="fa-solid fa-cart-shopping me-2" style="color:var(--accent);"></i>Purchase AI Minutes</h5>
+                    <div class="row g-3 mb-4" id="aimPackages">
+                        <div class="col-12 text-center py-3">
+                            <i class="fa-solid fa-spinner fa-spin" style="color:#555;"></i>
+                            <span style="color:#888; margin-left:8px;">Loading packages...</span>
+                        </div>
+                    </div>
+
+                    <!-- Usage History -->
+                    <div style="margin-top:16px;">
+                        <h5 style="font-weight:700; margin-bottom:16px;"><i class="fa-solid fa-chart-line me-2" style="color:var(--accent);"></i>Usage History</h5>
+
+                        <!-- Sub-tabs for Purchases vs Call Usage -->
+                        <div style="display:flex; gap:8px; margin-bottom:16px;">
+                            <button class="btn btn-sm btn-outline-light active" id="aimHistPurchases" onclick="switchAimHistory('purchases')" style="border-radius:20px; font-size:0.8rem;">Purchases</button>
+                            <button class="btn btn-sm btn-outline-light" id="aimHistUsage" onclick="switchAimHistory('usage')" style="border-radius:20px; font-size:0.8rem;">Call Usage</button>
+                        </div>
+
+                        <div id="aimHistoryContent" style="max-height:400px; overflow-y:auto;">
+                            <div class="text-center py-4" style="color:#888;">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -3908,8 +3964,15 @@
         // Override startCall for dual mode
         const _origStartCall = dialerStartCall;
         dialerStartCall = async function(phone, firstName, contactId, displayName) {
-            if (dialerMode === 'human' && voipReady) voipMakeCall(phone, firstName, contactId, displayName);
-            else await _origStartCall(phone, firstName, contactId, displayName);
+            if (dialerMode === 'human') {
+                if (!voipReady) {
+                    alert('VoIP is not connected. Click "Setup Browser VoIP" first, then try again.');
+                    return;
+                }
+                voipMakeCall(phone, firstName, contactId, displayName);
+            } else {
+                await _origStartCall(phone, firstName, contactId, displayName);
+            }
         };
 
         function voipMakeCall(phone, firstName, contactId, displayName) {
@@ -4060,6 +4123,165 @@
             fetch('/voice/numbers/nickname', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone, nickname: name }) })
                 .then(r => { if (r.ok) loadNumbersTab(); })
                 .catch(() => alert('Network error'));
+        }
+
+        // ===== AI MINUTES MARKETPLACE =====
+        let _aimHistoryData = { purchases: [], usage: [] };
+        let _aimCurrentView = 'purchases';
+
+        async function loadAiMinutes() {
+            // Load balance
+            try {
+                const bRes = await fetch('/ai-minutes/balance');
+                const bal = await bRes.json();
+                document.getElementById('aimBalanceValue').textContent = (bal.balance_minutes || 0).toLocaleString() + ' min';
+                document.getElementById('aimTotalPurchased').textContent = (bal.total_purchased || 0).toLocaleString() + ' min';
+                document.getElementById('aimTotalUsed').textContent = (bal.total_used || 0).toLocaleString() + ' min';
+            } catch (e) {
+                document.getElementById('aimBalanceValue').textContent = '0 min';
+            }
+
+            // Load packages
+            try {
+                const pRes = await fetch('/ai-minutes/packages');
+                const pData = await pRes.json();
+                const grid = document.getElementById('aimPackages');
+                if (!pData.packages || pData.packages.length === 0) {
+                    grid.innerHTML = '<div class="col-12 text-center py-3" style="color:#888;">No packages available. Contact support.</div>';
+                } else {
+                    grid.innerHTML = pData.packages.map(pkg => {
+                        const priceStr = pkg.price_cents ? '$' + (pkg.price_cents / 100).toFixed(2) : 'Contact Sales';
+                        const perMin = pkg.price_cents ? '$' + (pkg.price_cents / 100 / pkg.minutes).toFixed(3) + '/min' : '';
+                        const colors = {
+                            500:   { bg: 'rgba(0,255,136,0.06)', border: 'rgba(0,255,136,0.2)', accent: '#00ff88' },
+                            2000:  { bg: 'rgba(0,153,255,0.06)', border: 'rgba(0,153,255,0.2)', accent: '#0099ff' },
+                            5000:  { bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.2)', accent: '#a855f7' },
+                            10000: { bg: 'rgba(255,170,0,0.06)',  border: 'rgba(255,170,0,0.2)',  accent: '#ffaa00' },
+                        };
+                        const c = colors[pkg.minutes] || colors[500];
+                        return `
+                            <div class="col-6 col-md-3">
+                                <div style="background:${c.bg}; border:1px solid ${c.border}; border-radius:16px; padding:24px 16px; text-align:center; height:100%; display:flex; flex-direction:column; justify-content:space-between;">
+                                    <div>
+                                        <div style="font-size:2rem; font-weight:900; color:${c.accent}; line-height:1;">${pkg.minutes.toLocaleString()}</div>
+                                        <div style="font-size:0.8rem; color:#aaa; margin:4px 0 2px;">minutes</div>
+                                        <div style="font-size:0.75rem; font-weight:600; color:#666; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">${pkg.label}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size:1.3rem; font-weight:700; color:#fff; margin-bottom:4px;">${priceStr}</div>
+                                        ${perMin ? `<div style="font-size:0.7rem; color:#888; margin-bottom:12px;">${perMin}</div>` : '<div style="margin-bottom:12px;"></div>'}
+                                        <button class="btn btn-sm w-100" style="background:${c.accent}; color:#000; font-weight:700; border-radius:10px; padding:8px 0;"
+                                            onclick="buyAiMinutes(${pkg.minutes})" ${!pkg.available ? 'disabled' : ''}>
+                                            Buy Now
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }).join('');
+                }
+            } catch (e) {
+                document.getElementById('aimPackages').innerHTML = '<div class="col-12 text-center py-3" style="color:#ff6b6b;">Failed to load packages.</div>';
+            }
+
+            // Load usage history
+            loadAimHistory();
+        }
+
+        async function buyAiMinutes(minutes) {
+            const btn = event.target;
+            const origText = btn.textContent;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const res = await fetch('/ai-minutes/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ minutes })
+                });
+                const data = await res.json();
+                if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    alert(data.error || 'Failed to create checkout session');
+                    btn.disabled = false;
+                    btn.textContent = origText;
+                }
+            } catch (e) {
+                alert('Network error. Please try again.');
+                btn.disabled = false;
+                btn.textContent = origText;
+            }
+        }
+
+        async function loadAimHistory() {
+            try {
+                const res = await fetch('/ai-minutes/usage');
+                _aimHistoryData = await res.json();
+                renderAimHistory();
+            } catch (e) {
+                document.getElementById('aimHistoryContent').innerHTML = '<div class="text-center py-4" style="color:#ff6b6b;">Failed to load history.</div>';
+            }
+        }
+
+        function switchAimHistory(view) {
+            _aimCurrentView = view;
+            document.getElementById('aimHistPurchases').classList.toggle('active', view === 'purchases');
+            document.getElementById('aimHistUsage').classList.toggle('active', view === 'usage');
+            renderAimHistory();
+        }
+
+        function renderAimHistory() {
+            const el = document.getElementById('aimHistoryContent');
+            if (_aimCurrentView === 'purchases') {
+                const items = _aimHistoryData.purchases || [];
+                if (items.length === 0) {
+                    el.innerHTML = '<div class="text-center py-4" style="color:#888;">No purchases yet. Buy a package above to get started!</div>';
+                    return;
+                }
+                el.innerHTML = `
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0; font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <div>Package</div><div>Minutes</div><div>Amount</div><div>Date</div>
+                    </div>
+                    ${items.map(p => {
+                        const amt = p.amount_cents ? '$' + (p.amount_cents / 100).toFixed(2) : '—';
+                        const dt = p.completed_at ? new Date(p.completed_at).toLocaleDateString() : '—';
+                        return `<div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.03); font-size:0.85rem;">
+                            <div style="color:var(--accent); font-weight:600;">${p.package_label || '—'}</div>
+                            <div style="color:#fff;">${(p.package_minutes || 0).toLocaleString()}</div>
+                            <div style="color:#aaa;">${amt}</div>
+                            <div style="color:#888;">${dt}</div>
+                        </div>`;
+                    }).join('')}`;
+            } else {
+                const items = _aimHistoryData.usage || [];
+                if (items.length === 0) {
+                    el.innerHTML = '<div class="text-center py-4" style="color:#888;">No call usage recorded yet.</div>';
+                    return;
+                }
+                el.innerHTML = `
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:0; font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <div>Phone</div><div>Direction</div><div>Duration</div><div>Minutes</div><div>Date</div>
+                    </div>
+                    ${items.map(u => {
+                        const durStr = u.duration_seconds >= 60 ? Math.floor(u.duration_seconds/60) + 'm ' + (u.duration_seconds%60) + 's' : u.duration_seconds + 's';
+                        const dt = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+                        const dirIcon = u.direction === 'inbound' ? '<i class="fa-solid fa-phone-arrow-down-left" style="color:#0099ff;"></i>' : '<i class="fa-solid fa-phone-arrow-up-right" style="color:var(--accent);"></i>';
+                        return `<div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:0; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.03); font-size:0.85rem;">
+                            <div style="color:#fff; font-family:monospace;">${u.phone || '—'}</div>
+                            <div>${u.direction || '—'}</div>
+                            <div style="color:#aaa;">${durStr}</div>
+                            <div style="color:#ff6b6b; font-weight:600;">-${u.minutes_deducted}</div>
+                            <div style="color:#888;">${dt}</div>
+                        </div>`;
+                    }).join('')}`;
+            }
+        }
+
+        // Auto-load AI minutes if user arrived from a successful purchase
+        if (window.location.search.includes('ai_minutes_success=1')) {
+            setTimeout(() => {
+                document.querySelector('[data-bs-target="#aiminutes"]')?.click();
+            }, 500);
         }
 
         // ===== SPAM PROTECTION TAB =====

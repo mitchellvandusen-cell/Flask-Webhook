@@ -36,7 +36,9 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 mark_setup_email_sent, find_marketplace_email,
                 save_contracted_carriers, get_contracted_carriers,
                 get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS,
-                create_api_key_for_user, revoke_api_key, save_outbound_webhook_url)
+                create_api_key_for_user, revoke_api_key, save_outbound_webhook_url,
+                get_ai_minute_balance, credit_ai_minutes, get_ai_minute_purchases,
+                get_ai_minute_usage)
 from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
@@ -783,7 +785,23 @@ def stripe_webhook():
         session = event["data"]["object"]
         customer_id = session.customer
         email = session.customer_details.email.lower() if session.customer_details.email else None
-        
+
+        # ── AI Minutes one-time purchase ──
+        if session.metadata.get("purchase_type") == "ai_minutes" and email:
+            pkg_minutes = int(session.metadata.get("package_minutes", 0))
+            pkg_label = session.metadata.get("package_label", "")
+            amount = session.amount_total or 0
+            credit_ai_minutes(
+                email=email,
+                minutes=pkg_minutes,
+                stripe_session_id=session.id,
+                stripe_payment_intent=session.payment_intent,
+                package_label=pkg_label,
+                amount_cents=amount,
+            )
+            logger.info(f"✅ AI Minutes: Credited {pkg_minutes} minutes to {email}")
+            return '', 200
+
         # 1. EXTRACT METADATA
         target_role = session.metadata.get("target_role", "individual")
         target_tier = session.metadata.get("target_tier", "individual")
@@ -3697,6 +3715,108 @@ def checkout_agency_starter():
 @app.route("/cancel")
 def cancel():
     return render_template('cancel.html')
+
+
+# ── AI Minutes Marketplace ─────────────────────────────────────────────
+
+AI_MINUTE_PACKAGES = [
+    {"minutes": 500,   "label": "Starter",      "env_key": "500AI_PRICE_ID"},
+    {"minutes": 2000,  "label": "Growth",        "env_key": "2000AI_PRICE_ID"},
+    {"minutes": 5000,  "label": "Professional",  "env_key": "5000AI_PRICE_ID"},
+    {"minutes": 10000, "label": "Enterprise",    "env_key": "10000AI_PRICE_ID"},
+]
+
+@app.route("/ai-minutes/balance")
+@login_required
+def ai_minutes_balance():
+    """Get current AI minute balance for the logged-in user."""
+    bal = get_ai_minute_balance(current_user.email)
+    return flask_jsonify(bal)
+
+
+@app.route("/ai-minutes/packages")
+@login_required
+def ai_minutes_packages():
+    """List available AI minute packages with pricing."""
+    packages = []
+    for pkg in AI_MINUTE_PACKAGES:
+        price_id = os.getenv(pkg["env_key"], "")
+        if not price_id:
+            continue
+        # Try to fetch price from Stripe for display
+        price_display = None
+        try:
+            price_obj = stripe.Price.retrieve(price_id)
+            price_display = price_obj.unit_amount  # cents
+        except Exception:
+            pass
+        packages.append({
+            "minutes": pkg["minutes"],
+            "label": pkg["label"],
+            "price_cents": price_display,
+            "available": bool(price_id),
+        })
+    return flask_jsonify({"packages": packages})
+
+
+@app.route("/ai-minutes/checkout", methods=["POST"])
+@login_required
+def ai_minutes_checkout():
+    """Create a Stripe checkout session for an AI minute package."""
+    data = request.get_json() or {}
+    minutes = data.get("minutes")
+    if not minutes:
+        return flask_jsonify({"error": "Missing 'minutes' parameter"}), 400
+
+    # Find matching package
+    pkg = next((p for p in AI_MINUTE_PACKAGES if p["minutes"] == int(minutes)), None)
+    if not pkg:
+        return flask_jsonify({"error": f"No package found for {minutes} minutes"}), 400
+
+    price_id = os.getenv(pkg["env_key"], "")
+    if not price_id:
+        return flask_jsonify({"error": f"Price ID not configured for {pkg['label']} package"}), 500
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=[{"price": price_id, "quantity": 1}],
+            metadata={
+                "purchase_type": "ai_minutes",
+                "package_minutes": str(pkg["minutes"]),
+                "package_label": pkg["label"],
+                "user_email": current_user.email,
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?ai_minutes_success=1",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?ai_minutes_cancel=1",
+        )
+        return flask_jsonify({"checkout_url": checkout_session.url})
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe AI minutes checkout error: {e}")
+        return flask_jsonify({"error": "Payment configuration error. Contact support."}), 500
+    except Exception as e:
+        logger.error(f"AI minutes checkout error: {e}")
+        return flask_jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@app.route("/ai-minutes/usage")
+@login_required
+def ai_minutes_usage():
+    """Get AI minute usage history."""
+    purchases = get_ai_minute_purchases(current_user.email)
+    usage = get_ai_minute_usage(current_user.email)
+    # Serialize datetimes
+    for p in purchases:
+        for k in ('created_at', 'completed_at'):
+            if p.get(k):
+                p[k] = p[k].isoformat()
+    for u in usage:
+        if u.get('created_at'):
+            u['created_at'] = u['created_at'].isoformat()
+    return flask_jsonify({"purchases": purchases, "usage": usage})
+
 
 @app.route("/checkout/agency-pro")
 def checkout_agency_pro():

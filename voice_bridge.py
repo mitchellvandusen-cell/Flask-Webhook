@@ -25,7 +25,7 @@ import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
 
-from db import get_db_connection, return_db_connection, log_webhook_event
+from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
 from ghl_api import get_valid_token, fetch_targeted_ghl_history
 
 # In-memory call status tracking for the dialer queue
@@ -1103,6 +1103,7 @@ def voice_inbound():
 
     elif event_type in ('call.machine.detection.ended', 'call.machine.premium.detection.ended'):
         # AMD result: human / machine / not_sure / human_residence / human_business / silence / fax_detected
+        # NOTE: Telnyx fires BOTH event types for premium AMD — deduplicate with a flag.
         client_state_raw = call_pl.get('client_state', '')
         meta             = _decode_client_state(client_state_raw)
         amd_result       = call_pl.get('result', '')
@@ -1111,6 +1112,14 @@ def voice_inbound():
         max_attempts     = int(meta.get('max_dial_attempts', 2))
 
         logger.info(f"📞 AMD result={amd_result} attempt={dial_attempt}/{max_attempts} loc={location_id}")
+
+        # Deduplicate: if we already processed AMD for this call, skip
+        _amd_handled_key = f"_amd_{call_ctrl}"
+        if call_ctrl and _active_calls.get(call_ctrl, {}).get('_amd_handled'):
+            logger.debug(f"📞 AMD duplicate event ignored for {call_ctrl}")
+            return jsonify({'result': 'ok'}), 200
+        if call_ctrl and call_ctrl in _active_calls:
+            _active_calls[call_ctrl]['_amd_handled'] = True
 
         machine_results = {'machine_words_present', 'machine_stop', 'machine_silence_after_words', 'machine', 'fax_detected'}
         if amd_result in machine_results and dial_attempt < max_attempts and location_id:
@@ -1249,6 +1258,34 @@ def voice_inbound():
                 update_call_history_status(call_sid_h, final_status, duration_s)
             except Exception:
                 pass
+
+        # Deduct AI minutes for completed calls with duration > 0
+        if duration_s > 0 and final_status == 'completed' and call_sid_h:
+            try:
+                conn_m = get_db_connection()
+                if conn_m:
+                    cur_m = conn_m.cursor()
+                    cur_m.execute("""
+                        SELECT ch.location_id, ch.phone, ch.direction, s.email
+                        FROM call_history ch
+                        JOIN subscribers s ON s.location_id = ch.location_id
+                        WHERE ch.call_sid = %s
+                    """, (call_sid_h,))
+                    row_m = cur_m.fetchone()
+                    cur_m.close()
+                    return_db_connection(conn_m)
+                    if row_m and row_m['email']:
+                        result = deduct_ai_minutes(
+                            email=row_m['email'],
+                            duration_seconds=duration_s,
+                            call_sid=call_sid_h,
+                            phone=row_m.get('phone', ''),
+                            direction=row_m.get('direction', 'outbound'),
+                        )
+                        if result.get('success'):
+                            logger.info(f"📊 AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
+            except Exception as e:
+                logger.debug(f"AI minute deduction note: {e}")
 
         logger.info(f"📞 Call hangup: {call_sid_h} cause={hangup_cause} sip={sip_code} dur={duration_s}s status={final_status}")
 
