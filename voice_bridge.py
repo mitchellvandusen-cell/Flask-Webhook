@@ -25,7 +25,7 @@ import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
 
-from db import get_db_connection, return_db_connection, log_webhook_event
+from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
 from ghl_api import get_valid_token, fetch_targeted_ghl_history
 
 # In-memory call status tracking for the dialer queue
@@ -1249,6 +1249,34 @@ def voice_inbound():
                 update_call_history_status(call_sid_h, final_status, duration_s)
             except Exception:
                 pass
+
+        # Deduct AI minutes for completed calls with duration > 0
+        if duration_s > 0 and final_status == 'completed' and call_sid_h:
+            try:
+                conn_m = get_db_connection()
+                if conn_m:
+                    cur_m = conn_m.cursor()
+                    cur_m.execute("""
+                        SELECT ch.location_id, ch.phone, ch.direction, s.email
+                        FROM call_history ch
+                        JOIN subscribers s ON s.location_id = ch.location_id
+                        WHERE ch.call_sid = %s
+                    """, (call_sid_h,))
+                    row_m = cur_m.fetchone()
+                    cur_m.close()
+                    return_db_connection(conn_m)
+                    if row_m and row_m['email']:
+                        result = deduct_ai_minutes(
+                            email=row_m['email'],
+                            duration_seconds=duration_s,
+                            call_sid=call_sid_h,
+                            phone=row_m.get('phone', ''),
+                            direction=row_m.get('direction', 'outbound'),
+                        )
+                        if result.get('success'):
+                            logger.info(f"📊 AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
+            except Exception as e:
+                logger.debug(f"AI minute deduction note: {e}")
 
         logger.info(f"📞 Call hangup: {call_sid_h} cause={hangup_cause} sip={sip_code} dur={duration_s}s status={final_status}")
 
