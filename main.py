@@ -2368,12 +2368,11 @@ def god_mode_dashboard():
 
         cur.close()
 
-        # Merge, deduplicate by email (agency_billing wins for shared emails)
-        seen = {}
-        for u in agency_owners + subscribers:
-            if u['email'] not in seen:
-                seen[u['email']] = u
-        all_users = sorted(seen.values(), key=lambda u: u.get('created_at') or '', reverse=True)
+        # Show ALL rows from both tables — agency_billing entries tagged as
+        # "agency" source, subscriber entries as "subscriber" source.
+        # No deduplication so admins see the full picture.
+        all_users = sorted(agency_owners + subscribers,
+                           key=lambda u: u.get('created_at') or '', reverse=True)
 
         return render_template('god_mode.html',
             all_users=all_users,
