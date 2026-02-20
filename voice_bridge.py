@@ -2769,8 +2769,8 @@ def automate_voice_setup():
     host = request.host
     webhook_base_url = f"https://{host}"
 
-    # Check if already provisioned
-    if vc.get('twilio_sub_account_sid') and vc.get('twilio_phone_number'):
+    # Check if already provisioned (guard against duplicate clicks)
+    if vc.get('twilio_sub_account_sid'):
         return jsonify({
             "status": "success",
             "message": "Voice service already active!",
@@ -2781,9 +2781,31 @@ def automate_voice_setup():
         data = request.json or {}
         area_code = data.get('area_code', '')
 
+        # Determine if this user is the agency owner.
+        # Primary check: current_user.is_agency_owner (role in subscribers).
+        # Safety-net: also check agency_billing table directly, in case the
+        # subscriber role wasn't synced correctly.
+        is_owner = current_user.is_agency_owner
+        if not is_owner:
+            conn_check = get_db_connection()
+            if conn_check:
+                try:
+                    cur_check = conn_check.cursor()
+                    cur_check.execute(
+                        "SELECT 1 FROM agency_billing WHERE agency_email = %s LIMIT 1",
+                        (current_user.email,))
+                    if cur_check.fetchone():
+                        is_owner = True
+                        logger.info(f"Agency owner detected via agency_billing fallback: {current_user.email}")
+                    cur_check.close()
+                except Exception:
+                    pass
+                finally:
+                    return_db_connection(conn_check)
+
         # Agency owner → use master Twilio account directly (no sub-account)
         # Sub-users → create a sub-account under master
-        if current_user.is_agency_owner:
+        if is_owner:
             result = twilio_provisioning.provision_master(
                 webhook_base_url=webhook_base_url,
             )
