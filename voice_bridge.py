@@ -2795,12 +2795,27 @@ def automate_voice_setup():
     webhook_base_url = f"https://{host}"
 
     # Check if already provisioned (guard against duplicate clicks)
-    if vc.get('twilio_sub_account_sid'):
-        return jsonify({
-            "status": "success",
-            "message": "Voice service already active!",
-            "twilio_phone_number": vc.get('twilio_phone_number', ''),
-        })
+    existing_sub_sid = vc.get('twilio_sub_account_sid', '')
+    if existing_sub_sid:
+        # If super_admin was incorrectly provisioned with a sub-account, re-provision with master
+        if current_user.is_super_admin and existing_sub_sid != TWILIO_ACCOUNT_SID:
+            logger.info(f"[activate] Super admin {current_user.email} has sub-account {existing_sub_sid}, re-provisioning with master account")
+            # Clear old voice_config but preserve phone number if any
+            old_phone = vc.get('twilio_phone_number', '')
+            old_number_sid = vc.get('twilio_number_sid', '')
+            vc.clear()
+            vc['enabled'] = False
+            if old_phone:
+                vc['twilio_phone_number'] = old_phone
+                vc['twilio_number_sid'] = old_number_sid
+            _save_voice_config(current_user.email, vc)
+            # Fall through to re-provision below
+        else:
+            return jsonify({
+                "status": "success",
+                "message": "Voice service already active!",
+                "twilio_phone_number": vc.get('twilio_phone_number', ''),
+            })
 
     try:
         # Only the platform owner (super_admin) uses the master Twilio account.
