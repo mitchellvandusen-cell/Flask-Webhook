@@ -20,6 +20,8 @@
             color: rgba(255, 255, 255, 0.35) !important;
             opacity: 1 !important;
         }
+        /* Dark theme for all select dropdowns */
+        select option { background: #2a2a35; color: #fff; }
         /* Pulsing green border glow for fields that need attention */
         @keyframes pulse-green {
             0%, 100% {
@@ -1804,7 +1806,8 @@
                         </div>
                         <!-- Buy panel -->
                         <div id="vstabBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
-                            <h6 style="color:#00d9ff;font-weight:700;margin-bottom:12px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                            <h6 style="color:#00d9ff;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                            <div style="margin-bottom:10px;font-size:.72rem;color:#888;">Pricing: <span style="color:#00ff88;">Local $1.15/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $1.15/mo</span></div>
                             <div class="d-flex gap-2 mb-2 flex-wrap">
                                 <select id="buyNumberType"
                                     style="width:120px;background:#2a2a35;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
@@ -4111,22 +4114,26 @@
                 const curInput = inputSelect.value || _selectedInputDeviceId;
                 const curOutput = outputSelect.value || _selectedOutputDeviceId;
 
+                const optStyle = 'background:#2a2a35;color:#fff;';
+
                 // Clear and rebuild input list
-                inputSelect.innerHTML = '<option value="">Default microphone</option>';
+                inputSelect.innerHTML = '<option value="" style="' + optStyle + '">Default microphone</option>';
                 devices.filter(d => d.kind === 'audioinput').forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d.deviceId;
                     opt.textContent = d.label || ('Microphone ' + d.deviceId.slice(0,8));
+                    opt.style.cssText = optStyle;
                     if (d.deviceId === curInput) opt.selected = true;
                     inputSelect.appendChild(opt);
                 });
 
                 // Clear and rebuild output list
-                outputSelect.innerHTML = '<option value="">Default speaker</option>';
+                outputSelect.innerHTML = '<option value="" style="' + optStyle + '">Default speaker</option>';
                 devices.filter(d => d.kind === 'audiooutput').forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d.deviceId;
                     opt.textContent = d.label || ('Speaker ' + d.deviceId.slice(0,8));
+                    opt.style.cssText = optStyle;
                     if (d.deviceId === curOutput) opt.selected = true;
                     outputSelect.appendChild(opt);
                 });
@@ -4354,7 +4361,7 @@
         function _renderNumbersTable(numbers, container) {
             const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;';
             const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
-            let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;">';
+            let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
             // Header
             html += '<div class="numbers-grid-header" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
             html += '<div style="' + hdrStyle + '">Number</div>';
@@ -4381,10 +4388,10 @@
                 html += '<div class="numbers-col-cnam" style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
                 html += '<div class="numbers-col-menu" style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
                     '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:6px 8px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
-                    '<div class="num-menu" style="display:none;position:absolute;right:0;top:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:999;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">' +
-                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
-                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
-                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ef4444;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                    '<div class="num-menu" style="display:none;position:fixed;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:9999;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,0.6);">' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ef4444;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
                     '</div></div></div>';
                 html += '</div>';
             });
@@ -4400,7 +4407,19 @@
         function toggleNumMenu(btn) {
             document.querySelectorAll('.num-menu').forEach(m => { if (m !== btn.nextElementSibling) m.style.display = 'none'; });
             const menu = btn.nextElementSibling;
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            if (menu.style.display !== 'none') { menu.style.display = 'none'; return; }
+            // Position using fixed coords so no overflow clipping
+            const rect = btn.getBoundingClientRect();
+            menu.style.display = 'block';
+            const menuH = menu.offsetHeight;
+            // Open upward if near bottom of viewport
+            if (rect.bottom + menuH > window.innerHeight - 20) {
+                menu.style.top = (rect.top - menuH) + 'px';
+            } else {
+                menu.style.top = rect.bottom + 'px';
+            }
+            menu.style.right = (window.innerWidth - rect.right) + 'px';
+            menu.style.left = 'auto';
             const closer = (e) => { if (!btn.contains(e.target) && !menu.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', closer); } };
             setTimeout(() => document.addEventListener('click', closer), 0);
         }
@@ -4750,6 +4769,8 @@
                 if (!r.ok) { list.innerHTML = '<div style="color:#ef4444;padding:4px;">' + _esc(d.error || 'Failed') + '</div>'; return; }
                 const nums = d.numbers || [];
                 if (!nums.length) { list.innerHTML = '<div style="color:#888;padding:4px;font-size:.75rem;">No numbers found for that search. Try different filters.</div>'; return; }
+                const priceMap = { local: '$1.15', toll_free: '$2.15', mobile: '$1.15' };
+                const monthlyPrice = priceMap[numberType] || '$1.15';
                 list.innerHTML = nums.map(n => {
                     const loc = [n.locality, n.region].filter(Boolean).join(', ');
                     const caps = [];
@@ -4757,12 +4778,15 @@
                     if (n.capabilities && n.capabilities.sms) caps.push('SMS');
                     if (n.capabilities && n.capabilities.mms) caps.push('MMS');
                     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
-                        '<div>' +
+                        '<div style="flex:1;min-width:0;">' +
                             '<span style="color:#fff;font-weight:600;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
                             (loc ? '<span style="color:#666;font-size:.68rem;margin-left:6px;">' + _esc(loc) + '</span>' : '') +
                             '<div style="margin-top:2px;">' + caps.map(c => '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 6px;border-radius:4px;font-size:.65rem;margin-right:3px;">' + c + '</span>').join('') + '</div>' +
                         '</div>' +
-                        '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                        '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+                            '<span style="color:#00ff88;font-size:.72rem;font-weight:600;">' + monthlyPrice + '/mo</span>' +
+                            '<button onclick="buyNumber(\'' + n.phone + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:4px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;">Buy</button>' +
+                        '</div>' +
                     '</div>';
                 }).join('');
             } catch(e) { list.innerHTML = '<div style="color:#ef4444;">Network error</div>'; }
