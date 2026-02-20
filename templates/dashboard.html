@@ -1856,7 +1856,7 @@
                                 <button onclick="setupVoIP()" id="voipSetupBtnAlt" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
                                     <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
                                 </button>
-                                <span id="voipSetupStatus" style="font-size:0.75rem;color:#888;">Create Telnyx credential for human dialing</span>
+                                <span id="voipSetupStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('telnyx_credential_id') %}Credential configured — will auto-connect{% else %}Create Telnyx credential for human dialing{% endif %}</span>
                             </div>
                         </div>
                     </div>
@@ -3765,7 +3765,8 @@
         let voipReady = false;
         let voipTimerInterval = null;
         let voipTimerSeconds = 0;
-        let voipSetupDone = false;
+        // Credential already exists in DB — skip one-time setup, just need to connect SDK
+        let voipSetupDone = {{ 'true' if voice_config.get('telnyx_credential_id') else 'false' }};
         let voipCurrentContact = null;
 
         function setDialerMode(mode) {
@@ -3966,7 +3967,13 @@
         dialerStartCall = async function(phone, firstName, contactId, displayName) {
             if (dialerMode === 'human') {
                 if (!voipReady) {
-                    alert('VoIP is not connected. Click "Setup Browser VoIP" first, then try again.');
+                    if (voipSetupDone) {
+                        // Credential exists, SDK just hasn't connected yet — kick it off
+                        alert('VoIP is connecting — please wait a moment and try again.');
+                        initVoIPDevice();
+                    } else {
+                        alert('VoIP is not set up. Click "Setup Browser VoIP" first.');
+                    }
                     return;
                 }
                 voipMakeCall(phone, firstName, contactId, displayName);
@@ -4475,10 +4482,8 @@
             if (!dialerContacts.length) dialerFetchContacts();
             dialerStartPing();
             dialerLoadAllCallHistory();
-            if (!voipSetupDone && dialerMode === 'human') {
-                fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} })
-                    .then(r => { if (r.ok) { voipSetupDone = true; initVoIPDevice(); } }).catch(() => {});
-            }
+            // Auto-connect VoIP SDK if credential exists but not yet connected
+            if (voipSetupDone && !voipReady) initVoIPDevice();
         });
 
         // Auto-load Numbers/Trust Hub when Voice tab is shown
