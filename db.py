@@ -860,6 +860,26 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"AI minutes migration note: {e}")
 
+        # ── Super Admin role migration ──────────────────────────────────────
+        # Ensures the platform owner always has super_admin role on every deploy.
+        try:
+            cur.execute("""
+                UPDATE subscribers
+                SET role = 'super_admin'
+                WHERE email = 'mitchell_vandusen@hotmail.com'
+                  AND role != 'super_admin'
+            """)
+            cur.execute("""
+                UPDATE agency_billing
+                SET role = 'super_admin'
+                WHERE agency_email = 'mitchell_vandusen@hotmail.com'
+                  AND role != 'super_admin'
+            """)
+            conn.commit()
+            logger.info("✅ Migration: super_admin role ensured for platform owner")
+        except Exception as e:
+            logger.debug(f"super_admin migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -943,7 +963,11 @@ class User(UserMixin):
    
     @property
     def is_agency_owner(self) -> bool:
-        return self.role == 'agency_owner'
+        return self.role in ('agency_owner', 'super_admin')
+
+    @property
+    def is_super_admin(self) -> bool:
+        return self.role == 'super_admin'
    
     @staticmethod
     def get(email: str) -> Optional['User']:
