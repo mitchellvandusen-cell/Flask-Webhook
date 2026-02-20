@@ -2332,7 +2332,7 @@ def god_mode_dashboard():
         # Pull everyone from both tables
         cur.execute("""
             SELECT email, full_name, role, subscription_tier, stripe_status,
-                   location_id, created_at, onboarding_status,
+                   location_id, created_at, onboarding_status, oauth_app_type,
                    'subscriber' AS source
             FROM subscribers
             ORDER BY created_at DESC
@@ -2342,7 +2342,7 @@ def god_mode_dashboard():
         cur.execute("""
             SELECT agency_email AS email, full_name, role, subscription_tier,
                    stripe_status, location_id, created_at,
-                   'active' AS onboarding_status,
+                   'active' AS onboarding_status, oauth_app_type,
                    'agency_billing' AS source
             FROM agency_billing
             ORDER BY created_at DESC
