@@ -3101,6 +3101,14 @@ def generate_voice_token():
             _save_voice_config(current_user.email, vc)
             logger.info(f"[voice/token] Created and saved API key {api_key_sid} for {sub_sid}")
 
+        # Ensure TwiML app + phone number webhooks point to the current server
+        # (fixes stale URLs after domain/deployment changes)
+        webhook_base_url = f"https://{request.host}"
+        twilio_provisioning.update_twiml_app(sub_sid, twiml_app_sid, webhook_base_url)
+        number_sid = vc.get('twilio_number_sid', '')
+        if number_sid:
+            twilio_provisioning.update_phone_number_webhooks(sub_sid, number_sid, webhook_base_url)
+
         identity = f"agent_{location_id}"
         token = twilio_provisioning.generate_voice_token(
             identity=identity,
@@ -3109,7 +3117,7 @@ def generate_voice_token():
             api_key_sid=api_key_sid,
             api_key_secret=api_key_secret,
         )
-        logger.info(f"[voice/token] Token issued for {identity} (twiml_app={twiml_app_sid})")
+        logger.info(f"[voice/token] Token issued for {identity} (twiml_app={twiml_app_sid}, webhook={webhook_base_url})")
         return jsonify({"token": token, "identity": identity})
 
     except Exception as e:

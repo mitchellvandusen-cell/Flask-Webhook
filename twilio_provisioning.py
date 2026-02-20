@@ -128,6 +128,28 @@ def create_twiml_app(sub_account_sid: str, webhook_base_url: str) -> dict:
         raise
 
 
+def update_twiml_app(sub_account_sid: str, twiml_app_sid: str,
+                      webhook_base_url: str) -> bool:
+    """
+    Update a TwiML Application's voice_url and status_callback to point
+    to the current server.  Called during token generation so the TwiML
+    app always reaches the live server even after URL changes.
+    """
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        client.applications(twiml_app_sid).update(
+            voice_url=f"{webhook_base_url}/voice/inbound",
+            voice_method="POST",
+            status_callback=f"{webhook_base_url}/voice/status",
+            status_callback_method="POST",
+        )
+        logger.info(f"Updated TwiML App {twiml_app_sid} voice_url -> {webhook_base_url}/voice/inbound")
+        return True
+    except TwilioRestException as e:
+        logger.error(f"Failed to update TwiML App {twiml_app_sid}: {e}")
+        return False
+
+
 def create_api_key(account_sid: str) -> dict:
     """
     Create an API Key on a specific account (master or sub-account).
