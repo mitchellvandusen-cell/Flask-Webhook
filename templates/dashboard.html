@@ -685,6 +685,16 @@
                     Link your Lead Connector account to activate bot
                 </div>
             </div>
+            {% else %}
+            <!-- Reauthorize: re-run OAuth to get fresh tokens -->
+            <div class="mt-3 d-flex gap-2">
+                <a href="/oauth/initiate" class="btn w-100" style="background: rgba(0,180,255,0.08); border: 1px solid rgba(0,180,255,0.25); color: #00b4ff; font-weight: 600; padding: 10px; border-radius: 8px;">
+                    <i class="fa-solid fa-rotate me-2"></i>Reauthorize CRM
+                </a>
+            </div>
+            <div style="font-size: 0.65rem; color: #666; margin-top: 6px; text-align: center;">
+                Re-run OAuth flow to get fresh access &amp; refresh tokens
+            </div>
             {% endif %}
         </div>
 
@@ -1178,7 +1188,14 @@
                     <!-- Current CRM Status -->
                     {% if sub and sub.crm_type %}
                     <div style="margin-top: 20px; padding: 12px 16px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 10px;">
-                        <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
+                            {% if sub.crm_type == 'ghl' %}
+                            <a href="/oauth/initiate" class="btn btn-sm" style="background: rgba(0,180,255,0.1); border: 1px solid rgba(0,180,255,0.25); color: #00b4ff; font-weight: 600; font-size: 0.75rem; border-radius: 6px; padding: 4px 12px;">
+                                <i class="fa-solid fa-rotate me-1"></i>Reauthorize
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
                     {% endif %}
 
