@@ -2811,31 +2811,9 @@ def automate_voice_setup():
         data = request.json or {}
         area_code = data.get('area_code', '')
 
-        # Determine if this user is the agency owner.
-        # Primary check: current_user.is_agency_owner (role in subscribers).
-        # Safety-net: also check agency_billing table directly, in case the
-        # subscriber role wasn't synced correctly.
-        is_owner = current_user.is_agency_owner
-        if not is_owner:
-            conn_check = get_db_connection()
-            if conn_check:
-                try:
-                    cur_check = conn_check.cursor()
-                    cur_check.execute(
-                        "SELECT 1 FROM agency_billing WHERE agency_email = %s LIMIT 1",
-                        (current_user.email,))
-                    if cur_check.fetchone():
-                        is_owner = True
-                        logger.info(f"Agency owner detected via agency_billing fallback: {current_user.email}")
-                    cur_check.close()
-                except Exception:
-                    pass
-                finally:
-                    return_db_connection(conn_check)
-
-        # Agency owner → use master Twilio account directly (no sub-account)
-        # Sub-users → create a sub-account under master
-        if is_owner:
+        # Only the platform owner (super_admin) uses the master Twilio account.
+        # Everyone else — individual, agency_owner, any tier — gets a sub-account.
+        if current_user.is_super_admin:
             result = twilio_provisioning.provision_master(
                 webhook_base_url=webhook_base_url,
             )
