@@ -3978,7 +3978,8 @@
             } catch(e) {
                 console.error('[VoIP] setupVoIP error:', e);
                 setVoipBtnState('error');
-                _showVoipStatus('Network error: ' + e.message);
+                const errMsg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+                _showVoipStatus('Setup error: ' + errMsg);
             }
         }
 
@@ -4117,8 +4118,23 @@
 
                 // Register with Twilio signaling
                 console.log('[VoIP] Calling voipDevice.register()...');
-                await voipDevice.register();
-                console.log('[VoIP] register() promise resolved');
+                try {
+                    await voipDevice.register();
+                    console.log('[VoIP] register() promise resolved, state:', voipDevice.state);
+                } catch(regErr) {
+                    console.error('[VoIP] register() rejected:', regErr);
+                    console.error('[VoIP] register() rejection type:', typeof regErr);
+                    if (regErr && typeof regErr === 'object') {
+                        console.error('[VoIP] register() rejection keys:', Object.keys(regErr));
+                        console.error('[VoIP] register() rejection code:', regErr.code, 'twilioError:', regErr.twilioError);
+                    }
+                    const regMsg = (regErr && regErr.message) ? regErr.message
+                                 : (typeof regErr === 'string' ? regErr : 'Registration failed (check console for details)');
+                    _showVoipStatus('VoIP error: ' + regMsg);
+                    setVoipBtnState('error');
+                    _voipInitializing = false;
+                    return;
+                }
 
                 // Timeout: if not registered within 15s, something is wrong
                 setTimeout(() => {
@@ -4133,7 +4149,9 @@
 
             } catch(e) {
                 console.error('[VoIP] initVoIPDevice error:', e);
-                _showVoipStatus('Error: ' + e.message);
+                console.error('[VoIP] Error type:', typeof e, 'keys:', e ? Object.keys(e) : 'null/undefined');
+                const errMsg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+                _showVoipStatus('Error: ' + errMsg);
                 setVoipBtnState('error');
                 _voipInitializing = false;
             }
