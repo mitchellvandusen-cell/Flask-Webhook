@@ -707,6 +707,27 @@
                 <a href="/" class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;">
                     <i class="fa-solid fa-house me-2"></i>Homepage
                 </a>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('workflows')">
+                    <i class="fa-solid fa-diagram-project me-2"></i>Workflows Guide
+                </button>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('carriers')">
+                    <i class="fa-solid fa-building-columns me-2"></i>Assign Carriers
+                </button>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('connect')">
+                    <i class="fa-solid fa-plug me-2"></i>Connect / Integrations
+                </button>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('logs')">
+                    <i class="fa-solid fa-list-check me-2"></i>Logs
+                </button>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('advanced')">
+                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Advanced Settings
+                </button>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('aiminutes'); loadAiMinutes();">
+                    <i class="fa-solid fa-clock me-2"></i>AI Minutes
+                </button>
+                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('billing')">
+                    <i class="fa-solid fa-credit-card me-2"></i>Billing
+                </button>
                 <a href="/onboarding-status" class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;">
                     <i class="fa-solid fa-list-check me-2"></i>Setup Progress
                 </a>
@@ -799,40 +820,19 @@
         <!-- Normal Dashboard Content -->
         <ul class="nav nav-tabs" id="dashTabs" role="tablist" style="border-bottom: 1px solid var(--glass-border); gap: 12px; margin-bottom: 30px; flex-wrap: wrap;">
             <li class="nav-item">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#config" type="button"><i class="fa-solid fa-sliders me-1"></i> Bot Config</button>
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button"><i class="fa-solid fa-phone-volume me-1"></i> Dialer</button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#workflows" type="button"><i class="fa-solid fa-diagram-project me-1"></i> Workflows</button>
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#config" type="button"><i class="fa-solid fa-comment-sms me-1"></i> SMS Config</button>
             </li>
             <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#logs" type="button"><i class="fa-solid fa-list-check me-1"></i> Logs</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#connect" type="button"><i class="fa-solid fa-plug me-1"></i> Connect</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#carriers" type="button"><i class="fa-solid fa-building-columns me-1"></i> Carriers</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#advanced" type="button"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Advanced</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voice" type="button"><i class="fa-solid fa-phone me-1"></i> Voice</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button"><i class="fa-solid fa-phone-volume me-1"></i> Voice Dialer</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#aiminutes" type="button" onclick="loadAiMinutes()"><i class="fa-solid fa-clock me-1"></i> AI Minutes</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#billing" type="button"><i class="fa-solid fa-credit-card me-1"></i> Billing</button>
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voice" type="button"><i class="fa-solid fa-phone me-1"></i> Voice Config</button>
             </li>
         </ul>
 
         <div class="tab-content" id="dashTabsContent">
 
-            <div class="tab-pane fade show active" id="config" role="tabpanel">
+            <div class="tab-pane fade" id="config" role="tabpanel">
                 <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">
                     <h3 class="mb-4" style="font-weight:700;">Parameters</h3>
                     <form method="post" id="main-config-form">
@@ -1179,6 +1179,28 @@
                         <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
                     </div>
                     {% endif %}
+
+                    <!-- ════════════════════════════════════════════════ -->
+                    <!-- OUTBOUND CALL TRIGGER -->
+                    <!-- ════════════════════════════════════════════════ -->
+                    <hr style="border-color: var(--glass-border); margin: 30px 0;">
+                    <h4 style="font-weight:700;"><i class="fa-solid fa-arrow-right-from-bracket me-2" style="color:var(--accent);"></i>Outbound Call Trigger</h4>
+                    <p style="color:#999; font-size:0.85rem; margin-bottom:12px;">Trigger an AI call from your CRM by sending a POST request:</p>
+                    <div class="mb-3 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <code style="background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); padding: 8px 14px; border-radius: 8px; color: var(--accent); font-size: 0.85rem; flex: 1; word-break: break-all;">
+                                POST https://{{ request.host }}/voice/outbound-call
+                            </code>
+                            <button class="btn btn-sm" onclick="copyToClipboard('https://{{ request.host }}/voice/outbound-call')"
+                                style="background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; white-space: nowrap;">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="mt-3" style="font-size: 0.8rem; color: #777;">
+                            <strong style="color:#aaa;">JSON Body:</strong>
+                            <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.78rem; overflow-x: auto;">{ "location_id": "{{ sub.location_id or 'your_location_id' }}", "phone": "+15551234567", "first_name": "John", "contact_id": "contact_abc123" }</pre>
+                        </div>
+                    </div>
 
                     <!-- ════════════════════════════════════════════════ -->
                     <!-- API ACCESS (Enterprise Integration) -->
@@ -1584,29 +1606,6 @@
                         </div>
                     </div>
 
-                    <!-- How It Works -->
-                    <div class="mb-4 p-3" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 12px;">
-                        <h6 style="color: #00d9ff; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-diagram-project me-2"></i>How It Works</h6>
-                        <div class="row g-2 voice-how-it-works" style="font-size: 0.82rem; color: #aaa;">
-                            <div class="col-6 col-md-3 text-center">
-                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-phone-volume"></i></div>
-                                <strong style="color:#ccc;">Call Connects</strong><br>Lead calls your AI number or bot dials out
-                            </div>
-                            <div class="col-6 col-md-3 text-center">
-                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-microphone"></i></div>
-                                <strong style="color:#ccc;">Audio Streams</strong><br>HD audio streamed to our server in real-time
-                            </div>
-                            <div class="col-6 col-md-3 text-center">
-                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-brain"></i></div>
-                                <strong style="color:#ccc;">Grok Thinks</strong><br>XAI processes speech and responds in real-time
-                            </div>
-                            <div class="col-6 col-md-3 text-center">
-                                <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-calendar-check"></i></div>
-                                <strong style="color:#ccc;">Books Appointments</strong><br>AI checks your calendar and books live
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Enable Toggle -->
                     <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
                         <div class="form-check form-switch d-flex align-items-center">
@@ -1617,75 +1616,81 @@
                         <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your phone number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
                     </div>
 
-                    <!-- Voice Sub-tabs: Settings | Numbers | Trust Hub -->
-                    <div class="d-flex gap-1 mb-4" style="border-bottom:1px solid rgba(255,255,255,0.07);">
-                        <button class="voice-stab-btn" id="vstab-settings" onclick="switchVoiceSubtab('settings')"
-                            style="background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);border-bottom:2px solid #00d9ff;color:#00d9ff;border-radius:8px 8px 0 0;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;margin-bottom:-1px;">
-                            <i class="fa-solid fa-sliders me-1"></i>Settings
-                        </button>
-                        <button class="voice-stab-btn" id="vstab-numbers" onclick="switchVoiceSubtab('numbers')"
-                            style="background:transparent;border:1px solid transparent;border-bottom:2px solid transparent;color:#888;border-radius:8px 8px 0 0;padding:7px 18px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;margin-bottom:-1px;">
-                            <i class="fa-solid fa-phone-volume me-1"></i>Numbers
-                        </button>
-                        <button class="voice-stab-btn" id="vstab-trusthub" onclick="switchVoiceSubtab('trusthub')"
-                            style="background:transparent;border:1px solid transparent;border-bottom:2px solid transparent;color:#888;border-radius:8px 8px 0 0;padding:7px 18px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;margin-bottom:-1px;">
-                            <i class="fa-solid fa-shield-halved me-1"></i>Trust Hub
-                        </button>
+                    <!-- ══ Voice Config: Two-column settings menu ══ -->
+                    <div style="display:flex;gap:16px;min-height:420px;">
+                        <!-- Left column: settings categories -->
+                        <div id="voiceSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
+                            <button class="voice-menu-item active" onclick="switchVoicePanel('settings')" id="vmenu-settings" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);border-radius:8px;color:#00d9ff;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-microphone" style="width:16px;text-align:center;"></i> Voice AI
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('activation')" id="vmenu-activation" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="width:16px;text-align:center;"></i> Activate Voice
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('numbers')" id="vmenu-numbers" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('trusthub')" id="vmenu-trusthub" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Protection
+                            </button>
+                        </div>
+
+                        <!-- Right column: settings content -->
+                        <div style="flex:1;min-width:0;">
+
+                    <!-- ── Voice AI settings panel ── -->
+                    <!-- ── Activate Voice panel ── -->
+                    <div id="vstab-panel-activation" style="display:none;">
+                        <div class="p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;"></i>
+                                </div>
+                                <div>
+                                    <h6 style="margin:0;font-weight:700;color:#fff;">Voice Service</h6>
+                                    {% if voice_config.get('twilio_sub_account_sid') %}
+                                    <p style="margin:0;color:#00ff88;font-size:0.8rem;"><i class="fa-solid fa-circle-check me-1"></i>Active — phone number and dialer ready</p>
+                                    {% else %}
+                                    <p style="margin:0;color:#888;font-size:0.8rem;">Click activate to create your voice account, then buy a phone number in the Numbers tab</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not voice_config.get('twilio_sub_account_sid') %}
+                            <button onclick="activateVoiceService()" id="activateVoiceBtn"
+                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice
+                            </button>
+                            {% endif %}
+                            <div class="d-flex gap-3 flex-wrap mt-3">
+                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                    {% if voice_config.get('twilio_sub_account_sid') %}
+                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice Account</span>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice Account</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                    {% if voice_config.get('twilio_twiml_app_sid') %}
+                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice App</span>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice App</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                    {% if voice_config.get('twilio_phone_number') %}
+                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Phone Number: {{ voice_config.get('twilio_phone_number', '') }}</span>
+                                    {% elif voice_config.get('twilio_sub_account_sid') %}
+                                        <i class="fa-solid fa-circle-exclamation" style="color:#fbbf24;"></i><span style="color:#fbbf24;">No number — buy one in the <strong>Numbers</strong> tab</span>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Phone Number</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div id="activateVoiceResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
+                        </div>
                     </div>
 
-                    <!-- ══ Settings sub-tab ══ -->
+                    <!-- ── Voice AI settings panel ── -->
                     <div id="vstab-panel-settings">
-
-                    <!-- Activate Voice (One-click provisioning) -->
-                    <div class="mb-4 p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;"></i>
-                            </div>
-                            <div>
-                                <h6 style="margin:0;font-weight:700;color:#fff;">Voice Service</h6>
-                                {% if voice_config.get('twilio_sub_account_sid') %}
-                                <p style="margin:0;color:#00ff88;font-size:0.8rem;"><i class="fa-solid fa-circle-check me-1"></i>Active — phone number and dialer ready</p>
-                                {% else %}
-                                <p style="margin:0;color:#888;font-size:0.8rem;">Click activate to create your voice account, then buy a phone number in the Numbers tab</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% if not voice_config.get('twilio_sub_account_sid') %}
-                        <button onclick="activateVoiceService()" id="activateVoiceBtn"
-                            style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
-                            <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice
-                        </button>
-                        {% endif %}
-                        <!-- Provisioning status -->
-                        <div class="d-flex gap-3 flex-wrap mt-3">
-                            <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                {% if voice_config.get('twilio_sub_account_sid') %}
-                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice Account</span>
-                                {% else %}
-                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice Account</span>
-                                {% endif %}
-                            </div>
-                            <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                {% if voice_config.get('twilio_twiml_app_sid') %}
-                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice App</span>
-                                {% else %}
-                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice App</span>
-                                {% endif %}
-                            </div>
-                            <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                {% if voice_config.get('twilio_phone_number') %}
-                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Phone Number: {{ voice_config.get('twilio_phone_number', '') }}</span>
-                                {% elif voice_config.get('twilio_sub_account_sid') %}
-                                    <i class="fa-solid fa-circle-exclamation" style="color:#fbbf24;"></i><span style="color:#fbbf24;">No number — buy one in the <strong>Numbers</strong> tab</span>
-                                {% else %}
-                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Phone Number</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div id="activateVoiceResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
-                    </div>
-
 
                     <!-- AI Voice -->
                     <div class="row g-3 mb-4">
@@ -1756,91 +1761,7 @@
                             </div>
                         </div>
                     </div><!-- /row: Voice Settings (bot name, instructions, call script) -->
-                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Outbound Call Trigger</h6>
-                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-                        <p style="color:#aaa; font-size:0.82rem; margin-bottom: 8px;">To trigger an AI call from your CRM, send a POST request to:</p>
-                        <div class="d-flex align-items-center gap-2">
-                            <code style="background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); padding: 8px 14px; border-radius: 8px; color: var(--accent); font-size: 0.85rem; flex: 1; word-break: break-all;">
-                                POST https://{{ request.host }}/voice/outbound-call
-                            </code>
-                            <button class="btn btn-sm" onclick="copyToClipboard('https://{{ request.host }}/voice/outbound-call')"
-                                style="background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; white-space: nowrap;">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </div>
-                        <div class="mt-3" style="font-size: 0.8rem; color: #777;">
-                            <strong style="color:#aaa;">JSON Body:</strong>
-                            <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.78rem; overflow-x: auto;">{ "location_id": "{{ sub.location_id or 'your_location_id' }}", "phone": "+15551234567", "first_name": "John", "contact_id": "contact_abc123" }</pre>
-                        </div>
-                    </div>
-
-                    <!-- Dialer Settings -->
-                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px; margin-top: 24px;"><i class="fa-solid fa-sliders me-2"></i>Power Dialer Settings</h6>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Dial Attempts (no-answer/VM)</label>
-                            <select class="form-control" id="voiceDialAttempts"
-                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
-                                <option value="1" {% if voice_config.get('dial_attempts', 2)|int == 1 %}selected{% endif %}>1 attempt</option>
-                                <option value="2" {% if voice_config.get('dial_attempts', 2)|int == 2 %}selected{% endif %}>2 attempts (recommended)</option>
-                                <option value="3" {% if voice_config.get('dial_attempts', 2)|int == 3 %}selected{% endif %}>3 attempts</option>
-                            </select>
-                            <small style="color:#666; font-size:0.75rem;">AI detects voicemail and retries automatically</small>
-                        </div>
-                        <div class="col-md-4">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Record All Calls</label>
-                            <div class="d-flex align-items-center gap-2 mt-1">
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" id="voiceAutoRecord"
-                                        {% if voice_config.get('auto_record', True) %}checked{% endif %}
-                                        style="width:2.5em; height:1.3em; cursor:pointer;">
-                                </div>
-                                <span style="color:#888; font-size:0.8rem;">Record every call (MP3)</span>
-                            </div>
-                            <small style="color:#666; font-size:0.75rem;">Dual-channel recording</small>
-                        </div>
-                        <div class="col-md-4">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Transcribe Calls</label>
-                            <div class="d-flex align-items-center gap-2 mt-1">
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" id="voiceAutoTranscribe"
-                                        {% if voice_config.get('auto_transcribe', False) %}checked{% endif %}
-                                        style="width:2.5em; height:1.3em; cursor:pointer;">
-                                </div>
-                                <span style="color:#888; font-size:0.8rem;">Real-time transcription ($0.025/min)</span>
-                            </div>
-                            <small style="color:#666; font-size:0.75rem;">AI transcription engine</small>
-                        </div>
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Local Presence Dialing</label>
-                            <div class="d-flex align-items-center gap-2 mt-1">
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" id="voiceLocalPresence"
-                                        {% if voice_config.get('local_presence', False) %}checked{% endif %}
-                                        style="width:2.5em; height:1.3em; cursor:pointer;">
-                                </div>
-                                <span style="color:#888; font-size:0.8rem;">Match caller ID area code to lead</span>
-                            </div>
-                            <small style="color:#666; font-size:0.75rem;">After activating, buy your number in the <strong style="color:#aaa;">Numbers</strong> tab &rarr; search by area code, state, city, or number type.</small>
-                        </div>
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Transfer Number (Hot Handoff)</label>
-                            <input type="tel" class="form-control" id="voiceTransferNumber"
-                                value="{{ voice_config.get('transfer_number', '') }}"
-                                placeholder="+1XXXXXXXXXX"
-                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size:0.85rem;">
-                            <small style="color:#666; font-size:0.75rem;">Agent number for AI warm transfers &amp; live takeover. E.164 format.</small>
-                        </div>
-                        <div class="col-md-6">
-                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Browser VoIP Setup</label>
-                            <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
-                                <button onclick="setupVoIP()" id="voipSetupBtnAlt" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
-                                    <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
-                                </button>
-                                <span id="voipSetupStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured — will auto-connect{% else %}Set up browser calling for human dialing{% endif %}</span>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Power Dialer settings moved to Dialer tab settings panel -->
 
                     <!-- Actions -->
                     <div class="d-flex flex-wrap gap-3 align-items-center">
@@ -1862,7 +1783,7 @@
                     <div class="mt-4 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 12px;">
                         <p style="color:#aaa; font-size:0.8rem; margin:0;">
                             <i class="fa-solid fa-circle-info me-1" style="color: #ffa500;"></i>
-                            <strong>Pricing:</strong> Voice calls use xAI at $0.05/min + voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.30. Voice minutes are included in your subscription.
+                            <strong>Pricing:</strong> Voice calls use xAI at $0.07/min + voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.41. Voice minutes are included in your subscription.
                         </p>
                     </div>
                     </div><!-- /vstab-panel-settings -->
@@ -2033,11 +1954,14 @@
 
                     </div><!-- /vstab-panel-trusthub -->
 
+                        </div><!-- /right column -->
+                    </div><!-- /two-column settings menu -->
+
                 </div><!-- /glass-panel -->
             </div><!-- /voice tab-pane -->
 
             <!-- ========== VOICE DIALER TAB ========== -->
-            <div class="tab-pane fade" id="voicedialer" role="tabpanel">
+            <div class="tab-pane fade show active" id="voicedialer" role="tabpanel">
                 <style>
                     @keyframes dialerPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
                     .dtmf-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}
@@ -2094,6 +2018,10 @@
                     <div id="voipStatus" style="display:none;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);border-radius:6px;padding:3px 8px;font-size:0.68rem;color:var(--accent);font-weight:600;">
                         <i class="fa-solid fa-circle me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Ready
                     </div>
+                    <!-- Settings toggle -->
+                    <button id="dialerSettingsToggle" onclick="toggleDialerSettings()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:all .2s;" title="Dialer Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
                 </div>
 
                 <!-- VoIP Setup Banner -->
@@ -2183,6 +2111,84 @@
                             <button onclick="voipSendDTMF('4')" class="dtmf-key">4</button><button onclick="voipSendDTMF('5')" class="dtmf-key">5</button><button onclick="voipSendDTMF('6')" class="dtmf-key">6</button>
                             <button onclick="voipSendDTMF('7')" class="dtmf-key">7</button><button onclick="voipSendDTMF('8')" class="dtmf-key">8</button><button onclick="voipSendDTMF('9')" class="dtmf-key">9</button>
                             <button onclick="voipSendDTMF('*')" class="dtmf-key">*</button><button onclick="voipSendDTMF('0')" class="dtmf-key">0</button><button onclick="voipSendDTMF('#')" class="dtmf-key">#</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ Dialer Settings Panel (toggleable) ═══ -->
+                <div id="dialerSettingsPanel" style="display:none;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:24px;margin-bottom:12px;">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-sliders me-2" style="color:var(--accent);"></i>Power Dialer Settings</h6>
+                        <button onclick="toggleDialerSettings()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Dial Attempts (no-answer/VM)</label>
+                            <select class="form-control" id="voiceDialAttempts"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="1" {% if voice_config.get('dial_attempts', 2)|int == 1 %}selected{% endif %}>1 attempt</option>
+                                <option value="2" {% if voice_config.get('dial_attempts', 2)|int == 2 %}selected{% endif %}>2 attempts (recommended)</option>
+                                <option value="3" {% if voice_config.get('dial_attempts', 2)|int == 3 %}selected{% endif %}>3 attempts</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">AI detects voicemail and retries automatically</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Record All Calls</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoRecord"
+                                        {% if voice_config.get('auto_record', True) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Record every call (MP3)</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">Dual-channel recording</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Transcribe Calls</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoTranscribe"
+                                        {% if voice_config.get('auto_transcribe', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Real-time transcription ($0.025/min)</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">AI transcription engine</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Local Presence Dialing</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceLocalPresence"
+                                        {% if voice_config.get('local_presence', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Match caller ID area code to lead</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Transfer Number (Hot Handoff)</label>
+                            <input type="tel" class="form-control" id="voiceTransferNumber"
+                                value="{{ voice_config.get('transfer_number', '') }}"
+                                placeholder="+1XXXXXXXXXX"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size:0.85rem;">
+                            <small style="color:#666; font-size:0.75rem;">Agent number for AI warm transfers. E.164 format.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Browser VoIP Setup</label>
+                            <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                <button onclick="setupVoIP()" id="voipSetupBtnDialer" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                    <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
+                                </button>
+                                <span style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured{% else %}Required for human dialing{% endif %}</span>
+                            </div>
+                        </div>
+                        <div class="col-12 text-end mt-2">
+                            <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
+                                style="background: linear-gradient(135deg, var(--accent), #00b36b); color: #000; font-weight: 700; border-radius: 10px; border: none; font-size:0.85rem;">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Save Dialer Settings
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2437,6 +2443,58 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // ── Sidebar tab switching (shows hidden tab-panes) ──
+        function showSidebarTab(tabId) {
+            // Deactivate all main tab buttons
+            document.querySelectorAll('#dashTabs .nav-link').forEach(b => b.classList.remove('active'));
+            // Hide all tab panes
+            document.querySelectorAll('#dashTabsContent > .tab-pane').forEach(p => {
+                p.classList.remove('show', 'active');
+            });
+            // Show the requested tab pane
+            const pane = document.getElementById(tabId);
+            if (pane) {
+                pane.classList.add('show', 'active');
+            }
+            // Special actions
+            if (tabId === 'logs') loadLogs();
+        }
+
+        // ── Dialer settings panel toggle ──
+        function toggleDialerSettings() {
+            const panel = document.getElementById('dialerSettingsPanel');
+            const btn = document.getElementById('dialerSettingsToggle');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                btn.style.background = 'rgba(0,217,255,0.12)';
+                btn.style.borderColor = 'rgba(0,217,255,0.3)';
+                btn.style.color = '#00d9ff';
+            } else {
+                panel.style.display = 'none';
+                btn.style.background = 'rgba(255,255,255,0.04)';
+                btn.style.borderColor = 'rgba(255,255,255,0.08)';
+                btn.style.color = '#aaa';
+            }
+        }
+
+        // ── Voice Config column menu switching ──
+        function switchVoicePanel(name) {
+            const panels = ['settings', 'activation', 'numbers', 'trusthub'];
+            panels.forEach(p => {
+                const panel = document.getElementById('vstab-panel-' + p);
+                const menuBtn = document.getElementById('vmenu-' + p);
+                const active = p === name;
+                if (panel) panel.style.display = active ? 'block' : 'none';
+                if (menuBtn) {
+                    menuBtn.style.background = active ? 'rgba(0,217,255,0.08)' : 'transparent';
+                    menuBtn.style.border = active ? '1px solid rgba(0,217,255,0.15)' : '1px solid transparent';
+                    menuBtn.style.color = active ? '#00d9ff' : '#888';
+                }
+            });
+            if (name === 'numbers') loadNumbersTab();
+            if (name === 'trusthub') loadTrustHubData();
+        }
+
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
                 const el = document.activeElement;
@@ -2739,22 +2797,9 @@
             }
         }
 
-        // ── Voice sub-tab switching (Settings / Numbers / Trust Hub) ──
+        // ── Voice sub-tab switching (backward compat — delegates to new column menu) ──
         function switchVoiceSubtab(name) {
-            ['settings','numbers','trusthub'].forEach(t => {
-                const panel = document.getElementById('vstab-panel-' + t);
-                const btn   = document.getElementById('vstab-' + t);
-                const active = t === name;
-                if (panel) panel.style.display = active ? 'block' : 'none';
-                if (btn) {
-                    btn.style.background   = active ? 'rgba(0,217,255,0.12)' : 'transparent';
-                    btn.style.border       = active ? '1px solid rgba(0,217,255,0.3)' : '1px solid transparent';
-                    btn.style.borderBottom = active ? '2px solid #00d9ff' : '2px solid transparent';
-                    btn.style.color        = active ? '#00d9ff' : '#888';
-                }
-            });
-            if (name === 'numbers') loadNumbersTab();
-            if (name === 'trusthub') loadTrustHubData();
+            switchVoicePanel(name);
         }
 
         // ── One-click voice service activation (white-label) ──
@@ -4457,15 +4502,17 @@
             } catch(e) { alert('Network error'); }
         }
 
-        // ── Init on tab show ──
-        document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', function() {
+        // ── Init dialer (runs on page load since Dialer is default tab) ──
+        function initDialerTab() {
             dialerLoadPipelines();
             if (!dialerContacts.length) dialerFetchContacts();
             dialerStartPing();
             dialerLoadAllCallHistory();
-            // Auto-connect VoIP SDK if credential exists but not yet connected
             if (voipSetupDone && !voipReady) initVoIPDevice();
-        });
+        }
+        document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', initDialerTab);
+        // Also init on page load since Dialer is the default active tab
+        document.addEventListener('DOMContentLoaded', initDialerTab);
 
         // Auto-load Numbers/Trust Hub when Voice tab is shown
         document.querySelector('[data-bs-target="#voice"]')?.addEventListener('shown.bs.tab', function() {
