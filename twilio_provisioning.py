@@ -6,14 +6,13 @@
 # Sub-account flow:
 #   1. Subscriber signs up / activates voice
 #   2. Backend creates a Twilio sub-account under the master
-#   3. Backend buys a phone number on the sub-account
-#   4. Backend creates a TwiML App for webhooks
+#   3. Backend creates a TwiML App for webhooks
+#   4. User buys their own phone number via the dashboard
 #   5. Credentials stored in voice_config (internal, never shown in UI)
 #
 # CNAM / Spam Protection:
 #   - SHAKEN/STIR attestation is automatic on Twilio
 #   - CNAM registration via Twilio Trust Hub / Business Profiles
-#   - A2P 10DLC registration for verified calling
 
 import os
 import json
