@@ -963,7 +963,7 @@ class User(UserMixin):
    
     @property
     def is_agency_owner(self) -> bool:
-        return self.role in ('agency_owner', 'super_admin')
+        return self.role == 'agency_owner'
 
     @property
     def is_super_admin(self) -> bool:
