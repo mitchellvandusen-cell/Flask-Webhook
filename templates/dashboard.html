@@ -4030,13 +4030,18 @@
                 }
 
                 voipDevice = new Twilio.Device(d.token, {
-                    logLevel: 'warn',
+                    logLevel: 'debug',
                     closeProtection: true,
                     codecPreferences: ['opus', 'pcmu'],
                 });
 
+                console.log('[VoIP] Device created, SDK version:', Twilio.Device.packageName || 'unknown');
+
                 // Step 5: Register (async — opens WebSocket to Twilio signaling)
+                let registrationDone = false;
+
                 voipDevice.on('registered', () => {
+                    registrationDone = true;
                     console.log('[VoIP] Device registered — ready for calls!');
                     voipReady = true;
                     voipSetupDone = true;
@@ -4055,10 +4060,12 @@
                     document.getElementById('voipStatus').style.display = 'none';
                     _showVoipStatus('VoIP disconnected — click to reconnect');
                     setVoipBtnState('error');
+                    _voipInitializing = false;
                 });
 
                 voipDevice.on('error', (err) => {
                     console.error('[VoIP] Device error:', err);
+                    console.error('[VoIP] Error code:', err?.code, 'twilioError:', err?.twilioError);
                     const msg = err?.message || JSON.stringify(err);
                     _showVoipStatus('VoIP error: ' + msg);
                     // Only show error state if we're not actively on a call
@@ -4066,6 +4073,7 @@
                         setVoipBtnState('error');
                         voipReady = false;
                     }
+                    _voipInitializing = false;
                 });
 
                 voipDevice.on('tokenWillExpire', async () => {
@@ -4091,8 +4099,20 @@
                 }
 
                 // Register with Twilio signaling
+                console.log('[VoIP] Calling voipDevice.register()...');
                 await voipDevice.register();
-                console.log('[VoIP] Registration initiated');
+                console.log('[VoIP] register() promise resolved');
+
+                // Timeout: if not registered within 15s, something is wrong
+                setTimeout(() => {
+                    if (!registrationDone && _voipInitializing) {
+                        console.error('[VoIP] Registration timeout — no registered event after 15s');
+                        console.log('[VoIP] Device state:', voipDevice?.state);
+                        _showVoipStatus('Connection timeout — click to retry');
+                        setVoipBtnState('error');
+                        _voipInitializing = false;
+                    }
+                }, 15000);
 
             } catch(e) {
                 console.error('[VoIP] initVoIPDevice error:', e);
