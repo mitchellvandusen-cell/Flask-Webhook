@@ -92,6 +92,28 @@ def _twilio_hangup(call_sid: str, sub_account_sid: str) -> bool:
     return twilio_provisioning.hangup_call(sub_account_sid, call_sid)
 
 
+def _twilio_speak_and_hangup(call_sid: str, sub_account_sid: str, message: str) -> bool:
+    """
+    Inject a TwiML <Say> message into an active call, then hang up.
+    Used to leave a voicemail message after AMD detects the beep.
+    """
+    try:
+        client = twilio_provisioning.get_sub_account_client(sub_account_sid)
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+            f'<Say voice="alice">{message}</Say>'
+            '<Hangup/>'
+            '</Response>'
+        )
+        client.calls(call_sid).update(twiml=twiml)
+        logger.info(f"Voicemail TwiML injected for call {call_sid[:16]}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to inject voicemail TwiML for {call_sid[:16]}: {e}")
+        return False
+
+
 def _twilio_transfer(call_sid: str, sub_account_sid: str, transfer_to: str, webhook_base_url: str) -> bool:
     """Transfer a call via Twilio REST API (redirect to transfer TwiML)."""
     return twilio_provisioning.transfer_call(sub_account_sid, call_sid, transfer_to, webhook_base_url)
@@ -1246,24 +1268,56 @@ def transfer_twiml():
 def amd_status_callback():
     """
     Twilio async AMD callback. Called when machine detection finishes.
-    If machine → hang up (and redial if attempts remain).
-    If human → call continues with existing stream.
+    - machine_end_beep / machine_end_silence: beep passed → leave voicemail then hang up
+    - machine_start / fax: no recording opportunity → hang up immediately
+    - human / not_sure: call continues with existing stream
     """
     call_sid    = request.values.get('CallSid', '')
     answered_by = request.values.get('AnsweredBy', '')
 
     logger.info(f"AMD result: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by}")
 
-    machine_results = {'machine_start', 'machine_end_beep', 'machine_end_silence', 'machine_end_other', 'fax'}
-    if answered_by in machine_results:
-        # Machine detected — hang up
-        call_info = _active_calls.get(call_sid, {})
-        sub_sid_amd = call_info.get('_sub_sid', '')
-        if sub_sid_amd and call_sid:
+    call_info = _active_calls.get(call_sid, {})
+    sub_sid_amd = call_info.get('_sub_sid', '')
+
+    # Cases where we can leave a voicemail (beep has passed)
+    voicemail_opportunity = {'machine_end_beep', 'machine_end_silence', 'machine_end_other'}
+    # Cases where there's no recording opportunity
+    immediate_hangup = {'machine_start', 'fax'}
+
+    if answered_by in voicemail_opportunity and sub_sid_amd and call_sid:
+        # Build voicemail message
+        location_id  = call_info.get('_location_id', '')
+        contact_name = call_info.get('name', '')
+        subscriber   = _get_subscriber_by_location(location_id) if location_id else None
+        vc           = (subscriber or {}).get('voice_config') or {}
+        bot_name     = vc.get('voice_bot_name', '').strip() or (subscriber or {}).get('bot_first_name', 'your advisor')
+        vm_message   = vc.get('voicemail_message', '').strip()
+        if not vm_message:
+            name_part = contact_name if contact_name and contact_name.lower() not in ('there', '') else ''
+            if name_part:
+                vm_message = (f"Hey {name_part}, this is {bot_name}. I was just calling about your life insurance coverage. "
+                              f"Give me a call back when you get a chance. Talk soon.")
+            else:
+                vm_message = (f"Hey, this is {bot_name}. I was calling about your life insurance coverage. "
+                              f"Give me a call back when you get a chance. Talk soon.")
+
+        # Inject TwiML to speak the message then hang up
+        ok = _twilio_speak_and_hangup(call_sid, sub_sid_amd, vm_message)
+        if not ok:
             _twilio_hangup(call_sid, sub_sid_amd)
-            if call_sid in _active_calls:
-                _active_calls[call_sid]['status'] = 'no-answer'
-    # Human or not_sure — call continues with existing media stream
+
+        # Mark so /voice/status knows to use 'voicemail' instead of 'completed'
+        if call_sid in _active_calls:
+            _active_calls[call_sid]['_amd_voicemail'] = True
+
+    elif answered_by in immediate_hangup and sub_sid_amd and call_sid:
+        # machine_start or fax — no beep, no recording opportunity
+        _twilio_hangup(call_sid, sub_sid_amd)
+        if call_sid in _active_calls:
+            _active_calls[call_sid]['status'] = 'no-answer'
+
+    # human or not_sure — call continues with existing media stream
     return '', 204
 
 
@@ -1394,7 +1448,13 @@ def voice_status():
 
     # Track status in memory for dialer queue polling
     if call_sid in _active_calls:
-        _active_calls[call_sid]["status"] = call_status
+        # If AMD left a voicemail, use 'voicemail' instead of 'completed' so
+        # the frontend retry logic (retryStatuses) triggers the redial.
+        effective_status = call_status
+        if call_status == 'completed' and _active_calls[call_sid].get('_amd_voicemail'):
+            effective_status = 'voicemail'
+            logger.info(f"📞 AMD voicemail call {call_sid[:16]} — reporting as 'voicemail' for retry")
+        _active_calls[call_sid]["status"] = effective_status
         _active_calls[call_sid]["duration"] = int(duration or 0)
 
     # Persist to call_history DB
