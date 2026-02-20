@@ -128,6 +128,25 @@ def create_twiml_app(sub_account_sid: str, webhook_base_url: str) -> dict:
         raise
 
 
+def create_api_key(account_sid: str) -> dict:
+    """
+    Create an API Key on a specific account (master or sub-account).
+    Required for generating AccessTokens — the API key must belong to
+    the same account that will be used in the token.
+    """
+    client = get_sub_account_client(account_sid)
+    try:
+        key = client.new_keys.create(friendly_name="GrokBot VoIP Key")
+        logger.info(f"Created API Key: {key.sid} for account {account_sid}")
+        return {
+            "api_key_sid": key.sid,
+            "api_key_secret": key.secret,
+        }
+    except TwilioRestException as e:
+        logger.error(f"Failed to create API Key on {account_sid}: {e}")
+        raise
+
+
 # ──────────────────────────────────────────────────────────────
 # PHONE NUMBER MANAGEMENT
 # ──────────────────────────────────────────────────────────────
@@ -277,22 +296,29 @@ def update_phone_number_webhooks(sub_account_sid: str, number_sid: str,
 # ──────────────────────────────────────────────────────────────
 
 def generate_voice_token(identity: str, twiml_app_sid: str,
-                          sub_account_sid: str = "") -> str:
+                          sub_account_sid: str = "",
+                          api_key_sid: str = "",
+                          api_key_secret: str = "") -> str:
     """
     Generate a Twilio Access Token with Voice grant for browser calling.
-    Uses API Key auth (required for Access Tokens).
+    Uses per-subscriber API Key if provided, otherwise falls back to env vars.
+    The API key MUST belong to the same account as account_sid.
     """
-    if not TWILIO_API_KEY_SID or not TWILIO_API_KEY_SECRET:
-        raise ValueError("TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET must be set for browser calling")
+    # Use per-subscriber API key if available, otherwise fall back to env vars
+    key_sid = api_key_sid or TWILIO_API_KEY_SID
+    key_secret = api_key_secret or TWILIO_API_KEY_SECRET
+
+    if not key_sid or not key_secret:
+        raise ValueError("No API key available — set TWILIO_API_KEY_SID/SECRET or provision per-subscriber keys")
 
     account_sid = sub_account_sid or TWILIO_ACCOUNT_SID
 
-    logger.info(f"[generate_voice_token] account_sid={account_sid} api_key={TWILIO_API_KEY_SID} identity={identity} twiml_app={twiml_app_sid}")
+    logger.info(f"[generate_voice_token] account_sid={account_sid} api_key={key_sid} identity={identity} twiml_app={twiml_app_sid}")
 
     token = AccessToken(
         account_sid,
-        TWILIO_API_KEY_SID,
-        TWILIO_API_KEY_SECRET,
+        key_sid,
+        key_secret,
         identity=identity,
         ttl=3600,  # 1 hour
     )
@@ -545,6 +571,8 @@ def provision_master(webhook_base_url: str) -> dict:
         "twilio_sub_account_sid": master_sid,
         "twilio_auth_token": TWILIO_AUTH_TOKEN,
         "twilio_twiml_app_sid": twiml_app_sid,
+        "twilio_api_key_sid": TWILIO_API_KEY_SID,
+        "twilio_api_key_secret": TWILIO_API_KEY_SECRET,
         "twilio_phone_number": master_phone,
         "twilio_number_sid": number_sid,
     }
@@ -559,6 +587,7 @@ def provision_subscriber(subscriber_email: str, location_id: str,
     Provision a sub-user (customer):
     1. Create sub-account under master
     2. Create TwiML App
+    3. Create API Key on sub-account (for AccessToken generation)
 
     The user buys their own phone number afterwards via the Numbers tab.
     Returns all the IDs needed for voice_config.
@@ -573,10 +602,15 @@ def provision_subscriber(subscriber_email: str, location_id: str,
     twiml_app = create_twiml_app(sub_sid, webhook_base_url)
     twiml_app_sid = twiml_app["twiml_app_sid"]
 
+    # 3. Create API Key on the sub-account (required for valid AccessTokens)
+    api_key = create_api_key(sub_sid)
+
     result = {
         "twilio_sub_account_sid": sub_sid,
         "twilio_auth_token": sub_account["auth_token"],
         "twilio_twiml_app_sid": twiml_app_sid,
+        "twilio_api_key_sid": api_key["api_key_sid"],
+        "twilio_api_key_secret": api_key["api_key_secret"],
         "twilio_phone_number": "",
         "twilio_number_sid": "",
     }

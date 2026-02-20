@@ -2882,11 +2882,26 @@ def generate_voice_token():
         return jsonify({"error": "Browser calling not set up. Activate voice first."}), 400
 
     try:
+        # Auto-create per-sub-account API key if missing (for subscribers provisioned before this feature)
+        api_key_sid = vc.get('twilio_api_key_sid', '')
+        api_key_secret = vc.get('twilio_api_key_secret', '')
+        if not api_key_sid or not api_key_secret:
+            logger.info(f"[voice/token] No per-subscriber API key found for {sub_sid}, creating one...")
+            api_key_data = twilio_provisioning.create_api_key(sub_sid)
+            api_key_sid = api_key_data["api_key_sid"]
+            api_key_secret = api_key_data["api_key_secret"]
+            vc['twilio_api_key_sid'] = api_key_sid
+            vc['twilio_api_key_secret'] = api_key_secret
+            _save_voice_config(current_user.email, vc)
+            logger.info(f"[voice/token] Created and saved API key {api_key_sid} for {sub_sid}")
+
         identity = f"agent_{location_id}"
         token = twilio_provisioning.generate_voice_token(
             identity=identity,
             twiml_app_sid=twiml_app_sid,
             sub_account_sid=sub_sid,
+            api_key_sid=api_key_sid,
+            api_key_secret=api_key_secret,
         )
         logger.info(f"[voice/token] Token issued for {identity} (twiml_app={twiml_app_sid})")
         return jsonify({"token": token, "identity": identity})
