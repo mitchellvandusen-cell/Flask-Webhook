@@ -6,7 +6,7 @@ Everything is now **100% automated**. When an agency installs your app here's wh
 
 ---
 
-## 🔄 Automated Flow for Agency Owners
+## 🔄 Automated Flow for Agency Owners 
 
 ### 1. **Agency Connects via OAuth**
 ```
@@ -429,4 +429,5 @@ updated_at           TIMESTAMP DEFAULT NOW()
 - Just monitor logs for any errors
 
 **That's it! Your system is fully automated! 🚀**
+
 
