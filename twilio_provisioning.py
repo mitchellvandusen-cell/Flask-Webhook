@@ -266,6 +266,8 @@ def generate_voice_token(identity: str, twiml_app_sid: str,
 
     account_sid = sub_account_sid or TWILIO_ACCOUNT_SID
 
+    logger.info(f"[generate_voice_token] account_sid={account_sid} api_key={TWILIO_API_KEY_SID} identity={identity} twiml_app={twiml_app_sid}")
+
     token = AccessToken(
         account_sid,
         TWILIO_API_KEY_SID,
@@ -280,7 +282,11 @@ def generate_voice_token(identity: str, twiml_app_sid: str,
     )
     token.add_grant(voice_grant)
 
-    return token.to_jwt()
+    jwt_token = token.to_jwt()
+    # Some SDK versions return bytes — ensure we return a string
+    if isinstance(jwt_token, bytes):
+        jwt_token = jwt_token.decode('utf-8')
+    return jwt_token
 
 
 # ──────────────────────────────────────────────────────────────
