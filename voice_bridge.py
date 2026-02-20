@@ -2366,41 +2366,48 @@ def transcription_webhook():
 @login_required
 def stream_recording(recording_sid):
     """
-    Proxy a recording URL. For Twilio recordings, redirect to the Twilio
-    recording MP3 URL or look up the URL from the DB.
+    Proxy a Twilio recording as an MP3 download. Fetches with Twilio auth
+    so the browser never sees expiring pre-signed S3 URLs.
     """
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "No Twilio account configured"}), 400
 
-    # First try to find the recording URL in our DB
-    conn = get_db_connection()
-    recording_url = None
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT recording_url FROM call_history WHERE recording_sid = %s LIMIT 1",
-                (recording_sid,)
-            )
-            row = cur.fetchone()
-            cur.close()
-            if row and row[0] and row[0].startswith('http'):
-                recording_url = row[0]
-        except Exception:
-            pass
-        finally:
-            return_db_connection(conn)
+    # Build the authenticated Twilio recording URL
+    mp3_url = twilio_provisioning.get_recording_url(sub_sid, recording_sid)
 
-    if recording_url:
-        from flask import redirect
-        return redirect(recording_url)
+    try:
+        # Fetch with Twilio master credentials (streams the MP3 bytes through us)
+        tw_resp = http_requests.get(
+            mp3_url,
+            auth=(twilio_provisioning.TWILIO_ACCOUNT_SID,
+                  twilio_provisioning.TWILIO_AUTH_TOKEN),
+            stream=True,
+            timeout=30,
+        )
+        if tw_resp.status_code != 200:
+            logger.error(f"Twilio recording fetch failed: {tw_resp.status_code} for {recording_sid}")
+            return jsonify({"error": "Recording not available"}), tw_resp.status_code
 
-    # Fallback: construct Twilio recording URL
-    if sub_sid:
-        mp3_url = twilio_provisioning.get_recording_url(sub_sid, recording_sid)
-        from flask import redirect
-        return redirect(mp3_url)
+        # Stream the audio back to the browser
+        def generate():
+            for chunk in tw_resp.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
 
-    return jsonify({"error": "Recording not found"}), 404
+        headers = {}
+        # Only force download when ?dl=1 is passed (download button)
+        if request.args.get('dl'):
+            headers['Content-Disposition'] = f'attachment; filename="recording-{recording_sid}.mp3"'
+
+        return Response(
+            generate(),
+            content_type=tw_resp.headers.get('Content-Type', 'audio/mpeg'),
+            headers=headers,
+        )
+    except Exception as e:
+        logger.error(f"Failed to proxy recording {recording_sid}: {e}")
+        return jsonify({"error": "Failed to fetch recording"}), 500
 
 
 # ──────────────────────────────────────────────────────────────
