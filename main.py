@@ -3720,10 +3720,10 @@ def cancel():
 # ── AI Minutes Marketplace ─────────────────────────────────────────────
 
 AI_MINUTE_PACKAGES = [
-    {"minutes": 500,   "label": "Starter",      "env_key": "STRIPE_AI_MINUTES_500_PRICE_ID"},
-    {"minutes": 2000,  "label": "Growth",        "env_key": "STRIPE_AI_MINUTES_2000_PRICE_ID"},
-    {"minutes": 5000,  "label": "Professional",  "env_key": "STRIPE_AI_MINUTES_5000_PRICE_ID"},
-    {"minutes": 10000, "label": "Enterprise",    "env_key": "STRIPE_AI_MINUTES_10000_PRICE_ID"},
+    {"minutes": 500,   "label": "Starter",      "env_key": "500AI_PRICE_ID"},
+    {"minutes": 2000,  "label": "Growth",        "env_key": "2000AI_PRICE_ID"},
+    {"minutes": 5000,  "label": "Professional",  "env_key": "5000AI_PRICE_ID"},
+    {"minutes": 10000, "label": "Enterprise",    "env_key": "10000AI_PRICE_ID"},
 ]
 
 @app.route("/ai-minutes/balance")
