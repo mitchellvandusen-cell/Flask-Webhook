@@ -3999,14 +3999,14 @@
                     return;
                 }
 
-                // Step 3: Load Twilio Voice SDK 2.x (via jsDelivr CDN)
+                // Step 3: Load Twilio Voice SDK 2.x (self-hosted)
                 if (!window.Twilio || !window.Twilio.Device) {
                     _showVoipStatus('Loading Voice SDK…');
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://cdn.jsdelivr.net/npm/@twilio/voice-sdk/dist/twilio.min.js';
-                        s.onload = () => { console.log('[VoIP] Voice SDK 2.x loaded'); resolve(); };
-                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Voice SDK — check internet connection')); };
+                        s.src = '/static/js/twilio-voice-sdk-2.18.0.min.js';
+                        s.onload = () => { console.log('[VoIP] Voice SDK 2.18.0 loaded'); resolve(); };
+                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Voice SDK')); };
                         document.head.appendChild(s);
                     });
                 } else {
