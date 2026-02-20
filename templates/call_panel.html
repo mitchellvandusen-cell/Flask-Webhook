@@ -307,6 +307,7 @@
     let currentCallIndex = -1;
     let pollInterval = null;
     let searchTimeout = null;
+    const MAX_DIAL_ATTEMPTS = 3;
 
     // ═══════════════════════════════════════════════════════════
     // TAB SWITCHING
@@ -384,7 +385,7 @@
     async function dialContact(contactId) {
         const c = contacts.find(x => x.id === contactId);
         if (!c) return;
-        await startCall(c.phone, c.firstName || c.name, c.id, c.name);
+        await startCall(c.phone, c.firstName || c.name, c.id, c.name, 1);
     }
 
     async function dialManual() {
@@ -393,12 +394,13 @@
         // Clean up phone format
         phone = phone.replace(/[\s\-\(\)\.]/g, '');
         if (!phone.startsWith('+')) phone = '+1' + phone;
-        await startCall(phone, 'Manual Call', '', phone);
+        await startCall(phone, 'Manual Call', '', phone, 1);
     }
 
-    async function startCall(phone, firstName, contactId, displayName) {
-        // Show active call banner
-        showCallBanner(displayName || firstName, 'Initiating...');
+    async function startCall(phone, firstName, contactId, displayName, dialAttempt) {
+        // Show active call banner (include attempt count if retrying)
+        const attemptLabel = dialAttempt > 1 ? ` (attempt ${dialAttempt}/${MAX_DIAL_ATTEMPTS})` : '';
+        showCallBanner(displayName || firstName, 'Initiating...' + attemptLabel);
 
         try {
             const resp = await fetch('/voice/dial', {
@@ -407,7 +409,8 @@
                 body: JSON.stringify({
                     phone: phone,
                     first_name: firstName,
-                    contact_id: contactId
+                    contact_id: contactId,
+                    dial_attempt: dialAttempt || 1
                 })
             });
 
@@ -563,7 +566,8 @@
                     name: c.name,
                     firstName: c.firstName,
                     phone: c.phone,
-                    status: 'pending'
+                    status: 'pending',
+                    attempts: 0
                 });
             }
         }
@@ -587,7 +591,7 @@
 
         list.innerHTML = callQueue.map((q, i) => {
             const isActive = queueRunning && i === currentCallIndex;
-            const statusIcon = getStatusIcon(q.status);
+            const statusIcon = getStatusIcon(q.status, q.attempts || 0);
             return `
                 <div class="queue-item ${isActive ? 'active-call' : ''}">
                     <div class="queue-num">${i + 1}</div>
@@ -599,16 +603,17 @@
         }).join('');
     }
 
-    function getStatusIcon(status) {
+    function getStatusIcon(status, attempts) {
+        const attemptStr = attempts > 0 ? ` <span style="opacity:0.5;font-size:0.65rem;">${attempts}/${MAX_DIAL_ATTEMPTS}</span>` : '';
         const map = {
-            'pending': '<span style="color:#555;">Waiting</span>',
-            'initiated': '<i class="fa-solid fa-spinner fa-spin" style="color:var(--cyan);"></i>',
-            'ringing': '<span style="color:var(--cyan);">Ringing</span>',
+            'pending': '<span style="color:#555;">Waiting</span>' + attemptStr,
+            'initiated': '<i class="fa-solid fa-spinner fa-spin" style="color:var(--cyan);"></i>' + attemptStr,
+            'ringing': '<span style="color:var(--cyan);">Ringing</span>' + attemptStr,
             'in-progress': '<span style="color:var(--accent);">On Call</span>',
             'completed': '<i class="fa-solid fa-check" style="color:var(--accent);"></i>',
-            'no-answer': '<span style="color:var(--warning);">No Answer</span>',
-            'busy': '<span style="color:var(--warning);">Busy</span>',
-            'failed': '<i class="fa-solid fa-xmark" style="color:var(--danger);"></i>',
+            'no-answer': '<span style="color:var(--warning);">No Answer</span>' + attemptStr,
+            'busy': '<span style="color:var(--warning);">Busy</span>' + attemptStr,
+            'failed': '<i class="fa-solid fa-xmark" style="color:var(--danger);"></i>' + attemptStr,
         };
         return map[status] || status;
     }
@@ -664,7 +669,7 @@
         currentCallIndex = callQueue.findIndex(q => q.status === 'pending');
         if (currentCallIndex < 0) {
             // Reset all non-completed to pending for re-run
-            callQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; });
+            callQueue.forEach(q => { if (q.status !== 'completed') { q.status = 'pending'; q.attempts = 0; } });
             currentCallIndex = callQueue.findIndex(q => q.status === 'pending');
             if (currentCallIndex < 0) return;
         }
@@ -684,9 +689,10 @@
         }
 
         const item = callQueue[currentCallIndex];
+        item.attempts = (item.attempts || 0) + 1;
         item.status = 'initiated';
         renderQueue();
-        startCall(item.phone, item.firstName || item.name, item.id, item.name);
+        startCall(item.phone, item.firstName || item.name, item.id, item.name, item.attempts);
     }
 
     function advanceQueue(lastStatus) {
@@ -695,7 +701,19 @@
             return;
         }
 
-        // Find next pending contact
+        const RETRY_STATUSES = ['no-answer', 'busy', 'failed', 'canceled'];
+        const currentItem = (currentCallIndex >= 0 && currentCallIndex < callQueue.length)
+            ? callQueue[currentCallIndex] : null;
+
+        // If the lead didn't pick up and we haven't hit 3 attempts, redial the same lead
+        if (currentItem && RETRY_STATUSES.includes(lastStatus) && (currentItem.attempts || 0) < MAX_DIAL_ATTEMPTS) {
+            currentItem.status = 'pending';
+            renderQueue();
+            setTimeout(() => dialQueueItem(), 2000);
+            return;
+        }
+
+        // Lead answered (completed) or exhausted all 3 attempts — move to next
         currentCallIndex = callQueue.findIndex((q, i) => i > currentCallIndex && q.status === 'pending');
 
         if (currentCallIndex < 0) {

@@ -13,6 +13,113 @@
         </p>
     </div>
 
+    <!-- Agency Dashboard: green text overrides for readability on dark bg -->
+    <style>
+        /* ── Global text color override: all text green ── */
+        .container label,
+        .container p,
+        .container .text-secondary,
+        .container .text-muted,
+        .container .small.text-muted,
+        .container .card-body p,
+        .container .card-body label,
+        .container .card-body small,
+        .container .tech-readout,
+        .container .adv-setting-row label,
+        .container .adv-setting-row p,
+        .container code,
+        .container pre {
+            color: #00ff88 !important;
+        }
+        .container h1, .container h2, .container h3,
+        .container h4, .container h5, .container h6 {
+            color: #fff !important;
+        }
+        .container .card-header h4 {
+            color: #00ff88 !important;
+        }
+        /* Slider labels and range labels */
+        .container .adv-setting-row p,
+        .container input[type="range"] + div span {
+            color: #66ffaa !important;
+        }
+        /* Carrier chip names */
+        .container .carrier-chip .carrier-name {
+            color: #00ff88 !important;
+        }
+        .container .carrier-chip.selected .carrier-name {
+            color: #fff !important;
+        }
+        /* Accordion sub-account text */
+        .container .accordion-body label,
+        .container .accordion-body .tech-readout,
+        .container .accordion-body p {
+            color: #00ff88 !important;
+        }
+        /* Subtitle under title */
+        .container > .text-center .text-secondary {
+            color: #66ffaa !important;
+        }
+        /* API card text */
+        .container #apiKeyStatus strong,
+        .container #apiKeyStatus span,
+        .container #apiKeyDisplay {
+            color: #00ff88 !important;
+        }
+        /* Quick Start pre block */
+        .container pre {
+            color: #b8f0d0 !important;
+        }
+        /* Webhook secret */
+        .container #webhookSecretPreview {
+            color: #66ffaa !important;
+        }
+        /* After-hours time labels */
+        .container input[type="time"] {
+            color: #00ff88 !important;
+        }
+        /* Form placeholders */
+        .container textarea::placeholder,
+        .container input::placeholder {
+            color: rgba(0, 255, 136, 0.4) !important;
+        }
+
+        /* ── Main sections accordion ── */
+        .agency-sections-accordion .accordion-item {
+            background: transparent;
+            border: none;
+            margin-bottom: 1.5rem;
+        }
+        .agency-sections-accordion .accordion-button {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px !important;
+            color: #00ff88 !important;
+            font-weight: 700;
+            font-size: 1.15rem;
+            padding: 18px 24px;
+            box-shadow: none;
+        }
+        .agency-sections-accordion .accordion-button:not(.collapsed) {
+            background: rgba(0, 255, 136, 0.06);
+            border-color: rgba(0, 255, 136, 0.2);
+            border-radius: 12px 12px 0 0 !important;
+        }
+        .agency-sections-accordion .accordion-button::after {
+            filter: invert(1) brightness(2);
+        }
+        .agency-sections-accordion .accordion-button:not(.collapsed)::after {
+            filter: invert(59%) sepia(100%) saturate(500%) hue-rotate(100deg);
+        }
+        .agency-sections-accordion .accordion-collapse .accordion-body {
+            background: var(--card-glass, rgba(255, 255, 255, 0.03));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            padding: 24px;
+        }
+    </style>
+
     <!-- Persistent Alerts (DB-backed, survive page reloads) -->
     <style>
         .persistent-alert {
@@ -102,12 +209,18 @@
     </div>
     {% else %}
 
-    <!-- Owner's Agency Account Section (Profile and Config) -->
-    <div class="card glass-card mb-5">
-        <div class="card-header">
-            <h4>Your Agency Account</h4>
-        </div>
-        <div class="card-body">
+    <!-- ═══ Main Sections Accordion ═══ -->
+    <div class="accordion agency-sections-accordion" id="agencySectionsAccordion">
+
+    <!-- 1. Your Agency Account -->
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionAccount">
+                <i class="fa-solid fa-user-gear me-2"></i>Your Agency Account
+            </button>
+        </h2>
+        <div id="sectionAccount" class="accordion-collapse collapse show" data-bs-parent="#agencySectionsAccordion">
+        <div class="accordion-body">
             <!-- Config Form -->
             <form method="POST" id="agency-config-form">
                 {{ form.hidden_tag() }}
@@ -190,17 +303,21 @@
                 <button class="btn btn-secondary mt-2" onclick="saveProfile()">Save Profile</button>
             </div>
         </div>
+        </div>
     </div>
 
-    <!-- Contracted Carriers Section -->
-    <div class="card glass-card mb-5">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h4 style="margin:0;"><i class="fa-solid fa-building-columns me-2 text-accent"></i>Contracted Carriers</h4>
-            <span id="carrierCount" style="color: var(--accent, #00ff88); font-weight: 700; font-size: 0.9rem;">
-                {{ selected_carriers|length if selected_carriers else 0 }} selected
-            </span>
-        </div>
-        <div class="card-body">
+    <!-- 2. Contracted Carriers -->
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionCarriers">
+                <i class="fa-solid fa-building-columns me-2"></i>Contracted Carriers
+                <span id="carrierCount" class="ms-auto me-3" style="color: var(--accent, #00ff88); font-weight: 700; font-size: 0.85rem;">
+                    {{ selected_carriers|length if selected_carriers else 0 }} selected
+                </span>
+            </button>
+        </h2>
+        <div id="sectionCarriers" class="accordion-collapse collapse" data-bs-parent="#agencySectionsAccordion">
+        <div class="accordion-body">
             <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 20px;">
                 Select the carriers your agency is contracted with. GrokBot will <strong>only</strong> reference these carriers
                 when talking to your leads.
@@ -258,17 +375,19 @@
                 </button>
             </div>
         </div>
+        </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- ADVANCED SETTINGS SECTION -->
-    <!-- ============================================================ -->
-    <div class="card glass-card mb-5">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h4 style="margin:0;"><i class="fa-solid fa-wand-magic-sparkles me-2 text-accent"></i>Advanced Settings</h4>
-            <span id="settingsStatus" style="color: var(--accent, #00ff88); font-weight: 600; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s;"></span>
-        </div>
-        <div class="card-body">
+    <!-- 3. Advanced Settings -->
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionAdvanced">
+                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Advanced Settings
+                <span id="settingsStatus" class="ms-auto me-3" style="color: var(--accent, #00ff88); font-weight: 600; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s;"></span>
+            </button>
+        </h2>
+        <div id="sectionAdvanced" class="accordion-collapse collapse" data-bs-parent="#agencySectionsAccordion">
+        <div class="accordion-body">
             <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 24px;">
                 Fine-tune how your GrokBot behaves. Changes apply to all future conversations.
             </p>
@@ -417,14 +536,18 @@
                 <button type="button" id="saveAdvancedBtn" class="btn btn-success" onclick="saveAdvancedSettings()"><i class="fa-solid fa-floppy-disk me-1"></i> Save Settings</button>
             </div>
         </div>
+        </div>
     </div>
 
-    <!-- API Access Card -->
-    <div class="card glass-card mb-5">
-        <div class="card-header">
-            <h4 style="margin:0;"><i class="fa-solid fa-code me-2 text-accent"></i>API Access</h4>
-        </div>
-        <div class="card-body">
+    <!-- 4. API Access -->
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionApi">
+                <i class="fa-solid fa-code me-2"></i>API Access
+            </button>
+        </h2>
+        <div id="sectionApi" class="accordion-collapse collapse" data-bs-parent="#agencySectionsAccordion">
+        <div class="accordion-body">
             <p class="text-muted small mb-3">
                 Integrate any CRM, mobile app, or custom system using our OpenAI-compatible API.
                 Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
@@ -478,7 +601,10 @@
   }'</pre>
             </div>
         </div>
+        </div>
     </div>
+
+    </div><!-- /agencySectionsAccordion -->
 
     {% if sub_accounts %}
         <!-- Bulk Actions -->
