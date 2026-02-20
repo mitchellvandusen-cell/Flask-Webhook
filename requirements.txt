@@ -41,7 +41,8 @@ rq
 flask-sock
 websockets
 twilio
-soxr          # High-quality polyphase sinc resampler (replaces audioop.ratecv + scipy LP filter)
+soxr          # High-quality polyphase sinc resampler (replaces audioop.ratecv)
+scipy         # Butterworth low-pass filter for phone-line warmth EQ
 
 # Optional (only if you use outcome_learning / classify_vibe)
 scikit-learn

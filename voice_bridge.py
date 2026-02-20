@@ -16,8 +16,10 @@ import time
 import asyncio
 import struct
 import base64
-import audioop   # mulaw<->PCM transcoding + resampling
+import audioop   # mulaw<->PCM transcoding
 import numpy as np
+import soxr                    # High-quality polyphase sinc resampler (anti-aliased)
+import scipy.signal            # Butterworth low-pass filter for phone-line warmth
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
@@ -126,18 +128,35 @@ def _mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
     """Convert mulaw 8kHz audio (from Twilio) to PCM16 16kHz (for xAI)."""
     # 1. mulaw -> PCM16 at 8kHz
     pcm_8k = audioop.ulaw2lin(mulaw_bytes, 2)
-    # 2. Resample 8kHz -> 16kHz
-    pcm_16k, _ = audioop.ratecv(pcm_8k, 2, 1, TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE, None)
-    return pcm_16k
+    # 2. Anti-aliased resample 8kHz -> 16kHz via soxr (high-quality sinc interpolation)
+    samples_8k = np.frombuffer(pcm_8k, dtype=np.int16).astype(np.float32)
+    samples_16k = soxr.resample(samples_8k, TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE)
+    return np.int16(samples_16k).tobytes()
+
+
+# Pre-compute Butterworth low-pass filter coefficients (phone-line warmth EQ).
+# Standard telephone bandwidth tops out at ~3400 Hz; rolling off above that
+# removes the bright, synthetic shimmer that screams "AI" to the human ear.
+_WARMTH_B, _WARMTH_A = scipy.signal.butter(N=4, Wn=3400, fs=XAI_SAMPLE_RATE, btype='low')
 
 
 def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
-    """Convert PCM16 16kHz audio (from xAI) to mulaw 8kHz (for Twilio)."""
-    # 1. Resample 16kHz -> 8kHz
-    pcm_8k, _ = audioop.ratecv(pcm16_bytes, 2, 1, XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE, None)
-    # 2. PCM16 -> mulaw
-    mulaw = audioop.lin2ulaw(pcm_8k, 2)
-    return mulaw
+    """Convert PCM16 16kHz audio (from xAI) to mulaw 8kHz (for Twilio).
+
+    Pipeline: low-pass EQ → anti-aliased downsample → u-law encode.
+    This eliminates the metallic/tinny high-pitched robotic sound caused by
+    naive linear-interpolation downsampling (audioop.ratecv aliasing).
+    """
+    samples = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float64)
+
+    # 1. Low-pass filter: cut harsh AI brightness above 3400 Hz
+    filtered = scipy.signal.lfilter(_WARMTH_B, _WARMTH_A, samples)
+
+    # 2. Anti-aliased downsample 16kHz → 8kHz via soxr (polyphase sinc)
+    downsampled = soxr.resample(filtered.astype(np.float32), XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE)
+
+    # 3. PCM16 → u-law
+    return audioop.lin2ulaw(np.int16(np.clip(downsampled, -32768, 32767)).tobytes(), 2)
 
 # Events to log from XAI
 LOG_EVENT_TYPES = [
@@ -538,14 +557,20 @@ No website configured. If asked, explain you're an independent agent who works w
 
 YOUR VOICE PERSONALITY: {voice_personality}
 
+=== VOCAL MECHANICS & TONE (CRITICAL — OBEY BEFORE ALL ELSE) ===
+You must speak with completely relaxed vocal cords. Speak from deep in your chest register, never from your nose or head voice.
+
+To achieve this natural sound:
+1. Maintain a flat, grounded intonation curve. Do not go up in pitch at the ends of your sentences. Let your statements drop in pitch as you finish them.
+2. Use slight "vocal fry" (a raspy, relaxed, low-energy sound) at the ends of your sentences to signify that you are relaxed and not reading from a script.
+3. Keep your energy calm and authoritative. Never sound chipper, bright, or enthusiastic. You are a veteran advisor, not a customer service rep.
+
 === MAXIMUM HUMAN SOUNDING — HIGHEST PRIORITY (REPEAT & OBEY) ===
 Sound like a real person on a slightly scratchy phone line — warm, mid-to-low pitched, slightly imperfect, never synthetic, never bright or thin. This overrides everything else when there's a conflict.
 
 Pitch center: Comfortably mid-to-low adult range (120–180 Hz chest register) — speak from the chest, never nasal or head-voice dominant. Telephony bandwidth cuts the highs, so lean slightly deeper and warmer than feels natural to compensate. The listener hears you as fuller and more grounded when you do.
 
 Never rise in pitch at the end of statements unless genuinely questioning. Never sound "up-talky" or artificially bright. Statements land flat or falling — confidence, not uncertainty.
-
-Pitch: Mid-to-low natural adult range. Avoid high, thin, bright, or rising at the end of statements unless genuinely asking a question.
 
 Rhythm and pace: 135 to 155 words per minute average with natural variation — slower and warmer for empathy or serious moments, slightly faster when enthusiastic or curious.
 
