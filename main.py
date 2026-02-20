@@ -1773,13 +1773,13 @@ def get_voice_config():
 @app.route("/api/voice-config", methods=["POST"])
 @login_required
 def save_voice_config():
-    """Save voice AI configuration (Telnyx credentials, voice settings)."""
+    """Save voice AI configuration (voice settings, dialer preferences)."""
     data = request.get_json()
     if not data:
         return flask_jsonify({"error": "No data provided"}), 400
 
-    # Load existing voice_config to preserve fields set by other routes
-    # (e.g. telnyx_credential_id set by setup_voip, local_presence_numbers, etc.)
+    # Load existing voice_config to preserve auto-provisioned fields
+    # (e.g. twilio_sub_account_sid, twilio_phone_number, etc.)
     conn = get_db_connection()
     if not conn:
         return flask_jsonify({"error": "Database error"}), 500
@@ -1796,12 +1796,11 @@ def save_voice_config():
     finally:
         return_db_connection(conn)
 
-    # Start from existing config to preserve credential IDs and number pools
+    # Start from existing config to preserve provisioned IDs and number pools
     voice_config = dict(existing_vc)
-    # Update with form-submitted fields
+    # Update with form-submitted fields (user-facing settings only)
     voice_config.update({
         "enabled":               bool(data.get("enabled", False)),
-        "telnyx_api_key":        (data.get("telnyx_api_key") or "").strip(),
         "voice":                 (data.get("voice") or "ara").strip().lower(),
         "voice_bot_name":        (data.get("voice_bot_name") or "").strip(),
         "voice_instructions":    (data.get("voice_instructions") or "").strip(),
@@ -1813,13 +1812,8 @@ def save_voice_config():
         "local_presence":        bool(data.get("local_presence", False)),
         "transfer_number":       (data.get("transfer_number") or "").strip(),
     })
-    # Only overwrite telnyx_connection_id and telnyx_phone_number if explicitly
-    # provided in the request — these are set by auto-provisioning and must not
-    # be wiped when the user saves other voice settings.
-    if "telnyx_connection_id" in data and data["telnyx_connection_id"]:
-        voice_config["telnyx_connection_id"] = data["telnyx_connection_id"].strip()
-    if "telnyx_phone_number" in data and data["telnyx_phone_number"]:
-        voice_config["telnyx_phone_number"] = data["telnyx_phone_number"].strip()
+    # Twilio sub-account fields are set by auto-provisioning only — never
+    # overwritten by the user saving voice settings from the dashboard.
 
     conn = get_db_connection()
     if not conn:
