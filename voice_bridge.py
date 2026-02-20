@@ -2787,9 +2787,8 @@ def _save_voice_config(email, voice_config):
 @login_required
 def automate_voice_setup():
     """
-    One-click voice activation. Creates a Twilio sub-account, TwiML app,
-    and buys a phone number — all fully automated, white-label.
-    No API keys needed from the user.
+    One-click voice activation. Creates a Twilio sub-account and TwiML app.
+    The user buys their own phone number afterwards via the Numbers tab.
     """
     subscriber, vc, _ = _get_current_subscriber_voice()
     if not subscriber:
@@ -2808,9 +2807,6 @@ def automate_voice_setup():
         })
 
     try:
-        data = request.json or {}
-        area_code = data.get('area_code', '')
-
         # Only the platform owner (super_admin) uses the master Twilio account.
         # Everyone else — individual, agency_owner, any tier — gets a sub-account.
         if current_user.is_super_admin:
@@ -2822,7 +2818,6 @@ def automate_voice_setup():
                 subscriber_email=current_user.email,
                 location_id=location_id,
                 webhook_base_url=webhook_base_url,
-                area_code=area_code,
             )
 
         # Save all provisioned IDs to voice_config
@@ -2830,12 +2825,18 @@ def automate_voice_setup():
         vc['enabled'] = True
         _save_voice_config(current_user.email, vc)
 
-        logger.info(f"Voice activated for {current_user.email}: sub={result.get('twilio_sub_account_sid')} phone={result.get('twilio_phone_number')}")
+        logger.info(f"Voice activated for {current_user.email}: sub={result.get('twilio_sub_account_sid')}")
+
+        phone = result.get('twilio_phone_number', '')
+        if phone:
+            msg = "Voice service activated!"
+        else:
+            msg = "Voice account created! Now buy a phone number in the Numbers tab."
 
         return jsonify({
             "status": "success",
-            "message": "Voice service activated!",
-            "twilio_phone_number": result.get('twilio_phone_number', ''),
+            "message": msg,
+            "twilio_phone_number": phone,
         })
 
     except Exception as e:
@@ -2960,12 +2961,18 @@ def search_available_numbers():
 
     area_code = request.args.get('area_code', '')
     state = request.args.get('state', '')
+    city = request.args.get('city', '')
+    zip_code = request.args.get('zip_code', '')
     contains = request.args.get('contains', '')
+    number_type = request.args.get('number_type', 'local')
 
     try:
         numbers = twilio_provisioning.search_available_numbers(
+            number_type=number_type,
             area_code=area_code,
             state=state,
+            city=city,
+            zip_code=zip_code,
             contains=contains,
         )
         return jsonify({"numbers": numbers, "total": len(numbers)})

@@ -133,26 +133,48 @@ def create_twiml_app(sub_account_sid: str, webhook_base_url: str) -> dict:
 # PHONE NUMBER MANAGEMENT
 # ──────────────────────────────────────────────────────────────
 
-def search_available_numbers(area_code: str = "", state: str = "",
-                              contains: str = "", limit: int = 20) -> list:
-    """Search for available US local phone numbers to purchase."""
+def search_available_numbers(number_type: str = "local", area_code: str = "",
+                              state: str = "", city: str = "",
+                              zip_code: str = "", contains: str = "",
+                              sms_enabled: bool = True,
+                              country: str = "US",
+                              limit: int = 20) -> list:
+    """
+    Search for available phone numbers to purchase.
+    Mirrors Twilio's search filters: type (local/toll_free/mobile),
+    area code, state, city, zip, contains pattern.
+    """
     client = get_master_client()
     try:
-        kwargs = {"limit": limit, "voice_enabled": True, "sms_enabled": True}
+        kwargs = {"limit": limit, "voice_enabled": True}
+        if sms_enabled:
+            kwargs["sms_enabled"] = True
         if area_code:
             kwargs["area_code"] = area_code
         if state:
             kwargs["in_region"] = state
+        if city:
+            kwargs["in_locality"] = city
+        if zip_code:
+            kwargs["in_postal_code"] = zip_code
         if contains:
             kwargs["contains"] = contains
 
-        numbers = client.available_phone_numbers("US").local.list(**kwargs)
+        available = client.available_phone_numbers(country)
+        if number_type == "toll_free":
+            numbers = available.toll_free.list(**kwargs)
+        elif number_type == "mobile":
+            numbers = available.mobile.list(**kwargs)
+        else:
+            numbers = available.local.list(**kwargs)
+
         return [
             {
                 "phone": n.phone_number,
                 "friendly_name": n.friendly_name,
                 "locality": n.locality or "",
                 "region": n.region or "",
+                "postal_code": getattr(n, "postal_code", "") or "",
                 "capabilities": {
                     "voice": n.capabilities.get("voice", False),
                     "sms": n.capabilities.get("SMS", False),
@@ -533,15 +555,13 @@ def provision_master(webhook_base_url: str) -> dict:
 
 
 def provision_subscriber(subscriber_email: str, location_id: str,
-                          webhook_base_url: str,
-                          area_code: str = "") -> dict:
+                          webhook_base_url: str) -> dict:
     """
-    Full provisioning for a sub-user (customer):
+    Provision a sub-user (customer):
     1. Create sub-account under master
     2. Create TwiML App
-    3. Buy a phone number
-    4. Configure everything
 
+    The user buys their own phone number afterwards via the Numbers tab.
     Returns all the IDs needed for voice_config.
     """
     friendly_name = f"GrokBot_{location_id[:30]}_{subscriber_email[:20]}"
@@ -554,30 +574,13 @@ def provision_subscriber(subscriber_email: str, location_id: str,
     twiml_app = create_twiml_app(sub_sid, webhook_base_url)
     twiml_app_sid = twiml_app["twiml_app_sid"]
 
-    # 3. Buy a phone number
-    available = search_available_numbers(area_code=area_code, limit=1)
-    phone_number = ""
-    number_sid = ""
-    if available:
-        try:
-            purchased = buy_phone_number(
-                sub_sid,
-                available[0]["phone"],
-                webhook_base_url,
-                twiml_app_sid,
-            )
-            phone_number = purchased["phone"]
-            number_sid = purchased["sid"]
-        except Exception as e:
-            logger.error(f"Auto-buy number failed: {e}")
-
     result = {
         "twilio_sub_account_sid": sub_sid,
         "twilio_auth_token": sub_account["auth_token"],
         "twilio_twiml_app_sid": twiml_app_sid,
-        "twilio_phone_number": phone_number,
-        "twilio_number_sid": number_sid,
+        "twilio_phone_number": "",
+        "twilio_number_sid": "",
     }
 
-    logger.info(f"Subscriber provisioned: {subscriber_email} -> sub_account={sub_sid} phone={phone_number}")
+    logger.info(f"Subscriber provisioned: {subscriber_email} -> sub_account={sub_sid} (no number — user buys their own)")
     return result
