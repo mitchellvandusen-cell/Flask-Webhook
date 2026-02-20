@@ -144,7 +144,7 @@ app.register_blueprint(api_bp)
 
 # === REGISTER VOICE BRIDGE BLUEPRINT + WEBSOCKET ===
 from flask_sock import Sock
-from voice_bridge import voice_bp, run_voice_stream
+from voice_bridge import voice_bp, run_voice_stream, run_listen_stream
 app.register_blueprint(voice_bp)
 sock = Sock(app)
 
@@ -152,6 +152,11 @@ sock = Sock(app)
 def ws_voice_stream(ws):
     """WebSocket endpoint for Twilio Media Streams <-> XAI Voice bridge."""
     run_voice_stream(ws)
+
+@sock.route('/voice/listen-stream')
+def ws_listen_stream(ws):
+    """WebSocket endpoint for live listen (speaker mode)."""
+    run_listen_stream(ws)
 
 # == SECRET SESSION ==
 app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")

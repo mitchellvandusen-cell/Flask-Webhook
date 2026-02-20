@@ -37,6 +37,11 @@ _active_calls = {}
 # { call_sid: {"type": "transfer"|"takeover", "target": "+1...", "reason": "..."} }
 _transfer_requests = {}
 
+# Live listen: maps call_sid → set of queue.Queue objects (one per listener)
+# Audio chunks (mulaw base64 strings) are put into each queue by the voice stream
+import queue as _queue_module
+_call_listeners: dict = {}  # { call_sid: set(queue.Queue, ...) }
+
 # Simple in-memory cache for GHL custom field definitions: { location_id: {field_id: field_name} }
 # Populated on first contact detail fetch per location; GHL field definitions rarely change.
 _custom_field_defs: dict = {}
@@ -1189,6 +1194,29 @@ def outbound_twiml():
     return Response(twiml, content_type='text/xml')
 
 
+@voice_bp.route('/voice/intercept-twiml', methods=['POST'])
+def intercept_twiml():
+    """TwiML endpoint for agent VoIP intercept. Dials the browser client."""
+    identity = request.values.get('identity', '')
+    call_sid = request.values.get('CallSid', '')
+
+    logger.info(f"Intercept TwiML: CallSid={call_sid[:16] if call_sid else 'none'} -> client:{identity}")
+
+    if not identity:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Intercept failed.</Say></Response>',
+            content_type='text/xml'
+        )
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        f'<Dial><Client>{identity}</Client></Dial>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
 @voice_bp.route('/voice/transfer-twiml', methods=['POST'])
 def transfer_twiml():
     """TwiML endpoint for call transfers. Twilio fetches this when we redirect a call."""
@@ -1659,6 +1687,15 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                         data = json.loads(message)
 
                         if data['event'] == 'media':
+                            # Forward to live listeners (lead audio)
+                            if call_sid in _call_listeners:
+                                payload = data['media']['payload']
+                                for lq in list(_call_listeners.get(call_sid, set())):
+                                    try:
+                                        lq.put_nowait(payload)
+                                    except Exception:
+                                        pass
+
                             # Transcode mulaw 8kHz → PCM16 16kHz for xAI
                             mulaw_bytes = base64.b64decode(data['media']['payload'])
                             pcm16_bytes = _mulaw_to_pcm16(mulaw_bytes)
@@ -1688,6 +1725,15 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                     pcm16_bytes = base64.b64decode(raw_b64)
                     mulaw_bytes = _pcm16_to_mulaw(pcm16_bytes)
                     mulaw_b64 = base64.b64encode(mulaw_bytes).decode('ascii')
+
+                    # Forward AI audio to live listeners
+                    if call_sid in _call_listeners:
+                        for lq in list(_call_listeners.get(call_sid, set())):
+                            try:
+                                lq.put_nowait(mulaw_b64)
+                            except Exception:
+                                pass
+
                     ws.send(json.dumps({
                         "event":     "media",
                         "streamSid": stream_sid,
@@ -1908,6 +1954,70 @@ def run_voice_stream(ws):
     finally:
         loop.close()
 
+
+def run_listen_stream(ws):
+    """
+    WebSocket handler for live listen (speaker mode).
+    Receives call_sid from the client, subscribes to audio,
+    and forwards mulaw audio chunks to the browser for playback.
+    """
+    listener_queue = _queue_module.Queue(maxsize=500)
+    call_sid = None
+
+    try:
+        # First message from browser: { "call_sid": "CAxxxxxx" }
+        init_msg = ws.receive()
+        if not init_msg:
+            return
+        init_data = json.loads(init_msg)
+        call_sid = init_data.get('call_sid', '')
+
+        if not call_sid:
+            ws.send(json.dumps({"error": "call_sid required"}))
+            return
+
+        if call_sid not in _active_calls:
+            ws.send(json.dumps({"error": "Call not found or already ended"}))
+            return
+
+        # Register this listener
+        if call_sid not in _call_listeners:
+            _call_listeners[call_sid] = set()
+        _call_listeners[call_sid].add(listener_queue)
+        logger.info(f"Live listen started for call {call_sid[:16]}")
+
+        ws.send(json.dumps({"status": "listening", "call_sid": call_sid}))
+
+        # Forward audio chunks to browser
+        while True:
+            try:
+                # Block for up to 2 seconds waiting for audio
+                chunk = listener_queue.get(timeout=2)
+                # Send as JSON with mulaw base64 payload
+                ws.send(json.dumps({"audio": chunk}))
+            except _queue_module.Empty:
+                # Check if call is still active
+                if call_sid not in _active_calls or \
+                        _active_calls.get(call_sid, {}).get('status') in ('completed', 'failed', 'canceled'):
+                    ws.send(json.dumps({"status": "call_ended"}))
+                    break
+                # Send keepalive
+                try:
+                    ws.send(json.dumps({"keepalive": True}))
+                except Exception:
+                    break
+            except Exception:
+                break
+
+    except Exception as e:
+        logger.debug(f"Listen stream ended: {e}")
+    finally:
+        # Unregister listener
+        if call_sid and call_sid in _call_listeners:
+            _call_listeners[call_sid].discard(listener_queue)
+            if not _call_listeners[call_sid]:
+                del _call_listeners[call_sid]
+        logger.info(f"Live listen ended for call {call_sid[:16] if call_sid else 'none'}")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2475,33 +2585,31 @@ def voice_ping():
 def voice_takeover():
     """
     Let a human agent take over an active AI call.
-    Transfers the live call to the agent's phone number via Twilio REST API.
+    Supports two modes:
+    1. VoIP (browser): Redirects call to <Dial><Client>agent_{location_id}</Client></Dial>
+    2. Phone: Transfers to the agent's phone number via <Dial>{number}</Dial>
     """
     data = request.json or {}
     call_sid = data.get('call_sid', '')
+    use_voip = data.get('use_voip', False)
     if not call_sid:
         return jsonify({"error": "call_sid required"}), 400
 
-    # Look up subscriber voice config for transfer number
+    # Look up subscriber info
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
-        voice_cfg = (row['voice_config'] if row else None) or {}
+        if not row:
+            return jsonify({"error": "Account not found"}), 404
+        voice_cfg = row.get('voice_config') or {}
+        location_id = row.get('location_id', '')
     finally:
         return_db_connection(conn)
-
-    target = data.get('target') or voice_cfg.get('transfer_number', '')
-    if not target:
-        return jsonify({"error": "No transfer number configured. Set a Transfer Number in Voice Settings first."}), 400
-
-    # Normalize target
-    if not target.startswith('+'):
-        target = '+1' + target.lstrip('1') if len(target.replace('-','').replace(' ','')) <= 10 else '+' + target
 
     sub_sid = voice_cfg.get('twilio_sub_account_sid', '')
     if not sub_sid:
@@ -2515,26 +2623,64 @@ def voice_takeover():
     if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
         return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
 
-    logger.info(f"Takeover: executing transfer for call {call_sid} -> {target}")
-
-    # Signal the WebSocket bridge to stop the AI audio loop
-    _transfer_requests[call_sid] = {
-        'type': 'takeover',
-        'target': target,
-        'reason': 'Agent initiated live takeover',
-    }
-
-    # Transfer the live call — Twilio automatically stops the media stream
     host = request.host
-    transfer_ok = _twilio_transfer(call_sid, sub_sid, target, f"https://{host}")
-    if transfer_ok:
-        logger.info(f"Takeover: call {call_sid} transferred to {target}")
-        _active_calls[call_sid]['status'] = 'transferred'
-        return jsonify({"status": "transferred", "call_sid": call_sid, "target": target})
+
+    if use_voip and location_id:
+        # VoIP intercept: redirect call to browser client
+        identity = f"agent_{location_id}"
+        target = f"client:{identity}"
+        logger.info(f"Takeover (VoIP): redirecting call {call_sid} to browser client={identity}")
+
+        # Signal the WebSocket bridge to stop the AI audio loop
+        _transfer_requests[call_sid] = {
+            'type': 'takeover',
+            'target': target,
+            'reason': 'Agent initiated VoIP intercept',
+        }
+
+        # Redirect the call to TwiML that dials the browser client
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            client.calls(call_sid).update(
+                url=f"https://{host}/voice/intercept-twiml?identity={identity}",
+                method="POST",
+            )
+            _active_calls[call_sid]['status'] = 'transferred'
+            logger.info(f"Takeover (VoIP): call {call_sid} redirected to {identity}")
+            return jsonify({"status": "transferred", "call_sid": call_sid, "target": "Browser (VoIP)"})
+        except Exception as e:
+            logger.error(f"Takeover (VoIP): redirect FAILED for call {call_sid}: {e}")
+            _transfer_requests.pop(call_sid, None)
+            return jsonify({"error": f"Intercept failed: {e}"}), 400
     else:
-        logger.error(f"Takeover: transfer FAILED for call {call_sid} -> {target}")
-        _transfer_requests.pop(call_sid, None)
-        return jsonify({"error": "Transfer failed — the call may have ended. Check that your Transfer Number is in +1XXXXXXXXXX format."}), 400
+        # Phone intercept: transfer to agent's phone number
+        target = data.get('target') or voice_cfg.get('transfer_number', '')
+        if not target:
+            return jsonify({"error": "No transfer number configured and VoIP not available. Set a Transfer Number in Voice Settings or enable VoIP."}), 400
+
+        # Normalize target
+        if not target.startswith('+'):
+            target = '+1' + target.lstrip('1') if len(target.replace('-','').replace(' ','')) <= 10 else '+' + target
+
+        logger.info(f"Takeover (phone): executing transfer for call {call_sid} -> {target}")
+
+        # Signal the WebSocket bridge to stop the AI audio loop
+        _transfer_requests[call_sid] = {
+            'type': 'takeover',
+            'target': target,
+            'reason': 'Agent initiated live takeover',
+        }
+
+        # Transfer the live call — Twilio automatically stops the media stream
+        transfer_ok = _twilio_transfer(call_sid, sub_sid, target, f"https://{host}")
+        if transfer_ok:
+            logger.info(f"Takeover (phone): call {call_sid} transferred to {target}")
+            _active_calls[call_sid]['status'] = 'transferred'
+            return jsonify({"status": "transferred", "call_sid": call_sid, "target": target})
+        else:
+            logger.error(f"Takeover (phone): transfer FAILED for call {call_sid} -> {target}")
+            _transfer_requests.pop(call_sid, None)
+            return jsonify({"error": "Transfer failed — the call may have ended."}), 400
 
 
 # ──────────────────────────────────────────────────────────────
