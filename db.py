@@ -1271,22 +1271,35 @@ def update_subscriber_token(
     location_id: str,
     access_token: str,
     refresh_token: Optional[str] = None,
-    expires_in: int = 86400
+    expires_in: int = 86400,
+    oauth_app_type: Optional[str] = None
 ) -> bool:
-    """Update OAuth tokens with expiry."""
+    """Update OAuth tokens with expiry. Optionally fix oauth_app_type if credential
+    auto-detection found the stored type was wrong."""
     conn = get_db_connection()
     if not conn:
         return False
     try:
         cur = conn.cursor()
-        cur.execute("""
-            UPDATE subscribers
-            SET access_token = %s,
-                refresh_token = COALESCE(%s, refresh_token),
-                token_expires_at = NOW() + interval '%s seconds',
-                updated_at = NOW()
-            WHERE location_id = %s
-        """, (access_token, refresh_token, expires_in, location_id))
+        if oauth_app_type:
+            cur.execute("""
+                UPDATE subscribers
+                SET access_token = %s,
+                    refresh_token = COALESCE(%s, refresh_token),
+                    token_expires_at = NOW() + interval '%s seconds',
+                    oauth_app_type = %s,
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
+        else:
+            cur.execute("""
+                UPDATE subscribers
+                SET access_token = %s,
+                    refresh_token = COALESCE(%s, refresh_token),
+                    token_expires_at = NOW() + interval '%s seconds',
+                    updated_at = NOW()
+                WHERE location_id = %s
+            """, (access_token, refresh_token, expires_in, location_id))
         conn.commit()
         return cur.rowcount > 0
     except psycopg2.Error as e:

@@ -2406,6 +2406,56 @@ def revert_impersonation():
     return redirect(url_for('dashboard'))
 
 
+@app.route("/admin/god-mode/logs/<path:location_id>")
+@login_required
+@super_admin_required
+def god_mode_logs(location_id):
+    """God Mode: view webhook logs for any location."""
+    from db import get_webhook_logs
+    limit = min(int(request.args.get("limit", 100)), 500)
+    offset = int(request.args.get("offset", 0))
+    event_type = request.args.get("event_type", "").strip() or None
+    status_filter = request.args.get("status", "").strip() or None
+
+    logs = get_webhook_logs(location_id, limit=limit, offset=offset,
+                            event_type=event_type, status=status_filter)
+    for log in logs:
+        if log.get("created_at"):
+            log["created_at"] = log["created_at"].isoformat() + "Z"
+
+    return safe_jsonify({"logs": logs, "total": len(logs), "location_id": location_id})
+
+
+@app.route("/admin/god-mode/subscriber/<path:location_id>")
+@login_required
+@super_admin_required
+def god_mode_subscriber_detail(location_id):
+    """God Mode: view full subscriber details including oauth_app_type, token status."""
+    conn = get_db_connection()
+    if not conn:
+        return safe_jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT location_id, email, full_name, role, subscription_tier,
+                   stripe_status, oauth_app_type, access_token IS NOT NULL AS has_access_token,
+                   refresh_token IS NOT NULL AS has_refresh_token, token_expires_at,
+                   onboarding_status, created_at, updated_at
+            FROM subscribers WHERE location_id = %s
+        """, (location_id,))
+        row = cur.fetchone()
+        if not row:
+            return safe_jsonify({"error": "Subscriber not found"}), 404
+        data = dict(row)
+        for k in ('token_expires_at', 'created_at', 'updated_at'):
+            if data.get(k):
+                data[k] = data[k].isoformat() + "Z"
+        return safe_jsonify(data)
+    finally:
+        cur.close()
+        return_db_connection(conn)
+
+
 @app.route("/api/cron/send-reminders", methods=["GET", "POST"])
 def api_send_reminders():
     """
@@ -4389,21 +4439,47 @@ def oauth_callback():
         # --- VALIDATE ENV VARS ---
         # Pick credentials based on how the OAuth flow was initiated:
         #   state="private_app" → use private app credentials
-        #   anything else       → use public marketplace credentials
+        #   state="website_user" → use credentials based on USE_PRIVATE_APP env
+        #   state=None           → GHL marketplace/app install link — auto-detect
         #
-        # CRITICAL FIX: Private app install links from GHL never include a
-        # state parameter (state=None).  When USE_PRIVATE_APP is set, always
-        # use private app credentials regardless of state, because the only
-        # app installed is the private app — marketplace creds don't apply.
+        # DUAL-APP SUPPORT: When both public (marketplace) and private apps exist,
+        # GHL install links never include state. We try the primary credential set
+        # first, then fall back to the other if the exchange fails. This correctly
+        # handles customers who installed either app.
         use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
-        is_private_app = (state == "private_app") or (use_private_env and state is None)
-        if is_private_app:
-            client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
-            client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+
+        # Build both credential sets for auto-detection when state=None
+        marketplace_client_id = os.getenv("GHL_CLIENT_ID")
+        marketplace_client_secret = os.getenv("GHL_CLIENT_SECRET")
+        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+        has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
+        has_private_creds = bool(private_client_id and private_client_secret)
+
+        if state == "private_app":
+            # Explicit private app OAuth initiate flow
+            is_private_app = True
+            client_id = private_client_id
+            client_secret = private_client_secret
             cred_label = "PRIVATE_APP"
+        elif state is None and has_marketplace_creds and has_private_creds:
+            # DUAL-APP MODE: Both apps configured — we'll auto-detect during token exchange
+            # Start with marketplace (public) credentials as primary attempt
+            is_private_app = False
+            client_id = marketplace_client_id
+            client_secret = marketplace_client_secret
+            cred_label = "AUTO-DETECT (trying marketplace first)"
+        elif state is None and use_private_env:
+            # Only private app configured
+            is_private_app = True
+            client_id = private_client_id
+            client_secret = private_client_secret
+            cred_label = "PRIVATE_APP (only app)"
         else:
-            client_id = os.getenv("GHL_CLIENT_ID")
-            client_secret = os.getenv("GHL_CLIENT_SECRET")
+            # Default: marketplace credentials
+            is_private_app = False
+            client_id = marketplace_client_id
+            client_secret = marketplace_client_secret
             cred_label = "GHL (marketplace)"
         domain = os.getenv("YOUR_DOMAIN")
 
@@ -4419,43 +4495,61 @@ def oauth_callback():
         # TRY BOTH user_types: "Location" first, then "Company" for agency-level installs.
         # GHL marketplace installs can be at Location OR Company level depending on
         # how the user installed the app. If Location fails with 400, try Company.
+        #
+        # DUAL-APP: If both credential sets exist and state=None, also try the other
+        # app's credentials if the first set fails (auto-detect which app was installed).
         token_url = "https://services.leadconnectorhq.com/oauth/token"
-        base_payload = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": f"{domain}/oauth/callback"
-        }
+
+        # Build list of credential sets to try (primary first, fallback second)
+        cred_sets = [{"client_id": client_id, "client_secret": client_secret,
+                      "label": cred_label, "is_private": is_private_app}]
+        if state is None and has_marketplace_creds and has_private_creds:
+            # Add fallback credential set (the one we didn't try first)
+            cred_sets.append({"client_id": private_client_id, "client_secret": private_client_secret,
+                              "label": "PRIVATE_APP (fallback)", "is_private": True})
 
         token_data = None
         token_user_type_used = None
-        for user_type in ["Location", "Company"]:
-            payload = {**base_payload, "user_type": user_type}
-            logger.info(f"Token exchange attempt with user_type={user_type}")
+        for cred_set in cred_sets:
+            base_payload = {
+                "client_id": cred_set["client_id"],
+                "client_secret": cred_set["client_secret"],
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": f"{domain}/oauth/callback"
+            }
 
-            token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
-                                                   timeout=15, label=f"Token exchange ({user_type})")
+            for user_type in ["Location", "Company"]:
+                payload = {**base_payload, "user_type": user_type}
+                logger.info(f"Token exchange attempt with user_type={user_type}, creds={cred_set['label']}")
 
-            if token_resp is None:
-                logger.warning(f"Token exchange ({user_type}) unreachable: {token_err}")
-                continue
+                token_resp, token_err = _ghl_api_call('POST', token_url, data=payload,
+                                                       timeout=15, label=f"Token exchange ({user_type}, {cred_set['label']})")
 
-            if token_resp.ok:
-                try:
-                    token_data = token_resp.json()
-                    token_user_type_used = user_type
-                    logger.info(f"Token exchange SUCCESS with user_type={user_type}")
-                    break
-                except ValueError:
-                    logger.error(f"Token exchange ({user_type}) returned non-JSON: {token_resp.text[:500]}")
+                if token_resp is None:
+                    logger.warning(f"Token exchange ({user_type}, {cred_set['label']}) unreachable: {token_err}")
                     continue
-            elif token_resp.status_code == 400:
-                logger.warning(f"Token exchange ({user_type}) got 400: {token_resp.text[:300]} — trying next user_type")
+
+                if token_resp.ok:
+                    try:
+                        token_data = token_resp.json()
+                        token_user_type_used = user_type
+                        is_private_app = cred_set["is_private"]
+                        cred_label = cred_set["label"]
+                        logger.info(f"Token exchange SUCCESS with user_type={user_type}, creds={cred_set['label']}")
+                        break
+                    except ValueError:
+                        logger.error(f"Token exchange ({user_type}, {cred_set['label']}) returned non-JSON: {token_resp.text[:500]}")
+                        continue
+                elif token_resp.status_code == 400:
+                    logger.warning(f"Token exchange ({user_type}, {cred_set['label']}) got 400: {token_resp.text[:300]} — trying next")
+                    continue
+                else:
+                    logger.error(f"Token exchange ({user_type}, {cred_set['label']}) rejected: {token_resp.status_code} {token_resp.text[:500]}")
                 continue
-            else:
-                logger.error(f"Token exchange ({user_type}) rejected: {token_resp.status_code} {token_resp.text[:500]}")
-                continue
+
+            if token_data:
+                break  # Found working credentials, stop trying other credential sets
 
         if not token_data:
             err_msg = f"Token exchange failed for all user_types (Location, Company)"
