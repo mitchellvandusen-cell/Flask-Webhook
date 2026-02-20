@@ -478,15 +478,60 @@ def get_spam_protection_status(sub_account_sid: str) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────
-# FULL PROVISIONING: One-shot setup for new subscriber
+# FULL PROVISIONING
 # ──────────────────────────────────────────────────────────────
+
+def provision_master(webhook_base_url: str) -> dict:
+    """
+    Provision the agency owner (master account holder).
+    No sub-account needed — uses the master Twilio account directly.
+    Creates a TwiML app and uses the existing master phone number.
+    """
+    master_sid = TWILIO_ACCOUNT_SID
+    master_phone = TWILIO_PHONE_NUMBER
+
+    # 1. Create TwiML App on master account
+    twiml_app = create_twiml_app(master_sid, webhook_base_url)
+    twiml_app_sid = twiml_app["twiml_app_sid"]
+
+    # 2. If master phone number exists, configure its webhooks
+    number_sid = ""
+    if master_phone:
+        client = get_master_client()
+        try:
+            numbers = client.incoming_phone_numbers.list(phone_number=master_phone)
+            if numbers:
+                num = numbers[0]
+                num.update(
+                    voice_url=f"{webhook_base_url}/voice/inbound",
+                    voice_method="POST",
+                    voice_application_sid=twiml_app_sid,
+                    status_callback=f"{webhook_base_url}/voice/status",
+                    status_callback_method="POST",
+                )
+                number_sid = num.sid
+                logger.info(f"Configured master number {master_phone} with TwiML app {twiml_app_sid}")
+        except TwilioRestException as e:
+            logger.error(f"Failed to configure master number: {e}")
+
+    result = {
+        "twilio_sub_account_sid": master_sid,
+        "twilio_auth_token": TWILIO_AUTH_TOKEN,
+        "twilio_twiml_app_sid": twiml_app_sid,
+        "twilio_phone_number": master_phone,
+        "twilio_number_sid": number_sid,
+    }
+
+    logger.info(f"Master account provisioned: sid={master_sid} phone={master_phone}")
+    return result
+
 
 def provision_subscriber(subscriber_email: str, location_id: str,
                           webhook_base_url: str,
                           area_code: str = "") -> dict:
     """
-    Full provisioning for a new subscriber:
-    1. Create sub-account
+    Full provisioning for a sub-user (customer):
+    1. Create sub-account under master
     2. Create TwiML App
     3. Buy a phone number
     4. Configure everything

@@ -2778,16 +2778,22 @@ def automate_voice_setup():
         })
 
     try:
-        # Use twilio_provisioning module to do everything in one shot
         data = request.json or {}
         area_code = data.get('area_code', '')
 
-        result = twilio_provisioning.provision_subscriber(
-            subscriber_email=current_user.email,
-            location_id=location_id,
-            webhook_base_url=webhook_base_url,
-            area_code=area_code,
-        )
+        # Agency owner → use master Twilio account directly (no sub-account)
+        # Sub-users → create a sub-account under master
+        if current_user.is_agency_owner:
+            result = twilio_provisioning.provision_master(
+                webhook_base_url=webhook_base_url,
+            )
+        else:
+            result = twilio_provisioning.provision_subscriber(
+                subscriber_email=current_user.email,
+                location_id=location_id,
+                webhook_base_url=webhook_base_url,
+                area_code=area_code,
+            )
 
         # Save all provisioned IDs to voice_config
         vc.update(result)
