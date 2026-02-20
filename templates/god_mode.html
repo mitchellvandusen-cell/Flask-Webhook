@@ -39,7 +39,7 @@
     .gm-table-wrap {
         background: rgba(255,255,255,0.02);
         border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 14px; overflow: hidden;
+        border-radius: 14px; overflow-x: auto;
     }
     .gm-table { width: 100%; border-collapse: collapse; }
     .gm-table thead th {
@@ -68,13 +68,18 @@
     .role-individual   { background: rgba(255,255,255,0.06); color: #aaa;    border: 1px solid rgba(255,255,255,0.12); }
     .role-agency_sub_account_user { background: rgba(0,255,136,0.08); color: #00ff88; border: 1px solid rgba(0,255,136,0.2); }
 
+    /* OAuth app type badges */
+    .app-marketplace { color: #00d9ff; }
+    .app-private { color: #ffa500; }
+    .app-website { color: #00ff88; }
+
     /* Stripe status */
     .stripe-active   { color: #00ff88; }
     .stripe-trialing { color: #ffd700; }
     .stripe-past_due { color: #ef4444; }
     .stripe-none     { color: #555; }
 
-    /* Impersonate button */
+    /* Action buttons */
     .btn-ghost {
         padding: 5px 12px; border-radius: 7px; font-size: 0.78rem;
         font-weight: 600; border: 1px solid rgba(0,255,136,0.3);
@@ -83,6 +88,46 @@
     }
     .btn-ghost:hover { background: rgba(0,255,136,0.15); border-color: var(--accent, #00ff88); }
     .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-logs {
+        padding: 5px 12px; border-radius: 7px; font-size: 0.78rem;
+        font-weight: 600; border: 1px solid rgba(0,217,255,0.3);
+        background: rgba(0,217,255,0.06); color: #00d9ff;
+        cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-logs:hover { background: rgba(0,217,255,0.15); border-color: #00d9ff; }
+
+    /* Logs modal */
+    .gm-modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 10000;
+        align-items: center; justify-content: center;
+    }
+    .gm-modal-overlay.active { display: flex; }
+    .gm-modal {
+        background: #111; border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px; max-width: 900px; width: 95%; max-height: 85vh;
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .gm-modal-header {
+        padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.06);
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .gm-modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+    .gm-modal-close {
+        background: none; border: none; color: #666; font-size: 1.2rem;
+        cursor: pointer; padding: 4px 8px;
+    }
+    .gm-modal-close:hover { color: #fff; }
+
+    .gm-log-entry {
+        padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+        font-size: 0.8rem;
+    }
+    .gm-log-entry:last-child { border-bottom: none; }
+    .gm-log-status-success { color: #00ff88; }
+    .gm-log-status-error { color: #ef4444; }
+    .gm-log-status-info { color: #00d9ff; }
+    .gm-log-status-warning { color: #ffa500; }
 
     /* Empty state */
     .gm-empty { text-align: center; padding: 60px 20px; color: #555; }
@@ -126,7 +171,7 @@
 
     <!-- Search filter -->
     <div class="mb-3">
-        <input class="gm-search" id="gmSearch" placeholder="Search by email, name, role..." oninput="filterUsers(this.value)">
+        <input class="gm-search" id="gmSearch" placeholder="Search by email, name, role, location..." oninput="filterUsers(this.value)">
     </div>
 
     <!-- User table -->
@@ -138,16 +183,17 @@
                     <th>Email</th>
                     <th>Name</th>
                     <th>Role</th>
+                    <th>App</th>
                     <th>Tier</th>
                     <th>Stripe</th>
                     <th>Location ID</th>
                     <th>Joined</th>
-                    <th>Action</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="gmTableBody">
             {% for u in all_users %}
-            <tr data-search="{{ (u.email or '') ~ ' ' ~ (u.full_name or '') ~ ' ' ~ (u.role or '') ~ ' ' ~ (u.subscription_tier or '') }}">
+            <tr data-search="{{ (u.email or '') ~ ' ' ~ (u.full_name or '') ~ ' ' ~ (u.role or '') ~ ' ' ~ (u.subscription_tier or '') ~ ' ' ~ (u.location_id or '') ~ ' ' ~ (u.oauth_app_type or '') }}">
                 <td style="color:#555;">{{ loop.index }}</td>
                 <td>
                     <span style="color:#fff; font-weight:600;">{{ u.email or '—' }}</span>
@@ -160,6 +206,17 @@
                     <span class="role-badge role-{{ u.role or 'individual' }}">
                         {{ (u.role or 'individual')|replace('_', ' ') }}
                     </span>
+                </td>
+                <td style="font-size:0.75rem;">
+                    {% if u.oauth_app_type == 'private' %}
+                        <span class="app-private"><i class="fa-solid fa-lock me-1" style="font-size:0.6rem;"></i>private</span>
+                    {% elif u.oauth_app_type == 'website' %}
+                        <span class="app-website"><i class="fa-solid fa-globe me-1" style="font-size:0.6rem;"></i>website</span>
+                    {% elif u.oauth_app_type == 'marketplace' %}
+                        <span class="app-marketplace"><i class="fa-solid fa-store me-1" style="font-size:0.6rem;"></i>marketplace</span>
+                    {% else %}
+                        <span style="color:#555;">{{ u.oauth_app_type or '—' }}</span>
+                    {% endif %}
                 </td>
                 <td style="color:#aaa;">{{ u.subscription_tier or '—' }}</td>
                 <td>
@@ -174,25 +231,28 @@
                     {% endif %}
                 </td>
                 <td style="font-family:monospace; font-size:0.78rem; color:#666;">
-                    {{ u.location_id[:20] ~ '…' if u.location_id and u.location_id|length > 20 else (u.location_id or '—') }}
+                    {{ u.location_id[:20] ~ '...' if u.location_id and u.location_id|length > 20 else (u.location_id or '—') }}
                 </td>
                 <td style="color:#555; font-size:0.78rem;">
                     {{ u.created_at.strftime('%b %d, %Y') if u.created_at else '—' }}
                 </td>
-                <td>
+                <td style="white-space:nowrap;">
+                    {% if u.location_id %}
+                    <button type="button" class="btn-logs" onclick="viewLogs('{{ u.location_id }}', '{{ u.email or "" }}')" title="View webhook logs">
+                        <i class="fa-solid fa-scroll me-1"></i> Logs
+                    </button>
+                    {% endif %}
                     {% if u.email and u.role != 'super_admin' %}
-                    <form method="POST" action="/admin/impersonate/{{ u.email }}" style="display:inline;">
+                    <form method="POST" action="/admin/impersonate/{{ u.email }}" style="display:inline; margin-left:4px;">
                         <button type="submit" class="btn-ghost" title="Log in as {{ u.email }}">
                             <i class="fa-solid fa-ghost me-1"></i> Ghost
                         </button>
                     </form>
-                    {% else %}
-                        <span style="color:#333; font-size:0.75rem;">—</span>
                     {% endif %}
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="9" class="gm-empty">No users found.</td></tr>
+            <tr><td colspan="10" class="gm-empty">No users found.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -200,6 +260,35 @@
 
     <div class="mt-3" style="color:#444; font-size:0.78rem;">
         Showing <span id="gmCount">{{ all_users|length }}</span> of {{ all_users|length }} users
+    </div>
+</div>
+
+<!-- Logs Modal -->
+<div class="gm-modal-overlay" id="gmLogsOverlay" onclick="if(event.target===this)closeLogsModal()">
+    <div class="gm-modal">
+        <div class="gm-modal-header">
+            <div>
+                <span style="color:#00d9ff; font-weight:700; font-size:0.9rem;">
+                    <i class="fa-solid fa-scroll me-1"></i> Webhook Logs
+                </span>
+                <span id="gmLogsTitle" style="color:#888; font-size:0.8rem; margin-left:8px;"></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <select id="gmLogsFilter" onchange="refreshLogs()" style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:4px 8px;border-radius:6px;font-size:0.78rem;">
+                    <option value="">All Events</option>
+                    <option value="inbound_message">Inbound Message</option>
+                    <option value="outbound_message">Outbound Message</option>
+                    <option value="bot_response">Bot Response</option>
+                    <option value="oauth_onboarding">OAuth</option>
+                    <option value="calendar">Calendar</option>
+                    <option value="error">Errors Only</option>
+                </select>
+                <button class="gm-modal-close" onclick="closeLogsModal()">&times;</button>
+            </div>
+        </div>
+        <div class="gm-modal-body" id="gmLogsBody">
+            <div style="text-align:center; padding:40px; color:#555;">Select a user to view logs</div>
+        </div>
     </div>
 </div>
 
@@ -213,6 +302,72 @@
             if (match) shown++;
         });
         document.getElementById('gmCount').textContent = shown;
+    }
+
+    let _gmCurrentLocId = '';
+
+    function viewLogs(locationId, email) {
+        _gmCurrentLocId = locationId;
+        document.getElementById('gmLogsTitle').textContent = email + ' (' + locationId.slice(0, 16) + '...)';
+        document.getElementById('gmLogsOverlay').classList.add('active');
+        document.getElementById('gmLogsFilter').value = '';
+        refreshLogs();
+    }
+
+    function closeLogsModal() {
+        document.getElementById('gmLogsOverlay').classList.remove('active');
+    }
+
+    async function refreshLogs() {
+        if (!_gmCurrentLocId) return;
+        const body = document.getElementById('gmLogsBody');
+        body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
+
+        const filter = document.getElementById('gmLogsFilter').value;
+        let url = '/admin/god-mode/logs/' + encodeURIComponent(_gmCurrentLocId) + '?limit=100';
+        if (filter === 'error') {
+            url += '&status=error';
+        } else if (filter) {
+            url += '&event_type=' + filter;
+        }
+
+        try {
+            const r = await fetch(url);
+            const d = await r.json();
+            if (!r.ok) { body.innerHTML = '<div style="color:#ef4444;padding:16px;">' + (d.error || 'Failed to load logs') + '</div>'; return; }
+
+            const logs = d.logs || [];
+            if (!logs.length) {
+                body.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="fa-solid fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>No logs found for this user.</div>';
+                return;
+            }
+
+            body.innerHTML = logs.map(function(log) {
+                const statusClass = 'gm-log-status-' + (log.status || 'info');
+                const time = log.created_at ? new Date(log.created_at).toLocaleString() : '';
+                const details = log.details ? '<pre style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-top:6px;color:#999;font-size:0.72rem;overflow-x:auto;max-height:120px;">' + escHtml(typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)) + '</pre>' : '';
+                return '<div class="gm-log-entry">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+                        '<div>' +
+                            '<span class="' + statusClass + '" style="font-weight:700;font-size:0.75rem;text-transform:uppercase;">' + escHtml(log.status || 'info') + '</span>' +
+                            '<span style="color:#00d9ff;font-size:0.75rem;margin-left:8px;font-weight:600;">' + escHtml(log.event_type || '') + '</span>' +
+                        '</div>' +
+                        '<span style="color:#555;font-size:0.7rem;white-space:nowrap;">' + time + '</span>' +
+                    '</div>' +
+                    '<div style="color:#ccc;font-size:0.8rem;margin-top:4px;">' + escHtml(log.message || '') + '</div>' +
+                    details +
+                '</div>';
+            }).join('');
+        } catch(e) {
+            body.innerHTML = '<div style="color:#ef4444;padding:16px;">Network error loading logs</div>';
+        }
+    }
+
+    function escHtml(s) {
+        if (!s) return '';
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
     }
 </script>
 {% endblock %}
