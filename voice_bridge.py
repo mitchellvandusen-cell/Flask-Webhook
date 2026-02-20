@@ -1072,6 +1072,7 @@ def voice_inbound():
         "contact_id": "",
         "phone": caller,
         "name": "",
+        "_host": host,
     }
 
     # Respond with TwiML to connect the media stream to AI bridge
@@ -1105,6 +1106,7 @@ def outbound_twiml():
     # Update active calls
     if call_sid in _active_calls:
         _active_calls[call_sid]['status'] = 'in-progress'
+        _active_calls[call_sid]['_host'] = request.host
 
     # For human VoIP mode, the browser handles audio directly
     if dial_mode == 'human':
@@ -1266,6 +1268,7 @@ def trigger_outbound_call():
             "name": lead_name,
             "_location_id": location_id,
             "_sub_sid": sub_sid,
+            "_host": host,
         }
 
         # Persist to call_history DB
@@ -1521,10 +1524,10 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             await xai_ws.send(json.dumps(session_config))
             logger.info("🎙️ XAI session configured (fast VAD, natural prompt)")
 
-            # Greeting: inject as assistant message so xAI speaks it directly
-            # without needing to "interpret" a user command — much faster first response
+            # Greeting: fire immediately after session.update for fastest possible
+            # first audio. Minimize messages to reduce xAI processing overhead.
             if direction == "outbound" or greeting:
-                # Create assistant message with the greeting text
+                # Set context: inject assistant message so xAI knows this was said
                 greeting_item = {
                     "type": "conversation.item.create",
                     "item": {
@@ -1539,26 +1542,11 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                     }
                 }
                 await xai_ws.send(json.dumps(greeting_item))
-                # Now create a user message to set context for natural follow-up
-                context_msg = {
-                    "type": "conversation.item.create",
-                    "item": {
-                        "type": "message",
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "input_text",
-                                "text": f"[Call just connected. You already said your greeting. Wait for {contact_name if contact_name != 'there' else 'the person'} to respond. When they do, continue the conversation naturally.]"
-                            }
-                        ]
-                    }
-                }
-                await xai_ws.send(json.dumps(context_msg))
-                # Generate the spoken greeting
+                # Immediately trigger audio generation — no extra context messages
                 await xai_ws.send(json.dumps({
                     "type": "response.create",
                     "response": {
-                        "instructions": f"Say this naturally in your own voice, like a real person would: {greeting}"
+                        "instructions": f"Say this naturally, like a real person: {greeting}"
                     }
                 }))
 
@@ -1609,8 +1597,8 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                 t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
                                 if t_sub_sid and target:
                                     call_active = False
-                                    host = (subscriber.get('voice_config') or {}).get('_webhook_host', '')
-                                    _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host}" if host else '')
+                                    t_host = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
+                                    _twilio_transfer(call_sid, t_sub_sid, target, f"https://{t_host}" if t_host else '')
                                     if call_sid in _active_calls:
                                         _active_calls[call_sid]['status'] = 'transferred'
                                 break
@@ -1790,7 +1778,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                     call_active = False
                                     await asyncio.sleep(0.3)
                                     # Transfer via Twilio REST (stops media stream automatically)
-                                    host_h = (subscriber.get('voice_config') or {}).get('_webhook_host', '')
+                                    host_h = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
                                     transfer_ok = _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_h}" if host_h else '')
 
                                     if transfer_ok:
@@ -1814,7 +1802,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                     if t_sub_sid and target:
                                         call_active = False
                                         await asyncio.sleep(0.3)
-                                        host_t = (subscriber.get('voice_config') or {}).get('_webhook_host', '')
+                                        host_t = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
                                         _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_t}" if host_t else '')
                                         logger.info(f"🔄 Takeover transfer to {target}")
                                         if call_sid in _active_calls:
@@ -2222,6 +2210,7 @@ def dial_contact():
             "attempt":    dial_attempt,
             "_location_id": location_id,
             "_sub_sid":     sub_sid,
+            "_host":        request.host,
         }
 
         save_call_to_history(

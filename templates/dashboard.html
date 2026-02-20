@@ -2028,7 +2028,10 @@
                 <div id="voipSetupBanner" style="display:none;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
                     <div class="d-flex align-items-center gap-3">
                         <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>
-                        <div style="flex:1;font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure credential for VoIP</span></div>
+                        <div style="flex:1;">
+                            <div style="font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure credential for VoIP</span></div>
+                            <div id="voipSetupStatus" style="font-size:0.72rem;color:#888;margin-top:4px;display:none;"></div>
+                        </div>
                         <button onclick="setupVoIP()" id="voipSetupBtn" style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
                             <i class="fa-solid fa-gear me-1"></i>Setup VoIP
                         </button>
@@ -2181,7 +2184,35 @@
                                 <button onclick="setupVoIP()" id="voipSetupBtnDialer" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
                                     <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
                                 </button>
-                                <span style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured{% else %}Required for human dialing{% endif %}</span>
+                                <span id="voipSetupBtnDialerStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured{% else %}Required for human dialing{% endif %}</span>
+                            </div>
+                        </div>
+                        <!-- Audio Device Selection -->
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;"><i class="fa-solid fa-microphone me-1" style="color:#00d9ff;"></i>Microphone (Input)</label>
+                            <select id="audioInputDevice" onchange="setAudioInputDevice(this.value)"
+                                style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <option value="">Default microphone</option>
+                            </select>
+                            <small style="color:#666;font-size:0.72rem;">Select which microphone or headset to use for calls</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;"><i class="fa-solid fa-volume-high me-1" style="color:#00d9ff;"></i>Speaker (Output)</label>
+                            <select id="audioOutputDevice" onchange="setAudioOutputDevice(this.value)"
+                                style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <option value="">Default speaker</option>
+                            </select>
+                            <small style="color:#666;font-size:0.72rem;">Select which speaker or headset to hear calls through</small>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center gap-2">
+                                <button onclick="refreshAudioDevices()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh Devices
+                                </button>
+                                <button onclick="testAudioOutput()" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                    <i class="fa-solid fa-play me-1"></i>Test Speaker
+                                </button>
+                                <span id="audioDeviceStatus" style="font-size:0.72rem;color:#888;"></span>
                             </div>
                         </div>
                         <div class="col-12 text-end mt-2">
@@ -3782,13 +3813,16 @@
         // ===== CALL MODE MANAGEMENT =====
         let dialerMode = 'ai';
         let voipDevice = null;
-        let voipConnection = null;
+        let voipConnection = null;  // Active Call object (v2 SDK)
         let voipReady = false;
         let voipTimerInterval = null;
         let voipTimerSeconds = 0;
         // Credential already exists in DB — skip one-time setup, just need to connect SDK
         let voipSetupDone = {{ 'true' if voice_config.get('twilio_twiml_app_sid') else 'false' }};
         let voipCurrentContact = null;
+        let _voipInitializing = false;  // prevent duplicate init calls
+        let _selectedInputDeviceId = localStorage.getItem('voip_input_device') || '';
+        let _selectedOutputDeviceId = localStorage.getItem('voip_output_device') || '';
 
         function setDialerMode(mode) {
             dialerMode = mode;
@@ -3801,16 +3835,28 @@
             } else {
                 humanBtn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; humanBtn.style.color = '#000';
                 aiBtn.style.background = 'transparent'; aiBtn.style.color = '#888';
-                if (!voipSetupDone) document.getElementById('voipSetupBanner').style.display = 'block';
-                else if (!voipReady) initVoIPDevice();
+                if (!voipSetupDone) {
+                    document.getElementById('voipSetupBanner').style.display = 'block';
+                } else if (!voipReady && !_voipInitializing) {
+                    initVoIPDevice();
+                }
             }
         }
 
-        // Set visual state on both VoIP setup buttons
-        // state: 'idle' (blue), 'loading' (spinner), 'connected' (green), 'error' (red)
+        // Show VoIP status messages (visible in banner and setup areas)
+        function _showVoipStatus(msg) {
+            const el = document.getElementById('voipSetupStatus');
+            if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+            const el2 = document.getElementById('voipSetupBtnDialerStatus');
+            if (el2 && msg) el2.textContent = msg;
+        }
+
+        // Set visual state on ALL VoIP setup buttons (banner, dialer settings, alt)
         function setVoipBtnState(state) {
-            const btn  = document.getElementById('voipSetupBtn');
-            const btn2 = document.getElementById('voipSetupBtnAlt');
+            const btns = [
+                document.getElementById('voipSetupBtn'),
+                document.getElementById('voipSetupBtnDialer'),
+            ];
             const map = {
                 idle:      { bg: 'linear-gradient(135deg,#00d9ff,#0099cc)', icon: 'fa-headset',          label: 'Setup Browser VoIP', disabled: false },
                 loading:   { bg: 'linear-gradient(135deg,#ffa500,#cc8400)', icon: 'fa-spinner fa-spin',  label: 'Connecting…',        disabled: true  },
@@ -3818,51 +3864,55 @@
                 error:     { bg: 'linear-gradient(135deg,#ef4444,#cc2222)', icon: 'fa-rotate-right',     label: 'Retry VoIP Setup',   disabled: false },
             };
             const s = map[state] || map.idle;
-            [btn, btn2].forEach(b => {
+            btns.forEach(b => {
                 if (!b) return;
                 b.style.background = s.bg;
                 b.style.color = '#000';
                 b.innerHTML = `<i class="fa-solid ${s.icon} me-1"></i>${s.label}`;
                 b.disabled = s.disabled;
             });
-            // Orange banner button keeps its own icon when loading
-            if (btn && state === 'loading') {
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Setting up...';
+            // Update the dialer settings status text
+            const statusSpan = document.getElementById('voipSetupBtnDialerStatus');
+            if (statusSpan) {
+                if (state === 'connected') statusSpan.textContent = 'VoIP connected';
+                else if (state === 'loading') statusSpan.textContent = 'Connecting…';
+                else if (state === 'error') statusSpan.textContent = 'Setup failed — click to retry';
             }
         }
 
         async function setupVoIP() {
             console.log('[VoIP] setupVoIP() called');
             setVoipBtnState('loading');
+            _showVoipStatus('Creating voice credential…');
             try {
-                console.log('[VoIP] POST /voice/setup-voip');
                 const r = await fetch('/voice/setup-voip', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
                 console.log('[VoIP] setup-voip response:', r.status, d);
                 if (!r.ok) {
                     setVoipBtnState('error');
-                    alert(d.error || 'Setup failed');
+                    _showVoipStatus(d.error || 'Setup failed');
                     return;
                 }
                 voipSetupDone = true;
                 document.getElementById('voipSetupBanner').style.display = 'none';
-                const statusEl = document.getElementById('voipSetupStatus');
-                if (statusEl) statusEl.textContent = 'Credential created — initializing...';
+                _showVoipStatus('Credential created — initializing…');
                 await initVoIPDevice();
             } catch(e) {
                 console.error('[VoIP] setupVoIP error:', e);
                 setVoipBtnState('error');
-                alert('Network error during VoIP setup: ' + e.message);
+                _showVoipStatus('Network error: ' + e.message);
             }
         }
 
         async function initVoIPDevice() {
+            if (_voipInitializing) { console.log('[VoIP] Already initializing, skipping'); return; }
+            _voipInitializing = true;
             console.log('[VoIP] initVoIPDevice() called');
-            const _voipStatus = () => document.getElementById('voipSetupStatus');
+
             try {
                 // Step 1: Fetch token
-                console.log('[VoIP] Fetching token from /voice/token');
-                if (_voipStatus()) _voipStatus().textContent = 'Fetching voice token…';
+                _showVoipStatus('Fetching voice token…');
+                setVoipBtnState('loading');
                 const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
                 console.log('[VoIP] token response:', r.status, d.token ? 'token OK (len=' + d.token.length + ')' : d);
@@ -3871,37 +3921,34 @@
                         document.getElementById('voipSetupBanner').style.display = 'block';
                         voipSetupDone = false;
                     }
-                    if (_voipStatus()) _voipStatus().textContent = d.error || 'Token error';
+                    _showVoipStatus(d.error || 'Token error');
                     setVoipBtnState('error');
+                    _voipInitializing = false;
                     return;
                 }
 
                 // Step 2: Request microphone permission BEFORE connecting SDK
-                console.log('[VoIP] Requesting microphone permission');
-                if (_voipStatus()) _voipStatus().textContent = 'Requesting microphone access…';
+                _showVoipStatus('Requesting microphone access…');
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     stream.getTracks().forEach(t => t.stop());
                     console.log('[VoIP] Microphone permission granted');
                 } catch(micErr) {
                     console.error('[VoIP] Microphone permission denied:', micErr);
-                    if (_voipStatus()) _voipStatus().textContent = 'Microphone access denied — please allow mic and retry';
+                    _showVoipStatus('Microphone access denied — please allow mic and retry');
                     setVoipBtnState('error');
+                    _voipInitializing = false;
                     return;
                 }
 
-                // Step 3: Load Twilio Client JS SDK if not already loaded
+                // Step 3: Load Twilio Voice SDK 2.x (via jsDelivr CDN)
                 if (!window.Twilio || !window.Twilio.Device) {
-                    console.log('[VoIP] Loading Voice SDK…');
-                    if (_voipStatus()) _voipStatus().textContent = 'Loading Voice SDK…';
+                    _showVoipStatus('Loading Voice SDK…');
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://sdk.twilio.com/js/client/v1.14/twilio.min.js';
-                        s.onload = () => {
-                            console.log('[VoIP] SDK loaded');
-                            resolve();
-                        };
-                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Voice SDK')); };
+                        s.src = 'https://cdn.jsdelivr.net/npm/@twilio/voice-sdk/dist/twilio.min.js';
+                        s.onload = () => { console.log('[VoIP] Voice SDK 2.x loaded'); resolve(); };
+                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Voice SDK — check internet connection')); };
                         document.head.appendChild(s);
                     });
                 } else {
@@ -3909,55 +3956,250 @@
                 }
 
                 if (!window.Twilio || !window.Twilio.Device) {
-                    throw new Error('Voice SDK loaded but Device not found — check browser console');
+                    throw new Error('Voice SDK loaded but Twilio.Device not found');
                 }
-                console.log('[VoIP] Voice Device constructor ready');
 
-                // Step 4: Connect with Twilio Device
-                console.log('[VoIP] Setting up Voice Device');
-                if (_voipStatus()) _voipStatus().textContent = 'Connecting…';
-                setVoipBtnState('loading');
+                // Step 4: Create Device instance (V2 SDK — constructor-based)
+                _showVoipStatus('Connecting to Twilio…');
 
-                Twilio.Device.setup(d.token, { debug: false, closeProtection: true });
+                // Destroy previous device if any
+                if (voipDevice) {
+                    try { voipDevice.destroy(); } catch(e) {}
+                    voipDevice = null;
+                }
 
-                // Timeout: if ready hasn't fired in 15s, show diagnostic info
-                const _voipReadyTimer = setTimeout(() => {
-                    if (!voipReady) {
-                        console.warn('[VoIP] Device.ready not fired after 15s');
-                        if (_voipStatus()) _voipStatus().textContent = 'Timed out — check browser console (F12) for errors';
-                        setVoipBtnState('error');
-                    }
-                }, 15000);
-
-                Twilio.Device.on('ready', (device) => {
-                    clearTimeout(_voipReadyTimer);
-                    console.log('[VoIP] Device ready — WebRTC connected!');
-                    voipDevice = device;
-                    voipReady = true; voipSetupDone = true;
-                    document.getElementById('voipStatus').style.display = 'block';
-                    document.getElementById('voipSetupBanner').style.display = 'none';
-                    if (_voipStatus()) _voipStatus().textContent = 'VoIP ready';
-                    setVoipBtnState('connected');
+                voipDevice = new Twilio.Device(d.token, {
+                    logLevel: 'warn',
+                    closeProtection: true,
+                    codecPreferences: ['opus', 'pcmu'],
                 });
 
-                Twilio.Device.on('error', (err) => {
-                    clearTimeout(_voipReadyTimer);
-                    console.error('[VoIP] Device error:', err);
+                // Step 5: Register (async — opens WebSocket to Twilio signaling)
+                voipDevice.on('registered', () => {
+                    console.log('[VoIP] Device registered — ready for calls!');
+                    voipReady = true;
+                    voipSetupDone = true;
+                    _voipInitializing = false;
+                    document.getElementById('voipStatus').style.display = 'block';
+                    document.getElementById('voipSetupBanner').style.display = 'none';
+                    _showVoipStatus('VoIP connected');
+                    setVoipBtnState('connected');
+                    // Populate audio device lists after registration
+                    refreshAudioDevices();
+                });
+
+                voipDevice.on('unregistered', () => {
+                    console.log('[VoIP] Device unregistered');
                     voipReady = false;
                     document.getElementById('voipStatus').style.display = 'none';
-                    const msg = err?.message || JSON.stringify(err);
-                    if (_voipStatus()) _voipStatus().textContent = 'VoIP error: ' + msg;
+                    _showVoipStatus('VoIP disconnected — click to reconnect');
                     setVoipBtnState('error');
                 });
 
-                Twilio.Device.on('connect', (conn) => {
-                    console.log('[VoIP] Call connected');
-                    voipConnection = conn;
+                voipDevice.on('error', (err) => {
+                    console.error('[VoIP] Device error:', err);
+                    const msg = err?.message || JSON.stringify(err);
+                    _showVoipStatus('VoIP error: ' + msg);
+                    // Only show error state if we're not actively on a call
+                    if (!voipConnection) {
+                        setVoipBtnState('error');
+                        voipReady = false;
+                    }
+                });
+
+                voipDevice.on('tokenWillExpire', async () => {
+                    console.log('[VoIP] Token expiring — refreshing…');
+                    try {
+                        const tr = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+                        const td = await tr.json();
+                        if (tr.ok && td.token) {
+                            voipDevice.updateToken(td.token);
+                            console.log('[VoIP] Token refreshed');
+                        }
+                    } catch(e) {
+                        console.error('[VoIP] Token refresh failed:', e);
+                    }
+                });
+
+                // Listen for device changes (headset plugged in/out)
+                if (voipDevice.audio) {
+                    voipDevice.audio.on('deviceChange', () => {
+                        console.log('[VoIP] Audio device change detected');
+                        refreshAudioDevices();
+                    });
+                }
+
+                // Register with Twilio signaling
+                await voipDevice.register();
+                console.log('[VoIP] Registration initiated');
+
+            } catch(e) {
+                console.error('[VoIP] initVoIPDevice error:', e);
+                _showVoipStatus('Error: ' + e.message);
+                setVoipBtnState('error');
+                _voipInitializing = false;
+            }
+        }
+
+        // ── Audio Device Management ──
+        async function refreshAudioDevices() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const inputSelect = document.getElementById('audioInputDevice');
+                const outputSelect = document.getElementById('audioOutputDevice');
+                if (!inputSelect || !outputSelect) return;
+
+                // Save current selections
+                const curInput = inputSelect.value || _selectedInputDeviceId;
+                const curOutput = outputSelect.value || _selectedOutputDeviceId;
+
+                // Clear and rebuild input list
+                inputSelect.innerHTML = '<option value="">Default microphone</option>';
+                devices.filter(d => d.kind === 'audioinput').forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.textContent = d.label || ('Microphone ' + d.deviceId.slice(0,8));
+                    if (d.deviceId === curInput) opt.selected = true;
+                    inputSelect.appendChild(opt);
+                });
+
+                // Clear and rebuild output list
+                outputSelect.innerHTML = '<option value="">Default speaker</option>';
+                devices.filter(d => d.kind === 'audiooutput').forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.textContent = d.label || ('Speaker ' + d.deviceId.slice(0,8));
+                    if (d.deviceId === curOutput) opt.selected = true;
+                    outputSelect.appendChild(opt);
+                });
+
+                const statusEl = document.getElementById('audioDeviceStatus');
+                const inputCount = devices.filter(d => d.kind === 'audioinput').length;
+                const outputCount = devices.filter(d => d.kind === 'audiooutput').length;
+                if (statusEl) statusEl.textContent = `${inputCount} mic${inputCount !== 1 ? 's' : ''}, ${outputCount} speaker${outputCount !== 1 ? 's' : ''} found`;
+
+            } catch(e) {
+                console.error('[Audio] Failed to enumerate devices:', e);
+                const statusEl = document.getElementById('audioDeviceStatus');
+                if (statusEl) statusEl.textContent = 'Could not list devices — check mic permission';
+            }
+        }
+
+        function setAudioInputDevice(deviceId) {
+            _selectedInputDeviceId = deviceId;
+            localStorage.setItem('voip_input_device', deviceId);
+            // Apply to Twilio Device audio helper if available
+            if (voipDevice && voipDevice.audio && deviceId) {
+                voipDevice.audio.setInputDevice(deviceId)
+                    .then(() => console.log('[Audio] Input device set:', deviceId))
+                    .catch(e => console.error('[Audio] Failed to set input:', e));
+            }
+        }
+
+        function setAudioOutputDevice(deviceId) {
+            _selectedOutputDeviceId = deviceId;
+            localStorage.setItem('voip_output_device', deviceId);
+            // Apply to Twilio Device speaker output if available
+            if (voipDevice && voipDevice.audio && voipDevice.audio.speakerDevices && deviceId) {
+                voipDevice.audio.speakerDevices.set(deviceId)
+                    .then(() => console.log('[Audio] Output device set:', deviceId))
+                    .catch(e => console.error('[Audio] Failed to set output:', e));
+            }
+        }
+
+        function testAudioOutput() {
+            // Play a short test tone through the selected output
+            if (voipDevice && voipDevice.audio && voipDevice.audio.speakerDevices) {
+                voipDevice.audio.speakerDevices.test()
+                    .then(() => {
+                        const s = document.getElementById('audioDeviceStatus');
+                        if (s) s.textContent = 'Test tone played';
+                    })
+                    .catch(e => {
+                        console.error('[Audio] Speaker test failed:', e);
+                        // Fallback: play a tone via AudioContext
+                        _playTestTone();
+                    });
+            } else {
+                _playTestTone();
+            }
+        }
+
+        function _playTestTone() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = 440;
+                gain.gain.value = 0.3;
+                osc.start(); osc.stop(ctx.currentTime + 0.5);
+                const s = document.getElementById('audioDeviceStatus');
+                if (s) s.textContent = 'Test tone played';
+            } catch(e) {
+                console.error('[Audio] Test tone failed:', e);
+            }
+        }
+
+        // Override startCall for dual mode
+        const _origStartCall = dialerStartCall;
+        dialerStartCall = async function(phone, firstName, contactId, displayName) {
+            if (dialerMode === 'human') {
+                if (!voipReady || !voipDevice) {
+                    if (voipSetupDone && !_voipInitializing) {
+                        _showVoipStatus('VoIP initializing — please wait…');
+                        await initVoIPDevice();
+                        // Wait briefly for registration
+                        await new Promise(r => setTimeout(r, 2000));
+                        if (!voipReady) {
+                            _showVoipStatus('VoIP not ready yet — try again in a moment');
+                            return;
+                        }
+                    } else if (!voipSetupDone) {
+                        document.getElementById('voipSetupBanner').style.display = 'block';
+                        _showVoipStatus('Click "Setup VoIP" to enable browser calling');
+                        return;
+                    } else {
+                        _showVoipStatus('VoIP still connecting — please wait…');
+                        return;
+                    }
+                }
+                voipMakeCall(phone, firstName, contactId, displayName);
+            } else {
+                await _origStartCall(phone, firstName, contactId, displayName);
+            }
+        };
+
+        async function voipMakeCall(phone, firstName, contactId, displayName) {
+            if (!voipDevice || !voipReady) {
+                _showVoipStatus('VoIP not ready. Click Setup VoIP first.');
+                return;
+            }
+            voipCurrentContact = { phone, firstName, contactId, displayName };
+            document.getElementById('voipCallName').textContent = displayName || firstName;
+            document.getElementById('voipCallPhone').textContent = phone;
+            document.getElementById('voipCallTimer').textContent = '00:00';
+
+            try {
+                // V2 SDK: device.connect() returns a Promise<Call>
+                const connectParams = { params: { To: phone } };
+
+                // Apply selected input device if set
+                if (_selectedInputDeviceId) {
+                    connectParams.rtcConstraints = { audio: { deviceId: { exact: _selectedInputDeviceId } } };
+                }
+
+                const call = await voipDevice.connect(connectParams);
+                voipConnection = call;
+
+                // V2 SDK: attach event listeners to the Call object
+                call.on('accept', () => {
+                    console.log('[VoIP] Call accepted/connected');
                     voipStartTimer();
                     document.getElementById('voipCallPanel').style.display = 'flex';
                 });
 
-                Twilio.Device.on('disconnect', (conn) => {
+                call.on('disconnect', () => {
                     console.log('[VoIP] Call disconnected');
                     voipConnection = null;
                     voipStopTimer();
@@ -3967,43 +4209,30 @@
                     if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
                 });
 
-            } catch(e) {
-                console.error('[VoIP] initVoIPDevice error:', e);
-                if (_voipStatus()) _voipStatus().textContent = 'Error: ' + e.message;
-                setVoipBtnState('error');
-            }
-        }
+                call.on('cancel', () => {
+                    console.log('[VoIP] Call cancelled');
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                    document.getElementById('voipKeypad').style.display = 'none';
+                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                });
 
-        // Override startCall for dual mode
-        const _origStartCall = dialerStartCall;
-        dialerStartCall = async function(phone, firstName, contactId, displayName) {
-            if (dialerMode === 'human') {
-                if (!voipReady) {
-                    if (voipSetupDone) {
-                        // Credential exists, SDK just hasn't connected yet — kick it off
-                        alert('VoIP is connecting — please wait a moment and try again.');
-                        initVoIPDevice();
-                    } else {
-                        alert('VoIP is not set up. Click "Setup Browser VoIP" first.');
-                    }
-                    return;
+                call.on('error', (err) => {
+                    console.error('[VoIP] Call error:', err);
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                });
+
+                if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                    dialerQueue[dialerCallIdx].status = 'in-progress';
+                    dialerRenderQueue();
                 }
-                voipMakeCall(phone, firstName, contactId, displayName);
-            } else {
-                await _origStartCall(phone, firstName, contactId, displayName);
+            } catch(e) {
+                console.error('[VoIP] Connect failed:', e);
+                _showVoipStatus('Call failed: ' + e.message);
             }
-        };
-
-        function voipMakeCall(phone, firstName, contactId, displayName) {
-            if (!voipDevice || !voipReady) { alert('VoIP not ready. Click Setup VoIP first.'); return; }
-            voipCurrentContact = { phone, firstName, contactId, displayName };
-            document.getElementById('voipCallName').textContent = displayName || firstName;
-            document.getElementById('voipCallPhone').textContent = phone;
-            document.getElementById('voipCallTimer').textContent = '00:00';
-            // Browser-to-PSTN call via Voice SDK
-            const conn = Twilio.Device.connect({ To: phone });
-            voipConnection = conn;
-            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) { dialerQueue[dialerCallIdx].status = 'in-progress'; dialerRenderQueue(); }
         }
 
         let _voipMuted = false;
@@ -4017,8 +4246,8 @@
             btn.innerHTML = _voipMuted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
         }
         function voipToggleKeypad() { const kp = document.getElementById('voipKeypad'); kp.style.display = kp.style.display === 'none' ? 'block' : 'none'; }
-        function voipSendDTMF(digit) { if (voipConnection) voipConnection.dtmf(digit); }
-        function voipHangup() { if (voipConnection) voipConnection.hangup(); else if (voipDevice) voipDevice.disconnect(); }
+        function voipSendDTMF(digit) { if (voipConnection) voipConnection.sendDigits(digit); }
+        function voipHangup() { if (voipConnection) voipConnection.disconnect(); else if (voipDevice) voipDevice.disconnectAll(); }
         function voipStartTimer() {
             voipTimerSeconds = 0; voipStopTimer();
             voipTimerInterval = setInterval(() => { voipTimerSeconds++; const m = Math.floor(voipTimerSeconds/60); const s = voipTimerSeconds%60; document.getElementById('voipCallTimer').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }, 1000);
@@ -4508,7 +4737,10 @@
             if (!dialerContacts.length) dialerFetchContacts();
             dialerStartPing();
             dialerLoadAllCallHistory();
-            if (voipSetupDone && !voipReady) initVoIPDevice();
+            // Auto-init VoIP if credential exists (one-time connect)
+            if (voipSetupDone && !voipReady && !_voipInitializing) initVoIPDevice();
+            // Always refresh audio device list
+            refreshAudioDevices();
         }
         document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', initDialerTab);
         // Also init on page load since Dialer is the default active tab
