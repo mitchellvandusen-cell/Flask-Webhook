@@ -49,8 +49,9 @@ def get_master_client() -> TwilioClient:
 
 
 def get_sub_account_client(sub_account_sid: str) -> TwilioClient:
-    """Get a Twilio client authenticated for a sub-account."""
-    return TwilioClient(sub_account_sid, TWILIO_AUTH_TOKEN, TWILIO_ACCOUNT_SID)
+    """Get a Twilio client authenticated for a sub-account.
+    Uses master credentials but targets the sub-account for API calls."""
+    return TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, sub_account_sid)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ def create_twiml_app(sub_account_sid: str, webhook_base_url: str) -> dict:
     Create a TwiML Application for call handling on a sub-account.
     This routes inbound calls and status callbacks to our server.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
         app = client.applications.create(
             friendly_name="GrokBot Voice",
@@ -118,7 +119,6 @@ def create_twiml_app(sub_account_sid: str, webhook_base_url: str) -> dict:
             voice_method="POST",
             status_callback=f"{webhook_base_url}/voice/status",
             status_callback_method="POST",
-            account_sid=sub_account_sid,
         )
         logger.info(f"Created TwiML App: {app.sid} for sub-account {sub_account_sid}")
         return {
@@ -171,7 +171,7 @@ def buy_phone_number(sub_account_sid: str, phone_number: str,
     """
     Purchase a phone number on a sub-account and configure it for voice.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
         kwargs = {
             "phone_number": phone_number,
@@ -183,10 +183,7 @@ def buy_phone_number(sub_account_sid: str, phone_number: str,
         if twiml_app_sid:
             kwargs["voice_application_sid"] = twiml_app_sid
 
-        number = client.incoming_phone_numbers.create(
-            account_sid=sub_account_sid,
-            **kwargs,
-        )
+        number = client.incoming_phone_numbers.create(**kwargs)
         logger.info(f"Purchased number {number.phone_number} (SID: {number.sid}) on sub-account {sub_account_sid}")
         return {
             "sid": number.sid,
@@ -200,9 +197,9 @@ def buy_phone_number(sub_account_sid: str, phone_number: str,
 
 def list_phone_numbers(sub_account_sid: str) -> list:
     """List all phone numbers on a sub-account."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
-        numbers = client.incoming_phone_numbers.list(account_sid=sub_account_sid)
+        numbers = client.incoming_phone_numbers.list()
         return [
             {
                 "sid": n.sid,
@@ -227,11 +224,9 @@ def list_phone_numbers(sub_account_sid: str) -> list:
 
 def release_phone_number(sub_account_sid: str, number_sid: str) -> bool:
     """Release a phone number from a sub-account."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
-        client.incoming_phone_numbers(number_sid).delete(
-            account_sid=sub_account_sid,
-        )
+        client.incoming_phone_numbers(number_sid).delete()
         logger.info(f"Released number {number_sid} from sub-account {sub_account_sid}")
         return True
     except TwilioRestException as e:
@@ -242,10 +237,9 @@ def release_phone_number(sub_account_sid: str, number_sid: str) -> bool:
 def update_phone_number_webhooks(sub_account_sid: str, number_sid: str,
                                    webhook_base_url: str) -> bool:
     """Update webhooks on an existing phone number."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
         client.incoming_phone_numbers(number_sid).update(
-            account_sid=sub_account_sid,
             voice_url=f"{webhook_base_url}/voice/inbound",
             voice_method="POST",
             status_callback=f"{webhook_base_url}/voice/status",
@@ -301,7 +295,7 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
     Create an outbound call via Twilio REST API.
     Returns call details including call_sid.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
         kwargs = {
             "to": to,
@@ -314,7 +308,6 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
                 "initiated", "ringing", "answered", "completed",
             ],
             "record": False,  # We handle recording separately
-            "account_sid": sub_account_sid,
         }
 
         if machine_detection:
@@ -344,12 +337,9 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
 
 def hangup_call(sub_account_sid: str, call_sid: str) -> bool:
     """Hang up an active call."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
-        client.calls(call_sid).update(
-            status="completed",
-            account_sid=sub_account_sid,
-        )
+        client.calls(call_sid).update(status="completed")
         logger.info(f"Hung up call: {call_sid}")
         return True
     except TwilioRestException as e:
@@ -363,12 +353,11 @@ def transfer_call(sub_account_sid: str, call_sid: str,
     Transfer a live call by updating the call's URL to a transfer TwiML.
     Twilio will fetch the new TwiML and execute the <Dial> to the target.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
         client.calls(call_sid).update(
             url=f"{webhook_base_url}/voice/transfer-twiml?transfer_to={transfer_to}",
             method="POST",
-            account_sid=sub_account_sid,
         )
         logger.info(f"Transfer initiated: {call_sid} -> {transfer_to}")
         return True
@@ -380,13 +369,12 @@ def transfer_call(sub_account_sid: str, call_sid: str,
 def start_recording(sub_account_sid: str, call_sid: str,
                      webhook_base_url: str) -> str:
     """Start recording a call. Returns recording SID."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
         recording = client.calls(call_sid).recordings.create(
             recording_channels="dual",
             recording_status_callback=f"{webhook_base_url}/voice/recording-status",
             recording_status_callback_method="POST",
-            account_sid=sub_account_sid,
         )
         logger.info(f"Recording started: {recording.sid} for call {call_sid}")
         return recording.sid
@@ -414,7 +402,7 @@ def register_business_profile(sub_account_sid: str, business_name: str,
     Register a business profile for CNAM / caller ID on Twilio.
     This creates a Trust Hub Customer Profile for the sub-account.
     """
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     results = {"steps": [], "errors": []}
 
     try:
@@ -437,13 +425,12 @@ def register_business_profile(sub_account_sid: str, business_name: str,
         # Step 2: Register CNAM for numbers (Twilio handles CNAM through the
         # Outgoing Caller ID, which is auto-set with verified business profiles)
         # For now, set the friendly name on all numbers as a proxy for CNAM
-        numbers = client.incoming_phone_numbers.list(account_sid=sub_account_sid)
+        numbers = client.incoming_phone_numbers.list()
         cnam_success = 0
         for num in numbers:
             try:
                 client.incoming_phone_numbers(num.sid).update(
                     friendly_name=business_name[:15],
-                    account_sid=sub_account_sid,
                 )
                 cnam_success += 1
             except Exception as e:
@@ -465,9 +452,9 @@ def register_business_profile(sub_account_sid: str, business_name: str,
 
 def get_spam_protection_status(sub_account_sid: str) -> dict:
     """Get current spam/CNAM protection status for a sub-account."""
-    client = get_master_client()
+    client = get_sub_account_client(sub_account_sid)
     try:
-        numbers = client.incoming_phone_numbers.list(account_sid=sub_account_sid)
+        numbers = client.incoming_phone_numbers.list()
         total = len(numbers)
         protected = sum(1 for n in numbers if n.friendly_name and len(n.friendly_name) > 0)
 
