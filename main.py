@@ -756,6 +756,10 @@ def comparison():
 def comparison_text_drip():
     return render_template('comparison-text-drip.html')
 
+@app.route("/dialer")
+def dialer():
+    return render_template('dialer.html')
+
 @app.route("/getting-started")
 def getting_started():
     return render_template('getting-started.html')
