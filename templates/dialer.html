@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+
+{% block title %}InsuranceGrokBot Triple Dialer — AI-Powered Calling That Closes{% endblock %}
+
+{% block content %}
+<style>
+    .dialer-hero { padding: 160px 0 80px; position: relative; overflow: hidden; }
+    .dialer-hero::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 20%, rgba(0,217,255,0.08) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.05) 0%, transparent 50%); pointer-events: none; }
+    .dialer-badge { background: linear-gradient(135deg, #00d9ff, #0066ff); padding: 8px 24px; border-radius: 24px; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; display: inline-block; margin-bottom: 20px; }
+    .dialer-stat-card { background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.12); border-radius: 16px; padding: 24px; text-align: center; }
+    .dialer-stat-card .stat-value { font-size: 2.2rem; font-weight: 900; color: #00d9ff; }
+    .dialer-stat-card .stat-label { color: #888; font-size: 0.85rem; margin-top: 4px; }
+    .mode-card { border-radius: 16px; padding: 32px; height: 100%; transition: all 0.3s ease; }
+    .mode-card:hover { transform: translateY(-4px); }
+    .mode-card h4 { font-weight: 800; margin-bottom: 12px; }
+    .mode-card p { font-size: 0.9rem; }
+    .feature-row { padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .feature-row:last-child { border-bottom: none; }
+    .feature-row .feature-num { width: 36px; height: 36px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.9rem; flex-shrink: 0; }
+    .vs-table th, .vs-table td { padding: 14px 16px; font-size: 0.88rem; }
+    .vs-table thead th { background: rgba(0,217,255,0.06); color: #00d9ff; font-weight: 700; border-bottom: 2px solid rgba(0,217,255,0.2); }
+    .vs-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .vs-table tbody tr:hover { background: rgba(0,217,255,0.02); }
+    .marketplace-card { background: linear-gradient(135deg, rgba(233,30,99,0.06), rgba(233,30,99,0.02)); border: 1px solid rgba(233,30,99,0.15); border-radius: 16px; padding: 32px; }
+</style>
+
+<!-- Hero -->
+<section class="dialer-hero">
+    <div class="container text-center" style="position: relative; z-index: 2;">
+        <div data-aos="fade-up">
+            <span class="dialer-badge">INCLUDED WITH EVERY $149.99/MO PLAN</span>
+            <h1 style="font-size: 3.2rem; font-weight: 900; line-height: 1.1; margin-bottom: 20px;">
+                The Only Dialer That<br><span style="color: #00d9ff;">Thinks For You.</span>
+            </h1>
+            <p style="color: #aaa; font-size: 1.15rem; max-width: 700px; margin: 0 auto 30px;">
+                Triple-line dialing. AI that qualifies leads on the call. Live handoff so you close. Spam protection built in. Unlimited minutes. No other dialer does this.
+            </p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/#pricing" class="btn btn-primary btn-lg">Get Started — $149.99/mo</a>
+                <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Bar -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="row g-3" data-aos="fade-up">
+            <div class="col-6 col-md-3">
+                <div class="dialer-stat-card">
+                    <div class="stat-value">3x</div>
+                    <div class="stat-label">Simultaneous Lines</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="dialer-stat-card">
+                    <div class="stat-value">0ms</div>
+                    <div class="stat-label">AI Response Delay</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="dialer-stat-card">
+                    <div class="stat-value">&infin;</div>
+                    <div class="stat-label">Minutes Included</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="dialer-stat-card">
+                    <div class="stat-value">24/7</div>
+                    <div class="stat-label">AI Availability</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How Triple Dialing Works -->
+<section class="section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span style="background: rgba(0,217,255,0.1); color: #00d9ff; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,217,255,0.2);">HOW IT WORKS</span>
+            <h2 class="section-title" style="margin-top: 16px;">Triple Dialing, <span style="color: #00d9ff;">Explained</span></h2>
+        </div>
+        <div class="glass-card p-5" data-aos="fade-up">
+            <div class="feature-row d-flex align-items-start gap-4">
+                <div class="feature-num">1</div>
+                <div>
+                    <h5 style="color: #fff; font-weight: 700;">Load Your Leads</h5>
+                    <p style="color: #aaa; margin: 0;">Import from your CRM or upload a list. The dialer pulls your leads in order and queues them for simultaneous calling.</p>
+                </div>
+            </div>
+            <div class="feature-row d-flex align-items-start gap-4">
+                <div class="feature-num">2</div>
+                <div>
+                    <h5 style="color: #fff; font-weight: 700;">3 Lines Dial Simultaneously</h5>
+                    <p style="color: #aaa; margin: 0;">The dialer calls 3 leads at the same time. No more sitting through 15 rings waiting for one person to answer. First pickup gets connected.</p>
+                </div>
+            </div>
+            <div class="feature-row d-flex align-items-start gap-4">
+                <div class="feature-num">3</div>
+                <div>
+                    <h5 style="color: #fff; font-weight: 700;">AI Answers First</h5>
+                    <p style="color: #aaa; margin: 0;">When a lead picks up, InsuranceGrokBot's AI agent greets them, qualifies them, and starts the conversation using 5 elite sales frameworks — while you listen in real time.</p>
+                </div>
+            </div>
+            <div class="feature-row d-flex align-items-start gap-4">
+                <div class="feature-num">4</div>
+                <div>
+                    <h5 style="color: #fff; font-weight: 700;">Intercept &amp; Take Over</h5>
+                    <p style="color: #aaa; margin: 0;">Heard enough? Hit intercept. You're now live on the call. The AI seamlessly hands off. The lead never knows the difference. You close.</p>
+                </div>
+            </div>
+            <div class="feature-row d-flex align-items-start gap-4">
+                <div class="feature-num">5</div>
+                <div>
+                    <h5 style="color: #fff; font-weight: 700;">Or Let the AI Run It</h5>
+                    <p style="color: #aaa; margin: 0;">Don't want to talk? Leave it in full AI mode. The AI qualifies, handles objections, and books appointments directly to your calendar. You never pick up the phone.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Three Modes of Operation -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="section-title">Three Modes. <span>Your Choice.</span></h2>
+            <p style="color: #888; max-width: 600px; margin: 0 auto;">Every call, every time — you decide how involved you want to be.</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
+                <div class="mode-card" style="background: linear-gradient(135deg, rgba(0,255,136,0.06), rgba(0,255,136,0.02)); border: 1px solid rgba(0,255,136,0.15);">
+                    <div style="font-size: 2rem; margin-bottom: 12px;"><i class="fa-solid fa-robot" style="color: var(--accent);"></i></div>
+                    <h4 style="color: var(--accent);">Full AI Mode</h4>
+                    <p style="color: #aaa;">The AI runs the entire call autonomously. Speech-to-speech. No transcription delay. Qualifies, handles objections, and books. You never touch the phone.</p>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(0,255,136,0.1);">
+                        <p style="color: #777; font-size: 0.82rem; margin: 0;"><strong style="color: var(--accent);">Best for:</strong> After-hours calling, bulk lead qualification, scaling beyond your personal capacity.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+                <div class="mode-card" style="background: linear-gradient(135deg, rgba(0,217,255,0.06), rgba(0,217,255,0.02)); border: 1px solid rgba(0,217,255,0.15);">
+                    <div style="font-size: 2rem; margin-bottom: 12px;"><i class="fa-solid fa-right-left" style="color: #00d9ff;"></i></div>
+                    <h4 style="color: #00d9ff;">AI + Handoff Mode</h4>
+                    <p style="color: #aaa;">AI answers and qualifies. You listen live. When the lead is warm, hit intercept and take over. Seamless transition — the lead never knows.</p>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(0,217,255,0.1);">
+                        <p style="color: #777; font-size: 0.82rem; margin: 0;"><strong style="color: #00d9ff;">Best for:</strong> Agents who want AI to filter and warm up leads before closing personally.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4" data-aos="fade-up" data-aos-delay="300">
+                <div class="mode-card" style="background: linear-gradient(135deg, rgba(233,30,99,0.06), rgba(233,30,99,0.02)); border: 1px solid rgba(233,30,99,0.15);">
+                    <div style="font-size: 2rem; margin-bottom: 12px;"><i class="fa-solid fa-user" style="color: #e91e63;"></i></div>
+                    <h4 style="color: #e91e63;">Human Mode</h4>
+                    <p style="color: #aaa;">Use the triple dialer without AI. Pure power dialing. 3 lines, first pickup connects to you directly. Classic speed dialing with modern infrastructure.</p>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(233,30,99,0.1);">
+                        <p style="color: #777; font-size: 0.82rem; margin: 0;"><strong style="color: #e91e63;">Best for:</strong> Experienced closers who want maximum dial volume without AI assistance.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Agent Handoff Deep Dive -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="glass-card p-5" data-aos="fade-up" style="border-color: rgba(0,217,255,0.12);">
+            <div class="row align-items-center">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <span style="background: rgba(0,217,255,0.1); color: #00d9ff; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,217,255,0.2);">LIVE HANDOFF</span>
+                    <h2 style="margin-top: 16px; font-size: 2rem; font-weight: 800; color: #fff;">AI Warms. You Close.</h2>
+                    <p style="color: #aaa; font-size: 1rem; margin-top: 12px;">The AI does the hard part — getting through, qualifying interest, handling initial objections. You step in at the perfect moment when the lead is warm and ready.</p>
+                    <ul style="list-style: none; padding: 0; margin: 20px 0 0;">
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #00d9ff; margin-right: 10px;"></i>Listen to AI conversation in real time</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #00d9ff; margin-right: 10px;"></i>One-click intercept — instant takeover</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #00d9ff; margin-right: 10px;"></i>Seamless transition — lead doesn't notice</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #00d9ff; margin-right: 10px;"></i>Switch back to AI mode anytime</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #00d9ff; margin-right: 10px;"></i>Full conversation context passed to you</li>
+                    </ul>
+                </div>
+                <div class="col-lg-6">
+                    <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(0,217,255,0.15); border-radius: 16px; padding: 24px; font-family: 'Outfit', monospace;">
+                        <div style="color: #555; font-size: 0.75rem; margin-bottom: 12px;">LIVE CALL — AI MODE ACTIVE</div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span style="color: #00d9ff; font-size: 0.8rem;">AI:</span>
+                            <span style="color: #ccc; font-size: 0.85rem; margin-left: 8px;">Hi John, this is Sarah from your insurance advisor's office. I wanted to follow up about the term life quote we discussed...</span>
+                        </div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span style="color: var(--accent); font-size: 0.8rem;">Lead:</span>
+                            <span style="color: #ccc; font-size: 0.85rem; margin-left: 8px;">Oh yeah, I've been meaning to look into that. What were the options again?</span>
+                        </div>
+                        <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span style="color: #00d9ff; font-size: 0.8rem;">AI:</span>
+                            <span style="color: #ccc; font-size: 0.85rem; margin-left: 8px;">Great question. Based on what you told me last time about wanting coverage for your family...</span>
+                        </div>
+                        <div style="padding: 12px 0; margin-top: 8px;">
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <div style="background: linear-gradient(135deg, #e91e63, #c62828); color: #fff; padding: 8px 20px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
+                                    <i class="fa-solid fa-hand me-1"></i> INTERCEPT
+                                </div>
+                                <span style="color: #666; font-size: 0.75rem;">You take over here &rarr;</span>
+                            </div>
+                        </div>
+                        <div style="padding: 8px 0; opacity: 0.6;">
+                            <span style="color: #e91e63; font-size: 0.8rem;">You:</span>
+                            <span style="color: #ccc; font-size: 0.85rem; margin-left: 8px;">Hey John, it's Mike — I've got everything right here. Let's get you set up today...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Spam Protection -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="glass-card p-5" data-aos="fade-up" style="border-color: rgba(0,255,136,0.12);">
+            <div class="text-center mb-4">
+                <span style="background: rgba(0,255,136,0.1); color: var(--accent); padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,255,136,0.2);">PROTECTION</span>
+                <h2 class="section-title" style="margin-top: 16px;">Spam Protection &amp; <span>Monitoring</span></h2>
+                <p style="color: #888; max-width: 650px; margin: 0 auto;">Your numbers are your lifeline. We protect them.</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="glass-card p-4 h-100">
+                        <div style="font-size: 1.5rem; color: var(--accent); margin-bottom: 10px;"><i class="fa-solid fa-chart-line"></i></div>
+                        <h5 style="font-weight: 700; color: #fff;">Spam Score Monitoring</h5>
+                        <p style="color: #888; font-size: 0.88rem;">Real-time tracking of your number reputation across major carriers. Know your spam score before your leads see "Spam Likely."</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-4 h-100">
+                        <div style="font-size: 1.5rem; color: var(--accent); margin-bottom: 10px;"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h5 style="font-weight: 700; color: #fff;">Number Reputation Tracking</h5>
+                        <p style="color: #888; font-size: 0.88rem;">Automatic monitoring across carrier databases. Get alerts when reputation dips. Proactive protection before you lose connect rates.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-4 h-100">
+                        <div style="font-size: 1.5rem; color: var(--accent); margin-bottom: 10px;"><i class="fa-solid fa-arrows-rotate"></i></div>
+                        <h5 style="font-weight: 700; color: #fff;">Deliverability Optimization</h5>
+                        <p style="color: #888; font-size: 0.88rem;">Smart call pacing, number rotation strategies, and best-practice enforcement to keep your outbound connect rates high.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- AI Agent Minutes Marketplace -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="marketplace-card" data-aos="fade-up">
+            <div class="row align-items-center">
+                <div class="col-lg-7 mb-4 mb-lg-0">
+                    <span style="background: rgba(233,30,99,0.15); color: #e91e63; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(233,30,99,0.25);">MARKETPLACE</span>
+                    <h2 style="margin-top: 16px; font-size: 2rem; font-weight: 800; color: #fff;">AI Agent Minutes Marketplace</h2>
+                    <p style="color: #aaa; font-size: 1rem; margin-top: 12px;">Need more AI calling power? The marketplace lets you purchase additional AI agent minutes on demand. Scale your autonomous calling capacity when you need it most — lead rushes, open enrollment, or campaign blitzes.</p>
+                    <ul style="list-style: none; padding: 0; margin: 20px 0 0;">
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #e91e63; margin-right: 10px;"></i>On-demand AI minute bundles</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #e91e63; margin-right: 10px;"></i>Instant activation — no waiting</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #e91e63; margin-right: 10px;"></i>Volume discounts for heavy callers</li>
+                        <li style="color: #ccc; font-size: 0.9rem; padding: 6px 0;"><i class="fa-solid fa-check" style="color: #e91e63; margin-right: 10px;"></i>$0.02/min after 5,000 included minutes</li>
+                    </ul>
+                </div>
+                <div class="col-lg-5">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(233,30,99,0.15); border-radius: 12px; padding: 20px; text-align: center;">
+                                <div style="font-size: 1.6rem; font-weight: 900; color: #e91e63;">5,000</div>
+                                <div style="color: #888; font-size: 0.8rem;">Minutes Included</div>
+                                <div style="color: var(--accent); font-size: 0.75rem; font-weight: 600; margin-top: 4px;">FREE</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(233,30,99,0.15); border-radius: 12px; padding: 20px; text-align: center;">
+                                <div style="font-size: 1.6rem; font-weight: 900; color: #e91e63;">$0.02</div>
+                                <div style="color: #888; font-size: 0.8rem;">Per Extra Minute</div>
+                                <div style="color: #666; font-size: 0.75rem; font-weight: 600; margin-top: 4px;">After 5,000</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- vs. Traditional Dialers -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <h2 class="section-title">InsuranceGrokBot Dialer vs. <span style="color: #00d9ff;">Everything Else</span></h2>
+        </div>
+        <div class="glass-card" data-aos="fade-up" style="overflow-x: auto; padding: 0;">
+            <table class="vs-table" style="width: 100%; border-collapse: collapse; min-width: 700px;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; min-width: 220px;">Feature</th>
+                        <th style="text-align: center;">InsuranceGrokBot</th>
+                        <th style="text-align: center; color: #777;">Traditional Dialer</th>
+                        <th style="text-align: center; color: #777;">AI-Only Platform</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color: #ddd;">Triple Dialing (3 lines)</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">AI Qualifies Leads on Call</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Live AI-to-Human Handoff</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Mid-Call Mode Switching (AI&harr;Human)</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Speech-to-Speech (No Transcription)</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><span style="color: #888;">N/A</span></td>
+                        <td style="text-align: center;"><span style="color: #999; font-size: 0.78rem;">STT/TTS</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Insurance Sales Knowledge</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Spam Protection &amp; Monitoring</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><span style="color: #999; font-size: 0.78rem;">Add-on</span></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Mid-Call Calendar Booking</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><span style="color: #999; font-size: 0.78rem;">Limited</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">AI Texting (Same Platform)</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                        <td style="text-align: center;"><i class="fa-solid fa-xmark" style="color: #555;"></i></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd;">Unlimited Minutes</td>
+                        <td style="text-align: center;"><i class="fa-solid fa-check" style="color: #00d9ff;"></i></td>
+                        <td style="text-align: center;"><span style="color: #999; font-size: 0.78rem;">Per Min</span></td>
+                        <td style="text-align: center;"><span style="color: #999; font-size: 0.78rem;">Per Min</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color: #ddd; font-weight: 700;">Price</td>
+                        <td style="text-align: center; color: #00d9ff; font-weight: 700;">$149.99/mo</td>
+                        <td style="text-align: center; color: #999;">$100-300/mo + per min</td>
+                        <td style="text-align: center; color: #999;">$0.10-0.50/min</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Why It's Different -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="glass-card p-5" data-aos="fade-up">
+            <div class="text-center mb-4">
+                <h2 class="section-title">Why This Dialer Is <span>Different</span></h2>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="d-flex gap-3 mb-4">
+                        <div style="min-width: 40px; height: 40px; background: rgba(0,217,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-bolt" style="color: #00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h5 style="color: #fff; font-weight: 700; font-size: 1rem;">Dialer + AI + Texting in One</h5>
+                            <p style="color: #888; font-size: 0.88rem; margin: 0;">No juggling three platforms. Your dialer, AI caller, and AI texter all live in the same dashboard. One subscription. One login.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3 mb-4">
+                        <div style="min-width: 40px; height: 40px; background: rgba(0,217,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-brain" style="color: #00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h5 style="color: #fff; font-weight: 700; font-size: 1rem;">Insurance-Trained AI on Every Call</h5>
+                            <p style="color: #888; font-size: 0.88rem; margin: 0;">The AI on the line knows life insurance: term, whole, IUL, final expense. 270+ carriers. 5 sales frameworks. It's not a generic chatbot — it's a trained sales agent.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <div style="min-width: 40px; height: 40px; background: rgba(0,217,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-dollar-sign" style="color: #00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h5 style="color: #fff; font-weight: 700; font-size: 1rem;">No Per-Minute Billing</h5>
+                            <p style="color: #888; font-size: 0.88rem; margin: 0;">Unlimited minutes included. Most dialers charge $0.01-0.05/min on top of the subscription. That adds up to hundreds per month. Here, it's included.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex gap-3 mb-4">
+                        <div style="min-width: 40px; height: 40px; background: rgba(0,217,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-hand" style="color: #00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h5 style="color: #fff; font-weight: 700; font-size: 1rem;">You Stay in Control</h5>
+                            <p style="color: #888; font-size: 0.88rem; margin: 0;">Intercept any call. Switch modes mid-conversation. The AI is powerful, but you're the closer. Take over whenever you want.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3 mb-4">
+                        <div style="min-width: 40px; height: 40px; background: rgba(0,217,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h5 style="color: #fff; font-weight: 700; font-size: 1rem;">Your Numbers Stay Clean</h5>
+                            <p style="color: #888; font-size: 0.88rem; margin: 0;">Spam protection and monitoring built in. Not an add-on. Not a third-party integration. Your number reputation is tracked and protected automatically.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <div style="min-width: 40px; height: 40px; background: rgba(0,217,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid fa-microphone-lines" style="color: #00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h5 style="color: #fff; font-weight: 700; font-size: 1rem;">Real Speech-to-Speech</h5>
+                            <p style="color: #888; font-size: 0.88rem; margin: 0;">No transcription delay. No robotic pauses. Grok processes audio natively. The AI sounds like a real person because it speaks like one — no text middleman.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="section" style="padding-top: 0;">
+    <div class="container">
+        <div class="glass-card p-5 text-center" data-aos="zoom-in" style="border-color: rgba(0,255,136,0.15); background: linear-gradient(135deg, rgba(0,255,136,0.04), rgba(0,217,255,0.03));">
+            <h2 style="font-size: 2.4rem; font-weight: 900; color: #fff; margin-bottom: 12px;">Stop Dialing Into the Void.</h2>
+            <p style="color: #aaa; font-size: 1.1rem; max-width: 600px; margin: 0 auto 24px;">Triple dialer. AI qualification. Live handoff. Unlimited minutes. Spam protection. All for $149.99/mo.</p>
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <a href="/#pricing" class="btn btn-primary btn-lg px-5">Get Started Now</a>
+                <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; font-weight: 700; border: none;">
+                    <i class="fa-solid fa-calendar-check me-2"></i>Book a Call (Agencies)
+                </a>
+            </div>
+            <p style="color: #666; font-size: 0.78rem; margin-top: 16px;">Unlimited minutes subject to fair use (5,000/mo included). See <a href="/terms" style="color: var(--accent);">Terms</a>.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}
