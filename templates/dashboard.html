@@ -4108,6 +4108,46 @@
                     }
                 });
 
+                // Handle incoming calls (e.g. when backend bridges a human-mode call to the browser)
+                voipDevice.on('incoming', (call) => {
+                    console.log('[VoIP] Incoming call from:', call.parameters?.From || 'unknown');
+                    // Auto-accept incoming calls when in human dialer mode
+                    if (dialerMode === 'human') {
+                        console.log('[VoIP] Auto-accepting incoming call (human mode)');
+                        call.accept();
+                        voipConnection = call;
+                        voipStartTimer();
+                        document.getElementById('voipCallPanel').style.display = 'flex';
+
+                        call.on('disconnect', () => {
+                            console.log('[VoIP] Incoming call disconnected');
+                            voipConnection = null;
+                            voipStopTimer();
+                            document.getElementById('voipCallPanel').style.display = 'none';
+                            document.getElementById('voipKeypad').style.display = 'none';
+                            dialerHideBanner();
+                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                        });
+                        call.on('cancel', () => {
+                            console.log('[VoIP] Incoming call cancelled');
+                            voipConnection = null;
+                            voipStopTimer();
+                            document.getElementById('voipCallPanel').style.display = 'none';
+                            document.getElementById('voipKeypad').style.display = 'none';
+                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                        });
+                        call.on('error', (err) => {
+                            console.error('[VoIP] Incoming call error:', err);
+                            voipConnection = null;
+                            voipStopTimer();
+                            document.getElementById('voipCallPanel').style.display = 'none';
+                        });
+                    } else {
+                        console.log('[VoIP] Rejecting incoming call (not in human mode)');
+                        call.reject();
+                    }
+                });
+
                 // Listen for device changes (headset plugged in/out)
                 if (voipDevice.audio) {
                     voipDevice.audio.on('deviceChange', () => {
@@ -4311,12 +4351,21 @@
 
                 const call = await voipDevice.connect(connectParams);
                 voipConnection = call;
+                console.log('[VoIP] Call initiated, waiting for connection...');
+
+                // Show call panel immediately with connecting status
+                document.getElementById('voipCallPanel').style.display = 'flex';
+                document.getElementById('voipCallTimer').textContent = 'Connecting...';
 
                 // V2 SDK: attach event listeners to the Call object
+                call.on('ringing', (hasEarlyMedia) => {
+                    console.log('[VoIP] Call ringing, earlyMedia:', hasEarlyMedia);
+                    document.getElementById('voipCallTimer').textContent = 'Ringing...';
+                });
+
                 call.on('accept', () => {
                     console.log('[VoIP] Call accepted/connected');
                     voipStartTimer();
-                    document.getElementById('voipCallPanel').style.display = 'flex';
                 });
 
                 call.on('disconnect', () => {
@@ -4340,9 +4389,15 @@
 
                 call.on('error', (err) => {
                     console.error('[VoIP] Call error:', err);
+                    console.error('[VoIP] Error details — code:', err?.code, 'twilioError:', err?.twilioError, 'message:', err?.message);
+                    _showVoipStatus('Call error: ' + (err?.message || JSON.stringify(err)));
                     voipConnection = null;
                     voipStopTimer();
                     document.getElementById('voipCallPanel').style.display = 'none';
+                });
+
+                call.on('warning', (name, data) => {
+                    console.warn('[VoIP] Call warning:', name, data);
                 });
 
                 if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {

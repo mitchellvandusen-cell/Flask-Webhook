@@ -998,36 +998,46 @@ def voice_inbound():
     if caller.startswith('client:'):
         identity = caller.replace('client:', '')
         location_id = identity.replace('agent_', '') if identity.startswith('agent_') else ''
+        logger.info(f"Browser VoIP call: identity={identity} location_id={location_id} To={called}")
+
         subscriber = _get_subscriber_by_location(location_id) if location_id else None
 
-        if subscriber:
-            vc = subscriber.get('voice_config') or {}
-            from_number = vc.get('twilio_phone_number', '')
-            sub_sid = vc.get('twilio_sub_account_sid', '')
-            host = request.host
+        if not subscriber:
+            logger.warning(f"Browser VoIP: subscriber not found for location_id={location_id}, returning empty TwiML")
+            return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
-            # Start recording in background
-            if vc.get('auto_record', True) and sub_sid and call_sid:
-                def _start_rec():
-                    time.sleep(1)
-                    try:
-                        twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
-                    except Exception as e:
-                        logger.warning(f"Auto-record failed: {e}")
-                threading.Thread(target=_start_rec, daemon=True).start()
+        vc = subscriber.get('voice_config') or {}
+        from_number = vc.get('twilio_phone_number', '')
+        sub_sid = vc.get('twilio_sub_account_sid', '')
+        host = request.host
 
-            # Respond with TwiML to dial the destination number
-            twiml = (
-                '<?xml version="1.0" encoding="UTF-8"?>'
-                '<Response>'
-                f'<Dial callerId="{from_number}">'
-                f'<Number>{called}</Number>'
-                '</Dial>'
-                '</Response>'
-            )
-            return Response(twiml, content_type='text/xml')
+        if not from_number:
+            logger.warning(f"Browser VoIP: no twilio_phone_number in voice_config for location_id={location_id}")
+        if not called:
+            logger.warning(f"Browser VoIP: no destination number (To is empty) for call {call_sid}")
+            return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
-        return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
+        # Start recording in background
+        if vc.get('auto_record', True) and sub_sid and call_sid:
+            def _start_rec():
+                time.sleep(1)
+                try:
+                    twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
+                except Exception as e:
+                    logger.warning(f"Auto-record failed: {e}")
+            threading.Thread(target=_start_rec, daemon=True).start()
+
+        # Respond with TwiML to dial the destination number
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response>'
+            f'<Dial callerId="{from_number}" action="https://{host}/voice/dial-status" method="POST">'
+            f'<Number>{called}</Number>'
+            '</Dial>'
+            '</Response>'
+        )
+        logger.info(f"Browser VoIP TwiML: callerId={from_number} -> {called}")
+        return Response(twiml, content_type='text/xml')
 
     # True inbound call — look up subscriber by the called number
     subscriber = _get_subscriber_by_phone(called)
@@ -1082,6 +1092,29 @@ def voice_inbound():
 
 
 # ──────────────────────────────────────────────────────────────
+# ROUTE: Dial action callback (browser VoIP call dial result)
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/dial-status', methods=['POST'])
+def voice_dial_status():
+    """
+    Action URL callback for <Dial> in browser VoIP calls.
+    Called when the dial attempt finishes (answered+hangup, busy, no-answer, failed).
+    Logs the result and returns empty TwiML to end the parent call.
+    """
+    call_sid = request.values.get('CallSid', '')
+    dial_call_status = request.values.get('DialCallStatus', '')
+    dial_call_sid = request.values.get('DialCallSid', '')
+    dial_call_duration = request.values.get('DialCallDuration', '0')
+
+    logger.info(f"Browser VoIP dial result: CallSid={call_sid[:16] if call_sid else 'none'} "
+                f"DialStatus={dial_call_status} DialDuration={dial_call_duration}s "
+                f"DialCallSid={dial_call_sid[:16] if dial_call_sid else 'none'}")
+
+    return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
+
+
+# ──────────────────────────────────────────────────────────────
 # ROUTE: TwiML for outbound calls (called when callee answers)
 # ──────────────────────────────────────────────────────────────
 
@@ -1108,9 +1141,21 @@ def outbound_twiml():
         _active_calls[call_sid]['status'] = 'in-progress'
         _active_calls[call_sid]['_host'] = request.host
 
-    # For human VoIP mode, the browser handles audio directly
+    # For human VoIP mode, bridge the PSTN callee to the browser agent
     if dial_mode == 'human':
-        return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
+        identity = f"agent_{location_id}" if location_id else ""
+        if identity:
+            logger.info(f"Human mode outbound: bridging to browser client={identity}")
+            twiml = (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<Response>'
+                f'<Dial><Client>{identity}</Client></Dial>'
+                '</Response>'
+            )
+        else:
+            logger.warning(f"Human mode outbound: no location_id, cannot bridge to browser")
+            twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+        return Response(twiml, content_type='text/xml')
 
     host = request.host
     stream_url = f'wss://{host}/voice/stream'
