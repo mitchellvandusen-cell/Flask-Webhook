@@ -1815,7 +1815,7 @@ def save_voice_config():
         "voice_instructions":    (data.get("voice_instructions") or "").strip(),
         "call_script":           (data.get("call_script") or "").strip(),
         # Dialer settings
-        "dial_attempts":         int(data.get("dial_attempts") or 2),
+        "dial_attempts":         max(1, min(5, int(data.get("dial_attempts") or 2))),
         "auto_record":           bool(data.get("auto_record", True)),
         "auto_transcribe":       bool(data.get("auto_transcribe", False)),
         "local_presence":        bool(data.get("local_presence", False)),
