@@ -246,6 +246,138 @@
             .log-row { font-size: 0.8rem; padding: 8px; }
         }
 
+        /* ═══ MOBILE RESPONSIVE ═══ */
+
+        /* -- Tablet (≤992px) -- */
+        @media (max-width: 992px) {
+            .glass-panel { padding: 20px !important; }
+        }
+
+        /* -- Mobile (≤768px) -- */
+        @media (max-width: 768px) {
+            /* Main nav tabs: horizontal scroll instead of wrapping */
+            #dashTabs {
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                gap: 4px !important;
+                margin-bottom: 20px !important;
+                padding-bottom: 2px;
+            }
+            #dashTabs::-webkit-scrollbar { display: none; }
+            #dashTabs .nav-link {
+                font-size: 0.72rem !important;
+                padding: 8px 10px !important;
+                white-space: nowrap;
+            }
+            /* Hide tab label text, show only icons on small screens */
+            #dashTabs .nav-link { font-size: 0 !important; }
+            #dashTabs .nav-link i { font-size: 0.9rem !important; margin: 0 !important; }
+
+            /* Glass panels: tighter padding */
+            .glass-panel { padding: 16px !important; border-radius: 12px !important; }
+
+            /* Voice sub-tabs: smaller on mobile */
+            .voice-stab-btn {
+                padding: 6px 10px !important;
+                font-size: 0.72rem !important;
+            }
+
+            /* Voice Dialer: stack columns vertically */
+            .dlr-3col-layout {
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: unset !important;
+            }
+            .dlr-3col-layout > .dlr-col {
+                width: 100% !important;
+                max-height: 350px;
+            }
+            /* Dialer top bar: wrap items */
+            .dlr-top-bar {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .dlr-top-bar .quick-dial-group { max-width: 100% !important; flex: 1 1 100% !important; }
+
+            /* Numbers table: responsive grid */
+            .numbers-grid-header,
+            .numbers-grid-row {
+                grid-template-columns: 1fr 80px 40px !important;
+            }
+            .numbers-col-sms,
+            .numbers-col-cnam,
+            .numbers-col-menu { display: none !important; }
+
+            /* Trust Hub number health grid */
+            .trust-health-header,
+            .trust-health-row {
+                grid-template-columns: 1fr auto !important;
+            }
+            .trust-col-cnam,
+            .trust-col-health { display: none !important; }
+
+            /* How It Works: 2 columns */
+            .voice-how-it-works .col-md-3 {
+                flex: 0 0 50% !important;
+                max-width: 50% !important;
+            }
+
+            /* Congrats overlay */
+            .congrats-card { padding: 30px 20px !important; }
+            .congrats-icon { width: 60px !important; height: 60px !important; }
+
+            /* CRM guide steps */
+            .wf-step { flex-direction: column; align-items: flex-start; }
+
+            /* Forms: full width */
+            .form-control, .form-select, input[type="text"], input[type="url"], textarea, select {
+                font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
+
+            /* Carrier grid: single column */
+            #carrierGrid {
+                grid-template-columns: 1fr !important;
+                max-height: 300px !important;
+            }
+        }
+
+        /* -- Small mobile (≤480px) -- */
+        @media (max-width: 480px) {
+            /* Voice sub-tabs: icon only */
+            .voice-stab-btn {
+                padding: 6px 8px !important;
+                font-size: 0 !important;
+            }
+            .voice-stab-btn i { font-size: 0.85rem !important; margin: 0 !important; }
+
+            /* Stack flex layouts vertically */
+            .mobile-stack {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+            .mobile-stack > * { width: 100% !important; min-width: unset !important; }
+
+            /* Tighter glass panels */
+            .glass-panel { padding: 12px !important; }
+
+            /* Save overlay */
+            .save-overlay-box { padding: 24px 20px !important; }
+
+            /* Webhook URL section */
+            .webhook-url-group {
+                flex-direction: column !important;
+            }
+            .webhook-url-group > div { min-width: unset !important; width: 100% !important; }
+
+            /* Row g-3 columns stack */
+            .row.g-3 > [class*="col-md-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+            }
+        }
+
         /* Save overlay */
         .save-overlay {
             display: none;
@@ -1452,20 +1584,20 @@
                     <!-- How It Works -->
                     <div class="mb-4 p-3" style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 12px;">
                         <h6 style="color: #00d9ff; font-weight: 700; margin-bottom: 10px;"><i class="fa-solid fa-diagram-project me-2"></i>How It Works</h6>
-                        <div class="row g-2" style="font-size: 0.82rem; color: #aaa;">
-                            <div class="col-md-3 text-center">
+                        <div class="row g-2 voice-how-it-works" style="font-size: 0.82rem; color: #aaa;">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-phone-volume"></i></div>
                                 <strong style="color:#ccc;">Call Connects</strong><br>Lead calls your AI number or bot dials out
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-microphone"></i></div>
                                 <strong style="color:#ccc;">Audio Streams</strong><br>Telnyx streams HD audio to our server at 24 kHz
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-brain"></i></div>
                                 <strong style="color:#ccc;">Grok Thinks</strong><br>XAI processes speech and responds in real-time
                             </div>
-                            <div class="col-md-3 text-center">
+                            <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-calendar-check"></i></div>
                                 <strong style="color:#ccc;">Books Appointments</strong><br>AI checks your calendar and books live
                             </div>
@@ -1792,75 +1924,118 @@
                         </div>
                     </div><!-- /vstab-panel-numbers -->
 
-                    <!-- ══ Trust Hub sub-tab ══ -->
+                    <!-- ══ Spam Protection sub-tab ══ -->
                     <div id="vstab-panel-trusthub" style="display:none;">
-                        <!-- STIR/SHAKEN -->
-                        <div class="mb-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-certificate me-2" style="color:#00d9ff;"></i>STIR/SHAKEN</div>
-                                    <div style="font-size:0.78rem;color:#888;margin-top:2px;">Call authentication — prevents "Spam Likely" labels. Telnyx provides automatic Full (A) attestation.</div>
+
+                        <!-- Status Banner (shown after registration) -->
+                        <div id="spamProtectionStatus" style="display:none;"></div>
+
+                        <!-- Registration Form -->
+                        <div id="spamProtectionForm">
+                            <div class="mb-3 p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                        <i class="fa-solid fa-shield-halved" style="color:#00ff88;"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:700;font-size:1rem;color:#fff;">Spam Protection</div>
+                                        <div style="font-size:0.78rem;color:#888;">Fill out your business details once. We'll automatically register with Telnyx, enable caller ID (CNAM) on all your numbers, and protect any future numbers you buy.</div>
+                                    </div>
                                 </div>
-                                <span id="stirStatus" style="background:rgba(255,255,255,0.06);color:#888;padding:4px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;">Checking...</span>
+
+                                <!-- What happens -->
+                                <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
+                                    <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
+                                    <div style="font-size:0.75rem;color:#999;line-height:1.6;">
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active via Telnyx<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered with Telnyx<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> CNAM (Caller ID Name) enabled on all your numbers<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Future number purchases auto-protected
+                                    </div>
+                                </div>
+
+                                <!-- Form fields -->
+                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-8">
+                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
+                                        <input type="text" id="spBizName" placeholder="ACME Insurance LLC"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
+                                        <input type="text" id="spEIN" placeholder="XX-XXXXXXX"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                </div>
+
+                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-location-dot me-1" style="color:#ffa500;"></i> Business Address</div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-12">
+                                        <input type="text" id="spStreet" placeholder="123 Main Street, Suite 100"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('street', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="text" id="spCity" placeholder="City"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('city', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" id="spState" placeholder="State" maxlength="2"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('state', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;text-transform:uppercase;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" id="spZip" placeholder="ZIP Code"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('zip', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                </div>
+
+                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Contact Info</div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-4">
+                                        <input type="text" id="spContactName" placeholder="Full Name"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_name', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="email" id="spContactEmail" placeholder="Email"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_email', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="tel" id="spContactPhone" placeholder="Phone"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_phone', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                </div>
+
+                                <!-- Register button -->
+                                <button id="spRegisterBtn" onclick="registerSpamProtection()"
+                                    style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;padding:12px 28px;font-size:0.9rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
+                                    <i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers
+                                </button>
+                                <div id="spRegisterResult" style="margin-top:10px;font-size:0.78rem;text-align:center;"></div>
                             </div>
                         </div>
 
-                        <!-- Business Profile -->
-                        <div class="mb-3 p-3" style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.12);border-radius:10px;">
-                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-2" style="color:#a78bfa;"></i>Business Profile</div>
-                            <div style="font-size:0.78rem;color:#888;margin-bottom:12px;">Register your business to improve caller trust. Must match your IRS documentation exactly.</div>
-                            <div class="d-flex gap-2 flex-wrap mb-2">
-                                <div style="flex:1;min-width:180px;">
-                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (as on IRS docs)</label>
-                                    <input type="text" id="trustBizName" placeholder="ACME Insurance LLC"
-                                        value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
-                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;outline:none;">
-                                </div>
-                                <div style="min-width:140px;">
-                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN</label>
-                                    <input type="text" id="trustEIN" placeholder="XX-XXXXXXX"
-                                        value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
-                                        style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;outline:none;">
-                                </div>
-                                <div style="display:flex;align-items:flex-end;">
-                                    <button onclick="saveTrustHub()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:6px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
-                                        <i class="fa-solid fa-floppy-disk me-1"></i>Save
-                                    </button>
-                                </div>
-                            </div>
-                            <div id="trustBizStatus" style="font-size:0.72rem;color:#888;"></div>
-                        </div>
-
-                        <!-- Carrier Registration -->
-                        <div class="mb-3 p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;">
-                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-shield-halved me-2" style="color:#00ff88;"></i>Carrier Registration & Spam Protection</div>
-                            <div style="font-size:0.78rem;color:#888;margin-bottom:12px;">Register your numbers with each carrier to prevent spam flagging. Click each carrier to register, then mark as complete.</div>
-                            <div id="carrierRegistrationList" style="display:flex;flex-direction:column;gap:8px;">
-                                <div style="text-align:center;padding:12px;color:#555;font-size:.78rem;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading carrier status...</div>
-                            </div>
-                        </div>
-
-                        <!-- CNAM Info -->
-                        <div class="mb-3 p-3" style="background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.1);border-radius:10px;">
-                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-id-card me-2" style="color:#ffa500;"></i>CNAM (Caller Name Display)</div>
-                            <div style="font-size:0.78rem;color:#888;margin-bottom:8px;">When CNAM is enabled, your business name shows on recipient phones instead of just a number. Toggle CNAM per-number in the Numbers tab.</div>
-                            <a href="https://portal.telnyx.com/#/app/numbers" target="_blank" style="background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.2);color:#ffa500;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:600;text-decoration:none;display:inline-block;">
-                                <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Manage CNAM in Telnyx Portal
-                            </a>
-                        </div>
-
-                        <!-- Number Health Summary -->
-                        <div class="p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
+                        <!-- Protected Numbers List (always visible) -->
+                        <div id="spNumbersList" class="mt-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
                             <div class="d-flex align-items-center justify-content-between mb-2">
-                                <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-heart-pulse me-2" style="color:#00d9ff;"></i>Number Health</div>
-                                <button onclick="loadTrustHubData()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Number Protection Status</div>
+                                <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
                                     <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
                                 </button>
                             </div>
-                            <div id="numberHealthList" style="font-size:0.78rem;">
+                            <div id="spNumbersContent" style="font-size:0.78rem;">
                                 <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</div>
                             </div>
                         </div>
+
                     </div><!-- /vstab-panel-trusthub -->
 
                 </div><!-- /glass-panel -->
@@ -1890,14 +2065,14 @@
                 </style>
 
                 <!-- Top Bar -->
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:14px;">
+                <div class="dlr-top-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:14px;">
                     <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;">
                         <i class="fa-solid fa-phone-volume" style="color:#00d9ff;font-size:1rem;"></i>
                     </div>
                     <div style="flex:1;display:flex;align-items:center;gap:10px;">
                         <h5 style="margin:0;font-weight:700;font-size:1rem;white-space:nowrap;">Power Dialer</h5>
                         <!-- Inline Quick Dial -->
-                        <div style="display:flex;gap:4px;flex:1;max-width:280px;">
+                        <div class="quick-dial-group" style="display:flex;gap:4px;flex:1;max-width:280px;">
                             <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
                                 style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.75rem;outline:none;min-width:120px;">
                             <button onclick="dialerManualCall()" style="padding:5px 12px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;cursor:pointer;white-space:nowrap;">
@@ -2018,7 +2193,7 @@
                 </div>
 
                 <!-- ═══ 3-Column Layout ═══ -->
-                <div style="display:flex;gap:8px;height:calc(100vh - 320px);min-height:500px;">
+                <div class="dlr-3col-layout" style="display:flex;gap:8px;height:calc(100vh - 320px);min-height:500px;">
 
                     <!-- ── LEFT: Contacts ── -->
                     <div class="dlr-col" style="width:30%;border-radius:12px;">
@@ -3813,13 +3988,13 @@
             const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
             let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;">';
             // Header
-            html += '<div style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
+            html += '<div class="numbers-grid-header" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
             html += '<div style="' + hdrStyle + '">Number</div>';
             html += '<div style="' + hdrStyle + 'text-align:center;">Status</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">Voice</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">SMS</div>';
-            html += '<div style="' + hdrStyle + 'text-align:center;">CNAM</div>';
-            html += '<div style="' + hdrStyle + '"></div>';
+            html += '<div class="numbers-col-voice" style="' + hdrStyle + 'text-align:center;">Voice</div>';
+            html += '<div class="numbers-col-sms" style="' + hdrStyle + 'text-align:center;">SMS</div>';
+            html += '<div class="numbers-col-cnam" style="' + hdrStyle + 'text-align:center;">CNAM</div>';
+            html += '<div class="numbers-col-menu" style="' + hdrStyle + '"></div>';
             html += '</div>';
             // Rows
             numbers.forEach(n => {
@@ -3830,18 +4005,18 @@
                 const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
                 const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
                 const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
-                html += '<div style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
+                html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
                 html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + _esc(n.number_type || 'local') + '</span></div>';
                 html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
-                html += '<div style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
-                html += '<div style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
-                html += '<div style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
-                html += '<div style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
-                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:2px 6px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                html += '<div class="numbers-col-voice" style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
+                html += '<div class="numbers-col-sms" style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
+                html += '<div class="numbers-col-cnam" style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
+                html += '<div class="numbers-col-menu" style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
+                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:6px 8px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
                     '<div class="num-menu" style="display:none;position:absolute;right:0;top:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:999;min-width:140px;box-shadow:0 4px 12px rgba(0,0,0,0.4);">' +
-                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ccc;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
-                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ccc;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
-                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:6px 12px;background:none;border:none;color:#ef4444;font-size:.72rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ef4444;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
                     '</div></div></div>';
                 html += '</div>';
             });
@@ -3887,126 +4062,141 @@
                 .catch(() => alert('Network error'));
         }
 
-        // ===== TRUST HUB TAB =====
-        async function loadTrustHubData() {
-            const carrierList = document.getElementById('carrierRegistrationList');
-            const healthList = document.getElementById('numberHealthList');
-            const stirEl = document.getElementById('stirStatus');
+        // ===== SPAM PROTECTION TAB =====
+        async function loadTrustHubData() { loadSpamProtectionStatus(); }
+
+        async function loadSpamProtectionStatus() {
+            const statusEl = document.getElementById('spamProtectionStatus');
+            const formEl = document.getElementById('spamProtectionForm');
+            const numsEl = document.getElementById('spNumbersContent');
             try {
-                const r = await fetch('/voice/trust-hub');
+                const r = await fetch('/voice/spam-protection/status');
                 const d = await r.json();
-                console.log('[TrustHub] Response:', r.status, d);
+                console.log('[SpamProtection] Status:', r.status, d);
                 if (!r.ok || d.error) {
-                    if (carrierList) carrierList.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
+                    if (numsEl) numsEl.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load') + '</div>';
                     return;
                 }
-                _trustCache = d;
 
-                // STIR/SHAKEN status
-                if (stirEl) {
-                    const status = d.stir_shaken?.status || 'not_configured';
-                    if (status === 'telnyx_managed') {
-                        stirEl.style.background = 'rgba(0,255,136,0.15)';
-                        stirEl.style.color = '#00ff88';
-                        stirEl.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>Attestation A';
-                    } else {
-                        stirEl.style.background = 'rgba(255,255,255,0.06)';
-                        stirEl.style.color = '#888';
-                        stirEl.textContent = 'Not Configured';
-                    }
+                // Show status banner if protection is active
+                if (d.protection_active && statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.innerHTML =
+                        '<div class="mb-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;">' +
+                            '<div class="d-flex align-items-center gap-3">' +
+                                '<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,255,136,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                                    '<i class="fa-solid fa-shield-halved" style="color:#00ff88;"></i>' +
+                                '</div>' +
+                                '<div style="flex:1;">' +
+                                    '<div style="font-weight:700;color:#00ff88;font-size:0.9rem;">Spam Protection Active</div>' +
+                                    '<div style="font-size:0.75rem;color:#aaa;">' +
+                                        '<strong>' + _esc(d.business_name) + '</strong> &mdash; ' +
+                                        d.numbers_protected + '/' + d.numbers_total + ' numbers protected' +
+                                        (d.auto_cnam ? ' &bull; Auto-protect ON' : '') +
+                                        ' &bull; STIR/SHAKEN A &bull; Registered ' + (d.registered_at ? new Date(d.registered_at).toLocaleDateString() : '') +
+                                    '</div>' +
+                                '</div>' +
+                                '<button onclick="document.getElementById(\'spamProtectionForm\').style.display=document.getElementById(\'spamProtectionForm\').style.display===\'none\'?\'block\':\'none\'" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">' +
+                                    '<i class="fa-solid fa-pen me-1"></i>Edit' +
+                                '</button>' +
+                            '</div>' +
+                        '</div>';
+                    // Collapse form if already registered
+                    if (formEl) formEl.style.display = 'none';
                 }
 
-                // Carrier registration
-                if (carrierList) {
-                    const carriers = d.carrier_registration || {};
-                    let chtml = '';
-                    Object.entries(carriers).forEach(([key, carrier]) => {
-                        const statusMap = {
-                            'registered': { bg:'rgba(0,255,136,0.12)', color:'#00ff88', icon:'fa-circle-check', text:'Registered' },
-                            'pending': { bg:'rgba(255,165,0,0.12)', color:'#ffa500', icon:'fa-clock', text:'Pending' },
-                            'not_registered': { bg:'rgba(255,255,255,0.04)', color:'#888', icon:'fa-circle-xmark', text:'Not Registered' },
-                        };
-                        const s = statusMap[carrier.status] || statusMap['not_registered'];
-                        chtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;">';
-                        chtml += '<div style="flex:1;"><div style="font-weight:600;color:#fff;font-size:.82rem;">' + _esc(carrier.name) + '</div>';
-                        chtml += '<div style="color:#888;font-size:.7rem;margin-top:2px;">' + _esc(carrier.description) + '</div></div>';
-                        chtml += '<div style="display:flex;align-items:center;gap:8px;">';
-                        chtml += '<span style="background:' + s.bg + ';color:' + s.color + ';padding:3px 10px;border-radius:4px;font-size:.7rem;font-weight:600;"><i class="fa-solid ' + s.icon + ' me-1"></i>' + s.text + '</span>';
-                        chtml += '<a href="' + _esc(carrier.url) + '" target="_blank" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);color:#00d9ff;border-radius:5px;padding:4px 10px;font-size:.7rem;font-weight:600;text-decoration:none;white-space:nowrap;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Register</a>';
-                        if (carrier.status !== 'registered') {
-                            chtml += '<button onclick="markCarrierRegistered(\'' + key + '\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:5px;padding:4px 10px;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap;" title="Mark as registered after completing registration"><i class="fa-solid fa-check me-1"></i>Done</button>';
-                        }
-                        chtml += '</div></div>';
-                    });
-                    carrierList.innerHTML = chtml;
-                }
-
-                // Number health
-                if (healthList) {
-                    const numbers = d.numbers || [];
-                    if (!numbers.length) {
-                        healthList.innerHTML = '<div style="color:#888;font-size:.78rem;text-align:center;padding:8px;">No numbers found</div>';
+                // Render number protection list
+                if (numsEl) {
+                    const nums = d.numbers || [];
+                    if (!nums.length) {
+                        numsEl.innerHTML = '<div style="color:#888;text-align:center;padding:12px;">No numbers found. Buy a number in the Numbers tab to get started.</div>';
                     } else {
-                        let hhtml = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;">';
-                        hhtml += '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;">';
-                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;">Number</div>';
-                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Status</div>';
-                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">CNAM</div>';
-                        hhtml += '<div style="padding:6px 8px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.68rem;text-align:center;">Health</div>';
-                        hhtml += '</div>';
-                        numbers.forEach(n => {
-                            const active = n.status === 'active';
-                            const cnam = n.cnam_listed;
-                            const healthScore = (active ? 1 : 0) + (cnam ? 1 : 0) + (n.connection_id ? 1 : 0);
-                            const healthColor = healthScore >= 3 ? '#00ff88' : (healthScore >= 2 ? '#ffa500' : '#ef4444');
-                            const healthText = healthScore >= 3 ? 'Healthy' : (healthScore >= 2 ? 'Fair' : 'Needs Attention');
-                            const healthIcon = healthScore >= 3 ? 'fa-heart' : (healthScore >= 2 ? 'fa-heart-crack' : 'fa-triangle-exclamation');
-                            hhtml += '<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;align-items:center;">';
-                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);color:#ccc;font-size:.78rem;">' + _esc(_fmtPhone(n.phone)) + '</div>';
-                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;color:' + (active ? '#00ff88' : '#888') + ';font-size:.7rem;">' + (n.status || 'unknown') + '</div>';
-                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;">' + (cnam ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>') + '</div>';
-                            hhtml += '<div style="padding:6px 8px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;"><span style="color:' + healthColor + ';font-size:.68rem;font-weight:600;"><i class="fa-solid ' + healthIcon + ' me-1"></i>' + healthText + '</span></div>';
-                            hhtml += '</div>';
+                        let html = '';
+                        nums.forEach(n => {
+                            const icon = n.cnam_enabled
+                                ? '<i class="fa-solid fa-shield-halved" style="color:#00ff88;"></i>'
+                                : '<i class="fa-solid fa-shield" style="color:#444;"></i>';
+                            const label = n.cnam_enabled
+                                ? '<span style="color:#00ff88;font-weight:600;">Protected</span>'
+                                : '<span style="color:#888;">Not protected</span>';
+                            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03);">' +
+                                '<div style="display:flex;align-items:center;gap:8px;">' + icon +
+                                    '<span style="color:#ccc;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
+                                '</div>' +
+                                '<div style="display:flex;align-items:center;gap:8px;">' +
+                                    label +
+                                    (!n.cnam_enabled ? '<button onclick="enableCnamSingle(\'' + n.id + '\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:5px;padding:3px 10px;font-size:.7rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-shield-halved me-1"></i>Enable</button>' : '') +
+                                '</div>' +
+                            '</div>';
                         });
-                        hhtml += '</div>';
-                        healthList.innerHTML = hhtml;
+                        numsEl.innerHTML = html;
                     }
                 }
             } catch(e) {
-                console.error('[TrustHub] Error:', e);
-                if (carrierList) carrierList.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Network error loading trust hub data</div>';
+                console.error('[SpamProtection] Error:', e);
+                if (numsEl) numsEl.innerHTML = '<div style="color:#ef4444;font-size:.78rem;padding:8px;">Network error</div>';
             }
         }
 
-        async function markCarrierRegistered(carrierKey) {
-            const statusKey = {
-                'free_caller_registry': 'fcr_status',
-                'att_hiya': 'att_status',
-                'tmobile': 'tmobile_status',
-                'verizon': 'verizon_status',
-            }[carrierKey];
-            if (!statusKey) return;
+        async function registerSpamProtection() {
+            const btn = document.getElementById('spRegisterBtn');
+            const result = document.getElementById('spRegisterResult');
+            const payload = {
+                business_name: document.getElementById('spBizName')?.value?.trim() || '',
+                ein: document.getElementById('spEIN')?.value?.trim() || '',
+                street: document.getElementById('spStreet')?.value?.trim() || '',
+                city: document.getElementById('spCity')?.value?.trim() || '',
+                state: document.getElementById('spState')?.value?.trim() || '',
+                zip: document.getElementById('spZip')?.value?.trim() || '',
+                contact_name: document.getElementById('spContactName')?.value?.trim() || '',
+                contact_email: document.getElementById('spContactEmail')?.value?.trim() || '',
+                contact_phone: document.getElementById('spContactPhone')?.value?.trim() || '',
+            };
+            if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name is required</span>'; return; }
+            if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN is required</span>'; return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Registering & protecting numbers...';
+            result.innerHTML = '';
             try {
-                const r = await fetch('/voice/trust-hub/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ [statusKey]: 'registered' }) });
-                if (r.ok) loadTrustHubData();
+                const r = await fetch('/voice/spam-protection/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' +
+                        (d.numbers_protected || 0) + ' number' + ((d.numbers_protected || 0) !== 1 ? 's' : '') + ' protected! ' +
+                        (d.numbers_failed > 0 ? '<span style="color:#ffa500;">(' + d.numbers_failed + ' failed)</span>' : '') +
+                        '</span>';
+                    // Reload status to show active badge
+                    setTimeout(() => loadSpamProtectionStatus(), 500);
+                } else {
+                    result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
+                }
+            } catch(e) {
+                result.innerHTML = '<span style="color:#ef4444;">Network error — check your connection</span>';
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers';
+        }
+
+        async function enableCnamSingle(numberId) {
+            try {
+                const r = await fetch('/voice/numbers/' + numberId + '/cnam', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ enable: true }),
+                });
+                if (r.ok) loadSpamProtectionStatus();
+                else alert('Failed to enable CNAM');
             } catch(e) { alert('Network error'); }
         }
 
-        async function saveTrustHub() {
-            const biz = document.getElementById('trustBizName')?.value?.trim() || '';
-            const ein = document.getElementById('trustEIN')?.value?.trim() || '';
-            const statusEl = document.getElementById('trustBizStatus');
-            try {
-                const r = await fetch('/voice/trust-hub/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ business_name: biz, ein: ein }) });
-                if (r.ok) {
-                    if (statusEl) { statusEl.style.color = '#00ff88'; statusEl.textContent = 'Business profile saved!'; setTimeout(() => statusEl.textContent = '', 3000); }
-                } else {
-                    if (statusEl) { statusEl.style.color = '#ef4444'; statusEl.textContent = 'Failed to save'; }
-                }
-            } catch(e) {
-                if (statusEl) { statusEl.style.color = '#ef4444'; statusEl.textContent = 'Network error'; }
-            }
-        }
+        // Backward compatibility aliases
+        function saveTrustHub() { registerSpamProtection(); }
+        function markCarrierRegistered() { /* no-op, carriers handled automatically now */ }
 
         // Keep old function name as alias for backward compatibility
         function loadTrustHubNumbers() { loadNumbersTab(); }

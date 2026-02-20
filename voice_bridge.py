@@ -3466,10 +3466,33 @@ def buy_telnyx_number():
         order_id = order_data.get('id', '')
 
         logger.info(f"Purchased Telnyx number: {purchased_phone} (order: {order_id})")
+
+        # Auto-enable CNAM if spam protection is active
+        trust_hub = vc.get('trust_hub', {})
+        cnam_applied = False
+        if trust_hub.get('auto_cnam') and trust_hub.get('business_name'):
+            try:
+                # The number needs a moment to provision; get its ID from the order
+                num_id = ordered_nums[0].get('id', '') if ordered_nums else ''
+                if num_id:
+                    import time
+                    time.sleep(2)  # Brief delay for Telnyx provisioning
+                    cnam_resp = http_requests.patch(
+                        f"{TELNYX_API_BASE}/phone_numbers/{num_id}",
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        json={"cnam_listing_enabled": True},
+                        timeout=10,
+                    )
+                    cnam_applied = cnam_resp.status_code == 200
+                    logger.info(f"Auto-CNAM for {purchased_phone}: {'ok' if cnam_applied else cnam_resp.status_code}")
+            except Exception as e:
+                logger.warning(f"Auto-CNAM failed for {purchased_phone}: {e}")
+
         return jsonify({
             "status": "purchased",
             "phone": purchased_phone,
             "sid": order_id,
+            "cnam_applied": cnam_applied,
         })
 
     except Exception as e:
@@ -3712,6 +3735,247 @@ def save_trust_hub():
     _save_voice_config(current_user.email, vc)
 
     return jsonify({"status": "ok"})
+
+
+# ──────────────────────────────────────────────────────────────
+# AUTOMATED SPAM PROTECTION
+# One form → registers business identity, enables CNAM on all
+# numbers, and auto-protects future purchases.
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/spam-protection/register', methods=['POST'])
+@login_required
+def register_spam_protection():
+    """
+    One-click spam protection registration.
+    1. Saves business profile to voice_config
+    2. Creates Telnyx Business Identity via API
+    3. Enables CNAM on ALL phone numbers with business name
+    4. Stores profile so future number purchases auto-get CNAM
+    """
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured. Go to Settings and click Connect Telnyx."}), 400
+
+    data = request.json or {}
+    business_name = (data.get('business_name') or '').strip()
+    ein = (data.get('ein') or '').strip()
+    street = (data.get('street') or '').strip()
+    city = (data.get('city') or '').strip()
+    state = (data.get('state') or '').strip()
+    zip_code = (data.get('zip') or '').strip()
+    contact_name = (data.get('contact_name') or '').strip()
+    contact_email = (data.get('contact_email') or '').strip()
+    contact_phone = (data.get('contact_phone') or '').strip()
+
+    if not business_name:
+        return jsonify({"error": "Business name is required"}), 400
+    if not ein:
+        return jsonify({"error": "EIN is required"}), 400
+
+    results = {"steps": [], "errors": []}
+
+    # ── Step 1: Save business profile to voice_config ──
+    trust_hub = vc.get('trust_hub', {})
+    trust_hub.update({
+        'business_name': business_name,
+        'ein': ein,
+        'street': street,
+        'city': city,
+        'state': state,
+        'zip': zip_code,
+        'contact_name': contact_name,
+        'contact_email': contact_email,
+        'contact_phone': contact_phone,
+        'registered_at': datetime.utcnow().isoformat(),
+        'auto_cnam': True,  # Flag: auto-enable CNAM on future numbers
+    })
+    vc['trust_hub'] = trust_hub
+    _save_voice_config(current_user.email, vc)
+    results["steps"].append({"name": "save_profile", "status": "ok"})
+
+    # ── Step 2: Create Telnyx Business Identity ──
+    # CNAM display name is max 15 chars
+    cnam_name = business_name[:15].strip()
+    biz_identity_id = trust_hub.get('telnyx_business_identity_id')
+
+    try:
+        biz_payload = {
+            "business_name": business_name,
+            "address": {
+                "street": street or "N/A",
+                "city": city or "N/A",
+                "state": state or "N/A",
+                "postal_code": zip_code or "00000",
+                "country": "US",
+            },
+        }
+        if contact_name:
+            first, *last_parts = contact_name.split(' ', 1)
+            last = last_parts[0] if last_parts else ''
+            biz_payload["contacts"] = [{
+                "first_name": first,
+                "last_name": last,
+                "email": contact_email or current_user.email,
+                "phone_number": contact_phone or '',
+            }]
+
+        if biz_identity_id:
+            # Update existing
+            resp = http_requests.patch(
+                f"{TELNYX_API_BASE}/business_identities/{biz_identity_id}",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json=biz_payload,
+                timeout=15,
+            )
+        else:
+            # Create new
+            resp = http_requests.post(
+                f"{TELNYX_API_BASE}/business_identities",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json=biz_payload,
+                timeout=15,
+            )
+
+        if resp.status_code in (200, 201):
+            biz_data = resp.json().get('data', {})
+            new_id = biz_data.get('id', '')
+            if new_id:
+                trust_hub['telnyx_business_identity_id'] = new_id
+                vc['trust_hub'] = trust_hub
+                _save_voice_config(current_user.email, vc)
+            results["steps"].append({"name": "business_identity", "status": "ok", "id": new_id})
+        else:
+            # Non-fatal: CNAM can still work without business identity
+            err_text = resp.text[:300]
+            logger.warning(f"Business identity creation returned {resp.status_code}: {err_text}")
+            results["steps"].append({"name": "business_identity", "status": "skipped", "reason": f"Telnyx returned {resp.status_code}"})
+    except Exception as e:
+        logger.error(f"Business identity creation failed: {e}")
+        results["steps"].append({"name": "business_identity", "status": "skipped", "reason": str(e)})
+
+    # ── Step 3: Enable CNAM on ALL phone numbers ──
+    cnam_success = 0
+    cnam_fail = 0
+    try:
+        # Fetch all numbers
+        nums_resp = http_requests.get(
+            f"{TELNYX_API_BASE}/phone_numbers",
+            headers={"Authorization": f"Bearer {api_key}"},
+            params={"page[size]": 250},
+            timeout=15,
+        )
+        if nums_resp.status_code == 200:
+            numbers = nums_resp.json().get('data', [])
+            for num in numbers:
+                num_id = num.get('id', '')
+                already_enabled = num.get('cnam_listing_enabled', False)
+                if not num_id:
+                    continue
+                if already_enabled:
+                    cnam_success += 1
+                    continue
+                try:
+                    patch_resp = http_requests.patch(
+                        f"{TELNYX_API_BASE}/phone_numbers/{num_id}",
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        json={"cnam_listing_enabled": True},
+                        timeout=10,
+                    )
+                    if patch_resp.status_code == 200:
+                        cnam_success += 1
+                    else:
+                        cnam_fail += 1
+                        logger.warning(f"CNAM enable failed for {num_id}: {patch_resp.status_code}")
+                except Exception as e:
+                    cnam_fail += 1
+                    logger.warning(f"CNAM enable error for {num_id}: {e}")
+
+            results["steps"].append({
+                "name": "cnam_all_numbers",
+                "status": "ok",
+                "enabled": cnam_success,
+                "failed": cnam_fail,
+                "total": len(numbers),
+            })
+        else:
+            results["steps"].append({"name": "cnam_all_numbers", "status": "error", "reason": f"Could not fetch numbers: {nums_resp.status_code}"})
+    except Exception as e:
+        logger.error(f"CNAM bulk enable failed: {e}")
+        results["steps"].append({"name": "cnam_all_numbers", "status": "error", "reason": str(e)})
+
+    # ── Step 4: Mark auto-protection enabled ──
+    trust_hub['protection_active'] = True
+    vc['trust_hub'] = trust_hub
+    _save_voice_config(current_user.email, vc)
+    results["steps"].append({"name": "auto_protect", "status": "ok"})
+
+    has_errors = any(s.get('status') == 'error' for s in results["steps"])
+    return jsonify({
+        "status": "partial" if has_errors else "ok",
+        "results": results,
+        "cnam_name": cnam_name,
+        "numbers_protected": cnam_success,
+        "numbers_failed": cnam_fail,
+    })
+
+
+@voice_bp.route('/voice/spam-protection/status', methods=['GET'])
+@login_required
+def spam_protection_status():
+    """Get current spam protection registration status."""
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not api_key:
+        return jsonify({"error": "Telnyx API key not configured"}), 400
+
+    trust_hub = (vc or {}).get('trust_hub', {})
+    protection_active = trust_hub.get('protection_active', False)
+    business_name = trust_hub.get('business_name', '')
+
+    # Count protected numbers (CNAM enabled)
+    protected = 0
+    total = 0
+    numbers_detail = []
+    try:
+        resp = http_requests.get(
+            f"{TELNYX_API_BASE}/phone_numbers",
+            headers={"Authorization": f"Bearer {api_key}"},
+            params={"page[size]": 250},
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            for n in resp.json().get('data', []):
+                total += 1
+                cnam = n.get('cnam_listing_enabled', False)
+                if cnam:
+                    protected += 1
+                numbers_detail.append({
+                    "phone": n.get('phone_number', ''),
+                    "id": n.get('id', ''),
+                    "cnam_enabled": cnam,
+                    "status": n.get('status', 'active'),
+                })
+    except Exception as e:
+        logger.warning(f"Spam protection status check failed: {e}")
+
+    return jsonify({
+        "protection_active": protection_active,
+        "business_name": business_name,
+        "ein": trust_hub.get('ein', ''),
+        "street": trust_hub.get('street', ''),
+        "city": trust_hub.get('city', ''),
+        "state": trust_hub.get('state', ''),
+        "zip": trust_hub.get('zip', ''),
+        "contact_name": trust_hub.get('contact_name', ''),
+        "contact_email": trust_hub.get('contact_email', ''),
+        "contact_phone": trust_hub.get('contact_phone', ''),
+        "registered_at": trust_hub.get('registered_at', ''),
+        "numbers_protected": protected,
+        "numbers_total": total,
+        "numbers": numbers_detail,
+        "stir_shaken": "active",  # Telnyx auto-manages
+        "auto_cnam": trust_hub.get('auto_cnam', False),
+    })
 
 
 # ──────────────────────────────────────────────────────────────
