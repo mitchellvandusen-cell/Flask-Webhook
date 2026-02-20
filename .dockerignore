@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Documentation (not needed at runtime)
+*.md
+LICENSE
+docs/
+
+# Assets not needed at runtime
+attached_assets/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
