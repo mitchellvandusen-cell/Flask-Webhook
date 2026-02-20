@@ -4671,6 +4671,10 @@ def oauth_callback():
                 existing_loc = existing_row['location_id']
                 # Sync OAuth tokens onto existing row — update location_id if it
                 # was a temp placeholder, otherwise keep existing data intact.
+                # Agency owners need role='agency_owner' in subscribers so
+                # is_agency_owner works (User.get checks subscribers first).
+                sync_role = 'agency_owner' if use_agency_flow else None
+
                 cur.execute("""
                     UPDATE subscribers
                     SET location_id = %s,
@@ -4679,6 +4683,8 @@ def oauth_callback():
                         token_expires_at = NOW() + interval '%s seconds',
                         crm_user_id = COALESCE(%s, crm_user_id),
                         oauth_app_type = %s,
+                        role = COALESCE(%s, role),
+                        parent_agency_email = COALESCE(%s, parent_agency_email),
                         onboarding_status = CASE
                             WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
                             ELSE onboarding_status
@@ -4686,7 +4692,9 @@ def oauth_callback():
                         updated_at = NOW()
                     WHERE email = %s
                 """, (primary_location_id, access_token, refresh_token,
-                      expires_in, me_data.get('id'), app_type, user_email))
+                      expires_in, me_data.get('id'), app_type,
+                      sync_role, user_email if use_agency_flow else None,
+                      user_email))
                 logger.info(f"Synced OAuth tokens for existing subscriber {user_email} "
                            f"(location: {existing_loc} → {primary_location_id}, app_type={app_type})")
 
@@ -4734,7 +4742,15 @@ def oauth_callback():
                 access_token_this = access_token
                 refresh_token_this = refresh_token
 
-                role = 'agency_sub_account_user' if use_agency_flow else 'individual'
+                # Agency owner's own location (fallback mode) → 'agency_owner'
+                # Other agency locations → 'agency_sub_account_user'
+                is_owner_location = (sub_id == primary_location_id)
+                if use_agency_flow and is_owner_location:
+                    role = 'agency_owner'
+                elif use_agency_flow:
+                    role = 'agency_sub_account_user'
+                else:
+                    role = 'individual'
                 parent_agency_email = user_email if use_agency_flow else None
                 email_this = user_email
 
