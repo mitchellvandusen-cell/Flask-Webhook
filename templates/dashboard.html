@@ -3964,8 +3964,15 @@
         // Override startCall for dual mode
         const _origStartCall = dialerStartCall;
         dialerStartCall = async function(phone, firstName, contactId, displayName) {
-            if (dialerMode === 'human' && voipReady) voipMakeCall(phone, firstName, contactId, displayName);
-            else await _origStartCall(phone, firstName, contactId, displayName);
+            if (dialerMode === 'human') {
+                if (!voipReady) {
+                    alert('VoIP is not connected. Click "Setup Browser VoIP" first, then try again.');
+                    return;
+                }
+                voipMakeCall(phone, firstName, contactId, displayName);
+            } else {
+                await _origStartCall(phone, firstName, contactId, displayName);
+            }
         };
 
         function voipMakeCall(phone, firstName, contactId, displayName) {

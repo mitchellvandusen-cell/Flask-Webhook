@@ -1103,6 +1103,7 @@ def voice_inbound():
 
     elif event_type in ('call.machine.detection.ended', 'call.machine.premium.detection.ended'):
         # AMD result: human / machine / not_sure / human_residence / human_business / silence / fax_detected
+        # NOTE: Telnyx fires BOTH event types for premium AMD — deduplicate with a flag.
         client_state_raw = call_pl.get('client_state', '')
         meta             = _decode_client_state(client_state_raw)
         amd_result       = call_pl.get('result', '')
@@ -1111,6 +1112,14 @@ def voice_inbound():
         max_attempts     = int(meta.get('max_dial_attempts', 2))
 
         logger.info(f"📞 AMD result={amd_result} attempt={dial_attempt}/{max_attempts} loc={location_id}")
+
+        # Deduplicate: if we already processed AMD for this call, skip
+        _amd_handled_key = f"_amd_{call_ctrl}"
+        if call_ctrl and _active_calls.get(call_ctrl, {}).get('_amd_handled'):
+            logger.debug(f"📞 AMD duplicate event ignored for {call_ctrl}")
+            return jsonify({'result': 'ok'}), 200
+        if call_ctrl and call_ctrl in _active_calls:
+            _active_calls[call_ctrl]['_amd_handled'] = True
 
         machine_results = {'machine_words_present', 'machine_stop', 'machine_silence_after_words', 'machine', 'fax_detected'}
         if amd_result in machine_results and dial_attempt < max_attempts and location_id:
