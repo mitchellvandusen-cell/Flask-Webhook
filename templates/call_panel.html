@@ -309,6 +309,28 @@
     let searchTimeout = null;
     const MAX_DIAL_ATTEMPTS = {{ voice_config.get('dial_attempts', 2)|int }};
 
+    // Production-grade fetch wrapper with retry + timeout
+    async function _fetchRetry(url, opts = {}, { retries = 2, timeout = 15000, label = '' } = {}) {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeout);
+            try {
+                const r = await fetch(url, { ...opts, signal: controller.signal });
+                clearTimeout(timer);
+                return r;
+            } catch(e) {
+                clearTimeout(timer);
+                if (attempt < retries) {
+                    const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+                    console.warn(`[Retry] ${label || url} attempt ${attempt + 1} failed, retrying in ${delay}ms`);
+                    await new Promise(r => setTimeout(r, delay));
+                } else {
+                    throw e;
+                }
+            }
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════
     // TAB SWITCHING
     // ═══════════════════════════════════════════════════════════
@@ -334,7 +356,7 @@
         list.innerHTML = '<div class="loading-spinner"><i class="fa-solid fa-spinner fa-spin"></i><p style="margin-top:8px;">Searching...</p></div>';
 
         try {
-            const resp = await fetch(`/voice/contacts?q=${encodeURIComponent(query)}&limit=50`);
+            const resp = await _fetchRetry(`/voice/contacts?q=${encodeURIComponent(query)}&limit=50`, {}, { retries: 2, timeout: 20000, label: 'contacts' });
             const data = await resp.json();
 
             if (!resp.ok) {
@@ -345,7 +367,8 @@
             contacts = data.contacts || [];
             renderContacts();
         } catch (e) {
-            list.innerHTML = '<div class="empty-state" style="color:var(--danger);">Network error loading contacts</div>';
+            console.error('[CallPanel] Contact fetch error:', e);
+            list.innerHTML = '<div class="empty-state" style="color:var(--danger);">Network error — please try searching again</div>';
         }
     }
 
@@ -398,12 +421,19 @@
     }
 
     async function startCall(phone, firstName, contactId, displayName, dialAttempt) {
+        // Validate phone before attempting
+        if (!phone || phone.replace(/[^0-9+]/g, '').length < 10) {
+            showCallBanner(displayName || firstName, 'Invalid phone number', true);
+            setTimeout(hideCallBanner, 3000);
+            if (queueRunning) setTimeout(() => advanceQueue('failed'), 1500);
+            return;
+        }
         // Show active call banner (include attempt count if retrying)
         const attemptLabel = dialAttempt > 1 ? ` (attempt ${dialAttempt}/${MAX_DIAL_ATTEMPTS})` : '';
         showCallBanner(displayName || firstName, 'Initiating...' + attemptLabel);
 
         try {
-            const resp = await fetch('/voice/dial', {
+            const resp = await _fetchRetry('/voice/dial', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -412,13 +442,13 @@
                     contact_id: contactId,
                     dial_attempt: dialAttempt || 1
                 })
-            });
+            }, { retries: 1, timeout: 20000, label: 'dial' });
 
             const data = await resp.json();
             if (!resp.ok) {
                 showCallBanner(displayName || firstName, data.error || 'Call failed', true);
                 setTimeout(hideCallBanner, 4000);
-                if (queueRunning) advanceQueue('failed');
+                if (queueRunning) setTimeout(() => advanceQueue('failed'), 2000);
                 return;
             }
 
@@ -427,9 +457,10 @@
             startPolling();
 
         } catch (e) {
-            showCallBanner(displayName || firstName, 'Network error', true);
+            console.error('[CallPanel] Dial error:', e);
+            showCallBanner(displayName || firstName, 'Network error — retrying...', true);
             setTimeout(hideCallBanner, 4000);
-            if (queueRunning) advanceQueue('failed');
+            if (queueRunning) setTimeout(() => advanceQueue('failed'), 3000);
         }
     }
 
@@ -438,12 +469,24 @@
     // ═══════════════════════════════════════════════════════════
     function startPolling() {
         if (pollInterval) clearInterval(pollInterval);
+        let pollErrors = 0;
+        const MAX_POLL_ERRORS = 5;
         pollInterval = setInterval(async () => {
             if (!currentCallSid) { clearInterval(pollInterval); return; }
 
             try {
                 const resp = await fetch(`/voice/call-status/${currentCallSid}`);
-                if (!resp.ok) return;
+                if (!resp.ok) {
+                    if (++pollErrors >= MAX_POLL_ERRORS) {
+                        console.error('[CallPanel] Poll max errors reached, stopping');
+                        clearInterval(pollInterval);
+                        currentCallSid = null;
+                        hideCallBanner();
+                        if (queueRunning) advanceQueue('failed');
+                    }
+                    return;
+                }
+                pollErrors = 0; // Reset on success
                 const data = await resp.json();
 
                 const statusText = formatStatus(data.status);
@@ -479,7 +522,15 @@
 
                     renderQueue();
                 }
-            } catch (e) { /* retry next interval */ }
+            } catch (e) {
+                if (++pollErrors >= MAX_POLL_ERRORS) {
+                    console.error('[CallPanel] Poll network errors exceeded max, stopping:', e.message);
+                    clearInterval(pollInterval);
+                    currentCallSid = null;
+                    hideCallBanner();
+                    if (queueRunning) advanceQueue('failed');
+                }
+            }
         }, 1500);
     }
 
@@ -534,17 +585,19 @@
 
         if (sid) {
             try {
-                const resp = await fetch('/voice/hangup', {
+                const resp = await _fetchRetry('/voice/hangup', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({call_sid: sid})
-                });
+                }, { retries: 2, timeout: 10000, label: 'hangup' });
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    console.warn('Hangup failed:', err.error || resp.status);
+                    console.warn('[CallPanel] Hangup returned error:', err.error || resp.status);
                 }
-            } catch (e) { /* call may have already ended */ }
+            } catch (e) {
+                console.warn('[CallPanel] Hangup network error (call may have already ended):', e.message);
+            }
         }
 
         // Always hide the banner — call is done from our perspective

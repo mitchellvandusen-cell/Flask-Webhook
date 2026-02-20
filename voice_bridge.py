@@ -1268,10 +1268,13 @@ def amd_status_callback():
 
     if answered_by in all_machine and sub_sid_amd and call_sid:
         # Machine detected — hang up immediately and let the dialer retry
-        _twilio_hangup(call_sid, sub_sid_amd)
-        # Mark so /voice/status preserves 'no-answer' instead of overwriting with 'completed'
+        # Mark FIRST so /voice/status preserves 'no-answer' even if it arrives before hangup completes
         if call_sid in _active_calls:
             _active_calls[call_sid]['_amd_result'] = 'no-answer'
+        try:
+            _twilio_hangup(call_sid, sub_sid_amd)
+        except Exception as e:
+            logger.warning(f"AMD hangup failed for {call_sid}: {e}")
 
     # human or not_sure — call continues with existing media stream
     return '', 204
@@ -1419,7 +1422,7 @@ def voice_status():
         try:
             update_call_history_status(call_sid, call_status, duration)
         except Exception as e:
-            logger.debug(f"call_history update note: {e}")
+            logger.warning(f"call_history update failed for {call_sid}: {e}")
 
     # Deduct AI minutes for completed calls with duration > 0
     dur_s = int(duration or 0)
@@ -1448,7 +1451,7 @@ def voice_status():
                     if result.get('success'):
                         logger.info(f"AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
         except Exception as e:
-            logger.debug(f"AI minute deduction note: {e}")
+            logger.warning(f"AI minute deduction failed for {call_sid}: {e}")
 
     return '', 204
 
@@ -2428,11 +2431,15 @@ def get_call_status(call_sid):
     """Poll call status for the dialer queue."""
     if call_sid in _active_calls:
         info = _active_calls[call_sid]
-        # Clean up completed calls after returning status
+        # For terminal states, mark for cleanup but don't delete yet (allow re-polls)
         if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled"):
-            status_copy = dict(info)
-            del _active_calls[call_sid]
-            return jsonify(status_copy)
+            poll_count = info.get('_terminal_polls', 0) + 1
+            info['_terminal_polls'] = poll_count
+            # Clean up after 3 polls of a terminal state (gives frontend time)
+            if poll_count >= 3:
+                status_copy = dict(info)
+                del _active_calls[call_sid]
+                return jsonify(status_copy)
         return jsonify(info)
     return jsonify({"status": "unknown"}), 404
 
@@ -2472,9 +2479,17 @@ def hangup_active_call():
     if call_sid in _active_calls:
         _active_calls[call_sid]['status'] = 'canceled'
 
+    # Persist canceled status to DB so call history is accurate
+    try:
+        update_call_history_status(call_sid, 'canceled', 0)
+    except Exception as e:
+        logger.warning(f"Hangup DB persist failed for {call_sid}: {e}")
+
     if success:
         return jsonify({"status": "hung_up"})
-    return jsonify({"error": "Hangup failed — call may have already ended"}), 400
+    # Even if Twilio hangup fails (call may have already ended), still return success
+    # since we've already updated our state
+    return jsonify({"status": "hung_up", "note": "call may have already ended"})
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2525,30 +2540,33 @@ def transcription_webhook():
     """
     call_sid   = request.values.get('CallSid', '')
     transcript = request.values.get('TranscriptionText', '')
+    transcription_status = request.values.get('TranscriptionStatus', 'completed')
 
     if not call_sid or not transcript:
         return '', 204
 
-    logger.info(f"📝 Transcription [{event_type}] {call_sid}: {transcript[:80]}")
+    logger.info(f"📝 Transcription [{transcription_status}] {call_sid}: {transcript[:80]}")
 
-    if event_type in ('call.transcription.completed', 'call.transcription.partial'):
-        conn = get_db_connection()
-        if conn:
+    conn = get_db_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            # Append to existing transcript stored as JSONB array in call_history
+            cur.execute("""
+                UPDATE call_history
+                SET transcript = COALESCE(transcript::jsonb, '[]'::jsonb) || %s::jsonb
+                WHERE call_sid = %s
+            """, (json.dumps([{"role": "auto", "text": transcript}]), call_sid))
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            logger.warning(f"Transcription save failed for {call_sid}: {e}")
             try:
-                cur = conn.cursor()
-                # Append to existing transcript stored as JSONB array in call_history
-                cur.execute("""
-                    UPDATE call_history
-                    SET transcript = COALESCE(transcript::jsonb, '[]'::jsonb) || %s::jsonb
-                    WHERE call_sid = %s
-                """, (json.dumps([{"role": "auto", "text": transcript}]), call_sid))
-                conn.commit()
-                cur.close()
-            except Exception as e:
-                logger.debug(f"Transcription save note: {e}")
                 conn.rollback()
-            finally:
-                return_db_connection(conn)
+            except Exception:
+                pass
+        finally:
+            return_db_connection(conn)
 
     return '', 204
 
@@ -2768,6 +2786,11 @@ def voice_transfer():
     success = _twilio_transfer(call_sid, sub_sid, transfer_to, f"https://{host}")
     if success:
         _active_calls[call_sid]['status'] = 'transferred'
+        # Persist transfer status to DB
+        try:
+            update_call_history_status(call_sid, 'completed', 0)
+        except Exception as e:
+            logger.warning(f"Transfer DB persist failed for {call_sid}: {e}")
         logger.info(f"Live transfer: call {call_sid} -> {transfer_to}")
         return jsonify({"status": "transferred", "call_sid": call_sid, "transfer_to": transfer_to})
 
