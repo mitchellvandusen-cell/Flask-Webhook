@@ -489,7 +489,7 @@ def get_spam_protection_status(sub_account_sid: str) -> dict:
 
 def provision_master(webhook_base_url: str) -> dict:
     """
-    Provision the agency owner (master account holder).
+    Provision the platform owner (super_admin).
     No sub-account needed — uses the master Twilio account directly.
     Creates a TwiML app and uses the existing master phone number.
     """
