@@ -4481,9 +4481,21 @@
                 // V2 SDK: device.connect() returns a Promise<Call>
                 const connectParams = { params: { To: phone } };
 
-                // Apply selected input device if set
+                // Apply selected input device if still available, fall back gracefully
                 if (_selectedInputDeviceId) {
-                    connectParams.rtcConstraints = { audio: { deviceId: { exact: _selectedInputDeviceId } } };
+                    try {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const stillExists = devices.some(d => d.kind === 'audioinput' && d.deviceId === _selectedInputDeviceId);
+                        if (stillExists) {
+                            connectParams.rtcConstraints = { audio: { deviceId: { ideal: _selectedInputDeviceId } } };
+                        } else {
+                            console.warn('[VoIP] Saved input device no longer available, using default mic');
+                            _selectedInputDeviceId = '';
+                            localStorage.removeItem('voip_input_device');
+                        }
+                    } catch(devErr) {
+                        console.warn('[VoIP] Could not enumerate devices:', devErr);
+                    }
                 }
 
                 const call = await voipDevice.connect(connectParams);
