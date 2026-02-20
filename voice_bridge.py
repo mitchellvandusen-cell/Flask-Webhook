@@ -2339,6 +2339,12 @@ def dial_contact():
     location_id  = subscriber.get('location_id', '')
     voice_config = subscriber.get('voice_config') or {}
 
+    # Enforce max dial attempts server-side
+    max_attempts = int(voice_config.get('dial_attempts', 2))
+    if dial_attempt > max_attempts:
+        logger.warning(f"Blocked dial attempt {dial_attempt} > max {max_attempts} for {current_user.email}")
+        return jsonify({"error": f"Max dial attempts ({max_attempts}) exceeded"}), 400
+
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 

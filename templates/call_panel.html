@@ -307,7 +307,7 @@
     let currentCallIndex = -1;
     let pollInterval = null;
     let searchTimeout = null;
-    const MAX_DIAL_ATTEMPTS = 3;
+    const MAX_DIAL_ATTEMPTS = {{ voice_config.get('dial_attempts', 2)|int }};
 
     // ═══════════════════════════════════════════════════════════
     // TAB SWITCHING
@@ -705,7 +705,7 @@
         const currentItem = (currentCallIndex >= 0 && currentCallIndex < callQueue.length)
             ? callQueue[currentCallIndex] : null;
 
-        // If the lead didn't pick up and we haven't hit 3 attempts, redial the same lead
+        // If the lead didn't pick up and we haven't hit max attempts, redial the same lead
         if (currentItem && RETRY_STATUSES.includes(lastStatus) && (currentItem.attempts || 0) < MAX_DIAL_ATTEMPTS) {
             currentItem.status = 'pending';
             renderQueue();
@@ -713,7 +713,7 @@
             return;
         }
 
-        // Lead answered (completed) or exhausted all 3 attempts — move to next
+        // Lead answered (completed) or exhausted max attempts — move to next
         currentCallIndex = callQueue.findIndex((q, i) => i > currentCallIndex && q.status === 'pending');
 
         if (currentCallIndex < 0) {
