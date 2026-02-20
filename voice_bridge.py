@@ -2811,11 +2811,10 @@ def automate_voice_setup():
         data = request.json or {}
         area_code = data.get('area_code', '')
 
-        # Determine if this user is the agency owner.
-        # Primary check: current_user.is_agency_owner (role in subscribers).
-        # Safety-net: also check agency_billing table directly, in case the
-        # subscriber role wasn't synced correctly.
-        is_owner = current_user.is_agency_owner
+        # Determine if this user should use the master Twilio account.
+        # super_admin (platform owner) and agency_owner both use master directly.
+        # Everyone else gets a sub-account.
+        is_owner = current_user.is_super_admin or current_user.is_agency_owner
         if not is_owner:
             conn_check = get_db_connection()
             if conn_check:
