@@ -2329,20 +2329,37 @@ def god_mode_dashboard():
         return "Database error", 500
     try:
         cur = conn.cursor()
-        # Pull everyone from both tables
-        cur.execute("""
+
+        # Detect which columns exist in each table to avoid crashes on
+        # databases that haven't run all migrations yet.
+        def _table_cols(table_name):
+            cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = %s
+            """, (table_name,))
+            return {r['column_name'] for r in cur.fetchall()}
+
+        sub_cols = _table_cols('subscribers')
+        ab_cols = _table_cols('agency_billing')
+
+        # Pull everyone from both tables — only reference columns that exist
+        sub_oauth = "oauth_app_type" if "oauth_app_type" in sub_cols else "'marketplace' AS oauth_app_type"
+        cur.execute(f"""
             SELECT email, full_name, role, subscription_tier, stripe_status,
-                   location_id, created_at, onboarding_status, oauth_app_type,
+                   location_id, created_at, onboarding_status, {sub_oauth},
                    'subscriber' AS source
             FROM subscribers
             ORDER BY created_at DESC
         """)
         subscribers = [dict(r) for r in cur.fetchall()]
 
-        cur.execute("""
-            SELECT agency_email AS email, full_name, role, subscription_tier,
-                   stripe_status, location_id, created_at,
-                   'active' AS onboarding_status, oauth_app_type,
+        ab_role = "role" if "role" in ab_cols else "'agency_owner' AS role"
+        ab_stripe = "stripe_status" if "stripe_status" in ab_cols else "NULL AS stripe_status"
+        ab_oauth = "oauth_app_type" if "oauth_app_type" in ab_cols else "'marketplace' AS oauth_app_type"
+        cur.execute(f"""
+            SELECT agency_email AS email, full_name, {ab_role}, subscription_tier,
+                   {ab_stripe}, location_id, created_at,
+                   'active' AS onboarding_status, {ab_oauth},
                    'agency_billing' AS source
             FROM agency_billing
             ORDER BY created_at DESC

@@ -439,6 +439,16 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"oauth_app_type column may already exist in agency_billing: {e}")
 
+        # 6b. MIGRATION: Ensure agency_billing has role and stripe_status columns
+        for col_name, col_def in [
+            ("role", "TEXT DEFAULT 'agency_owner'"),
+            ("stripe_status", "TEXT"),
+        ]:
+            try:
+                cur.execute(f"ALTER TABLE agency_billing ADD COLUMN IF NOT EXISTS {col_name} {col_def}")
+            except Exception:
+                conn.rollback()
+
         # 7. MIGRATION: Add calendar_name column to both tables
         try:
             cur.execute("""
