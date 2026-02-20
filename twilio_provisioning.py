@@ -26,6 +26,24 @@ from twilio.jwt.access_token.grants import VoiceGrant
 
 logger = logging.getLogger("twilio_provisioning")
 
+US_STATE_ABBREVS = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+    "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+    "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+    "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+    "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+    "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE",
+    "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ",
+    "new mexico": "NM", "new york": "NY", "north carolina": "NC",
+    "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+    "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+    "vermont": "VT", "virginia": "VA", "washington": "WA",
+    "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+    "district of columbia": "DC",
+}
+
 # Master Twilio credentials (from .env)
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
@@ -192,7 +210,8 @@ def search_available_numbers(number_type: str = "local", area_code: str = "",
         if area_code:
             kwargs["area_code"] = area_code
         if state:
-            kwargs["in_region"] = state
+            normalized = US_STATE_ABBREVS.get(state.strip().lower(), state.strip())
+            kwargs["in_region"] = normalized
         if city:
             kwargs["in_locality"] = city
         if zip_code:
@@ -204,7 +223,11 @@ def search_available_numbers(number_type: str = "local", area_code: str = "",
         if number_type == "toll_free":
             numbers = available.toll_free.list(**kwargs)
         elif number_type == "mobile":
-            numbers = available.mobile.list(**kwargs)
+            if country == "US":
+                logger.info("Mobile numbers unavailable for US; falling back to local")
+                numbers = available.local.list(**kwargs)
+            else:
+                numbers = available.mobile.list(**kwargs)
         else:
             numbers = available.local.list(**kwargs)
 
