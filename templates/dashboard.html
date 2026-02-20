@@ -1594,7 +1594,7 @@
                             </div>
                             <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-microphone"></i></div>
-                                <strong style="color:#ccc;">Audio Streams</strong><br>Telnyx streams HD audio to our server at 24 kHz
+                                <strong style="color:#ccc;">Audio Streams</strong><br>HD audio streamed to our server in real-time
                             </div>
                             <div class="col-6 col-md-3 text-center">
                                 <div style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-brain"></i></div>
@@ -1614,7 +1614,7 @@
                                 style="width: 3em; height: 1.5em; cursor: pointer;">
                             <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">Enable Voice AI Agent</label>
                         </div>
-                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your Telnyx number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
+                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your phone number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
                     </div>
 
                     <!-- Voice Sub-tabs: Settings | Numbers | Trust Hub -->
@@ -1636,73 +1636,52 @@
                     <!-- ══ Settings sub-tab ══ -->
                     <div id="vstab-panel-settings">
 
-                    <!-- Connect Telnyx (Magic Wand) -->
+                    <!-- Activate Voice (One-click provisioning) -->
                     <div class="mb-4 p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
                         <div class="d-flex align-items-center gap-3 mb-3">
                             <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                                 <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;"></i>
                             </div>
                             <div>
-                                <h6 style="margin:0;font-weight:700;color:#fff;">Connect Telnyx</h6>
-                                <p style="margin:0;color:#888;font-size:0.8rem;">Paste your API key — we'll create your Voice API application, outbound profile, and browser dialer automatically</p>
+                                <h6 style="margin:0;font-weight:700;color:#fff;">Voice Service</h6>
+                                {% if voice_config.get('twilio_sub_account_sid') %}
+                                <p style="margin:0;color:#00ff88;font-size:0.8rem;"><i class="fa-solid fa-circle-check me-1"></i>Active — phone number and dialer ready</p>
+                                {% else %}
+                                <p style="margin:0;color:#888;font-size:0.8rem;">Click activate to provision your phone number, voice application, and browser dialer automatically</p>
+                                {% endif %}
                             </div>
                         </div>
-                        <div class="d-flex gap-2 align-items-end flex-wrap">
-                            <div style="flex:1;min-width:220px;">
-                                <label style="color:#aaa;font-size:0.78rem;font-weight:600;margin-bottom:4px;display:block;">Telnyx API Key</label>
-                                <input type="text" class="form-control" id="voiceTelnyxApiKey" placeholder="KEY..." autocomplete="off"
-                                    value="{{ voice_config.get('telnyx_api_key', '') }}"
-                                    style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
-                                <small style="color:#666;font-size:0.72rem;">Telnyx Mission Control &rarr; API Keys &rarr; Create Key</small>
-                            </div>
-                            <button onclick="connectTelnyx()" id="connectTelnyxBtn"
-                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Connect Telnyx
-                            </button>
-                        </div>
+                        {% if not voice_config.get('twilio_sub_account_sid') %}
+                        <button onclick="activateVoiceService()" id="activateVoiceBtn"
+                            style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+                            <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice
+                        </button>
+                        {% endif %}
                         <!-- Provisioning status -->
                         <div class="d-flex gap-3 flex-wrap mt-3">
                             <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                {% if voice_config.get('telnyx_outbound_profile_id') %}
-                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Outbound Profile</span>
+                                {% if voice_config.get('twilio_sub_account_sid') %}
+                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice Account</span>
                                 {% else %}
-                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Outbound Profile</span>
+                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice Account</span>
                                 {% endif %}
                             </div>
                             <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                {% if voice_config.get('telnyx_connection_id') %}
-                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice API App</span>
+                                {% if voice_config.get('twilio_twiml_app_sid') %}
+                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice App</span>
                                 {% else %}
-                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice API App</span>
+                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice App</span>
                                 {% endif %}
                             </div>
                             <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                {% if voice_config.get('telnyx_sip_connection_id') %}
-                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Browser Dialer</span>
+                                {% if voice_config.get('twilio_phone_number') %}
+                                    <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Phone Number: {{ voice_config.get('twilio_phone_number', '') }}</span>
                                 {% else %}
-                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Browser Dialer</span>
+                                    <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Phone Number</span>
                                 {% endif %}
                             </div>
                         </div>
-                        <div id="connectTelnyxResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
-
-                        <!-- Manual Telnyx Connection ID & Phone Number -->
-                        <div class="d-flex gap-2 flex-wrap mt-3">
-                            <div style="flex:1;min-width:200px;">
-                                <label style="color:#aaa;font-size:0.78rem;font-weight:600;margin-bottom:4px;display:block;">Connection ID</label>
-                                <input type="text" class="form-control" id="voiceTelnyxConnectionId" placeholder="e.g. 180..."
-                                    value="{{ voice_config.get('telnyx_connection_id', '') }}"
-                                    style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
-                                <small style="color:#666;font-size:0.72rem;">Auto-filled by Connect, or paste from Telnyx &rarr; Voice API App</small>
-                            </div>
-                            <div style="flex:1;min-width:200px;">
-                                <label style="color:#aaa;font-size:0.78rem;font-weight:600;margin-bottom:4px;display:block;">Telnyx Phone Number</label>
-                                <input type="text" class="form-control" id="voiceTelnyxPhoneNumber" placeholder="+1..."
-                                    value="{{ voice_config.get('telnyx_phone_number', '') }}"
-                                    style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
-                                <small style="color:#666;font-size:0.72rem;">Auto-filled by Connect, or paste your Telnyx number</small>
-                            </div>
-                        </div>
+                        <div id="activateVoiceResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
                     </div>
 
 
@@ -1816,7 +1795,7 @@
                                 </div>
                                 <span style="color:#888; font-size:0.8rem;">Record every call (MP3)</span>
                             </div>
-                            <small style="color:#666; font-size:0.75rem;">Dual-channel recording via Telnyx</small>
+                            <small style="color:#666; font-size:0.75rem;">Dual-channel recording</small>
                         </div>
                         <div class="col-md-4">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Transcribe Calls</label>
@@ -1828,7 +1807,7 @@
                                 </div>
                                 <span style="color:#888; font-size:0.8rem;">Real-time transcription ($0.025/min)</span>
                             </div>
-                            <small style="color:#666; font-size:0.75rem;">Telnyx AI transcription engine</small>
+                            <small style="color:#666; font-size:0.75rem;">AI transcription engine</small>
                         </div>
                         <div class="col-md-6">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Local Presence Dialing</label>
@@ -1856,7 +1835,7 @@
                                 <button onclick="setupVoIP()" id="voipSetupBtnAlt" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
                                     <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
                                 </button>
-                                <span id="voipSetupStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('telnyx_credential_id') %}Credential configured — will auto-connect{% else %}Create Telnyx credential for human dialing{% endif %}</span>
+                                <span id="voipSetupStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured — will auto-connect{% else %}Set up browser calling for human dialing{% endif %}</span>
                             </div>
                         </div>
                     </div>
@@ -1871,10 +1850,7 @@
                             style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600;">
                             <i class="fa-solid fa-vial me-2"></i>Test Connection
                         </button>
-                        <a href="https://portal.telnyx.com" target="_blank"
-                            style="background: rgba(255,255,255,0.04); color: #aaa; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-weight: 600; padding: 8px 16px; text-decoration: none; font-size: 0.9rem; display:inline-flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i>Open Telnyx Dashboard
-                        </a>
+                        <!-- External dashboard link removed — white-label -->
                     </div>
 
                     <!-- Status output -->
@@ -1884,7 +1860,7 @@
                     <div class="mt-4 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 12px;">
                         <p style="color:#aaa; font-size:0.8rem; margin:0;">
                             <i class="fa-solid fa-circle-info me-1" style="color: #ffa500;"></i>
-                            <strong>Pricing:</strong> Voice calls use xAI at $0.05/min + Telnyx voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.30. Telnyx rates are lower than Twilio's and include HD wideband audio at no extra cost.
+                            <strong>Pricing:</strong> Voice calls use xAI at $0.05/min + voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.30. Voice minutes are included in your subscription.
                         </p>
                     </div>
                     </div><!-- /vstab-panel-settings -->
@@ -1942,7 +1918,7 @@
                                     </div>
                                     <div>
                                         <div style="font-weight:700;font-size:1rem;color:#fff;">Spam Protection</div>
-                                        <div style="font-size:0.78rem;color:#888;">Fill out your business details once. We'll automatically register with Telnyx, enable caller ID (CNAM) on all your numbers, and protect any future numbers you buy.</div>
+                                        <div style="font-size:0.78rem;color:#888;">Fill out your business details once. We'll automatically register your business identity, enable caller ID (CNAM) on all your numbers, and protect any future numbers you buy.</div>
                                     </div>
                                 </div>
 
@@ -1950,8 +1926,8 @@
                                 <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
                                     <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
                                     <div style="font-size:0.75rem;color:#999;line-height:1.6;">
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active via Telnyx<br>
-                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered with Telnyx<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered<br>
                                         <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> CNAM (Caller ID Name) enabled on all your numbers<br>
                                         <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Future number purchases auto-protected
                                     </div>
@@ -2108,7 +2084,7 @@
                 <div id="voipSetupBanner" style="display:none;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
                     <div class="d-flex align-items-center gap-3">
                         <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>
-                        <div style="flex:1;font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure Telnyx credential for VoIP</span></div>
+                        <div style="flex:1;font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure credential for VoIP</span></div>
                         <button onclick="setupVoIP()" id="voipSetupBtn" style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
                             <i class="fa-solid fa-gear me-1"></i>Setup VoIP
                         </button>
@@ -2765,21 +2741,19 @@
             if (name === 'trusthub') loadTrustHubData();
         }
 
-        // ── Magic Wand: one-click Telnyx provisioning ──
-        async function connectTelnyx() {
-            const apiKey = document.getElementById('voiceTelnyxApiKey').value.trim();
-            if (!apiKey) { alert('Please paste your Telnyx API key first.'); return; }
-            const btn = document.getElementById('connectTelnyxBtn');
-            const res = document.getElementById('connectTelnyxResult');
+        // ── One-click voice service activation (white-label) ──
+        async function activateVoiceService() {
+            const btn = document.getElementById('activateVoiceBtn');
+            const res = document.getElementById('activateVoiceResult');
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Provisioning…';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Activating…';
             res.style.display = 'block';
-            res.innerHTML = '<span style="color:#888;">Creating Voice API application, outbound profile, and browser dialer…</span>';
+            res.innerHTML = '<span style="color:#888;">Setting up your voice account, phone number, and dialer…</span>';
             try {
                 const r = await fetch('/voice/automate-setup', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({api_key: apiKey})
+                    body: JSON.stringify({})
                 });
                 const d = await r.json();
                 if (d.status === 'success') {
@@ -2788,27 +2762,20 @@
                     document.querySelectorAll('#vstab-panel-settings .fa-circle-xmark').forEach(el => {
                         el.className = 'fa-solid fa-circle-check';
                         el.style.color = '#00ff88';
-                        el.nextElementSibling.style.color = '#ccc';
+                        if (el.nextElementSibling) el.nextElementSibling.style.color = '#ccc';
                     });
-                    // Auto-populate Connection ID and Phone Number fields from the response
-                    if (d.telnyx_connection_id) {
-                        const connEl = document.getElementById('voiceTelnyxConnectionId');
-                        if (connEl) connEl.value = d.telnyx_connection_id;
-                    }
-                    if (d.telnyx_phone_number) {
-                        const phoneEl = document.getElementById('voiceTelnyxPhoneNumber');
-                        if (phoneEl) phoneEl.value = d.telnyx_phone_number;
-                    }
                     // Refresh the Numbers / Trust Hub lists so they populate immediately
                     if (typeof loadTrustHubNumbers === 'function') loadTrustHubNumbers();
+                    // Reload page after short delay to show new provisioned state
+                    setTimeout(() => location.reload(), 2000);
                 } else {
-                    res.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Provisioning failed') + '</span>';
+                    res.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Activation failed') + '</span>';
                 }
             } catch(e) {
                 res.innerHTML = '<span style="color:#ef4444;">Network error — check your connection and try again</span>';
             }
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Connect Telnyx';
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice';
         }
 
         function saveVoiceConfig() {
@@ -2816,11 +2783,8 @@
             resultDiv.style.display = 'block';
             resultDiv.innerHTML = '<span style="color:#3b82f6;"><i class="fa-solid fa-spinner fa-spin me-1"></i> Saving voice settings...</span>';
 
-            const connId = document.getElementById('voiceTelnyxConnectionId').value.trim();
-            const phoneNum = document.getElementById('voiceTelnyxPhoneNumber').value.trim();
             const config = {
                 enabled: document.getElementById('voiceEnabled').checked,
-                telnyx_api_key: document.getElementById('voiceTelnyxApiKey').value.trim(),
                 voice: document.getElementById('voiceSelection').value,
                 voice_bot_name: document.getElementById('voiceBotName').value.trim(),
                 voice_instructions: document.getElementById('voiceInstructions').value.trim(),
@@ -2832,9 +2796,6 @@
                 local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
                 transfer_number: document.getElementById('voiceTransferNumber')?.value?.trim() || '',
             };
-            // Include connection ID and phone number only when the user has filled them in
-            if (connId) config.telnyx_connection_id = connId;
-            if (phoneNum) config.telnyx_phone_number = phoneNum;
 
             fetch('/api/voice-config', {
                 method: 'POST',
@@ -2879,8 +2840,8 @@
                 html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">XAI Realtime API:</strong> ';
                 html += d.xai ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Connected</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed</span>';
                 html += '</div>';
-                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Telnyx Connection:</strong> ';
-                html += d.telnyx ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Failed — check Telnyx API Key</span>';
+                html += '<div style="margin-bottom:6px;"><strong style="color:#ccc;">Voice Service:</strong> ';
+                html += d.voice_service ? '<span style="color:var(--accent);"><i class="fa-solid fa-check me-1"></i>Active</span>' : '<span style="color:#ef4444;"><i class="fa-solid fa-times me-1"></i>Not provisioned — click Activate Voice</span>';
                 html += '</div>';
                 if (d.errors && d.errors.length > 0) {
                     html += '<div style="color:#ffa500; margin-top:8px; font-size:0.8rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + d.errors.join('<br>') + '</div>';
@@ -2893,8 +2854,7 @@
             });
         }
 
-        // configureVoiceNumber() removed — Telnyx number routing is configured in the
-        // Telnyx dashboard (Steps 3–5 of the setup guide above), not via API call.
+        // configureVoiceNumber() removed — routing is auto-provisioned.
 
         // ===== VOICE DIALER TAB =====
         let dialerContacts = [];
@@ -3766,7 +3726,7 @@
         let voipTimerInterval = null;
         let voipTimerSeconds = 0;
         // Credential already exists in DB — skip one-time setup, just need to connect SDK
-        let voipSetupDone = {{ 'true' if voice_config.get('telnyx_credential_id') else 'false' }};
+        let voipSetupDone = {{ 'true' if voice_config.get('twilio_twiml_app_sid') else 'false' }};
         let voipCurrentContact = null;
 
         function setDialerMode(mode) {
@@ -3841,7 +3801,7 @@
             try {
                 // Step 1: Fetch token
                 console.log('[VoIP] Fetching token from /voice/token');
-                if (_voipStatus()) _voipStatus().textContent = 'Fetching Telnyx token…';
+                if (_voipStatus()) _voipStatus().textContent = 'Fetching voice token…';
                 const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
                 const d = await r.json();
                 console.log('[VoIP] token response:', r.status, d.token ? 'token OK (len=' + d.token.length + ')' : d);
@@ -3860,7 +3820,6 @@
                 if (_voipStatus()) _voipStatus().textContent = 'Requesting microphone access…';
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    // Stop tracks immediately — SDK will open its own stream
                     stream.getTracks().forEach(t => t.stop());
                     console.log('[VoIP] Microphone permission granted');
                 } catch(micErr) {
@@ -3870,90 +3829,82 @@
                     return;
                 }
 
-                // Step 3: Load Telnyx WebRTC SDK if not already loaded
-                // The bundle exposes the global as window.TelnyxWebRTC.TelnyxRTC
-                const _getTelnyxRTC = () => window.TelnyxWebRTC?.TelnyxRTC || window.TelnyxRTC;
-                if (!_getTelnyxRTC()) {
-                    console.log('[VoIP] Loading Telnyx WebRTC SDK…');
-                    if (_voipStatus()) _voipStatus().textContent = 'Loading Telnyx SDK…';
+                // Step 3: Load Twilio Client JS SDK if not already loaded
+                if (!window.Twilio || !window.Twilio.Device) {
+                    console.log('[VoIP] Loading Voice SDK…');
+                    if (_voipStatus()) _voipStatus().textContent = 'Loading Voice SDK…';
                     await new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://unpkg.com/@telnyx/webrtc/lib/bundle.js';
+                        s.src = 'https://sdk.twilio.com/js/client/v1.14/twilio.min.js';
                         s.onload = () => {
-                            console.log('[VoIP] SDK loaded — TelnyxRTC global:', typeof _getTelnyxRTC());
+                            console.log('[VoIP] SDK loaded');
                             resolve();
                         };
-                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Telnyx SDK')); };
+                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Voice SDK')); };
                         document.head.appendChild(s);
                     });
                 } else {
-                    console.log('[VoIP] Telnyx SDK already loaded');
+                    console.log('[VoIP] Voice SDK already loaded');
                 }
 
-                const TelnyxRTC = _getTelnyxRTC();
-                if (!TelnyxRTC) {
-                    throw new Error('Telnyx SDK loaded but TelnyxRTC global not found — check browser console');
+                if (!window.Twilio || !window.Twilio.Device) {
+                    throw new Error('Voice SDK loaded but Device not found — check browser console');
                 }
-                console.log('[VoIP] TelnyxRTC constructor ready');
+                console.log('[VoIP] Voice Device constructor ready');
 
-                // Step 4: Connect
-                console.log('[VoIP] Creating TelnyxRTC instance and connecting');
-                if (_voipStatus()) _voipStatus().textContent = 'Connecting to Telnyx…';
+                // Step 4: Connect with Twilio Device
+                console.log('[VoIP] Setting up Voice Device');
+                if (_voipStatus()) _voipStatus().textContent = 'Connecting…';
                 setVoipBtnState('loading');
 
-                voipDevice = new TelnyxRTC({ login_token: d.token });
+                Twilio.Device.setup(d.token, { debug: false, closeProtection: true });
 
-                // Timeout: if telnyx.ready hasn't fired in 15s, show diagnostic info
+                // Timeout: if ready hasn't fired in 15s, show diagnostic info
                 const _voipReadyTimer = setTimeout(() => {
                     if (!voipReady) {
-                        console.warn('[VoIP] telnyx.ready not fired after 15s — possible network or token issue');
+                        console.warn('[VoIP] Device.ready not fired after 15s');
                         if (_voipStatus()) _voipStatus().textContent = 'Timed out — check browser console (F12) for errors';
                         setVoipBtnState('error');
                     }
                 }, 15000);
 
-                voipDevice.on('telnyx.ready', () => {
+                Twilio.Device.on('ready', (device) => {
                     clearTimeout(_voipReadyTimer);
-                    console.log('[VoIP] telnyx.ready fired — WebRTC connected!');
+                    console.log('[VoIP] Device ready — WebRTC connected!');
+                    voipDevice = device;
                     voipReady = true; voipSetupDone = true;
                     document.getElementById('voipStatus').style.display = 'block';
                     document.getElementById('voipSetupBanner').style.display = 'none';
-                    if (_voipStatus()) _voipStatus().textContent = 'VoIP ready ✓';
+                    if (_voipStatus()) _voipStatus().textContent = 'VoIP ready';
                     setVoipBtnState('connected');
                 });
 
-                voipDevice.on('telnyx.error', (err) => {
+                Twilio.Device.on('error', (err) => {
                     clearTimeout(_voipReadyTimer);
-                    console.error('[VoIP] telnyx.error event:', err);
+                    console.error('[VoIP] Device error:', err);
                     voipReady = false;
                     document.getElementById('voipStatus').style.display = 'none';
-                    const msg = err?.message || err?.error?.message || JSON.stringify(err);
-                    console.error('[VoIP] error message:', msg);
+                    const msg = err?.message || JSON.stringify(err);
                     if (_voipStatus()) _voipStatus().textContent = 'VoIP error: ' + msg;
                     setVoipBtnState('error');
                 });
 
-                voipDevice.on('telnyx.notification', (notification) => {
-                    console.log('[VoIP] notification:', notification.type, notification.call?.state);
-                    if (notification.type === 'callUpdate') {
-                        const call = notification.call;
-                        if (call.state === 'active') {
-                            voipConnection = call;
-                            voipStartTimer();
-                            document.getElementById('voipCallPanel').style.display = 'flex';
-                        } else if (call.state === 'done') {
-                            voipConnection = null;
-                            voipStopTimer();
-                            document.getElementById('voipCallPanel').style.display = 'none';
-                            document.getElementById('voipKeypad').style.display = 'none';
-                            dialerHideBanner();
-                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
-                        }
-                    }
+                Twilio.Device.on('connect', (conn) => {
+                    console.log('[VoIP] Call connected');
+                    voipConnection = conn;
+                    voipStartTimer();
+                    document.getElementById('voipCallPanel').style.display = 'flex';
                 });
 
-                console.log('[VoIP] Calling voipDevice.connect()');
-                voipDevice.connect();
+                Twilio.Device.on('disconnect', (conn) => {
+                    console.log('[VoIP] Call disconnected');
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                    document.getElementById('voipKeypad').style.display = 'none';
+                    dialerHideBanner();
+                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                });
 
             } catch(e) {
                 console.error('[VoIP] initVoIPDevice error:', e);
@@ -3988,10 +3939,9 @@
             document.getElementById('voipCallName').textContent = displayName || firstName;
             document.getElementById('voipCallPhone').textContent = phone;
             document.getElementById('voipCallTimer').textContent = '00:00';
-            const callerId = '{{ voice_config.get("telnyx_phone_number", "") }}';
-            // Telnyx WebRTC: newCall places a browser-to-PSTN call via the SIP connection
-            const call = voipDevice.newCall({ destinationNumber: phone, callerNumber: callerId });
-            voipConnection = call;
+            // Browser-to-PSTN call via Voice SDK
+            const conn = Twilio.Device.connect({ To: phone });
+            voipConnection = conn;
             if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) { dialerQueue[dialerCallIdx].status = 'in-progress'; dialerRenderQueue(); }
         }
 
@@ -3999,7 +3949,7 @@
         function voipToggleMute() {
             if (!voipConnection) return;
             _voipMuted = !_voipMuted;
-            if (_voipMuted) voipConnection.muteAudio(); else voipConnection.unmuteAudio();
+            voipConnection.mute(_voipMuted);
             const btn = document.getElementById('voipMuteBtn');
             btn.style.background = _voipMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
             btn.style.color = _voipMuted ? '#ef4444' : '#ccc';
@@ -4021,7 +3971,7 @@
         async function loadNumbersTab() {
             const container = document.getElementById('numbersListContainer');
             if (!container) { console.error('[Numbers] numbersListContainer not found'); return; }
-            container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers from Telnyx...</div></div>';
+            container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers...</div></div>';
             try {
                 const r = await fetch('/voice/numbers');
                 const d = await r.json();
@@ -4034,7 +3984,7 @@
                 if (!_numbersCache.length) {
                     container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888;font-size:.82rem;">' +
                         '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#444;"></i>' +
-                        'No numbers found on your Telnyx account.<br>Click <strong style="color:#00d9ff;">Buy Number</strong> above to get started.</div>';
+                        'No numbers found on your account.<br>Click <strong style="color:#00d9ff;">Buy Number</strong> above to get started.</div>';
                     return;
                 }
                 _renderNumbersTable(_numbersCache, container);
@@ -4094,7 +4044,7 @@
             // Summary info
             html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;font-size:.72rem;color:#666;">' +
                 '<strong style="color:#aaa;">' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
-                'Telnyx auto-manages STIR/SHAKEN. Register with carriers in the <strong style="color:#00d9ff;cursor:pointer;" onclick="switchVoiceSubtab(\'trusthub\')">Trust Hub</strong> tab to reduce spam flags.' +
+                'STIR/SHAKEN is auto-managed. Register with carriers in the <strong style="color:#00d9ff;cursor:pointer;" onclick="switchVoiceSubtab(\'trusthub\')">Trust Hub</strong> tab to reduce spam flags.' +
                 '</div>';
             container.innerHTML = html;
         }
@@ -4456,7 +4406,7 @@
         }
 
         async function buyNumber(phone) {
-            if (!confirm('Purchase ' + phone + '?\nThis will charge your Telnyx account.')) return;
+            if (!confirm('Purchase ' + phone + '?\nThis will be added to your account.')) return;
             try {
                 const r = await fetch('/voice/numbers/buy', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone_number: phone }) });
                 const d = await r.json();

@@ -1,13 +1,11 @@
-# voice_bridge.py - Telnyx <-> XAI Grok Voice Agent Bridge
+# voice_bridge.py - Twilio <-> XAI Grok Voice Agent Bridge (White-Label)
 # Real-time bidirectional audio streaming via WebSocket
-# Architecture: Lead <-> Telnyx Media Streaming <-> This Bridge <-> XAI Realtime API
+# Architecture: Lead <-> Twilio Media Streaming <-> This Bridge <-> XAI Realtime API
 #
-# Audio format: L16 (Linear PCM 16-bit) 16 kHz PASSTHROUGH — zero conversion.
-# Telnyx streaming_start configured with stream_bidirectional_codec=L16 at 16 kHz.
-# xAI configured with audio/pcm at 16 kHz for both input and output.
-#   Telnyx → Bridge: base64 L16 16kHz  →  forward as-is  →  xAI input_audio_buffer.append
-#   xAI → Bridge:   base64 L16 16kHz delta  →  forward as-is  →  Telnyx media event
-# No transcoding, no resampling — just routing base64 strings.
+# Audio format: Twilio streams mulaw 8kHz ↔ Bridge transcodes ↔ xAI PCM 16kHz
+#   Twilio → Bridge: base64 mulaw 8kHz  →  ulaw2lin + resample 8→16kHz  →  xAI input_audio_buffer.append
+#   xAI → Bridge:   base64 PCM 16kHz delta  →  resample 16→8kHz + lin2ulaw  →  Twilio media event
+# White-label: all provisioning via master account sub-accounts, users never see Twilio.
 # XAI endpoint: wss://api.x.ai/v1/realtime
 
 import json
@@ -18,12 +16,13 @@ import time
 import asyncio
 import struct
 import base64
-import audioop   # kept for recording-playback helpers (_mulaw_to_wav)
+import audioop   # mulaw<->PCM transcoding + resampling
 import numpy as np
 import websockets
 import requests as http_requests
 from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
+import twilio_provisioning
 
 from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
 from ghl_api import get_valid_token, fetch_targeted_ghl_history
@@ -66,60 +65,47 @@ VOICE_OPTIONS = {
 # Default voice
 DEFAULT_VOICE = "Ara"
 
-# Audio: L16 (PCM 16-bit) 16 kHz passthrough — both Telnyx and xAI use the same format.
-# Telnyx streaming_start sets stream_bidirectional_codec=L16 at 16 kHz.
-# xAI session configured with audio/pcm at 16 kHz input & output.
-TELNYX_SAMPLE_RATE = 8000   # kept for _mulaw_to_wav / voice-preview WAV wrapping
+# Audio transcoding: Twilio mulaw 8kHz ↔ xAI PCM 16kHz
+# Twilio Media Streams send mulaw-encoded audio at 8000 Hz.
+# xAI Realtime API expects/produces PCM 16-bit at 16000 Hz.
+TWILIO_SAMPLE_RATE = 8000   # Twilio Media Streams
+XAI_SAMPLE_RATE = 16000     # xAI Realtime API
 
-# Telnyx REST API base URL
-TELNYX_API_BASE = "https://api.telnyx.com/v2"
+# Master Twilio credentials (from .env) — white-label
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 
 
 # ──────────────────────────────────────────────────────────────
-# TELNYX CALL CONTROL HELPERS
+# TWILIO CALL CONTROL HELPERS
 # ──────────────────────────────────────────────────────────────
 
-def _call_control_command(call_control_id: str, api_key: str, action: str, params: dict) -> bool:
-    """
-    Send a Call Control API command (answer, streaming_start, hangup, etc.) to a
-    specific call leg.  Returns True on HTTP 2xx, False otherwise.
-    """
-    try:
-        resp = http_requests.post(
-            f"{TELNYX_API_BASE}/calls/{call_control_id}/actions/{action}",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type":  "application/json",
-            },
-            json=params,
-            timeout=8,
-        )
-        if not resp.ok:
-            logger.warning(f"Call Control '{action}' failed: {resp.status_code} {resp.text[:200]}")
-        return resp.ok
-    except Exception as e:
-        logger.error(f"Call Control '{action}' error: {e}")
-        return False
+def _twilio_hangup(call_sid: str, sub_account_sid: str) -> bool:
+    """Hang up a call via Twilio REST API."""
+    return twilio_provisioning.hangup_call(sub_account_sid, call_sid)
+
+
+def _twilio_transfer(call_sid: str, sub_account_sid: str, transfer_to: str, webhook_base_url: str) -> bool:
+    """Transfer a call via Twilio REST API (redirect to transfer TwiML)."""
+    return twilio_provisioning.transfer_call(sub_account_sid, call_sid, transfer_to, webhook_base_url)
 
 
 def _encode_client_state(data: dict) -> str:
-    """Base64-encode a dict into a Telnyx client_state string."""
-    import base64
+    """Base64-encode a dict for passing as custom parameters."""
     return base64.b64encode(json.dumps(data).encode()).decode()
 
 
 def _decode_client_state(s: str) -> dict:
-    """Decode a Telnyx client_state string back to a dict."""
-    import base64
+    """Decode a base64 client_state string back to a dict."""
     try:
         return json.loads(base64.b64decode(s.encode()).decode())
     except Exception:
         return {}
 
 
-def _build_texml_stream(stream_url: str, params: dict) -> str:
+def _build_twiml_stream(stream_url: str, params: dict) -> str:
     """
-    Build a Telnyx TeXML Response that opens a bidirectional L16 16kHz media stream.
+    Build a TwiML Response that opens a bidirectional mulaw 8kHz media stream.
     """
     param_xml = ''.join(
         f'<Parameter name="{k}" value="{v}"/>' for k, v in params.items()
@@ -128,15 +114,30 @@ def _build_texml_stream(stream_url: str, params: dict) -> str:
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
           '<Connect>'
-            f'<Stream url="{stream_url}"'
-            f' bidirectionalMode="rtp"'
-            f' audio_codec="L16"'
-            f' sample_rate="16000">'
+            f'<Stream url="{stream_url}">'
               f'{param_xml}'
             '</Stream>'
           '</Connect>'
         '</Response>'
     )
+
+
+def _mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
+    """Convert mulaw 8kHz audio (from Twilio) to PCM16 16kHz (for xAI)."""
+    # 1. mulaw -> PCM16 at 8kHz
+    pcm_8k = audioop.ulaw2lin(mulaw_bytes, 2)
+    # 2. Resample 8kHz -> 16kHz
+    pcm_16k, _ = audioop.ratecv(pcm_8k, 2, 1, TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE, None)
+    return pcm_16k
+
+
+def _pcm16_to_mulaw(pcm16_bytes: bytes) -> bytes:
+    """Convert PCM16 16kHz audio (from xAI) to mulaw 8kHz (for Twilio)."""
+    # 1. Resample 16kHz -> 8kHz
+    pcm_8k, _ = audioop.ratecv(pcm16_bytes, 2, 1, XAI_SAMPLE_RATE, TWILIO_SAMPLE_RATE, None)
+    # 2. PCM16 -> mulaw
+    mulaw = audioop.lin2ulaw(pcm_8k, 2)
+    return mulaw
 
 # Events to log from XAI
 LOG_EVENT_TYPES = [
@@ -252,7 +253,7 @@ async def _generate_voice_preview(voice_name):
 # ──────────────────────────────────────────────────────────────
 
 def _get_subscriber_by_phone(phone_number):
-    """Look up subscriber whose voice_config.telnyx_phone_number matches the given number."""
+    """Look up subscriber whose voice_config.twilio_phone_number matches the given number."""
     conn = get_db_connection()
     if not conn:
         return None
@@ -268,8 +269,8 @@ def _get_subscriber_by_phone(phone_number):
             WHERE voice_config IS NOT NULL
               AND voice_config->>'enabled' = 'true'
               AND (
-                  REPLACE(REPLACE(voice_config->>'telnyx_phone_number', '+', ''), '1', '') LIKE %s
-                  OR voice_config->>'telnyx_phone_number' = %s
+                  REPLACE(REPLACE(voice_config->>'twilio_phone_number', '+', ''), '1', '') LIKE %s
+                  OR voice_config->>'twilio_phone_number' = %s
               )
             LIMIT 1
         """, (f'%{normalized}', phone_number))
@@ -945,362 +946,223 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
 
 
 # ──────────────────────────────────────────────────────────────
-# ROUTE: Twilio calls this when an inbound call arrives
+# ROUTE: Twilio voice webhook — inbound calls + browser calls
 # ──────────────────────────────────────────────────────────────
 
 @voice_bp.route('/voice/inbound', methods=['POST'])
 def voice_inbound():
     """
-    Handle all Call Control webhook events for inbound calls.
-
-    Telnyx Voice API Application sends JSON events; we respond 200 OK and
-    issue Call Control commands as needed:
-      call.initiated  → answer the call (encodes metadata into client_state)
-      call.answered   → start bidirectional L16 media stream to our WebSocket
-      all others      → acknowledge with 200 OK
+    Twilio voice webhook — handles inbound calls and browser-initiated VoIP calls.
+    Twilio POSTs form data; we respond with TwiML XML.
+    - True inbound calls → <Connect><Stream> to AI bridge
+    - Browser VoIP calls (From=client:xxx) → <Dial><Number> to connect agent to lead
     """
-    payload    = request.get_json(silent=True) or {}
-    data       = payload.get('data', {})
-    event_type = data.get('event_type', '')
-    call_pl    = data.get('payload', {})
-    call_ctrl  = call_pl.get('call_control_id', '')
+    call_sid    = request.values.get('CallSid', '')
+    caller      = request.values.get('From', '')
+    called      = request.values.get('To', '')
+    call_status = request.values.get('CallStatus', '')
 
-    logger.info(f"📞 Voice inbound event: {event_type} ctrl={call_ctrl[:16] if call_ctrl else 'none'}")
+    logger.info(f"Voice inbound: CallSid={call_sid[:16] if call_sid else 'none'} From={caller} To={called}")
 
-    if event_type == 'call.initiated':
-        direction = call_pl.get('direction', 'incoming')
-        if direction != 'incoming':
-            # Outbound leg initiated — update _active_calls to 'ringing' for faster polling
-            _out_sid = call_pl.get('call_control_id', call_pl.get('call_leg_id', ''))
-            if _out_sid and _out_sid in _active_calls:
-                _active_calls[_out_sid]['status'] = 'ringing'
-            return jsonify({'result': 'ok'}), 200
+    # Browser VoIP call: From=client:agent_xxx, To=+1234567890
+    if caller.startswith('client:'):
+        identity = caller.replace('client:', '')
+        location_id = identity.replace('agent_', '') if identity.startswith('agent_') else ''
+        subscriber = _get_subscriber_by_location(location_id) if location_id else None
 
-        caller = call_pl.get('from', 'Unknown')
-        called = call_pl.get('to',   'Unknown')
+        if subscriber:
+            vc = subscriber.get('voice_config') or {}
+            from_number = vc.get('twilio_phone_number', '')
+            sub_sid = vc.get('twilio_sub_account_sid', '')
+            host = request.host
 
-        subscriber = _get_subscriber_by_phone(called)
-        if not subscriber:
-            logger.warning(f"No subscriber for {called}; letting call timeout")
-            return jsonify({'result': 'ok'}), 200
+            # Start recording in background
+            if vc.get('auto_record', True) and sub_sid and call_sid:
+                def _start_rec():
+                    time.sleep(1)
+                    try:
+                        twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
+                    except Exception as e:
+                        logger.warning(f"Auto-record failed: {e}")
+                threading.Thread(target=_start_rec, daemon=True).start()
 
-        vc      = subscriber.get('voice_config') or {}
-        api_key = vc.get('telnyx_api_key', '')
-        if not api_key:
-            logger.warning("Inbound call but no Telnyx API key configured")
-            return jsonify({'result': 'ok'}), 200
+            # Respond with TwiML to dial the destination number
+            twiml = (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<Response>'
+                f'<Dial callerId="{from_number}">'
+                f'<Number>{called}</Number>'
+                '</Dial>'
+                '</Response>'
+            )
+            return Response(twiml, content_type='text/xml')
 
-        # Encode metadata into client_state — echoed back in call.answered and
-        # the WebSocket start event so the bridge knows location/direction.
-        client_state = _encode_client_state({
-            'location_id':  subscriber.get('location_id', ''),
-            'caller':       caller,
-            'called':       called,
-            'direction':    'inbound',
-            'contact_id':   '',
-            'contact_name': 'there',
-        })
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
-        _call_control_command(call_ctrl, api_key, 'answer', {
-            'client_state': client_state,
-        })
-        logger.info(f"📞 Answered inbound call: {caller} -> {called}")
+    # True inbound call — look up subscriber by the called number
+    subscriber = _get_subscriber_by_phone(called)
+    if not subscriber:
+        logger.warning(f"No subscriber for {called}; returning empty TwiML")
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
-    elif event_type == 'call.answered':
-        # Immediately update _active_calls so dialer polling picks up 'in-progress' status
-        _answered_sid = call_pl.get('call_control_id', call_pl.get('call_leg_id', ''))
-        if _answered_sid and _answered_sid in _active_calls:
-            _active_calls[_answered_sid]['status'] = 'in-progress'
+    vc = subscriber.get('voice_config') or {}
+    sub_sid = vc.get('twilio_sub_account_sid', '')
 
-        # Retrieve metadata we encoded at answer time
-        client_state_raw = call_pl.get('client_state', '')
-        meta             = _decode_client_state(client_state_raw)
-        location_id      = meta.get('location_id', '')
-        dial_mode        = meta.get('dial_mode', 'ai')
+    if not vc.get('enabled'):
+        logger.warning("Inbound call but voice not enabled")
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
-        if not location_id:
-            logger.warning("call.answered: no location_id in client_state")
-            return jsonify({'result': 'ok'}), 200
+    host = request.host
+    stream_url = f'wss://{host}/voice/stream'
 
-        subscriber = _get_subscriber_by_location(location_id)
-        if not subscriber:
-            return jsonify({'result': 'ok'}), 200
+    # Encode metadata as custom parameters for the WebSocket stream
+    client_state = _encode_client_state({
+        'location_id':  subscriber.get('location_id', ''),
+        'caller':       caller,
+        'called':       called,
+        'direction':    'inbound',
+        'contact_id':   '',
+        'contact_name': 'there',
+    })
 
-        vc      = subscriber.get('voice_config') or {}
-        api_key = vc.get('telnyx_api_key', '')
-        if not api_key:
-            return jsonify({'result': 'ok'}), 200
-
-        host = request.host
-
-        # Auto-start recording if enabled
-        auto_record = meta.get('auto_record', vc.get('auto_record', True))
-        if auto_record:
-            _call_control_command(call_ctrl, api_key, 'record_start', {
-                'format': 'mp3',
-                'channels': 'dual',
-                'play_beep': False,
-                'record_type': 'audio',
-                'custom_recording_url': f'https://{host}/voice/recording-status',
-            })
-
-        # Auto-start transcription if enabled
-        auto_transcribe = meta.get('auto_transcribe', vc.get('auto_transcribe', False))
-        if auto_transcribe:
-            _call_control_command(call_ctrl, api_key, 'transcription_start', {
-                'language': 'en',
-                'transcription_engine': 'A',
-                'webhook_url': f'https://{host}/voice/transcription',
-            })
-
-        # For human VoIP calls, skip AI streaming — the browser handles the audio directly
-        if dial_mode == 'human':
-            logger.info(f"📞 Human VoIP call answered for {location_id} — recording started, no AI stream")
-            return jsonify({'result': 'ok'}), 200
-
-        # For AMD-enabled outbound AI calls, Telnyx plays probe audio immediately after
-        # call.answered to detect answering machines.  Starting bidirectional streaming
-        # at the same time conflicts — Telnyx kills our stream to run its probes.
-        # Defer streaming to call.machine.detection.ended once AMD finishes.
-        if meta.get('use_amd', False):
-            logger.info(f"📞 AMD call answered for {location_id} — deferring stream until AMD resolves")
-            return jsonify({'result': 'ok'}), 200
-
-        # For AI calls, start bidirectional media streaming to the AI bridge.
-        # Run in a background thread so the webhook returns immediately (no blocked
-        # gunicorn worker).  Telnyx occasionally returns 422/90046 "Failed to connect
-        # to destination" when the call state hasn't fully settled; a single retry
-        # after a short backoff resolves it in practice.
-        stream_params = {
-            'stream_url':                         f'wss://{host}/voice/stream',
-            'stream_track':                       'inbound_track',
-            'stream_bidirectional_mode':          'rtp',
-            'stream_bidirectional_codec':         'L16',
-            'stream_bidirectional_sampling_rate': 16000,
-            'client_state':                       client_state_raw,
-        }
-
-        def _start_streaming(ctrl, key, params, loc_id):
-            time.sleep(0.3)   # brief settle — reduced from 0.8s for faster AI response
-            ok = _call_control_command(ctrl, key, 'streaming_start', params)
-            if ok:
-                logger.info(f"📞 AI streaming started for {loc_id}")
-                return
-            # Telnyx 422/90046 — call state transition not complete; retry once
-            logger.warning(f"📞 streaming_start failed for {loc_id}; retrying in 0.8s")
-            time.sleep(0.8)
-            ok = _call_control_command(ctrl, key, 'streaming_start', params)
-            if ok:
-                logger.info(f"📞 AI streaming started for {loc_id} (retry ok)")
-            else:
-                logger.error(f"📞 streaming_start failed after retry for {loc_id} — call has no audio bridge")
-
-        threading.Thread(
-            target=_start_streaming,
-            args=(call_ctrl, api_key, stream_params, location_id),
-            daemon=True,
-        ).start()
-
-    elif event_type in ('call.machine.detection.ended', 'call.machine.premium.detection.ended'):
-        # AMD result: human / machine / not_sure / human_residence / human_business / silence / fax_detected
-        # NOTE: Telnyx fires BOTH event types for premium AMD — deduplicate with a flag.
-        client_state_raw = call_pl.get('client_state', '')
-        meta             = _decode_client_state(client_state_raw)
-        amd_result       = call_pl.get('result', '')
-        location_id      = meta.get('location_id', '')
-        dial_attempt     = int(meta.get('dial_attempt', 1))
-        max_attempts     = int(meta.get('max_dial_attempts', 2))
-
-        logger.info(f"📞 AMD result={amd_result} attempt={dial_attempt}/{max_attempts} loc={location_id}")
-
-        # Deduplicate: if we already processed AMD for this call, skip
-        _amd_handled_key = f"_amd_{call_ctrl}"
-        if call_ctrl and _active_calls.get(call_ctrl, {}).get('_amd_handled'):
-            logger.debug(f"📞 AMD duplicate event ignored for {call_ctrl}")
-            return jsonify({'result': 'ok'}), 200
-        if call_ctrl and call_ctrl in _active_calls:
-            _active_calls[call_ctrl]['_amd_handled'] = True
-
-        machine_results = {'machine_words_present', 'machine_stop', 'machine_silence_after_words', 'machine', 'fax_detected'}
-        if amd_result in machine_results and dial_attempt < max_attempts and location_id:
-            subscriber = _get_subscriber_by_location(location_id)
-            if subscriber:
-                vc      = subscriber.get('voice_config') or {}
-                api_key = vc.get('telnyx_api_key', '')
-                if api_key and call_ctrl:
-                    # Hang up the machine-answered call
-                    _call_control_command(call_ctrl, api_key, 'hangup', {})
-                    # Schedule redial in a background thread after a short pause
-                    def _redial():
-                        time.sleep(3)
-                        try:
-                            telnyx_number = vc.get('telnyx_phone_number', '')
-                            telnyx_conn   = vc.get('telnyx_connection_id', '')
-                            called_phone  = meta.get('called', '')
-                            host_url      = request.host
-                            new_state     = _encode_client_state({
-                                **meta,
-                                'dial_attempt': dial_attempt + 1,
-                            })
-                            call_payload = {
-                                "connection_id":      telnyx_conn,
-                                "to":                 called_phone,
-                                "from":               telnyx_number,
-                                "webhook_url":        f"https://{host_url}/voice/inbound",
-                                "webhook_url_method": "POST",
-                                "client_state":       new_state,
-                                "answering_machine_detection": "premium",
-                                "answering_machine_detection_config": {
-                                    "total_analysis_time_millis": 3500,
-                                },
-                            }
-                            r = http_requests.post(
-                                f"{TELNYX_API_BASE}/calls",
-                                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                                json=call_payload,
-                                timeout=10,
-                            )
-                            logger.info(f"📞 Redial attempt {dial_attempt+1}: {r.status_code}")
-                        except Exception as ex:
-                            logger.error(f"Redial failed: {ex}")
-                    threading.Thread(target=_redial, daemon=True).start()
-
-        else:
-            # Human or not_sure — AMD finished without detecting a machine.
-            # It is now safe to start bidirectional streaming; AMD probe audio is done.
-            if location_id and call_ctrl:
-                subscriber = _get_subscriber_by_location(location_id)
-                if subscriber:
-                    vc      = subscriber.get('voice_config') or {}
-                    api_key = vc.get('telnyx_api_key', '')
-                    if api_key:
-                        host              = request.host
-                        stream_params_amd = {
-                            'stream_url':                         f'wss://{host}/voice/stream',
-                            'stream_track':                       'inbound_track',
-                            'stream_bidirectional_mode':          'rtp',
-                            'stream_bidirectional_codec':         'L16',
-                            'stream_bidirectional_sampling_rate': 16000,
-                            'client_state':                       client_state_raw,
-                        }
-                        _amd_result = amd_result  # capture for closure
-                        def _start_amd_stream(ctrl, key, params, loc_id, result):
-                            ok = _call_control_command(ctrl, key, 'streaming_start', params)
-                            if ok:
-                                logger.info(f"📞 AI streaming started after AMD ({result}) for {loc_id}")
-                                return
-                            time.sleep(1.5)
-                            ok = _call_control_command(ctrl, key, 'streaming_start', params)
-                            if ok:
-                                logger.info(f"📞 AI streaming started after AMD ({result}) for {loc_id} (retry ok)")
-                            else:
-                                logger.error(f"📞 streaming_start failed after AMD for {loc_id}")
-                        threading.Thread(
-                            target=_start_amd_stream,
-                            args=(call_ctrl, api_key, stream_params_amd, location_id, _amd_result),
-                            daemon=True,
-                        ).start()
-
-    elif event_type == 'call.recording.saved':
-        # Recording completed — persist URL to call_history
-        telnyx_pl      = call_pl  # already the payload dict
-        call_sid_rec   = telnyx_pl.get('call_control_id', telnyx_pl.get('call_leg_id', ''))
-        recording_id   = telnyx_pl.get('recording_id', '')
-        pub_urls       = telnyx_pl.get('public_recording_urls', {})
-        mp3_url        = pub_urls.get('mp3', '') or telnyx_pl.get('recording_urls', {}).get('mp3', '')
-        duration_ms    = telnyx_pl.get('duration_millis', 0)
-        duration_secs  = int(duration_ms / 1000)
-
-        if call_sid_rec and mp3_url:
-            conn = get_db_connection()
-            if conn:
-                try:
-                    cur = conn.cursor()
-                    cur.execute("""
-                        UPDATE call_history
-                        SET recording_url = %s, recording_sid = %s,
-                            duration = COALESCE(NULLIF(duration, 0), %s)
-                        WHERE call_sid = %s
-                    """, (mp3_url, recording_id, duration_secs, call_sid_rec))
-                    conn.commit()
-                    cur.close()
-                    logger.info(f"🎙️ Recording saved for call {call_sid_rec}: {mp3_url}")
-                except Exception as e:
-                    logger.error(f"Failed to persist recording URL: {e}")
-                    conn.rollback()
-                finally:
-                    return_db_connection(conn)
-
-    elif event_type == 'call.hangup':
-        # Call ended — immediately update _active_calls so dialer polling picks it up
-        hangup_cause = call_pl.get('hangup_cause', 'normal_clearing')
-        sip_code     = call_pl.get('sip_hangup_cause', '')
-        duration_s   = int(call_pl.get('duration_seconds', 0) or 0)
-        call_sid_h   = call_pl.get('call_control_id', call_pl.get('call_leg_id', ''))
-
-        # Map hangup causes to user-friendly statuses
-        if hangup_cause in ('normal_clearing', 'normal_unspecified'):
-            final_status = 'completed'
-        elif hangup_cause in ('user_busy', 'call_rejected'):
-            final_status = 'busy'
-        elif hangup_cause in ('no_answer', 'originator_cancel', 'timeout'):
-            final_status = 'no-answer'
-        else:
-            final_status = 'completed'
-
-        if call_sid_h and call_sid_h in _active_calls:
-            _active_calls[call_sid_h]['status'] = final_status
-            _active_calls[call_sid_h]['duration'] = duration_s
-
-        # Also persist to DB
-        if call_sid_h:
+    # Start recording in background
+    if vc.get('auto_record', True) and sub_sid and call_sid:
+        def _start_rec():
+            time.sleep(1)
             try:
-                update_call_history_status(call_sid_h, final_status, duration_s)
-            except Exception:
-                pass
-
-        # Deduct AI minutes for completed calls with duration > 0
-        if duration_s > 0 and final_status == 'completed' and call_sid_h:
-            try:
-                conn_m = get_db_connection()
-                if conn_m:
-                    cur_m = conn_m.cursor()
-                    cur_m.execute("""
-                        SELECT ch.location_id, ch.phone, ch.direction, s.email
-                        FROM call_history ch
-                        JOIN subscribers s ON s.location_id = ch.location_id
-                        WHERE ch.call_sid = %s
-                    """, (call_sid_h,))
-                    row_m = cur_m.fetchone()
-                    cur_m.close()
-                    return_db_connection(conn_m)
-                    if row_m and row_m['email']:
-                        result = deduct_ai_minutes(
-                            email=row_m['email'],
-                            duration_seconds=duration_s,
-                            call_sid=call_sid_h,
-                            phone=row_m.get('phone', ''),
-                            direction=row_m.get('direction', 'outbound'),
-                        )
-                        if result.get('success'):
-                            logger.info(f"📊 AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
+                twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
             except Exception as e:
-                logger.debug(f"AI minute deduction note: {e}")
+                logger.warning(f"Auto-record failed: {e}")
+        threading.Thread(target=_start_rec, daemon=True).start()
 
-        logger.info(f"📞 Call hangup: {call_sid_h} cause={hangup_cause} sip={sip_code} dur={duration_s}s status={final_status}")
+    # Track the call
+    _active_calls[call_sid] = {
+        "status": "in-progress",
+        "duration": 0,
+        "contact_id": "",
+        "phone": caller,
+        "name": "",
+    }
 
-    # All other events (streaming.started, streaming.stopped, etc.)
-    # just need a 200 OK acknowledgement.
-    return jsonify({'result': 'ok'}), 200
+    # Respond with TwiML to connect the media stream to AI bridge
+    params = {'client_state': client_state, 'callSid': call_sid}
+    twiml = _build_twiml_stream(stream_url, params)
+    return Response(twiml, content_type='text/xml')
 
 
-@voice_bp.route('/voice/outbound-answer', methods=['POST'])
-def voice_outbound_answer():
+# ──────────────────────────────────────────────────────────────
+# ROUTE: TwiML for outbound calls (called when callee answers)
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/outbound-twiml', methods=['POST'])
+def outbound_twiml():
     """
-    Backward-compatibility alias — now delegates to voice_inbound.
-    All Call Control events (inbound and outbound) are handled at /voice/inbound.
+    TwiML endpoint for outbound calls created via REST API.
+    Twilio fetches this when the callee answers. Returns <Connect><Stream> for AI.
     """
-    return voice_inbound()
+    call_sid     = request.values.get('CallSid', '')
+    answered_by  = request.values.get('AnsweredBy', '')
+    location_id  = request.values.get('location_id', '')
+    caller       = request.values.get('caller', '')
+    called       = request.values.get('called', '') or request.values.get('To', '')
+    direction    = request.values.get('direction', 'outbound')
+    contact_id   = request.values.get('contact_id', '')
+    contact_name = request.values.get('contact_name', 'there')
+    dial_mode    = request.values.get('dial_mode', 'ai')
+
+    logger.info(f"Outbound TwiML: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by} mode={dial_mode}")
+
+    # Update active calls
+    if call_sid in _active_calls:
+        _active_calls[call_sid]['status'] = 'in-progress'
+
+    # For human VoIP mode, the browser handles audio directly
+    if dial_mode == 'human':
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
+
+    host = request.host
+    stream_url = f'wss://{host}/voice/stream'
+
+    client_state = _encode_client_state({
+        'location_id':  location_id,
+        'caller':       caller,
+        'called':       called,
+        'direction':    direction,
+        'contact_id':   contact_id,
+        'contact_name': contact_name,
+        'dial_mode':    dial_mode,
+    })
+
+    # Start recording in background
+    subscriber = _get_subscriber_by_location(location_id) if location_id else None
+    if subscriber:
+        vc = subscriber.get('voice_config') or {}
+        sub_sid = vc.get('twilio_sub_account_sid', '')
+        if vc.get('auto_record', True) and sub_sid and call_sid:
+            def _start_rec():
+                time.sleep(0.5)
+                try:
+                    twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
+                except Exception as e:
+                    logger.warning(f"Auto-record failed: {e}")
+            threading.Thread(target=_start_rec, daemon=True).start()
+
+    params = {'client_state': client_state, 'callSid': call_sid}
+    twiml = _build_twiml_stream(stream_url, params)
+    return Response(twiml, content_type='text/xml')
+
+
+@voice_bp.route('/voice/transfer-twiml', methods=['POST'])
+def transfer_twiml():
+    """TwiML endpoint for call transfers. Twilio fetches this when we redirect a call."""
+    transfer_to = request.values.get('transfer_to', '')
+    call_sid = request.values.get('CallSid', '')
+
+    logger.info(f"Transfer TwiML: CallSid={call_sid[:16] if call_sid else 'none'} -> {transfer_to}")
+
+    if not transfer_to:
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Transfer failed.</Say></Response>',
+            content_type='text/xml'
+        )
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Response>'
+        f'<Dial>{transfer_to}</Dial>'
+        '</Response>'
+    )
+    return Response(twiml, content_type='text/xml')
+
+
+@voice_bp.route('/voice/amd-status', methods=['POST'])
+def amd_status_callback():
+    """
+    Twilio async AMD callback. Called when machine detection finishes.
+    If machine → hang up (and redial if attempts remain).
+    If human → call continues with existing stream.
+    """
+    call_sid    = request.values.get('CallSid', '')
+    answered_by = request.values.get('AnsweredBy', '')
+
+    logger.info(f"AMD result: CallSid={call_sid[:16] if call_sid else 'none'} AnsweredBy={answered_by}")
+
+    machine_results = {'machine_start', 'machine_end_beep', 'machine_end_silence', 'machine_end_other', 'fax'}
+    if answered_by in machine_results:
+        # Machine detected — hang up
+        call_info = _active_calls.get(call_sid, {})
+        sub_sid_amd = call_info.get('_sub_sid', '')
+        if sub_sid_amd and call_sid:
+            _twilio_hangup(call_sid, sub_sid_amd)
+            if call_sid in _active_calls:
+                _active_calls[call_sid]['status'] = 'no-answer'
+    # Human or not_sure — call continues with existing media stream
+    return '', 204
+
+
+# Note: call.hangup/completion events are now handled by /voice/status callback
+
+# AI minute deduction is now handled in /voice/status when call completes
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1310,16 +1172,8 @@ def voice_outbound_answer():
 @voice_bp.route('/voice/outbound-call', methods=['POST'])
 def trigger_outbound_call():
     """
-    API endpoint to initiate an outbound AI voice call.
+    API endpoint to initiate an outbound AI voice call via Twilio.
     Called by CRM automations (webhook) or the dashboard.
-
-    Expected JSON payload:
-    {
-        "location_id": "abc123",
-        "phone": "+15551234567",
-        "first_name": "John",
-        "contact_id": "contact_abc"
-    }
     """
     data = request.json or {}
     location_id = data.get('location_id', '')
@@ -1330,7 +1184,6 @@ def trigger_outbound_call():
     if not location_id or not lead_phone:
         return jsonify({"error": "location_id and phone are required"}), 400
 
-    # Look up subscriber
     subscriber = _get_subscriber_by_location(location_id)
     if not subscriber:
         return jsonify({"error": "Subscriber not found"}), 404
@@ -1339,65 +1192,56 @@ def trigger_outbound_call():
     if not voice_config.get("enabled"):
         return jsonify({"error": "Voice is not enabled for this account"}), 400
 
-    # Telnyx credentials — stored in voice_config as:
-    #   telnyx_api_key        — Telnyx API key (from telnyx.com Mission Control)
-    #   telnyx_connection_id  — Voice API Application Connection ID (from Telnyx dashboard)
-    #   telnyx_phone_number   — E.164 Telnyx number (+1...)
-    telnyx_api_key       = voice_config.get("telnyx_api_key", "")
-    telnyx_connection_id = voice_config.get("telnyx_connection_id", "")
-    telnyx_number        = voice_config.get("telnyx_phone_number", "")
+    sub_sid       = voice_config.get("twilio_sub_account_sid", "")
+    from_number   = voice_config.get("twilio_phone_number", "")
 
-    if not all([telnyx_api_key, telnyx_connection_id, telnyx_number]):
-        return jsonify({"error": "Telnyx credentials not fully configured (need telnyx_api_key, telnyx_connection_id, telnyx_phone_number)"}), 400
+    if not sub_sid or not from_number:
+        return jsonify({"error": "Voice service not fully provisioned"}), 400
 
     try:
-        host         = request.host
-        # All events (inbound + outbound) go to the single app webhook URL.
-        webhook_url  = f"https://{host}/voice/inbound"
-        # Metadata travels as client_state (base64 JSON); Telnyx echoes it in
-        # every subsequent webhook event and in the WebSocket start message.
-        client_state = _encode_client_state({
+        host = request.host
+        webhook_base_url = f"https://{host}"
+
+        # Custom params passed via URL to the outbound-twiml endpoint
+        custom_params = {
             'location_id':  location_id,
-            'caller':       telnyx_number,
+            'caller':       from_number,
             'called':       lead_phone,
             'direction':    'outbound',
             'contact_id':   contact_id,
             'contact_name': lead_name,
-        })
+            'dial_mode':    'ai',
+        }
 
-        # Telnyx Call Control API — create outbound call
-        # Docs: https://developers.telnyx.com/api/call-control/create-call
-        resp = http_requests.post(
-            f"{TELNYX_API_BASE}/calls",
-            headers={
-                "Authorization": f"Bearer {telnyx_api_key}",
-                "Content-Type":  "application/json",
-            },
-            json={
-                "connection_id":      telnyx_connection_id,
-                "to":                 lead_phone,
-                "from":               telnyx_number,
-                "webhook_url":        webhook_url,
-                "webhook_url_method": "POST",
-                "client_state":       client_state,
-            },
-            timeout=10,
+        # Create outbound call via Twilio REST API
+        use_amd = voice_config.get('use_amd', False)
+        result = twilio_provisioning.create_outbound_call(
+            sub_account_sid=sub_sid,
+            to=lead_phone,
+            from_number=from_number,
+            webhook_base_url=webhook_base_url,
+            machine_detection='DetectMessageEnd' if use_amd else None,
+            custom_params=custom_params,
         )
-        if not resp.ok:
-            telnyx_errors = resp.json().get('errors', [{}])
-            telnyx_msg = telnyx_errors[0].get('detail', resp.text) if telnyx_errors else resp.text
-            logger.error(f"Telnyx outbound call error {resp.status_code}: {resp.text}")
-            return jsonify({"error": f"Telnyx {resp.status_code}: {telnyx_msg}"}), 400
-        call_data    = resp.json().get("data", {})
-        call_leg_id  = call_data.get("call_leg_id", "")
-        call_ctrl_id = call_data.get("call_control_id", call_leg_id)
+        call_sid = result.get('call_sid', '')
 
-        logger.info(f"📞 Telnyx outbound call initiated: {telnyx_number} -> {lead_phone} (ctrl_id={call_ctrl_id})")
+        logger.info(f"Outbound call initiated: {from_number} -> {lead_phone} (sid={call_sid})")
 
-        # Persist to call_history DB (use call_control_id as the call identifier)
+        # Track in active calls
+        _active_calls[call_sid] = {
+            "status": "initiated",
+            "duration": 0,
+            "contact_id": contact_id,
+            "phone": lead_phone,
+            "name": lead_name,
+            "_location_id": location_id,
+            "_sub_sid": sub_sid,
+        }
+
+        # Persist to call_history DB
         save_call_to_history(
             location_id=location_id,
-            call_sid=call_ctrl_id,
+            call_sid=call_sid,
             phone=lead_phone,
             contact_id=contact_id,
             contact_name=lead_name,
@@ -1412,15 +1256,15 @@ def trigger_outbound_call():
                 event_type="voice_outbound_initiated",
                 status="success",
                 summary=f"Outbound call to {lead_name} ({lead_phone})",
-                details={"call_control_id": call_ctrl_id, "to": lead_phone, "from": telnyx_number}
+                details={"call_sid": call_sid, "to": lead_phone, "from": from_number}
             )
         except Exception:
             pass
 
-        return jsonify({"status": "calling", "call_sid": call_ctrl_id})
+        return jsonify({"status": "calling", "call_sid": call_sid})
 
     except Exception as e:
-        logger.error(f"Failed to initiate Telnyx outbound call: {e}")
+        logger.error(f"Failed to initiate outbound call: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -1431,34 +1275,12 @@ def trigger_outbound_call():
 @voice_bp.route('/voice/status', methods=['POST'])
 def voice_status():
     """
-    Telnyx posts call status events here as JSON.
-    Telnyx event_type values: call.initiated, call.answered, call.hangup
-    Also handles legacy Twilio form-POST for any in-flight Twilio calls.
+    Twilio posts call status events here as form data.
+    Status values: initiated, ringing, in-progress, completed, busy, no-answer, canceled, failed.
     """
-    # Telnyx sends JSON; Twilio sends form data
-    payload     = request.get_json(silent=True) or {}
-    telnyx_data = payload.get('data', {})
-    telnyx_pl   = telnyx_data.get('payload', {})
-
-    if telnyx_data:
-        # Telnyx event
-        event_type  = telnyx_data.get('event_type', '')
-        call_sid    = telnyx_pl.get('call_control_id', telnyx_pl.get('call_leg_id', ''))
-        duration    = str(telnyx_pl.get('duration_seconds', '0'))
-        # Map Telnyx event_type → Twilio-style status string for DB consistency
-        _status_map = {
-            'call.initiated': 'initiated',
-            'call.ringing':   'ringing',
-            'call.answered':  'answered',
-            'call.hangup':    'completed',
-            'call.failed':    'failed',
-        }
-        call_status = _status_map.get(event_type, event_type)
-    else:
-        # Legacy Twilio form POST
-        call_sid    = request.form.get('CallSid', '')
-        call_status = request.form.get('CallStatus', '')
-        duration    = request.form.get('CallDuration', '0')
+    call_sid    = request.values.get('CallSid', '')
+    call_status = request.values.get('CallStatus', '')
+    duration    = request.values.get('CallDuration', '0')
 
     logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
 
@@ -1474,6 +1296,35 @@ def voice_status():
         except Exception as e:
             logger.debug(f"call_history update note: {e}")
 
+    # Deduct AI minutes for completed calls with duration > 0
+    dur_s = int(duration or 0)
+    if dur_s > 0 and call_status == 'completed' and call_sid:
+        try:
+            conn_m = get_db_connection()
+            if conn_m:
+                cur_m = conn_m.cursor()
+                cur_m.execute("""
+                    SELECT ch.location_id, ch.phone, ch.direction, s.email
+                    FROM call_history ch
+                    JOIN subscribers s ON s.location_id = ch.location_id
+                    WHERE ch.call_sid = %s
+                """, (call_sid,))
+                row_m = cur_m.fetchone()
+                cur_m.close()
+                return_db_connection(conn_m)
+                if row_m and row_m['email']:
+                    result = deduct_ai_minutes(
+                        email=row_m['email'],
+                        duration_seconds=dur_s,
+                        call_sid=call_sid,
+                        phone=row_m.get('phone', ''),
+                        direction=row_m.get('direction', 'outbound'),
+                    )
+                    if result.get('success'):
+                        logger.info(f"AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
+        except Exception as e:
+            logger.debug(f"AI minute deduction note: {e}")
+
     return '', 204
 
 
@@ -1483,22 +1334,18 @@ def voice_status():
 
 async def handle_voice_stream(ws):
     """
-    Core WebSocket handler: bridges Telnyx Media Streaming <-> XAI Realtime API.
-    Called by flask-sock for each new Telnyx stream connection.
+    Core WebSocket handler: bridges Twilio Media Streams <-> XAI Realtime API.
+    Called by flask-sock for each new Twilio stream connection.
 
-    Audio flow — L16 (PCM 16-bit) 16 kHz passthrough, zero conversion:
-        Lead speaks  → Telnyx (L16 16kHz base64) → forward as-is → xAI (audio/pcm 16kHz)
-        xAI responds → (L16 16kHz base64 delta)  → forward as-is → Telnyx (media event)
+    Audio flow — mulaw 8kHz (Twilio) <-> PCM16 16kHz (xAI) with transcoding:
+        Lead speaks  → Twilio (mulaw 8kHz base64) → transcode → xAI (PCM16 16kHz)
+        xAI responds → (PCM16 16kHz base64 delta)  → transcode → Twilio (mulaw 8kHz)
 
-    Telnyx streaming_start configured with L16 codec at 16 kHz.
-    xAI configured with audio/pcm 16 kHz for both input and output.
-    No transcoding, no resampling — just routing base64 strings.
-
-    ws: the Telnyx-side WebSocket (flask-sock)
+    ws: the Twilio-side WebSocket (flask-sock)
     """
-    logger.info("🎙️ Voice stream WebSocket connected (Telnyx)")
+    logger.info("Voice stream WebSocket connected")
 
-    # Wait for the 'start' event from Telnyx to get metadata
+    # Wait for the 'start' event from Twilio to get metadata
     stream_sid = None
     call_sid = None
     location_id = None
@@ -1516,39 +1363,28 @@ async def handle_voice_stream(ws):
 
     start_data = json.loads(start_msg)
     if start_data.get('event') == 'connected':
-        # Telnyx may send a 'connected' event before the 'start' event
+        # Twilio sends a 'connected' event before the 'start' event
         start_msg = ws.receive()
         start_data = json.loads(start_msg)
 
     if start_data.get('event') == 'start':
         start_block = start_data.get('start', {})
-        stream_sid  = (
-            start_data.get('streamSid') or       # Twilio top-level
-            start_data.get('stream_id') or        # Telnyx top-level ← was missing
-            start_block.get('streamSid', '') or   # Twilio inside start block
-            start_block.get('stream_id', '')      # Telnyx inside start block (fallback)
-        )
+        stream_sid  = start_data.get('streamSid') or start_block.get('streamSid', '')
 
-        # Call Control streaming_start passes metadata via client_state (base64 JSON).
-        # TeXML <Parameter> tags arrive as customParameters — support both.
+        # TwiML <Parameter> tags arrive as customParameters
         custom_params     = start_block.get('customParameters', {})
-        client_state_raw  = start_block.get('client_state', '') or custom_params.get('client_state', '')
+        client_state_raw  = custom_params.get('client_state', '')
         client_state_meta = _decode_client_state(client_state_raw) if client_state_raw else {}
 
-        # Prefer client_state values; fall back to customParameters for TeXML compat
-        call_sid = (
-            start_block.get('callControlId') or
-            start_block.get('call_control_id') or
-            client_state_meta.get('call_sid', '') or
-            custom_params.get('callSid', '')
-        )
-        caller       = client_state_meta.get('caller',       '') or custom_params.get('caller', '') or start_block.get('from', '')
-        called       = client_state_meta.get('called',       '') or custom_params.get('called', '') or start_block.get('to', '')
+        # Extract call metadata from client_state or customParameters
+        call_sid     = custom_params.get('callSid', '') or start_block.get('callSid', '')
+        caller       = client_state_meta.get('caller',       '') or custom_params.get('caller', '')
+        called       = client_state_meta.get('called',       '') or custom_params.get('called', '')
         direction    = client_state_meta.get('direction',    'inbound') or custom_params.get('direction', 'inbound')
         location_id  = client_state_meta.get('location_id', '') or custom_params.get('locationId', '')
         contact_id   = client_state_meta.get('contact_id',  '') or custom_params.get('contactId', '')
         contact_name = client_state_meta.get('contact_name','there') or custom_params.get('contactName', 'there')
-        logger.info(f"🎙️ Stream started: SID={stream_sid} dir={direction} loc={location_id}")
+        logger.info(f"Stream started: SID={stream_sid} call={call_sid} dir={direction} loc={location_id}")
     else:
         logger.warning(f"Voice stream: Unexpected first event: {start_data.get('event')}")
         return
@@ -1631,7 +1467,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             close_timeout=5,
         ) as xai_ws:
 
-            # Configure the XAI session — L16 (PCM) 16kHz both directions, matching Telnyx
+            # Configure the XAI session — PCM 16kHz both directions
             # Aggressive VAD settings for fast turn-taking (~2s response time target)
             session_config = {
                 "type": "session.update",
@@ -1722,78 +1558,77 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             # Connection state
             last_assistant_item      = None
             response_start_timestamp = None
-            ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Telnyx
+            ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Twilio
             call_active              = True
             _pending_transfer        = False  # set True when AI requests transfer; cleared on response.done
 
-            # ── Telnyx -> XAI: L16 16kHz passthrough ──
-            async def receive_from_telnyx():
-                """Relay Telnyx → xAI. L16 16kHz base64 passthrough — no decoding."""
+            # ── Twilio -> XAI: mulaw 8kHz → PCM16 16kHz ──
+            async def receive_from_twilio():
+                """Relay Twilio → xAI. Transcode mulaw 8kHz to PCM16 16kHz."""
                 nonlocal stream_sid, call_active
                 try:
                     while call_active:
-                        # ── Check for immediate takeover (agent barge-in) ──
-                        # This runs on every loop iteration so takeover is near-instant
+                        # Check for immediate takeover (agent barge-in)
                         if call_sid and call_sid in _transfer_requests:
                             req = _transfer_requests.get(call_sid, {})
                             if req.get('type') == 'takeover':
                                 transfer_info = _transfer_requests.pop(call_sid, {})
                                 target = transfer_info.get('target', '')
-                                logger.info(f"🔄 Immediate takeover in receive_from_telnyx: {call_sid} -> {target}")
+                                logger.info(f"Immediate takeover: {call_sid} -> {target}")
 
-                                t_api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
-                                if t_api_key and target:
-                                    # 1. Kill AI audio loop
+                                t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
+                                if t_sub_sid and target:
                                     call_active = False
-                                    # 2. Stop bidirectional streaming
-                                    _call_control_command(call_sid, t_api_key, 'streaming_stop', {})
-                                    # 3. Brief settle
-                                    await asyncio.sleep(0.3)
-                                    # 4. Transfer call to agent
-                                    _call_control_command(call_sid, t_api_key, 'transfer', {'to': target})
-                                    logger.info(f"🔄 Takeover transfer executed: {call_sid} -> {target}")
+                                    host = (subscriber.get('voice_config') or {}).get('_webhook_host', '')
+                                    _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host}" if host else '')
                                     if call_sid in _active_calls:
                                         _active_calls[call_sid]['status'] = 'transferred'
-                                break  # exit the Telnyx receive loop
+                                break
 
                         message = await asyncio.get_event_loop().run_in_executor(
                             None, ws.receive
                         )
                         if message is None:
-                            logger.info("🎙️ Telnyx stream ended (None received)")
+                            logger.info("Twilio stream ended (None received)")
                             call_active = False
                             break
 
                         data = json.loads(message)
 
                         if data['event'] == 'media':
-                            # L16 passthrough — forward Telnyx base64 directly to xAI
+                            # Transcode mulaw 8kHz → PCM16 16kHz for xAI
+                            mulaw_bytes = base64.b64decode(data['media']['payload'])
+                            pcm16_bytes = _mulaw_to_pcm16(mulaw_bytes)
+                            pcm16_b64 = base64.b64encode(pcm16_bytes).decode('ascii')
                             await xai_ws.send(json.dumps({
                                 "type":  "input_audio_buffer.append",
-                                "audio": data['media']['payload'],
+                                "audio": pcm16_b64,
                             }))
 
                         elif data['event'] == 'stop':
-                            logger.info(f"🎙️ Telnyx stream stopped: {stream_sid}")
+                            logger.info(f"Twilio stream stopped: {stream_sid}")
                             call_active = False
                             break
 
                 except Exception as e:
-                    logger.info(f"🎙️ Telnyx receive ended: {e}")
+                    logger.info(f"Twilio receive ended: {e}")
                     call_active = False
 
-            # ── xAI -> Telnyx: L16 16kHz passthrough ──
+            # ── xAI -> Twilio: PCM16 16kHz → mulaw 8kHz ──
             async def receive_from_xai():
-                """Relay xAI → Telnyx. L16 16kHz base64 passthrough — no encoding."""
+                """Relay xAI → Twilio. Transcode PCM16 16kHz to mulaw 8kHz."""
                 nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer
 
-                def _send_audio_to_telnyx(raw_b64: str):
-                    """Forward xAI L16 (PCM 16kHz) base64 directly to Telnyx — no conversion."""
+                def _send_audio_to_twilio(raw_b64: str):
+                    """Transcode xAI PCM16 16kHz → mulaw 8kHz and send to Twilio."""
                     nonlocal ai_chunks_sent
+                    pcm16_bytes = base64.b64decode(raw_b64)
+                    mulaw_bytes = _pcm16_to_mulaw(pcm16_bytes)
+                    mulaw_b64 = base64.b64encode(mulaw_bytes).decode('ascii')
                     ws.send(json.dumps({
                         "event":     "media",
-                        "stream_id": stream_sid,
-                        "media":     {"payload": raw_b64},
+                        "streamSid": stream_sid,
+                        "media":     {"payload": mulaw_b64},
                     }))
                     ai_chunks_sent += 1
 
@@ -1808,10 +1643,10 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                         if event_type in LOG_EVENT_TYPES:
                             logger.info(f"🎙️ XAI event: {event_type}")
 
-                        # xAI PCMU → passthrough → Telnyx (both event name variants)
+                        # xAI PCM16 → mulaw transcode → Twilio (both event name variants)
                         if event_type in ('response.audio.delta', 'response.output_audio.delta') \
                                 and 'delta' in response:
-                            _send_audio_to_telnyx(response['delta'])
+                            _send_audio_to_twilio(response['delta'])
                             item_id = response.get("item_id")
                             if item_id and item_id != last_assistant_item:
                                 response_start_timestamp = ai_chunks_sent * 20  # ~20 ms per chunk
@@ -1831,8 +1666,8 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                 }
                                 await xai_ws.send(json.dumps(truncate_event))
 
-                            # Clear Telnyx's audio buffer
-                            ws.send(json.dumps({"event": "clear", "stream_id": stream_sid}))
+                            # Clear Twilio's audio buffer
+                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
                             last_assistant_item      = None
                             response_start_timestamp = None
                             ai_chunks_sent           = 0
@@ -1919,23 +1754,14 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                 reason = transfer_info.get('reason', '')
                                 logger.info(f"🔄 Executing {t_type}: call {call_sid} -> {target} (reason: {reason})")
 
-                                # Get Telnyx API key for transfer commands
-                                t_api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
-                                if t_api_key and target:
-                                    # 1. Stop the AI audio stream
+                                # Get voice service for transfer commands
+                                t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
+                                if t_sub_sid and target:
                                     call_active = False
-
-                                    # 2. Stop bidirectional streaming on Telnyx
-                                    _call_control_command(call_sid, t_api_key, 'streaming_stop', {})
-                                    logger.info(f"🔄 Streaming stopped for {call_sid}")
-
-                                    # 3. Brief pause to let stream teardown settle
-                                    await asyncio.sleep(0.5)
-
-                                    # 4. Transfer the live call to the agent's number
-                                    transfer_ok = _call_control_command(call_sid, t_api_key, 'transfer', {
-                                        'to': target,
-                                    })
+                                    await asyncio.sleep(0.3)
+                                    # Transfer via Twilio REST (stops media stream automatically)
+                                    host_h = (subscriber.get('voice_config') or {}).get('_webhook_host', '')
+                                    transfer_ok = _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_h}" if host_h else '')
 
                                     if transfer_ok:
                                         logger.info(f"🔄 Call transferred to {target}")
@@ -1954,14 +1780,12 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                     target = transfer_info.get('target', '')
                                     logger.info(f"🔄 Executing takeover: call {call_sid} -> {target}")
 
-                                    t_api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
-                                    if t_api_key and target:
+                                    t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
+                                    if t_sub_sid and target:
                                         call_active = False
-                                        _call_control_command(call_sid, t_api_key, 'streaming_stop', {})
-                                        await asyncio.sleep(0.5)
-                                        _call_control_command(call_sid, t_api_key, 'transfer', {
-                                            'to': target,
-                                        })
+                                        await asyncio.sleep(0.3)
+                                        host_t = (subscriber.get('voice_config') or {}).get('_webhook_host', '')
+                                        _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_t}" if host_t else '')
                                         logger.info(f"🔄 Takeover transfer to {target}")
                                         if call_sid in _active_calls:
                                             _active_calls[call_sid]['status'] = 'transferred'
@@ -1973,10 +1797,10 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                     logger.error(f"🎙️ XAI receive error: {e}")
                     call_active = False
 
-            # Run Telnyx↔xAI audio bridge + background context enrichment concurrently
+            # Run Twilio↔xAI audio bridge + background context enrichment concurrently
             await asyncio.gather(
-                receive_from_telnyx(),   # Telnyx → xAI
-                receive_from_xai(),      # xAI → Telnyx
+                receive_from_twilio(),   # Twilio → xAI (mulaw→PCM16)
+                receive_from_xai(),      # xAI → Twilio (PCM16→mulaw)
                 enrich_session(),
                 return_exceptions=True
             )
@@ -2029,11 +1853,11 @@ def run_voice_stream(ws):
 
 @voice_bp.route('/voice/test', methods=['POST'])
 def test_voice_connection():
-    """Test that XAI and Telnyx credentials are valid."""
+    """Test that XAI and Voice credentials are valid."""
     data = request.json or {}
     location_id = data.get('location_id', '')
 
-    results = {"xai": False, "telnyx": False, "errors": []}
+    results = {"xai": False, "twilio": False, "errors": []}
 
     # Test XAI API key
     if XAI_API_KEY:
@@ -2053,26 +1877,23 @@ def test_voice_connection():
     else:
         results["errors"].append("XAI_API_KEY not configured")
 
-    # Test Telnyx API key — list outbound voice profiles as a lightweight auth check
+    # Test voice service via Twilio sub-account
     if location_id:
         subscriber = _get_subscriber_by_location(location_id)
         if subscriber:
             voice_config = subscriber.get("voice_config") or {}
-            telnyx_api_key = voice_config.get("telnyx_api_key", "")
-            if telnyx_api_key:
+            sub_sid = voice_config.get("twilio_sub_account_sid", "")
+            if sub_sid:
                 try:
-                    r = http_requests.get(
-                        f"{TELNYX_API_BASE}/outbound_voice_profiles?page[size]=1",
-                        headers={"Authorization": f"Bearer {telnyx_api_key}"},
-                        timeout=10,
-                    )
-                    results["telnyx"] = r.status_code == 200
-                    if r.status_code != 200:
-                        results["errors"].append(f"Telnyx API returned {r.status_code} — check your API Key")
+                    client = twilio_provisioning.get_sub_account_client(sub_sid)
+                    account = client.api.accounts(sub_sid).fetch()
+                    results["twilio"] = account.status == "active"
+                    if account.status != "active":
+                        results["errors"].append(f"Voice sub-account status: {account.status}")
                 except Exception as e:
-                    results["errors"].append(f"Telnyx connection failed: {str(e)}")
+                    results["errors"].append(f"Voice service check failed: {str(e)}")
             else:
-                results["errors"].append("Telnyx API Key not configured")
+                results["errors"].append("Voice service not provisioned")
 
     return jsonify(results)
 
@@ -2285,20 +2106,19 @@ def fetch_contacts():
 @login_required
 def dial_contact():
     """
-    Initiate an outbound call to a specific contact.
+    Initiate an outbound call to a specific contact via Twilio.
     Used by the call panel. Returns call_sid for status tracking.
     """
     data = request.json or {}
     contact_id    = data.get('contact_id', '')
     phone         = data.get('phone', '')
     first_name    = data.get('first_name', 'there')
-    dial_mode     = data.get('dial_mode', 'ai')        # 'ai' or 'human'
-    dial_attempt  = int(data.get('dial_attempt', 1))   # retry attempt number
+    dial_mode     = data.get('dial_mode', 'ai')
+    dial_attempt  = int(data.get('dial_attempt', 1))
 
     if not phone:
         return jsonify({"error": "Phone number is required"}), 400
 
-    # Get subscriber info
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database error"}), 500
@@ -2316,15 +2136,13 @@ def dial_contact():
     location_id  = subscriber.get('location_id', '')
     voice_config = subscriber.get('voice_config') or {}
 
-    # For AI mode, voice must be enabled; human mode always allowed if credentials exist
     if dial_mode == 'ai' and not voice_config.get('enabled'):
         return jsonify({"error": "Voice AI is not enabled. Enable it in the Voice tab."}), 400
 
-    telnyx_api_key       = voice_config.get('telnyx_api_key', '')
-    telnyx_connection_id = voice_config.get('telnyx_connection_id', '')
-    telnyx_number        = voice_config.get('telnyx_phone_number', '')
+    sub_sid      = voice_config.get('twilio_sub_account_sid', '')
+    from_number  = voice_config.get('twilio_phone_number', '')
 
-    # Local presence: pick a number from the pool matching the destination area code
+    # Local presence: pick a number matching the destination area code
     local_presence_enabled = voice_config.get('local_presence', False)
     if local_presence_enabled:
         dest_area = phone.lstrip('+').lstrip('1')[:3] if phone else ''
@@ -2332,81 +2150,39 @@ def dial_contact():
         for lp_num in local_pool:
             lp_area = lp_num.lstrip('+').lstrip('1')[:3]
             if lp_area == dest_area:
-                telnyx_number = lp_num
+                from_number = lp_num
                 break
 
-    if not all([telnyx_api_key, telnyx_connection_id, telnyx_number]):
-        missing = []
-        if not telnyx_api_key:
-            missing.append("API Key")
-        if not telnyx_connection_id:
-            missing.append("Connection ID")
-        if not telnyx_number:
-            missing.append("Phone Number")
-        return jsonify({"error": f"Telnyx credentials not configured (missing: {', '.join(missing)})"}), 400
+    if not sub_sid or not from_number:
+        return jsonify({"error": "Voice service not fully provisioned"}), 400
 
-    # Dialer settings
-    max_dial_attempts = int(voice_config.get('dial_attempts', 2))
-    auto_record       = voice_config.get('auto_record', True)
-    auto_transcribe   = voice_config.get('auto_transcribe', False)
-    use_amd           = dial_mode == 'ai'  # AMD only useful for AI calls
+    use_amd = dial_mode == 'ai'
 
     try:
-        host        = request.host
-        webhook_url = f"https://{host}/voice/inbound"
-        client_state = _encode_client_state({
-            'location_id':      location_id,
-            'caller':           telnyx_number,
-            'called':           phone,
-            'direction':        'outbound',
-            'contact_id':       contact_id,
-            'contact_name':     first_name,
-            'dial_mode':        dial_mode,
-            'dial_attempt':     dial_attempt,
-            'max_dial_attempts': max_dial_attempts,
-            'auto_record':      auto_record,
-            'auto_transcribe':  auto_transcribe,
-            'use_amd':          use_amd,
-        })
+        host = request.host
+        webhook_base_url = f"https://{host}"
 
-        call_payload = {
-            "connection_id":      telnyx_connection_id,
-            "to":                 phone,
-            "from":               telnyx_number,
-            "webhook_url":        webhook_url,
-            "webhook_url_method": "POST",
-            "client_state":       client_state,
+        custom_params = {
+            'location_id':  location_id,
+            'caller':       from_number,
+            'called':       phone,
+            'direction':    'outbound',
+            'contact_id':   contact_id,
+            'contact_name': first_name,
+            'dial_mode':    dial_mode,
         }
 
-        # Enable AMD for AI outbound calls — premium ML-based detection (fastest)
-        if use_amd:
-            call_payload["answering_machine_detection"] = "premium"
-            call_payload["answering_machine_detection_config"] = {
-                "total_analysis_time_millis": 3500,
-            }
-
-        resp = http_requests.post(
-            f"{TELNYX_API_BASE}/calls",
-            headers={
-                "Authorization": f"Bearer {telnyx_api_key}",
-                "Content-Type":  "application/json",
-            },
-            json=call_payload,
-            timeout=10,
+        result = twilio_provisioning.create_outbound_call(
+            sub_account_sid=sub_sid,
+            to=phone,
+            from_number=from_number,
+            webhook_base_url=webhook_base_url,
+            machine_detection='DetectMessageEnd' if use_amd else None,
+            custom_params=custom_params,
         )
-        if not resp.ok:
-            telnyx_errors = resp.json().get('errors', [{}])
-            telnyx_msg = telnyx_errors[0].get('detail', resp.text) if telnyx_errors else resp.text
-            logger.error(f"Telnyx dial error {resp.status_code}: {resp.text}")
-            hint = ""
-            if resp.status_code == 403:
-                hint = " — Check: (1) API key has outbound call permissions, (2) Telnyx account is funded, (3) Connection ID matches the phone number's assigned connection in Telnyx portal"
-            return jsonify({"error": f"Telnyx {resp.status_code}: {telnyx_msg}{hint}"}), 400
-        call_data    = resp.json().get("data", {})
-        call_ctrl_id = call_data.get("call_control_id", call_data.get("call_leg_id", ""))
+        call_sid = result.get('call_sid', '')
 
-        # Track this call for the dialer queue
-        _active_calls[call_ctrl_id] = {
+        _active_calls[call_sid] = {
             "status":     "initiated",
             "duration":   0,
             "contact_id": contact_id,
@@ -2414,12 +2190,13 @@ def dial_contact():
             "name":       first_name,
             "dial_mode":  dial_mode,
             "attempt":    dial_attempt,
+            "_location_id": location_id,
+            "_sub_sid":     sub_sid,
         }
 
-        # Persist to call_history DB
         save_call_to_history(
             location_id=location_id,
-            call_sid=call_ctrl_id,
+            call_sid=call_sid,
             phone=phone,
             contact_id=contact_id,
             contact_name=first_name,
@@ -2427,8 +2204,8 @@ def dial_contact():
             status='initiated'
         )
 
-        logger.info(f"📞 Dialer call [{dial_mode}]: {telnyx_number} -> {phone} ({first_name}) attempt={dial_attempt} ctrl_id={call_ctrl_id}")
-        return jsonify({"status": "calling", "call_sid": call_ctrl_id, "dial_mode": dial_mode})
+        logger.info(f"Dialer call [{dial_mode}]: {from_number} -> {phone} ({first_name}) attempt={dial_attempt} sid={call_sid}")
+        return jsonify({"status": "calling", "call_sid": call_sid, "dial_mode": dial_mode})
 
     except Exception as e:
         logger.error(f"Dialer call failed: {e}")
@@ -2457,7 +2234,7 @@ def get_call_status(call_sid):
 @voice_bp.route('/voice/hangup', methods=['POST'])
 @login_required
 def hangup_active_call():
-    """Hang up the currently active call by call_control_id."""
+    """Hang up the currently active call."""
     data = request.json or {}
     call_sid = data.get('call_sid', '')
     if not call_sid:
@@ -2477,11 +2254,11 @@ def hangup_active_call():
     finally:
         return_db_connection(conn)
 
-    api_key = (subscriber.get('voice_config') or {}).get('telnyx_api_key', '')
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
-    success = _call_control_command(call_sid, api_key, 'hangup', {})
+    success = _twilio_hangup(call_sid, sub_sid)
     if call_sid in _active_calls:
         _active_calls[call_sid]['status'] = 'canceled'
 
@@ -2491,40 +2268,23 @@ def hangup_active_call():
 
 
 # ──────────────────────────────────────────────────────────────
-# ROUTE: Recording status callback from Telnyx
+# ROUTE: Recording status callback from Twilio
 # ──────────────────────────────────────────────────────────────
 
 @voice_bp.route('/voice/recording-status', methods=['POST'])
 def recording_status_callback():
-    """
-    Telnyx posts call.recording.saved events here (JSON).
-    Also handles legacy Twilio form-POST for any in-flight recordings.
-    """
-    # Try JSON (Telnyx) first
-    payload = request.get_json(silent=True) or {}
-    telnyx_data = payload.get('data', {})
+    """Twilio posts recording status events here as form data."""
+    call_sid = request.values.get('CallSid', '')
+    recording_sid = request.values.get('RecordingSid', '')
+    recording_url = request.values.get('RecordingUrl', '')
+    recording_status = request.values.get('RecordingStatus', '')
+    recording_duration = request.values.get('RecordingDuration', '0')
 
-    if telnyx_data and telnyx_data.get('event_type') == 'call.recording.saved':
-        telnyx_pl = telnyx_data.get('payload', {})
-        call_sid = telnyx_pl.get('call_control_id', telnyx_pl.get('call_leg_id', ''))
-        recording_url = telnyx_pl.get('public_recording_urls', {}).get('mp3', '') or telnyx_pl.get('recording_urls', {}).get('mp3', '')
-        recording_sid = telnyx_pl.get('recording_id', call_sid)
-        recording_duration = str(int(telnyx_pl.get('duration_millis', 0) / 1000))
-        recording_status = 'completed'
-    else:
-        # Legacy Twilio form POST
-        call_sid = request.form.get('CallSid', '')
-        recording_sid = request.form.get('RecordingSid', '')
-        recording_url = request.form.get('RecordingUrl', '')
-        recording_status = request.form.get('RecordingStatus', '')
-        recording_duration = request.form.get('RecordingDuration', '0')
-
-    logger.info(f"🎙️ Recording callback: SID={call_sid} rec={recording_sid} status={recording_status} dur={recording_duration}s")
+    logger.info(f"Recording callback: SID={call_sid} rec={recording_sid} status={recording_status} dur={recording_duration}s")
 
     if recording_status == 'completed' and (recording_url or recording_sid):
-        # For Telnyx: use the direct public MP3 URL
-        # For Twilio: use our proxy URL
-        store_url = recording_url if recording_url else f"/voice/recording/{recording_sid}"
+        # Use our proxy URL for Twilio recordings
+        store_url = f"/voice/recording/{recording_sid}" if recording_sid else recording_url
 
         conn = get_db_connection()
         if conn:
@@ -2537,7 +2297,7 @@ def recording_status_callback():
                 """, (store_url, recording_sid, int(recording_duration or 0), call_sid))
                 conn.commit()
                 cur.close()
-                logger.info(f"🎙️ Recording saved for call {call_sid}: {store_url}")
+                logger.info(f"Recording saved for call {call_sid}: {store_url}")
             except Exception as e:
                 logger.error(f"Failed to save recording: {e}")
                 conn.rollback()
@@ -2550,16 +2310,11 @@ def recording_status_callback():
 @voice_bp.route('/voice/transcription', methods=['POST'])
 def transcription_webhook():
     """
-    Telnyx posts call.transcription.* events here.
+    Twilio posts transcription events here.
     Accumulates transcript segments and persists them to call_history on call end.
     """
-    payload    = request.get_json(silent=True) or {}
-    data       = payload.get('data', {})
-    event_type = data.get('event_type', '')
-    pl         = data.get('payload', {})
-
-    call_sid   = pl.get('call_control_id', pl.get('call_leg_id', ''))
-    transcript = pl.get('transcription_data', {}).get('transcript', '')
+    call_sid   = request.values.get('CallSid', '')
+    transcript = request.values.get('TranscriptionText', '')
 
     if not call_sid or not transcript:
         return '', 204
@@ -2592,10 +2347,10 @@ def transcription_webhook():
 @login_required
 def stream_recording(recording_sid):
     """
-    Proxy a recording URL. For Telnyx recordings stored as direct MP3 URLs,
-    look up the URL from the DB and redirect. Falls back to Telnyx API download.
+    Proxy a recording URL. For Twilio recordings, redirect to the Twilio
+    recording MP3 URL or look up the URL from the DB.
     """
-    subscriber, vc, api_key = _get_current_subscriber_voice()
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
 
     # First try to find the recording URL in our DB
     conn = get_db_connection()
@@ -2617,26 +2372,14 @@ def stream_recording(recording_sid):
             return_db_connection(conn)
 
     if recording_url:
-        # Redirect to the direct Telnyx MP3 URL (time-limited signed URL)
         from flask import redirect
         return redirect(recording_url)
 
-    # Fallback: try to fetch from Telnyx recordings API
-    if api_key:
-        try:
-            resp = http_requests.get(
-                f"{TELNYX_API_BASE}/recordings/{recording_sid}",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=10,
-            )
-            if resp.status_code == 200:
-                rec_data = resp.json().get('data', {})
-                mp3_url = rec_data.get('download_urls', {}).get('mp3', '')
-                if mp3_url:
-                    from flask import redirect
-                    return redirect(mp3_url)
-        except Exception as e:
-            logger.error(f"Recording fetch failed: {e}")
+    # Fallback: construct Twilio recording URL
+    if sub_sid:
+        mp3_url = twilio_provisioning.get_recording_url(sub_sid, recording_sid)
+        from flask import redirect
+        return redirect(mp3_url)
 
     return jsonify({"error": "Recording not found"}), 404
 
@@ -2661,9 +2404,7 @@ def voice_ping():
 def voice_takeover():
     """
     Let a human agent take over an active AI call.
-    Executes the transfer DIRECTLY via Telnyx API — does NOT rely on the
-    WebSocket loop to detect the request (which could be blocked on ws.receive).
-    Steps: 1) Stop AI streaming, 2) Transfer call to agent's number.
+    Transfers the live call to the agent's phone number via Twilio REST API.
     """
     data = request.json or {}
     call_sid = data.get('call_sid', '')
@@ -2691,9 +2432,9 @@ def voice_takeover():
     if not target.startswith('+'):
         target = '+1' + target.lstrip('1') if len(target.replace('-','').replace(' ','')) <= 10 else '+' + target
 
-    api_key = voice_cfg.get('telnyx_api_key', '')
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    sub_sid = voice_cfg.get('twilio_sub_account_sid', '')
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
     # Verify the call is actually active
     if call_sid not in _active_calls:
@@ -2703,34 +2444,24 @@ def voice_takeover():
     if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
         return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
 
-    logger.info(f"🔄 Takeover: executing direct transfer for call {call_sid} -> {target}")
+    logger.info(f"Takeover: executing transfer for call {call_sid} -> {target}")
 
-    # Also signal the WebSocket bridge to stop the AI audio loop
+    # Signal the WebSocket bridge to stop the AI audio loop
     _transfer_requests[call_sid] = {
         'type': 'takeover',
         'target': target,
         'reason': 'Agent initiated live takeover',
     }
 
-    # Step 1: Stop the AI audio stream on this call
-    stop_ok = _call_control_command(call_sid, api_key, 'streaming_stop', {})
-    if stop_ok:
-        logger.info(f"🔄 Takeover: streaming stopped for {call_sid}")
-    else:
-        logger.warning(f"🔄 Takeover: streaming_stop failed for {call_sid} (may already be stopped)")
-
-    # Step 2: Brief pause to let Telnyx process the stream stop
-    time.sleep(0.4)
-
-    # Step 3: Transfer the live call to the agent's number
-    transfer_ok = _call_control_command(call_sid, api_key, 'transfer', {'to': target})
+    # Transfer the live call — Twilio automatically stops the media stream
+    host = request.host
+    transfer_ok = _twilio_transfer(call_sid, sub_sid, target, f"https://{host}")
     if transfer_ok:
-        logger.info(f"🔄 Takeover: call {call_sid} transferred to {target}")
+        logger.info(f"Takeover: call {call_sid} transferred to {target}")
         _active_calls[call_sid]['status'] = 'transferred'
         return jsonify({"status": "transferred", "call_sid": call_sid, "target": target})
     else:
-        logger.error(f"🔄 Takeover: transfer FAILED for call {call_sid} -> {target}")
-        # Clean up the signal
+        logger.error(f"Takeover: transfer FAILED for call {call_sid} -> {target}")
         _transfer_requests.pop(call_sid, None)
         return jsonify({"error": "Transfer failed — the call may have ended. Check that your Transfer Number is in +1XXXXXXXXXX format."}), 400
 
@@ -2742,10 +2473,7 @@ def voice_takeover():
 @voice_bp.route('/voice/transfer', methods=['POST'])
 @login_required
 def voice_transfer():
-    """
-    Transfer an active call to another phone number via Telnyx call control.
-    Uses the transfer command to bridge the caller to the target number.
-    """
+    """Transfer an active call to another phone number via Twilio."""
     data = request.json or {}
     call_sid = data.get('call_sid', '')
     transfer_to = data.get('transfer_to', '').strip()
@@ -2767,7 +2495,6 @@ def voice_transfer():
     if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
         return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
 
-    # Get API key
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database error"}), 500
@@ -2780,15 +2507,15 @@ def voice_transfer():
     finally:
         return_db_connection(conn)
 
-    api_key = voice_cfg.get('telnyx_api_key', '')
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    sub_sid = voice_cfg.get('twilio_sub_account_sid', '')
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
-    # Execute Telnyx call control transfer
-    success = _call_control_command(call_sid, api_key, 'transfer', {"to": transfer_to})
+    host = request.host
+    success = _twilio_transfer(call_sid, sub_sid, transfer_to, f"https://{host}")
     if success:
         _active_calls[call_sid]['status'] = 'transferred'
-        logger.info(f"📞 Live transfer: call {call_sid} -> {transfer_to}")
+        logger.info(f"Live transfer: call {call_sid} -> {transfer_to}")
         return jsonify({"status": "transferred", "call_sid": call_sid, "transfer_to": transfer_to})
 
     return jsonify({"error": "Transfer failed — call may have ended"}), 400
@@ -2975,7 +2702,7 @@ def save_call_transcript(call_sid, transcript):
 # ──────────────────────────────────────────────────────────────
 
 def _get_current_subscriber_voice():
-    """Get subscriber, voice_config, and Telnyx API key for the logged-in user."""
+    """Get subscriber, voice_config, and sub_account_sid for the logged-in user."""
     conn = get_db_connection()
     if not conn:
         return None, None, None
@@ -2988,8 +2715,8 @@ def _get_current_subscriber_voice():
             return None, None, None
         subscriber = dict(row)
         vc = subscriber.get('voice_config') or {}
-        api_key = vc.get('telnyx_api_key', '')
-        return subscriber, vc, api_key or None
+        sub_sid = vc.get('twilio_sub_account_sid', '')
+        return subscriber, vc, sub_sid or None
     except Exception as e:
         logger.error(f"_get_current_subscriber_voice: {e}")
         return None, None, None
@@ -3023,443 +2750,189 @@ def _save_voice_config(email, voice_config):
 
 
 # ──────────────────────────────────────────────────────────────
-# MAGIC WAND: One-shot Telnyx infrastructure provisioning
+# ONE-CLICK VOICE ACTIVATION: Auto-provision Twilio sub-account
 # ──────────────────────────────────────────────────────────────
 
 @voice_bp.route('/voice/automate-setup', methods=['POST'])
 @login_required
-def automate_telnyx_setup():
+def automate_voice_setup():
     """
-    Takes a raw Telnyx API key and provisions the full telephony stack:
-      1. Outbound Voice Profile  — grants permission to dial out
-      2. Call Control Application — AI webhook routing
-      3. SIP Credential Connection — browser WebRTC dialer
-    All generated IDs are saved to voice_config so downstream routes
-    (setup_voip, /numbers/buy, etc.) work immediately with no manual config.
+    One-click voice activation. Creates a Twilio sub-account, TwiML app,
+    and buys a phone number — all fully automated, white-label.
+    No API keys needed from the user.
     """
-    data = request.json or {}
-    api_key = data.get('api_key', '').strip()
-
-    if not api_key:
-        return jsonify({"error": "Telnyx API Key is required"}), 400
-
     subscriber, vc, _ = _get_current_subscriber_voice()
+    if not subscriber:
+        return jsonify({"error": "Account not found"}), 404
+
     location_id = subscriber.get('location_id', 'unknown')
     host = request.host
-    webhook_url = f"https://{host}/voice/inbound"
+    webhook_base_url = f"https://{host}"
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    def _list_or_create(list_url, create_url, create_json, step_name):
-        """
-        GET list_url first. If any records exist, reuse the first one.
-        Only POST to create_url if the account has none at all.
-        Returns the resource ID as a string, raises ValueError on failure.
-        """
-        list_resp = http_requests.get(list_url, headers=headers, timeout=10)
-        if list_resp.status_code == 200:
-            items = list_resp.json().get('data', [])
-            if items:
-                found_id = str(items[0]['id'])
-                logger.info(f"Found existing {step_name}: {found_id} ({len(items)} total)")
-                return found_id
-
-        logger.info(f"No existing {step_name} found — creating")
-        create_resp = http_requests.post(create_url, headers=headers, json=create_json, timeout=15)
-        if create_resp.status_code not in (200, 201):
-            logger.error(f"{step_name} create failed {create_resp.status_code}: {create_resp.text}")
-            raise ValueError(f"{step_name} creation failed ({create_resp.status_code}): {create_resp.text[:400]}")
-        new_id = str(create_resp.json()['data']['id'])
-        logger.info(f"Created {step_name}: {new_id}")
-        return new_id
+    # Check if already provisioned
+    if vc.get('twilio_sub_account_sid') and vc.get('twilio_phone_number'):
+        return jsonify({
+            "status": "success",
+            "message": "Voice service already active!",
+            "twilio_phone_number": vc.get('twilio_phone_number', ''),
+        })
 
     try:
-        vc['telnyx_api_key'] = api_key
+        # Use twilio_provisioning module to do everything in one shot
+        data = request.json or {}
+        area_code = data.get('area_code', '')
 
-        # 1. Outbound Voice Profile — use whatever exists in the account, else create one
-        ovp_id = _list_or_create(
-            list_url=f"{TELNYX_API_BASE}/outbound_voice_profiles",
-            create_url=f"{TELNYX_API_BASE}/outbound_voice_profiles",
-            create_json={
-                "name": f"GrokBot_{location_id[:24]}",
-                "traffic_type": "Conversational",
-                "service_plan": "us",
-                "enabled": True,
-                "whitelisted_destinations": ["US"],
-            },
-            step_name="Outbound Voice Profile",
+        result = twilio_provisioning.provision_subscriber(
+            subscriber_email=current_user.email,
+            location_id=location_id,
+            webhook_base_url=webhook_base_url,
+            area_code=area_code,
         )
-        vc['telnyx_outbound_profile_id'] = ovp_id
+
+        # Save all provisioned IDs to voice_config
+        vc.update(result)
+        vc['enabled'] = True
         _save_voice_config(current_user.email, vc)
 
-        # 2. Call Control Application — use whatever exists, else create one
-        call_control_id = _list_or_create(
-            list_url=f"{TELNYX_API_BASE}/call_control_applications",
-            create_url=f"{TELNYX_API_BASE}/call_control_applications",
-            create_json={
-                "application_name": f"GrokBot_AI_{location_id[:24]}",
-                "webhook_event_url": webhook_url,
-                "webhook_api_version": "2",
-                "outbound_voice_profile_id": ovp_id,
-                "first_command_timeout": True,
-                "first_command_timeout_secs": 30,
-                "webhook_timeout_secs": 10,
-                "anchor_site": "Latency",
-            },
-            step_name="Call Control Application",
-        )
-        vc['telnyx_connection_id'] = call_control_id
-        _save_voice_config(current_user.email, vc)
-
-        # 3. SIP Credential Connection — use whatever exists, else create one
-        sip_connection_id = _list_or_create(
-            list_url=f"{TELNYX_API_BASE}/credential_connections",
-            create_url=f"{TELNYX_API_BASE}/credential_connections",
-            create_json={
-                "connection_name": f"GrokBot_WebRTC_{location_id[:20]}",
-                "outbound_voice_profile_id": ovp_id,
-            },
-            step_name="SIP Credential Connection",
-        )
-        vc['telnyx_sip_connection_id'] = sip_connection_id
-        _save_voice_config(current_user.email, vc)
-
-        # 4. Auto-detect phone number — fetch existing numbers from the Telnyx
-        #    account and populate telnyx_phone_number so the user doesn't have to
-        #    paste it manually.  This also feeds the Numbers and Trust Hub tabs.
-        phone_number = vc.get('telnyx_phone_number', '').strip()
-        numbers_list = []
-        if not phone_number:
-            try:
-                num_resp = http_requests.get(
-                    f"{TELNYX_API_BASE}/phone_numbers",
-                    headers=headers,
-                    params={"page[size]": 50},
-                    timeout=10,
-                )
-                if num_resp.status_code == 200:
-                    numbers_list = num_resp.json().get('data', [])
-                    if numbers_list:
-                        phone_number = numbers_list[0].get('phone_number', '')
-                        if phone_number:
-                            vc['telnyx_phone_number'] = phone_number
-                            _save_voice_config(current_user.email, vc)
-                            logger.info(f"Auto-populated Telnyx phone number: {phone_number}")
-            except Exception as e:
-                logger.warning(f"Could not auto-detect Telnyx numbers: {e}")
+        logger.info(f"Voice activated for {current_user.email}: sub={result.get('twilio_sub_account_sid')} phone={result.get('twilio_phone_number')}")
 
         return jsonify({
             "status": "success",
-            "message": "Telnyx infrastructure provisioned!",
-            "telnyx_connection_id": call_control_id,
-            "telnyx_phone_number": phone_number,
-            "numbers_count": len(numbers_list),
+            "message": "Voice service activated!",
+            "twilio_phone_number": result.get('twilio_phone_number', ''),
         })
 
-    except ValueError as e:
-        _save_voice_config(current_user.email, vc)
-        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.error(f"Telnyx automation error: {e}", exc_info=True)
+        logger.error(f"Voice activation error: {e}", exc_info=True)
         _save_voice_config(current_user.email, vc)
-        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+        return jsonify({"error": f"Activation failed: {str(e)}"}), 500
 
 
 # ──────────────────────────────────────────────────────────────
-# BROWSER VoIP: Telnyx WebRTC SDK support
+# BROWSER VoIP: Twilio Client JS SDK support
 # ──────────────────────────────────────────────────────────────
 
 @voice_bp.route('/voice/setup-voip', methods=['POST'])
 @login_required
 def setup_voip():
     """
-    One-time setup: create a Telnyx Telephony Credential for browser-based VoIP.
-    Telephony credentials use Telnyx's WebRTC/SIP infrastructure directly — they
-    do NOT use the Call Control Application ID (which is only for outbound AI calls).
-    Stores telnyx_credential_id in voice_config.
+    Browser VoIP setup — verifies the TwiML app is configured for browser calling.
+    With Twilio, the TwiML app is created during provisioning so this just confirms readiness.
     """
-    subscriber, vc, api_key = _get_current_subscriber_voice()
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
     location_id = subscriber.get('location_id', 'unknown') if subscriber else 'unknown'
-    logger.info(f"[setup-voip] request from location_id={location_id}")
-    if not api_key:
-        logger.warning(f"[setup-voip] No Telnyx API key for location_id={location_id}")
-        return jsonify({"error": "Telnyx API key not configured"}), 400
-    logger.info(f"[setup-voip] API key present (prefix={api_key[:8]}…)")
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
-    cred_id = vc.get('telnyx_credential_id', '')
-    sip_conn_id = str(vc.get('telnyx_sip_connection_id', '')).strip()
-    logger.info(f"[setup-voip] stored cred_id={cred_id!r}  sip_connection_id={sip_conn_id!r}")
+    twiml_app_sid = vc.get('twilio_twiml_app_sid', '')
+    if not twiml_app_sid:
+        return jsonify({"error": "Voice not fully provisioned. Click Activate Voice first."}), 400
 
-    try:
-        # If we have a stored credential ID, verify it still exists
-        if cred_id:
-            logger.info(f"[setup-voip] Verifying stored credential {cred_id}")
-            check = http_requests.get(
-                f"{TELNYX_API_BASE}/telephony_credentials/{cred_id}",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=8,
-            )
-            logger.info(f"[setup-voip] Credential check status: {check.status_code}")
-            if check.status_code == 404:
-                logger.info(f"[setup-voip] Stored credential {cred_id} no longer exists — will recreate")
-                cred_id = ''
-                vc.pop('telnyx_credential_id', None)
-            elif check.status_code == 200:
-                logger.info(f"[setup-voip] Credential {cred_id} is valid — reusing")
-
-        if not cred_id:
-            # Telnyx requires connection_id when creating a telephony credential —
-            # it ties the WebRTC client to a specific SIP/Call Control connection.
-            # Use the dedicated SIP credential connection (created during automate-setup).
-            # telnyx_sip_connection_id  → browser WebRTC dialer (credential_connections)
-            # telnyx_connection_id      → AI call routing (call_control_applications)
-            # They must stay separate; mixing them causes Telnyx 422 errors.
-            # Force to str: values stored as integers in the DB must be strings for Telnyx.
-            connection_id = sip_conn_id
-            if not connection_id:
-                logger.error(f"[setup-voip] No sip_connection_id in voice_config for location_id={location_id} — run automate-setup first")
-                return jsonify({"error": "Browser dialer not configured. Please reconnect your Telnyx API key via the setup wizard."}), 400
-
-            logger.info(f"[setup-voip] Creating telephony credential with connection_id={connection_id}")
-            resp = http_requests.post(
-                f"{TELNYX_API_BASE}/telephony_credentials",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "name": f"agent_{location_id}",
-                    "connection_id": connection_id,
-                },
-                timeout=10,
-            )
-            logger.info(f"[setup-voip] Create credential response: {resp.status_code}")
-            if resp.status_code not in (200, 201):
-                # Telnyx can return errors as a list OR a dict depending on the
-                # validation path — guard against both to avoid KeyError: 0.
-                try:
-                    err_data = resp.json().get('errors', [])
-                    if isinstance(err_data, list) and err_data and isinstance(err_data[0], dict):
-                        msg = err_data[0].get('detail', resp.text)
-                    else:
-                        msg = str(err_data) if err_data else resp.text
-                except Exception:
-                    msg = resp.text
-                logger.error(f"[setup-voip] Credential creation failed {resp.status_code}: {msg}")
-                return jsonify({"error": f"Telnyx credential creation failed: {msg}"}), 400
-            cred_data = resp.json().get('data', {})
-            cred_id = cred_data.get('id', '')
-            if not cred_id:
-                logger.error(f"[setup-voip] No credential ID in Telnyx response: {resp.text[:200]}")
-                return jsonify({"error": "No credential ID returned from Telnyx"}), 500
-
-            vc['telnyx_credential_id'] = cred_id
-            _save_voice_config(current_user.email, vc)
-            logger.info(f"[setup-voip] Created Telnyx telephony credential: {cred_id}")
-
-        logger.info(f"[setup-voip] Ready — returning credential_id={cred_id}")
-        return jsonify({"status": "ready", "credential_id": cred_id})
-
-    except Exception as e:
-        logger.error(f"[setup-voip] Unexpected error: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+    logger.info(f"[setup-voip] Ready for location_id={location_id} twiml_app={twiml_app_sid}")
+    return jsonify({"status": "ready", "credential_id": twiml_app_sid})
 
 
 @voice_bp.route('/voice/token', methods=['POST'])
 @login_required
 def generate_voice_token():
-    """Generate a short-lived Telnyx JWT token for browser-based calling."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
+    """Generate a short-lived Twilio Access Token for browser-based calling."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not subscriber:
         return jsonify({"error": "Account not found"}), 404
 
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
-    cred_id = vc.get('telnyx_credential_id', '')
+    twiml_app_sid = vc.get('twilio_twiml_app_sid', '')
     location_id = subscriber.get('location_id', 'unknown') if subscriber else 'unknown'
-    logger.info(f"[voice/token] request from location_id={location_id}  cred_id={cred_id!r}")
-    if not cred_id:
-        logger.warning(f"[voice/token] No credential_id stored — user needs to run setup-voip first")
-        return jsonify({"error": "Browser calling not set up. Click Setup VoIP first."}), 400
+    if not twiml_app_sid:
+        return jsonify({"error": "Browser calling not set up. Activate voice first."}), 400
 
     try:
-        logger.info(f"[voice/token] Requesting token for cred_id={cred_id}")
-        resp = http_requests.post(
-            f"{TELNYX_API_BASE}/telephony_credentials/{cred_id}/token",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            timeout=10,
-        )
-        logger.info(f"[voice/token] Telnyx token response: {resp.status_code}  body_len={len(resp.text)}")
-        if resp.status_code not in (200, 201):
-            if resp.status_code == 404:
-                # Credential deleted — clear it so user can re-setup
-                logger.warning(f"[voice/token] Credential {cred_id} not found on Telnyx — clearing stored ID")
-                vc.pop('telnyx_credential_id', None)
-                _save_voice_config(current_user.email, vc)
-                return jsonify({"error": "Browser calling not set up. Click Setup VoIP first."}), 400
-            logger.error(f"[voice/token] Token fetch failed {resp.status_code}: {resp.text[:300]}")
-            return jsonify({"error": f"Token generation failed: {resp.text}"}), 400
-
-        # Telnyx returns the JWT as plain text, not JSON
-        token = resp.text.strip()
-        if not token:
-            logger.error(f"[voice/token] Empty token body returned from Telnyx")
-            return jsonify({"error": "Empty token returned from Telnyx"}), 500
         identity = f"agent_{location_id}"
-        logger.info(f"[voice/token] Token issued successfully — len={len(token)}  identity={identity}")
+        token = twilio_provisioning.generate_voice_token(
+            identity=identity,
+            twiml_app_sid=twiml_app_sid,
+            sub_account_sid=sub_sid,
+        )
+        logger.info(f"[voice/token] Token issued for {identity} (twiml_app={twiml_app_sid})")
         return jsonify({"token": token, "identity": identity})
 
     except Exception as e:
-        logger.error(f"[voice/token] Unexpected error: {e}", exc_info=True)
+        logger.error(f"[voice/token] Token generation failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
 @voice_bp.route('/voice/voip-answer', methods=['POST'])
 def voip_answer():
-    """
-    Legacy TwiML endpoint — no longer used with Telnyx WebRTC.
-    Telnyx WebRTC calls go through the SIP connection directly; events arrive at /voice/inbound.
-    """
+    """Legacy endpoint — browser calls now go through /voice/inbound via TwiML app."""
     return jsonify({'result': 'ok'}), 200
 
 
 # ──────────────────────────────────────────────────────────────
-# TRUST HUB: Phone number management + carrier health (Telnyx)
+# PHONE NUMBER MANAGEMENT (via Twilio sub-account)
 # ──────────────────────────────────────────────────────────────
 
 @voice_bp.route('/voice/numbers', methods=['GET'])
 @login_required
-def list_telnyx_numbers():
-    """List all Telnyx phone numbers on the account with rich health info."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        logger.warning("list_telnyx_numbers: no API key configured")
-        return jsonify({"error": "Telnyx API key not configured. Go to Settings and click Connect Telnyx."}), 400
+def list_voice_numbers():
+    """List all phone numbers on the subscriber's Twilio sub-account."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned. Click Activate Voice first."}), 400
 
-    # Fetch nicknames from voice_config
-    nicknames = vc.get('number_nicknames', {})  # { "+1234": "Main Line" }
-    primary_number = vc.get('telnyx_phone_number', '')
+    nicknames = vc.get('number_nicknames', {})
+    primary_number = vc.get('twilio_phone_number', '')
 
     try:
-        # Paginate through ALL numbers
-        all_numbers = []
-        page = 1
-        while True:
-            resp = http_requests.get(
-                f"{TELNYX_API_BASE}/phone_numbers",
-                headers={"Authorization": f"Bearer {api_key}"},
-                params={"page[size]": 250, "page[number]": page},
-                timeout=15,
-            )
-            if resp.status_code != 200:
-                logger.warning(f"list_telnyx_numbers: Telnyx returned {resp.status_code}: {resp.text[:300]}")
-                return jsonify({"error": f"Telnyx API error {resp.status_code}. Check your API key in Settings."}), 400
-            body = resp.json()
-            batch = body.get('data', [])
-            all_numbers.extend(batch)
-            # Check if more pages exist
-            meta = body.get('meta', {})
-            total_pages = meta.get('total_pages', 1)
-            if page >= total_pages or not batch:
-                break
-            page += 1
-
-        logger.info(f"list_telnyx_numbers: fetched {len(all_numbers)} numbers across {page} page(s)")
-
+        numbers = twilio_provisioning.list_phone_numbers(sub_sid)
         result = []
-        for n in all_numbers:
-            raw_features = n.get('features') or []
-            features = {}
-            for f in raw_features:
-                if isinstance(f, dict):
-                    features[f.get('name', '')] = f.get('enabled', False)
-            tags = n.get('tags') or []
-            phone = n.get('phone_number', '')
-            number_id = n.get('id', '')
-            connection_id = n.get('connection_id', '')
+        for n in numbers:
+            phone = n.get('phone', '')
             is_primary = phone == primary_number
-            nickname = nicknames.get(phone, tags[0] if tags else '')
+            nickname = nicknames.get(phone, '')
+            caps = n.get('capabilities', {})
             result.append({
-                "sid": number_id,
+                "sid": n.get('sid', ''),
                 "phone": phone,
                 "nickname": nickname,
                 "is_primary": is_primary,
                 "capabilities": {
-                    "voice": features.get('voice', False),
-                    "sms": features.get('sms', False),
-                    "mms": features.get('mms', False),
-                    "fax": features.get('fax', False),
+                    "voice": caps.get('voice', False),
+                    "sms": caps.get('sms', False),
+                    "mms": caps.get('mms', False),
+                    "fax": caps.get('fax', False),
                 },
                 "status": n.get('status', 'active'),
-                "connection_id": connection_id,
-                "cnam_listed": n.get('cnam_listing_enabled', False),
-                "emergency_enabled": n.get('emergency_enabled', False),
                 "created_at": n.get('created_at', ''),
-                "billing_group_id": n.get('billing_group_id', ''),
-                "number_type": n.get('phone_number_type', 'local'),
             })
 
         return jsonify({"numbers": result, "total": len(result)})
 
     except Exception as e:
-        logger.error(f"Failed to list Telnyx numbers: {e}", exc_info=True)
+        logger.error(f"Failed to list numbers: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
 @voice_bp.route('/voice/numbers/search', methods=['GET'])
 @login_required
 def search_available_numbers():
-    """Search for available Telnyx phone numbers to purchase."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    """Search for available phone numbers to purchase."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
     area_code = request.args.get('area_code', '')
     state = request.args.get('state', '')
     contains = request.args.get('contains', '')
 
     try:
-        params = {
-            "filter[country_code]": "US",
-            "filter[number_type]": "local",
-            "filter[features][]": "voice",
-            "page[size]": 20,
-        }
-        if area_code:
-            params["filter[npa]"] = area_code
-        if state:
-            params["filter[administrative_area]"] = state
-        if contains:
-            params["filter[phone_number][contains]"] = contains
-
-        resp = http_requests.get(
-            f"{TELNYX_API_BASE}/available_phone_numbers",
-            headers={"Authorization": f"Bearer {api_key}"},
-            params=params,
-            timeout=15,
+        numbers = twilio_provisioning.search_available_numbers(
+            area_code=area_code,
+            state=state,
+            contains=contains,
         )
-        if resp.status_code != 200:
-            return jsonify({"error": f"Telnyx API error: {resp.status_code} {resp.text}"}), 400
-
-        data = resp.json().get('data', [])
-        result = []
-        for n in data:
-            features = n.get('features', [])
-            feat_names = [f.get('name', '') for f in features] if isinstance(features, list) else []
-            result.append({
-                "phone": n.get('phone_number', ''),
-                "friendly_name": n.get('phone_number', ''),
-                "locality": n.get('locality', ''),
-                "region": n.get('region', ''),
-                "monthly_cost": n.get('cost_information', {}).get('monthly_cost', '1.00'),
-                "capabilities": {
-                    "voice": 'voice' in feat_names,
-                    "sms": 'sms' in feat_names,
-                },
-            })
-
-        return jsonify({"numbers": result, "total": len(result)})
+        return jsonify({"numbers": numbers, "total": len(numbers)})
 
     except Exception as e:
         logger.error(f"Number search failed: {e}")
@@ -3468,68 +2941,34 @@ def search_available_numbers():
 
 @voice_bp.route('/voice/numbers/buy', methods=['POST'])
 @login_required
-def buy_telnyx_number():
-    """Purchase a Telnyx phone number and configure it for voice."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+def buy_voice_number():
+    """Purchase a phone number and configure it for voice."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
     data = request.json or {}
     phone_number = data.get('phone_number', '')
     if not phone_number:
         return jsonify({"error": "Phone number is required"}), 400
 
-    # str() coercion: IDs stored as int in DB must be strings for Telnyx API
-    connection_id = str(vc.get('telnyx_connection_id', '')).strip()
+    twiml_app_sid = vc.get('twilio_twiml_app_sid', '')
+    host = request.host
+    webhook_base_url = f"https://{host}"
+
     try:
-        order_payload = {
-            "phone_numbers": [{"phone_number": phone_number}],
-        }
-        if connection_id:
-            order_payload["connection_id"] = connection_id
-
-        resp = http_requests.post(
-            f"{TELNYX_API_BASE}/number_orders",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=order_payload,
-            timeout=15,
+        result = twilio_provisioning.buy_phone_number(
+            sub_account_sid=sub_sid,
+            phone_number=phone_number,
+            webhook_base_url=webhook_base_url,
+            twiml_app_sid=twiml_app_sid,
         )
-        if resp.status_code not in (200, 201):
-            return jsonify({"error": f"Purchase failed: {resp.text}"}), 400
-
-        order_data = resp.json().get('data', {})
-        ordered_nums = order_data.get('phone_numbers', [{}])
-        purchased_phone = ordered_nums[0].get('phone_number', phone_number) if ordered_nums else phone_number
-        order_id = order_data.get('id', '')
-
-        logger.info(f"Purchased Telnyx number: {purchased_phone} (order: {order_id})")
-
-        # Auto-enable CNAM if spam protection is active
-        trust_hub = vc.get('trust_hub', {})
-        cnam_applied = False
-        if trust_hub.get('auto_cnam') and trust_hub.get('business_name'):
-            try:
-                # The number needs a moment to provision; get its ID from the order
-                num_id = ordered_nums[0].get('id', '') if ordered_nums else ''
-                if num_id:
-                    import time
-                    time.sleep(2)  # Brief delay for Telnyx provisioning
-                    cnam_resp = http_requests.patch(
-                        f"{TELNYX_API_BASE}/phone_numbers/{num_id}",
-                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                        json={"cnam_listing_enabled": True},
-                        timeout=10,
-                    )
-                    cnam_applied = cnam_resp.status_code == 200
-                    logger.info(f"Auto-CNAM for {purchased_phone}: {'ok' if cnam_applied else cnam_resp.status_code}")
-            except Exception as e:
-                logger.warning(f"Auto-CNAM failed for {purchased_phone}: {e}")
+        logger.info(f"Purchased number: {result.get('phone')} (SID: {result.get('sid')})")
 
         return jsonify({
             "status": "purchased",
-            "phone": purchased_phone,
-            "sid": order_id,
-            "cnam_applied": cnam_applied,
+            "phone": result.get("phone", phone_number),
+            "sid": result.get("sid", ""),
         })
 
     except Exception as e:
@@ -3539,48 +2978,24 @@ def buy_telnyx_number():
 
 @voice_bp.route('/voice/numbers/release', methods=['POST'])
 @login_required
-def release_telnyx_number():
-    """Release (cancel) a Telnyx phone number."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+def release_voice_number():
+    """Release a phone number from the sub-account."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
     data = request.json or {}
     phone_sid = data.get('sid', '')
-    phone_number = data.get('phone_number', '')
 
-    if not phone_sid and not phone_number:
-        return jsonify({"error": "Number ID or phone number is required"}), 400
+    if not phone_sid:
+        return jsonify({"error": "Number SID is required"}), 400
 
     try:
-        # Telnyx uses the number ID (UUID) or we look it up by phone number
-        number_id = phone_sid
-        if not number_id and phone_number:
-            # Look up the number ID
-            resp = http_requests.get(
-                f"{TELNYX_API_BASE}/phone_numbers",
-                headers={"Authorization": f"Bearer {api_key}"},
-                params={"filter[phone_number]": phone_number},
-                timeout=10,
-            )
-            if resp.status_code == 200:
-                items = resp.json().get('data', [])
-                if items:
-                    number_id = items[0].get('id', '')
-
-        if not number_id:
-            return jsonify({"error": "Number not found"}), 404
-
-        resp = http_requests.delete(
-            f"{TELNYX_API_BASE}/phone_numbers/{number_id}",
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=10,
-        )
-        if resp.status_code not in (200, 204):
-            return jsonify({"error": f"Release failed: {resp.text}"}), 400
-
-        logger.info(f"Released Telnyx number: {number_id}")
-        return jsonify({"status": "released"})
+        success = twilio_provisioning.release_phone_number(sub_sid, phone_sid)
+        if success:
+            logger.info(f"Released number: {phone_sid}")
+            return jsonify({"status": "released"})
+        return jsonify({"error": "Release failed"}), 400
 
     except Exception as e:
         logger.error(f"Number release failed: {e}")
@@ -3590,25 +3005,20 @@ def release_telnyx_number():
 @voice_bp.route('/voice/trust-hub', methods=['GET'])
 @login_required
 def get_trust_hub_status():
-    """
-    Get number health and carrier trust status for all Telnyx numbers.
-    Shows STIR/SHAKEN status, CNAM registration, carrier registration info,
-    and spam remediation guidance — Wavv-style trust dashboard.
-    """
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured. Go to Settings and click Connect Telnyx."}), 400
+    """Get number health and carrier trust status."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned. Click Activate Voice first."}), 400
 
-    # Trust hub registration stored in voice_config
     trust_hub = vc.get('trust_hub', {})
     business_name = trust_hub.get('business_name', '')
     ein = trust_hub.get('ein', '')
 
     result = {
         "stir_shaken": {
-            "status": "telnyx_managed",
+            "status": "auto_managed",
             "attestation": "A",
-            "note": "Telnyx automatically handles STIR/SHAKEN attestation for verified business numbers. Full (A) attestation means carriers trust your calls.",
+            "note": "STIR/SHAKEN attestation is automatically handled for verified business numbers. Full (A) attestation means carriers trust your calls.",
         },
         "business_profile": {
             "business_name": business_name,
@@ -3643,31 +3053,19 @@ def get_trust_hub_status():
         },
         "numbers": [],
         "cnam_info": {
-            "description": "CNAM (Caller Name) displays your business name on recipient phones. Enable per-number in the Numbers tab.",
-            "telnyx_portal": "https://portal.telnyx.com/#/app/numbers",
+            "description": "CNAM (Caller Name) displays your business name on recipient phones. Register via Spam Protection tab.",
         },
     }
 
     try:
-        resp = http_requests.get(
-            f"{TELNYX_API_BASE}/phone_numbers",
-            headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 250},
-            timeout=15,
-        )
-        if resp.status_code == 200:
-            for n in resp.json().get('data', []):
-                result["numbers"].append({
-                    "phone": n.get('phone_number', ''),
-                    "id": n.get('id', ''),
-                    "status": n.get('status', 'active'),
-                    "cnam_listed": n.get('cnam_listing_enabled', False),
-                    "emergency_enabled": n.get('emergency_enabled', False),
-                    "connection_id": n.get('connection_id', ''),
-                })
-        else:
-            logger.warning(f"trust-hub: Telnyx phone_numbers returned {resp.status_code}")
-
+        numbers = twilio_provisioning.list_phone_numbers(sub_sid)
+        for n in numbers:
+            result["numbers"].append({
+                "phone": n.get('phone', ''),
+                "id": n.get('sid', ''),
+                "status": n.get('status', 'active'),
+                "friendly_name": n.get('friendly_name', ''),
+            })
         return jsonify(result)
 
     except Exception as e:
@@ -3678,25 +3076,21 @@ def get_trust_hub_status():
 @voice_bp.route('/voice/numbers/<number_id>/cnam', methods=['POST'])
 @login_required
 def toggle_cnam(number_id):
-    """Toggle CNAM listing for a specific Telnyx phone number."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    """Update friendly name (CNAM) for a phone number."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
     data = request.json or {}
-    enable = data.get('enable', True)
+    business_name = data.get('business_name', vc.get('trust_hub', {}).get('business_name', ''))
 
     try:
-        resp = http_requests.patch(
-            f"{TELNYX_API_BASE}/phone_numbers/{number_id}",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"cnam_listing_enabled": enable},
-            timeout=10,
+        client = twilio_provisioning.get_master_client()
+        client.incoming_phone_numbers(number_id).update(
+            friendly_name=business_name[:15] if business_name else '',
+            account_sid=sub_sid,
         )
-        if resp.status_code != 200:
-            return jsonify({"error": f"Failed to update CNAM: {resp.text[:300]}"}), 400
-
-        return jsonify({"status": "ok", "cnam_listed": enable})
+        return jsonify({"status": "ok", "cnam_listed": bool(business_name)})
     except Exception as e:
         logger.error(f"CNAM toggle failed: {e}")
         return jsonify({"error": str(e)}), 500
@@ -3741,7 +3135,7 @@ def set_primary_number():
     if not phone:
         return jsonify({"error": "Phone number required"}), 400
 
-    vc['telnyx_phone_number'] = phone
+    vc['twilio_phone_number'] = phone
     _save_voice_config(current_user.email, vc)
     logger.info(f"Set primary number to {phone}")
 
@@ -3786,13 +3180,12 @@ def register_spam_protection():
     """
     One-click spam protection registration.
     1. Saves business profile to voice_config
-    2. Creates Telnyx Business Identity via API
-    3. Enables CNAM on ALL phone numbers with business name
-    4. Stores profile so future number purchases auto-get CNAM
+    2. Creates Twilio Trust Hub Customer Profile
+    3. Sets CNAM (friendly name) on all phone numbers
     """
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured. Go to Settings and click Connect Telnyx."}), 400
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned. Click Activate Voice first."}), 400
 
     data = request.json or {}
     business_name = (data.get('business_name') or '').strip()
@@ -3810,9 +3203,8 @@ def register_spam_protection():
     if not ein:
         return jsonify({"error": "EIN is required"}), 400
 
-    results = {"steps": [], "errors": []}
-
-    # ── Step 1: Save business profile to voice_config ──
+    # Step 1: Save business profile to voice_config
+    from datetime import datetime
     trust_hub = vc.get('trust_hub', {})
     trust_hub.update({
         'business_name': business_name,
@@ -3825,135 +3217,39 @@ def register_spam_protection():
         'contact_email': contact_email,
         'contact_phone': contact_phone,
         'registered_at': datetime.utcnow().isoformat(),
-        'auto_cnam': True,  # Flag: auto-enable CNAM on future numbers
+        'auto_cnam': True,
     })
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
-    results["steps"].append({"name": "save_profile", "status": "ok"})
 
-    # ── Step 2: Create Telnyx Business Identity ──
-    # CNAM display name is max 15 chars
-    cnam_name = business_name[:15].strip()
-    biz_identity_id = trust_hub.get('telnyx_business_identity_id')
+    # Step 2: Register with Twilio Trust Hub + set CNAM on all numbers
+    results = twilio_provisioning.register_business_profile(
+        sub_account_sid=sub_sid,
+        business_name=business_name,
+        ein=ein,
+        street=street,
+        city=city,
+        state=state,
+        zip_code=zip_code,
+        contact_name=contact_name,
+        contact_email=contact_email or current_user.email,
+        contact_phone=contact_phone,
+    )
 
-    try:
-        biz_payload = {
-            "business_name": business_name,
-            "address": {
-                "street": street or "N/A",
-                "city": city or "N/A",
-                "state": state or "N/A",
-                "postal_code": zip_code or "00000",
-                "country": "US",
-            },
-        }
-        if contact_name:
-            first, *last_parts = contact_name.split(' ', 1)
-            last = last_parts[0] if last_parts else ''
-            biz_payload["contacts"] = [{
-                "first_name": first,
-                "last_name": last,
-                "email": contact_email or current_user.email,
-                "phone_number": contact_phone or '',
-            }]
-
-        if biz_identity_id:
-            # Update existing
-            resp = http_requests.patch(
-                f"{TELNYX_API_BASE}/business_identities/{biz_identity_id}",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json=biz_payload,
-                timeout=15,
-            )
-        else:
-            # Create new
-            resp = http_requests.post(
-                f"{TELNYX_API_BASE}/business_identities",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json=biz_payload,
-                timeout=15,
-            )
-
-        if resp.status_code in (200, 201):
-            biz_data = resp.json().get('data', {})
-            new_id = biz_data.get('id', '')
-            if new_id:
-                trust_hub['telnyx_business_identity_id'] = new_id
-                vc['trust_hub'] = trust_hub
-                _save_voice_config(current_user.email, vc)
-            results["steps"].append({"name": "business_identity", "status": "ok", "id": new_id})
-        else:
-            # Non-fatal: CNAM can still work without business identity
-            err_text = resp.text[:300]
-            logger.warning(f"Business identity creation returned {resp.status_code}: {err_text}")
-            results["steps"].append({"name": "business_identity", "status": "skipped", "reason": f"Telnyx returned {resp.status_code}"})
-    except Exception as e:
-        logger.error(f"Business identity creation failed: {e}")
-        results["steps"].append({"name": "business_identity", "status": "skipped", "reason": str(e)})
-
-    # ── Step 3: Enable CNAM on ALL phone numbers ──
-    cnam_success = 0
-    cnam_fail = 0
-    try:
-        # Fetch all numbers
-        nums_resp = http_requests.get(
-            f"{TELNYX_API_BASE}/phone_numbers",
-            headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 250},
-            timeout=15,
-        )
-        if nums_resp.status_code == 200:
-            numbers = nums_resp.json().get('data', [])
-            for num in numbers:
-                num_id = num.get('id', '')
-                already_enabled = num.get('cnam_listing_enabled', False)
-                if not num_id:
-                    continue
-                if already_enabled:
-                    cnam_success += 1
-                    continue
-                try:
-                    patch_resp = http_requests.patch(
-                        f"{TELNYX_API_BASE}/phone_numbers/{num_id}",
-                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                        json={"cnam_listing_enabled": True},
-                        timeout=10,
-                    )
-                    if patch_resp.status_code == 200:
-                        cnam_success += 1
-                    else:
-                        cnam_fail += 1
-                        logger.warning(f"CNAM enable failed for {num_id}: {patch_resp.status_code}")
-                except Exception as e:
-                    cnam_fail += 1
-                    logger.warning(f"CNAM enable error for {num_id}: {e}")
-
-            results["steps"].append({
-                "name": "cnam_all_numbers",
-                "status": "ok",
-                "enabled": cnam_success,
-                "failed": cnam_fail,
-                "total": len(numbers),
-            })
-        else:
-            results["steps"].append({"name": "cnam_all_numbers", "status": "error", "reason": f"Could not fetch numbers: {nums_resp.status_code}"})
-    except Exception as e:
-        logger.error(f"CNAM bulk enable failed: {e}")
-        results["steps"].append({"name": "cnam_all_numbers", "status": "error", "reason": str(e)})
-
-    # ── Step 4: Mark auto-protection enabled ──
+    # Step 3: Mark auto-protection enabled
     trust_hub['protection_active'] = True
     vc['trust_hub'] = trust_hub
     _save_voice_config(current_user.email, vc)
-    results["steps"].append({"name": "auto_protect", "status": "ok"})
 
-    has_errors = any(s.get('status') == 'error' for s in results["steps"])
+    cnam_name = business_name[:15].strip()
+    cnam_step = next((s for s in results.get('steps', []) if s.get('name') == 'cnam_all_numbers'), {})
+
     return jsonify({
-        "status": "partial" if has_errors else "ok",
+        "status": "ok" if not results.get("errors") else "partial",
         "results": results,
         "cnam_name": cnam_name,
-        "numbers_protected": cnam_success,
-        "numbers_failed": cnam_fail,
+        "numbers_protected": cnam_step.get('enabled', 0),
+        "numbers_failed": cnam_step.get('total', 0) - cnam_step.get('enabled', 0),
     })
 
 
@@ -3961,39 +3257,25 @@ def register_spam_protection():
 @login_required
 def spam_protection_status():
     """Get current spam protection registration status."""
-    subscriber, vc, api_key = _get_current_subscriber_voice()
-    if not api_key:
-        return jsonify({"error": "Telnyx API key not configured"}), 400
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
 
     trust_hub = (vc or {}).get('trust_hub', {})
     protection_active = trust_hub.get('protection_active', False)
     business_name = trust_hub.get('business_name', '')
 
-    # Count protected numbers (CNAM enabled)
-    protected = 0
-    total = 0
-    numbers_detail = []
-    try:
-        resp = http_requests.get(
-            f"{TELNYX_API_BASE}/phone_numbers",
-            headers={"Authorization": f"Bearer {api_key}"},
-            params={"page[size]": 250},
-            timeout=15,
-        )
-        if resp.status_code == 200:
-            for n in resp.json().get('data', []):
-                total += 1
-                cnam = n.get('cnam_listing_enabled', False)
-                if cnam:
-                    protected += 1
-                numbers_detail.append({
-                    "phone": n.get('phone_number', ''),
-                    "id": n.get('id', ''),
-                    "cnam_enabled": cnam,
-                    "status": n.get('status', 'active'),
-                })
-    except Exception as e:
-        logger.warning(f"Spam protection status check failed: {e}")
+    # Get number details from Twilio
+    status = twilio_provisioning.get_spam_protection_status(sub_sid)
+    numbers_detail = [
+        {
+            "phone": n.get('phone', ''),
+            "id": n.get('sid', ''),
+            "cnam_enabled": bool(n.get('friendly_name')),
+            "status": n.get('status', 'active'),
+        }
+        for n in status.get('numbers', [])
+    ]
 
     return jsonify({
         "protection_active": protection_active,
@@ -4007,10 +3289,10 @@ def spam_protection_status():
         "contact_email": trust_hub.get('contact_email', ''),
         "contact_phone": trust_hub.get('contact_phone', ''),
         "registered_at": trust_hub.get('registered_at', ''),
-        "numbers_protected": protected,
-        "numbers_total": total,
+        "numbers_protected": status.get('numbers_protected', 0),
+        "numbers_total": status.get('numbers_total', 0),
         "numbers": numbers_detail,
-        "stir_shaken": "active",  # Telnyx auto-manages
+        "stir_shaken": "active",
         "auto_cnam": trust_hub.get('auto_cnam', False),
     })
 
