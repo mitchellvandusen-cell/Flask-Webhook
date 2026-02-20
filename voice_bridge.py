@@ -330,7 +330,7 @@ def _get_subscriber_by_location(location_id):
 # VOICE SYSTEM PROMPT: Adapted for speech conversations
 # ──────────────────────────────────────────────────────────────
 
-def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None, context=None):
+def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None, context=None, direction="outbound"):
     """
     Build a comprehensive system prompt for voice conversations.
     Standalone voice-native prompt — does NOT layer on top of SMS prompt.
@@ -415,7 +415,10 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
             logger.debug(f"Voice: Could not fetch contact custom fields: {e}")
 
     # ── Detect fresh outbound vs follow-up vs inbound ──
-    call_context = "FRESH OUTBOUND CALL"
+    if direction == "inbound":
+        call_context = "INBOUND CALL — they called you. Respond to what they say and why they called."
+    else:
+        call_context = "FRESH OUTBOUND CALL — you called them. You initiated this call."
     previous_call_count = 0
     if contact_id:
         try:
@@ -433,11 +436,10 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
             logger.debug(f"Voice: Could not check call history: {e}")
 
     has_sms_history = bool(recent_exchanges)
-    if previous_call_count > 0 or has_sms_history:
-        call_context = f"FOLLOW-UP CALL — you've contacted this person {previous_call_count} time(s) by phone before"
+    if direction != "inbound" and (previous_call_count > 0 or has_sms_history):
+        call_context = f"FOLLOW-UP OUTBOUND CALL — you called them. You've contacted this person {previous_call_count} time(s) by phone before"
         if has_sms_history:
             call_context += f" and there are {len(recent_exchanges)} SMS exchanges in history"
-    # Note: inbound detection happens at the greeting level, not here
 
     # ── Per-voice personality traits ──
     voice_personalities = {
@@ -1522,7 +1524,15 @@ async def handle_voice_stream(ws):
         voice_bot_name = subscriber.get("bot_first_name", "your advisor")
     custom_voice_instructions = voice_config.get("voice_instructions", "")
     call_script = voice_config.get("call_script", "").strip()
+    # Direction context for the AI
+    if direction == "outbound":
+        direction_context = f"CALL TYPE: You are CALLING {contact_name}. This is an OUTBOUND call — you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
+    else:
+        direction_context = "CALL TYPE: This is an INBOUND call — they called you. Respond to why they called. Be helpful and direct."
+
     minimal_prompt = f"""You are {voice_bot_name}, a life insurance advisor on a live phone call.
+
+{direction_context}
 
 VOICE: You sound like a real person who's been doing this for years. Casual, warm, direct. Use contractions — "I'm", "you're", "can't". Keep responses to 1-2 sentences max. One question per turn. No jargon. Never say "Great question" or "I appreciate you asking" or "I'd be happy to help" — just respond like a human would.
 
@@ -1540,6 +1550,8 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
     if not greeting:
         if direction == "outbound" and contact_name != "there":
             greeting = f"Hey {contact_name}, it's {voice_bot_name}. How's it going?"
+        elif direction == "outbound":
+            greeting = f"Hey, it's {voice_bot_name}. I was hoping to catch you for a quick second."
         else:
             greeting = f"Hey, this is {voice_bot_name}. What's going on?"
 
@@ -1633,6 +1645,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                             subscriber=subscriber,
                             contact_name=contact_name,
                             contact_id=contact_id if contact_id else None,
+                            direction=direction,
                         )
                     )
                     session_update = {
