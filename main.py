@@ -13,7 +13,7 @@ import httpx
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
-from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response
+from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response, abort
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -2298,6 +2298,108 @@ def _is_admin_request():
             return True
 
     return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SUPER ADMIN / GOD MODE
+# ══════════════════════════════════════════════════════════════════════════════
+
+def super_admin_required(f):
+    """Decorator: only allows users with role='super_admin'."""
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_super_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/admin/god-mode")
+@login_required
+@super_admin_required
+def god_mode_dashboard():
+    """Super Admin dashboard: view all users on the platform."""
+    conn = get_db_connection()
+    if not conn:
+        return "Database error", 500
+    try:
+        cur = conn.cursor()
+        # Pull everyone from both tables
+        cur.execute("""
+            SELECT email, full_name, role, subscription_tier, stripe_status,
+                   location_id, created_at, onboarding_status,
+                   'subscriber' AS source
+            FROM subscribers
+            ORDER BY created_at DESC
+        """)
+        subscribers = [dict(r) for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT agency_email AS email, full_name, role, subscription_tier,
+                   stripe_status, location_id, created_at,
+                   'active' AS onboarding_status,
+                   'agency_billing' AS source
+            FROM agency_billing
+            ORDER BY created_at DESC
+        """)
+        agency_owners = [dict(r) for r in cur.fetchall()]
+
+        cur.close()
+
+        # Merge, deduplicate by email (agency_billing wins for shared emails)
+        seen = {}
+        for u in agency_owners + subscribers:
+            if u['email'] not in seen:
+                seen[u['email']] = u
+        all_users = sorted(seen.values(), key=lambda u: u.get('created_at') or '', reverse=True)
+
+        return render_template('god_mode.html',
+            all_users=all_users,
+            impersonating=session.get('impersonating_as'),
+        )
+    finally:
+        return_db_connection(conn)
+
+
+@app.route("/admin/impersonate/<path:target_email>", methods=["POST"])
+@login_required
+@super_admin_required
+def impersonate_user(target_email):
+    """Log in as any user without their password. Saves original admin to session."""
+    target = User.get(target_email)
+    if not target:
+        flash(f"User not found: {target_email}", "danger")
+        return redirect(url_for('god_mode_dashboard'))
+
+    # Stash the real admin email so we can return later
+    session['original_admin_email'] = current_user.email
+    session['impersonating_as'] = target.email
+
+    login_user(target)
+    logger.info(f"[GOD MODE] {session['original_admin_email']} impersonating {target.email}")
+
+    # Drop them into the appropriate dashboard
+    if target.is_agency_owner:
+        return redirect(url_for('agency_dashboard'))
+    return redirect(url_for('dashboard'))
+
+
+@app.route("/admin/revert", methods=["POST"])
+@login_required
+def revert_impersonation():
+    """Exit impersonation and return to the super admin account."""
+    original_email = session.pop('original_admin_email', None)
+    session.pop('impersonating_as', None)
+
+    if original_email:
+        admin_user = User.get(original_email)
+        if admin_user:
+            login_user(admin_user)
+            logger.info(f"[GOD MODE] Reverted to {original_email}")
+            return redirect(url_for('god_mode_dashboard'))
+
+    return redirect(url_for('dashboard'))
 
 
 @app.route("/api/cron/send-reminders", methods=["GET", "POST"])

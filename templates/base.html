@@ -56,6 +56,14 @@
                     <li class="nav-item"><a class="nav-link" href="/integrations">Integrations</a></li>
                     <li class="nav-item"><a class="nav-link" href="/setup-guide">Setup Guide</a></li>
                     <li class="nav-item"><a class="nav-link" href="/support">Support</a></li>
+                    {% if current_user.is_authenticated and current_user.is_super_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/god-mode" title="Super Admin Dashboard"
+                           style="color: #ffd700 !important; font-weight: 700;">
+                            ⚡ God Mode
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
                 <div class="d-flex gap-3 mt-3 mt-lg-0">
                     <a href="/login" class="btn btn-outline-accent btn-sm nav-btn">Log In</a>
@@ -64,6 +72,30 @@
             </div>
         </div>
     </nav>
+
+    <!-- Impersonation banner: only shown when a super admin is ghosting someone -->
+    {% if session.get('impersonating_as') %}
+    <div style="position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+                background: linear-gradient(90deg, #ef4444, #dc2626);
+                color: #fff; text-align: center; padding: 10px 20px;
+                font-size: 0.88rem; font-weight: 600;
+                display: flex; align-items: center; justify-content: center; gap: 16px;">
+        <span>
+            <i class="fa-solid fa-ghost me-1"></i>
+            God Mode active — viewing as <strong>{{ session.get('impersonating_as') }}</strong>
+        </span>
+        <form method="POST" action="/admin/revert" style="display:inline; margin:0;">
+            <button type="submit"
+                    style="background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(255,255,255,0.4);
+                           border-radius: 6px; padding: 3px 12px; font-size: 0.82rem;
+                           font-weight: 700; cursor: pointer; white-space: nowrap;">
+                ✕ Return to Admin
+            </button>
+        </form>
+    </div>
+    <!-- Push content down so banner doesn't overlap nav -->
+    <div style="height: 38px;"></div>
+    {% endif %}
 
     <main id="main-content">{% block content %}{% endblock %}</main>
 

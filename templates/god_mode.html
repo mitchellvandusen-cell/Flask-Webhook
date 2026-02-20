@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}God Mode | Super Admin{% endblock %}
+{% block content %}
+<style>
+    .gm-page { padding-top: 110px; padding-bottom: 80px; }
+
+    /* Header */
+    .gm-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 36px; flex-wrap: wrap; gap: 16px;
+    }
+    .gm-title { font-size: 2rem; font-weight: 900; color: #fff; }
+    .gm-title span { color: var(--accent, #00ff88); }
+    .gm-subtitle { color: #666; font-size: 0.9rem; margin-top: 4px; }
+
+    /* Stats row */
+    .gm-stats { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .gm-stat {
+        flex: 1; min-width: 130px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px; padding: 18px 20px;
+    }
+    .gm-stat .val { font-size: 2rem; font-weight: 800; color: var(--accent, #00ff88); }
+    .gm-stat .lbl { font-size: 0.78rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Search */
+    .gm-search {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px; padding: 10px 16px;
+        color: #fff; width: 100%; max-width: 400px;
+        font-size: 0.9rem; outline: none;
+    }
+    .gm-search:focus { border-color: var(--accent, #00ff88); }
+    .gm-search::placeholder { color: rgba(255,255,255,0.25); }
+
+    /* Table */
+    .gm-table-wrap {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 14px; overflow: hidden;
+    }
+    .gm-table { width: 100%; border-collapse: collapse; }
+    .gm-table thead th {
+        background: rgba(255,255,255,0.04);
+        color: #666; font-size: 0.72rem; text-transform: uppercase;
+        letter-spacing: 0.06em; padding: 12px 16px; text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        white-space: nowrap;
+    }
+    .gm-table tbody tr {
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        transition: background 0.15s;
+    }
+    .gm-table tbody tr:last-child { border-bottom: none; }
+    .gm-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .gm-table td { padding: 12px 16px; font-size: 0.85rem; color: #ccc; vertical-align: middle; }
+
+    /* Role badges */
+    .role-badge {
+        display: inline-block; padding: 3px 10px; border-radius: 20px;
+        font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .role-super_admin  { background: rgba(255,215,0,0.15); color: #ffd700; border: 1px solid rgba(255,215,0,0.3); }
+    .role-agency_owner { background: rgba(0,217,255,0.12); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); }
+    .role-individual   { background: rgba(255,255,255,0.06); color: #aaa;    border: 1px solid rgba(255,255,255,0.12); }
+    .role-agency_sub_account_user { background: rgba(0,255,136,0.08); color: #00ff88; border: 1px solid rgba(0,255,136,0.2); }
+
+    /* Stripe status */
+    .stripe-active   { color: #00ff88; }
+    .stripe-trialing { color: #ffd700; }
+    .stripe-past_due { color: #ef4444; }
+    .stripe-none     { color: #555; }
+
+    /* Impersonate button */
+    .btn-ghost {
+        padding: 5px 12px; border-radius: 7px; font-size: 0.78rem;
+        font-weight: 600; border: 1px solid rgba(0,255,136,0.3);
+        background: rgba(0,255,136,0.06); color: var(--accent, #00ff88);
+        cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-ghost:hover { background: rgba(0,255,136,0.15); border-color: var(--accent, #00ff88); }
+    .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Empty state */
+    .gm-empty { text-align: center; padding: 60px 20px; color: #555; }
+</style>
+
+<div class="container gm-page">
+
+    <div class="gm-header">
+        <div>
+            <div class="gm-title">⚡ <span>God Mode</span> — Super Admin</div>
+            <div class="gm-subtitle">You have full platform visibility. Use impersonation responsibly.</div>
+        </div>
+        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left me-1"></i> My Dashboard
+        </a>
+    </div>
+
+    <!-- Stats -->
+    {% set total = all_users|length %}
+    {% set admins = all_users|selectattr('role','equalto','super_admin')|list|length %}
+    {% set agencies = all_users|selectattr('role','equalto','agency_owner')|list|length %}
+    {% set subs = all_users|selectattr('stripe_status','equalto','active')|list|length %}
+    <div class="gm-stats">
+        <div class="gm-stat">
+            <div class="val">{{ total }}</div>
+            <div class="lbl">Total Users</div>
+        </div>
+        <div class="gm-stat">
+            <div class="val">{{ agencies }}</div>
+            <div class="lbl">Agency Owners</div>
+        </div>
+        <div class="gm-stat">
+            <div class="val" style="color:#00d9ff;">{{ subs }}</div>
+            <div class="lbl">Active Subs</div>
+        </div>
+        <div class="gm-stat">
+            <div class="val" style="color:#ffd700;">{{ admins }}</div>
+            <div class="lbl">Super Admins</div>
+        </div>
+    </div>
+
+    <!-- Search filter -->
+    <div class="mb-3">
+        <input class="gm-search" id="gmSearch" placeholder="Search by email, name, role..." oninput="filterUsers(this.value)">
+    </div>
+
+    <!-- User table -->
+    <div class="gm-table-wrap">
+        <table class="gm-table" id="gmTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Tier</th>
+                    <th>Stripe</th>
+                    <th>Location ID</th>
+                    <th>Joined</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="gmTableBody">
+            {% for u in all_users %}
+            <tr data-search="{{ (u.email or '') ~ ' ' ~ (u.full_name or '') ~ ' ' ~ (u.role or '') ~ ' ' ~ (u.subscription_tier or '') }}">
+                <td style="color:#555;">{{ loop.index }}</td>
+                <td>
+                    <span style="color:#fff; font-weight:600;">{{ u.email or '—' }}</span>
+                    {% if u.source == 'agency_billing' %}
+                        <span style="font-size:0.65rem; color:#00d9ff; margin-left:4px;">agency</span>
+                    {% endif %}
+                </td>
+                <td>{{ u.full_name or '—' }}</td>
+                <td>
+                    <span class="role-badge role-{{ u.role or 'individual' }}">
+                        {{ (u.role or 'individual')|replace('_', ' ') }}
+                    </span>
+                </td>
+                <td style="color:#aaa;">{{ u.subscription_tier or '—' }}</td>
+                <td>
+                    {% if u.stripe_status == 'active' %}
+                        <span class="stripe-active"><i class="fa-solid fa-circle-check me-1" style="font-size:0.7rem;"></i>Active</span>
+                    {% elif u.stripe_status == 'trialing' %}
+                        <span class="stripe-trialing"><i class="fa-solid fa-clock me-1" style="font-size:0.7rem;"></i>Trial</span>
+                    {% elif u.stripe_status == 'past_due' %}
+                        <span class="stripe-past_due"><i class="fa-solid fa-triangle-exclamation me-1" style="font-size:0.7rem;"></i>Past Due</span>
+                    {% else %}
+                        <span class="stripe-none">—</span>
+                    {% endif %}
+                </td>
+                <td style="font-family:monospace; font-size:0.78rem; color:#666;">
+                    {{ u.location_id[:20] ~ '…' if u.location_id and u.location_id|length > 20 else (u.location_id or '—') }}
+                </td>
+                <td style="color:#555; font-size:0.78rem;">
+                    {{ u.created_at.strftime('%b %d, %Y') if u.created_at else '—' }}
+                </td>
+                <td>
+                    {% if u.email and u.role != 'super_admin' %}
+                    <form method="POST" action="/admin/impersonate/{{ u.email }}" style="display:inline;">
+                        <button type="submit" class="btn-ghost" title="Log in as {{ u.email }}">
+                            <i class="fa-solid fa-ghost me-1"></i> Ghost
+                        </button>
+                    </form>
+                    {% else %}
+                        <span style="color:#333; font-size:0.75rem;">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="gm-empty">No users found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-3" style="color:#444; font-size:0.78rem;">
+        Showing <span id="gmCount">{{ all_users|length }}</span> of {{ all_users|length }} users
+    </div>
+</div>
+
+<script>
+    function filterUsers(q) {
+        q = q.toLowerCase().trim();
+        let shown = 0;
+        document.querySelectorAll('#gmTableBody tr[data-search]').forEach(row => {
+            const match = !q || row.dataset.search.toLowerCase().includes(q);
+            row.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        document.getElementById('gmCount').textContent = shown;
+    }
+</script>
+{% endblock %}
