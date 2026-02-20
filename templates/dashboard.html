@@ -3544,11 +3544,18 @@
             }
         }
 
+        let _listenNextTime = 0; // scheduled playback time for gapless audio
+
         function _startListenStream() {
             if (!dialerCallSid) { _dialerListening = false; return; }
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
             _listenWs = new WebSocket(`${proto}//${location.host}/voice/listen-stream`);
             _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+            // Resume AudioContext (Chrome/Safari require user gesture)
+            if (_listenAudioCtx.state === 'suspended') {
+                _listenAudioCtx.resume().then(() => console.log('[Listen] AudioContext resumed'));
+            }
+            _listenNextTime = 0;
 
             _listenWs.onopen = () => {
                 console.log('[Listen] WebSocket connected, subscribing to', dialerCallSid);
@@ -3568,8 +3575,10 @@
                         btn.style.background = 'rgba(255,255,255,0.04)';
                         btn.style.color = '#ccc';
                         btn.querySelector('i').className = 'fa-solid fa-volume-xmark';
+                    } else if (msg.error) {
+                        console.error('[Listen] Server error:', msg.error);
                     }
-                } catch(e) {}
+                } catch(e) { console.error('[Listen] Message parse error:', e); }
             };
 
             _listenWs.onclose = () => {
@@ -3593,11 +3602,14 @@
         function _stopListenStream() {
             if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
             if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
+            _listenNextTime = 0;
         }
 
         // Decode mulaw base64 → PCM and play via Web Audio API
         function _playMulawChunk(b64) {
             if (!_listenAudioCtx || _listenAudioCtx.state === 'closed') return;
+            // Resume if still suspended (e.g. autoplay policy)
+            if (_listenAudioCtx.state === 'suspended') { _listenAudioCtx.resume(); }
             try {
                 const raw = atob(b64);
                 const mulaw = new Uint8Array(raw.length);
@@ -3614,19 +3626,23 @@
                 const src = _listenAudioCtx.createBufferSource();
                 src.buffer = buf;
                 src.connect(_listenAudioCtx.destination);
-                src.start();
-            } catch(e) {}
+
+                // Schedule chunks sequentially for gapless playback
+                const now = _listenAudioCtx.currentTime;
+                const startAt = Math.max(now, _listenNextTime);
+                src.start(startAt);
+                _listenNextTime = startAt + buf.duration;
+            } catch(e) { console.error('[Listen] Playback error:', e); }
         }
 
-        // ITU-T G.711 mulaw decoder
+        // ITU-T G.711 mulaw decoder (standard formula)
         function _decodeMulaw(sample) {
-            const BIAS = 33;
             sample = ~sample & 0xFF;
             const sign = (sample & 0x80) ? -1 : 1;
             const exponent = (sample >> 4) & 0x07;
             const mantissa = sample & 0x0F;
-            const magnitude = ((mantissa << (exponent + 3)) + BIAS * (1 << (exponent + 3)) - BIAS);
-            return sign * magnitude / 32768.0;
+            const magnitude = ((mantissa << 3) + 0x84) << exponent;
+            return sign * (magnitude - 0x84) / 32768.0;
         }
 
         // ── Mute (AI mode): mutes listen audio or VoIP mic after intercept ──
