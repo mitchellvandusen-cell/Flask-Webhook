@@ -1,0 +1,20 @@
+            <div class="tab-pane fade" id="billing" role="tabpanel">
+                <div class="glass-panel text-center py-5" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+                    <div style="font-size:3rem; color:var(--accent); margin-bottom:20px;"><i class="fa-solid fa-credit-card"></i></div>
+                    <h3 class="mb-3">Subscription Management</h3>
+                    {% if current_user.stripe_customer_id %}
+                        <p style="color:#aaa; max-width:400px; margin:0 auto 1.5rem;">Use the secure portal to update payment methods or view invoices.</p>
+                        <form method="post" action="/create-portal-session">
+                            <button type="submit" class="btn btn-primary px-5">Open Stripe Portal</button>
+                        </form>
+                    {% else %}
+                        <p style="color:#aaa; margin-bottom:1.5rem;">You do not have an active Stripe subscription.</p>
+                        <p style="color:#aaa; max-width:500px; margin:0 auto;">
+                            If you installed via Marketplace, manage your subscription from within your Lead Connector account's Marketplace tab.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>

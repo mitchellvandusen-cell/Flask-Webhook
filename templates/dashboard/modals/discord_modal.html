@@ -1,0 +1,24 @@
+         DISCORD SERVER SELECTOR MODAL
+         ════════════════════════════════════════════════ -->
+    <div id="discordServerModal">
+        <div class="discord-modal-card">
+            <div class="discord-modal-title">
+                <i class="fa-brands fa-discord" style="color:#5865f2;margin-right:8px;"></i>Select Work Servers
+            </div>
+            <div class="discord-modal-sub">Choose up to 3 Discord servers to integrate. These will appear in your sidebar for real-time messaging.</div>
+            <div id="discordGuildList" style="max-height:320px;overflow-y:auto;margin-bottom:16px;">
+                <div class="discord-state-msg"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading your servers…</span></div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button onclick="closeServerModal()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:8px;padding:9px 18px;font-size:0.9rem;cursor:pointer;font-weight:600;">
+                    Cancel
+                </button>
+                <button onclick="saveSelectedServers()" id="saveServersBtn" style="background:#5865f2;border:none;color:#fff;border-radius:8px;padding:9px 20px;font-size:0.9rem;cursor:pointer;font-weight:700;">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Save Servers
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════
+         DISCORD JAVASCRIPT

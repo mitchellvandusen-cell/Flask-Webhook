@@ -1,0 +1,564 @@
+            <div class="tab-pane fade show active" id="voicedialer" role="tabpanel">
+                <style>
+                    @keyframes dialerPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
+                    .dtmf-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}
+                    .dtmf-key:hover{background:rgba(0,217,255,0.15);}
+                    .dlr-col{background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;overflow:hidden;}
+                    .dlr-col-hdr{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+                    .dlr-col-hdr h6{margin:0;font-weight:700;font-size:0.95rem;color:#00d9ff;}
+                    .dlr-col-body{flex:1;overflow-y:auto;padding:0;}
+                    .dlr-contact-row{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(255,255,255,0.02);}
+                    .dlr-contact-row:hover{background:rgba(255,255,255,0.03);}
+                    .dlr-contact-row.active{background:rgba(0,217,255,0.06);border-left:2px solid #00d9ff;}
+                    .dlr-msg-bubble{max-width:85%;padding:8px 12px;border-radius:12px;font-size:0.95rem;line-height:1.4;margin-bottom:2px;}
+                    .dlr-msg-lead{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#ddd;border-bottom-left-radius:4px;}
+                    .dlr-msg-bot{background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#ccc;border-bottom-right-radius:4px;margin-left:auto;}
+                    .dlr-field-label{font-size:0.82rem;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;}
+                    .dlr-field-value{font-size:0.95rem;color:#ddd;margin-bottom:8px;}
+                    .dlr-tab-btn{background:none;border:none;color:#666;font-size:0.95rem;font-weight:600;padding:9px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+                    .dlr-tab-btn.active{color:#00d9ff;border-bottom-color:#00d9ff;}
+                    .dlr-tab-btn:hover{color:#aaa;}
+                    /* Thread UI */
+                    .dlr-date-sep{text-align:center;margin:16px 0 12px;user-select:none;}
+                    .dlr-date-sep span{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:4px 14px;font-size:0.78rem;color:#666;letter-spacing:0.3px;}
+                    .dlr-msg-row{display:flex;flex-direction:column;margin-bottom:4px;}
+                    .dlr-msg-row.outbound{align-items:flex-end;}
+                    .dlr-msg-row.inbound{align-items:flex-start;}
+                    .dlr-msg-row.outbound + .dlr-msg-row.inbound,
+                    .dlr-msg-row.inbound + .dlr-msg-row.outbound{margin-top:10px;}
+                    .dlr-bubble{max-width:86%;padding:10px 14px;border-radius:16px;font-size:0.95rem;line-height:1.5;word-break:break-word;position:relative;}
+                    .dlr-bubble.inbound{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);color:#ddd;border-bottom-left-radius:4px;}
+                    .dlr-bubble.outbound{background:rgba(0,180,80,0.14);border:1px solid rgba(0,255,136,0.14);color:#e8ffe8;border-bottom-right-radius:4px;}
+                    .dlr-bubble.outbound.pending{opacity:0.6;}
+                    .dlr-bubble.outbound.sent{background:rgba(0,180,80,0.17);border-color:rgba(0,255,136,0.2);}
+                    .dlr-msg-meta{display:flex;align-items:center;gap:6px;padding:3px 4px 0;font-size:0.72rem;color:#555;}
+                    .dlr-msg-row.outbound .dlr-msg-meta{justify-content:flex-end;}
+                    .dlr-type-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px 6px;font-size:0.68rem;color:#777;font-weight:700;letter-spacing:0.3px;}
+                    .dlr-status-icon{font-size:0.78rem;}
+                    .dlr-status-icon.sent{color:#00ff88;}
+                    .dlr-status-icon.pending{color:#888;}
+                    .dlr-status-icon.error{color:#ef4444;}
+                    /* Quick reply buttons */
+                    .dlr-qr-btn{background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#5bb;border-radius:14px;padding:6px 14px;font-size:0.82rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s;}
+                    .dlr-qr-btn:hover{background:rgba(0,217,255,0.14);color:#00d9ff;}
+                    /* Phone keypad */
+                    .dlr-kbd-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;border-radius:8px;padding:8px 4px;font-size:0.9rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;transition:background .1s,transform .08s;user-select:none;}
+                    .dlr-kbd-key:hover{background:rgba(0,217,255,0.12);border-color:rgba(0,217,255,0.2);color:#fff;}
+                    .dlr-kbd-key:active{transform:scale(0.92);background:rgba(0,217,255,0.2);}
+                    .dlr-kbd-key span{font-weight:700;font-size:1rem;}
+                    .dlr-kbd-key sub{font-size:0.42rem;color:#888;letter-spacing:0.5px;margin-top:1px;}
+                    /* Char counter color states */
+                    .dlr-char-ok{color:#444;}
+                    .dlr-char-warn{color:#ffa500;}
+                    .dlr-char-danger{color:#ef4444;font-weight:700;}
+                </style>
+
+                <!-- Top Bar -->
+                <div class="dlr-top-bar" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:12px 16px;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:14px;">
+                    <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;">
+                        <i class="fa-solid fa-phone-volume" style="color:#00d9ff;font-size:1rem;"></i>
+                    </div>
+                    <div style="flex:1;display:flex;align-items:center;gap:10px;">
+                        <h5 style="margin:0;font-weight:700;font-size:1.4rem;white-space:nowrap;">Power Dialer</h5>
+                        <!-- Inline Quick Dial -->
+                        <div class="quick-dial-group" style="display:flex;flex-direction:column;gap:4px;flex:1;max-width:300px;position:relative;">
+                            <!-- View toggle tabs -->
+                            <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:2px;width:fit-content;">
+                                <button id="dialKbdTabType" onclick="dialerSetInputMode('type')"
+                                    style="padding:2px 10px;border-radius:4px;border:none;background:rgba(0,217,255,0.15);color:#00d9ff;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s;">
+                                    <i class="fa-solid fa-keyboard me-1" style="font-size:0.65rem;"></i>Type
+                                </button>
+                                <button id="dialKbdTabKeypad" onclick="dialerSetInputMode('keypad')"
+                                    style="padding:2px 10px;border-radius:4px;border:none;background:transparent;color:#666;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s;">
+                                    <i class="fa-solid fa-grid-2 me-1" style="font-size:0.65rem;"></i>Keypad
+                                </button>
+                            </div>
+                            <!-- Type mode -->
+                            <div id="dialModeType" style="display:flex;gap:4px;">
+                                <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
+                                    style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.88rem;outline:none;min-width:120px;">
+                                <button onclick="dialerManualCall()" style="padding:5px 12px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;">
+                                    <i class="fa-solid fa-phone"></i>
+                                </button>
+                            </div>
+                            <!-- Keypad mode (hidden by default) -->
+                            <div id="dialModeKeypad" style="display:none;flex-direction:column;gap:3px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,217,255,0.1);border-radius:8px;padding:8px;">
+                                <div id="dialKbdDisplay" style="background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:6px 10px;border-radius:6px;font-size:1rem;font-family:'JetBrains Mono',monospace;text-align:center;min-height:32px;letter-spacing:2px;">&#8203;</div>
+                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:2px;">
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('1')"><span>1</span></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('2')"><span>2</span><sub>ABC</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('3')"><span>3</span><sub>DEF</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('4')"><span>4</span><sub>GHI</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('5')"><span>5</span><sub>JKL</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('6')"><span>6</span><sub>MNO</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('7')"><span>7</span><sub>PQRS</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('8')"><span>8</span><sub>TUV</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('9')"><span>9</span><sub>WXYZ</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('*')"><span>*</span></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('0')"><span>0</span><sub>+</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('#')"><span>#</span></button>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px;">
+                                    <button onclick="dialKbdBackspace()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:7px;font-size:0.8rem;cursor:pointer;"><i class="fa-solid fa-delete-left"></i></button>
+                                    <button onclick="dialerManualCall()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px;font-size:0.85rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-phone"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Mode Toggle -->
+                    <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:2px;">
+                        <button id="modeAiBtn" onclick="setDialerMode('ai')" style="padding:6px 14px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s;">
+                            <i class="fa-solid fa-robot me-1"></i>AI
+                        </button>
+                        <button id="modeHumanBtn" onclick="setDialerMode('human')" style="padding:6px 14px;border-radius:6px;border:none;background:transparent;color:#888;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all .2s;">
+                            <i class="fa-solid fa-headset me-1"></i>Human
+                        </button>
+                    </div>
+                    <!-- Latency / Ping -->
+                    <div id="dialerLatency" style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#888;">
+                        <span id="dialerPingDot" style="width:6px;height:6px;border-radius:50%;background:#555;"></span>
+                        <span id="dialerPingVal">--ms</span>
+                    </div>
+                    <!-- AI Call Timer -->
+                    <div id="dialerAiTimer" style="display:none;font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
+                    <div id="voipStatus" style="display:none;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);border-radius:6px;padding:3px 8px;font-size:0.82rem;color:var(--accent);font-weight:600;">
+                        <i class="fa-solid fa-circle me-1" style="font-size:0.4rem;vertical-align:middle;"></i>Ready
+                    </div>
+                    <!-- Settings toggle -->
+                    <button id="dialerSettingsToggle" onclick="toggleDialerSettings()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 12px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all .2s;" title="Dialer Settings">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                </div>
+
+                <!-- VoIP Setup Banner -->
+                <div id="voipSetupBanner" style="display:none;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.15);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:#ffa500;"></i>
+                        <div style="flex:1;">
+                            <div style="font-size:0.82rem;"><strong>Browser calling requires one-time setup</strong> <span style="color:#888;">— creates a secure credential for VoIP</span></div>
+                            <div id="voipSetupStatus" style="font-size:0.72rem;color:#888;margin-top:4px;display:none;"></div>
+                        </div>
+                        <button onclick="setupVoIP()" id="voipSetupBtn" style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:6px;padding:5px 14px;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
+                            <i class="fa-solid fa-gear me-1"></i>Setup VoIP
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Call Banner (AI mode) -->
+                <div id="dialerCallBanner" style="display:none;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.2);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div id="dialerCallDot" style="width:10px;height:10px;border-radius:50%;background:#00d9ff;animation:dialerPulse 1.5s infinite;flex-shrink:0;"></div>
+                        <div style="flex:1;">
+                            <div id="dialerCallName" style="font-weight:700;font-size:1rem;">-</div>
+                            <div id="dialerCallStatus" style="font-size:0.88rem;color:#00d9ff;">Connecting...</div>
+                        </div>
+                        <div id="dialerBannerTimer" style="font-family:monospace;font-size:0.88rem;color:var(--accent);font-weight:700;display:none;">00:00</div>
+                        <button onclick="dialerStopQueue()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:6px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;">
+                            <i class="fa-solid fa-phone-slash me-1"></i>Hang Up
+                        </button>
+                    </div>
+                    <!-- In-call controls: always visible, disabled until connected -->
+                    <div id="dialerCallControls" style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
+                        <!-- Live Listen -->
+                        <button id="dialerListenBtn" onclick="dialerToggleListen()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s;" title="Live Listen">
+                            <i class="fa-solid fa-volume-high"></i><span>Listen</span>
+                        </button>
+                        <!-- Mute AI (mutes call audio you hear) -->
+                        <button id="dialerMuteBtn" onclick="dialerToggleMuteAI()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s;" title="Mute call audio (what you hear)">
+                            <i class="fa-solid fa-volume-xmark"></i><span>Mute AI</span>
+                        </button>
+                        <!-- Mute Mic (mutes your microphone after intercept) -->
+                        <button id="dialerMuteMicBtn" onclick="dialerToggleMuteMic()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#444;cursor:not-allowed;font-size:0.85rem;padding:0 10px;transition:all .2s;" title="Mute your microphone (after intercept)">
+                            <i class="fa-solid fa-microphone"></i><span>Mute Mic</span>
+                        </button>
+                        <!-- Takeover / Human Intercept -->
+                        <button id="dialerTakeoverBtn" onclick="dialerTakeover()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.1);color:#664400;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s;" title="Take over this AI call (Human Intercept)">
+                            <i class="fa-solid fa-hand"></i><span>Intercept</span>
+                        </button>
+                        <!-- Live Transfer -->
+                        <button id="dialerTransferBtn" onclick="dialerTransfer()" disabled class="dialer-ctrl-btn" style="display:flex;align-items:center;gap:4px;width:auto;height:32px;border-radius:6px;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.1);color:#004466;cursor:not-allowed;font-size:0.85rem;font-weight:600;padding:0 10px;transition:all .2s;" title="Transfer call to another number">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Call Disposition (shown after call ends) -->
+                <div id="dialerDisposition" style="display:none;background:rgba(255,165,0,0.04);border:1px solid rgba(255,165,0,0.12);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <span style="font-size:0.88rem;font-weight:600;color:#aaa;white-space:nowrap;">Disposition:</span>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;flex:1;">
+                            <button onclick="dialerSetDisposition('not_answered')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Not Answered</button>
+                            <button onclick="dialerSetDisposition('hung_up')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Hung Up</button>
+                            <button onclick="dialerSetDisposition('not_interested')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Not Interested</button>
+                            <button onclick="dialerSetDisposition('left_voicemail')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">Left Voicemail</button>
+                            <button onclick="dialerSetDisposition('none')" class="disp-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:5px;padding:3px 10px;font-size:0.85rem;cursor:pointer;">None</button>
+                        </div>
+                        <button onclick="dialerDismissDisposition()" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.7rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+
+                <!-- VoIP In-Call Bar -->
+                <div id="voipCallPanel" style="display:none;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:36px;height:36px;border-radius:50%;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;">
+                            <i class="fa-solid fa-phone" style="color:var(--accent);animation:dialerPulse 1.5s infinite;"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div id="voipCallName" style="font-weight:700;font-size:0.88rem;">-</div>
+                            <div id="voipCallPhone" style="font-size:0.72rem;color:#888;">-</div>
+                        </div>
+                        <div id="voipCallTimer" style="font-family:monospace;font-size:1rem;color:var(--accent);font-weight:700;">00:00</div>
+                        <button id="voipMuteBtn" onclick="voipToggleMute()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.8rem;" title="Mute">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <button onclick="voipToggleKeypad()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#ccc;cursor:pointer;font-size:0.8rem;" title="Keypad">
+                            <i class="fa-solid fa-grip"></i>
+                        </button>
+                        <button onclick="voipHangup()" style="width:44px;height:36px;border-radius:18px;background:linear-gradient(135deg,#ef4444,#cc2222);border:none;color:#fff;cursor:pointer;font-size:0.8rem;font-weight:700;" title="End Call">
+                            <i class="fa-solid fa-phone-slash"></i>
+                        </button>
+                    </div>
+                    <!-- DTMF Keypad (hidden) -->
+                    <div id="voipKeypad" style="display:none;max-width:200px;margin:8px auto 0;">
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+                            <button onclick="voipSendDTMF('1')" class="dtmf-key">1</button><button onclick="voipSendDTMF('2')" class="dtmf-key">2</button><button onclick="voipSendDTMF('3')" class="dtmf-key">3</button>
+                            <button onclick="voipSendDTMF('4')" class="dtmf-key">4</button><button onclick="voipSendDTMF('5')" class="dtmf-key">5</button><button onclick="voipSendDTMF('6')" class="dtmf-key">6</button>
+                            <button onclick="voipSendDTMF('7')" class="dtmf-key">7</button><button onclick="voipSendDTMF('8')" class="dtmf-key">8</button><button onclick="voipSendDTMF('9')" class="dtmf-key">9</button>
+                            <button onclick="voipSendDTMF('*')" class="dtmf-key">*</button><button onclick="voipSendDTMF('0')" class="dtmf-key">0</button><button onclick="voipSendDTMF('#')" class="dtmf-key">#</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ Dialer Settings Panel (toggleable) ═══ -->
+                <div id="dialerSettingsPanel" style="display:none;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:24px;margin-bottom:12px;">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 style="margin:0;font-weight:700;color:#fff;font-size:1.1rem;"><i class="fa-solid fa-sliders me-2" style="color:var(--accent);"></i>Power Dialer Settings</h6>
+                        <button onclick="toggleDialerSettings()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Dial Attempts (no-answer/VM)</label>
+                            <select class="form-control" id="voiceDialAttempts"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                                <option value="1" {% if voice_config.get('dial_attempts', 2)|int == 1 %}selected{% endif %}>1 attempt</option>
+                                <option value="2" {% if voice_config.get('dial_attempts', 2)|int == 2 %}selected{% endif %}>2 attempts (recommended)</option>
+                                <option value="3" {% if voice_config.get('dial_attempts', 2)|int == 3 %}selected{% endif %}>3 attempts</option>
+                            </select>
+                            <small style="color:#666; font-size:0.75rem;">Detects voicemail, hangs up, and retries automatically</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Record All Calls</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoRecord"
+                                        {% if voice_config.get('auto_record', True) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Record every call (MP3)</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">Dual-channel recording</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Auto-Transcribe Calls</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceAutoTranscribe"
+                                        {% if voice_config.get('auto_transcribe', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Real-time transcription ($0.025/min)</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">AI transcription engine</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Local Presence Dialing</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceLocalPresence"
+                                        {% if voice_config.get('local_presence', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Match caller ID area code to lead</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Transfer Number (Hot Handoff)</label>
+                            <input type="tel" class="form-control" id="voiceTransferNumber"
+                                value="{{ voice_config.get('transfer_number', '') }}"
+                                placeholder="+1XXXXXXXXXX"
+                                style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size:0.85rem;">
+                            <small style="color:#666; font-size:0.75rem;">Agent number for AI warm transfers. E.164 format.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Browser VoIP Setup</label>
+                            <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                <button onclick="setupVoIP()" id="voipSetupBtnDialer" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;">
+                                    <i class="fa-solid fa-headset me-1"></i>Setup Browser VoIP
+                                </button>
+                                <span id="voipSetupBtnDialerStatus" style="font-size:0.75rem;color:#888;">{% if voice_config.get('twilio_twiml_app_sid') %}VoIP configured{% else %}Required for human dialing{% endif %}</span>
+                            </div>
+                        </div>
+                        <!-- Audio Device Selection -->
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;"><i class="fa-solid fa-microphone me-1" style="color:#00d9ff;"></i>Microphone (Input)</label>
+                            <select id="audioInputDevice" onchange="setAudioInputDevice(this.value)"
+                                style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <option value="">Default microphone</option>
+                            </select>
+                            <small style="color:#666;font-size:0.72rem;">Select which microphone or headset to use for calls</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;"><i class="fa-solid fa-volume-high me-1" style="color:#00d9ff;"></i>Speaker (Output)</label>
+                            <select id="audioOutputDevice" onchange="setAudioOutputDevice(this.value)"
+                                style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <option value="">Default speaker</option>
+                            </select>
+                            <small style="color:#666;font-size:0.72rem;">Select which speaker or headset to hear calls through</small>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center gap-2">
+                                <button onclick="refreshAudioDevices()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh Devices
+                                </button>
+                                <button onclick="testAudioOutput()" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                    <i class="fa-solid fa-play me-1"></i>Test Speaker
+                                </button>
+                                <span id="audioDeviceStatus" style="font-size:0.72rem;color:#888;"></span>
+                            </div>
+                        </div>
+                        <div class="col-12 text-end mt-2">
+                            <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
+                                style="background: linear-gradient(135deg, var(--accent), #00b36b); color: #000; font-weight: 700; border-radius: 10px; border: none; font-size:0.85rem;">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Save Dialer Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ 3-Column Layout ═══ -->
+                <div class="dlr-3col-layout" style="display:flex;gap:8px;height:calc(100vh - 260px);min-height:500px;">
+
+                    <!-- ── LEFT: Contacts ── -->
+                    <div class="dlr-col" style="width:30%;border-radius:12px;">
+                        <div class="dlr-col-hdr">
+                            <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
+                            <button id="dialerGetContactsBtn" onclick="dialerFetchContacts()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                                <i class="fa-solid fa-download me-1"></i>Get Contacts
+                            </button>
+                        </div>
+                        <!-- Quick Dial moved to header -->
+                        <!-- Search + Filters -->
+                        <div style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                            <div style="position:relative;margin-bottom:6px;">
+                                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#444;font-size:0.7rem;"></i>
+                                <input type="text" id="dialerSearch" placeholder="Search contacts..." oninput="dialerDebounceSearch()"
+                                    style="width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#fff;padding:6px 8px 6px 28px;border-radius:6px;font-size:0.92rem;outline:none;">
+                            </div>
+                            <select id="dialerPipelineFilter" onchange="dialerOnPipelineChange()" style="width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.85rem;outline:none;margin-bottom:4px;">
+                                <option value="">All Contacts</option>
+                            </select>
+                            <!-- Fallback: shown when opportunities.readonly scope is pending approval -->
+                            <div id="dialerPipelineManual" style="display:none;margin-bottom:4px;">
+                                <input type="text" id="dialerPipelineManualInput" placeholder="Paste Pipeline ID from GHL URL..."
+                                    oninput="dialerOnManualPipelineInput()"
+                                    style="width:100%;background:#0d0d1a;border:1px solid rgba(255,165,0,0.35);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;">
+                                <div style="color:#f59e0b;font-size:0.65rem;margin-top:3px;line-height:1.3;">
+                                    <i class="fa-solid fa-clock me-1"></i>Pipeline scope pending approval (~10 days).
+                                    Find your Pipeline ID in GHL &rarr; Opportunities &rarr; copy the <code style="background:rgba(255,255,255,0.08);padding:0 3px;border-radius:3px;">pipelineId=</code> value from the URL.
+                                </div>
+                            </div>
+                            <select id="dialerStageFilter" onchange="dialerFetchContacts()" style="display:none;width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;">
+                                <option value="">All Stages</option>
+                            </select>
+                        </div>
+                        <!-- Select Actions -->
+                        <div id="dialerActionsBar" style="display:none;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <label style="color:#ccc;font-size:0.72rem;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                                    <input type="checkbox" id="dialerSelectAll" onchange="dialerToggleSelectAll()" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;">
+                                    All <span id="dialerSelectedCount" style="color:#00d9ff;font-weight:600;"></span>
+                                </label>
+                                <div class="d-flex gap-2">
+                                    <button id="dialerAddSelectedBtn" onclick="dialerAddSelectedToQueue()" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:600;cursor:pointer;" disabled>
+                                        <i class="fa-solid fa-plus me-1"></i>Queue
+                                    </button>
+                                    <button id="dialerCallSelectedBtn" onclick="dialerCallSelected()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;" disabled>
+                                        <i class="fa-solid fa-phone me-1"></i>Dial
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Contact List -->
+                        <div id="dialerContactList" class="dlr-col-body">
+                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
+                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
+                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
+                            </div>
+                        </div>
+                        <!-- Queue (bottom) -->
+                        <div style="border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                            <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
+                                <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dialerQueueCount" style="color:#00d9ff;">0</span></span>
+                                <i class="fa-solid fa-chevron-up" style="color:#555;font-size:0.6rem;"></i>
+                            </div>
+                            <div id="dialerQueueBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
+                                <div id="dialerQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
+                                    <div style="text-align:center;padding:10px;color:#555;font-size:0.75rem;">Empty queue</div>
+                                </div>
+                                <div style="display:flex;gap:4px;padding:6px 8px;">
+                                    <button id="dialerStartBtn" onclick="dialerToggleQueue()" disabled style="flex:1;padding:6px;border-radius:6px;border:none;background:linear-gradient(135deg,var(--accent),#00b36b);color:#000;font-weight:700;font-size:0.72rem;cursor:pointer;">
+                                        <i class="fa-solid fa-play me-1"></i>Auto-Dial
+                                    </button>
+                                    <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.72rem;cursor:pointer;">Clear</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── MIDDLE: Contact Detail ── -->
+                    <div class="dlr-col" style="width:35%;border-radius:12px;">
+                        <div class="dlr-col-hdr">
+                            <h6><i class="fa-solid fa-user me-1"></i>Contact Detail</h6>
+                            <div id="dlrDetailActions" style="display:none;display:flex;gap:4px;">
+                                <button id="dlrCallContactBtn" onclick="dialerCallActiveContact()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                                    <i class="fa-solid fa-phone me-1"></i>Call
+                                </button>
+                                <button onclick="dialerAddActiveToQueue()" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:6px;padding:4px 10px;font-weight:600;font-size:0.85rem;cursor:pointer;">
+                                    <i class="fa-solid fa-plus me-1"></i>Queue
+                                </button>
+                            </div>
+                        </div>
+                        <div id="dlrDetailContent" class="dlr-col-body" style="padding:16px;">
+                            <div style="text-align:center;padding:60px 20px;color:#333;">
+                                <i class="fa-solid fa-user-large" style="font-size:2.5rem;color:#1a1a2e;margin-bottom:12px;display:block;"></i>
+                                <div style="color:#555;font-size:0.82rem;">Select a contact to view details</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── RIGHT: History ── -->
+                    <div class="dlr-col" style="width:35%;border-radius:12px;">
+                        <div class="dlr-col-hdr">
+                            <h6><i class="fa-solid fa-clock-rotate-left me-1"></i>History</h6>
+                            <div style="display:flex;gap:0;">
+                                <button class="dlr-tab-btn active" id="dlrTabMessages" onclick="dialerSwitchHistoryTab('messages')">Messages</button>
+                                <button class="dlr-tab-btn" id="dlrTabCalls" onclick="dialerSwitchHistoryTab('calls')">Calls</button>
+                                <button class="dlr-tab-btn" id="dlrTabRecordings" onclick="dialerSwitchHistoryTab('recordings')">Recordings</button>
+                            </div>
+                        </div>
+                        <!-- Messages Tab — Full Thread UI -->
+                        <div id="dlrHistoryMessages" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+
+                            <!-- Thread Header (shown after contact selected) -->
+                            <div id="dlrMsgHeader" style="display:none;flex-shrink:0;padding:10px 14px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:10px;">
+                                <div id="dlrMsgAvatar" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.2),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:#00d9ff;flex-shrink:0;">?</div>
+                                <div style="flex:1;min-width:0;">
+                                    <div id="dlrMsgContactName" style="font-weight:700;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+                                    <div id="dlrMsgContactPhone" style="font-size:0.78rem;color:#666;margin-top:1px;"></div>
+                                </div>
+                                <span style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
+                                <button onclick="dlrRefreshMessages()" title="Refresh thread" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#666;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dlrRefreshBtn">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+
+                            <!-- Scrollable Thread -->
+                            <div id="dlrMessagesList" class="dlr-col-body" style="padding:12px 12px 6px;">
+                                <!-- Empty state -->
+                                <div id="dlrMsgEmptyState" style="text-align:center;padding:60px 16px;">
+                                    <div style="width:48px;height:48px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                                        <i class="fa-solid fa-comments" style="font-size:1.2rem;color:#2a3a4a;"></i>
+                                    </div>
+                                    <div style="color:#444;font-size:0.82rem;font-weight:600;margin-bottom:4px;">No conversation yet</div>
+                                    <div style="color:#333;font-size:0.72rem;">Select a contact to view their thread</div>
+                                </div>
+                            </div>
+
+                            <!-- SMS Composer -->
+                            <div id="dlrSmsComposer" style="display:none;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);background:rgba(4,6,12,0.7);">
+
+                                <!-- Quick Replies Bar -->
+                                <div style="padding:8px 12px 4px;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;">
+                                    <!-- InsuranceGrokBot Reply Button -->
+                                    <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" title="Generate InsuranceGrokBot reply — click again for a new draft"
+                                        style="display:flex;align-items:center;gap:6px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,217,255,0.18),rgba(0,255,136,0.10));border:1px solid rgba(0,217,255,0.35);color:#00d9ff;border-radius:14px;padding:7px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;letter-spacing:0.2px;">
+                                        <i class="fa-solid fa-robot" style="font-size:0.88rem;"></i>
+                                        <span id="dlrAiDraftLabel">InsuranceGrokBot Reply</span>
+                                    </button>
+                                    <span style="font-size:0.75rem;color:#333;white-space:nowrap;flex-shrink:0;">|</span>
+                                    <span style="font-size:0.78rem;color:#555;white-space:nowrap;flex-shrink:0;font-weight:600;">Quick:</span>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Following up — did you have a chance to review the options I sent over?')">Follow-up</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Hi! I wanted to make sure you got everything you needed. Any questions?')">Check-in</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Ready to go over your coverage options when you are — just reply here to get started.')">Coverage</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Are you available for a quick 10-minute call today or tomorrow?')">Schedule</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Got your message! I\'ll look into that and get back to you shortly.')">On it</button>
+                                </div>
+
+                                <!-- Compose Row -->
+                                <div style="display:flex;gap:8px;align-items:flex-end;padding:6px 12px;">
+                                    <div style="flex:1;position:relative;">
+                                        <textarea id="dlrSmsText"
+                                            placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+                                            rows="2"
+                                            style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);color:#fff;padding:10px 14px;border-radius:12px;font-size:0.95rem;resize:none;outline:none;line-height:1.5;max-height:120px;overflow-y:auto;transition:border-color 0.15s;"
+                                            oninput="dlrAutoGrow(this);dlrUpdateCharCount(this.value)"
+                                            onfocus="this.style.borderColor='rgba(0,217,255,0.35)'"
+                                            onblur="this.style.borderColor='rgba(255,255,255,0.10)'"
+                                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
+                                        ></textarea>
+                                    </div>
+                                    <button onclick="dialerSendSms()" id="dlrSmsSendBtn"
+                                        title="Send SMS (Enter)"
+                                        style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:12px;width:46px;height:46px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s;margin-bottom:1px;">
+                                        <i class="fa-solid fa-paper-plane" style="font-size:1rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Footer: status + char counter -->
+                                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 14px 8px;">
+                                    <div id="dlrSmsStatus" style="font-size:0.78rem;color:#666;min-height:16px;"></div>
+                                    <div id="dlrCharCount" style="font-size:0.78rem;color:#555;font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 160</div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- Calls Tab -->
+                        <div id="dlrHistoryCalls" class="dlr-col-body" style="display:none;padding:0;">
+                            <div id="dialerCallsHeader" style="padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:space-between;">
+                                <span id="dialerCallsLabel" style="font-size:0.82rem;color:#888;font-weight:600;">All Calls</span>
+                                <div style="display:flex;gap:4px;">
+                                    <button id="dialerCallsViewAllBtn" onclick="dialerToggleCallHistoryScope()" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 8px;font-size:0.78rem;cursor:pointer;">View All</button>
+                                    <button onclick="dialerLoadAllCallHistory()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:4px;padding:2px 8px;font-size:0.78rem;cursor:pointer;"><i class="fa-solid fa-arrows-rotate"></i></button>
+                                </div>
+                            </div>
+                            <div id="dialerHistoryList" style="padding:4px;">
+                                <div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i><p style="margin-top:6px;color:#555;font-size:0.88rem;">Loading call history...</p></div>
+                            </div>
+                        </div>
+                        <!-- Recordings Tab -->
+                        <div id="dlrHistoryRecordings" class="dlr-col-body" style="display:none;padding:0;">
+                            <div id="dialerRecordingsHeader" style="padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:space-between;">
+                                <span id="dialerRecordingsLabel" style="font-size:0.82rem;color:#888;font-weight:600;">All Recordings</span>
+                                <div style="display:flex;gap:4px;">
+                                    <button id="dialerRecsViewAllBtn" onclick="dialerToggleRecordingsScope()" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 8px;font-size:0.78rem;cursor:pointer;">View All</button>
+                                    <button onclick="dialerLoadRecordings()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:4px;padding:2px 8px;font-size:0.78rem;cursor:pointer;"><i class="fa-solid fa-arrows-rotate"></i></button>
+                                </div>
+                            </div>
+                            <div id="dialerRecordingsList" style="padding:4px;">
+                                <div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i><p style="margin-top:6px;color:#555;font-size:0.88rem;">Loading recordings...</p></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Transcript Modal -->
+                <div id="transcriptModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;">
+                    <div style="background:rgba(12,12,12,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
+                        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+                            <h5 style="margin:0;font-weight:700;"><i class="fa-solid fa-file-lines me-2" style="color:#00d9ff;"></i>Call Transcript</h5>
+                            <button onclick="closeTranscriptModal()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div id="transcriptContent" style="padding:16px 20px;overflow-y:auto;flex:1;"></div>
+                    </div>
+                </div>
+            </div>

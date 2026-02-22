@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Allow microphone access when embedded in GHL iframe -->
+    <meta http-equiv="Permissions-Policy" content="microphone=*, camera=*, autoplay=*">
+    <title>Dashboard | InsuranceGrokBot</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <style>
+        /* Fix placeholder text visibility on dark backgrounds */
+        .form-control::placeholder,
+        textarea::placeholder,
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.35) !important;
+            opacity: 1 !important;
+        }
+        /* Dark theme for all select dropdowns */
+        select option { background: #2a2a35; color: #fff; }
+        /* Pulsing green border glow for fields that need attention */
+        @keyframes pulse-green {
+            0%, 100% {
+                border-color: rgba(0, 255, 136, 0.25);
+                box-shadow: 0 0 3px rgba(0, 255, 136, 0.1);
+            }
+            50% {
+                border-color: rgba(0, 255, 136, 0.6);
+                box-shadow: 0 0 6px rgba(0, 255, 136, 0.2);
+            }
+        }
+        /* wrapper gets no extra border — glow only on inner controls */
+        .field-needs-attention .form-control {
+            animation: pulse-green 2s ease-in-out infinite;
+            border: 1px solid rgba(0, 255, 136, 0.25) !important;
+        }
+        /* for tech-readout blocks (readonly display fields) the div IS the control */
+        .tech-readout.field-needs-attention {
+            animation: pulse-green 2s ease-in-out infinite;
+            border: 1px solid rgba(0, 255, 136, 0.25) !important;
+        }
+
+        /* Pulsing Connect button */
+        @keyframes pulse-connect {
+            0%, 100% {
+                box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 4px 25px rgba(0, 255, 136, 0.5), 0 0 40px rgba(0, 255, 136, 0.15);
+                transform: scale(1.02);
+            }
+        }
+        .connect-btn-pulse {
+            animation: pulse-connect 2s ease-in-out infinite;
+        }
+
+        /* Congratulations overlay */
+        .congrats-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        .congrats-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .congrats-card {
+            background: rgba(12, 12, 12, 0.85);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 24px;
+            padding: 50px 40px;
+            max-width: 480px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 60px rgba(0, 255, 136, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        .congrats-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+        .congrats-icon {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid rgba(0, 255, 136, 0.2);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .congrats-icon i {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+        .congrats-btn {
+            display: inline-block;
+            background: var(--accent);
+            color: #000;
+            font-weight: 800;
+            font-size: 1.05rem;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+            text-decoration: none;
+            margin-top: 8px;
+        }
+        .congrats-btn:hover {
+            background: #fff;
+            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.35);
+        }
+        .congrats-close {
+            position: absolute;
+            top: 16px; right: 20px;
+            background: none; border: none;
+            color: #666;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .congrats-close:hover { color: #fff; }
+
+        /* Workflow tab styles */
+        .workflow-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .workflow-tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: #888;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .workflow-tab-btn:hover { border-color: rgba(255, 255, 255, 0.15); color: #bbb; }
+        .workflow-tab-btn.active {
+            background: rgba(0, 255, 136, 0.06);
+            border-color: rgba(0, 255, 136, 0.2);
+            color: var(--accent);
+        }
+        .workflow-content { display: none; }
+        .workflow-content.active { display: block; }
+        .wf-step {
+            display: flex;
+            gap: 14px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            align-items: flex-start;
+        }
+        .wf-step-num {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: rgba(0, 255, 136, 0.08);
+            border: 1px solid rgba(0, 255, 136, 0.15);
+            color: var(--accent);
+            font-weight: 800;
+            font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .wf-step-text {
+            color: #ccc;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .wf-step-text strong { color: #fff; }
+
+        /* Logs tab */
+        .log-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .log-row:hover { background: rgba(255,255,255,0.03); }
+        .log-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 60px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .log-badge.success { background: rgba(0,255,136,0.15); color: #00ff88; }
+        .log-badge.error { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .log-badge.warning { background: rgba(255,193,7,0.15); color: #ffc107; }
+        .log-badge.info { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .log-time { color: #666; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; min-width: 140px; flex-shrink: 0; }
+        .log-event { color: #888; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; min-width: 130px; flex-shrink: 0; }
+        .log-summary { color: #ccc; flex: 1; }
+        .log-contact { color: #666; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+
+        /* Connect tab */
+        .crm-select-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #aaa;
+            font-weight: 600;
+            border-radius: 12px;
+            padding: 12px 8px;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        .crm-select-btn:hover { border-color: var(--accent); color: #fff; background: rgba(0,255,136,0.05); }
+        .crm-select-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,255,136,0.1); box-shadow: 0 0 20px rgba(0,255,136,0.1); }
+        .setup-steps { margin-top: 16px; }
+        .crm-guide { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 768px) {
+            .log-time, .log-event { display: none; }
+            .log-row { font-size: 0.8rem; padding: 8px; }
+        }
+
+        /* ═══ MOBILE RESPONSIVE ═══ */
+
+        /* -- Tablet (≤992px) -- */
+        @media (max-width: 992px) {
+            .glass-panel { padding: 20px !important; }
+        }
+
+        /* -- Mobile (≤768px) -- */
+        @media (max-width: 768px) {
+            /* Main nav tabs: horizontal scroll instead of wrapping */
+            #dashTabs {
+                flex-wrap: nowrap !important;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                gap: 4px !important;
+                margin-bottom: 20px !important;
+                padding-bottom: 2px;
+            }
+            #dashTabs::-webkit-scrollbar { display: none; }
+            #dashTabs .nav-link {
+                font-size: 0.72rem !important;
+                padding: 8px 10px !important;
+                white-space: nowrap;
+            }
+            /* Hide tab label text, show only icons on small screens */
+            #dashTabs .nav-link { font-size: 0 !important; }
+            #dashTabs .nav-link i { font-size: 0.9rem !important; margin: 0 !important; }
+
+            /* Glass panels: tighter padding */
+            .glass-panel { padding: 16px !important; border-radius: 12px !important; }
+
+            /* Voice sub-tabs: smaller on mobile */
+            .voice-stab-btn {
+                padding: 6px 10px !important;
+                font-size: 0.72rem !important;
+            }
+
+            /* Voice Dialer: stack columns vertically */
+            .dlr-3col-layout {
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: unset !important;
+            }
+            .dlr-3col-layout > .dlr-col {
+                width: 100% !important;
+                max-height: 350px;
+            }
+            /* Dialer top bar: wrap items */
+            .dlr-top-bar {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .dlr-top-bar .quick-dial-group { max-width: 100% !important; flex: 1 1 100% !important; }
+
+            /* Numbers table: responsive grid */
+            .numbers-grid-header,
+            .numbers-grid-row {
+                grid-template-columns: 1fr 80px 40px !important;
+            }
+            .numbers-col-sms,
+            .numbers-col-cnam,
+            .numbers-col-menu { display: none !important; }
+
+            /* Trust Hub number health grid */
+            .trust-health-header,
+            .trust-health-row {
+                grid-template-columns: 1fr auto !important;
+            }
+            .trust-col-cnam,
+            .trust-col-health { display: none !important; }
+
+            /* How It Works: 2 columns */
+            .voice-how-it-works .col-md-3 {
+                flex: 0 0 50% !important;
+                max-width: 50% !important;
+            }
+
+            /* Congrats overlay */
+            .congrats-card { padding: 30px 20px !important; }
+            .congrats-icon { width: 60px !important; height: 60px !important; }
+
+            /* CRM guide steps */
+            .wf-step { flex-direction: column; align-items: flex-start; }
+
+            /* Forms: full width */
+            .form-control, .form-select, input[type="text"], input[type="url"], textarea, select {
+                font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
+
+            /* Carrier grid: single column */
+            #carrierGrid {
+                grid-template-columns: 1fr !important;
+                max-height: 300px !important;
+            }
+        }
+
+        /* -- Small mobile (≤480px) -- */
+        @media (max-width: 480px) {
+            /* Voice sub-tabs: icon only */
+            .voice-stab-btn {
+                padding: 6px 8px !important;
+                font-size: 0 !important;
+            }
+            .voice-stab-btn i { font-size: 0.85rem !important; margin: 0 !important; }
+
+            /* Stack flex layouts vertically */
+            .mobile-stack {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+            .mobile-stack > * { width: 100% !important; min-width: unset !important; }
+
+            /* Tighter glass panels */
+            .glass-panel { padding: 12px !important; }
+
+            /* Save overlay */
+            .save-overlay-box { padding: 24px 20px !important; }
+
+            /* Webhook URL section */
+            .webhook-url-group {
+                flex-direction: column !important;
+            }
+            .webhook-url-group > div { min-width: unset !important; width: 100% !important; }
+
+            /* Row g-3 columns stack */
+            .row.g-3 > [class*="col-md-"] {
+                flex: 0 0 100% !important;
+                max-width: 100% !important;
+            }
+        }
+
+        /* Save overlay */
+        .save-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .save-overlay.active { display: flex; }
+        .save-overlay-box {
+            background: var(--card-glass, #1a1a2e);
+            border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+            border-radius: 20px;
+            padding: 40px 50px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .save-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent, #00ff88);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .save-check {
+            display: none;
+            font-size: 2.5rem;
+            color: var(--accent, #00ff88);
+            margin-bottom: 12px;
+        }
+        .save-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        /* Persistent alert banners */
+        .persistent-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 1px solid;
+            position: relative;
+        }
+        .persistent-alert.alert-warning-persistent {
+            background: rgba(255, 193, 7, 0.08);
+            border-color: rgba(255, 193, 7, 0.3);
+        }
+        .persistent-alert.alert-error-persistent {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .persistent-alert.alert-info-persistent {
+            background: rgba(59, 130, 246, 0.08);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        .persistent-alert .pa-icon {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .alert-warning-persistent .pa-icon { color: #ffc107; }
+        .alert-error-persistent .pa-icon { color: #ef4444; }
+        .alert-info-persistent .pa-icon { color: #3b82f6; }
+        .persistent-alert .pa-body { flex: 1; }
+        .persistent-alert .pa-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+        .alert-warning-persistent .pa-title { color: #ffc107; }
+        .alert-error-persistent .pa-title { color: #ef4444; }
+        .alert-info-persistent .pa-title { color: #3b82f6; }
+        .persistent-alert .pa-message {
+            font-size: 0.88rem;
+            color: #bbb;
+            line-height: 1.5;
+        }
+        .persistent-alert .pa-dismiss {
+            position: absolute;
+            top: 12px; right: 14px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+        .persistent-alert .pa-dismiss:hover { color: #fff; }
+        .persistent-alert .pa-time {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        /* Onboarding issue banner */
+        .onboarding-banner {
+            background: linear-gradient(135deg, rgba(255, 152, 0, 0.12) 0%, rgba(255, 193, 7, 0.08) 100%);
+            border: 1px solid rgba(255, 152, 0, 0.35);
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .onboarding-banner .banner-icon {
+            font-size: 1.5rem;
+            color: #ff9800;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .onboarding-banner .banner-body h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffb74d;
+            margin: 0 0 6px 0;
+        }
+        .onboarding-banner .banner-body p {
+            font-size: 0.9rem;
+            color: #bbb;
+            margin: 0 0 10px 0;
+            line-height: 1.5;
+        }
+        .onboarding-banner .banner-link {
+            display: inline-block;
+            background: rgba(255, 152, 0, 0.15);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            color: #ffb74d;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .onboarding-banner .banner-link:hover {
+            background: rgba(255, 152, 0, 0.25);
+            border-color: rgba(255, 152, 0, 0.5);
+            color: #fff;
+        }
+        .onboarding-banner .banner-dismiss {
+            background: none;
+            border: none;
+            color: #777;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-left: auto;
+            flex-shrink: 0;
+            padding: 0;
+        }
+        .onboarding-banner .banner-dismiss:hover { color: #fff; }
+
+        /* Carrier chip styles */
+        .carrier-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .carrier-chip:hover {
+            border-color: rgba(0, 255, 136, 0.2);
+            background: rgba(0, 255, 136, 0.04);
+        }
+        .carrier-chip.selected {
+            background: rgba(0, 255, 136, 0.08);
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+        .carrier-chip .carrier-check {
+            width: 20px; height: 20px;
+            border-radius: 6px;
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem;
+            color: transparent;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .carrier-chip.selected .carrier-check {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+        }
+        .carrier-chip .carrier-name {
+            font-size: 0.85rem;
+            color: #ccc;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .carrier-chip.selected .carrier-name { color: #fff; }
+        .carrier-chip.hidden { display: none; }
+
+        /* ═══ DISCORD INTEGRATION STYLES ═══ */
+
+        /* Skeleton shimmer loader */
+        @keyframes shimmer {
+            0%   { background-position: -600px 0; }
+            100% { background-position: 600px 0; }
+        }
+        .skel {
+            background: linear-gradient(90deg,
+                rgba(255,255,255,0.04) 25%,
+                rgba(255,255,255,0.09) 50%,
+                rgba(255,255,255,0.04) 75%);
+            background-size: 600px 100%;
+            animation: shimmer 1.4s infinite linear;
+            border-radius: 6px;
+        }
+        .skel-line { height: 12px; margin-bottom: 8px; }
+        .skel-circle { border-radius: 50%; }
+
+        /* Discord sidebar section */
+        .discord-connect-btn {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 16px; margin: 4px 6px;
+            background: rgba(88, 101, 242, 0.12);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 10px; cursor: pointer;
+            color: #7289da; font-size: 0.9rem; font-weight: 600;
+            text-decoration: none; transition: all 0.2s;
+            width: calc(100% - 12px);
+        }
+        .discord-connect-btn:hover {
+            background: rgba(88, 101, 242, 0.22);
+            border-color: rgba(88, 101, 242, 0.55);
+            color: #fff; transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(88,101,242,0.2);
+        }
+        .discord-avatar-sm {
+            width: 22px; height: 22px; border-radius: 50%;
+            object-fit: cover; flex-shrink: 0;
+        }
+
+        /* Server list in sidebar */
+        .discord-server-item { margin: 2px 6px; border-radius: 8px; }
+        .discord-server-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; cursor: pointer;
+            color: #888; font-size: 0.88rem; font-weight: 600;
+            transition: background 0.15s, color 0.15s;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px; width: 100%;
+            border: none; text-align: left;
+        }
+        .discord-server-header:hover { background: rgba(255,255,255,0.05); color: #ddd; }
+        .discord-server-icon {
+            width: 26px; height: 26px; border-radius: 7px; object-fit: cover; flex-shrink: 0;
+            background: rgba(88, 101, 242, 0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; font-weight: 800; color: #7289da;
+            overflow: hidden;
+        }
+        .discord-server-chevron {
+            margin-left: auto; font-size: 0.55rem;
+            transition: transform 0.2s; flex-shrink: 0; color: #444;
+        }
+        .discord-server-item.open .discord-server-chevron { transform: rotate(180deg); }
+        .discord-server-item.open .discord-server-header { color: #7289da; background: rgba(88,101,242,0.06); }
+
+        /* Unread notification badges */
+        .discord-notif-count {
+            background: #ed4245; color: #fff;
+            font-size: 0.6rem; font-weight: 800;
+            border-radius: 8px; padding: 1px 5px;
+            min-width: 16px; text-align: center; flex-shrink: 0;
+            animation: notifPop 0.2s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes notifPop { from { transform: scale(0.5); } to { transform: scale(1); } }
+
+        /* Notification bell in topbar */
+        .discord-bell-btn {
+            position: relative;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: #888; border-radius: 8px; width: 34px; height: 34px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem; transition: all 0.2s; flex-shrink: 0;
+        }
+        .discord-bell-btn:hover { background: rgba(88,101,242,0.15); border-color: rgba(88,101,242,0.3); color: #7289da; }
+        .discord-bell-btn.has-unread { color: #7289da; border-color: rgba(88,101,242,0.3); }
+        .discord-bell-badge {
+            position: absolute; top: -4px; right: -4px;
+            background: #ed4245; color: #fff;
+            font-size: 0.55rem; font-weight: 900;
+            border-radius: 8px; padding: 1px 4px;
+            min-width: 14px; text-align: center;
+            border: 1.5px solid #050505;
+            display: none;
+        }
+        .discord-bell-btn.has-unread .discord-bell-badge { display: block; }
+
+        /* Channel list */
+        .discord-channel-list {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.25s ease;
+            padding-left: 6px;
+        }
+        .discord-server-item.open .discord-channel-list { max-height: 800px; }
+        .discord-channel-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 10px; cursor: pointer;
+            color: #5d6070; font-size: 0.85rem; font-weight: 500;
+            border-radius: 6px; margin: 1px 0;
+            transition: background 0.12s, color 0.12s;
+            background: none; border: none; width: 100%; text-align: left;
+        }
+        .discord-channel-btn:hover { background: rgba(255,255,255,0.04); color: #b5b8c1; }
+        .discord-channel-btn.active-channel { background: rgba(88,101,242,0.12); color: #7289da; font-weight: 600; }
+        .discord-channel-btn .ch-hash { color: #3a3d4a; font-size: 0.95rem; flex-shrink: 0; transition: color 0.12s; }
+        .discord-channel-btn:hover .ch-hash,
+        .discord-channel-btn.active-channel .ch-hash { color: #5865f2; }
+        .discord-channel-btn .ch-notif { margin-left: auto; }
+
+        /* Discord message panel */
+        #discordPanel {
+            position: fixed; top: 0; right: -490px; bottom: 0;
+            width: 468px;
+            background: #0d0d14;
+            border-left: 1px solid rgba(88, 101, 242, 0.15);
+            z-index: 500;
+            display: flex; flex-direction: column;
+            transition: right 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -12px 0 48px rgba(0,0,0,0.6);
+        }
+        #discordPanel.open { right: 0; }
+
+        .discord-panel-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        .discord-panel-header .ch-title { font-weight: 700; font-size: 1rem; color: #fff; }
+        .discord-panel-header .ch-server-name { font-size: 0.76rem; color: #555; margin-top: 1px; }
+        .discord-panel-close {
+            margin-left: auto; background: none; border: none;
+            color: #444; cursor: pointer; font-size: 0.95rem;
+            width: 30px; height: 30px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            transition: color 0.15s, background 0.15s;
+        }
+        .discord-panel-close:hover { color: #fff; background: rgba(255,255,255,0.07); }
+
+        /* Messages area */
+        #discordMessages {
+            flex: 1; overflow-y: auto;
+            padding: 8px 0;
+            display: flex; flex-direction: column;
+            scroll-behavior: smooth;
+        }
+        #discordMessages::-webkit-scrollbar { width: 4px; }
+        #discordMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 4px; }
+
+        /* Message groups */
+        .discord-msg-group { padding: 4px 0 0; }
+        .discord-msg {
+            display: flex; gap: 14px;
+            padding: 2px 18px; border-radius: 0;
+            transition: background 0.08s;
+            position: relative;
+        }
+        .discord-msg:hover { background: rgba(255,255,255,0.025); }
+        .discord-msg.group-start { padding-top: 14px; }
+        .discord-msg-avatar-wrap {
+            width: 38px; flex-shrink: 0;
+            display: flex; align-items: flex-start; padding-top: 2px;
+        }
+        .discord-msg-avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            object-fit: cover;
+            background: rgba(88, 101, 242, 0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.85rem; color: #7289da;
+            overflow: hidden; flex-shrink: 0;
+        }
+        /* Continued messages: no avatar, just a spacer + hover timestamp */
+        .discord-msg.continued .discord-msg-avatar { visibility: hidden; }
+        .discord-msg.continued .discord-msg-meta { display: none; }
+        .discord-msg-hover-time {
+            display: none; position: absolute;
+            left: 20px; top: 50%; transform: translateY(-50%);
+            font-size: 0.65rem; color: #444;
+            white-space: nowrap;
+        }
+        .discord-msg.continued:hover .discord-msg-hover-time { display: block; }
+        .discord-msg-body { flex: 1; min-width: 0; }
+        .discord-msg-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+        .discord-msg-author { font-weight: 700; font-size: 0.92rem; color: #fff; }
+        .discord-msg-author.is-self { color: #7289da; }
+        .discord-msg-time { font-size: 0.7rem; color: #444; }
+        .discord-msg-text {
+            font-size: 0.915rem; color: #d4d7dc;
+            line-height: 1.55; word-break: break-word;
+        }
+        .discord-msg.new-msg { animation: msgSlideIn 0.22s ease; }
+        @keyframes msgSlideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        /* "NEW MESSAGES" divider */
+        .discord-new-divider {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 18px 4px;
+            font-size: 0.7rem; font-weight: 700;
+            color: #ed4245; text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .discord-new-divider::before, .discord-new-divider::after {
+            content:''; flex:1; height:1px; background: rgba(237,66,69,0.3);
+        }
+
+        /* Scroll-to-bottom button */
+        #discordScrollBtn {
+            position: absolute; bottom: 80px; right: 18px;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: #5865f2; border: none; color: #fff;
+            display: none; align-items: center; justify-content: center;
+            font-size: 0.9rem; cursor: pointer; z-index: 10;
+            box-shadow: 0 4px 16px rgba(88,101,242,0.4);
+            transition: transform 0.15s, opacity 0.2s;
+        }
+        #discordScrollBtn.visible { display: flex; }
+        #discordScrollBtn:hover { transform: scale(1.1); }
+
+        /* Composer */
+        .discord-composer {
+            padding: 10px 16px 14px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0; background: #0d0d14;
+        }
+        .discord-composer-inner {
+            display: flex; gap: 0; align-items: flex-end;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .discord-composer-inner:focus-within {
+            border-color: rgba(88,101,242,0.45);
+            box-shadow: 0 0 0 3px rgba(88,101,242,0.08);
+        }
+        #discordReplyText {
+            flex: 1; background: none; border: none; outline: none;
+            color: #dcddde; font-size: 0.92rem; resize: none;
+            line-height: 1.5; max-height: 120px; min-height: 22px;
+            font-family: 'Outfit', sans-serif;
+            padding: 10px 12px;
+        }
+        #discordReplyText::placeholder { color: rgba(255,255,255,0.22); }
+        .discord-emoji-btn {
+            background: none; border: none; color: #555; cursor: pointer;
+            padding: 8px 10px; font-size: 1.05rem;
+            transition: color 0.15s; align-self: flex-end;
+            display: flex; align-items: center;
+        }
+        .discord-emoji-btn:hover { color: #ffd700; }
+        .discord-send-btn {
+            background: #5865f2; border: none; color: #fff;
+            width: 42px; padding: 0;
+            cursor: pointer; display: flex; align-items: center;
+            justify-content: center; font-size: 0.9rem;
+            transition: background 0.2s;
+            align-self: stretch; flex-shrink: 0;
+        }
+        .discord-send-btn:hover { background: #4752c4; }
+        .discord-send-btn:disabled { background: rgba(88,101,242,0.28); cursor: not-allowed; }
+        .discord-composer-hint {
+            font-size: 0.68rem; color: #3a3d4a; margin-top: 5px; padding: 0 4px;
+        }
+
+        /* Empty / loading states */
+        .discord-state-msg {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 12px; padding: 48px 24px;
+            color: #444; font-size: 0.9rem; text-align: center;
+            flex: 1;
+        }
+        .discord-state-msg .state-icon {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: rgba(88,101,242,0.08);
+            border: 1px solid rgba(88,101,242,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; color: #3a3f6c;
+        }
+        .discord-state-msg .state-title { font-weight: 700; color: #666; font-size: 0.95rem; }
+        .discord-state-msg .state-sub { font-size: 0.82rem; color: #3a3d4a; max-width: 260px; line-height: 1.5; }
+
+        /* Skeleton channel rows */
+        .discord-ch-skel { padding: 5px 10px; display:flex; align-items:center; gap:8px; }
+
+        /* Server selector modal */
+        #discordServerModal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.72);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s;
+        }
+        #discordServerModal.open { opacity: 1; pointer-events: auto; }
+        .discord-modal-card {
+            background: #0e0e16;
+            border: 1px solid rgba(88, 101, 242, 0.2);
+            border-radius: 20px; padding: 28px 30px;
+            max-width: 480px; width: 90%;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+            animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes modalIn { from { opacity:0; transform: scale(0.94) translateY(10px); } to { opacity:1; transform: scale(1) translateY(0); } }
+        .discord-modal-title { font-size: 1.2rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+        .discord-modal-sub { font-size: 0.85rem; color: #555; margin-bottom: 20px; line-height: 1.5; }
+        .discord-guild-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px; border-radius: 10px; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 6px; transition: all 0.15s;
+            background: rgba(255,255,255,0.02);
+        }
+        .discord-guild-row:hover { border-color: rgba(88,101,242,0.3); background: rgba(88,101,242,0.06); }
+        .discord-guild-row.selected { border-color: rgba(88,101,242,0.5); background: rgba(88,101,242,0.1); }
+        .discord-guild-row.disabled { opacity: 0.35; cursor: not-allowed; }
+        .discord-guild-icon {
+            width: 42px; height: 42px; border-radius: 12px;
+            object-fit: cover; flex-shrink: 0;
+            background: rgba(88,101,242,0.18);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1rem; color: #7289da;
+            overflow: hidden;
+        }
+        .discord-guild-name { font-weight: 600; font-size: 0.95rem; color: #ddd; flex: 1; }
+        .discord-guild-check {
+            width: 22px; height: 22px; border-radius: 6px;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; color: transparent; transition: all 0.15s; flex-shrink: 0;
+        }
+        .discord-guild-row.selected .discord-guild-check { background: #5865f2; border-color: #5865f2; color: #fff; }
+
+        /* Advanced Settings Toggle Switch */
+        .adv-toggle { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+        .adv-toggle input { opacity: 0; width: 0; height: 0; }
+        .adv-toggle-slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.1); border-radius: 26px; transition: 0.3s;
+        }
+        .adv-toggle-slider:before {
+            content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px;
+            background: #666; border-radius: 50%; transition: 0.3s;
+        }
+        .adv-toggle input:checked + .adv-toggle-slider { background: rgba(0,255,136,0.25); }
+        .adv-toggle input:checked + .adv-toggle-slider:before { transform: translateX(22px); background: var(--accent); }
+    </style>
+</head>

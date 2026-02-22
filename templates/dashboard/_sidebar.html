@@ -1,0 +1,218 @@
+    <div class="sidebar" id="mainSidebar">
+
+        <!-- Brand Row -->
+        <div class="sb-brand">
+            <div class="sb-brand-logo">G</div>
+            <span class="sb-brand-text">InsuranceGrokBot</span>
+            <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Collapse sidebar">
+                <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
+            </button>
+        </div>
+
+        <!-- Scrollable Nav -->
+        <div class="sb-scroll">
+
+            <!-- ── PRIMARY NAV ── -->
+            <div class="sb-section open" id="sbSectionPrimary">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionPrimary')">
+                    <span>Workspace</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body">
+                    <button class="sb-nav-item active" id="sbnDialer" onclick="sidebarNavigate('voicedialer', this)">
+                        <i class="fa-solid fa-phone-volume"></i>
+                        <span class="sb-nav-label">Dialer</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnSmsConfig" onclick="sidebarNavigate('config', this)">
+                        <i class="fa-solid fa-comment-sms"></i>
+                        <span class="sb-nav-label">SMS Config</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnVoiceConfig" onclick="sidebarNavigate('voice', this)">
+                        <i class="fa-solid fa-phone"></i>
+                        <span class="sb-nav-label">Voice Config</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnWorkflows" onclick="sidebarNavigate('workflows', this)">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span class="sb-nav-label">Workflows</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sb-divider"></div>
+
+            <!-- ── CRM & INTEGRATIONS ── -->
+            <div class="sb-section open" id="sbSectionCRM">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionCRM')">
+                    <span>Integrations</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body">
+                    <button class="sb-nav-item" id="sbnConnect" onclick="sidebarNavigate('connect', this)">
+                        <i class="fa-solid fa-plug"></i>
+                        <span class="sb-nav-label">Connect CRM</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnCarriers" onclick="sidebarNavigate('carriers', this)">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span class="sb-nav-label">Carriers</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="sb-divider"></div>
+
+            <!-- ── MORE (collapsed by default) ── -->
+            <div class="sb-section" id="sbSectionMore">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionMore')">
+                    <span>More</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body">
+                    <button class="sb-nav-item" id="sbnAdvanced" onclick="sidebarNavigate('advanced', this)">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span class="sb-nav-label">Advanced Settings</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
+                        <i class="fa-solid fa-clock"></i>
+                        <span class="sb-nav-label">AI Minutes</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnBilling" onclick="sidebarNavigate('billing', this)">
+                        <i class="fa-solid fa-credit-card"></i>
+                        <span class="sb-nav-label">Billing</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnLogs" onclick="sidebarNavigate('logs', this)">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span class="sb-nav-label">Activity Logs</span>
+                    </button>
+                    <a href="/onboarding-status" class="sb-nav-item">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span class="sb-nav-label">Setup Progress</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="sb-divider"></div>
+
+            <!-- ── DISCORD TEAM CHAT ── -->
+            <div class="sb-section open" id="sbSectionDiscord">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionDiscord')">
+                    <i class="fa-brands fa-discord" style="color:#5865f2;font-size:0.75rem;"></i>
+                    <span>Team Chat</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body" id="discordSidebarBody">
+                    <!-- Shown when NOT connected -->
+                    <div id="discordNotConnected">
+                        <a href="/discord/connect" class="discord-connect-btn" id="discordConnectBtn">
+                            <i class="fa-brands fa-discord" style="font-size:1rem;"></i>
+                            <span>Connect to Discord</span>
+                        </a>
+                        <div style="padding:6px 12px 8px;font-size:0.78rem;color:#555;line-height:1.4;">
+                            Link your Discord account to read and reply to team messages without leaving this page.
+                        </div>
+                    </div>
+                    <!-- Shown when connected -->
+                    <div id="discordConnected" style="display:none;">
+                        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px 4px;">
+                            <div id="discordUserAvatar" class="discord-avatar-sm" style="width:22px;height:22px;border-radius:50%;background:rgba(88,101,242,0.2);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:800;color:#7289da;flex-shrink:0;"></div>
+                            <span id="discordUsername" style="font-size:0.82rem;color:#aaa;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
+                            <a href="/discord/disconnect" style="font-size:0.7rem;color:#555;text-decoration:none;" title="Disconnect">
+                                <i class="fa-solid fa-xmark"></i>
+                            </a>
+                        </div>
+
+                        <!-- Server count pill + add button -->
+                        <div style="display:flex;align-items:center;gap:6px;padding:4px 12px 6px;">
+                            <span style="font-size:0.75rem;color:#555;" id="discordServerCount">0/3 servers</span>
+                            <button onclick="openServerModal()" style="margin-left:auto;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.25);color:#7289da;border-radius:6px;padding:3px 8px;font-size:0.72rem;cursor:pointer;font-weight:600;">
+                                <i class="fa-solid fa-plus me-1"></i>Add
+                            </button>
+                        </div>
+
+                        <!-- Server list (populated by JS) -->
+                        <div id="discordServerList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sb-divider"></div>
+
+            <!-- ── SYSTEM PARAMS (collapsible) ── -->
+            <div class="sb-params">
+                <div class="sb-params-header" onclick="toggleSbParams()">
+                    <i class="fa-solid fa-microchip" style="font-size:0.7rem;"></i>
+                    <span>System Params</span>
+                    <i class="fa-solid fa-chevron-down" id="sbParamsChevron" style="margin-left:auto;font-size:0.55rem;transition:transform 0.2s;"></i>
+                </div>
+                <div class="sb-params-body" id="sbParamsBody">
+                    <div style="padding:0 4px 8px;">
+                        <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
+                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">LOCATION ID</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                <span class="tech-value" style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ form.location_id.data or 'Not set' }}</span>
+                                <button onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy" style="background:none;border:none;color:#555;cursor:pointer;flex-shrink:0;padding:2px;">
+                                    <i class="fa-solid fa-copy" style="font-size:0.7rem;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tech-readout no-select">
+                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">ACCESS TOKEN</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.72rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% endif %}
+                            </div>
+                            <div style="font-size:0.6rem;color:#444;margin-top:3px;">{{ expires_in_str }}</div>
+                        </div>
+                        <div class="tech-readout no-select">
+                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">REFRESH TOKEN</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.72rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% endif %}
+                            </div>
+                        </div>
+                        {% if needs_oauth is defined and needs_oauth %}
+                        <a href="/oauth/initiate" class="connect-btn-pulse" id="connectBtn" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                            <i class="fa-solid fa-link me-1"></i>Connect CRM
+                        </a>
+                        {% elif not access_token_display or access_token_display == '' %}
+                        <a href="/oauth/initiate" class="connect-btn-pulse" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                            <i class="fa-solid fa-link me-1"></i>Connect CRM
+                        </a>
+                        {% else %}
+                        <a href="/oauth/initiate" style="display:block;background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);color:#00b4ff;font-weight:600;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.75rem;margin-top:6px;">
+                            <i class="fa-solid fa-rotate me-1"></i>Reauthorize CRM
+                        </a>
+                        {% endif %}
+
+                        <!-- Operator Profile (hidden in collapsed sidebar) -->
+                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:#444;margin-bottom:8px;font-weight:700;">Profile</div>
+                            <input type="text" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#ccc;width:100%;padding:5px 0;margin-bottom:8px;font-size:0.82rem;outline:none;">
+                            <input type="hidden" id="phone" value="{{ profile.phone or '' }}">
+                            <textarea id="bio" rows="2" placeholder="Agent notes..." style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#ccc;width:100%;padding:5px 0;margin-bottom:8px;font-size:0.82rem;outline:none;resize:none;">{{ profile.bio }}</textarea>
+                            <button onclick="saveProfile()" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#888;border-radius:6px;padding:5px;font-size:0.75rem;cursor:pointer;">
+                                <i class="fa-solid fa-floppy-disk me-1"></i>Save Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /sb-scroll -->
+
+        <!-- Sidebar Footer -->
+        <div class="sb-footer">
+            <a href="/support" class="sb-footer-item">
+                <i class="fa-solid fa-circle-question"></i>
+                <span>Support</span>
+            </a>
+            <a href="/" class="sb-footer-item">
+                <i class="fa-solid fa-house"></i>
+                <span>Homepage</span>
+            </a>
+            <a href="/logout" class="sb-footer-item" style="color:#ef4444;">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Sign Out</span>
+            </a>
+        </div>
+
+    </div><!-- /sidebar -->

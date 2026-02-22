@@ -1,0 +1,255 @@
+            <div class="tab-pane fade" id="advanced" role="tabpanel">
+                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h3 style="font-weight:700; margin: 0;"><i class="fa-solid fa-wand-magic-sparkles me-2" style="color:var(--accent);"></i>Advanced Settings</h3>
+                        <span id="settingsStatus" style="color: var(--accent); font-weight: 600; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s;"></span>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 30px;">
+                        Fine-tune how your GrokBot behaves. Changes apply to all future conversations.
+                    </p>
+
+                    <!-- ── SECTION 1: PERSONALITY & TONE ── -->
+                    <div style="margin-bottom: 32px;">
+                        <h5 style="font-weight: 700; color: var(--accent); margin-bottom: 16px; font-size: 1rem;">
+                            <i class="fa-solid fa-masks-theater me-2"></i>Personality & Tone
+                        </h5>
+
+                        <!-- Professionalism Slider -->
+                        <div style="margin-bottom: 24px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <label style="font-weight: 600; font-size: 0.95rem;">Professionalism Level</label>
+                                <span id="profLevelLabel" style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">Casual</span>
+                            </div>
+                            <input type="range" id="professionalism_level" min="0" max="5" step="1"
+                                   value="{{ bot_settings.professionalism_level|default(0) }}"
+                                   oninput="updateProfLabel(this.value)"
+                                   style="width: 100%; accent-color: var(--accent); cursor: pointer;">
+                            <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.75rem; color: #666;">
+                                <span>Casual & Friendly</span>
+                                <span>Balanced</span>
+                                <span>Ultra Professional</span>
+                            </div>
+                            <p style="color: #777; font-size: 0.8rem; margin-top: 8px; margin-bottom: 0;">
+                                0 = current conversational style with personality. 5 = formal, corporate-level professionalism.
+                            </p>
+                        </div>
+
+                        <!-- Auto Emoji Toggle -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Emoji Usage</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Allow GrokBot to use emojis in messages</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="auto_emoji" {{ 'checked' if bot_settings.auto_emoji|default(true) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Response Length -->
+                        <div style="padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <label style="font-weight: 600; font-size: 0.95rem; display: block; margin-bottom: 10px;">Response Length</label>
+                            <div style="display: flex; gap: 8px;">
+                                {% for val, label, desc in [('short', 'Short', '1-2 sentences'), ('balanced', 'Balanced', '2-4 sentences'), ('detailed', 'Detailed', 'Full explanations')] %}
+                                <button type="button" class="resp-len-btn {{ 'active' if bot_settings.response_length|default('balanced') == val }}"
+                                        data-value="{{ val }}" onclick="selectResponseLength('{{ val }}')"
+                                        style="flex: 1; padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+                                               border: 1px solid {{ 'var(--accent)' if bot_settings.response_length|default('balanced') == val else 'rgba(255,255,255,0.1)' }};
+                                               background: {{ 'rgba(0,255,136,0.1)' if bot_settings.response_length|default('balanced') == val else 'rgba(255,255,255,0.03)' }};
+                                               color: {{ 'var(--accent)' if bot_settings.response_length|default('balanced') == val else '#aaa' }};">
+                                    {{ label }}<br><span style="font-weight: 400; font-size: 0.75rem;">{{ desc }}</span>
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── SECTION 2: BEHAVIOR CONTROLS ── -->
+                    <div style="margin-bottom: 32px;">
+                        <h5 style="font-weight: 700; color: var(--accent); margin-bottom: 16px; font-size: 1rem;">
+                            <i class="fa-solid fa-sliders me-2"></i>Behavior Controls
+                        </h5>
+
+                        <!-- Humor Mode -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Humor Mode</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">GrokBot sends a joke after 5+ unanswered messages to re-engage leads</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="humor_enabled" {{ 'checked' if bot_settings.humor_enabled|default(true) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Lead Re-engagement -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Lead Re-engagement</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Automatically follow up with unresponsive leads</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="lead_reengagement" {{ 'checked' if bot_settings.lead_reengagement|default(true) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Booking Confirmation -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Booking Confirmation</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Double-confirm the time with the lead before booking the appointment</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="booking_confirmation" {{ 'checked' if bot_settings.booking_confirmation|default(true) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Speed to Lead -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Speed to Lead</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Respond immediately when a new lead comes in</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="speed_to_lead" {{ 'checked' if bot_settings.speed_to_lead|default(true) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Conversation Memory -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Conversation Memory</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Remember details from past conversations (names, family, preferences)</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="conversation_memory" {{ 'checked' if bot_settings.conversation_memory|default(true) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Multi-Language -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.95rem;">Multi-Language Detection</label>
+                                <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Detect and respond in the lead's language (Spanish, etc.)</p>
+                            </div>
+                            <label class="adv-toggle">
+                                <input type="checkbox" id="multi_language" {{ 'checked' if bot_settings.multi_language|default(false) }}>
+                                <span class="adv-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Objection Persistence -->
+                        <div style="padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.95rem;">Objection Persistence</label>
+                                    <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">How many angles to try before a graceful exit</p>
+                                </div>
+                                <span id="persistenceLabel" style="color: var(--accent); font-weight: 700; font-size: 0.9rem;">{{ bot_settings.objection_persistence|default(3) }} angles</span>
+                            </div>
+                            <input type="range" id="objection_persistence" min="1" max="5" step="1"
+                                   value="{{ bot_settings.objection_persistence|default(3) }}"
+                                   oninput="document.getElementById('persistenceLabel').textContent = this.value + ' angles'"
+                                   style="width: 100%; accent-color: var(--accent); cursor: pointer;">
+                            <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.75rem; color: #666;">
+                                <span>Gentle (1)</span>
+                                <span>Persistent (5)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── SECTION 3: AFTER HOURS ── -->
+                    <div style="margin-bottom: 32px;">
+                        <h5 style="font-weight: 700; color: var(--accent); margin-bottom: 16px; font-size: 1rem;">
+                            <i class="fa-solid fa-moon me-2"></i>After Hours
+                        </h5>
+                        <div style="padding: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <div>
+                                    <label style="font-weight: 600; font-size: 0.95rem;">After Hours Mode</label>
+                                    <p style="color: #777; font-size: 0.8rem; margin: 4px 0 0 0;">Bot informs leads it's after hours and will follow up during business hours</p>
+                                </div>
+                                <label class="adv-toggle">
+                                    <input type="checkbox" id="after_hours_enabled" {{ 'checked' if bot_settings.after_hours_enabled|default(false) }}
+                                           onchange="document.getElementById('afterHoursRange').style.display = this.checked ? 'flex' : 'none'">
+                                    <span class="adv-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div id="afterHoursRange" style="display: {{ 'flex' if bot_settings.after_hours_enabled|default(false) else 'none' }}; gap: 16px; align-items: center;">
+                                <div style="flex: 1;">
+                                    <label style="font-size: 0.8rem; color: #888; display: block; margin-bottom: 4px;">Starts at</label>
+                                    <input type="time" id="after_hours_start" value="{{ bot_settings.after_hours_start|default('18:00') }}"
+                                           style="width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 0.9rem;">
+                                </div>
+                                <span style="color: #555; margin-top: 18px;">to</span>
+                                <div style="flex: 1;">
+                                    <label style="font-size: 0.8rem; color: #888; display: block; margin-bottom: 4px;">Ends at</label>
+                                    <input type="time" id="after_hours_end" value="{{ bot_settings.after_hours_end|default('09:00') }}"
+                                           style="width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 0.9rem;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── SECTION 4: CUSTOM OUTBOUND MESSAGES ── -->
+                    <div style="margin-bottom: 32px;">
+                        <h5 style="font-weight: 700; color: var(--accent); margin-bottom: 16px; font-size: 1rem;">
+                            <i class="fa-solid fa-paper-plane me-2"></i>Custom Outbound Messages
+                        </h5>
+                        <p style="color: #777; font-size: 0.85rem; margin-bottom: 16px;">
+                            Add your own outbound templates. GrokBot sends each message once per lead, checks it off, and never repeats it.
+                            After all custom messages are sent, GrokBot switches to fully automated AI responses.
+                            <strong style="color: #aaa;">Hybrid mode: your text drip + GrokBot's intelligence.</strong>
+                        </p>
+                        <div id="outboundContainer">
+                            {% for msg in bot_settings.outbound_messages|default([]) %}
+                            <div class="outbound-msg-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <span style="color: var(--accent); font-weight: 700; min-width: 24px; padding-top: 10px;">{{ loop.index }}.</span>
+                                <textarea class="outbound-msg-input" rows="2"
+                                          style="flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.9rem; resize: vertical;">{{ msg }}</textarea>
+                                <button type="button" onclick="removeOutboundMsg(this)"
+                                        style="background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.2); color: #ff5050; width: 36px; height: 36px; border-radius: 8px; cursor: pointer; margin-top: 4px; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" onclick="addOutboundMsg()"
+                                style="background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15); color: var(--accent); padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.85rem; cursor: pointer; margin-top: 4px;">
+                            <i class="fa-solid fa-plus me-1"></i> Add Message
+                        </button>
+                    </div>
+
+                    <!-- ── SECTION 5: CUSTOM BEHAVIOR INSTRUCTIONS ── -->
+                    <div style="margin-bottom: 32px;">
+                        <h5 style="font-weight: 700; color: var(--accent); margin-bottom: 16px; font-size: 1rem;">
+                            <i class="fa-solid fa-pen-fancy me-2"></i>Custom Behavior Instructions
+                        </h5>
+                        <p style="color: #777; font-size: 0.85rem; margin-bottom: 12px;">
+                            Tell GrokBot exactly how you want it to behave. These instructions override default behavior.
+                        </p>
+                        <textarea id="custom_behavior" rows="6"
+                                  placeholder="Example: Always mention that we offer free policy reviews. Never discuss term lengths over the phone — save that for the appointment. If someone mentions they're a veteran, thank them for their service and mention our military discount. Keep responses under 3 sentences. Always try to book an appointment within the first 5 messages."
+                                  style="width: 100%; padding: 14px 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #fff; font-size: 0.9rem; resize: vertical; line-height: 1.5;">{{ bot_settings.custom_behavior|default('') }}</textarea>
+                        <p style="color: #555; font-size: 0.75rem; margin-top: 6px;">
+                            Be specific. GrokBot follows these instructions for every conversation with your leads.
+                        </p>
+                    </div>
+
+                    <!-- ── SAVE BUTTON ── -->
+                    <div style="display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);">
+                        <button type="button" onclick="resetAdvancedSettings()"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #aaa; padding: 12px 24px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                            <i class="fa-solid fa-rotate-left me-2"></i> Reset to Defaults
+                        </button>
+                        <button type="button" id="saveAdvancedBtn" onclick="saveAdvancedSettings()"
+                                style="background: var(--accent); color: #000; font-weight: 700; padding: 12px 32px; border: none; border-radius: 10px; font-size: 0.95rem; cursor: pointer; transition: all 0.2s;">
+                            <i class="fa-solid fa-floppy-disk me-2"></i> Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>

@@ -1,0 +1,2181 @@
+        // ===== VOICE DIALER TAB =====
+        let dialerContacts = [];
+        let dialerSelected = new Set();
+        let dialerQueue = [];
+        let dialerQueueRunning = false;
+        let dialerCallSid = null;
+        let dialerCallIdx = -1;
+        let dialerPollTimer = null;
+        let dialerSearchTimer = null;
+        let dialerActiveContact = null; // currently selected contact in middle panel
+        let dialerPipelines = [];
+        let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
+
+        // ── Production-grade fetch wrapper with retry + timeout ──
+        async function _fetchRetry(url, opts = {}, { retries = 2, timeout = 15000, label = '' } = {}) {
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeout);
+                try {
+                    const r = await fetch(url, { ...opts, signal: controller.signal });
+                    clearTimeout(timer);
+                    return r;
+                } catch(e) {
+                    clearTimeout(timer);
+                    if (attempt < retries) {
+                        const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+                        console.warn(`[Retry] ${label || url} attempt ${attempt + 1} failed, retrying in ${delay}ms:`, e.message);
+                        await new Promise(r => setTimeout(r, delay));
+                    } else {
+                        console.error(`[Retry] ${label || url} all ${retries + 1} attempts failed:`, e.message);
+                        throw e;
+                    }
+                }
+            }
+        }
+
+        function dialerEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function formatPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '(' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
+        }
+
+        // ── Pipeline filter ──
+        async function dialerLoadPipelines() {
+            try {
+                const r = await fetch('/voice/pipelines');
+                if (!r.ok) return;
+                const d = await r.json();
+                dialerPipelines = d.pipelines || [];
+                const sel = document.getElementById('dialerPipelineFilter');
+                const manualWrap = document.getElementById('dialerPipelineManual');
+                if (d.scope_missing) {
+                    // opportunities.readonly not yet approved — show manual ID input
+                    sel.style.display = 'none';
+                    manualWrap.style.display = 'block';
+                } else {
+                    sel.style.display = 'block';
+                    manualWrap.style.display = 'none';
+                    sel.innerHTML = '<option value="">All Contacts</option>' +
+                        dialerPipelines.map(p => '<option value="' + p.id + '">' + dialerEsc(p.name) + '</option>').join('');
+                }
+            } catch(e) {}
+        }
+
+        let dialerManualPipelineTimer = null;
+        function dialerOnManualPipelineInput() {
+            clearTimeout(dialerManualPipelineTimer);
+            dialerManualPipelineTimer = setTimeout(() => dialerFetchContacts(), 600);
+        }
+
+        function dialerOnPipelineChange() {
+            const pipelineId = document.getElementById('dialerPipelineFilter').value;
+            const stageSel = document.getElementById('dialerStageFilter');
+            if (pipelineId) {
+                const p = dialerPipelines.find(x => x.id === pipelineId);
+                if (p && p.stages.length) {
+                    stageSel.innerHTML = '<option value="">All Stages</option>' +
+                        p.stages.map(s => '<option value="' + s.id + '">' + dialerEsc(s.name) + '</option>').join('');
+                    stageSel.style.display = 'block';
+                } else {
+                    stageSel.style.display = 'none';
+                }
+            } else {
+                stageSel.style.display = 'none';
+            }
+            dialerFetchContacts();
+        }
+
+        // ── Search ──
+        function dialerDebounceSearch() {
+            clearTimeout(dialerSearchTimer);
+            dialerSearchTimer = setTimeout(() => dialerFetchContacts(), 400);
+        }
+
+        // ── Fetch ALL contacts (paginated on backend) ──
+        async function dialerFetchContacts() {
+            const list = document.getElementById('dialerContactList');
+            const btn = document.getElementById('dialerGetContactsBtn');
+            const q = (document.getElementById('dialerSearch').value || '').trim();
+            const manualWrap = document.getElementById('dialerPipelineManual');
+            const pipeline = (manualWrap && manualWrap.style.display !== 'none')
+                ? (document.getElementById('dialerPipelineManualInput').value || '').trim()
+                : document.getElementById('dialerPipelineFilter').value;
+            const stage = document.getElementById('dialerStageFilter').value;
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...';
+            btn.disabled = true;
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Fetching all contacts...</p></div>';
+            try {
+                let url = '/voice/contacts?';
+                if (q) url += 'q=' + encodeURIComponent(q) + '&';
+                if (pipeline) url += 'pipeline=' + encodeURIComponent(pipeline) + '&';
+                if (stage) url += 'stage=' + encodeURIComponent(stage);
+                const r = await _fetchRetry(url, {}, { retries: 2, timeout: 30000, label: 'contacts' });
+                const d = await r.json();
+                if (!r.ok) {
+                    list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to load contacts') + '</div>';
+                    return;
+                }
+                dialerContacts = d.contacts || [];
+                dialerSelected.clear();
+                dialerRenderContacts();
+                dialerUpdateSelectionUI();
+            } catch(e) {
+                console.error('[Dialer] Contact fetch failed:', e);
+                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-download me-1"></i>Get Contacts';
+                btn.disabled = false;
+            }
+        }
+
+        // ── Render contact list (left panel) ──
+        function dialerRenderContacts() {
+            const list = document.getElementById('dialerContactList');
+            const actionsBar = document.getElementById('dialerActionsBar');
+
+            if (!dialerContacts.length) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#444;font-size:.78rem;"><i class="fa-solid fa-user-slash" style="font-size:1.5rem;color:#2a2a3e;margin-bottom:8px;display:block;"></i>No contacts found</div>';
+                actionsBar.style.display = 'none';
+                return;
+            }
+
+            actionsBar.style.display = 'block';
+            list.innerHTML = dialerContacts.map(c => {
+                const init = (c.firstName || c.name || '?')[0].toUpperCase();
+                const sel = dialerSelected.has(c.id);
+                const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
+                const inQ = dialerQueue.some(q => q.id === c.id);
+                return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
+                    '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
+                    '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
+                    '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div><div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div></div>' +
+                    (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
+                '</div>';
+            }).join('');
+        }
+
+        // ── Select contact → load detail + messages + contact-specific calls/recordings ──
+        function dialerSelectContact(id) {
+            const c = dialerContacts.find(x => x.id === id);
+            if (!c) return;
+            dialerActiveContact = c;
+            _dialerCallHistoryShowAll = false;
+            _dialerRecordingsShowAll = false;
+            dialerRenderContacts(); // highlight active
+            dialerLoadContactDetail(c.id);
+            dialerLoadContactMessages(c.id);
+            // Reload calls/recordings filtered to this contact
+            dialerLoadAllCallHistory();
+            dialerLoadRecordings();
+            document.getElementById('dlrDetailActions').style.display = 'flex';
+        }
+
+        // ── Middle panel: full contact detail ──
+        async function dialerLoadContactDetail(contactId) {
+            const panel = document.getElementById('dlrDetailContent');
+            panel.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
+            try {
+                const r = await _fetchRetry('/voice/contact/' + contactId, {}, { retries: 1, timeout: 15000, label: 'contact-detail' });
+                if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Could not load contact</div>'; return; }
+                const c = await r.json();
+
+                let html = '';
+                // Name header
+                html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06);">';
+                html += '<div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;color:#00d9ff;">' + (c.firstName || c.name || '?')[0].toUpperCase() + '</div>';
+                html += '<div><div style="font-weight:700;font-size:1.05rem;">' + dialerEsc(c.name || 'Unknown') + '</div>';
+                html += '<div style="font-size:.78rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div></div></div>';
+
+                // Info grid
+                const fields = [
+                    { label: 'Email', value: c.email, icon: 'fa-envelope' },
+                    { label: 'Phone', value: formatPhone(c.phone), icon: 'fa-phone' },
+                    { label: 'Address', value: [c.address, c.city, c.state].filter(Boolean).join(', '), icon: 'fa-location-dot' },
+                    { label: 'Source', value: c.source, icon: 'fa-link' },
+                    { label: 'Date Added', value: c.dateAdded ? new Date(c.dateAdded).toLocaleDateString() : '', icon: 'fa-calendar' },
+                ];
+                fields.forEach(f => {
+                    if (f.value) {
+                        html += '<div class="dlr-field-label"><i class="fa-solid ' + f.icon + ' me-1" style="width:12px;"></i>' + f.label + '</div>';
+                        html += '<div class="dlr-field-value">' + dialerEsc(f.value) + '</div>';
+                    }
+                });
+
+                // Tags
+                if (c.tags && c.tags.length) {
+                    html += '<div class="dlr-field-label">Tags</div>';
+                    html += '<div style="margin-bottom:10px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:.72rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div>';
+                }
+
+                // Custom Fields
+                if (c.customFields && c.customFields.length) {
+                    const filled = c.customFields.filter(cf => cf.value);
+                    if (filled.length) {
+                        html += '<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
+                        html += '<div style="font-size:.72rem;font-weight:700;color:#00d9ff;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
+                        filled.forEach(cf => {
+                            const name = cf.name || cf.fieldKey || 'Field';
+                            html += '<div class="dlr-field-label">' + dialerEsc(name) + '</div>';
+                            html += '<div class="dlr-field-value">' + dialerEsc(String(cf.value)) + '</div>';
+                        });
+                        html += '</div>';
+                    }
+                }
+
+                // Notes
+                if (c.notes && c.notes.length) {
+                    html += '<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
+                    html += '<div style="font-size:.72rem;font-weight:700;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
+                    c.notes.forEach(n => {
+                        html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:.78rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.65rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
+                    });
+                    html += '</div>';
+                }
+
+                panel.innerHTML = html;
+            } catch(e) {
+                panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Failed to load contact</div>';
+            }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // FULL-FEATURED SMS THREAD UI
+        // ══════════════════════════════════════════════════════
+        let _dlrSmsContactId = null;
+        let _dlrSmsContactName = '';
+        let _dlrSmsContactPhone = '';
+
+        // ── Date separator helpers ──
+        function _dlrDateLabel(ts) {
+            if (!ts) return '';
+            const d = new Date(ts);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+            const msgDay = new Date(d); msgDay.setHours(0,0,0,0);
+            if (msgDay.getTime() === today.getTime()) return 'Today';
+            if (msgDay.getTime() === yesterday.getTime()) return 'Yesterday';
+            return d.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric'});
+        }
+        function _dlrTimeLabel(ts) {
+            if (!ts) return '';
+            return new Date(ts).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+        }
+        function _dlrIsSameDay(ts1, ts2) {
+            if (!ts1 || !ts2) return false;
+            const a = new Date(ts1), b = new Date(ts2);
+            return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+        }
+
+        // ── Message type badge ──
+        function _dlrTypeBadge(type) {
+            const icons = { SMS:'fa-message', Email:'fa-envelope', Call:'fa-phone', Note:'fa-note-sticky', Activity:'fa-bolt', TYPE_SMS:'fa-message', TYPE_EMAIL:'fa-envelope' };
+            const labels = { SMS:'SMS', Email:'Email', Call:'Call', Note:'Note', Activity:'Activity', TYPE_SMS:'SMS', TYPE_EMAIL:'Email' };
+            const label = labels[type] || (type ? type.replace('TYPE_','') : '');
+            if (!label || label === 'SMS') return ''; // SMS is the default — skip badge
+            const icon = icons[type] || 'fa-message';
+            return '<span class="dlr-type-badge"><i class="fa-solid ' + icon + '"></i> ' + dialerEsc(label) + '</span>';
+        }
+
+        // ── Render full thread ──
+        function _dlrRenderThread(msgs) {
+            if (!msgs.length) {
+                return '<div id="dlrMsgEmptyState" style="text-align:center;padding:50px 16px;">' +
+                    '<div style="width:44px;height:44px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">' +
+                    '<i class="fa-solid fa-comment-slash" style="font-size:1.1rem;color:#2a3a4a;"></i></div>' +
+                    '<div style="color:#555;font-size:0.8rem;font-weight:600;">No messages yet</div>' +
+                    '<div style="color:#3a3a4a;font-size:0.7rem;margin-top:3px;">Send the first one below</div></div>';
+            }
+            let html = '';
+            let lastDay = null;
+            msgs.forEach((m, i) => {
+                const isOut = m.role !== 'lead'; // outbound = bot/assistant/agent
+                const ts = m.timestamp || null;
+                const day = ts ? _dlrDateLabel(ts) : null;
+
+                // Date separator
+                if (day && day !== lastDay) {
+                    html += '<div class="dlr-date-sep"><span>' + dialerEsc(day) + '</span></div>';
+                    lastDay = day;
+                }
+
+                const timeLbl = _dlrTimeLabel(ts);
+                const typeBadge = _dlrTypeBadge(m.type || m.messageType || '');
+
+                html += '<div class="dlr-msg-row ' + (isOut ? 'outbound' : 'inbound') + '">';
+                html += '<div class="dlr-bubble ' + (isOut ? 'outbound sent' : 'inbound') + '">' + dialerEsc(m.text || '') + '</div>';
+                html += '<div class="dlr-msg-meta">';
+                if (typeBadge) html += typeBadge;
+                if (timeLbl) html += '<span>' + timeLbl + '</span>';
+                if (isOut) html += '<i class="fa-solid fa-check-double dlr-status-icon sent" title="Sent"></i>';
+                html += '</div>';
+                html += '</div>';
+            });
+            return html;
+        }
+
+        // ── Load contact messages ──
+        async function dialerLoadContactMessages(contactId) {
+            _dlrSmsContactId = contactId;
+            const c = dialerActiveContact;
+            _dlrSmsContactName = (c && (c.name || c.firstName)) || '';
+            _dlrSmsContactPhone = (c && c.phone) || '';
+
+            // Update thread header
+            const header = document.getElementById('dlrMsgHeader');
+            const avatar = document.getElementById('dlrMsgAvatar');
+            const nameEl = document.getElementById('dlrMsgContactName');
+            const phoneEl = document.getElementById('dlrMsgContactPhone');
+            if (header) header.style.display = 'flex';
+            if (avatar) avatar.textContent = (_dlrSmsContactName || '?')[0].toUpperCase();
+            if (nameEl) nameEl.textContent = _dlrSmsContactName || 'Contact';
+            if (phoneEl) phoneEl.textContent = formatPhone(_dlrSmsContactPhone);
+
+            const msgPanel = document.getElementById('dlrMessagesList');
+            const composer = document.getElementById('dlrSmsComposer');
+            if (!msgPanel) return;
+            msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            if (composer) composer.style.display = 'none';
+            try {
+                const r = await _fetchRetry('/voice/contact/' + contactId + '/messages', {}, { retries: 1, timeout: 15000, label: 'messages' });
+                if (!r.ok) { msgPanel.innerHTML = '<div style="color:#888;padding:24px;text-align:center;font-size:.82rem;">Could not load messages</div>'; return; }
+                const d = await r.json();
+                const msgs = d.messages || [];
+                const calls = d.calls || [];
+
+                msgPanel.innerHTML = _dlrRenderThread(msgs);
+                msgPanel.scrollTop = msgPanel.scrollHeight;
+
+                // Show composer
+                if (composer) composer.style.display = 'block';
+                // Reset textarea
+                const ta = document.getElementById('dlrSmsText');
+                if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
+
+                // Render contact-specific call history in calls tab
+                const callPanel = document.getElementById('dialerHistoryList');
+                if (!calls.length) {
+                    callPanel.innerHTML = '<div style="text-align:center;padding:20px;color:#444;font-size:.82rem;">No calls with this contact</div>';
+                } else {
+                    callPanel.innerHTML = calls.map(c => {
+                        const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444' };
+                        const statusColor = statusColors[c.status] || '#00d9ff';
+                        const durMin = c.duration ? Math.floor(c.duration / 60) + ':' + String(c.duration % 60).padStart(2, '0') : '--:--';
+                        const dt = c.started_at ? new Date(c.started_at).toLocaleString() : '';
+                        const hasRec = !!c.recording_url;
+                        const hasTx = c.transcript && c.transcript.length > 0;
+                        return '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
+                            '<div style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
+                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + (c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
+                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + (c.status || '').replace('-',' ') + '</div>' +
+                            '<div style="color:#888;font-size:.7rem;">' + durMin + '</div>' +
+                            (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        '</div>';
+                    }).join('');
+                }
+            } catch(e) {
+                msgPanel.innerHTML = '<div style="color:#ef4444;padding:16px;text-align:center;font-size:.82rem;">Error loading messages</div>';
+            }
+        }
+
+        // ── History tab switching ──
+        function dialerSwitchHistoryTab(tab) {
+            // Messages tab uses flex, others use block
+            const displays = { messages: 'flex', calls: 'block', recordings: 'block' };
+            const tabs = {messages:'Messages', calls:'Calls', recordings:'Recordings'};
+            Object.keys(tabs).forEach(t => {
+                const el = document.getElementById('dlrHistory' + tabs[t]);
+                if (el) el.style.display = t === tab ? (displays[t] || 'block') : 'none';
+                const btn = document.getElementById('dlrTab' + tabs[t]);
+                if (btn) btn.className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
+            });
+            if (tab === 'calls') dialerLoadAllCallHistory();
+            if (tab === 'recordings') dialerLoadRecordings();
+        }
+
+        // ── SMS: textarea auto-grow ──
+        function dlrAutoGrow(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+        }
+
+        // ── SMS: character counter with segment math ──
+        function dlrUpdateCharCount(val) {
+            const len = (val || '').length;
+            const ccEl = document.getElementById('dlrCharCount');
+            if (!ccEl) return;
+            // SMS segment boundaries (GSM-7)
+            let limit, segments;
+            if (len <= 160) { limit = 160; segments = 1; }
+            else { segments = Math.ceil(len / 153); limit = segments * 153; }
+            const remaining = limit - len;
+            const segsText = segments > 1 ? ' · ' + segments + ' seg' : '';
+            ccEl.textContent = len + ' / ' + limit + segsText;
+            ccEl.className = len > limit - 10 ? 'dlr-char-danger' : len > limit - 30 ? 'dlr-char-warn' : 'dlr-char-ok';
+        }
+
+        // ── SMS: quick reply ──
+        function dlrSetQuickReply(text) {
+            const ta = document.getElementById('dlrSmsText');
+            if (!ta) return;
+            ta.value = text;
+            ta.focus();
+            dlrAutoGrow(ta);
+            dlrUpdateCharCount(text);
+        }
+
+        // ── SMS: AI draft (InsuranceGrokBot suggest) ──
+        async function dlrAiSuggest() {
+            const btn = document.getElementById('dlrAiDraftBtn');
+            const label = document.getElementById('dlrAiDraftLabel');
+            const ta = document.getElementById('dlrSmsText');
+            const cidEl = document.getElementById('dialerContactId');
+            const cid = cidEl ? cidEl.value : (_dlrSmsContactId || '');
+            if (!cid || cid === 'unknown') {
+                alert('Select a contact first.');
+                return;
+            }
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+            if (label) label.textContent = 'Drafting…';
+            try {
+                const resp = await fetch('/voice/contact/' + encodeURIComponent(cid) + '/ai-suggest', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({})
+                });
+                if (!resp.ok) throw new Error('Server ' + resp.status);
+                const data = await resp.json();
+                const draft = (data.suggestion || data.reply || '').trim();
+                if (!draft) throw new Error('Empty AI response');
+                if (ta) { ta.value = draft; ta.focus(); dlrAutoGrow(ta); dlrUpdateCharCount(draft); }
+            } catch(e) {
+                console.error('AI suggest failed:', e);
+                const statusEl = document.getElementById('dlrSmsStatus');
+                if (statusEl) {
+                    statusEl.textContent = 'AI draft failed — try again';
+                    statusEl.style.color = '#ef4444';
+                    setTimeout(() => { statusEl.textContent = ''; }, 3500);
+                }
+            } finally {
+                if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+                if (label) label.textContent = 'InsuranceGrokBot Reply';
+            }
+        }
+
+        // ── Dialer: keypad input mode ──
+        let _dialInputMode = 'type';
+        function dialerSetInputMode(mode) {
+            _dialInputMode = mode;
+            const typeDiv = document.getElementById('dialModeType');
+            const kbdDiv = document.getElementById('dialModeKeypad');
+            const tabType = document.getElementById('dialKbdTabType');
+            const tabKbd = document.getElementById('dialKbdTabKeypad');
+            if (mode === 'keypad') {
+                if (typeDiv) typeDiv.style.display = 'none';
+                if (kbdDiv) kbdDiv.style.display = 'flex';
+                if (tabType) { tabType.style.background = 'transparent'; tabType.style.color = '#666'; }
+                if (tabKbd) { tabKbd.style.background = 'rgba(0,217,255,0.15)'; tabKbd.style.color = '#00d9ff'; }
+                const ph = document.getElementById('dialerManualPhone');
+                const disp = document.getElementById('dialKbdDisplay');
+                if (disp && ph) disp.textContent = ph.value || '';
+            } else {
+                if (typeDiv) typeDiv.style.display = 'flex';
+                if (kbdDiv) kbdDiv.style.display = 'none';
+                if (tabType) { tabType.style.background = 'rgba(0,217,255,0.15)'; tabType.style.color = '#00d9ff'; }
+                if (tabKbd) { tabKbd.style.background = 'transparent'; tabKbd.style.color = '#666'; }
+            }
+        }
+
+        function dialKbdPress(digit) {
+            const ph = document.getElementById('dialerManualPhone');
+            const disp = document.getElementById('dialKbdDisplay');
+            if (ph) ph.value = (ph.value || '') + digit;
+            if (disp) disp.textContent = ph ? ph.value : '';
+        }
+
+        function dialKbdBackspace() {
+            const ph = document.getElementById('dialerManualPhone');
+            const disp = document.getElementById('dialKbdDisplay');
+            if (ph && ph.value.length > 0) ph.value = ph.value.slice(0, -1);
+            if (disp) disp.textContent = ph ? ph.value : '';
+        }
+
+        // ── SMS: refresh thread ──
+        async function dlrRefreshMessages() {
+            if (!_dlrSmsContactId) return;
+            const btn = document.getElementById('dlrRefreshBtn');
+            if (btn) { btn.style.pointerEvents = 'none'; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+            await dialerLoadContactMessages(_dlrSmsContactId);
+            if (btn) { btn.style.pointerEvents = ''; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>'; }
+        }
+
+        // ── SMS: append optimistic sent bubble ──
+        function _dlrAppendSentBubble(msgPanel, text, pendingId) {
+            const timeLbl = _dlrTimeLabel(new Date());
+            const div = document.createElement('div');
+            div.className = 'dlr-msg-row outbound';
+            div.id = pendingId;
+            div.innerHTML = '<div class="dlr-bubble outbound pending" id="' + pendingId + '_bubble">' + dialerEsc(text) + '</div>' +
+                '<div class="dlr-msg-meta">' +
+                '<span>' + timeLbl + '</span>' +
+                '<i class="fa-solid fa-clock dlr-status-icon pending" id="' + pendingId + '_icon" title="Sending…"></i>' +
+                '</div>';
+            msgPanel.appendChild(div);
+            msgPanel.scrollTop = msgPanel.scrollHeight;
+        }
+
+        // ── SMS: mark sent bubble delivered ──
+        function _dlrMarkBubbleSent(pendingId) {
+            const bubble = document.getElementById(pendingId + '_bubble');
+            const icon = document.getElementById(pendingId + '_icon');
+            if (bubble) { bubble.classList.remove('pending'); bubble.classList.add('sent'); }
+            if (icon) { icon.className = 'fa-solid fa-check-double dlr-status-icon sent'; icon.title = 'Sent'; }
+        }
+
+        // ── SMS: mark sent bubble errored ──
+        function _dlrMarkBubbleError(pendingId) {
+            const bubble = document.getElementById(pendingId + '_bubble');
+            const icon = document.getElementById(pendingId + '_icon');
+            if (bubble) { bubble.style.borderColor = 'rgba(239,68,68,0.3)'; bubble.style.background = 'rgba(239,68,68,0.08)'; }
+            if (icon) { icon.className = 'fa-solid fa-circle-exclamation dlr-status-icon error'; icon.title = 'Failed to send'; }
+        }
+
+        // ── SMS Send via GHL (full implementation) ──
+        let _smsSending = false;
+        async function dialerSendSms() {
+            if (_smsSending || !_dlrSmsContactId) return;
+            const textEl = document.getElementById('dlrSmsText');
+            const statusEl = document.getElementById('dlrSmsStatus');
+            const sendBtn = document.getElementById('dlrSmsSendBtn');
+            const msgPanel = document.getElementById('dlrMessagesList');
+            if (!textEl) return;
+            const msg = textEl.value.trim();
+            if (!msg) return;
+
+            // Validate length
+            if (msg.length > 1600) {
+                if (statusEl) { statusEl.textContent = 'Message too long (max 1600 chars)'; statusEl.style.color = '#ef4444'; }
+                return;
+            }
+
+            // Optimistic UI — append pending bubble immediately
+            const pendingId = 'sms_' + Date.now();
+            _dlrAppendSentBubble(msgPanel, msg, pendingId);
+
+            // Clear composer
+            textEl.value = '';
+            textEl.style.height = '';
+            dlrUpdateCharCount('');
+
+            _smsSending = true;
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
+            if (statusEl) { statusEl.textContent = 'Sending via GHL…'; statusEl.style.color = '#888'; }
+
+            try {
+                const r = await _fetchRetry('/voice/contact/' + _dlrSmsContactId + '/send-sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                }, { retries: 1, timeout: 15000, label: 'send-sms' });
+                const d = await r.json();
+                if (r.ok) {
+                    _dlrMarkBubbleSent(pendingId);
+                    if (statusEl) { statusEl.textContent = '✓ Delivered to GHL'; statusEl.style.color = '#00ff88'; }
+                    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+                } else {
+                    _dlrMarkBubbleError(pendingId);
+                    const err = d.error || 'Send failed';
+                    if (statusEl) { statusEl.textContent = err; statusEl.style.color = '#ef4444'; }
+                    console.error('[SMS] Send failed:', err);
+                    // Restore text so agent can retry
+                    textEl.value = msg;
+                    dlrAutoGrow(textEl);
+                    dlrUpdateCharCount(msg);
+                }
+            } catch(e) {
+                _dlrMarkBubbleError(pendingId);
+                if (statusEl) { statusEl.textContent = 'Network error — tap to retry'; statusEl.style.color = '#ef4444'; }
+                textEl.value = msg;
+                dlrAutoGrow(textEl);
+                dlrUpdateCharCount(msg);
+                console.error('[SMS] Network error:', e);
+            } finally {
+                _smsSending = false;
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+            }
+        }
+
+        // ── Contact actions from middle panel ──
+        function dialerCallActiveContact() {
+            if (!dialerActiveContact) return;
+            const c = dialerActiveContact;
+            dialerStartCall(c.phone, c.firstName || c.name, c.id, c.name);
+        }
+        function dialerAddActiveToQueue() {
+            if (!dialerActiveContact) return;
+            const c = dialerActiveContact;
+            if (!dialerQueue.some(q => q.id === c.id)) {
+                dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+                dialerRenderContacts();
+                dialerRenderQueue();
+            }
+        }
+
+        // ── Selection ──
+        function dialerToggleSelect(id) {
+            if (dialerSelected.has(id)) dialerSelected.delete(id);
+            else dialerSelected.add(id);
+            dialerUpdateSelectionUI();
+        }
+        function dialerToggleSelectAll() {
+            const cb = document.getElementById('dialerSelectAll');
+            if (cb.checked) dialerContacts.forEach(c => dialerSelected.add(c.id));
+            else dialerSelected.clear();
+            dialerUpdateSelectionUI();
+            dialerRenderContacts();
+        }
+        function dialerUpdateSelectionUI() {
+            const cnt = dialerSelected.size;
+            document.getElementById('dialerSelectedCount').textContent = cnt > 0 ? '(' + cnt + ')' : '';
+            document.getElementById('dialerAddSelectedBtn').disabled = cnt === 0;
+            document.getElementById('dialerCallSelectedBtn').disabled = cnt === 0;
+            const sa = document.getElementById('dialerSelectAll');
+            if (sa) sa.checked = dialerContacts.length > 0 && cnt === dialerContacts.length;
+        }
+
+        function dialerAddSelectedToQueue() {
+            dialerSelected.forEach(id => {
+                if (!dialerQueue.some(q => q.id === id)) {
+                    const c = dialerContacts.find(x => x.id === id);
+                    if (c) dialerQueue.push({ id: c.id, name: c.name, firstName: c.firstName, phone: c.phone, status: 'pending' });
+                }
+            });
+            dialerSelected.clear();
+            dialerRenderContacts();
+            dialerRenderQueue();
+            dialerUpdateSelectionUI();
+        }
+
+        function dialerCallSelected() {
+            dialerAddSelectedToQueue();
+            if (dialerQueue.length > 0 && !dialerQueueRunning) dialerToggleQueue();
+        }
+
+        function dialerManualCall() {
+            let ph = document.getElementById('dialerManualPhone').value.trim().replace(/[\s\-\(\)\.]/g, '');
+            if (!ph) return;
+            if (!ph.startsWith('+')) ph = '+1' + ph;
+            dialerStartCall(ph, 'Manual', '', ph);
+        }
+
+        // ── Calling (AI mode) ──
+        async function dialerStartCall(phone, firstName, contactId, displayName) {
+            // Validate phone before attempting
+            if (!phone || phone.replace(/[^0-9+]/g, '').length < 10) {
+                dialerShowBanner(displayName || firstName, 'Invalid phone number', true);
+                setTimeout(dialerHideBanner, 3000);
+                if (dialerQueueRunning) setTimeout(dialerAdvance, 1500);
+                return;
+            }
+            dialerShowBanner(displayName || firstName, 'Initiating...');
+            try {
+                const r = await _fetchRetry('/voice/dial', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone, first_name: firstName, contact_id: contactId, dial_mode: dialerMode, dial_attempt: (dialerCallIdx >= 0 && dialerQueue[dialerCallIdx]) ? (dialerQueue[dialerCallIdx].attempts || 1) : 1 })
+                }, { retries: 1, timeout: 20000, label: 'dial' });
+                const d = await r.json();
+                if (!r.ok) {
+                    dialerShowBanner(displayName, d.error || 'Failed to initiate call', true);
+                    setTimeout(dialerHideBanner, 4000);
+                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                    return;
+                }
+                dialerCallSid = d.call_sid;
+                dialerShowBanner(displayName, 'Ringing...');
+                dialerStartPoll();
+            } catch(e) {
+                console.error('[Dialer] startCall network error:', e);
+                dialerShowBanner(displayName, 'Network error — retrying...', true);
+                setTimeout(dialerHideBanner, 4000);
+                if (dialerQueueRunning) setTimeout(dialerAdvance, 3000);
+            }
+        }
+
+        // Sets banner dot + border color based on state: 'ringing' | 'connected' | 'error' | 'ended'
+        function _dialerBannerState(state) {
+            const banner = document.getElementById('dialerCallBanner');
+            const dot    = document.getElementById('dialerCallDot');
+            if (!banner || !dot) return;
+            const colors = {
+                ringing:   { bg: 'rgba(0,217,255,0.06)', border: 'rgba(0,217,255,0.2)',   dot: '#00d9ff', anim: 'dialerPulse 1.5s infinite' },
+                connected: { bg: 'rgba(0,255,136,0.06)', border: 'rgba(0,255,136,0.2)',   dot: 'var(--accent)', anim: 'dialerPulse 1.5s infinite' },
+                error:     { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)',   dot: '#ef4444', anim: 'none' },
+                ended:     { bg: 'rgba(0,255,136,0.04)', border: 'rgba(255,255,255,0.06)', dot: '#555',  anim: 'none' },
+            };
+            const c = colors[state] || colors.ringing;
+            banner.style.background = c.bg;
+            banner.style.border = '1px solid ' + c.border;
+            dot.style.background = c.dot;
+            dot.style.animation  = c.anim;
+        }
+
+        function dialerStartPoll() {
+            if (dialerPollTimer) clearInterval(dialerPollTimer);
+            let pollCount = 0, errorCount = 0;
+            const MAX_POLLS = 60, MAX_ERRORS = 5;
+            dialerPollTimer = setInterval(async () => {
+                if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); dialerStopAiTimer(); return; }
+                if (++pollCount > MAX_POLLS) {
+                    clearInterval(dialerPollTimer); dialerCallSid = null;
+                    dialerHideBanner(); dialerStopAiTimer();
+                    if (dialerQueueRunning) dialerAdvance();
+                    return;
+                }
+                try {
+                    const r = await fetch('/voice/call-status/' + dialerCallSid);
+                    if (!r.ok) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } return; }
+                    errorCount = 0;
+                    const d = await r.json();
+                    const el = document.getElementById('dialerCallStatus');
+                    if (d.status === 'in-progress') {
+                        el.textContent = 'Connected'; el.style.color = 'var(--accent)';
+                        _dialerBannerState('connected');
+                        dialerStartAiTimer();
+                        document.getElementById('dialerBannerTimer').style.display = 'block';
+                        // Enable all call controls
+                        _dialerEnableControls(true);
+                    } else if (d.status === 'ringing' || d.status === 'initiated') {
+                        el.textContent = 'Ringing...'; el.style.color = '#00d9ff';
+                        _dialerBannerState('ringing');
+                    } else if (d.status === 'transferred') {
+                        el.textContent = 'Transferred to Agent'; el.style.color = '#ffa500';
+                        _dialerBannerState('connected');
+                        // Keep banner visible briefly, then end
+                        setTimeout(() => {
+                            clearInterval(dialerPollTimer);
+                            dialerStopAiTimer();
+                            _dialerLastCallSid = dialerCallSid;
+                            dialerCallSid = null;
+                            dialerHideBanner();
+                            dialerRenderQueue();
+                            if (dialerQueueRunning) setTimeout(dialerAdvance, 1200);
+                        }, 2500);
+                        return;
+                    } else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
+                        clearInterval(dialerPollTimer);
+                        dialerStopAiTimer();
+                        // Hide banner immediately when call ends
+                        _dialerLastCallSid = dialerCallSid;
+                        if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
+                        dialerCallSid = null;
+                        dialerHideBanner();
+                        dialerRenderQueue();
+                        // Show disposition for completed calls (not queue auto-advance)
+                        if (!dialerQueueRunning) {
+                            dialerShowDisposition();
+                        } else {
+                            setTimeout(dialerAdvance, 1200);
+                        }
+                    }
+                } catch(e) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } }
+            }, 1500);
+        }
+
+        function dialerShowBanner(name, status, isErr) {
+            document.getElementById('dialerCallName').textContent = name;
+            const s = document.getElementById('dialerCallStatus');
+            s.textContent = status;
+            if (isErr) {
+                s.style.color = '#ef4444';
+                _dialerBannerState('error');
+            } else {
+                s.style.color = '#00d9ff';
+                _dialerBannerState('ringing');
+            }
+            // Reset timer
+            document.getElementById('dialerBannerTimer').style.display = 'none';
+            document.getElementById('dialerBannerTimer').textContent = '00:00';
+            // Controls are always visible but disabled until connected
+            _dialerEnableControls(false);
+            // Hide disposition if showing
+            document.getElementById('dialerDisposition').style.display = 'none';
+            document.getElementById('dialerCallBanner').style.display = 'block';
+        }
+        function dialerHideBanner() {
+            document.getElementById('dialerCallBanner').style.display = 'none';
+            dialerStopAiTimer();
+            // Stop live listen if active
+            _stopListenStream();
+            _dialerListening = false;
+            // Reset all control buttons for next call
+            _dialerEnableControls(false);
+            const tkBtn = document.getElementById('dialerTakeoverBtn');
+            tkBtn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+            const trBtn = document.getElementById('dialerTransferBtn');
+            if (trBtn) trBtn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+            const muteBtn = document.getElementById('dialerMuteBtn');
+            muteBtn.innerHTML = '<i class="fa-solid fa-volume-xmark"></i><span>Mute AI</span>';
+            const muteMicBtn = document.getElementById('dialerMuteMicBtn');
+            if (muteMicBtn) muteMicBtn.innerHTML = '<i class="fa-solid fa-microphone"></i><span>Mute Mic</span>';
+            const listenBtn = document.getElementById('dialerListenBtn');
+            listenBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i><span>Listen</span>';
+        }
+
+        // ── AI Call Timer ──
+        let _aiTimerInterval = null, _aiTimerSeconds = 0;
+        function dialerStartAiTimer() {
+            if (_aiTimerInterval) return; // already running
+            _aiTimerSeconds = 0;
+            const timerEl = document.getElementById('dialerBannerTimer');
+            const headerTimer = document.getElementById('dialerAiTimer');
+            timerEl.style.display = 'block';
+            headerTimer.style.display = 'block';
+            _aiTimerInterval = setInterval(() => {
+                _aiTimerSeconds++;
+                const m = Math.floor(_aiTimerSeconds/60);
+                const s = _aiTimerSeconds%60;
+                const txt = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+                timerEl.textContent = txt;
+                headerTimer.textContent = txt;
+            }, 1000);
+        }
+        function dialerStopAiTimer() {
+            if (_aiTimerInterval) { clearInterval(_aiTimerInterval); _aiTimerInterval = null; }
+            document.getElementById('dialerAiTimer').style.display = 'none';
+        }
+
+        // ── Enable / disable all in-call control buttons ──
+        function _dialerEnableControls(enabled) {
+            const btns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
+            btns.forEach(id => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.disabled = !enabled;
+                btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+            });
+            if (enabled) {
+                const listen = document.getElementById('dialerListenBtn');
+                const mute = document.getElementById('dialerMuteBtn');
+                const muteMic = document.getElementById('dialerMuteMicBtn');
+                const takeover = document.getElementById('dialerTakeoverBtn');
+                const transfer = document.getElementById('dialerTransferBtn');
+                listen.style.color = '#ccc'; listen.style.background = 'rgba(255,255,255,0.04)'; listen.style.borderColor = 'rgba(255,255,255,0.1)';
+                mute.style.color = '#ccc'; mute.style.background = 'rgba(255,255,255,0.04)'; mute.style.borderColor = 'rgba(255,255,255,0.1)';
+                if (muteMic) { muteMic.style.color = '#ccc'; muteMic.style.background = 'rgba(255,255,255,0.04)'; muteMic.style.borderColor = 'rgba(255,255,255,0.1)'; }
+                takeover.style.color = '#ffa500'; takeover.style.background = 'rgba(255,165,0,0.12)'; takeover.style.borderColor = 'rgba(255,165,0,0.3)';
+                transfer.style.color = '#00d9ff'; transfer.style.background = 'rgba(0,217,255,0.08)'; transfer.style.borderColor = 'rgba(0,217,255,0.15)';
+            } else {
+                // Grayed out / disabled look
+                const allBtns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
+                allBtns.forEach(id => {
+                    const btn = document.getElementById(id);
+                    if (!btn) return;
+                    btn.style.color = '#444'; btn.style.background = 'rgba(255,255,255,0.03)'; btn.style.borderColor = 'rgba(255,255,255,0.06)';
+                });
+            }
+            // Reset toggle states
+            _dialerListening = false;
+            _dialerMuted = false;
+            _dialerMicMuted = false;
+        }
+
+        // ── Live Listen (AI speakerphone — streams call audio to browser) ──
+        let _dialerListening = false;
+        let _listenWs = null;
+        let _listenAudioCtx = null;
+
+        function dialerToggleListen() {
+            if (document.getElementById('dialerListenBtn').disabled) return;
+            _dialerListening = !_dialerListening;
+            const btn = document.getElementById('dialerListenBtn');
+            btn.style.background = _dialerListening ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)';
+            btn.style.color = _dialerListening ? '#00d9ff' : '#ccc';
+            btn.querySelector('i').className = _dialerListening ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+
+            if (_dialerListening) {
+                _startListenStream();
+            } else {
+                _stopListenStream();
+            }
+        }
+
+        let _listenNextTime = 0; // scheduled playback time for gapless audio
+
+        function _startListenStream() {
+            if (!dialerCallSid) { _dialerListening = false; return; }
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            _listenWs = new WebSocket(`${proto}//${location.host}/voice/listen-stream`);
+            _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+            // Resume AudioContext (Chrome/Safari require user gesture)
+            if (_listenAudioCtx.state === 'suspended') {
+                _listenAudioCtx.resume().then(() => console.log('[Listen] AudioContext resumed'));
+            }
+            _listenNextTime = 0;
+
+            _listenWs.onopen = () => {
+                console.log('[Listen] WebSocket connected, subscribing to', dialerCallSid);
+                _listenWs.send(JSON.stringify({ call_sid: dialerCallSid }));
+            };
+
+            _listenWs.onmessage = (evt) => {
+                try {
+                    const msg = JSON.parse(evt.data);
+                    if (msg.audio) {
+                        _playMulawChunk(msg.audio);
+                    } else if (msg.status === 'call_ended') {
+                        console.log('[Listen] Call ended');
+                        _stopListenStream();
+                        _dialerListening = false;
+                        const btn = document.getElementById('dialerListenBtn');
+                        btn.style.background = 'rgba(255,255,255,0.04)';
+                        btn.style.color = '#ccc';
+                        btn.querySelector('i').className = 'fa-solid fa-volume-xmark';
+                    } else if (msg.error) {
+                        console.error('[Listen] Server error:', msg.error);
+                    }
+                } catch(e) { console.error('[Listen] Message parse error:', e); }
+            };
+
+            _listenWs.onclose = () => {
+                console.log('[Listen] WebSocket closed');
+                // Auto-reconnect if we were still supposed to be listening and call is active
+                if (_dialerListening && dialerCallSid) {
+                    console.log('[Listen] Auto-reconnecting in 1.5s...');
+                    setTimeout(() => {
+                        if (_dialerListening && dialerCallSid) {
+                            _startListenStream();
+                        } else {
+                            _resetListenBtn();
+                        }
+                    }, 1500);
+                } else {
+                    _resetListenBtn();
+                }
+            };
+
+            _listenWs.onerror = (err) => {
+                console.error('[Listen] WebSocket error:', err);
+            };
+        }
+
+        function _stopListenStream() {
+            if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
+            if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
+            _listenNextTime = 0;
+        }
+
+        function _resetListenBtn() {
+            _dialerListening = false;
+            const btn = document.getElementById('dialerListenBtn');
+            if (btn) {
+                btn.style.background = 'rgba(255,255,255,0.04)';
+                btn.style.color = '#ccc';
+                btn.querySelector('i').className = 'fa-solid fa-volume-xmark';
+            }
+        }
+
+        // Decode mulaw base64 → PCM and play via Web Audio API
+        function _playMulawChunk(b64) {
+            if (!_listenAudioCtx || _listenAudioCtx.state === 'closed') return;
+            // Resume if still suspended (e.g. autoplay policy)
+            if (_listenAudioCtx.state === 'suspended') { _listenAudioCtx.resume(); }
+            try {
+                const raw = atob(b64);
+                const mulaw = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) mulaw[i] = raw.charCodeAt(i);
+
+                // Decode mulaw to float PCM
+                const pcm = new Float32Array(mulaw.length);
+                for (let i = 0; i < mulaw.length; i++) {
+                    pcm[i] = _decodeMulaw(mulaw[i]);
+                }
+
+                const buf = _listenAudioCtx.createBuffer(1, pcm.length, 8000);
+                buf.getChannelData(0).set(pcm);
+                const src = _listenAudioCtx.createBufferSource();
+                src.buffer = buf;
+                src.connect(_listenAudioCtx.destination);
+
+                // Schedule chunks sequentially for gapless playback
+                const now = _listenAudioCtx.currentTime;
+                const startAt = Math.max(now, _listenNextTime);
+                src.start(startAt);
+                _listenNextTime = startAt + buf.duration;
+            } catch(e) { console.error('[Listen] Playback error:', e); }
+        }
+
+        // ITU-T G.711 mulaw decoder (standard formula)
+        function _decodeMulaw(sample) {
+            sample = ~sample & 0xFF;
+            const sign = (sample & 0x80) ? -1 : 1;
+            const exponent = (sample >> 4) & 0x07;
+            const mantissa = sample & 0x0F;
+            const magnitude = ((mantissa << 3) + 0x84) << exponent;
+            return sign * (magnitude - 0x84) / 32768.0;
+        }
+
+        // ── Mute AI: mutes call audio you hear (listen speaker) ──
+        let _dialerMuted = false;
+        function dialerToggleMuteAI() {
+            if (document.getElementById('dialerMuteBtn').disabled) return;
+            _dialerMuted = !_dialerMuted;
+            const btn = document.getElementById('dialerMuteBtn');
+            btn.style.background = _dialerMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
+            btn.style.color = _dialerMuted ? '#ef4444' : '#ccc';
+            btn.querySelector('i').className = _dialerMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+            btn.querySelector('span').textContent = _dialerMuted ? 'Unmute AI' : 'Mute AI';
+
+            // Mute listen audio (speaker mode) — suspends/resumes the audio context
+            if (_listenAudioCtx && _listenAudioCtx.state !== 'closed') {
+                if (_dialerMuted) {
+                    _listenAudioCtx.suspend().catch(e => console.warn('[Listen] Suspend failed:', e));
+                } else {
+                    _listenAudioCtx.resume().catch(e => console.warn('[Listen] Resume failed:', e));
+                }
+            }
+        }
+
+        // ── Mute Mic: mutes your microphone (only works after VoIP intercept) ──
+        let _dialerMicMuted = false;
+        function dialerToggleMuteMic() {
+            const btn = document.getElementById('dialerMuteMicBtn');
+            if (!btn || btn.disabled) return;
+            if (!voipConnection) {
+                // No VoIP connection yet — show brief tooltip
+                btn.querySelector('span').textContent = 'No mic active';
+                btn.style.color = '#888';
+                setTimeout(() => { btn.querySelector('span').textContent = 'Mute Mic'; btn.style.color = '#ccc'; }, 1500);
+                return;
+            }
+            _dialerMicMuted = !_dialerMicMuted;
+            voipConnection.mute(_dialerMicMuted);
+            btn.style.background = _dialerMicMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
+            btn.style.color = _dialerMicMuted ? '#ef4444' : '#ccc';
+            btn.querySelector('i').className = _dialerMicMuted ? 'fa-solid fa-microphone-slash' : 'fa-solid fa-microphone';
+            btn.querySelector('span').textContent = _dialerMicMuted ? 'Unmute Mic' : 'Mute Mic';
+        }
+
+        // ── Takeover / Human Intercept: agent barges into AI call ──
+        // Flag signals VoIP incoming handler to auto-accept this intercept call
+        let _takingOver = false;
+        async function dialerTakeover() {
+            if (!dialerCallSid || document.getElementById('dialerTakeoverBtn').disabled) return;
+            const btn = document.getElementById('dialerTakeoverBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Intercepting...</span>';
+            const statusEl = document.getElementById('dialerCallStatus');
+            if (statusEl) { statusEl.textContent = 'Intercepting...'; statusEl.style.color = '#ffa500'; }
+            try {
+                // Always use VoIP for browser intercept — initialize device if needed
+                let useVoip = false;
+                if (voipReady && voipDevice) {
+                    useVoip = true;
+                } else if (voipSetupDone && !_voipInitializing) {
+                    // VoIP is configured but not yet connected — init it now
+                    if (statusEl) statusEl.textContent = 'Connecting VoIP...';
+                    await initVoIPDevice();
+                    // Wait up to 6s for registration
+                    for (let i = 0; i < 12; i++) {
+                        if (voipReady) break;
+                        await new Promise(res => setTimeout(res, 500));
+                    }
+                    useVoip = !!voipReady;
+                } else if (!voipSetupDone) {
+                    // VoIP not configured — fall back to phone transfer
+                    useVoip = false;
+                }
+
+                // Set flag so incoming handler auto-accepts this specific intercept call
+                if (useVoip) _takingOver = true;
+                console.log('[Dialer] Intercept: use_voip=' + useVoip + ' voipReady=' + voipReady);
+
+                const r = await _fetchRetry('/voice/takeover', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid, use_voip: useVoip })
+                }, { retries: 1, timeout: 15000, label: 'takeover' });
+                const d = await r.json();
+                if (r.ok) {
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Intercepted</span>';
+                    btn.style.color = 'var(--accent)';
+                    btn.style.borderColor = 'rgba(0,255,136,0.3)';
+                    btn.style.background = 'rgba(0,255,136,0.08)';
+                    if (statusEl) { statusEl.textContent = useVoip ? 'You are now on the call (browser)' : 'Call transferred to your phone'; statusEl.style.color = 'var(--accent)'; }
+                    // Enable mic mute button now
+                    const muteMicBtn = document.getElementById('dialerMuteMicBtn');
+                    if (muteMicBtn) { muteMicBtn.disabled = false; muteMicBtn.style.cursor = 'pointer'; }
+                } else {
+                    _takingOver = false;
+                    const errMsg = d.error || 'Intercept failed';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+                    if (statusEl) { statusEl.textContent = errMsg; statusEl.style.color = '#ef4444'; }
+                    console.error('[Intercept] Failed:', errMsg);
+                }
+            } catch(e) {
+                _takingOver = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
+                if (statusEl) { statusEl.textContent = 'Network error — try again'; statusEl.style.color = '#ef4444'; }
+                console.error('[Intercept] Network error:', e);
+            }
+        }
+
+        // ── Live Transfer: transfer call to another number ──
+        async function dialerTransfer() {
+            if (!dialerCallSid || document.getElementById('dialerTransferBtn').disabled) return;
+            const transferNum = (document.getElementById('voiceTransferNumber')?.value || '').trim();
+            let target = transferNum;
+            if (!target) {
+                target = prompt('Enter phone number to transfer to (e.g. +15551234567):');
+                if (!target) return;
+            }
+            const btn = document.getElementById('dialerTransferBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Transferring...</span>';
+            // Validate phone format
+            let cleanTarget = target.replace(/[\s\-\(\)\.]/g, '');
+            if (!cleanTarget.startsWith('+')) cleanTarget = '+1' + cleanTarget;
+            if (cleanTarget.replace(/[^0-9]/g, '').length < 10) {
+                alert('Invalid transfer number — must be at least 10 digits');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+                return;
+            }
+            try {
+                const r = await _fetchRetry('/voice/transfer', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: dialerCallSid, transfer_to: cleanTarget })
+                }, { retries: 1, timeout: 15000, label: 'transfer' });
+                const d = await r.json();
+                if (r.ok) {
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Transferred</span>';
+                    btn.style.color = 'var(--accent)';
+                    btn.style.borderColor = 'rgba(0,255,136,0.3)';
+                    document.getElementById('dialerCallStatus').textContent = 'Transferred';
+                    document.getElementById('dialerCallStatus').style.color = '#ffa500';
+                } else {
+                    alert(d.error || 'Transfer failed');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+                }
+            } catch(e) {
+                console.error('[Dialer] Transfer network error:', e);
+                alert('Network error during transfer — please try again');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transfer</span>';
+            }
+        }
+
+        // ── Call Disposition ──
+        let _dialerLastCallSid = null;
+        function dialerShowDisposition() {
+            document.getElementById('dialerDisposition').style.display = 'block';
+        }
+        function dialerDismissDisposition() {
+            document.getElementById('dialerDisposition').style.display = 'none';
+        }
+        function dialerSetDisposition(disp) {
+            // Highlight immediately (before any async work — window.event is only valid synchronously)
+            const btns = document.querySelectorAll('#dialerDisposition .disp-btn');
+            btns.forEach(b => { b.style.background = 'rgba(255,255,255,0.04)'; b.style.color = '#ccc'; });
+            const clicked = event && event.target ? event.target.closest('.disp-btn') : null;
+            if (clicked) {
+                clicked.style.background = 'rgba(0,255,136,0.15)';
+                clicked.style.color = 'var(--accent)';
+            }
+            setTimeout(dialerDismissDisposition, 1200);
+            // Save to backend with retry (disposition is important data)
+            if (_dialerLastCallSid) {
+                _fetchRetry('/voice/call-disposition', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: _dialerLastCallSid, disposition: disp })
+                }, { retries: 2, timeout: 10000, label: 'disposition' }).catch(e => {
+                    console.error('[Dialer] Disposition save failed after retries:', e.message);
+                });
+            }
+        }
+
+        // ── Latency / Ping ──
+        let _pingInterval = null;
+        function dialerStartPing() {
+            if (_pingInterval) return;
+            _pingInterval = setInterval(async () => {
+                const start = performance.now();
+                try {
+                    await fetch('/voice/ping', {method:'HEAD'});
+                    const ms = Math.round(performance.now() - start);
+                    const el = document.getElementById('dialerPingVal');
+                    const dot = document.getElementById('dialerPingDot');
+                    el.textContent = ms + 'ms';
+                    if (ms < 100) { dot.style.background = 'var(--accent)'; }
+                    else if (ms < 300) { dot.style.background = '#ffa500'; }
+                    else { dot.style.background = '#ef4444'; }
+                } catch(e) {
+                    document.getElementById('dialerPingVal').textContent = '--ms';
+                    document.getElementById('dialerPingDot').style.background = '#555';
+                }
+            }, 5000);
+            // Immediate first ping
+            (async () => {
+                const start = performance.now();
+                try {
+                    await fetch('/voice/ping', {method:'HEAD'});
+                    const ms = Math.round(performance.now() - start);
+                    document.getElementById('dialerPingVal').textContent = ms + 'ms';
+                    const dot = document.getElementById('dialerPingDot');
+                    if (ms < 100) dot.style.background = 'var(--accent)';
+                    else if (ms < 300) dot.style.background = '#ffa500';
+                    else dot.style.background = '#ef4444';
+                } catch(e) {}
+            })();
+        }
+
+        // ── Call History / Recordings scope (contact-specific vs all) ──
+        let _dialerCallHistoryShowAll = false;
+        let _dialerRecordingsShowAll = false;
+
+        function dialerToggleCallHistoryScope() {
+            _dialerCallHistoryShowAll = !_dialerCallHistoryShowAll;
+            dialerLoadAllCallHistory();
+        }
+        function dialerToggleRecordingsScope() {
+            _dialerRecordingsShowAll = !_dialerRecordingsShowAll;
+            dialerLoadRecordings();
+        }
+
+        // ── Load Call History (filtered to active contact unless "View All") ──
+        async function dialerLoadAllCallHistory() {
+            const panel = document.getElementById('dialerHistoryList');
+            const label = document.getElementById('dialerCallsLabel');
+            const viewBtn = document.getElementById('dialerCallsViewAllBtn');
+            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+
+            const filterContact = (!_dialerCallHistoryShowAll && dialerActiveContact) ? dialerActiveContact : null;
+            if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Calls" : 'All Calls';
+            if (viewBtn) {
+                viewBtn.textContent = filterContact ? 'View All' : (dialerActiveContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + ' Only' : 'View All');
+                viewBtn.style.display = dialerActiveContact ? 'inline-block' : 'none';
+            }
+
+            try {
+                const r = await _fetchRetry('/voice/call-history?limit=100', {}, { retries: 1, timeout: 15000, label: 'call-history' });
+                if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:16px;text-align:center;font-size:.88rem;">Failed to load</div>'; return; }
+                const d = await r.json();
+                let calls = d.calls || [];
+                // Filter by contact if scoped
+                if (filterContact) {
+                    calls = calls.filter(c => c.contact_id === filterContact.id || c.phone === filterContact.phone);
+                }
+                if (!calls.length) {
+                    panel.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.92rem;">' +
+                        (filterContact ? 'No calls with ' + dialerEsc(filterContact.name) + ' yet' : 'No call history yet') + '</div>';
+                    return;
+                }
+                panel.innerHTML = calls.map(c => {
+                    const statusColors = { completed:'var(--accent)', 'no-answer':'#ffa500', busy:'#ffa500', failed:'#ef4444', initiated:'#00d9ff', canceled:'#888' };
+                    const sc = statusColors[c.status] || '#888';
+                    const dur = c.duration ? Math.floor(c.duration/60) + ':' + String(c.duration%60).padStart(2,'0') : '--:--';
+                    const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+                    const hasRec = !!c.recording_url;
+                    const hasTx = c.transcript && c.transcript.length > 0;
+                    const disp = c.disposition ? ' <span style="color:#888;font-size:.72rem;">(' + c.disposition.replace(/_/g,' ') + ')</span>' : '';
+                    return '<div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.88rem;cursor:pointer;" onclick="dialerHistoryClickContact(\'' + (c.contact_id||'') + '\')">' +
+                        '<div style="width:6px;height:6px;border-radius:50%;background:' + sc + ';flex-shrink:0;"></div>' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + disp + '</div>' +
+                            '<div style="font-size:.78rem;color:#555;">' + (c.direction||'outbound') + ' &middot; ' + dt + '</div>' +
+                        '</div>' +
+                        '<div style="color:' + sc + ';font-size:.78rem;font-weight:600;white-space:nowrap;">' + (c.status||'').replace(/-/g,' ') + '</div>' +
+                        '<div style="color:#888;font-size:.82rem;font-family:monospace;">' + dur + '</div>' +
+                        (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
+                        (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
+                        (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                    '</div>';
+                }).join('');
+            } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading history</div>'; }
+        }
+
+        function dialerHistoryClickContact(contactId) {
+            if (!contactId) return;
+            const c = dialerContacts.find(x => x.id === contactId);
+            if (c) dialerSelectContact(contactId);
+        }
+
+        // ── Load Recordings (filtered to active contact unless "View All") ──
+        async function dialerLoadRecordings() {
+            const panel = document.getElementById('dialerRecordingsList');
+            const label = document.getElementById('dialerRecordingsLabel');
+            const viewBtn = document.getElementById('dialerRecsViewAllBtn');
+            panel.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+
+            const filterContact = (!_dialerRecordingsShowAll && dialerActiveContact) ? dialerActiveContact : null;
+            if (label) label.textContent = filterContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + "'s Recordings" : 'All Recordings';
+            if (viewBtn) {
+                viewBtn.textContent = filterContact ? 'View All' : (dialerActiveContact ? (dialerActiveContact.firstName || dialerActiveContact.name) + ' Only' : 'View All');
+                viewBtn.style.display = dialerActiveContact ? 'inline-block' : 'none';
+            }
+
+            try {
+                const r = await _fetchRetry('/voice/call-history?limit=100', {}, { retries: 1, timeout: 15000, label: 'call-history' });
+                if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:16px;text-align:center;font-size:.88rem;">Failed to load</div>'; return; }
+                const d = await r.json();
+                let recordings = (d.calls || []).filter(c => c.recording_url);
+                // Filter by contact if scoped
+                if (filterContact) {
+                    recordings = recordings.filter(c => c.contact_id === filterContact.id || c.phone === filterContact.phone);
+                }
+                if (!recordings.length) {
+                    panel.innerHTML = '<div style="text-align:center;padding:20px;color:#555;font-size:.92rem;"><i class="fa-solid fa-record-vinyl" style="font-size:1.3rem;color:#333;margin-bottom:6px;display:block;"></i>' +
+                        (filterContact ? 'No recordings for ' + dialerEsc(filterContact.name) : 'No recordings yet') + '</div>';
+                    return;
+                }
+                panel.innerHTML = recordings.map(c => {
+                    const dur = c.duration ? Math.floor(c.duration/60) + ':' + String(c.duration%60).padStart(2,'0') : '--:--';
+                    const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+                    const hasTx = c.transcript && c.transcript.length > 0;
+                    return '<div style="display:flex;align-items:center;gap:6px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.88rem;">' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</div>' +
+                            '<div style="font-size:.78rem;color:#555;">' + dt + ' &middot; ' + dur + '</div>' +
+                        '</div>' +
+                        '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Play"><i class="fa-solid fa-play me-1"></i>Play</button>' +
+                        '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:var(--accent);border-radius:4px;padding:3px 8px;font-size:.82rem;text-decoration:none;cursor:pointer;white-space:nowrap;" title="Download"><i class="fa-solid fa-download me-1"></i>DL</a>' +
+                        (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                    '</div>';
+                }).join('');
+            } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading recordings</div>'; }
+        }
+
+        function dialerStopQueue() {
+            dialerQueueRunning = false;
+            dialerUpdateBtn();
+            // Hang up any active AI dialer call (with retry)
+            if (dialerCallSid) {
+                const sid = dialerCallSid;
+                dialerCallSid = null;
+                _fetchRetry('/voice/hangup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ call_sid: sid })
+                }, { retries: 2, timeout: 10000, label: 'hangup' }).catch(e => {
+                    console.error('[Dialer] Hangup failed after retries:', e.message);
+                });
+            }
+            // Also hang up any active VoIP call
+            if (voipConnection) voipHangup();
+            // Stop poll and hide banner immediately
+            if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
+            dialerHideBanner();
+            dialerStopAiTimer();
+        }
+
+        // ── Queue management ──
+        function dialerRenderQueue() {
+            const list = document.getElementById('dialerQueueList');
+            const cnt = document.getElementById('dialerQueueCount');
+            const btn = document.getElementById('dialerStartBtn');
+            cnt.textContent = dialerQueue.length;
+            btn.disabled = !dialerQueue.length;
+            if (!dialerQueue.length) { list.innerHTML = '<div style="text-align:center;padding:10px;color:#555;font-size:.75rem;">Empty queue</div>'; return; }
+            const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
+            list.innerHTML = dialerQueue.map((q, i) => {
+                const active = dialerQueueRunning && i === dialerCallIdx;
+                return '<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(0,255,136,0.05);' : '') + '">' +
+                    '<span style="color:' + (active ? 'var(--accent)' : '#555') + ';font-weight:700;width:16px;text-align:center;">' + (i+1) + '</span>' +
+                    '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(q.name) + '</span>' +
+                    ((q.attempts && q.attempts > 1) ? '<span style="color:#888;font-size:.6rem;">' + q.attempts + '/' + dialerMaxAttempts + '</span>' : '') +
+                    '<span>' + (icons[q.status] || q.status) + '</span>' +
+                    (!dialerQueueRunning ? '<button onclick="dialerQueue.splice('+i+',1);dialerRenderContacts();dialerRenderQueue();" style="background:none;border:none;color:#444;cursor:pointer;font-size:.6rem;padding:0 2px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
+                '</div>';
+            }).join('');
+        }
+
+        function dialerClearQueue() { if (dialerQueueRunning) return; dialerQueue = []; dialerCallIdx = -1; dialerRenderContacts(); dialerRenderQueue(); }
+        function dialerUpdateBtn() {
+            const btn = document.getElementById('dialerStartBtn');
+            if (dialerQueueRunning) { btn.innerHTML = '<i class="fa-solid fa-stop me-1"></i>Stop'; btn.style.background = 'linear-gradient(135deg,#ef4444,#cc3333)'; btn.style.color = '#fff'; }
+            else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
+        }
+        function dialerToggleQueue() {
+            if (dialerQueueRunning) { dialerQueueRunning = false; dialerUpdateBtn(); return; }
+            dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
+            if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
+            dialerQueueRunning = true;
+            dialerUpdateBtn();
+            dialerDialNext();
+        }
+        function dialerDialNext() {
+            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
+            const item = dialerQueue[dialerCallIdx];
+            if (!item.attempts) item.attempts = 0;
+            item.attempts++;
+            item.status = 'initiated';
+            dialerRenderQueue();
+            // Auto-select contact in detail panel
+            dialerSelectContact(item.id);
+            console.log(`[Dialer] Calling ${item.name} (${item.phone}) — attempt ${item.attempts}/${dialerMaxAttempts}`);
+            dialerStartCall(item.phone, item.firstName || item.name, item.id, item.name);
+        }
+        function dialerAdvance() {
+            if (!dialerQueueRunning) { dialerHideBanner(); return; }
+
+            // Check if current contact needs a retry (no-answer, busy, failed, voicemail)
+            if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                const current = dialerQueue[dialerCallIdx];
+                const retryStatuses = ['no-answer', 'busy', 'failed', 'canceled'];
+                if (retryStatuses.includes(current.status) && (current.attempts || 0) < dialerMaxAttempts) {
+                    console.log(`[Dialer] Retrying ${current.name} — attempt ${(current.attempts || 0) + 1}/${dialerMaxAttempts} in 2s`);
+                    current.status = 'pending';
+                    dialerRenderQueue();
+                    // 2-second delay before retry to avoid hammering and give networks time
+                    setTimeout(() => { if (dialerQueueRunning) dialerDialNext(); }, 2000);
+                    return;
+                }
+                // Max attempts exhausted — mark as final status
+                if (retryStatuses.includes(current.status)) {
+                    console.log(`[Dialer] ${current.name} — max attempts (${dialerMaxAttempts}) reached, moving on`);
+                }
+            }
+
+            // Move to next pending contact
+            dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
+            if (dialerCallIdx < 0) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
+            // Brief 1s pause before next contact
+            setTimeout(() => { if (dialerQueueRunning) dialerDialNext(); }, 1000);
+        }
+
+        // ── Recording + Transcript ──
+        let _audioPlayer = null;
+        function playRecording(url) {
+            if (_audioPlayer) { _audioPlayer.pause(); _audioPlayer = null; }
+            _audioPlayer = new Audio(url);
+            _audioPlayer.play().catch(e => alert('Unable to play: ' + e.message));
+        }
+        function showTranscript(transcript) {
+            const modal = document.getElementById('transcriptModal');
+            const content = document.getElementById('transcriptContent');
+            if (!transcript || !transcript.length) { content.innerHTML = '<p style="color:#888;">No transcript</p>'; }
+            else {
+                content.innerHTML = transcript.map(t => {
+                    const isLead = t.role === 'lead';
+                    return '<div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';">' +
+                        '<div style="font-size:.68rem;color:#888;margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
+                        '<div class="dlr-msg-bubble ' + (isLead ? 'dlr-msg-lead' : 'dlr-msg-bot') + '">' + dialerEsc(t.text) + '</div></div>';
+                }).join('');
+            }
+            modal.style.display = 'flex';
+        }
+        function closeTranscriptModal() { document.getElementById('transcriptModal').style.display = 'none'; }
+
+        // ===== CALL MODE MANAGEMENT =====
+        let dialerMode = 'ai';
+        let voipDevice = null;
+        let voipConnection = null;  // Active Call object (v2 SDK)
+        let voipReady = false;
+        let voipTimerInterval = null;
+        let voipTimerSeconds = 0;
+        // Credential already exists in DB — skip one-time setup, just need to connect SDK
+        let voipSetupDone = !!(window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.voipSetupDone);
+        let voipCurrentContact = null;
+        let _voipInitializing = false;  // prevent duplicate init calls
+        let _selectedInputDeviceId = localStorage.getItem('voip_input_device') || '';
+        let _selectedOutputDeviceId = localStorage.getItem('voip_output_device') || '';
+
+        function setDialerMode(mode) {
+            dialerMode = mode;
+            const aiBtn = document.getElementById('modeAiBtn');
+            const humanBtn = document.getElementById('modeHumanBtn');
+            if (mode === 'ai') {
+                aiBtn.style.background = 'linear-gradient(135deg,#00d9ff,#0099cc)'; aiBtn.style.color = '#000';
+                humanBtn.style.background = 'transparent'; humanBtn.style.color = '#888';
+                document.getElementById('voipSetupBanner').style.display = 'none';
+            } else {
+                humanBtn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; humanBtn.style.color = '#000';
+                aiBtn.style.background = 'transparent'; aiBtn.style.color = '#888';
+                if (!voipSetupDone) {
+                    document.getElementById('voipSetupBanner').style.display = 'block';
+                } else if (!voipReady && !_voipInitializing) {
+                    initVoIPDevice();
+                }
+            }
+        }
+
+        // Show VoIP status messages (visible in banner and setup areas)
+        function _showVoipStatus(msg) {
+            const el = document.getElementById('voipSetupStatus');
+            if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+            const el2 = document.getElementById('voipSetupBtnDialerStatus');
+            if (el2 && msg) el2.textContent = msg;
+        }
+
+        // Set visual state on ALL VoIP setup buttons (banner, dialer settings, alt)
+        function setVoipBtnState(state) {
+            const btns = [
+                document.getElementById('voipSetupBtn'),
+                document.getElementById('voipSetupBtnDialer'),
+            ];
+            const map = {
+                idle:      { bg: 'linear-gradient(135deg,#00d9ff,#0099cc)', icon: 'fa-headset',          label: 'Setup Browser VoIP', disabled: false },
+                loading:   { bg: 'linear-gradient(135deg,#ffa500,#cc8400)', icon: 'fa-spinner fa-spin',  label: 'Connecting…',        disabled: true  },
+                connected: { bg: 'linear-gradient(135deg,#00ff88,#00cc66)', icon: 'fa-circle-check',     label: 'VoIP Connected',     disabled: false },
+                error:     { bg: 'linear-gradient(135deg,#ef4444,#cc2222)', icon: 'fa-rotate-right',     label: 'Retry VoIP Setup',   disabled: false },
+            };
+            const s = map[state] || map.idle;
+            btns.forEach(b => {
+                if (!b) return;
+                b.style.background = s.bg;
+                b.style.color = '#000';
+                b.innerHTML = `<i class="fa-solid ${s.icon} me-1"></i>${s.label}`;
+                b.disabled = s.disabled;
+            });
+            // Update the dialer settings status text
+            const statusSpan = document.getElementById('voipSetupBtnDialerStatus');
+            if (statusSpan) {
+                if (state === 'connected') statusSpan.textContent = 'VoIP connected';
+                else if (state === 'loading') statusSpan.textContent = 'Connecting…';
+                else if (state === 'error') statusSpan.textContent = 'Setup failed — click to retry';
+            }
+        }
+
+        async function setupVoIP() {
+            console.log('[VoIP] setupVoIP() called');
+            setVoipBtnState('loading');
+            _showVoipStatus('Creating voice credential…');
+            try {
+                const r = await fetch('/voice/setup-voip', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+                const d = await r.json();
+                console.log('[VoIP] setup-voip response:', r.status, d);
+                if (!r.ok) {
+                    setVoipBtnState('error');
+                    _showVoipStatus(d.error || 'Setup failed');
+                    return;
+                }
+                voipSetupDone = true;
+                document.getElementById('voipSetupBanner').style.display = 'none';
+                _showVoipStatus('Credential created — initializing…');
+                await initVoIPDevice();
+            } catch(e) {
+                console.error('[VoIP] setupVoIP error:', e);
+                setVoipBtnState('error');
+                const errMsg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+                _showVoipStatus('Setup error: ' + errMsg);
+            }
+        }
+
+        async function initVoIPDevice() {
+            if (_voipInitializing) { console.log('[VoIP] Already initializing, skipping'); return; }
+            _voipInitializing = true;
+            console.log('[VoIP] initVoIPDevice() called');
+
+            try {
+                // Step 1: Fetch token
+                _showVoipStatus('Fetching voice token…');
+                setVoipBtnState('loading');
+                const r = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+                const d = await r.json();
+                console.log('[VoIP] token response:', r.status, d.token ? 'token OK (len=' + d.token.length + ')' : d);
+                if (!r.ok) {
+                    if (d.error && d.error.includes('not set up')) {
+                        document.getElementById('voipSetupBanner').style.display = 'block';
+                        voipSetupDone = false;
+                    }
+                    _showVoipStatus(d.error || 'Token error');
+                    setVoipBtnState('error');
+                    _voipInitializing = false;
+                    return;
+                }
+
+                // Step 2: Request microphone permission BEFORE connecting SDK
+                _showVoipStatus('Requesting microphone access…');
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(t => t.stop());
+                    console.log('[VoIP] Microphone permission granted');
+                } catch(micErr) {
+                    console.error('[VoIP] Microphone permission denied:', micErr);
+                    _showVoipStatus('Microphone access denied — please allow mic and retry');
+                    setVoipBtnState('error');
+                    _voipInitializing = false;
+                    return;
+                }
+
+                // Step 3: Load Twilio Voice SDK 2.x (self-hosted)
+                if (!window.Twilio || !window.Twilio.Device) {
+                    _showVoipStatus('Loading Voice SDK…');
+                    await new Promise((resolve, reject) => {
+                        const s = document.createElement('script');
+                        s.src = '/static/js/twilio-voice-sdk-2.18.0.min.js';
+                        s.onload = () => { console.log('[VoIP] Voice SDK 2.18.0 loaded'); resolve(); };
+                        s.onerror = (e) => { console.error('[VoIP] SDK load failed:', e); reject(new Error('Failed to load Voice SDK')); };
+                        document.head.appendChild(s);
+                    });
+                } else {
+                    console.log('[VoIP] Voice SDK already loaded');
+                }
+
+                if (!window.Twilio || !window.Twilio.Device) {
+                    throw new Error('Voice SDK loaded but Twilio.Device not found');
+                }
+
+                // Step 4: Create Device instance (V2 SDK — constructor-based)
+                _showVoipStatus('Connecting to Twilio…');
+
+                // Destroy previous device if any
+                if (voipDevice) {
+                    try { voipDevice.destroy(); } catch(e) {}
+                    voipDevice = null;
+                }
+
+                voipDevice = new Twilio.Device(d.token, {
+                    logLevel: 'debug',
+                    closeProtection: true,
+                    codecPreferences: ['opus', 'pcmu'],
+                });
+
+                console.log('[VoIP] Device created, SDK version:', Twilio.Device.packageName || 'unknown');
+
+                // Step 5: Register (async — opens WebSocket to Twilio signaling)
+                let registrationDone = false;
+
+                voipDevice.on('registered', () => {
+                    registrationDone = true;
+                    console.log('[VoIP] Device registered — ready for calls!');
+                    voipReady = true;
+                    voipSetupDone = true;
+                    _voipInitializing = false;
+                    document.getElementById('voipStatus').style.display = 'block';
+                    document.getElementById('voipSetupBanner').style.display = 'none';
+                    _showVoipStatus('VoIP connected');
+                    setVoipBtnState('connected');
+                    // Populate audio device lists after registration
+                    refreshAudioDevices();
+                });
+
+                voipDevice.on('unregistered', () => {
+                    console.log('[VoIP] Device unregistered');
+                    voipReady = false;
+                    document.getElementById('voipStatus').style.display = 'none';
+                    _showVoipStatus('VoIP disconnected — click to reconnect');
+                    setVoipBtnState('error');
+                    _voipInitializing = false;
+                });
+
+                voipDevice.on('error', (err) => {
+                    console.error('[VoIP] Device error:', err);
+                    console.error('[VoIP] Error code:', err?.code, 'twilioError:', err?.twilioError);
+                    const msg = err?.message || JSON.stringify(err);
+                    _showVoipStatus('VoIP error: ' + msg);
+                    // Only show error state if we're not actively on a call
+                    if (!voipConnection) {
+                        setVoipBtnState('error');
+                        voipReady = false;
+                    }
+                    _voipInitializing = false;
+                });
+
+                voipDevice.on('tokenWillExpire', async () => {
+                    console.log('[VoIP] Token expiring — refreshing…');
+                    try {
+                        const tr = await fetch('/voice/token', { method: 'POST', headers: {'Content-Type': 'application/json'} });
+                        const td = await tr.json();
+                        if (tr.ok && td.token) {
+                            voipDevice.updateToken(td.token);
+                            console.log('[VoIP] Token refreshed');
+                        }
+                    } catch(e) {
+                        console.error('[VoIP] Token refresh failed:', e);
+                    }
+                });
+
+                // Handle incoming calls (agent intercept OR human dialer mode)
+                voipDevice.on('incoming', (call) => {
+                    console.log('[VoIP] Incoming call from:', call.parameters?.From || 'unknown', '| _takingOver:', _takingOver, '| mode:', dialerMode);
+                    // Accept if: (a) agent just clicked Intercept, OR (b) already in human dialer mode
+                    const shouldAccept = _takingOver || dialerMode === 'human';
+                    if (shouldAccept) {
+                        const reason = _takingOver ? 'intercept takeover' : 'human mode';
+                        console.log('[VoIP] Auto-accepting incoming call (' + reason + ')');
+                        _takingOver = false; // reset flag immediately
+                        call.accept();
+                        voipConnection = call;
+                        voipStartTimer();
+                        // Show call panel and update contact info
+                        const callPanel = document.getElementById('voipCallPanel');
+                        if (callPanel) callPanel.style.display = 'flex';
+                        // Update name/phone display if we have active contact
+                        if (dialerActiveContact) {
+                            const nameEl = document.getElementById('voipCallName');
+                            const phoneEl = document.getElementById('voipCallPhone');
+                            if (nameEl) nameEl.textContent = dialerActiveContact.name || dialerActiveContact.firstName || 'Lead';
+                            if (phoneEl) phoneEl.textContent = dialerActiveContact.phone || '';
+                        }
+                        // Mic mute button is now active
+                        const muteMicBtn = document.getElementById('dialerMuteMicBtn');
+                        if (muteMicBtn) { muteMicBtn.disabled = false; muteMicBtn.style.cursor = 'pointer'; }
+
+                        call.on('disconnect', () => {
+                            console.log('[VoIP] Incoming call disconnected');
+                            voipConnection = null;
+                            voipStopTimer();
+                            const cp = document.getElementById('voipCallPanel');
+                            if (cp) cp.style.display = 'none';
+                            const kp = document.getElementById('voipKeypad');
+                            if (kp) kp.style.display = 'none';
+                            dialerHideBanner();
+                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                        });
+                        call.on('cancel', () => {
+                            console.log('[VoIP] Incoming call cancelled');
+                            voipConnection = null;
+                            voipStopTimer();
+                            const cp = document.getElementById('voipCallPanel');
+                            if (cp) cp.style.display = 'none';
+                            const kp = document.getElementById('voipKeypad');
+                            if (kp) kp.style.display = 'none';
+                            if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                        });
+                        call.on('error', (err) => {
+                            console.error('[VoIP] Incoming call error:', err);
+                            voipConnection = null;
+                            voipStopTimer();
+                            const cp = document.getElementById('voipCallPanel');
+                            if (cp) cp.style.display = 'none';
+                        });
+                    } else {
+                        console.log('[VoIP] Rejecting incoming call (not in intercept/human mode)');
+                        call.reject();
+                    }
+                });
+
+                // Listen for device changes (headset plugged in/out)
+                if (voipDevice.audio) {
+                    voipDevice.audio.on('deviceChange', () => {
+                        console.log('[VoIP] Audio device change detected');
+                        refreshAudioDevices();
+                    });
+                }
+
+                // Register with Twilio signaling
+                console.log('[VoIP] Calling voipDevice.register()...');
+                try {
+                    await voipDevice.register();
+                    console.log('[VoIP] register() promise resolved, state:', voipDevice.state);
+                } catch(regErr) {
+                    console.error('[VoIP] register() rejected:', regErr);
+                    console.error('[VoIP] register() rejection type:', typeof regErr);
+                    if (regErr && typeof regErr === 'object') {
+                        console.error('[VoIP] register() rejection keys:', Object.keys(regErr));
+                        console.error('[VoIP] register() rejection code:', regErr.code, 'twilioError:', regErr.twilioError);
+                    }
+                    const regMsg = (regErr && regErr.message) ? regErr.message
+                                 : (typeof regErr === 'string' ? regErr : 'Registration failed (check console for details)');
+                    _showVoipStatus('VoIP error: ' + regMsg);
+                    setVoipBtnState('error');
+                    _voipInitializing = false;
+                    return;
+                }
+
+                // Timeout: if not registered within 15s, something is wrong
+                setTimeout(() => {
+                    if (!registrationDone && _voipInitializing) {
+                        console.error('[VoIP] Registration timeout — no registered event after 15s');
+                        console.log('[VoIP] Device state:', voipDevice?.state);
+                        _showVoipStatus('Connection timeout — click to retry');
+                        setVoipBtnState('error');
+                        _voipInitializing = false;
+                    }
+                }, 15000);
+
+            } catch(e) {
+                console.error('[VoIP] initVoIPDevice error:', e);
+                console.error('[VoIP] Error type:', typeof e, 'keys:', e ? Object.keys(e) : 'null/undefined');
+                const errMsg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+                _showVoipStatus('Error: ' + errMsg);
+                setVoipBtnState('error');
+                _voipInitializing = false;
+            }
+        }
+
+        // ── Audio Device Management ──
+        async function refreshAudioDevices() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const inputSelect = document.getElementById('audioInputDevice');
+                const outputSelect = document.getElementById('audioOutputDevice');
+                if (!inputSelect || !outputSelect) return;
+
+                // Save current selections
+                const curInput = inputSelect.value || _selectedInputDeviceId;
+                const curOutput = outputSelect.value || _selectedOutputDeviceId;
+
+                const optStyle = 'background:#2a2a35;color:#fff;';
+
+                // Clear and rebuild input list
+                inputSelect.innerHTML = '<option value="" style="' + optStyle + '">Default microphone</option>';
+                devices.filter(d => d.kind === 'audioinput').forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.textContent = d.label || ('Microphone ' + d.deviceId.slice(0,8));
+                    opt.style.cssText = optStyle;
+                    if (d.deviceId === curInput) opt.selected = true;
+                    inputSelect.appendChild(opt);
+                });
+
+                // Clear and rebuild output list
+                outputSelect.innerHTML = '<option value="" style="' + optStyle + '">Default speaker</option>';
+                devices.filter(d => d.kind === 'audiooutput').forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.textContent = d.label || ('Speaker ' + d.deviceId.slice(0,8));
+                    opt.style.cssText = optStyle;
+                    if (d.deviceId === curOutput) opt.selected = true;
+                    outputSelect.appendChild(opt);
+                });
+
+                const statusEl = document.getElementById('audioDeviceStatus');
+                const inputCount = devices.filter(d => d.kind === 'audioinput').length;
+                const outputCount = devices.filter(d => d.kind === 'audiooutput').length;
+                if (statusEl) statusEl.textContent = `${inputCount} mic${inputCount !== 1 ? 's' : ''}, ${outputCount} speaker${outputCount !== 1 ? 's' : ''} found`;
+
+            } catch(e) {
+                console.error('[Audio] Failed to enumerate devices:', e);
+                const statusEl = document.getElementById('audioDeviceStatus');
+                if (statusEl) statusEl.textContent = 'Could not list devices — check mic permission';
+            }
+        }
+
+        function setAudioInputDevice(deviceId) {
+            _selectedInputDeviceId = deviceId;
+            localStorage.setItem('voip_input_device', deviceId);
+            // Apply to Twilio Device audio helper if available
+            if (voipDevice && voipDevice.audio && deviceId) {
+                voipDevice.audio.setInputDevice(deviceId)
+                    .then(() => console.log('[Audio] Input device set:', deviceId))
+                    .catch(e => console.error('[Audio] Failed to set input:', e));
+            }
+        }
+
+        function setAudioOutputDevice(deviceId) {
+            _selectedOutputDeviceId = deviceId;
+            localStorage.setItem('voip_output_device', deviceId);
+            // Apply to Twilio Device speaker output if available
+            if (voipDevice && voipDevice.audio && voipDevice.audio.speakerDevices && deviceId) {
+                voipDevice.audio.speakerDevices.set(deviceId)
+                    .then(() => console.log('[Audio] Output device set:', deviceId))
+                    .catch(e => console.error('[Audio] Failed to set output:', e));
+            }
+        }
+
+        function testAudioOutput() {
+            // Play a short test tone through the selected output
+            if (voipDevice && voipDevice.audio && voipDevice.audio.speakerDevices) {
+                voipDevice.audio.speakerDevices.test()
+                    .then(() => {
+                        const s = document.getElementById('audioDeviceStatus');
+                        if (s) s.textContent = 'Test tone played';
+                    })
+                    .catch(e => {
+                        console.error('[Audio] Speaker test failed:', e);
+                        // Fallback: play a tone via AudioContext
+                        _playTestTone();
+                    });
+            } else {
+                _playTestTone();
+            }
+        }
+
+        function _playTestTone() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = 440;
+                gain.gain.value = 0.3;
+                osc.start(); osc.stop(ctx.currentTime + 0.5);
+                const s = document.getElementById('audioDeviceStatus');
+                if (s) s.textContent = 'Test tone played';
+            } catch(e) {
+                console.error('[Audio] Test tone failed:', e);
+            }
+        }
+
+        // Override startCall for dual mode
+        const _origStartCall = dialerStartCall;
+        dialerStartCall = async function(phone, firstName, contactId, displayName) {
+            if (dialerMode === 'human') {
+                if (!voipReady || !voipDevice) {
+                    if (voipSetupDone && !_voipInitializing) {
+                        _showVoipStatus('VoIP initializing — please wait…');
+                        await initVoIPDevice();
+                        // Wait briefly for registration
+                        await new Promise(r => setTimeout(r, 2000));
+                        if (!voipReady) {
+                            _showVoipStatus('VoIP not ready yet — try again in a moment');
+                            return;
+                        }
+                    } else if (!voipSetupDone) {
+                        document.getElementById('voipSetupBanner').style.display = 'block';
+                        _showVoipStatus('Click "Setup VoIP" to enable browser calling');
+                        return;
+                    } else {
+                        _showVoipStatus('VoIP still connecting — please wait…');
+                        return;
+                    }
+                }
+                voipMakeCall(phone, firstName, contactId, displayName);
+            } else {
+                await _origStartCall(phone, firstName, contactId, displayName);
+            }
+        };
+
+        async function voipMakeCall(phone, firstName, contactId, displayName) {
+            if (!voipDevice || !voipReady) {
+                _showVoipStatus('VoIP not ready. Click Setup VoIP first.');
+                return;
+            }
+            voipCurrentContact = { phone, firstName, contactId, displayName };
+            document.getElementById('voipCallName').textContent = displayName || firstName;
+            document.getElementById('voipCallPhone').textContent = phone;
+            document.getElementById('voipCallTimer').textContent = '00:00';
+
+            try {
+                // V2 SDK: device.connect() returns a Promise<Call>
+                const connectParams = { params: { To: phone } };
+
+                // Apply selected input device if still available, fall back gracefully
+                if (_selectedInputDeviceId) {
+                    try {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        const stillExists = devices.some(d => d.kind === 'audioinput' && d.deviceId === _selectedInputDeviceId);
+                        if (stillExists) {
+                            connectParams.rtcConstraints = { audio: { deviceId: { ideal: _selectedInputDeviceId } } };
+                        } else {
+                            console.warn('[VoIP] Saved input device no longer available, using default mic');
+                            _selectedInputDeviceId = '';
+                            localStorage.removeItem('voip_input_device');
+                        }
+                    } catch(devErr) {
+                        console.warn('[VoIP] Could not enumerate devices:', devErr);
+                    }
+                }
+
+                const call = await voipDevice.connect(connectParams);
+                voipConnection = call;
+                console.log('[VoIP] Call initiated, waiting for connection...');
+
+                // Show call panel immediately with connecting status
+                document.getElementById('voipCallPanel').style.display = 'flex';
+                document.getElementById('voipCallTimer').textContent = 'Connecting...';
+
+                // V2 SDK: attach event listeners to the Call object
+                call.on('ringing', (hasEarlyMedia) => {
+                    console.log('[VoIP] Call ringing, earlyMedia:', hasEarlyMedia);
+                    document.getElementById('voipCallTimer').textContent = 'Ringing...';
+                });
+
+                call.on('accept', () => {
+                    console.log('[VoIP] Call accepted/connected');
+                    voipStartTimer();
+                });
+
+                call.on('disconnect', () => {
+                    console.log('[VoIP] Call disconnected');
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                    document.getElementById('voipKeypad').style.display = 'none';
+                    dialerHideBanner();
+                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                });
+
+                call.on('cancel', () => {
+                    console.log('[VoIP] Call cancelled');
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                    document.getElementById('voipKeypad').style.display = 'none';
+                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                });
+
+                call.on('error', (err) => {
+                    console.error('[VoIP] Call error:', err);
+                    console.error('[VoIP] Error details — code:', err?.code, 'twilioError:', err?.twilioError, 'message:', err?.message);
+                    _showVoipStatus('Call error: ' + (err?.message || JSON.stringify(err)));
+                    voipConnection = null;
+                    voipStopTimer();
+                    document.getElementById('voipCallPanel').style.display = 'none';
+                });
+
+                call.on('warning', (name, data) => {
+                    console.warn('[VoIP] Call warning:', name, data);
+                });
+
+                if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                    dialerQueue[dialerCallIdx].status = 'in-progress';
+                    dialerRenderQueue();
+                }
+            } catch(e) {
+                console.error('[VoIP] Connect failed:', e);
+                _showVoipStatus('Call failed: ' + e.message);
+            }
+        }
+
+        let _voipMuted = false;
+        function voipToggleMute() {
+            if (!voipConnection) return;
+            _voipMuted = !_voipMuted;
+            voipConnection.mute(_voipMuted);
+            const btn = document.getElementById('voipMuteBtn');
+            btn.style.background = _voipMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)';
+            btn.style.color = _voipMuted ? '#ef4444' : '#ccc';
+            btn.innerHTML = _voipMuted ? '<i class="fa-solid fa-microphone-slash"></i>' : '<i class="fa-solid fa-microphone"></i>';
+        }
+        function voipToggleKeypad() { const kp = document.getElementById('voipKeypad'); kp.style.display = kp.style.display === 'none' ? 'block' : 'none'; }
+        function voipSendDTMF(digit) { if (voipConnection) voipConnection.sendDigits(digit); }
+        function voipHangup() { if (voipConnection) voipConnection.disconnect(); else if (voipDevice) voipDevice.disconnectAll(); }
+        function voipStartTimer() {
+            voipTimerSeconds = 0; voipStopTimer();
+            voipTimerInterval = setInterval(() => { voipTimerSeconds++; const m = Math.floor(voipTimerSeconds/60); const s = voipTimerSeconds%60; document.getElementById('voipCallTimer').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }, 1000);
+        }
+        function voipStopTimer() { if (voipTimerInterval) { clearInterval(voipTimerInterval); voipTimerInterval = null; } }
+
+        // ===== NUMBERS TAB =====
+        let _numbersCache = null;
+        let _trustCache = null;
+
+        async function loadNumbersTab() {
+            const container = document.getElementById('numbersListContainer');
+            if (!container) { console.error('[Numbers] numbersListContainer not found'); return; }
+            container.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><div style="color:#888;font-size:.78rem;margin-top:6px;">Loading numbers...</div></div>';
+            try {
+                const r = await fetch('/voice/numbers');
+                const d = await r.json();
+                console.log('[Numbers] Response:', r.status, d);
+                if (!r.ok || d.error) {
+                    container.innerHTML = '<div style="padding:16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Failed to load numbers') + '</div>';
+                    return;
+                }
+                _numbersCache = d.numbers || [];
+                if (!_numbersCache.length) {
+                    container.innerHTML = '<div style="text-align:center;padding:30px 20px;color:#888;font-size:.82rem;">' +
+                        '<i class="fa-solid fa-phone-slash" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#444;"></i>' +
+                        'No numbers found on your account.<br>Click <strong style="color:#00d9ff;">Buy Number</strong> above to get started.</div>';
+                    return;
+                }
+                _renderNumbersTable(_numbersCache, container);
+            } catch(e) {
+                console.error('[Numbers] Error:', e);
+                container.innerHTML = '<div style="padding:16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:#ef4444;font-size:.82rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading numbers. Check console for details.</div>';
+            }
+        }
+
+        function _esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function _fmtPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '+1 (' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
+        }
+
+        function _renderNumbersTable(numbers, container) {
+            const hdrStyle = 'padding:8px 10px;background:rgba(255,255,255,0.03);font-weight:700;color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;';
+            const cellStyle = 'padding:8px 10px;border-top:1px solid rgba(255,255,255,0.04);';
+            let html = '<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;overflow:visible;">';
+            // Header
+            html += '<div class="numbers-grid-header" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;">';
+            html += '<div style="' + hdrStyle + '">Number</div>';
+            html += '<div style="' + hdrStyle + 'text-align:center;">Status</div>';
+            html += '<div class="numbers-col-voice" style="' + hdrStyle + 'text-align:center;">Voice</div>';
+            html += '<div class="numbers-col-sms" style="' + hdrStyle + 'text-align:center;">SMS</div>';
+            html += '<div class="numbers-col-cnam" style="' + hdrStyle + 'text-align:center;">CNAM</div>';
+            html += '<div class="numbers-col-menu" style="' + hdrStyle + '"></div>';
+            html += '</div>';
+            // Rows
+            numbers.forEach(n => {
+                const statusColor = n.status === 'active' ? '#00ff88' : (n.status === 'pending' ? '#ffa500' : '#888');
+                const statusBg = n.status === 'active' ? 'rgba(0,255,136,0.1)' : (n.status === 'pending' ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.04)');
+                const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.6rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
+                const nickname = n.nickname ? '<span style="color:#888;font-size:.7rem;margin-left:4px;">(' + _esc(n.nickname) + ')</span>' : '';
+                const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
+                html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
+                html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + _esc(n.number_type || 'local') + '</span></div>';
+                html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
+                html += '<div class="numbers-col-voice" style="' + cellStyle + 'text-align:center;">' + voiceIcon + '</div>';
+                html += '<div class="numbers-col-sms" style="' + cellStyle + 'text-align:center;">' + smsIcon + '</div>';
+                html += '<div class="numbers-col-cnam" style="' + cellStyle + 'text-align:center;">' + cnamIcon + '</div>';
+                html += '<div class="numbers-col-menu" style="' + cellStyle + 'text-align:center;"><div class="dropdown" style="position:relative;display:inline-block;">' +
+                    '<button onclick="toggleNumMenu(this)" style="background:none;border:none;color:#888;cursor:pointer;font-size:.75rem;padding:6px 8px;"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+                    '<div class="num-menu" style="display:none;position:fixed;background:#1a1a2e;border:1px solid rgba(255,255,255,0.12);border-radius:6px;padding:4px 0;z-index:9999;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,0.6);">' +
+                    (!n.is_primary ? '<button onclick="setPrimaryNumber(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-star me-1" style="color:#ffa500;"></i>Set as Primary</button>' : '') +
+                    '<button onclick="promptNickname(\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ccc;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-pen me-1" style="color:#00d9ff;"></i>Edit Nickname</button>' +
+                    '<button onclick="releaseNumber(\'' + (n.sid || '') + '\',\'' + _esc(n.phone) + '\')" style="display:block;width:100%;text-align:left;padding:8px 12px;background:none;border:none;color:#ef4444;font-size:.78rem;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" onmouseout="this.style.background=\'none\'"><i class="fa-solid fa-trash me-1"></i>Release Number</button>' +
+                    '</div></div></div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            // Summary info
+            html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:6px;font-size:.72rem;color:#666;">' +
+                '<strong style="color:#aaa;">' + numbers.length + ' number' + (numbers.length !== 1 ? 's' : '') + '</strong> on your account. ' +
+                'STIR/SHAKEN is auto-managed. Register with carriers in the <strong style="color:#00d9ff;cursor:pointer;" onclick="switchVoiceSubtab(\'trusthub\')">Trust Hub</strong> tab to reduce spam flags.' +
+                '</div>';
+            container.innerHTML = html;
+        }
+
+        function toggleNumMenu(btn) {
+            document.querySelectorAll('.num-menu').forEach(m => { if (m !== btn.nextElementSibling) m.style.display = 'none'; });
+            const menu = btn.nextElementSibling;
+            if (menu.style.display !== 'none') { menu.style.display = 'none'; return; }
+            // Position using fixed coords so no overflow clipping
+            const rect = btn.getBoundingClientRect();
+            menu.style.display = 'block';
+            const menuH = menu.offsetHeight;
+            // Open upward if near bottom of viewport
+            if (rect.bottom + menuH > window.innerHeight - 20) {
+                menu.style.top = (rect.top - menuH) + 'px';
+            } else {
+                menu.style.top = rect.bottom + 'px';
+            }
+            menu.style.right = (window.innerWidth - rect.right) + 'px';
+            menu.style.left = 'auto';
+            const closer = (e) => { if (!btn.contains(e.target) && !menu.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', closer); } };
+            setTimeout(() => document.addEventListener('click', closer), 0);
+        }
+
+        async function toggleCNAM(numberId, enable) {
+            try {
+                const r = await fetch('/voice/numbers/' + numberId + '/cnam', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ enable: enable }) });
+                const d = await r.json();
+                if (r.ok) loadNumbersTab();
+                else alert(d.error || 'Failed to update CNAM');
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function setPrimaryNumber(phone) {
+            try {
+                const r = await fetch('/voice/numbers/set-primary', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone }) });
+                if (r.ok) { loadNumbersTab(); alert('Primary number set to ' + phone); }
+            } catch(e) { alert('Network error'); }
+        }
+
+        function promptNickname(phone) {
+            const current = (_numbersCache || []).find(n => n.phone === phone);
+            const name = prompt('Nickname for ' + phone + ':', current?.nickname || '');
+            if (name === null) return;
+            fetch('/voice/numbers/nickname', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone, nickname: name }) })
+                .then(r => { if (r.ok) loadNumbersTab(); })
+                .catch(() => alert('Network error'));
+        }
+
