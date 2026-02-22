@@ -983,7 +983,8 @@
         // Decode mulaw base64 → PCM and play via Web Audio API
         function _playMulawChunk(b64) {
             if (!_listenAudioCtx || _listenAudioCtx.state === 'closed') return;
-            // Resume if still suspended (e.g. autoplay policy)
+            if (_dialerMuted) return; // Muted: discard chunk (do NOT resume — that would undo the mute)
+            // Resume only for initial autoplay-policy unlock (not during intentional mute)
             if (_listenAudioCtx.state === 'suspended') { _listenAudioCtx.resume(); }
             try {
                 const raw = atob(b64);
@@ -1031,13 +1032,13 @@
             btn.querySelector('i').className = _dialerMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
             btn.querySelector('span').textContent = _dialerMuted ? 'Unmute AI' : 'Mute AI';
 
-            // Mute listen audio (speaker mode) — suspends/resumes the audio context
-            if (_listenAudioCtx && _listenAudioCtx.state !== 'closed') {
-                if (_dialerMuted) {
-                    _listenAudioCtx.suspend().catch(e => console.warn('[Listen] Suspend failed:', e));
-                } else {
-                    _listenAudioCtx.resume().catch(e => console.warn('[Listen] Resume failed:', e));
-                }
+            // Muting is handled by the _dialerMuted flag in _playMulawChunk — chunks are
+            // discarded rather than using AudioContext.suspend(), which is unreliable:
+            // suspend() gets overridden by _playMulawChunk's autoplay-unlock resume() call.
+            // When unmuting, reset the scheduled playback time so audio starts clean from
+            // "now" rather than playing a backlog of buffered-but-muted chunks.
+            if (!_dialerMuted) {
+                _listenNextTime = 0;
             }
         }
 
