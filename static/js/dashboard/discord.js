@@ -260,6 +260,8 @@ function openDiscordChannel(guildId, channelId, channelName, serverName) {
     document.getElementById('discordReplyText').placeholder = `Message #${channelName}…`;
 
     document.getElementById('discordPanel').classList.add('open');
+    document.body.classList.add('discord-open');
+    updateDiscordToggleBtn(true);
     fetchDiscordMessages(channelId, true);
     startDiscordPoll();
 }
@@ -267,6 +269,8 @@ function openDiscordChannel(guildId, channelId, channelName, serverName) {
 function openLastDiscordChannel() {
     if (Discord.activeChannelId) {
         document.getElementById('discordPanel').classList.add('open');
+        document.body.classList.add('discord-open');
+        updateDiscordToggleBtn(true);
         return;
     }
     const botServer = Discord.servers.find(s => s.bot_in_server);
@@ -275,9 +279,27 @@ function openLastDiscordChannel() {
 
 function closeDiscordPanel() {
     document.getElementById('discordPanel').classList.remove('open');
+    document.body.classList.remove('discord-open');
+    updateDiscordToggleBtn(false);
     stopDiscordPoll();
     document.querySelectorAll('.discord-channel-btn').forEach(b => b.classList.remove('active-channel'));
     Discord.activeChannelId = null;
+}
+
+function toggleDiscordPanel() {
+    const panel = document.getElementById('discordPanel');
+    if (panel.classList.contains('open')) {
+        closeDiscordPanel();
+    } else {
+        openLastDiscordChannel();
+    }
+}
+
+function updateDiscordToggleBtn(isOpen) {
+    const btn = document.getElementById('discordChatToggleBtn');
+    if (!btn) return;
+    btn.style.background = isOpen ? 'rgba(88,101,242,0.12)' : '';
+    btn.style.color = isOpen ? '#fff' : '#7289da';
 }
 
 // ─── Message Fetching ─────────────────────────────────────────────────────────
@@ -565,12 +587,23 @@ function updateChannelNotif(channelId, count) {
 function updateBell() {
     const bell  = document.getElementById('discordBellBtn');
     const badge = document.getElementById('discordBellBadge');
-    if (!bell) return;
-    if (Discord.totalUnread > 0) {
-        bell.classList.add('has-unread');
-        badge.textContent = Discord.totalUnread > 99 ? '99+' : Discord.totalUnread;
-    } else {
-        bell.classList.remove('has-unread');
+    if (bell) {
+        if (Discord.totalUnread > 0) {
+            bell.classList.add('has-unread');
+            if (badge) badge.textContent = Discord.totalUnread > 99 ? '99+' : Discord.totalUnread;
+        } else {
+            bell.classList.remove('has-unread');
+        }
+    }
+    // Also update the sidebar footer badge
+    const footerBadge = document.getElementById('discordFooterBadge');
+    if (footerBadge) {
+        if (Discord.totalUnread > 0) {
+            footerBadge.style.display = '';
+            footerBadge.textContent = Discord.totalUnread > 99 ? '99+' : Discord.totalUnread;
+        } else {
+            footerBadge.style.display = 'none';
+        }
     }
 }
 

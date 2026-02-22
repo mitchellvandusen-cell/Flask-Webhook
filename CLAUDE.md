@@ -1,0 +1,461 @@
+# CLAUDE.md — InsuranceGrokBot Flask-Webhook App
+
+## What This App Is
+
+**InsuranceGrokBot** is a white-label AI-powered SMS and voice bot platform specifically built for insurance agents. It connects to GoHighLevel (GHL/Lead Connector) CRM via OAuth, intercepts incoming webhook events (new leads, SMS messages, etc.), and uses xAI's Grok LLM to generate intelligent, context-aware replies — automatically sent back through Twilio as white-label SMS (users never see "Twilio" branding).
+
+The system is multi-tenant SaaS: each subscribing insurance agency gets their own isolated bot instance with their own phone numbers, carrier list, prompt configuration, and conversation history. It also supports agency owners managing multiple sub-accounts.
+
+---
+
+## Architecture Overview
+
+```
+Browser / GHL Webhook
+        │
+        ▼
+Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
+        │
+        ├── PostgreSQL (psycopg2 threaded pool, 2–20 connections)
+        ├── Redis + RQ (background job queues)
+        ├── Twilio (SMS send/receive, Voice, sub-accounts)
+        ├── xAI Grok API (LLM for text replies + Realtime API for voice)
+        ├── Stripe (subscriptions + AI Minutes usage billing)
+        ├── GoHighLevel OAuth (CRM data access)
+        └── Discord (embedded team chat in dashboard)
+```
+
+### Worker Architecture
+
+```
+Procfile:
+  web:           gunicorn main:app --threads 4
+  worker-prod-1..4: python worker.py production   (4 parallel RQ workers)
+  worker-demo:      python worker.py demo          (1 demo worker)
+```
+
+Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the core AI processing pipeline.
+
+---
+
+## Core Files
+
+| File | Purpose | Size |
+|------|---------|------|
+| `main.py` | Flask app — all HTTP routes, Redis/RQ setup, Flask-Login/Mail/Sock | ~6700 lines |
+| `db.py` | PostgreSQL layer — connection pool, all data access functions, schema | ~97KB |
+| `tasks.py` | Background job engine — AI pipeline, webhook processing | ~49KB |
+| `voice_bridge.py` | Twilio ↔ xAI Realtime voice WebSocket bridge | ~193KB |
+| `worker.py` | RQ worker startup script | small |
+| `api_v1.py` | External API blueprint (`/api/v1/`) — OpenAI-compatible | small |
+| `prompt.py` | System prompt builder for LLM context | medium |
+| `memory.py` | Contact memory/facts retrieval | medium |
+| `individual_profile.py` | Comprehensive contact profile builder | medium |
+| `contact_validator.py` | Contact ID validation/resolution | small |
+| `reply_sanitizer.py` | Sanitize/clean LLM replies before sending | small |
+| `llm_caller.py` | Clean LLM invocation wrapper | small |
+| `carrier_list.py` | 70+ insurance carriers list | small |
+| `sync_subscribers.py` | Syncs subscriber DB from external source at startup | small |
+| `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
+
+---
+
+## Environment Variables (`.env.example`)
+
+### Flask / Core
+- `SECRET_KEY` — Flask session secret
+- `DATABASE_URL` — PostgreSQL connection string
+- `REDIS_URL` — Redis connection (default: `redis://localhost:6379`)
+
+### GoHighLevel OAuth (CRM)
+- `GHL_CLIENT_ID`, `GHL_CLIENT_SECRET` — Public marketplace app credentials
+- `GHL_PRIVATE_CLIENT_ID`, `GHL_PRIVATE_CLIENT_SECRET` — Private/internal app credentials
+- `GHL_BASE_URL` — API base (default: `https://services.leadconnectorhq.com`)
+- `MARKETPLACE_WEBHOOK_SECRET` — Signature verification for GHL webhooks
+
+### AI / xAI Grok
+- `XAI_API_KEY` — xAI API key (used for both text and voice Realtime API)
+
+### Twilio
+- `TWILIO_MASTER_ACCOUNT_SID`, `TWILIO_MASTER_AUTH_TOKEN` — Master account (manages sub-accounts per user)
+- `TWILIO_API_KEY`, `TWILIO_API_SECRET` — For Twilio client tokens
+- `TWILIO_TWIML_APP_SID` — TwiML app for voice calls
+
+### Stripe
+- `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET` — For validating Stripe webhook events
+- `STRIPE_PRICE_ID` — Individual plan price ID
+- `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
+- `AI_MINUTES_PRICE_ID_*` — Usage-based AI minutes packages
+
+### Email
+- `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`
+- Supports: SendGrid, Mailgun, Gmail, or custom SMTP
+
+### Google Sheets (legacy backup)
+- `GOOGLE_SHEETS_CREDENTIALS` — JSON service account credentials
+- `GOOGLE_SHEETS_SPREADSHEET_ID` — Legacy data backup sheet ID
+
+### Discord
+- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` — Discord OAuth app credentials
+- `DISCORD_BOT_TOKEN` — Bot token for reading/posting messages
+- `DISCORD_REDIRECT_URI` — OAuth callback URL
+
+### Subscription
+- `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 97)
+
+---
+
+## Database Schema (17 tables)
+
+All tables created in `db.py`'s `init_db()` function:
+
+| Table | Purpose |
+|-------|---------|
+| `subscribers` | Master user table: `location_id` PK, email, OAuth tokens, config JSON, Stripe customer/subscription IDs |
+| `agency_billing` | Agency owner billing records |
+| `contact_messages` | Chat history per GHL contact |
+| `contact_facts` | NLP-extracted facts about contacts (spaCy) |
+| `processed_webhooks` | Webhook deduplication (idempotency) |
+| `contact_narratives` | AI-generated narrative summaries per contact |
+| `webhook_logs` | Activity/audit log per location |
+| `persistent_alerts` | Dashboard banner alerts (DB-backed, survive page reloads) |
+| `marketplace_installs` | GHL marketplace app install tracking |
+| `api_usage_logs` | External API key usage for rate limiting and analytics |
+| `call_history` | Voice call records |
+| `ai_minute_balances` | Per-user AI minute credit balance |
+| `ai_minute_purchases` | AI minutes purchase history |
+| `ai_minute_usage_logs` | AI minutes usage history |
+| `discord_connections` | Discord OAuth tokens per user |
+| `discord_servers` | Saved Discord servers per user (max 3) |
+| `discord_webhook_channels` | Webhook-connected Discord channels |
+
+### Database Connection Pool
+- `ThreadedConnectionPool` with semaphore queuing
+- `DB_POOL_MIN=2`, `DB_POOL_MAX=20`, `DB_POOL_WAITERS=500`, `DB_POOL_TIMEOUT=10s`
+- All DB calls use `get_db_connection()` / `return_db_connection()` — always return connections in `finally` blocks
+- Google Sheets legacy backup connection attempted at startup (non-fatal if fails)
+
+---
+
+## HTTP Routes (main.py)
+
+### Public / Marketing
+- `GET /` — Home page
+- `GET /comparison`, `/comparison/text-drip` — Comparison pages
+- `GET /getting-started` — Setup guide
+- `GET /reviews` — Reviews page (POST submits review)
+- `GET /contact`, `/privacy`, `/terms`, `/disclaimers`
+- `GET /faq`, `/integrations`, `/support`, `/setup-guide`
+- `GET /demo-chat` — Demo chatbot UI
+
+### Authentication
+- `GET|POST /register` — New user registration
+- `GET|POST /login` — User login (Flask-Login)
+- `GET /logout` — Logout
+- `GET|POST /forgot-password` — Password reset request
+- `GET|POST /reset-password/<token>` — Password reset (itsdangerous token, 1hr expiry)
+- `GET|POST /set-password` — Set password for claim-account flow
+- `GET|POST /claim-account` — Agency sub-user claim flow
+
+### Dashboard
+- `GET|POST /dashboard` — Main dashboard (requires login + active subscription)
+- `GET /onboarding-status` — Setup progress checklist
+- `POST /save-profile` — Save operator name/bio
+
+### GHL OAuth
+- `GET /oauth/initiate` — Start GHL OAuth flow (redirects to GHL authorization URL)
+- `GET /oauth/callback` — GHL OAuth callback (exchanges code for tokens, stores in DB)
+- `GET /oauth/loading` — Loading page while OAuth completes
+- `GET /refresh` — Manually refresh GHL OAuth tokens
+- `GET /app` — App landing page post-install
+
+### GHL Webhooks
+- `POST /webhook` — Main GHL webhook receiver (queues jobs via RQ)
+- `POST /webhook/app-installed` — GHL marketplace app install webhook
+
+### Stripe
+- `POST /stripe-webhook` — Stripe webhook handler (subscription lifecycle)
+- `GET /checkout` — Individual plan checkout
+- `GET /checkout/agency-starter` — Agency Starter checkout
+- `GET /checkout/agency-pro` — Agency Pro checkout
+- `GET /cancel` — Subscription cancelled page
+- `GET /success` — Subscription success page
+- `POST /create-portal-session` — Stripe billing portal
+
+### AI Minutes
+- `GET /ai-minutes/balance` — Check balance
+- `GET /ai-minutes/packages` — Available packages
+- `POST /ai-minutes/checkout` — Purchase AI minutes
+- `GET /ai-minutes/usage` — Usage history
+
+### API Endpoints (internal dashboard)
+- `GET /api/logs` — Activity logs (paginated)
+- `GET|POST /api/alerts` — Persistent alerts
+- `POST /api/alerts/<id>/dismiss` — Dismiss an alert
+- `GET|POST /api/save-config` — Save SMS bot configuration
+- `GET|POST /api/voice-config` — Voice configuration
+- `GET|POST /api/carriers` — Contracted carriers list
+- `GET|POST /api/bot-settings` — Bot settings (tone, behavior)
+- `POST /api/generate-key` — Generate external API key
+- `POST /api/revoke-key` — Revoke external API key
+- `POST /api/webhook-url` — Set outbound webhook URL
+- `GET /api/api-status` — Check external API status/usage
+- `GET /api/fetch-calendars` — Fetch GHL calendars
+- `GET|POST /api/integrations/save` — Save CRM integration settings
+- `POST /api/integrations/test` — Test CRM integration
+- `GET /api/onboarding-check` — Check onboarding completion status
+
+### Demo
+- `POST /demo/chat` — Demo chat endpoint
+- `POST /demo/init` — Initialize demo session
+- `POST /demo/reset` — Reset demo session
+- `POST /api/demo/reset` — API version of demo reset
+- `GET /get-logs` — Real-time demo logs SSE stream
+- `GET /download-transcript` — Download demo chat transcript
+
+### Discord
+- `GET /discord/connect` — Start Discord OAuth
+- `GET /discord/callback` — Discord OAuth callback
+- `GET /discord/disconnect` — Disconnect Discord
+- `GET /api/discord/status` — Discord connection status
+- `GET /api/discord/guilds` — User's Discord guilds
+- `GET /api/discord/bot-invite/<guild_id>` — Bot invite URL
+- `GET /api/discord/bot-check/<guild_id>` — Check if bot joined
+- `GET|POST /api/discord/servers` — Saved Discord servers
+- `GET /api/discord/channels/<guild_id>` — List channels
+- `GET|POST /api/discord/messages/<channel_id>` — Read/send messages
+
+### Admin (God Mode — ADMIN_EMAILS whitelist)
+- `GET /admin/god-mode` — Admin dashboard (view all subscribers)
+- `POST /admin/impersonate/<email>` — Impersonate a user
+- `POST /admin/revert` — Revert impersonation
+- `GET /admin/god-mode/logs/<location_id>` — View user's logs
+- `GET /admin/god-mode/subscriber/<location_id>` — View subscriber details
+- `GET|POST /api/admin/send-email` — Send admin email
+- `GET /api/admin/marketplace-installs` — View marketplace installs
+- `POST /api/admin/marketplace-installs/<id>/send-setup-email`
+- `POST /api/admin/marketplace-installs/send-all-setup-emails`
+- `GET|POST /api/admin/discover-installs` — Discover new installs
+
+### Agency
+- `GET|POST /agency-dashboard` — Agency owner dashboard
+- `GET|POST /agency-login` — Agency sub-user login
+- `POST /api/agency/invite-sub-user` — Invite sub-user
+- `POST /api/agency/resend-invite` — Resend invite email
+- `POST /api/agency/invite-all` — Invite all pending sub-users
+- `GET /api/agency/logs/<location_id>` — Agency member logs
+
+### Cron
+- `GET|POST /api/cron/send-reminders` — Send onboarding reminder emails
+
+### Website Bot
+- `POST /website-bot-webhook` — External website chatbot webhook
+
+### External API (Blueprint, api_v1.py)
+- `POST /api/v1/chat/completions` — OpenAI-compatible chat completions endpoint (Bearer token auth, 120 req/min rate limit)
+
+### Voice (Blueprint, voice_bridge.py)
+- Voice WebSocket routes for Twilio ↔ xAI Realtime API bridging
+
+---
+
+## Core Processing Pipeline (tasks.py)
+
+When a GHL webhook arrives at `POST /webhook`:
+1. Signature verification + deduplication (check `processed_webhooks` table)
+2. Job queued to RQ `production` or `demo` queue
+3. Worker runs `process_webhook_task()`
+4. Pipeline: fetch contact from GHL → load conversation history → extract facts (spaCy) → build system prompt → call xAI Grok API → sanitize reply → send SMS via Twilio → log everything
+
+### Key behaviors
+- Strict `contact_id` validation prevents cross-contamination between contacts
+- White-label SMS: Twilio sub-accounts mask Twilio branding from end users
+- AI Minutes: each LLM call deducts from the user's minute balance
+- Carrier awareness: bot knows only the carriers the agent has contracted
+
+---
+
+## Voice Bridge (voice_bridge.py)
+
+- **Flask Blueprint** `voice_bp` mounted in main.py
+- Bidirectional WebSocket bridge: Twilio mulaw 8kHz ↔ xAI PCM 16kHz
+- Audio pipeline: soxr resampling + audioop mulaw/PCM conversion + scipy Butterworth EQ
+- In-memory call tracking: `_active_calls`, `_transfer_requests`, `_call_listeners`
+- Supports real-time voice AI conversations using xAI's Realtime API
+
+---
+
+## External API (api_v1.py)
+
+- Mounted at `/api/v1/`
+- `POST /api/v1/chat/completions` — OpenAI-compatible format
+- Bearer token authentication with constant-time comparison (`hmac.compare_digest`)
+- Rate limit: `API_RATE_LIMIT_RPM` env var (default 120 req/min) using Redis sliding window
+- Per-key usage logged to `api_usage_logs` table
+
+---
+
+## Frontend (Dashboard)
+
+### Template Structure
+```
+templates/
+  dashboard.html              Main dashboard layout
+  dashboard/_head.html        <head>, all inline CSS (Discord, alerts, etc.)
+  dashboard/_topbar.html      Top bar with page title and controls
+  dashboard/_sidebar.html     Left collapsible sidebar with nav
+  dashboard/_alerts.html      Flash messages + persistent alert banners
+  dashboard/tabs/             Tab pane contents
+    config.html               SMS Bot configuration
+    voice.html                Voice configuration
+    dialer.html               Voice dialer
+    workflows.html            Automation workflows
+    connect.html              CRM connection guide
+    carriers.html             Contracted carriers picker
+    advanced.html             Advanced settings
+    aiminutes.html            AI Minutes balance/purchase
+    billing.html              Billing/subscription management
+    logs.html                 Activity logs
+  dashboard/modals/
+    discord_panel.html        Discord message panel (side panel)
+    discord_modal.html        Discord server picker modal
+    congrats.html             Congratulations overlay
+    save_overlay.html         Saving indicator overlay
+```
+
+### JavaScript Modules
+```
+static/js/dashboard/
+  sidebar.js        Sidebar nav, collapse, theme toggle
+  save_config.js    Config form save
+  alerts.js         Persistent alert loading/dismiss
+  logs.js           Activity log loading
+  connect_crm.js    CRM connection UI
+  voice.js          Voice config
+  dialer.js         Voice dialer
+  numbers.js        Phone number management
+  ai_minutes.js     AI Minutes UI
+  carriers.js       Carrier chip selection
+  advanced.js       Advanced settings
+  api_keys.js       External API key management
+  discord.js        Discord integration (all Discord UI logic)
+```
+
+### CSS
+- `static/css/style.css` — Global styles (1457 lines)
+- Inline `<style>` in `dashboard/_head.html` — All dashboard-specific styles including Discord panel, sidebar, alerts
+
+### Key CSS Variables
+```css
+--sidebar-width: 260px
+--sidebar-collapsed-width: 62px
+--accent: #00ff88
+--dark-bg: #050505
+```
+
+---
+
+## Discord Integration
+
+The dashboard embeds a Discord team chat panel:
+1. User connects Discord via OAuth (`/discord/connect`)
+2. User adds up to 3 Discord servers
+3. Bot must be invited to each server
+4. User clicks a channel in the sidebar → chat panel slides open
+5. Messages polled every 4 seconds; background poll every 45 seconds for unread notifications
+6. Users can read and reply to Discord messages without leaving the dashboard
+
+### Discord Panel Position
+- Fixed panel that slides out from the right side of the sidebar
+- Toggle: click a channel in the sidebar, or use the Discord bell button in the topbar
+- Dismissible with the X button in the panel header
+
+---
+
+## Security
+
+- **PII Redaction**: All logs have phone numbers and emails redacted via `PIIRedactionFilter`
+- **Flask-WTF CSRF**: All forms protected
+- **itsdangerous tokens**: Password reset tokens expire in 1 hour
+- **Constant-time comparison**: API key authentication uses `hmac.compare_digest`
+- **Admin whitelist**: `ADMIN_EMAILS` controls god-mode access
+- **Webhook signature verification**: GHL webhooks verified with `MARKETPLACE_WEBHOOK_SECRET`
+- **Stripe webhook signature**: Verified with `STRIPE_WEBHOOK_SECRET`
+- **Token-locked fields**: OAuth tokens hidden/readonly in UI after OAuth connection
+
+---
+
+## CRM Adapters
+
+The `crm_adapters/` directory contains a factory pattern with adapters for:
+- GoHighLevel (primary)
+- HubSpot
+- Salesforce
+- Pipedrive
+- Zoho
+- Insureio
+- Zapier
+
+---
+
+## Development Notes
+
+### Running Locally
+```bash
+# Install dependencies
+pip install -r requirements.txt
+python -m spacy download en_core_web_md
+
+# Set up .env (copy from .env.example)
+cp .env.example .env
+# Fill in required values
+
+# Start web server
+gunicorn main:app --threads 4
+
+# Start workers (in separate terminals)
+python worker.py production
+python worker.py demo
+```
+
+### Dependency Highlights
+- `flask`, `gunicorn`, `werkzeug`
+- `psycopg2-binary` — PostgreSQL driver
+- `redis`, `rq` — Background job queue
+- `flask-login`, `flask-wtf`, `flask-mail`, `flask-sock`
+- `openai` — Used with xAI base URL (`https://api.x.ai/v1`)
+- `spacy` + `en_core_web_md` — NLP for fact extraction
+- `stripe` — Billing
+- `twilio` — SMS and Voice
+- `soxr`, `scipy` — Audio resampling for voice bridge
+- `gspread`, `google-auth` — Legacy Google Sheets backup
+
+### Testing / Admin
+- God Mode: Log in with an email in `ADMIN_EMAILS`, then visit `/admin/god-mode`
+- User impersonation available in god mode
+- Demo chat available at `/demo-chat` (no auth required)
+
+### Key Patterns
+- All DB calls use `get_db_connection()` / `return_db_connection()` in try/finally
+- Redis reconnection: `ensure_redis()` auto-reconnects on failure
+- RQ jobs named `worker-{queue}-{uuid8}` for debugging
+- spaCy model loaded once at module level in `tasks.py`
+- `XAI_API_KEY` used with `OpenAI(api_key=..., base_url="https://api.x.ai/v1")`
+
+---
+
+## Carrier List
+
+`carrier_list.py` contains 70+ insurance carriers as `{"key": "...", "name": "..."}` dicts. The bot only references carriers the agent has selected in their dashboard. Used for both the chip picker UI and the AI system prompt context.
+
+---
+
+## Subscription Tiers
+
+- **Individual Plan**: Single agency user, standard features
+- **Agency Starter**: Agency owner + limited sub-users
+- **Agency Pro**: Agency owner + more sub-users + advanced features
+- **AI Minutes**: Add-on usage-based billing for AI voice processing
+
+Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard.
