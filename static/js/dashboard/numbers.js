@@ -1,3 +1,13 @@
+        // ===== LOCAL UTILITIES =====
+        function _esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+        function _fmtPhone(p) {
+            if (!p) return '';
+            const d = p.replace(/\D/g, '');
+            if (d.length === 11 && d[0] === '1') return '(' + d.substr(1,3) + ') ' + d.substr(4,3) + '-' + d.substr(7);
+            if (d.length === 10) return '(' + d.substr(0,3) + ') ' + d.substr(3,3) + '-' + d.substr(6);
+            return p;
+        }
+
         // ===== SPAM PROTECTION TAB =====
         async function loadTrustHubData() { loadSpamProtectionStatus(); }
 
@@ -223,4 +233,3 @@
             // Pre-load data so Numbers/Trust Hub tabs render instantly
             loadNumbersTab();
         });
-    </script>

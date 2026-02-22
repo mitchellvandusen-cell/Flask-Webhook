@@ -1,4 +1,3 @@
-    <script>
     (function() {
         const SEVERITY_MAP = {
             warning: { cls: 'alert-warning-persistent', icon: 'fa-triangle-exclamation' },
@@ -62,4 +61,3 @@
             .then(data => renderAlerts(data.alerts || []))
             .catch(() => {});
     })();
-    </script>
