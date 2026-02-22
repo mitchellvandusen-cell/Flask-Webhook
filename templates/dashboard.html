@@ -2500,11 +2500,11 @@
 
                                 <!-- Quick Replies Bar -->
                                 <div style="padding:8px 12px 4px;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;">
-                                    <!-- AI Draft Button -->
-                                    <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" title="Generate AI reply (InsuranceGrokBot)"
-                                        style="display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.08));border:1px solid rgba(0,217,255,0.3);color:#00d9ff;border-radius:14px;padding:6px 14px;font-size:0.84rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;">
-                                        <i class="fa-solid fa-robot" style="font-size:0.85rem;"></i>
-                                        <span id="dlrAiDraftLabel">AI Draft</span>
+                                    <!-- InsuranceGrokBot Reply Button -->
+                                    <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" title="Generate InsuranceGrokBot reply — click again for a new draft"
+                                        style="display:flex;align-items:center;gap:6px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,217,255,0.18),rgba(0,255,136,0.10));border:1px solid rgba(0,217,255,0.35);color:#00d9ff;border-radius:14px;padding:7px 16px;font-size:0.84rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;letter-spacing:0.2px;">
+                                        <i class="fa-solid fa-robot" style="font-size:0.88rem;"></i>
+                                        <span id="dlrAiDraftLabel">InsuranceGrokBot Reply</span>
                                     </button>
                                     <span style="font-size:0.75rem;color:#333;white-space:nowrap;flex-shrink:0;">|</span>
                                     <span style="font-size:0.78rem;color:#555;white-space:nowrap;flex-shrink:0;font-weight:600;">Quick:</span>
@@ -3717,7 +3717,7 @@
                 }
             } finally {
                 if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-                if (label) label.textContent = 'AI Draft';
+                if (label) label.textContent = 'InsuranceGrokBot Reply';
             }
         }
 
