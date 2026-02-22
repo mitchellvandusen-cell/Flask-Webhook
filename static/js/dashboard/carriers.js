@@ -1,4 +1,3 @@
-    <script>
     // Toggle carrier chip on click
     document.querySelectorAll('.carrier-chip').forEach(chip => {
         chip.addEventListener('click', function() {

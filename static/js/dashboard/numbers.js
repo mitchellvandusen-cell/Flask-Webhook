@@ -223,4 +223,3 @@
             // Pre-load data so Numbers/Trust Hub tabs render instantly
             loadNumbersTab();
         });
-    </script>
