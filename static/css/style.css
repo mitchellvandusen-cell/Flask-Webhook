@@ -324,7 +324,7 @@ footer a:hover { color: var(--accent); }
     display: flex; align-items: center; justify-content: center;
     font-weight: 900; font-size: 0.9rem; color: #000; flex-shrink: 0;
 }
-.sb-brand-text { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s, max-width 0.25s; max-width: 200px; }
+.sb-brand-text { font-weight: 800; font-size: 1rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s, max-width 0.25s; max-width: 200px; }
 .sb-toggle {
     margin-left: auto; flex-shrink: 0;
     background: none; border: none; color: #555; cursor: pointer;
@@ -355,37 +355,36 @@ footer a:hover { color: var(--accent); }
 .sb-section { margin-bottom: 4px; }
 .sb-section-header {
     display: flex; align-items: center; gap: 8px;
-    padding: 5px 16px; cursor: pointer;
-    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1.2px;
-    color: #444; font-weight: 700;
+    padding: 8px 16px; cursor: pointer;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.4px;
+    color: #666; font-weight: 800;
     user-select: none;
     white-space: nowrap; overflow: hidden;
     transition: color 0.2s;
 }
-.sb-section-header:hover { color: #666; }
-.sb-section-chevron { margin-left: auto; font-size: 0.55rem; transition: transform 0.2s; flex-shrink: 0; }
+.sb-section-header:hover { color: #999; }
+.sb-section-chevron { margin-left: auto; font-size: 0.6rem; transition: transform 0.2s; flex-shrink: 0; }
 .sb-section.open .sb-section-chevron { transform: rotate(180deg); }
 .sb-section-body { overflow: hidden; transition: max-height 0.25s ease; max-height: 0; }
-.sb-section.open .sb-section-body { max-height: 500px; }
+.sb-section.open .sb-section-body { max-height: 800px; }
 .sidebar.collapsed .sb-section-header span,
 .sidebar.collapsed .sb-section-chevron { display: none; }
-.sidebar.collapsed .sb-section-body { max-height: 500px; } /* always show in icon-only mode */
+.sidebar.collapsed .sb-section-body { max-height: 800px; } /* always show in icon-only mode */
 
 /* Nav items */
 .sb-nav-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 16px; cursor: pointer;
-    border-radius: 0; margin: 1px 6px;
-    border-radius: 8px;
-    font-size: 0.875rem; font-weight: 500; color: #666;
+    padding: 9px 16px; cursor: pointer;
+    border-radius: 8px; margin: 1px 6px;
+    font-size: 0.95rem; font-weight: 500; color: #888;
     white-space: nowrap; overflow: hidden;
     transition: background 0.15s, color 0.15s;
     text-decoration: none;
     border: none; background: none; width: calc(100% - 12px);
     text-align: left;
 }
-.sb-nav-item i { width: 18px; text-align: center; flex-shrink: 0; font-size: 0.85rem; }
-.sb-nav-item:hover { background: rgba(255,255,255,0.05); color: #ccc; }
+.sb-nav-item i { width: 18px; text-align: center; flex-shrink: 0; font-size: 0.9rem; }
+.sb-nav-item:hover { background: rgba(255,255,255,0.06); color: #ddd; }
 .sb-nav-item.active { background: rgba(0,255,136,0.08); color: var(--accent); font-weight: 600; }
 .sb-nav-item.active i { color: var(--accent); }
 .sb-nav-label { transition: opacity 0.2s; }
@@ -399,14 +398,14 @@ footer a:hover { color: var(--accent); }
 }
 .sb-footer-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 10px; border-radius: 8px;
-    font-size: 0.85rem; color: #555; cursor: pointer;
+    padding: 9px 10px; border-radius: 8px;
+    font-size: 0.9rem; color: #666; cursor: pointer;
     text-decoration: none; transition: background 0.15s, color 0.15s;
     white-space: nowrap; overflow: hidden;
     border: none; background: none; width: 100%; text-align: left;
 }
-.sb-footer-item:hover { background: rgba(255,255,255,0.05); color: #ccc; }
-.sb-footer-item i { width: 18px; text-align: center; flex-shrink: 0; }
+.sb-footer-item:hover { background: rgba(255,255,255,0.05); color: #ddd; }
+.sb-footer-item i { width: 18px; text-align: center; flex-shrink: 0; font-size: 0.9rem; }
 .sidebar.collapsed .sb-footer-item span { display: none; }
 .sidebar.collapsed .sb-footer-item { justify-content: center; }
 
@@ -439,12 +438,12 @@ footer a:hover { color: var(--accent); }
 /* Topbar */
 .dash-topbar {
     display: flex; align-items: center; gap: 16px;
-    padding: 10px 0 18px;
-    margin-bottom: 6px;
+    padding: 12px 0 20px;
+    margin-bottom: 8px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
 }
-.dash-topbar h1 { font-size: 1.35rem; font-weight: 700; margin: 0; }
-.dash-topbar .dash-subtitle { color: #555; font-size: 0.8rem; margin: 0; }
+.dash-topbar h1 { font-size: 1.55rem; font-weight: 800; margin: 0; }
+.dash-topbar .dash-subtitle { color: #666; font-size: 0.9rem; margin: 0; }
 .dash-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .dash-user-pill {
     display: flex; align-items: center; gap: 8px;
