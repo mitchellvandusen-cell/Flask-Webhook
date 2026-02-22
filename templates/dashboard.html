@@ -2036,6 +2036,33 @@
                     .dlr-tab-btn{background:none;border:none;color:#666;font-size:0.88rem;font-weight:600;padding:6px 12px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
                     .dlr-tab-btn.active{color:#00d9ff;border-bottom-color:#00d9ff;}
                     .dlr-tab-btn:hover{color:#aaa;}
+                    /* Thread UI */
+                    .dlr-date-sep{text-align:center;margin:14px 0 10px;user-select:none;}
+                    .dlr-date-sep span{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:2px 10px;font-size:0.65rem;color:#444;letter-spacing:0.3px;}
+                    .dlr-msg-row{display:flex;flex-direction:column;margin-bottom:3px;}
+                    .dlr-msg-row.outbound{align-items:flex-end;}
+                    .dlr-msg-row.inbound{align-items:flex-start;}
+                    .dlr-msg-row.outbound + .dlr-msg-row.inbound,
+                    .dlr-msg-row.inbound + .dlr-msg-row.outbound{margin-top:8px;}
+                    .dlr-bubble{max-width:86%;padding:8px 12px;border-radius:14px;font-size:0.855rem;line-height:1.45;word-break:break-word;position:relative;}
+                    .dlr-bubble.inbound{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);color:#ddd;border-bottom-left-radius:4px;}
+                    .dlr-bubble.outbound{background:rgba(0,180,80,0.14);border:1px solid rgba(0,255,136,0.14);color:#e8ffe8;border-bottom-right-radius:4px;}
+                    .dlr-bubble.outbound.pending{opacity:0.6;}
+                    .dlr-bubble.outbound.sent{background:rgba(0,180,80,0.17);border-color:rgba(0,255,136,0.2);}
+                    .dlr-msg-meta{display:flex;align-items:center;gap:5px;padding:2px 4px 0;font-size:0.6rem;color:#444;}
+                    .dlr-msg-row.outbound .dlr-msg-meta{justify-content:flex-end;}
+                    .dlr-type-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:3px;padding:1px 5px;font-size:0.58rem;color:#666;font-weight:700;letter-spacing:0.3px;}
+                    .dlr-status-icon{font-size:0.65rem;}
+                    .dlr-status-icon.sent{color:#00ff88;}
+                    .dlr-status-icon.pending{color:#888;}
+                    .dlr-status-icon.error{color:#ef4444;}
+                    /* Quick reply buttons */
+                    .dlr-qr-btn{background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.1);color:#5aa;border-radius:12px;padding:3px 9px;font-size:0.68rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s;}
+                    .dlr-qr-btn:hover{background:rgba(0,217,255,0.12);color:#00d9ff;}
+                    /* Char counter color states */
+                    .dlr-char-ok{color:#444;}
+                    .dlr-char-warn{color:#ffa500;}
+                    .dlr-char-danger{color:#ef4444;font-weight:700;}
                 </style>
 
                 <!-- Top Bar -->
@@ -2394,29 +2421,73 @@
                                 <button class="dlr-tab-btn" id="dlrTabRecordings" onclick="dialerSwitchHistoryTab('recordings')">Recordings</button>
                             </div>
                         </div>
-                        <!-- Messages Tab -->
+                        <!-- Messages Tab — Full Thread UI -->
                         <div id="dlrHistoryMessages" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-                            <!-- Scrollable message list -->
-                            <div id="dlrMessagesList" class="dlr-col-body" style="padding:10px;">
-                                <div style="text-align:center;padding:60px 20px;color:#333;">
-                                    <i class="fa-solid fa-comments" style="font-size:2rem;color:#1a1a2e;margin-bottom:10px;display:block;"></i>
-                                    <div style="color:#555;font-size:0.82rem;">Select a contact to view messages</div>
+
+                            <!-- Thread Header (shown after contact selected) -->
+                            <div id="dlrMsgHeader" style="display:none;flex-shrink:0;padding:8px 12px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:8px;">
+                                <div id="dlrMsgAvatar" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.2),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:#00d9ff;flex-shrink:0;">?</div>
+                                <div style="flex:1;min-width:0;">
+                                    <div id="dlrMsgContactName" style="font-weight:700;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+                                    <div id="dlrMsgContactPhone" style="font-size:0.68rem;color:#555;"></div>
+                                </div>
+                                <span style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
+                                <button onclick="dlrRefreshMessages()" title="Refresh thread" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#555;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:0.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dlrRefreshBtn">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+
+                            <!-- Scrollable Thread -->
+                            <div id="dlrMessagesList" class="dlr-col-body" style="padding:10px 10px 4px;">
+                                <!-- Empty state -->
+                                <div id="dlrMsgEmptyState" style="text-align:center;padding:60px 16px;">
+                                    <div style="width:48px;height:48px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                                        <i class="fa-solid fa-comments" style="font-size:1.2rem;color:#2a3a4a;"></i>
+                                    </div>
+                                    <div style="color:#444;font-size:0.82rem;font-weight:600;margin-bottom:4px;">No conversation yet</div>
+                                    <div style="color:#333;font-size:0.72rem;">Select a contact to view their thread</div>
                                 </div>
                             </div>
-                            <!-- SMS Composer (shown after contact selected) -->
-                            <div id="dlrSmsComposer" style="display:none;flex-shrink:0;padding:8px 10px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.25);">
-                                <div style="display:flex;gap:6px;align-items:flex-end;">
-                                    <textarea id="dlrSmsText" placeholder="Send a text message via GHL..." rows="2"
-                                        style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#fff;padding:7px 10px;border-radius:8px;font-size:0.85rem;resize:none;outline:none;line-height:1.4;"
-                                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
-                                    ></textarea>
+
+                            <!-- SMS Composer -->
+                            <div id="dlrSmsComposer" style="display:none;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);background:rgba(4,6,12,0.7);">
+
+                                <!-- Quick Replies Bar -->
+                                <div style="padding:5px 10px 0;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;">
+                                    <span style="font-size:0.62rem;color:#444;white-space:nowrap;flex-shrink:0;">Quick:</span>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Following up — did you have a chance to review the options I sent over?')">Follow-up</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Hi! I wanted to make sure you got everything you needed. Any questions?')">Check-in</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Ready to go over your coverage options when you are — just reply here to get started.')">Coverage</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Are you available for a quick 10-minute call today or tomorrow?')">Schedule</button>
+                                    <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Got your message! I\'ll look into that and get back to you shortly.')">On it</button>
+                                </div>
+
+                                <!-- Compose Row -->
+                                <div style="display:flex;gap:6px;align-items:flex-end;padding:6px 10px;">
+                                    <div style="flex:1;position:relative;">
+                                        <textarea id="dlrSmsText"
+                                            placeholder="Text message via GHL…   (Enter ↵ to send, Shift+Enter for new line)"
+                                            rows="1"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#fff;padding:9px 12px;border-radius:10px;font-size:0.85rem;resize:none;outline:none;line-height:1.45;max-height:100px;overflow-y:auto;transition:border-color 0.15s;"
+                                            oninput="dlrAutoGrow(this);dlrUpdateCharCount(this.value)"
+                                            onfocus="this.style.borderColor='rgba(0,217,255,0.3)'"
+                                            onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
+                                        ></textarea>
+                                    </div>
                                     <button onclick="dialerSendSms()" id="dlrSmsSendBtn"
-                                        style="background:linear-gradient(135deg,#00ff88,#00b36b);border:none;color:#000;border-radius:8px;padding:9px 14px;font-weight:700;font-size:0.9rem;cursor:pointer;flex-shrink:0;height:56px;"
-                                        title="Send SMS via GHL (Enter to send)">
-                                        <i class="fa-solid fa-paper-plane"></i>
+                                        title="Send SMS (Enter)"
+                                        style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;width:40px;height:40px;font-weight:900;font-size:0.95rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s;margin-bottom:1px;">
+                                        <i class="fa-solid fa-paper-plane" style="font-size:0.85rem;"></i>
                                     </button>
                                 </div>
-                                <div id="dlrSmsStatus" style="font-size:0.72rem;margin-top:4px;display:none;"></div>
+
+                                <!-- Footer: status + char counter -->
+                                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 7px;">
+                                    <div id="dlrSmsStatus" style="font-size:0.68rem;color:#555;min-height:14px;"></div>
+                                    <div id="dlrCharCount" style="font-size:0.68rem;color:#444;font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 160</div>
+                                </div>
+
                             </div>
                         </div>
                         <!-- Calls Tab -->
@@ -3348,11 +3419,98 @@
             }
         }
 
-        // ── Right panel: messages + call history for selected contact ──
-        // Track current contact for SMS sending
+        // ══════════════════════════════════════════════════════
+        // FULL-FEATURED SMS THREAD UI
+        // ══════════════════════════════════════════════════════
         let _dlrSmsContactId = null;
+        let _dlrSmsContactName = '';
+        let _dlrSmsContactPhone = '';
+
+        // ── Date separator helpers ──
+        function _dlrDateLabel(ts) {
+            if (!ts) return '';
+            const d = new Date(ts);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+            const msgDay = new Date(d); msgDay.setHours(0,0,0,0);
+            if (msgDay.getTime() === today.getTime()) return 'Today';
+            if (msgDay.getTime() === yesterday.getTime()) return 'Yesterday';
+            return d.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric'});
+        }
+        function _dlrTimeLabel(ts) {
+            if (!ts) return '';
+            return new Date(ts).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+        }
+        function _dlrIsSameDay(ts1, ts2) {
+            if (!ts1 || !ts2) return false;
+            const a = new Date(ts1), b = new Date(ts2);
+            return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+        }
+
+        // ── Message type badge ──
+        function _dlrTypeBadge(type) {
+            const icons = { SMS:'fa-message', Email:'fa-envelope', Call:'fa-phone', Note:'fa-note-sticky', Activity:'fa-bolt', TYPE_SMS:'fa-message', TYPE_EMAIL:'fa-envelope' };
+            const labels = { SMS:'SMS', Email:'Email', Call:'Call', Note:'Note', Activity:'Activity', TYPE_SMS:'SMS', TYPE_EMAIL:'Email' };
+            const label = labels[type] || (type ? type.replace('TYPE_','') : '');
+            if (!label || label === 'SMS') return ''; // SMS is the default — skip badge
+            const icon = icons[type] || 'fa-message';
+            return '<span class="dlr-type-badge"><i class="fa-solid ' + icon + '"></i> ' + dialerEsc(label) + '</span>';
+        }
+
+        // ── Render full thread ──
+        function _dlrRenderThread(msgs) {
+            if (!msgs.length) {
+                return '<div id="dlrMsgEmptyState" style="text-align:center;padding:50px 16px;">' +
+                    '<div style="width:44px;height:44px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">' +
+                    '<i class="fa-solid fa-comment-slash" style="font-size:1.1rem;color:#2a3a4a;"></i></div>' +
+                    '<div style="color:#555;font-size:0.8rem;font-weight:600;">No messages yet</div>' +
+                    '<div style="color:#3a3a4a;font-size:0.7rem;margin-top:3px;">Send the first one below</div></div>';
+            }
+            let html = '';
+            let lastDay = null;
+            msgs.forEach((m, i) => {
+                const isOut = m.role !== 'lead'; // outbound = bot/assistant/agent
+                const ts = m.timestamp || null;
+                const day = ts ? _dlrDateLabel(ts) : null;
+
+                // Date separator
+                if (day && day !== lastDay) {
+                    html += '<div class="dlr-date-sep"><span>' + dialerEsc(day) + '</span></div>';
+                    lastDay = day;
+                }
+
+                const timeLbl = _dlrTimeLabel(ts);
+                const typeBadge = _dlrTypeBadge(m.type || m.messageType || '');
+
+                html += '<div class="dlr-msg-row ' + (isOut ? 'outbound' : 'inbound') + '">';
+                html += '<div class="dlr-bubble ' + (isOut ? 'outbound sent' : 'inbound') + '">' + dialerEsc(m.text || '') + '</div>';
+                html += '<div class="dlr-msg-meta">';
+                if (typeBadge) html += typeBadge;
+                if (timeLbl) html += '<span>' + timeLbl + '</span>';
+                if (isOut) html += '<i class="fa-solid fa-check-double dlr-status-icon sent" title="Sent"></i>';
+                html += '</div>';
+                html += '</div>';
+            });
+            return html;
+        }
+
+        // ── Load contact messages ──
         async function dialerLoadContactMessages(contactId) {
             _dlrSmsContactId = contactId;
+            const c = dialerActiveContact;
+            _dlrSmsContactName = (c && (c.name || c.firstName)) || '';
+            _dlrSmsContactPhone = (c && c.phone) || '';
+
+            // Update thread header
+            const header = document.getElementById('dlrMsgHeader');
+            const avatar = document.getElementById('dlrMsgAvatar');
+            const nameEl = document.getElementById('dlrMsgContactName');
+            const phoneEl = document.getElementById('dlrMsgContactPhone');
+            if (header) header.style.display = 'flex';
+            if (avatar) avatar.textContent = (_dlrSmsContactName || '?')[0].toUpperCase();
+            if (nameEl) nameEl.textContent = _dlrSmsContactName || 'Contact';
+            if (phoneEl) phoneEl.textContent = formatPhone(_dlrSmsContactPhone);
+
             const msgPanel = document.getElementById('dlrMessagesList');
             const composer = document.getElementById('dlrSmsComposer');
             if (!msgPanel) return;
@@ -3360,28 +3518,19 @@
             if (composer) composer.style.display = 'none';
             try {
                 const r = await _fetchRetry('/voice/contact/' + contactId + '/messages', {}, { retries: 1, timeout: 15000, label: 'messages' });
-                if (!r.ok) { msgPanel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;font-size:.82rem;">Could not load messages</div>'; return; }
+                if (!r.ok) { msgPanel.innerHTML = '<div style="color:#888;padding:24px;text-align:center;font-size:.82rem;">Could not load messages</div>'; return; }
                 const d = await r.json();
                 const msgs = d.messages || [];
                 const calls = d.calls || [];
 
-                // Render messages
-                if (!msgs.length) {
-                    msgPanel.innerHTML = '<div style="text-align:center;padding:30px;color:#444;font-size:.82rem;"><i class="fa-solid fa-comments" style="font-size:1.5rem;color:#1a1a2e;margin-bottom:8px;display:block;"></i>No messages yet — be the first to send one below</div>';
-                } else {
-                    msgPanel.innerHTML = msgs.map(m => {
-                        const isLead = m.role === 'lead';
-                        const time = m.timestamp ? new Date(m.timestamp).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-                        return '<div style="display:flex;flex-direction:column;align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';margin-bottom:6px;">' +
-                            '<div class="dlr-msg-bubble ' + (isLead ? 'dlr-msg-lead' : 'dlr-msg-bot') + '">' + dialerEsc(m.text) + '</div>' +
-                            '<div style="font-size:.62rem;color:#555;padding:0 4px;">' + time + '</div>' +
-                        '</div>';
-                    }).join('');
-                    // Auto-scroll to bottom (newest messages)
-                    msgPanel.scrollTop = msgPanel.scrollHeight;
-                }
-                // Show SMS composer now that a contact is loaded
+                msgPanel.innerHTML = _dlrRenderThread(msgs);
+                msgPanel.scrollTop = msgPanel.scrollHeight;
+
+                // Show composer
                 if (composer) composer.style.display = 'block';
+                // Reset textarea
+                const ta = document.getElementById('dlrSmsText');
+                if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
 
                 // Render contact-specific call history in calls tab
                 const callPanel = document.getElementById('dialerHistoryList');
@@ -3425,7 +3574,78 @@
             if (tab === 'recordings') dialerLoadRecordings();
         }
 
-        // ── SMS Send via GHL ──
+        // ── SMS: textarea auto-grow ──
+        function dlrAutoGrow(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+        }
+
+        // ── SMS: character counter with segment math ──
+        function dlrUpdateCharCount(val) {
+            const len = (val || '').length;
+            const ccEl = document.getElementById('dlrCharCount');
+            if (!ccEl) return;
+            // SMS segment boundaries (GSM-7)
+            let limit, segments;
+            if (len <= 160) { limit = 160; segments = 1; }
+            else { segments = Math.ceil(len / 153); limit = segments * 153; }
+            const remaining = limit - len;
+            const segsText = segments > 1 ? ' · ' + segments + ' seg' : '';
+            ccEl.textContent = len + ' / ' + limit + segsText;
+            ccEl.className = len > limit - 10 ? 'dlr-char-danger' : len > limit - 30 ? 'dlr-char-warn' : 'dlr-char-ok';
+        }
+
+        // ── SMS: quick reply ──
+        function dlrSetQuickReply(text) {
+            const ta = document.getElementById('dlrSmsText');
+            if (!ta) return;
+            ta.value = text;
+            ta.focus();
+            dlrAutoGrow(ta);
+            dlrUpdateCharCount(text);
+        }
+
+        // ── SMS: refresh thread ──
+        async function dlrRefreshMessages() {
+            if (!_dlrSmsContactId) return;
+            const btn = document.getElementById('dlrRefreshBtn');
+            if (btn) { btn.style.pointerEvents = 'none'; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+            await dialerLoadContactMessages(_dlrSmsContactId);
+            if (btn) { btn.style.pointerEvents = ''; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i>'; }
+        }
+
+        // ── SMS: append optimistic sent bubble ──
+        function _dlrAppendSentBubble(msgPanel, text, pendingId) {
+            const timeLbl = _dlrTimeLabel(new Date());
+            const div = document.createElement('div');
+            div.className = 'dlr-msg-row outbound';
+            div.id = pendingId;
+            div.innerHTML = '<div class="dlr-bubble outbound pending" id="' + pendingId + '_bubble">' + dialerEsc(text) + '</div>' +
+                '<div class="dlr-msg-meta">' +
+                '<span>' + timeLbl + '</span>' +
+                '<i class="fa-solid fa-clock dlr-status-icon pending" id="' + pendingId + '_icon" title="Sending…"></i>' +
+                '</div>';
+            msgPanel.appendChild(div);
+            msgPanel.scrollTop = msgPanel.scrollHeight;
+        }
+
+        // ── SMS: mark sent bubble delivered ──
+        function _dlrMarkBubbleSent(pendingId) {
+            const bubble = document.getElementById(pendingId + '_bubble');
+            const icon = document.getElementById(pendingId + '_icon');
+            if (bubble) { bubble.classList.remove('pending'); bubble.classList.add('sent'); }
+            if (icon) { icon.className = 'fa-solid fa-check-double dlr-status-icon sent'; icon.title = 'Sent'; }
+        }
+
+        // ── SMS: mark sent bubble errored ──
+        function _dlrMarkBubbleError(pendingId) {
+            const bubble = document.getElementById(pendingId + '_bubble');
+            const icon = document.getElementById(pendingId + '_icon');
+            if (bubble) { bubble.style.borderColor = 'rgba(239,68,68,0.3)'; bubble.style.background = 'rgba(239,68,68,0.08)'; }
+            if (icon) { icon.className = 'fa-solid fa-circle-exclamation dlr-status-icon error'; icon.title = 'Failed to send'; }
+        }
+
+        // ── SMS Send via GHL (full implementation) ──
         let _smsSending = false;
         async function dialerSendSms() {
             if (_smsSending || !_dlrSmsContactId) return;
@@ -3437,9 +3657,24 @@
             const msg = textEl.value.trim();
             if (!msg) return;
 
+            // Validate length
+            if (msg.length > 1600) {
+                if (statusEl) { statusEl.textContent = 'Message too long (max 1600 chars)'; statusEl.style.color = '#ef4444'; }
+                return;
+            }
+
+            // Optimistic UI — append pending bubble immediately
+            const pendingId = 'sms_' + Date.now();
+            _dlrAppendSentBubble(msgPanel, msg, pendingId);
+
+            // Clear composer
+            textEl.value = '';
+            textEl.style.height = '';
+            dlrUpdateCharCount('');
+
             _smsSending = true;
-            if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
-            if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Sending...'; statusEl.style.color = '#888'; }
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
+            if (statusEl) { statusEl.textContent = 'Sending via GHL…'; statusEl.style.color = '#888'; }
 
             try {
                 const r = await _fetchRetry('/voice/contact/' + _dlrSmsContactId + '/send-sms', {
@@ -3449,29 +3684,29 @@
                 }, { retries: 1, timeout: 15000, label: 'send-sms' });
                 const d = await r.json();
                 if (r.ok) {
-                    textEl.value = '';
-                    if (statusEl) { statusEl.textContent = 'Sent!'; statusEl.style.color = 'var(--accent)'; }
-                    // Optimistically append message to conversation
-                    if (msgPanel) {
-                        const now = new Date().toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-                        const bubble = document.createElement('div');
-                        bubble.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;margin-bottom:6px;';
-                        bubble.innerHTML = '<div class="dlr-msg-bubble dlr-msg-bot">' + dialerEsc(msg) + '</div>' +
-                            '<div style="font-size:.62rem;color:#00ff88;padding:0 4px;">' + now + ' · You</div>';
-                        msgPanel.appendChild(bubble);
-                        msgPanel.scrollTop = msgPanel.scrollHeight;
-                    }
-                    setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.style.display = 'none'; } }, 3000);
+                    _dlrMarkBubbleSent(pendingId);
+                    if (statusEl) { statusEl.textContent = '✓ Delivered to GHL'; statusEl.style.color = '#00ff88'; }
+                    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
                 } else {
-                    if (statusEl) { statusEl.textContent = d.error || 'Send failed'; statusEl.style.color = '#ef4444'; }
-                    console.error('[SMS] Send failed:', d.error);
+                    _dlrMarkBubbleError(pendingId);
+                    const err = d.error || 'Send failed';
+                    if (statusEl) { statusEl.textContent = err; statusEl.style.color = '#ef4444'; }
+                    console.error('[SMS] Send failed:', err);
+                    // Restore text so agent can retry
+                    textEl.value = msg;
+                    dlrAutoGrow(textEl);
+                    dlrUpdateCharCount(msg);
                 }
             } catch(e) {
-                if (statusEl) { statusEl.textContent = 'Network error — try again'; statusEl.style.color = '#ef4444'; }
+                _dlrMarkBubbleError(pendingId);
+                if (statusEl) { statusEl.textContent = 'Network error — tap to retry'; statusEl.style.color = '#ef4444'; }
+                textEl.value = msg;
+                dlrAutoGrow(textEl);
+                dlrUpdateCharCount(msg);
                 console.error('[SMS] Network error:', e);
             } finally {
                 _smsSending = false;
-                if (sendBtn) { sendBtn.disabled = false; sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>'; }
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
             }
         }
 
