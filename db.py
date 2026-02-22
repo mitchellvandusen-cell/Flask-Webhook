@@ -902,6 +902,24 @@ def init_db() -> bool:
             """)
             cur_discord.execute("CREATE INDEX IF NOT EXISTS idx_discord_conn_email ON discord_connections(email)")
             cur_discord.execute("CREATE INDEX IF NOT EXISTS idx_discord_servers_email ON discord_servers(email)")
+            # Webhook-based channel connections (no bot required)
+            cur_discord.execute("""
+                CREATE TABLE IF NOT EXISTS discord_webhook_channels (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    guild_id TEXT NOT NULL,
+                    guild_name TEXT NOT NULL,
+                    guild_icon TEXT,
+                    channel_id TEXT NOT NULL,
+                    channel_name TEXT NOT NULL,
+                    webhook_id TEXT,
+                    webhook_token TEXT,
+                    webhook_url TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(email, channel_id)
+                )
+            """)
+            cur_discord.execute("CREATE INDEX IF NOT EXISTS idx_discord_wh_email ON discord_webhook_channels(email)")
             conn.commit()
             cur_discord.close()
             logger.info("✅ Migration: Discord integration tables ready")
@@ -2261,6 +2279,7 @@ def delete_discord_connection(email: str) -> bool:
         cur = conn.cursor()
         cur.execute("DELETE FROM discord_connections WHERE email = %s", (email,))
         cur.execute("DELETE FROM discord_servers WHERE email = %s", (email,))
+        cur.execute("DELETE FROM discord_webhook_channels WHERE email = %s", (email,))
         conn.commit()
         cur.close()
         return True
@@ -2315,5 +2334,100 @@ def get_discord_servers(email: str) -> list:
     except Exception as e:
         logger.error(f"get_discord_servers failed: {e}")
         return []
+    finally:
+        return_db_connection(conn)
+
+
+def save_discord_webhook_channel(email: str, guild_id: str, guild_name: str,
+                                  guild_icon: str, channel_id: str, channel_name: str,
+                                  webhook_id: str, webhook_token: str, webhook_url: str) -> bool:
+    """Upsert a webhook-connected Discord channel for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO discord_webhook_channels
+                (email, guild_id, guild_name, guild_icon, channel_id, channel_name,
+                 webhook_id, webhook_token, webhook_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (email, channel_id) DO UPDATE SET
+                guild_name    = EXCLUDED.guild_name,
+                guild_icon    = EXCLUDED.guild_icon,
+                channel_name  = EXCLUDED.channel_name,
+                webhook_id    = EXCLUDED.webhook_id,
+                webhook_token = EXCLUDED.webhook_token,
+                webhook_url   = EXCLUDED.webhook_url
+        """, (email, guild_id, guild_name, guild_icon, channel_id, channel_name,
+              webhook_id, webhook_token, webhook_url))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"save_discord_webhook_channel failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_discord_webhook_channels(email: str) -> list:
+    """Return all webhook-connected channels for a user, grouped by guild."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT guild_id, guild_name, guild_icon, channel_id, channel_name,
+                   webhook_id, webhook_url
+            FROM discord_webhook_channels
+            WHERE email = %s
+            ORDER BY guild_name, channel_name
+        """, (email,))
+        rows = cur.fetchall()
+        cur.close()
+        # Group by guild
+        guilds = {}
+        for r in rows:
+            gid = r["guild_id"]
+            if gid not in guilds:
+                guilds[gid] = {
+                    "guild_id": gid,
+                    "name": r["guild_name"],
+                    "icon": r["guild_icon"],
+                    "channels": [],
+                }
+            guilds[gid]["channels"].append({
+                "id": r["channel_id"],
+                "name": r["channel_name"],
+                "webhook_id": r["webhook_id"],
+                "webhook_url": r["webhook_url"],
+            })
+        return list(guilds.values())
+    except Exception as e:
+        logger.error(f"get_discord_webhook_channels failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def delete_discord_webhook_channel(email: str, channel_id: str) -> bool:
+    """Remove a single webhook-connected channel."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM discord_webhook_channels WHERE email = %s AND channel_id = %s",
+            (email, channel_id)
+        )
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"delete_discord_webhook_channel failed: {e}")
+        return False
     finally:
         return_db_connection(conn)

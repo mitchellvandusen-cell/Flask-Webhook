@@ -2,9 +2,8 @@
 const Discord = {
     connected: false,
     user: null,
-    servers: [],
-    guilds: [],
-    selectedGuilds: [],
+    servers: [],          // saved servers from DB [{guild_id, name, icon_url, bot_in_server}]
+    guilds: [],           // all user guilds from OAuth (shown in modal)
     activeGuildId: null,
     activeChannelId: null,
     activeChannelName: null,
@@ -15,6 +14,7 @@ const Discord = {
     pollTimer: null,
     sending: false,
     lastRendered: {},
+    botCheckTimers: {},   // polling timers per guild waiting for bot invite
 };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -31,7 +31,6 @@ function loadDiscordStatus() {
             Discord.servers = data.servers || [];
             renderDiscordServers(Discord.servers);
             document.getElementById('discordBellBtn').style.display = 'flex';
-            // Start passive background poll so bell badge updates even when panel is closed
             startBgNotifPoll();
         })
         .catch(() => {});
@@ -51,7 +50,6 @@ function showDiscordConnected(user, needsReauth) {
     }
     document.getElementById('discordUsername').textContent =
         user.global_name || user.username || 'Discord User';
-    // Show reconnect banner only when the session has truly expired and cannot be refreshed
     const reauthBanner = document.getElementById('discordReauthBanner');
     if (reauthBanner) reauthBanner.style.display = needsReauth ? 'block' : 'none';
 }
@@ -59,10 +57,11 @@ function showDiscordConnected(user, needsReauth) {
 // ─── Server list rendering ────────────────────────────────────────────────────
 function renderDiscordServers(servers) {
     const list = document.getElementById('discordServerList');
-    document.getElementById('discordServerCount').textContent = `${servers.length}/3 servers`;
+    document.getElementById('discordServerCount').textContent =
+        `${servers.length} server${servers.length !== 1 ? 's' : ''}`;
 
     if (!servers.length) {
-        list.innerHTML = '<div style="padding:6px 14px 10px;font-size:0.8rem;color:#444;line-height:1.5;">No servers added yet.<br>Click <strong style="color:#7289da;">Add</strong> to connect a work server.</div>';
+        list.innerHTML = '<div style="padding:6px 14px 10px;font-size:0.8rem;color:#444;line-height:1.5;">No servers added yet.<br>Click <strong style="color:#7289da;">+ Add Server</strong> to get started.</div>';
         return;
     }
 
@@ -70,44 +69,119 @@ function renderDiscordServers(servers) {
         const iconHtml = s.icon_url
             ? `<img src="${s.icon_url}" style="width:26px;height:26px;border-radius:7px;object-fit:cover;" alt="">`
             : `<div class="discord-server-icon">${(s.name || 'S')[0].toUpperCase()}</div>`;
+
+        const statusDot = s.bot_in_server
+            ? `<span title="Bot active" style="width:7px;height:7px;border-radius:50%;background:#00ff88;flex-shrink:0;"></span>`
+            : `<span title="Bot not in server" style="width:7px;height:7px;border-radius:50%;background:#f0a500;flex-shrink:0;"></span>`;
+
         return `
         <div class="discord-server-item" id="discordServer_${s.guild_id}">
-            <button class="discord-server-header" onclick="toggleDiscordServer('${s.guild_id}')">
+            <button class="discord-server-header" onclick="toggleDiscordServer('${s.guild_id}', ${s.bot_in_server})">
                 ${iconHtml}
                 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}</span>
+                ${statusDot}
                 <span class="discord-notif-count" id="srvNotif_${s.guild_id}" style="display:none;"></span>
-                <i class="fa-solid fa-chevron-right discord-server-chevron" style="font-size:0.5rem;color:#444;transition:transform 0.2s;margin-left:auto;"></i>
+                <i class="fa-solid fa-chevron-right discord-server-chevron" style="font-size:0.5rem;color:#444;transition:transform 0.2s;margin-left:4px;"></i>
             </button>
-            <div class="discord-channel-list" id="chList_${s.guild_id}">
-                ${skeletonChannels()}
-            </div>
+            <div class="discord-channel-list" id="chList_${s.guild_id}"></div>
         </div>`;
     }).join('');
 }
 
-function skeletonChannels() {
-    return [1,2,3].map(() => `
-        <div class="discord-ch-skel">
-            <div class="skel" style="width:12px;height:12px;border-radius:3px;flex-shrink:0;"></div>
-            <div class="skel skel-line" style="flex:1;height:10px;"></div>
-        </div>`).join('');
-}
-
-function toggleDiscordServer(guildId) {
+function toggleDiscordServer(guildId, botInServer) {
     const item = document.getElementById(`discordServer_${guildId}`);
     const isOpen = item.classList.contains('open');
+
+    // Collapse all
     document.querySelectorAll('.discord-server-item').forEach(el => {
         el.classList.remove('open');
         const ch = el.querySelector('.discord-server-chevron');
         if (ch) ch.style.transform = '';
     });
     if (isOpen) return;
+
     item.classList.add('open');
     const chevron = item.querySelector('.discord-server-chevron');
     if (chevron) chevron.style.transform = 'rotate(90deg)';
-    loadDiscordChannels(guildId);
+
+    if (botInServer) {
+        loadDiscordChannels(guildId);
+    } else {
+        showBotInvitePrompt(guildId);
+    }
 }
 
+// ─── Bot-not-in-server prompt ─────────────────────────────────────────────────
+function showBotInvitePrompt(guildId) {
+    const listEl = document.getElementById(`chList_${guildId}`);
+    listEl.innerHTML = `
+        <div style="padding:10px 12px;">
+            <div style="font-size:0.8rem;color:#aaa;margin-bottom:8px;line-height:1.5;">
+                <i class="fa-solid fa-robot" style="color:#f0a500;margin-right:5px;"></i>
+                The bot needs to join this server first.
+            </div>
+            <button onclick="inviteBotToServer('${guildId}')"
+                style="width:100%;background:#5865f2;border:none;color:#fff;border-radius:8px;
+                       padding:8px 12px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                <i class="fa-brands fa-discord me-1"></i>Invite Bot to Server
+            </button>
+            <div id="botWaitMsg_${guildId}" style="display:none;font-size:0.75rem;color:#555;margin-top:8px;text-align:center;">
+                <i class="fa-solid fa-spinner fa-spin me-1"></i>Waiting for bot to join…
+            </div>
+        </div>`;
+}
+
+function inviteBotToServer(guildId) {
+    fetch(`/api/discord/bot-invite/${guildId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert(data.error); return; }
+            // Open invite in new tab, then poll for bot joining
+            window.open(data.invite_url, '_blank', 'width=500,height=700');
+            const waitMsg = document.getElementById(`botWaitMsg_${guildId}`);
+            if (waitMsg) waitMsg.style.display = 'block';
+            startBotJoinPoll(guildId);
+        })
+        .catch(() => alert('Could not generate invite link.'));
+}
+
+function startBotJoinPoll(guildId) {
+    // Stop any existing poll for this guild
+    if (Discord.botCheckTimers[guildId]) {
+        clearInterval(Discord.botCheckTimers[guildId]);
+    }
+    let attempts = 0;
+    Discord.botCheckTimers[guildId] = setInterval(() => {
+        attempts++;
+        if (attempts > 60) { // 5 minutes max
+            clearInterval(Discord.botCheckTimers[guildId]);
+            return;
+        }
+        fetch(`/api/discord/bot-check/${guildId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.in_server) {
+                    clearInterval(Discord.botCheckTimers[guildId]);
+                    // Update local server record and reload channels
+                    Discord.servers = Discord.servers.map(s =>
+                        s.guild_id === guildId ? { ...s, bot_in_server: true } : s
+                    );
+                    renderDiscordServers(Discord.servers);
+                    // Re-open the server and load channels
+                    const item = document.getElementById(`discordServer_${guildId}`);
+                    if (item) {
+                        item.classList.add('open');
+                        const ch = item.querySelector('.discord-server-chevron');
+                        if (ch) ch.style.transform = 'rotate(90deg)';
+                        loadDiscordChannels(guildId);
+                    }
+                }
+            })
+            .catch(() => {});
+    }, 5000); // check every 5 seconds
+}
+
+// ─── Channel loading (bot token, via backend) ─────────────────────────────────
 function loadDiscordChannels(guildId) {
     const listEl = document.getElementById(`chList_${guildId}`);
     listEl.innerHTML = skeletonChannels();
@@ -115,17 +189,19 @@ function loadDiscordChannels(guildId) {
     fetch(`/api/discord/channels/${guildId}`)
         .then(r => r.json())
         .then(data => {
+            if (data.needs_invite) {
+                showBotInvitePrompt(guildId);
+                // Mark bot as not in server in local state
+                Discord.servers = Discord.servers.map(s =>
+                    s.guild_id === guildId ? { ...s, bot_in_server: false } : s
+                );
+                renderDiscordServers(Discord.servers);
+                return;
+            }
             if (data.error) {
-                const reconnectBtn = data.needs_reconnect
-                    ? `<a href="/discord/connect" class="dc-reconnect-btn"><i class="fa-brands fa-discord me-1"></i>Reconnect Discord</a>`
-                    : '';
-                const botBtn = data.needs_bot
-                    ? `<span class="dc-bot-hint"><i class="fa-solid fa-robot me-1"></i>Add <code>DISCORD_BOT_TOKEN</code> to your .env to enable channel access without scope restrictions.</span>`
-                    : '';
                 listEl.innerHTML = `<div class="dc-ch-error">
-                    <i class="fa-solid fa-triangle-exclamation" style="color:#f0a500;font-size:0.85rem;"></i>
+                    <i class="fa-solid fa-triangle-exclamation" style="color:#f0a500;"></i>
                     <span>${escapeHtml(data.error)}</span>
-                    ${reconnectBtn}${botBtn}
                 </div>`;
                 return;
             }
@@ -148,9 +224,17 @@ function loadDiscordChannels(guildId) {
         .catch(() => {
             listEl.innerHTML = `<div class="dc-ch-error">
                 <i class="fa-solid fa-wifi" style="color:#f0a500;"></i>
-                <span>Network error. Check your connection.</span>
+                <span>Network error loading channels.</span>
             </div>`;
         });
+}
+
+function skeletonChannels() {
+    return [1,2,3].map(() => `
+        <div class="discord-ch-skel">
+            <div class="skel" style="width:12px;height:12px;border-radius:3px;flex-shrink:0;"></div>
+            <div class="skel skel-line" style="flex:1;height:10px;"></div>
+        </div>`).join('');
 }
 
 // ─── Message Panel ────────────────────────────────────────────────────────────
@@ -185,7 +269,8 @@ function openLastDiscordChannel() {
         document.getElementById('discordPanel').classList.add('open');
         return;
     }
-    if (Discord.servers.length) toggleDiscordServer(Discord.servers[0].guild_id);
+    const botServer = Discord.servers.find(s => s.bot_in_server);
+    if (botServer) toggleDiscordServer(botServer.guild_id, true);
 }
 
 function closeDiscordPanel() {
@@ -204,14 +289,11 @@ function fetchDiscordMessages(channelId, initial) {
         .then(r => r.json())
         .then(data => {
             if (data.error) {
-                const extra = data.needs_reconnect
-                    ? `<br><a href="/discord/connect" style="color:#7289da;font-size:0.82rem;margin-top:6px;display:inline-block;"><i class="fa-brands fa-discord me-1"></i>Reconnect Discord</a>`
-                    : '';
                 messagesEl.innerHTML = `
                     <div class="discord-state-msg">
                         <div class="state-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
                         <span class="state-title">Couldn't load messages</span>
-                        <span class="state-sub">${escapeHtml(data.error)}${extra}</span>
+                        <span class="state-sub">${escapeHtml(data.error)}</span>
                     </div>`;
                 return;
             }
@@ -223,7 +305,7 @@ function fetchDiscordMessages(channelId, initial) {
                         <div class="discord-state-msg">
                             <div class="state-icon"><i class="fa-regular fa-comment-dots"></i></div>
                             <span class="state-title">No messages yet</span>
-                            <span class="state-sub">Be the first to say something in #${escapeHtml(channelName || channelId)}.</span>
+                            <span class="state-sub">Be the first to say something in #${escapeHtml(Discord.activeChannelName || channelId)}.</span>
                         </div>`;
                 } else {
                     messagesEl.innerHTML = '';
@@ -282,8 +364,8 @@ function appendDiscordMessage(msg, isNew, channelId) {
     if (ph) ph.remove();
     messagesEl.querySelectorAll('[data-skel]').forEach(el => el.remove());
 
-    const ts = msg.timestamp ? new Date(msg.timestamp) : null;
-    const tsMs = ts ? ts.getTime() : 0;
+    const ts    = msg.timestamp ? new Date(msg.timestamp) : null;
+    const tsMs  = ts ? ts.getTime() : 0;
     const timeStr = ts ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     const relStr  = ts ? relativeTime(msg.timestamp) : '';
     const isSelf  = Discord.user && msg.author_id === Discord.user.discord_id;
@@ -325,17 +407,15 @@ function appendDiscordMessage(msg, isNew, channelId) {
 
     const reactHtml = (msg.reactions || []).length ? `
         <div class="dc-reactions">${(msg.reactions || []).map(r =>
-            `<span class="dc-reaction" title="${r.count} reaction${r.count !== 1 ? 's' : ''}"><span class="dc-reaction-emoji">${escapeHtml(r.emoji)}</span><span class="dc-reaction-count">${r.count}</span></span>`
+            `<span class="dc-reaction"><span class="dc-reaction-emoji">${escapeHtml(r.emoji)}</span><span class="dc-reaction-count">${r.count}</span></span>`
         ).join('')}</div>` : '';
 
     div.innerHTML = `
         <div class="discord-msg-avatar-wrap">${avatarHtml}</div>
         <div class="discord-msg-body">
-            ${replyHtml}
-            ${metaHtml}
+            ${replyHtml}${metaHtml}
             ${msg.content ? `<div class="discord-msg-text">${renderDiscordMarkdown(msg.content)}</div>` : ''}
-            ${attachHtml}
-            ${reactHtml}
+            ${attachHtml}${reactHtml}
         </div>
         ${isContinued ? `<span class="discord-msg-hover-time" title="${escapeHtml(timeStr)}">${relStr}</span>` : ''}`;
 
@@ -355,25 +435,18 @@ function insertNewDivider(messagesEl) {
 function renderDiscordMarkdown(text) {
     if (!text) return '';
     let s = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    // Fenced code blocks
     s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, _l, code) =>
         `<pre class="dc-code-block"><code>${code.trim()}</code></pre>`);
-    // Inline code
     s = s.replace(/`([^`\n]+)`/g, '<code class="dc-inline-code">$1</code>');
-    // Bold italic, bold, italic
     s = s.replace(/\*\*\*([^*\n]+)\*\*\*/g, '<strong><em>$1</em></strong>');
     s = s.replace(/\*\*([^*\n]+)\*\*/g,   '<strong>$1</strong>');
     s = s.replace(/\*([^*\n]+)\*/g,        '<em>$1</em>');
     s = s.replace(/_([^_\n]+)_/g,          '<em>$1</em>');
-    // Strikethrough / underline / spoiler
     s = s.replace(/~~([^~\n]+)~~/g,        '<s>$1</s>');
     s = s.replace(/__([^_\n]+)__/g,        '<u>$1</u>');
     s = s.replace(/\|\|([^|]+)\|\|/g, '<span class="dc-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
-    // Block quote
     s = s.replace(/^&gt; (.+)/gm, '<div class="dc-blockquote">$1</div>');
-    // Bare URLs
     s = s.replace(/(https?:\/\/[^\s&<>"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="dc-link">$1</a>');
-    // Newlines (preserve pre blocks)
     s = s.replace(/<\/pre>\n/g, '</pre>');
     s = s.replace(/\n/g, '<br>');
     return s;
@@ -422,11 +495,9 @@ function stopDiscordPoll() {
 }
 
 // ─── Background Notification Poll ────────────────────────────────────────────
-// Runs at 45-second intervals even when the Discord panel is closed, so the
-// bell badge stays accurate without requiring an open channel.
 let _bgNotifTimer = null;
 function startBgNotifPoll() {
-    if (_bgNotifTimer) return; // already running
+    if (_bgNotifTimer) return;
     _bgNotifTimer = setInterval(_bgNotifTick, 45000);
 }
 function stopBgNotifPoll() {
@@ -434,13 +505,14 @@ function stopBgNotifPoll() {
 }
 function _bgNotifTick() {
     if (!Discord.connected) { stopBgNotifPoll(); return; }
-    // Skip when the main 4-second poll is already running (panel open) — it handles everything
     if (Discord.pollTimer) return;
     pollBackgroundChannels();
 }
 
 function pollBackgroundChannels() {
+    // Poll the first visible rendered channel button per server
     Discord.servers.forEach(srv => {
+        if (!srv.bot_in_server) return;
         const listEl = document.getElementById(`chList_${srv.guild_id}`);
         if (!listEl) return;
         listEl.querySelectorAll('.discord-channel-btn').forEach(btn => {
@@ -478,24 +550,20 @@ function updateChannelNotif(channelId, count) {
         el.textContent = count > 99 ? '99+' : count;
         btn.appendChild(el);
     }
-    if (Discord.servers) {
-        Discord.servers.forEach(srv => {
-            const total = Object.entries(Discord.channelUnread)
-                .filter(([id]) => {
-                    const chBtn = document.getElementById(`chBtn_${id}`);
-                    return chBtn && document.getElementById(`chList_${srv.guild_id}`)?.contains(chBtn);
-                })
-                .reduce((sum, [, n]) => sum + n, 0);
-            const srvBadge = document.getElementById(`srvNotif_${srv.guild_id}`);
-            if (srvBadge) {
-                srvBadge.style.display = total > 0 ? '' : 'none';
-                srvBadge.textContent = total > 99 ? '99+' : total;
-            }
-        });
-    }
+    Discord.servers.forEach(srv => {
+        const listEl = document.getElementById(`chList_${srv.guild_id}`);
+        if (!listEl) return;
+        const total = Array.from(listEl.querySelectorAll('.discord-channel-btn'))
+            .reduce((sum, b) => sum + (Discord.channelUnread[b.id.replace('chBtn_', '')] || 0), 0);
+        const srvBadge = document.getElementById(`srvNotif_${srv.guild_id}`);
+        if (srvBadge) {
+            srvBadge.style.display = total > 0 ? '' : 'none';
+            srvBadge.textContent = total > 99 ? '99+' : total;
+        }
+    });
 }
 function updateBell() {
-    const bell = document.getElementById('discordBellBtn');
+    const bell  = document.getElementById('discordBellBtn');
     const badge = document.getElementById('discordBellBadge');
     if (!bell) return;
     if (Discord.totalUnread > 0) {
@@ -510,7 +578,7 @@ function updateBell() {
 function sendDiscordMessage() {
     if (Discord.sending) return;
     const textEl = document.getElementById('discordReplyText');
-    const text = textEl.value.trim();
+    const text   = textEl.value.trim();
     if (!text || !Discord.activeChannelId) return;
 
     Discord.sending = true;
@@ -563,7 +631,7 @@ function openEmojiPicker() {
     setTimeout(() => { if (document.body.contains(tmp)) tmp.remove(); }, 500);
 }
 
-// ─── Toast Notifications ──────────────────────────────────────────────────────
+// ─── Toast ────────────────────────────────────────────────────────────────────
 function showDiscordToast(msg, type) {
     type = type || 'error';
     const panel = document.getElementById('discordPanel');
@@ -577,9 +645,9 @@ function showDiscordToast(msg, type) {
     setTimeout(() => { if (t.parentNode) t.remove(); }, 4000);
 }
 
-// ─── Server Modal ─────────────────────────────────────────────────────────────
+// ─── Server Modal (guild picker + bot-invite flow) ────────────────────────────
 function openServerModal() {
-    Discord.selectedGuilds = Discord.servers.map(s => s.guild_id);
+    Discord.guilds = [];
     document.getElementById('discordServerModal').classList.add('open');
     loadDiscordGuilds();
 }
@@ -597,12 +665,12 @@ function loadDiscordGuilds() {
         .then(r => r.json())
         .then(data => {
             if (data.error) {
-                const reconnectHtml = data.needs_reconnect
+                const reconnect = data.needs_reconnect
                     ? `<br><a href="/discord/connect" style="color:#7289da;font-size:0.82rem;margin-top:8px;display:inline-block;"><i class="fa-brands fa-discord me-1"></i>Reconnect Discord</a>`
                     : '';
                 listEl.innerHTML = `<div class="discord-state-msg" style="padding:20px;">
                     <div class="state-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                    <span class="state-sub">${escapeHtml(data.error)}${reconnectHtml}</span></div>`;
+                    <span class="state-sub">${escapeHtml(data.error)}${reconnect}</span></div>`;
                 return;
             }
             Discord.guilds = data.guilds || [];
@@ -614,6 +682,7 @@ function loadDiscordGuilds() {
                 <span class="state-sub">Couldn't load servers. Try reconnecting Discord.</span></div>`;
         });
 }
+
 function renderGuildModal() {
     const listEl = document.getElementById('discordGuildList');
     if (!Discord.guilds.length) {
@@ -623,58 +692,112 @@ function renderGuildModal() {
             <span class="state-sub">Make sure you're a member of at least one Discord server.</span></div>`;
         return;
     }
-    const atLimit = Discord.selectedGuilds.length >= 3;
+
+    const savedIds = new Set(Discord.servers.map(s => s.guild_id));
+
     listEl.innerHTML = Discord.guilds.map(g => {
-        const isSelected = Discord.selectedGuilds.includes(g.id);
-        const isDisabled = !isSelected && atLimit;
         const iconHtml = g.icon
             ? `<img src="https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64" class="discord-guild-icon" alt="">`
             : `<div class="discord-guild-icon">${(g.name || 'S')[0].toUpperCase()}</div>`;
+
+        const alreadySaved = savedIds.has(g.id);
+
+        if (g.bot_in_server) {
+            // Bot already in server — show add/added button
+            if (alreadySaved) {
+                return `
+                <div class="discord-guild-row" style="opacity:0.6;">
+                    ${iconHtml}
+                    <span class="discord-guild-name">${escapeHtml(g.name)}</span>
+                    <span style="font-size:0.75rem;color:#00ff88;margin-left:auto;"><i class="fa-solid fa-check me-1"></i>Added</span>
+                </div>`;
+            }
+            return `
+            <div class="discord-guild-row" id="guild_${g.id}" onclick="addServerFromModal('${g.id}','${escapeJs(g.name)}','${g.icon || ''}')">
+                ${iconHtml}
+                <span class="discord-guild-name">${escapeHtml(g.name)}</span>
+                <span style="font-size:0.75rem;color:#7289da;margin-left:auto;"><i class="fa-solid fa-plus me-1"></i>Add</span>
+            </div>`;
+        }
+
+        // Bot NOT in server — show invite button
         return `
-        <div class="discord-guild-row ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}"
-             id="guild_${g.id}"
-             onclick="${isDisabled ? '' : `toggleGuildSelect('${escapeJs(g.id)}')`}">
+        <div class="discord-guild-row" id="guild_${g.id}">
             ${iconHtml}
-            <span class="discord-guild-name">${escapeHtml(g.name)}</span>
-            ${isDisabled ? '<span style="font-size:0.72rem;color:#555;margin-left:auto;margin-right:4px;">3 max</span>' : ''}
-            <div class="discord-guild-check"><i class="fa-solid fa-check"></i></div>
+            <div style="flex:1;min-width:0;">
+                <div class="discord-guild-name">${escapeHtml(g.name)}</div>
+                <div style="font-size:0.72rem;color:#555;">Bot not in server</div>
+            </div>
+            <button onclick="inviteBotFromModal('${g.id}','${escapeJs(g.name)}','${g.icon || ''}')"
+                style="flex-shrink:0;background:#5865f2;border:none;color:#fff;border-radius:6px;
+                       padding:5px 10px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                <i class="fa-brands fa-discord me-1"></i>Invite Bot
+            </button>
         </div>`;
     }).join('');
 }
-function toggleGuildSelect(guildId) {
-    const idx = Discord.selectedGuilds.indexOf(guildId);
-    if (idx > -1) Discord.selectedGuilds.splice(idx, 1);
-    else { if (Discord.selectedGuilds.length >= 3) return; Discord.selectedGuilds.push(guildId); }
-    renderGuildModal();
-}
-function saveSelectedServers() {
-    const btn = document.getElementById('saveServersBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Saving…';
-    const selected = Discord.guilds
-        .filter(g => Discord.selectedGuilds.includes(g.id))
-        .map(g => ({ guild_id: g.id, name: g.name, icon: g.icon }));
+
+function addServerFromModal(guildId, guildName, guildIcon) {
+    const alreadyIn = Discord.servers.some(s => s.guild_id === guildId);
+    if (alreadyIn) return;
+
+    const newServer = { guild_id: guildId, name: guildName, guild_icon: guildIcon || null };
+    const updated   = [...Discord.servers.map(s => ({
+        guild_id: s.guild_id, name: s.name, guild_icon: s.icon || null
+    })), newServer];
+
     fetch('/api/discord/servers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servers: selected })
+        body: JSON.stringify({ servers: updated })
     })
     .then(r => r.json())
     .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i>Save Servers';
-        if (data.error) { showDiscordToast('Error: ' + data.error, 'warn'); return; }
+        if (data.error) { alert('Error: ' + data.error); return; }
         closeServerModal();
+        // Reload full status to get fresh bot_in_server flags
         fetch('/api/discord/status').then(r => r.json()).then(d => {
             Discord.servers = d.servers || [];
             renderDiscordServers(Discord.servers);
         });
     })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i>Save Servers';
-        showDiscordToast('Network error. Try again.', 'error');
-    });
+    .catch(() => alert('Network error saving server.'));
+}
+
+function inviteBotFromModal(guildId, guildName, guildIcon) {
+    fetch(`/api/discord/bot-invite/${guildId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert(data.error); return; }
+            window.open(data.invite_url, '_blank', 'width=500,height=700');
+
+            // Replace that row with a "waiting…" state
+            const row = document.getElementById(`guild_${guildId}`);
+            if (row) {
+                row.innerHTML = `
+                    <div class="discord-guild-icon">${(guildName || 'S')[0].toUpperCase()}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="discord-guild-name">${escapeHtml(guildName)}</div>
+                        <div style="font-size:0.72rem;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Waiting for bot to join…</div>
+                    </div>`;
+            }
+
+            // Poll until bot joins, then auto-add the server
+            let attempts = 0;
+            const timer = setInterval(() => {
+                if (++attempts > 60) { clearInterval(timer); return; }
+                fetch(`/api/discord/bot-check/${guildId}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.in_server) {
+                            clearInterval(timer);
+                            addServerFromModal(guildId, guildName, guildIcon);
+                        }
+                    })
+                    .catch(() => {});
+            }, 5000);
+        })
+        .catch(() => alert('Could not generate invite link.'));
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
