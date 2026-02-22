@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Allow microphone access when embedded in GHL iframe -->
+    <meta http-equiv="Permissions-Policy" content="microphone=*, camera=*, autoplay=*">
     <title>Dashboard | InsuranceGrokBot</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
@@ -606,159 +608,197 @@
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="brand-area" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 40px; letter-spacing: -0.5px;">
-            <span>Insurance<span class="text-accent">Grok</span>Bot</span>
+    <!-- ══════════════════════════════════════════
+         SIDEBAR (2026 Collapsible Design)
+         ══════════════════════════════════════════ -->
+    <div class="sidebar" id="mainSidebar">
+
+        <!-- Brand Row -->
+        <div class="sb-brand">
+            <div class="sb-brand-logo">G</div>
+            <span class="sb-brand-text">InsuranceGrokBot</span>
+            <button class="sb-toggle" onclick="toggleSidebar()" title="Collapse sidebar">
+                <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
+            </button>
         </div>
 
-        <div class="config-group" style="margin-bottom: 30px;">
-            <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 15px; font-weight: 700;">
-                System Params
-            </div>
+        <!-- Scrollable Nav -->
+        <div class="sb-scroll">
 
-            <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
-                <span class="tech-label" style="font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">LOCATION ID</span>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="tech-value">{{ form.location_id.data or 'Waiting...' }}</span>
-                    <button class="btn-mini-copy" onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy to Clipboard" style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">
-                        <i class="fa-solid fa-copy"></i>
+            <!-- ── PRIMARY NAV ── -->
+            <div class="sb-section open" id="sbSectionPrimary">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionPrimary')">
+                    <span>Workspace</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body">
+                    <button class="sb-nav-item active" id="sbnDialer" onclick="sidebarNavigate('voicedialer', this)">
+                        <i class="fa-solid fa-phone-volume"></i>
+                        <span class="sb-nav-label">Dialer</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnSmsConfig" onclick="sidebarNavigate('config', this)">
+                        <i class="fa-solid fa-comment-sms"></i>
+                        <span class="sb-nav-label">SMS Config</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnVoiceConfig" onclick="sidebarNavigate('voice', this)">
+                        <i class="fa-solid fa-phone"></i>
+                        <span class="sb-nav-label">Voice Config</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnWorkflows" onclick="sidebarNavigate('workflows', this)">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span class="sb-nav-label">Workflows</span>
                     </button>
                 </div>
             </div>
 
-            <div class="tech-readout no-select">
-                <span class="tech-label" style="font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">ACCESS TOKEN (SECURE)</span>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <input type="text"
-                           name="manual_access_token"
-                           value="{{ access_token_display }}"
-                           placeholder="Paste Token..."
-                           form="main-config-form"
-                           class="tech-value token-locked"
-                           style="background:transparent; border:none; width:100%; color: inherit; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;"
-                           {{ token_readonly }}>
+            <div class="sb-divider"></div>
 
-                    {% if token_readonly == 'readonly' %}
-                        <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
-                    {% else %}
-                        <i class="fa-solid fa-pen text-muted" style="font-size:0.8rem;"></i>
-                    {% endif %}
+            <!-- ── CRM & INTEGRATIONS ── -->
+            <div class="sb-section open" id="sbSectionCRM">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionCRM')">
+                    <span>Integrations</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
                 </div>
-                <div style="font-size:0.65rem; color:#555; margin-top:4px;">{{ expires_in_str }}</div>
-            </div>
-
-            <div class="tech-readout no-select">
-                <span class="tech-label" style="font-size: 0.7rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">REFRESH TOKEN (SECURE)</span>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <input type="text"
-                           name="manual_refresh_token"
-                           value="{{ refresh_token_display }}"
-                           placeholder="Paste Token..."
-                           form="main-config-form"
-                           class="tech-value token-locked"
-                           style="background:transparent; border:none; width:100%; color: inherit; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;"
-                           {{ token_readonly }}>
-
-                    {% if token_readonly == 'readonly' %}
-                        <i class="fa-solid fa-lock text-muted" style="font-size:0.8rem;"></i>
-                    {% else %}
-                        <i class="fa-solid fa-pen text-muted" style="font-size:0.8rem;"></i>
-                    {% endif %}
+                <div class="sb-section-body">
+                    <button class="sb-nav-item" id="sbnConnect" onclick="sidebarNavigate('connect', this)">
+                        <i class="fa-solid fa-plug"></i>
+                        <span class="sb-nav-label">Connect CRM</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnCarriers" onclick="sidebarNavigate('carriers', this)">
+                        <i class="fa-solid fa-building-columns"></i>
+                        <span class="sb-nav-label">Carriers</span>
+                    </button>
                 </div>
             </div>
 
-            {% if needs_oauth is defined and needs_oauth %}
-            <div class="mt-3" id="connectBtnWrap">
-                <a href="/oauth/initiate" class="btn btn-success w-100 connect-btn-pulse" id="connectBtn" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 10px; border-radius: 8px;">
-                    <i class="fa-brands fa-google me-2"></i>Connect Lead Connector
-                </a>
-                <div style="font-size: 0.7rem; color: var(--accent); margin-top: 8px; text-align: center; font-weight: 600;">
-                    <i class="fa-solid fa-arrow-up me-1"></i> Connect your CRM to activate bot
+            <div class="sb-divider"></div>
+
+            <!-- ── MORE (collapsed by default) ── -->
+            <div class="sb-section" id="sbSectionMore">
+                <div class="sb-section-header" onclick="toggleSbSection('sbSectionMore')">
+                    <span>More</span>
+                    <i class="fa-solid fa-chevron-down sb-section-chevron"></i>
+                </div>
+                <div class="sb-section-body">
+                    <button class="sb-nav-item" id="sbnAdvanced" onclick="sidebarNavigate('advanced', this)">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span class="sb-nav-label">Advanced Settings</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnAiMinutes" onclick="sidebarNavigate('aiminutes', this); loadAiMinutes();">
+                        <i class="fa-solid fa-clock"></i>
+                        <span class="sb-nav-label">AI Minutes</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnBilling" onclick="sidebarNavigate('billing', this)">
+                        <i class="fa-solid fa-credit-card"></i>
+                        <span class="sb-nav-label">Billing</span>
+                    </button>
+                    <button class="sb-nav-item" id="sbnLogs" onclick="sidebarNavigate('logs', this)">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span class="sb-nav-label">Activity Logs</span>
+                    </button>
+                    <a href="/onboarding-status" class="sb-nav-item">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span class="sb-nav-label">Setup Progress</span>
+                    </a>
                 </div>
             </div>
-            {% elif not access_token_display or access_token_display == '' %}
-            <div class="mt-3">
-                <a href="/oauth/initiate" class="btn btn-success w-100 connect-btn-pulse" style="background: linear-gradient(135deg, #00c853 0%, #00a843 100%); border: none; font-weight: 600; padding: 10px; border-radius: 8px;">
-                    <i class="fa-brands fa-google me-2"></i>Connect Lead Connector
-                </a>
-                <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 8px; text-align: center;">
-                    Link your Lead Connector account to activate bot
+
+            <div class="sb-divider"></div>
+
+            <!-- ── SYSTEM PARAMS (collapsible) ── -->
+            <div class="sb-params">
+                <div class="sb-params-header" onclick="toggleSbParams()">
+                    <i class="fa-solid fa-microchip" style="font-size:0.7rem;"></i>
+                    <span>System Params</span>
+                    <i class="fa-solid fa-chevron-down" id="sbParamsChevron" style="margin-left:auto;font-size:0.55rem;transition:transform 0.2s;"></i>
+                </div>
+                <div class="sb-params-body" id="sbParamsBody">
+                    <div style="padding:0 4px 8px;">
+                        <div class="tech-readout {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
+                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">LOCATION ID</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                <span class="tech-value" style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ form.location_id.data or 'Not set' }}</span>
+                                <button onclick="copyToClipboard('{{ form.location_id.data }}')" title="Copy" style="background:none;border:none;color:#555;cursor:pointer;flex-shrink:0;padding:2px;">
+                                    <i class="fa-solid fa-copy" style="font-size:0.7rem;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tech-readout no-select">
+                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">ACCESS TOKEN</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                <input type="text" name="manual_access_token" value="{{ access_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.72rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% endif %}
+                            </div>
+                            <div style="font-size:0.6rem;color:#444;margin-top:3px;">{{ expires_in_str }}</div>
+                        </div>
+                        <div class="tech-readout no-select">
+                            <span class="tech-label" style="font-size:0.65rem;color:#555;display:block;margin-bottom:3px;">REFRESH TOKEN</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                <input type="text" name="manual_refresh_token" value="{{ refresh_token_display }}" placeholder="Paste Token..." form="main-config-form" class="tech-value token-locked" style="background:transparent;border:none;width:100%;color:inherit;font-size:0.72rem;font-family:'JetBrains Mono',monospace;" {{ token_readonly }}>
+                                {% if token_readonly == 'readonly' %}<i class="fa-solid fa-lock" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% else %}<i class="fa-solid fa-pen" style="color:#555;font-size:0.65rem;flex-shrink:0;"></i>{% endif %}
+                            </div>
+                        </div>
+                        {% if needs_oauth is defined and needs_oauth %}
+                        <a href="/oauth/initiate" class="connect-btn-pulse" id="connectBtn" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                            <i class="fa-solid fa-link me-1"></i>Connect CRM
+                        </a>
+                        {% elif not access_token_display or access_token_display == '' %}
+                        <a href="/oauth/initiate" class="connect-btn-pulse" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                            <i class="fa-solid fa-link me-1"></i>Connect CRM
+                        </a>
+                        {% else %}
+                        <a href="/oauth/initiate" style="display:block;background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);color:#00b4ff;font-weight:600;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.75rem;margin-top:6px;">
+                            <i class="fa-solid fa-rotate me-1"></i>Reauthorize CRM
+                        </a>
+                        {% endif %}
+
+                        <!-- Operator Profile (hidden in collapsed sidebar) -->
+                        <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:#444;margin-bottom:8px;font-weight:700;">Profile</div>
+                            <input type="text" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#ccc;width:100%;padding:5px 0;margin-bottom:8px;font-size:0.82rem;outline:none;">
+                            <input type="hidden" id="phone" value="{{ profile.phone or '' }}">
+                            <textarea id="bio" rows="2" placeholder="Agent notes..." style="background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#ccc;width:100%;padding:5px 0;margin-bottom:8px;font-size:0.82rem;outline:none;resize:none;">{{ profile.bio }}</textarea>
+                            <button onclick="saveProfile()" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#888;border-radius:6px;padding:5px;font-size:0.75rem;cursor:pointer;">
+                                <i class="fa-solid fa-floppy-disk me-1"></i>Save Profile
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% else %}
-            <!-- Reauthorize: re-run OAuth to get fresh tokens -->
-            <div class="mt-3 d-flex gap-2">
-                <a href="/oauth/initiate" class="btn w-100" style="background: rgba(0,180,255,0.08); border: 1px solid rgba(0,180,255,0.25); color: #00b4ff; font-weight: 600; padding: 10px; border-radius: 8px;">
-                    <i class="fa-solid fa-rotate me-2"></i>Reauthorize CRM
-                </a>
-            </div>
-            <div style="font-size: 0.65rem; color: #666; margin-top: 6px; text-align: center;">
-                Re-run OAuth flow to get fresh access &amp; refresh tokens
-            </div>
-            {% endif %}
+
+        </div><!-- /sb-scroll -->
+
+        <!-- Sidebar Footer -->
+        <div class="sb-footer">
+            <a href="/support" class="sb-footer-item">
+                <i class="fa-solid fa-circle-question"></i>
+                <span>Support</span>
+            </a>
+            <a href="/" class="sb-footer-item">
+                <i class="fa-solid fa-house"></i>
+                <span>Homepage</span>
+            </a>
+            <a href="/logout" class="sb-footer-item" style="color:#ef4444;">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Sign Out</span>
+            </a>
         </div>
 
-        <div class="config-group" style="margin-bottom: 30px;">
-            <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 15px; font-weight: 700;">
-                Operator Profile
-            </div>
-
-            <input type="text" class="profile-input" id="user_name" placeholder="Full Name" value="{{ profile.full_name }}" style="background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: #fff; width: 100%; padding: 8px 0; margin-bottom: 15px;">
-
-            <input type="tel" class="profile-input" id="phone" placeholder="Phone Number" value="{{ profile.phone or '' }}" readonly style="background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: #fff; width: 100%; padding: 8px 0; margin-bottom: 15px;">
-
-            <textarea class="profile-input" id="bio" rows="2" placeholder="Agent Bio / Notes" style="background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: #fff; width: 100%; padding: 8px 0; margin-bottom: 15px;">{{ profile.bio }}</textarea>
-
-            <button class="btn btn-outline-light btn-sm w-100 mt-2" onclick="saveProfile()" style="border-radius:20px;">
-                <i class="fa-solid fa-floppy-disk me-2"></i> Save Profile
-            </button>
-        </div>
-
-        <div style="margin-top:auto;">
-            <div class="d-grid gap-2">
-                <a href="/" class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;">
-                    <i class="fa-solid fa-house me-2"></i>Homepage
-                </a>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('workflows')">
-                    <i class="fa-solid fa-diagram-project me-2"></i>Workflows Guide
-                </button>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('carriers')">
-                    <i class="fa-solid fa-building-columns me-2"></i>Assign Carriers
-                </button>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('connect')">
-                    <i class="fa-solid fa-plug me-2"></i>Connect / Integrations
-                </button>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('logs')">
-                    <i class="fa-solid fa-list-check me-2"></i>Logs
-                </button>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('advanced')">
-                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Advanced Settings
-                </button>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('aiminutes'); loadAiMinutes();">
-                    <i class="fa-solid fa-clock me-2"></i>AI Minutes
-                </button>
-                <button class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;" onclick="showSidebarTab('billing')">
-                    <i class="fa-solid fa-credit-card me-2"></i>Billing
-                </button>
-                <a href="/onboarding-status" class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;">
-                    <i class="fa-solid fa-list-check me-2"></i>Setup Progress
-                </a>
-                <a href="/support" class="btn btn-outline-light btn-sm" style="border:1px solid #444; border-radius: 20px;">
-                    <i class="fa-solid fa-circle-question me-2"></i>Support
-                </a>
-                <a href="/logout" class="btn btn-dark btn-sm" style="border:1px solid #333;">Sign Out</a>
-            </div>
-        </div>
-    </div>
+    </div><!-- /sidebar -->
 
     <div class="main-wrapper">
-        <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px;">
-            <div class="welcome-text">
-                <h1 style="font-weight: 700; margin: 0; font-size: 2.5rem;">Command Center</h1>
-                <p style="color: var(--text-secondary); margin: 0; font-size: 1.1rem;">Logged in as <span style="color:var(--accent);">{{ current_user.email }}</span></p>
-            </div>
+        <!-- ── Top Bar ── -->
+        <div class="dash-topbar">
             <div>
-                <div class="status-badge"><div class="dot"></div> System Active</div>
+                <h1 id="dashPageTitle">Dialer</h1>
+                <p class="dash-subtitle">InsuranceGrokBot Command Center</p>
+            </div>
+            <div class="dash-topbar-right">
+                <div class="status-badge"><div class="dot"></div> <span class="sb-nav-label">Active</span></div>
+                <div class="dash-user-pill">
+                    <div class="dash-avatar">{{ current_user.email[0].upper() }}</div>
+                    <span class="dash-user-email">{{ current_user.email }}</span>
+                </div>
             </div>
         </div>
 
@@ -829,17 +869,12 @@
             </div>
         </div>
         {% else %}
-        <!-- Normal Dashboard Content -->
-        <ul class="nav nav-tabs" id="dashTabs" role="tablist" style="border-bottom: 1px solid var(--glass-border); gap: 12px; margin-bottom: 30px; flex-wrap: wrap;">
-            <li class="nav-item">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button"><i class="fa-solid fa-phone-volume me-1"></i> Dialer</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#config" type="button"><i class="fa-solid fa-comment-sms me-1"></i> SMS Config</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#voice" type="button"><i class="fa-solid fa-phone me-1"></i> Voice Config</button>
-            </li>
+        <!-- Navigation now in sidebar — hidden tab triggers kept for Bootstrap compat -->
+        <!-- These are invisible; sidebarNavigate() calls .click() on them programmatically -->
+        <ul class="nav nav-tabs" id="dashTabs" role="tablist" style="display:none!important;" aria-hidden="true">
+            <li class="nav-item"><button class="nav-link active" id="tbDialer" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button" tabindex="-1"></button></li>
+            <li class="nav-item"><button class="nav-link" id="tbConfig" data-bs-toggle="tab" data-bs-target="#config" type="button" tabindex="-1"></button></li>
+            <li class="nav-item"><button class="nav-link" id="tbVoice" data-bs-toggle="tab" data-bs-target="#voice" type="button" tabindex="-1"></button></li>
         </ul>
 
         <div class="tab-content" id="dashTabsContent">
@@ -2249,7 +2284,7 @@
                 </div>
 
                 <!-- ═══ 3-Column Layout ═══ -->
-                <div class="dlr-3col-layout" style="display:flex;gap:8px;height:calc(100vh - 320px);min-height:500px;">
+                <div class="dlr-3col-layout" style="display:flex;gap:8px;height:calc(100vh - 260px);min-height:500px;">
 
                     <!-- ── LEFT: Contacts ── -->
                     <div class="dlr-col" style="width:30%;border-radius:12px;">
@@ -2360,10 +2395,28 @@
                             </div>
                         </div>
                         <!-- Messages Tab -->
-                        <div id="dlrHistoryMessages" class="dlr-col-body" style="padding:10px;">
-                            <div style="text-align:center;padding:60px 20px;color:#333;">
-                                <i class="fa-solid fa-comments" style="font-size:2rem;color:#1a1a2e;margin-bottom:10px;display:block;"></i>
-                                <div style="color:#555;font-size:0.82rem;">Select a contact to view messages</div>
+                        <div id="dlrHistoryMessages" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+                            <!-- Scrollable message list -->
+                            <div id="dlrMessagesList" class="dlr-col-body" style="padding:10px;">
+                                <div style="text-align:center;padding:60px 20px;color:#333;">
+                                    <i class="fa-solid fa-comments" style="font-size:2rem;color:#1a1a2e;margin-bottom:10px;display:block;"></i>
+                                    <div style="color:#555;font-size:0.82rem;">Select a contact to view messages</div>
+                                </div>
+                            </div>
+                            <!-- SMS Composer (shown after contact selected) -->
+                            <div id="dlrSmsComposer" style="display:none;flex-shrink:0;padding:8px 10px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.25);">
+                                <div style="display:flex;gap:6px;align-items:flex-end;">
+                                    <textarea id="dlrSmsText" placeholder="Send a text message via GHL..." rows="2"
+                                        style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#fff;padding:7px 10px;border-radius:8px;font-size:0.85rem;resize:none;outline:none;line-height:1.4;"
+                                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
+                                    ></textarea>
+                                    <button onclick="dialerSendSms()" id="dlrSmsSendBtn"
+                                        style="background:linear-gradient(135deg,#00ff88,#00b36b);border:none;color:#000;border-radius:8px;padding:9px 14px;font-weight:700;font-size:0.9rem;cursor:pointer;flex-shrink:0;height:56px;"
+                                        title="Send SMS via GHL (Enter to send)">
+                                        <i class="fa-solid fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                                <div id="dlrSmsStatus" style="font-size:0.72rem;margin-top:4px;display:none;"></div>
                             </div>
                         </div>
                         <!-- Calls Tab -->
@@ -2508,22 +2561,87 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // ── Sidebar tab switching (shows hidden tab-panes) ──
-        function showSidebarTab(tabId) {
-            // Deactivate all main tab buttons
-            document.querySelectorAll('#dashTabs .nav-link').forEach(b => b.classList.remove('active'));
-            // Hide all tab panes
-            document.querySelectorAll('#dashTabsContent > .tab-pane').forEach(p => {
-                p.classList.remove('show', 'active');
-            });
-            // Show the requested tab pane
-            const pane = document.getElementById(tabId);
-            if (pane) {
-                pane.classList.add('show', 'active');
+        // ══════════════════════════════════
+        // SIDEBAR NAVIGATION (2026)
+        // ══════════════════════════════════
+
+        // Page title map
+        const _pageTitles = {
+            voicedialer: 'Dialer', config: 'SMS Config', voice: 'Voice Config',
+            workflows: 'Workflows', connect: 'Connect CRM', carriers: 'Carriers',
+            advanced: 'Advanced Settings', aiminutes: 'AI Minutes',
+            billing: 'Billing', logs: 'Activity Logs',
+        };
+
+        // Map of tab IDs to sidebar nav button IDs
+        const _tabToBtn = {
+            voicedialer: 'sbnDialer', config: 'sbnSmsConfig', voice: 'sbnVoiceConfig',
+            workflows: 'sbnWorkflows', connect: 'sbnConnect', carriers: 'sbnCarriers',
+            advanced: 'sbnAdvanced', aiminutes: 'sbnAiMinutes', billing: 'sbnBilling', logs: 'sbnLogs',
+        };
+
+        function sidebarNavigate(tabId, btnEl) {
+            // Update active state on all sidebar nav items
+            document.querySelectorAll('.sb-nav-item').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+
+            // Update page title
+            const titleEl = document.getElementById('dashPageTitle');
+            if (titleEl) titleEl.textContent = _pageTitles[tabId] || 'Dashboard';
+
+            // For Bootstrap tabs (voicedialer, config, voice), trigger the BS tab
+            const bsTrigger = document.getElementById({ voicedialer:'tbDialer', config:'tbConfig', voice:'tbVoice' }[tabId]);
+            if (bsTrigger) {
+                bsTrigger.click();
+                return;
             }
-            // Special actions
+
+            // For custom tab panes (workflows, logs, etc.)
+            document.querySelectorAll('#dashTabs .nav-link').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#dashTabsContent > .tab-pane').forEach(p => p.classList.remove('show', 'active'));
+            const pane = document.getElementById(tabId);
+            if (pane) pane.classList.add('show', 'active');
             if (tabId === 'logs') loadLogs();
         }
+
+        // Legacy compat — kept for any code that still calls showSidebarTab()
+        function showSidebarTab(tabId) {
+            const btnId = _tabToBtn[tabId];
+            const btnEl = btnId ? document.getElementById(btnId) : null;
+            sidebarNavigate(tabId, btnEl);
+        }
+
+        // Sidebar collapse toggle
+        function toggleSidebar() {
+            const sb = document.getElementById('mainSidebar');
+            const icon = document.getElementById('sbToggleIcon');
+            sb.classList.toggle('collapsed');
+            const isCollapsed = sb.classList.contains('collapsed');
+            if (icon) icon.className = isCollapsed ? 'fa-solid fa-bars' : 'fa-solid fa-bars';
+            localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+        }
+
+        // Collapsible section toggle
+        function toggleSbSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            if (section) section.classList.toggle('open');
+        }
+
+        // Collapsible system params toggle
+        function toggleSbParams() {
+            const body = document.getElementById('sbParamsBody');
+            const chevron = document.getElementById('sbParamsChevron');
+            if (body) body.classList.toggle('open');
+            if (chevron) chevron.style.transform = body && body.classList.contains('open') ? 'rotate(180deg)' : '';
+        }
+
+        // Restore sidebar state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (localStorage.getItem('sidebar_collapsed') === '1') {
+                const sb = document.getElementById('mainSidebar');
+                if (sb) sb.classList.add('collapsed');
+            }
+        });
 
         // ── Dialer settings panel toggle ──
         function toggleDialerSettings() {
@@ -3231,9 +3349,15 @@
         }
 
         // ── Right panel: messages + call history for selected contact ──
+        // Track current contact for SMS sending
+        let _dlrSmsContactId = null;
         async function dialerLoadContactMessages(contactId) {
-            const msgPanel = document.getElementById('dlrHistoryMessages');
+            _dlrSmsContactId = contactId;
+            const msgPanel = document.getElementById('dlrMessagesList');
+            const composer = document.getElementById('dlrSmsComposer');
+            if (!msgPanel) return;
             msgPanel.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i></div>';
+            if (composer) composer.style.display = 'none';
             try {
                 const r = await _fetchRetry('/voice/contact/' + contactId + '/messages', {}, { retries: 1, timeout: 15000, label: 'messages' });
                 if (!r.ok) { msgPanel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;font-size:.82rem;">Could not load messages</div>'; return; }
@@ -3243,7 +3367,7 @@
 
                 // Render messages
                 if (!msgs.length) {
-                    msgPanel.innerHTML = '<div style="text-align:center;padding:30px;color:#444;font-size:.82rem;"><i class="fa-solid fa-comments" style="font-size:1.5rem;color:#1a1a2e;margin-bottom:8px;display:block;"></i>No messages yet</div>';
+                    msgPanel.innerHTML = '<div style="text-align:center;padding:30px;color:#444;font-size:.82rem;"><i class="fa-solid fa-comments" style="font-size:1.5rem;color:#1a1a2e;margin-bottom:8px;display:block;"></i>No messages yet — be the first to send one below</div>';
                 } else {
                     msgPanel.innerHTML = msgs.map(m => {
                         const isLead = m.role === 'lead';
@@ -3253,7 +3377,11 @@
                             '<div style="font-size:.62rem;color:#555;padding:0 4px;">' + time + '</div>' +
                         '</div>';
                     }).join('');
+                    // Auto-scroll to bottom (newest messages)
+                    msgPanel.scrollTop = msgPanel.scrollHeight;
                 }
+                // Show SMS composer now that a contact is loaded
+                if (composer) composer.style.display = 'block';
 
                 // Render contact-specific call history in calls tab
                 const callPanel = document.getElementById('dialerHistoryList');
@@ -3282,15 +3410,69 @@
             }
         }
 
-        // ── History tab switching (Trust Hub removed — now in Voice tab) ──
+        // ── History tab switching ──
         function dialerSwitchHistoryTab(tab) {
+            // Messages tab uses flex, others use block
+            const displays = { messages: 'flex', calls: 'block', recordings: 'block' };
             const tabs = {messages:'Messages', calls:'Calls', recordings:'Recordings'};
             Object.keys(tabs).forEach(t => {
-                document.getElementById('dlrHistory' + tabs[t]).style.display = t === tab ? 'block' : 'none';
-                document.getElementById('dlrTab' + tabs[t]).className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
+                const el = document.getElementById('dlrHistory' + tabs[t]);
+                if (el) el.style.display = t === tab ? (displays[t] || 'block') : 'none';
+                const btn = document.getElementById('dlrTab' + tabs[t]);
+                if (btn) btn.className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
             });
             if (tab === 'calls') dialerLoadAllCallHistory();
             if (tab === 'recordings') dialerLoadRecordings();
+        }
+
+        // ── SMS Send via GHL ──
+        let _smsSending = false;
+        async function dialerSendSms() {
+            if (_smsSending || !_dlrSmsContactId) return;
+            const textEl = document.getElementById('dlrSmsText');
+            const statusEl = document.getElementById('dlrSmsStatus');
+            const sendBtn = document.getElementById('dlrSmsSendBtn');
+            const msgPanel = document.getElementById('dlrMessagesList');
+            if (!textEl) return;
+            const msg = textEl.value.trim();
+            if (!msg) return;
+
+            _smsSending = true;
+            if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+            if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Sending...'; statusEl.style.color = '#888'; }
+
+            try {
+                const r = await _fetchRetry('/voice/contact/' + _dlrSmsContactId + '/send-sms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                }, { retries: 1, timeout: 15000, label: 'send-sms' });
+                const d = await r.json();
+                if (r.ok) {
+                    textEl.value = '';
+                    if (statusEl) { statusEl.textContent = 'Sent!'; statusEl.style.color = 'var(--accent)'; }
+                    // Optimistically append message to conversation
+                    if (msgPanel) {
+                        const now = new Date().toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+                        const bubble = document.createElement('div');
+                        bubble.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;margin-bottom:6px;';
+                        bubble.innerHTML = '<div class="dlr-msg-bubble dlr-msg-bot">' + dialerEsc(msg) + '</div>' +
+                            '<div style="font-size:.62rem;color:#00ff88;padding:0 4px;">' + now + ' · You</div>';
+                        msgPanel.appendChild(bubble);
+                        msgPanel.scrollTop = msgPanel.scrollHeight;
+                    }
+                    setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.style.display = 'none'; } }, 3000);
+                } else {
+                    if (statusEl) { statusEl.textContent = d.error || 'Send failed'; statusEl.style.color = '#ef4444'; }
+                    console.error('[SMS] Send failed:', d.error);
+                }
+            } catch(e) {
+                if (statusEl) { statusEl.textContent = 'Network error — try again'; statusEl.style.color = '#ef4444'; }
+                console.error('[SMS] Network error:', e);
+            } finally {
+                _smsSending = false;
+                if (sendBtn) { sendBtn.disabled = false; sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>'; }
+            }
         }
 
         // ── Contact actions from middle panel ──
@@ -3745,6 +3927,8 @@
         }
 
         // ── Takeover / Human Intercept: agent barges into AI call ──
+        // Flag signals VoIP incoming handler to auto-accept this intercept call
+        let _takingOver = false;
         async function dialerTakeover() {
             if (!dialerCallSid || document.getElementById('dialerTakeoverBtn').disabled) return;
             const btn = document.getElementById('dialerTakeoverBtn');
@@ -3753,9 +3937,28 @@
             const statusEl = document.getElementById('dialerCallStatus');
             if (statusEl) { statusEl.textContent = 'Intercepting...'; statusEl.style.color = '#ffa500'; }
             try {
-                // Prefer VoIP (browser) intercept when device is registered
-                const useVoip = !!(voipReady && voipDevice);
-                console.log('[Dialer] Intercept: use_voip=' + useVoip);
+                // Always use VoIP for browser intercept — initialize device if needed
+                let useVoip = false;
+                if (voipReady && voipDevice) {
+                    useVoip = true;
+                } else if (voipSetupDone && !_voipInitializing) {
+                    // VoIP is configured but not yet connected — init it now
+                    if (statusEl) statusEl.textContent = 'Connecting VoIP...';
+                    await initVoIPDevice();
+                    // Wait up to 6s for registration
+                    for (let i = 0; i < 12; i++) {
+                        if (voipReady) break;
+                        await new Promise(res => setTimeout(res, 500));
+                    }
+                    useVoip = !!voipReady;
+                } else if (!voipSetupDone) {
+                    // VoIP not configured — fall back to phone transfer
+                    useVoip = false;
+                }
+
+                // Set flag so incoming handler auto-accepts this specific intercept call
+                if (useVoip) _takingOver = true;
+                console.log('[Dialer] Intercept: use_voip=' + useVoip + ' voipReady=' + voipReady);
 
                 const r = await _fetchRetry('/voice/takeover', {
                     method: 'POST',
@@ -3768,18 +3971,24 @@
                     btn.style.color = 'var(--accent)';
                     btn.style.borderColor = 'rgba(0,255,136,0.3)';
                     btn.style.background = 'rgba(0,255,136,0.08)';
-                    if (statusEl) { statusEl.textContent = 'You are now on the call'; statusEl.style.color = 'var(--accent)'; }
+                    if (statusEl) { statusEl.textContent = useVoip ? 'You are now on the call (browser)' : 'Call transferred to your phone'; statusEl.style.color = 'var(--accent)'; }
+                    // Enable mic mute button now
+                    const muteMicBtn = document.getElementById('dialerMuteMicBtn');
+                    if (muteMicBtn) { muteMicBtn.disabled = false; muteMicBtn.style.cursor = 'pointer'; }
                 } else {
-                    alert(d.error || 'Intercept failed');
+                    _takingOver = false;
+                    const errMsg = d.error || 'Intercept failed';
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
-                    if (statusEl) { statusEl.textContent = 'Intercept failed'; statusEl.style.color = '#ef4444'; }
+                    if (statusEl) { statusEl.textContent = errMsg; statusEl.style.color = '#ef4444'; }
+                    console.error('[Intercept] Failed:', errMsg);
                 }
             } catch(e) {
-                alert('Network error during intercept');
+                _takingOver = false;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-hand"></i><span>Intercept</span>';
-                if (statusEl) { statusEl.textContent = 'Network error'; statusEl.style.color = '#ef4444'; }
+                if (statusEl) { statusEl.textContent = 'Network error — try again'; statusEl.style.color = '#ef4444'; }
+                console.error('[Intercept] Network error:', e);
             }
         }
 
@@ -4352,23 +4561,40 @@
                     }
                 });
 
-                // Handle incoming calls (e.g. when backend bridges a human-mode call to the browser)
+                // Handle incoming calls (agent intercept OR human dialer mode)
                 voipDevice.on('incoming', (call) => {
-                    console.log('[VoIP] Incoming call from:', call.parameters?.From || 'unknown');
-                    // Auto-accept incoming calls when in human dialer mode
-                    if (dialerMode === 'human') {
-                        console.log('[VoIP] Auto-accepting incoming call (human mode)');
+                    console.log('[VoIP] Incoming call from:', call.parameters?.From || 'unknown', '| _takingOver:', _takingOver, '| mode:', dialerMode);
+                    // Accept if: (a) agent just clicked Intercept, OR (b) already in human dialer mode
+                    const shouldAccept = _takingOver || dialerMode === 'human';
+                    if (shouldAccept) {
+                        const reason = _takingOver ? 'intercept takeover' : 'human mode';
+                        console.log('[VoIP] Auto-accepting incoming call (' + reason + ')');
+                        _takingOver = false; // reset flag immediately
                         call.accept();
                         voipConnection = call;
                         voipStartTimer();
-                        document.getElementById('voipCallPanel').style.display = 'flex';
+                        // Show call panel and update contact info
+                        const callPanel = document.getElementById('voipCallPanel');
+                        if (callPanel) callPanel.style.display = 'flex';
+                        // Update name/phone display if we have active contact
+                        if (dialerActiveContact) {
+                            const nameEl = document.getElementById('voipCallName');
+                            const phoneEl = document.getElementById('voipCallPhone');
+                            if (nameEl) nameEl.textContent = dialerActiveContact.name || dialerActiveContact.firstName || 'Lead';
+                            if (phoneEl) phoneEl.textContent = dialerActiveContact.phone || '';
+                        }
+                        // Mic mute button is now active
+                        const muteMicBtn = document.getElementById('dialerMuteMicBtn');
+                        if (muteMicBtn) { muteMicBtn.disabled = false; muteMicBtn.style.cursor = 'pointer'; }
 
                         call.on('disconnect', () => {
                             console.log('[VoIP] Incoming call disconnected');
                             voipConnection = null;
                             voipStopTimer();
-                            document.getElementById('voipCallPanel').style.display = 'none';
-                            document.getElementById('voipKeypad').style.display = 'none';
+                            const cp = document.getElementById('voipCallPanel');
+                            if (cp) cp.style.display = 'none';
+                            const kp = document.getElementById('voipKeypad');
+                            if (kp) kp.style.display = 'none';
                             dialerHideBanner();
                             if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
                         });
@@ -4376,18 +4602,21 @@
                             console.log('[VoIP] Incoming call cancelled');
                             voipConnection = null;
                             voipStopTimer();
-                            document.getElementById('voipCallPanel').style.display = 'none';
-                            document.getElementById('voipKeypad').style.display = 'none';
+                            const cp = document.getElementById('voipCallPanel');
+                            if (cp) cp.style.display = 'none';
+                            const kp = document.getElementById('voipKeypad');
+                            if (kp) kp.style.display = 'none';
                             if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
                         });
                         call.on('error', (err) => {
                             console.error('[VoIP] Incoming call error:', err);
                             voipConnection = null;
                             voipStopTimer();
-                            document.getElementById('voipCallPanel').style.display = 'none';
+                            const cp = document.getElementById('voipCallPanel');
+                            if (cp) cp.style.display = 'none';
                         });
                     } else {
-                        console.log('[VoIP] Rejecting incoming call (not in human mode)');
+                        console.log('[VoIP] Rejecting incoming call (not in intercept/human mode)');
                         call.reject();
                     }
                 });
@@ -5623,6 +5852,21 @@
 
     // Load API status on page load
     document.addEventListener('DOMContentLoaded', loadApiStatus);
+
+    // Auto-initialize VoIP device on page load if already provisioned
+    // This ensures intercept works immediately without requiring "Setup VoIP" click
+    // Critical for GHL iframe where the agent needs instant intercept capability
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof voipSetupDone !== 'undefined' && voipSetupDone && typeof initVoIPDevice === 'function') {
+            console.log('[VoIP] Auto-initializing VoIP device on page load (provisioned)');
+            // Small delay to allow page to finish rendering
+            setTimeout(() => {
+                if (!voipReady && !_voipInitializing) {
+                    initVoIPDevice().catch(e => console.warn('[VoIP] Auto-init failed (non-critical):', e));
+                }
+            }, 1500);
+        }
+    });
     </script>
 </body>
 </html>
