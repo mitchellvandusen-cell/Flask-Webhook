@@ -165,6 +165,17 @@ app.secret_key = os.getenv("SESSION_SECRET", "fallback-insecure-key")
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
+# == IFRAME / VOIP HEADERS: allow microphone access inside GHL iframe ==
+@app.after_request
+def add_iframe_headers(response):
+    # Allow embedding in GHL iframe (no X-Frame-Options restriction)
+    response.headers.pop('X-Frame-Options', None)
+    # Grant microphone permission to iframes that include allow="microphone"
+    response.headers['Permissions-Policy'] = 'microphone=*, camera=*, autoplay=*'
+    # Allow all origins to frame this page (required for GHL/LeadConnector embedding)
+    response.headers['Content-Security-Policy'] = "frame-ancestors *"
+    return response
+
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 client = None

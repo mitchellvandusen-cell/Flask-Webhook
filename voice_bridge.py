@@ -28,6 +28,7 @@ import twilio_provisioning
 
 from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
 from ghl_api import get_valid_token, fetch_targeted_ghl_history
+from ghl_message import send_sms_via_ghl
 
 # In-memory call status tracking for the dialer queue
 # { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
@@ -3810,6 +3811,52 @@ def get_contact_messages(contact_id):
 
     except Exception as e:
         logger.error(f"Failed to fetch contact messages: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/contact/<contact_id>/send-sms', methods=['POST'])
+@login_required
+def send_contact_sms(contact_id):
+    """Send an SMS to a contact directly via GHL — bypasses A2P 10DLC via GHL's approved number."""
+    data = request.json or {}
+    message = (data.get('message') or '').strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+    if len(message) > 1600:
+        return jsonify({"error": "Message too long (max 1600 characters)"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid GHL auth token. Reconnect your CRM."}), 401
+
+    try:
+        success = send_sms_via_ghl(
+            contact_id=contact_id,
+            message=message,
+            access_token=access_token,
+            location_id=location_id,
+        )
+        if success:
+            logger.info(f"Manual SMS sent to {contact_id} by {current_user.email}")
+            return jsonify({"status": "sent"})
+        else:
+            return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
+    except Exception as e:
+        logger.error(f"SMS send error for {contact_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 
