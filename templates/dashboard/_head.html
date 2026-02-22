@@ -950,5 +950,159 @@
         }
         .adv-toggle input:checked + .adv-toggle-slider { background: rgba(0,255,136,0.25); }
         .adv-toggle input:checked + .adv-toggle-slider:before { transform: translateX(22px); background: var(--accent); }
+
+        /* ── Discord Markdown ──────────────────────────────────────────────── */
+        .dc-code-block {
+            background: rgba(0,0,0,0.45);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-family: 'Consolas','Courier New',monospace;
+            font-size: 0.81rem;
+            color: #d4d4d4;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 4px 0;
+            display: block;
+        }
+        .dc-code-block code { background: none; border: none; padding: 0; }
+        .dc-inline-code {
+            background: rgba(0,0,0,0.4);
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-family: 'Consolas','Courier New',monospace;
+            font-size: 0.85em;
+            color: #e3e5e8;
+        }
+        .dc-blockquote {
+            border-left: 3px solid #4f545c;
+            padding-left: 10px;
+            margin: 2px 0;
+            color: #dcddde;
+        }
+        .dc-link { color: #00aff4; text-decoration: none; }
+        .dc-link:hover { text-decoration: underline; }
+        .dc-spoiler {
+            background: #202225;
+            color: #202225;
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 1px 4px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .dc-spoiler.revealed { background: rgba(255,255,255,0.08); color: inherit; }
+
+        /* ── Reply reference ───────────────────────────────────────────────── */
+        .dc-reply-ref {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 3px;
+            font-size: 0.73rem;
+            color: #72767d;
+            overflow: hidden;
+        }
+        .dc-reply-ref i { color: #7289da; flex-shrink: 0; font-size: 0.6rem; }
+        .dc-reply-ref strong { color: #b9bbbe; white-space: nowrap; }
+        .dc-reply-ref span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ── Reactions ─────────────────────────────────────────────────────── */
+        .dc-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+        .dc-reaction {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 0.78rem;
+            cursor: default;
+            transition: background 0.15s;
+        }
+        .dc-reaction:hover { background: rgba(114,137,218,0.2); }
+        .dc-reaction-emoji { font-size: 0.95rem; line-height: 1; }
+        .dc-reaction-count { color: #b9bbbe; font-size: 0.75rem; }
+
+        /* ── Attachments ───────────────────────────────────────────────────── */
+        .dc-attachment { margin-top: 5px; }
+        .dc-attachment-img {
+            max-width: 280px;
+            max-height: 180px;
+            border-radius: 6px;
+            cursor: zoom-in;
+            object-fit: contain;
+            background: rgba(0,0,0,0.2);
+            display: block;
+        }
+        .dc-attachment-file {
+            font-size: 0.82rem;
+            color: #b9bbbe;
+            background: rgba(0,0,0,0.25);
+            border-radius: 4px;
+            padding: 5px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* ── Toast ─────────────────────────────────────────────────────────── */
+        .dc-toast {
+            position: absolute;
+            bottom: 76px;
+            left: 12px;
+            right: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            z-index: 200;
+            pointer-events: none;
+            animation: dcFadeUp 0.2s ease;
+        }
+        .dc-toast-error { background: rgba(237,66,69,0.92); color: #fff; }
+        .dc-toast-warn  { background: rgba(240,165,0,0.92);  color: #fff; }
+        @keyframes dcFadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Channel error / reconnect ─────────────────────────────────────── */
+        .dc-ch-error {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 12px 10px;
+            font-size: 0.78rem;
+            color: #aaa;
+            line-height: 1.45;
+        }
+        .dc-reconnect-btn {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 2px;
+            padding: 5px 10px;
+            background: #5865f2;
+            color: #fff !important;
+            border-radius: 6px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            text-decoration: none !important;
+            transition: background 0.15s;
+            width: fit-content;
+        }
+        .dc-reconnect-btn:hover { background: #4752c4; }
+        .dc-bot-hint {
+            font-size: 0.72rem;
+            color: #666;
+            line-height: 1.5;
+        }
+        .dc-bot-hint code {
+            background: rgba(255,255,255,0.06);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #00ff88;
+        }
     </style>
 </head>
