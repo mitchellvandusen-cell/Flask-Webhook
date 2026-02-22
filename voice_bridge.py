@@ -26,9 +26,11 @@ from flask import Blueprint, request, Response, jsonify, render_template
 from flask_login import login_required, current_user
 import twilio_provisioning
 
-from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes
-from ghl_api import get_valid_token, fetch_targeted_ghl_history
+from db import get_db_connection, return_db_connection, log_webhook_event, deduct_ai_minutes, get_subscriber_info_hybrid, get_bot_settings_by_location
+from ghl_api import get_valid_token, fetch_targeted_ghl_history, fetch_contact_data_from_ghl
 from ghl_message import send_sms_via_ghl
+from prompt import build_system_prompt
+from llm_caller import generate_clean_reply
 
 # In-memory call status tracking for the dialer queue
 # { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
@@ -3858,6 +3860,134 @@ def send_contact_sms(contact_id):
     except Exception as e:
         logger.error(f"SMS send error for {contact_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/contact/<contact_id>/ai-suggest', methods=['POST'])
+@login_required
+def ai_suggest_sms(contact_id):
+    """
+    Generate an InsuranceGrokBot reply draft using the full bot pipeline
+    (generate_strategic_directive → build_system_prompt → generate_clean_reply).
+    Does NOT send — just returns the draft for agent review.
+    """
+    # Re-use the same OpenAI client that tasks.py uses (XAI base_url)
+    from tasks import client as _tasks_client
+    import re as _re
+    import json as _json
+
+    if not _tasks_client:
+        return jsonify({"error": "AI client not configured (XAI_API_KEY missing)"}), 503
+
+    # Get location_id for this agent
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    # Full subscriber config (same as tasks.py uses)
+    subscriber = get_subscriber_info_hybrid(location_id)
+    if not subscriber:
+        return jsonify({"error": "No subscriber config found"}), 400
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid GHL auth token — reconnect CRM"}), 401
+    subscriber['access_token'] = access_token
+
+    # Pull subscriber settings (mirrors tasks.py exactly)
+    bot_first_name = subscriber.get('bot_first_name', 'Grok')
+    timezone = subscriber.get('timezone', 'America/Chicago')
+    personal_website = subscriber.get('personal_website') or ''
+    contracted_carriers = subscriber.get('contracted_carriers') or []
+    if isinstance(contracted_carriers, str):
+        try:
+            contracted_carriers = _json.loads(contracted_carriers)
+        except Exception:
+            contracted_carriers = []
+
+    # Best-effort contact name from GHL
+    first_name = ''
+    try:
+        contact_data = fetch_contact_data_from_ghl(contact_id, access_token, location_id)
+        first_name = (contact_data or {}).get('firstName') or ''
+    except Exception:
+        pass
+
+    bot_settings = get_bot_settings_by_location(location_id)
+
+    # === Full InsuranceGrokBot pipeline (no send) ===
+    # message="" means: it's the agent's turn to reach out / compose the next reply
+    try:
+        director_output = generate_strategic_directive(
+            contact_id=contact_id,
+            message="",
+            first_name=first_name,
+            age=None,
+            address='',
+            bot_settings=bot_settings,
+        )
+    except Exception as e:
+        logger.error(f"AI suggest: sales_director failed for {contact_id}: {e}")
+        return jsonify({"error": "Failed to generate tactical context"}), 500
+
+    extra_context = director_output.get('underwriting_context', '')
+    if director_output.get('company_context'):
+        extra_context = f"{extra_context}\n[COMPANY INTEL] {director_output['company_context']}".strip()
+
+    try:
+        system_prompt = build_system_prompt(
+            bot_first_name=bot_first_name,
+            timezone=timezone,
+            profile_str=director_output["profile_str"],
+            tactical_narrative=director_output["tactical_narrative"],
+            known_facts=director_output["known_facts"],
+            story_narrative=director_output["story_narrative"],
+            stage=director_output["stage"],
+            recent_exchanges=director_output["recent_exchanges"],
+            message="",
+            calendar_slots="",
+            context_nudge=extra_context,
+            lead_vendor="",
+            personal_website=personal_website,
+            contracted_carriers=contracted_carriers,
+            bot_settings=bot_settings,
+        )
+    except Exception as e:
+        logger.error(f"AI suggest: build_system_prompt failed for {contact_id}: {e}")
+        return jsonify({"error": "Failed to build AI prompt"}), 500
+
+    try:
+        reply = generate_clean_reply(
+            client=_tasks_client,
+            system_prompt=system_prompt,
+            user_message="",
+            bot_name=bot_first_name,
+        )
+    except Exception as e:
+        logger.error(f"AI suggest: generate_clean_reply failed for {contact_id}: {e}")
+        return jsonify({"error": "AI generation failed"}), 500
+
+    if not reply:
+        return jsonify({"error": "AI returned empty reply"}), 500
+
+    # Same post-processing as tasks.py (strip markdown, normalize punctuation)
+    reply = _re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)
+    reply = _re.sub(r'\*([^*]+)\*', r'\1', reply)
+    reply = _re.sub(r'__([^_]+)__', r'\1', reply)
+    reply = _re.sub(r'_([^_]+)_', r'\1', reply)
+    reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
+
+    logger.info(f"InsuranceGrokBot draft generated for {contact_id} by {current_user.email} | '{reply[:60]}'")
+    return jsonify({"suggestion": reply})
 
 
 @voice_bp.route('/voice/pipelines', methods=['GET'])
