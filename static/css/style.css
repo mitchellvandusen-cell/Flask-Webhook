@@ -315,18 +315,16 @@ footer a:hover { color: var(--accent); }
     display: flex; align-items: center; gap: 10px;
     padding: 14px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    flex-shrink: 0;
-    min-height: 56px;
+    flex-shrink: 0; min-height: 56px;
+    transition: padding 0.25s;
 }
 .sb-brand-logo {
     width: 32px; height: 32px; border-radius: 8px;
     background: linear-gradient(135deg,#00ff88,#00d9ff);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 0.9rem; color: #000;
-    flex-shrink: 0;
+    font-weight: 900; font-size: 0.9rem; color: #000; flex-shrink: 0;
 }
-.sb-brand-text { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s; }
-.sidebar.collapsed .sb-brand-text { opacity: 0; pointer-events: none; width: 0; }
+.sb-brand-text { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; transition: opacity 0.2s, max-width 0.25s; max-width: 200px; }
 .sb-toggle {
     margin-left: auto; flex-shrink: 0;
     background: none; border: none; color: #555; cursor: pointer;
@@ -335,7 +333,17 @@ footer a:hover { color: var(--accent); }
     transition: color 0.2s, background 0.2s;
 }
 .sb-toggle:hover { color: #fff; background: rgba(255,255,255,0.06); }
-.sidebar.collapsed .sb-toggle { margin-left: 0; }
+
+/* ─── Collapsed sidebar brand: just the expand arrow, centered ─── */
+.sidebar.collapsed .sb-brand { justify-content: center; padding: 10px 0; gap: 0; }
+.sidebar.collapsed .sb-brand-logo { display: none; }
+.sidebar.collapsed .sb-brand-text { max-width: 0; opacity: 0; pointer-events: none; }
+.sidebar.collapsed .sb-toggle {
+    margin-left: 0; width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15);
+    color: #00d9ff;
+}
+.sidebar.collapsed .sb-toggle:hover { background: rgba(0,217,255,0.18); color: #fff; }
 
 /* Sidebar scroll area */
 .sb-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
@@ -472,7 +480,94 @@ footer a:hover { color: var(--accent); }
 @keyframes dotPulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
 /* =========================================
-   7. CHAT WIDGET (Global)
+   7. LIGHT THEME OVERRIDES
+   ========================================= */
+body.light-theme {
+    background-color: #f0f2f6;
+    background-image:
+        radial-gradient(circle at 15% 50%, rgba(0,180,80,0.04), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(0,100,200,0.03), transparent 25%);
+    color: #111;
+}
+body.light-theme .sidebar {
+    background: rgba(255,255,255,0.97);
+    border-right-color: rgba(0,0,0,0.09);
+    box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+}
+body.light-theme .sb-brand { border-bottom-color: rgba(0,0,0,0.07); }
+body.light-theme .sb-brand-text { color: #111; }
+body.light-theme .sb-brand-logo { background: linear-gradient(135deg,#00c864,#00a8ff); }
+body.light-theme .sb-toggle { color: #aaa; }
+body.light-theme .sb-toggle:hover { background: rgba(0,0,0,0.05); color: #333; }
+body.light-theme .sidebar.collapsed .sb-toggle { background: rgba(0,150,60,0.08); border-color: rgba(0,150,60,0.2); color: #007040; }
+body.light-theme .sb-section-header { color: #aaa; }
+body.light-theme .sb-section-header:hover { color: #777; }
+body.light-theme .sb-nav-item { color: #555; }
+body.light-theme .sb-nav-item:hover { background: rgba(0,0,0,0.05); color: #111; }
+body.light-theme .sb-nav-item.active { background: rgba(0,150,60,0.1); color: #007040; }
+body.light-theme .sb-nav-item.active i { color: #007040; }
+body.light-theme .sb-divider { background: rgba(0,0,0,0.06); }
+body.light-theme .sb-params-header { color: #aaa; }
+body.light-theme .sb-params-header:hover { background: rgba(0,0,0,0.04); color: #777; }
+body.light-theme .sb-footer { border-top-color: rgba(0,0,0,0.07); }
+body.light-theme .sb-footer-item { color: #777; }
+body.light-theme .sb-footer-item:hover { background: rgba(0,0,0,0.05); color: #333; }
+body.light-theme .tech-readout { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.09); }
+body.light-theme .tech-value { color: #222; }
+body.light-theme .tech-label { color: #888 !important; }
+body.light-theme .main-wrapper { background: transparent; }
+body.light-theme .dash-topbar { border-bottom-color: rgba(0,0,0,0.08); }
+body.light-theme .dash-topbar h1 { color: #111; }
+body.light-theme .dash-subtitle { color: #888 !important; }
+body.light-theme .dash-user-pill { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.09); }
+body.light-theme .dash-user-email { color: #666; }
+body.light-theme .glass-panel,
+body.light-theme [class*="glass"] { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.08) !important; color: #111; }
+body.light-theme h1, body.light-theme h2, body.light-theme h3,
+body.light-theme h4, body.light-theme h5, body.light-theme h6 { color: #111; }
+body.light-theme p, body.light-theme span, body.light-theme label { color: #444; }
+body.light-theme .form-control { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.12) !important; color: #111 !important; }
+body.light-theme .form-control::placeholder { color: rgba(0,0,0,0.3) !important; }
+body.light-theme textarea::placeholder, body.light-theme input::placeholder { color: rgba(0,0,0,0.3) !important; }
+body.light-theme select option { background: #fff; color: #111; }
+/* Dialer light theme */
+body.light-theme .dlr-col { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.07) !important; }
+body.light-theme .dlr-col-hdr { border-bottom-color: rgba(0,0,0,0.07) !important; }
+body.light-theme .dlr-col-hdr h6 { color: #007040 !important; }
+body.light-theme .dlr-top-bar { background: rgba(255,255,255,0.95) !important; border-color: rgba(0,0,0,0.07) !important; }
+body.light-theme .dlr-contact-row { border-bottom-color: rgba(0,0,0,0.04) !important; }
+body.light-theme .dlr-contact-row:hover { background: rgba(0,0,0,0.03) !important; }
+body.light-theme .dlr-contact-row.active { background: rgba(0,150,60,0.07) !important; border-left-color: #00a855 !important; }
+body.light-theme .dlr-bubble.inbound { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.08) !important; color: #222 !important; }
+body.light-theme .dlr-bubble.outbound { background: rgba(0,150,60,0.1) !important; border-color: rgba(0,150,60,0.18) !important; color: #003320 !important; }
+body.light-theme .dlr-msg-meta { color: #888 !important; }
+body.light-theme .dlr-date-sep span { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.07) !important; color: #999 !important; }
+body.light-theme .dlr-tab-btn { color: #aaa !important; }
+body.light-theme .dlr-tab-btn.active { color: #007040 !important; border-bottom-color: #007040 !important; }
+body.light-theme #dlrSmsComposer { background: rgba(240,242,246,0.9) !important; border-top-color: rgba(0,0,0,0.07) !important; }
+body.light-theme #dlrSmsText { background: rgba(255,255,255,0.9) !important; border-color: rgba(0,0,0,0.12) !important; color: #111 !important; }
+body.light-theme #dlrMsgHeader { background: rgba(248,249,252,0.95) !important; border-bottom-color: rgba(0,0,0,0.07) !important; }
+body.light-theme #dlrMsgContactName { color: #111 !important; }
+body.light-theme #dlrMsgContactPhone { color: #888 !important; }
+body.light-theme .dlr-qr-btn { background: rgba(0,150,60,0.06) !important; border-color: rgba(0,150,60,0.12) !important; color: #006035 !important; }
+body.light-theme .dlr-qr-btn:hover { background: rgba(0,150,60,0.12) !important; color: #007040 !important; }
+body.light-theme #dlrCharCount { color: #aaa !important; }
+/* Nav tabs light */
+body.light-theme .nav-link { color: #666 !important; }
+body.light-theme .nav-link.active { color: #007040 !important; border-color: #007040 !important; }
+/* Theme toggle button */
+.theme-toggle-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: #888; border-radius: 8px; width: 34px; height: 34px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; transition: all 0.2s; flex-shrink: 0;
+}
+.theme-toggle-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+body.light-theme .theme-toggle-btn { background: rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.12); color: #555; }
+body.light-theme .theme-toggle-btn:hover { background: rgba(0,0,0,0.1); color: #111; }
+
+/* =========================================
+   8. CHAT WIDGET (Global)
    ========================================= */
 .chat-widget-container {
     position: fixed; bottom: 30px; right: 30px; z-index: 10000;

@@ -617,7 +617,7 @@
         <div class="sb-brand">
             <div class="sb-brand-logo">G</div>
             <span class="sb-brand-text">InsuranceGrokBot</span>
-            <button class="sb-toggle" onclick="toggleSidebar()" title="Collapse sidebar">
+            <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Collapse sidebar">
                 <i class="fa-solid fa-bars" id="sbToggleIcon"></i>
             </button>
         </div>
@@ -794,7 +794,11 @@
                 <p class="dash-subtitle">InsuranceGrokBot Command Center</p>
             </div>
             <div class="dash-topbar-right">
-                <div class="status-badge"><div class="dot"></div> <span class="sb-nav-label">Active</span></div>
+                <div class="status-badge"><div class="dot"></div> <span>Active</span></div>
+                <!-- Light / Dark Theme Toggle -->
+                <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch to light mode">
+                    <i class="fa-solid fa-sun"></i>
+                </button>
                 <div class="dash-user-pill">
                     <div class="dash-avatar">{{ current_user.email[0].upper() }}</div>
                     <span class="dash-user-email">{{ current_user.email }}</span>
@@ -2059,6 +2063,12 @@
                     /* Quick reply buttons */
                     .dlr-qr-btn{background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.1);color:#5aa;border-radius:12px;padding:3px 9px;font-size:0.68rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s;}
                     .dlr-qr-btn:hover{background:rgba(0,217,255,0.12);color:#00d9ff;}
+                    /* Phone keypad */
+                    .dlr-kbd-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;border-radius:8px;padding:8px 4px;font-size:0.9rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;transition:background .1s,transform .08s;user-select:none;}
+                    .dlr-kbd-key:hover{background:rgba(0,217,255,0.12);border-color:rgba(0,217,255,0.2);color:#fff;}
+                    .dlr-kbd-key:active{transform:scale(0.92);background:rgba(0,217,255,0.2);}
+                    .dlr-kbd-key span{font-weight:700;font-size:1rem;}
+                    .dlr-kbd-key sub{font-size:0.42rem;color:#888;letter-spacing:0.5px;margin-top:1px;}
                     /* Char counter color states */
                     .dlr-char-ok{color:#444;}
                     .dlr-char-warn{color:#ffa500;}
@@ -2073,12 +2083,48 @@
                     <div style="flex:1;display:flex;align-items:center;gap:10px;">
                         <h5 style="margin:0;font-weight:700;font-size:1.4rem;white-space:nowrap;">Power Dialer</h5>
                         <!-- Inline Quick Dial -->
-                        <div class="quick-dial-group" style="display:flex;gap:4px;flex:1;max-width:280px;">
-                            <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
-                                style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.88rem;outline:none;min-width:120px;">
-                            <button onclick="dialerManualCall()" style="padding:5px 12px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;">
-                                <i class="fa-solid fa-phone"></i>
-                            </button>
+                        <div class="quick-dial-group" style="display:flex;flex-direction:column;gap:4px;flex:1;max-width:300px;position:relative;">
+                            <!-- View toggle tabs -->
+                            <div style="display:flex;gap:2px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:2px;width:fit-content;">
+                                <button id="dialKbdTabType" onclick="dialerSetInputMode('type')"
+                                    style="padding:2px 10px;border-radius:4px;border:none;background:rgba(0,217,255,0.15);color:#00d9ff;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s;">
+                                    <i class="fa-solid fa-keyboard me-1" style="font-size:0.65rem;"></i>Type
+                                </button>
+                                <button id="dialKbdTabKeypad" onclick="dialerSetInputMode('keypad')"
+                                    style="padding:2px 10px;border-radius:4px;border:none;background:transparent;color:#666;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s;">
+                                    <i class="fa-solid fa-grid-2 me-1" style="font-size:0.65rem;"></i>Keypad
+                                </button>
+                            </div>
+                            <!-- Type mode -->
+                            <div id="dialModeType" style="display:flex;gap:4px;">
+                                <input type="text" id="dialerManualPhone" placeholder="+1 (555) 123-4567" onkeydown="if(event.key==='Enter')dialerManualCall()"
+                                    style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.88rem;outline:none;min-width:120px;">
+                                <button onclick="dialerManualCall()" style="padding:5px 12px;border-radius:6px;border:none;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.88rem;cursor:pointer;white-space:nowrap;">
+                                    <i class="fa-solid fa-phone"></i>
+                                </button>
+                            </div>
+                            <!-- Keypad mode (hidden by default) -->
+                            <div id="dialModeKeypad" style="display:none;flex-direction:column;gap:3px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,217,255,0.1);border-radius:8px;padding:8px;">
+                                <div id="dialKbdDisplay" style="background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.15);color:#fff;padding:6px 10px;border-radius:6px;font-size:1rem;font-family:'JetBrains Mono',monospace;text-align:center;min-height:32px;letter-spacing:2px;">&#8203;</div>
+                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:2px;">
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('1')"><span>1</span></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('2')"><span>2</span><sub>ABC</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('3')"><span>3</span><sub>DEF</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('4')"><span>4</span><sub>GHI</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('5')"><span>5</span><sub>JKL</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('6')"><span>6</span><sub>MNO</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('7')"><span>7</span><sub>PQRS</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('8')"><span>8</span><sub>TUV</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('9')"><span>9</span><sub>WXYZ</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('*')"><span>*</span></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('0')"><span>0</span><sub>+</sub></button>
+                                    <button class="dlr-kbd-key" onclick="dialKbdPress('#')"><span>#</span></button>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px;">
+                                    <button onclick="dialKbdBackspace()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:7px;font-size:0.8rem;cursor:pointer;"><i class="fa-solid fa-delete-left"></i></button>
+                                    <button onclick="dialerManualCall()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px;font-size:0.85rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-phone"></i></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <!-- Mode Toggle -->
@@ -2454,6 +2500,13 @@
 
                                 <!-- Quick Replies Bar -->
                                 <div style="padding:5px 10px 0;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;">
+                                    <!-- AI Draft Button -->
+                                    <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" title="Generate AI reply (InsuranceGrokBot)"
+                                        style="display:flex;align-items:center;gap:4px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.08));border:1px solid rgba(0,217,255,0.3);color:#00d9ff;border-radius:12px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;">
+                                        <i class="fa-solid fa-robot" style="font-size:0.75rem;"></i>
+                                        <span id="dlrAiDraftLabel">AI Draft</span>
+                                    </button>
+                                    <span style="font-size:0.62rem;color:#333;white-space:nowrap;flex-shrink:0;">|</span>
                                     <span style="font-size:0.62rem;color:#444;white-space:nowrap;flex-shrink:0;">Quick:</span>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Following up — did you have a chance to review the options I sent over?')">Follow-up</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Hi! I wanted to make sure you got everything you needed. Any questions?')">Check-in</button>
@@ -2682,13 +2735,15 @@
             sidebarNavigate(tabId, btnEl);
         }
 
-        // Sidebar collapse toggle
+        // Sidebar collapse toggle — icon flips to show expand/collapse direction
         function toggleSidebar() {
             const sb = document.getElementById('mainSidebar');
             const icon = document.getElementById('sbToggleIcon');
             sb.classList.toggle('collapsed');
             const isCollapsed = sb.classList.contains('collapsed');
-            if (icon) icon.className = isCollapsed ? 'fa-solid fa-bars' : 'fa-solid fa-bars';
+            // Collapsed → chevron-right (click to expand); Expanded → bars (click to collapse)
+            if (icon) icon.className = isCollapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-bars';
+            document.getElementById('sbToggle').title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
             localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
         }
 
@@ -2706,13 +2761,38 @@
             if (chevron) chevron.style.transform = body && body.classList.contains('open') ? 'rotate(180deg)' : '';
         }
 
-        // Restore sidebar state on page load
+        // Restore sidebar + theme state on page load
         document.addEventListener('DOMContentLoaded', function() {
             if (localStorage.getItem('sidebar_collapsed') === '1') {
                 const sb = document.getElementById('mainSidebar');
                 if (sb) sb.classList.add('collapsed');
+                const icon = document.getElementById('sbToggleIcon');
+                if (icon) icon.className = 'fa-solid fa-chevron-right';
+                const btn = document.getElementById('sbToggle');
+                if (btn) btn.title = 'Expand sidebar';
             }
+            // Restore light/dark theme
+            const savedTheme = localStorage.getItem('dash_theme') || 'dark';
+            applyTheme(savedTheme, false);
         });
+
+        // ── Light / Dark Theme ──
+        function applyTheme(theme, save) {
+            const body = document.body;
+            const btn = document.getElementById('themeToggleBtn');
+            if (theme === 'light') {
+                body.classList.add('light-theme');
+                if (btn) { btn.innerHTML = '<i class="fa-solid fa-moon"></i>'; btn.title = 'Switch to dark mode'; }
+            } else {
+                body.classList.remove('light-theme');
+                if (btn) { btn.innerHTML = '<i class="fa-solid fa-sun"></i>'; btn.title = 'Switch to light mode'; }
+            }
+            if (save) localStorage.setItem('dash_theme', theme);
+        }
+        function toggleTheme() {
+            const isLight = document.body.classList.contains('light-theme');
+            applyTheme(isLight ? 'dark' : 'light', true);
+        }
 
         // ── Dialer settings panel toggle ──
         function toggleDialerSettings() {
@@ -3603,6 +3683,82 @@
             ta.focus();
             dlrAutoGrow(ta);
             dlrUpdateCharCount(text);
+        }
+
+        // ── SMS: AI draft (InsuranceGrokBot suggest) ──
+        async function dlrAiSuggest() {
+            const btn = document.getElementById('dlrAiDraftBtn');
+            const label = document.getElementById('dlrAiDraftLabel');
+            const ta = document.getElementById('dlrSmsText');
+            const cidEl = document.getElementById('dialerContactId');
+            const cid = cidEl ? cidEl.value : (_dlrSmsContactId || '');
+            if (!cid || cid === 'unknown') {
+                alert('Select a contact first.');
+                return;
+            }
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+            if (label) label.textContent = 'Drafting…';
+            try {
+                const resp = await fetch('/voice/contact/' + encodeURIComponent(cid) + '/ai-suggest', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({})
+                });
+                if (!resp.ok) throw new Error('Server ' + resp.status);
+                const data = await resp.json();
+                const draft = (data.suggestion || data.reply || '').trim();
+                if (!draft) throw new Error('Empty AI response');
+                if (ta) { ta.value = draft; ta.focus(); dlrAutoGrow(ta); dlrUpdateCharCount(draft); }
+            } catch(e) {
+                console.error('AI suggest failed:', e);
+                const statusEl = document.getElementById('dlrSmsStatus');
+                if (statusEl) {
+                    statusEl.textContent = 'AI draft failed — try again';
+                    statusEl.style.color = '#ef4444';
+                    setTimeout(() => { statusEl.textContent = ''; }, 3500);
+                }
+            } finally {
+                if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+                if (label) label.textContent = 'AI Draft';
+            }
+        }
+
+        // ── Dialer: keypad input mode ──
+        let _dialInputMode = 'type';
+        function dialerSetInputMode(mode) {
+            _dialInputMode = mode;
+            const typeDiv = document.getElementById('dialModeType');
+            const kbdDiv = document.getElementById('dialModeKeypad');
+            const tabType = document.getElementById('dialKbdTabType');
+            const tabKbd = document.getElementById('dialKbdTabKeypad');
+            if (mode === 'keypad') {
+                if (typeDiv) typeDiv.style.display = 'none';
+                if (kbdDiv) kbdDiv.style.display = 'flex';
+                if (tabType) { tabType.style.background = 'transparent'; tabType.style.color = '#666'; }
+                if (tabKbd) { tabKbd.style.background = 'rgba(0,217,255,0.15)'; tabKbd.style.color = '#00d9ff'; }
+                const ph = document.getElementById('dialerManualPhone');
+                const disp = document.getElementById('dialKbdDisplay');
+                if (disp && ph) disp.textContent = ph.value || '';
+            } else {
+                if (typeDiv) typeDiv.style.display = 'flex';
+                if (kbdDiv) kbdDiv.style.display = 'none';
+                if (tabType) { tabType.style.background = 'rgba(0,217,255,0.15)'; tabType.style.color = '#00d9ff'; }
+                if (tabKbd) { tabKbd.style.background = 'transparent'; tabKbd.style.color = '#666'; }
+            }
+        }
+
+        function dialKbdPress(digit) {
+            const ph = document.getElementById('dialerManualPhone');
+            const disp = document.getElementById('dialKbdDisplay');
+            if (ph) ph.value = (ph.value || '') + digit;
+            if (disp) disp.textContent = ph ? ph.value : '';
+        }
+
+        function dialKbdBackspace() {
+            const ph = document.getElementById('dialerManualPhone');
+            const disp = document.getElementById('dialKbdDisplay');
+            if (ph && ph.value.length > 0) ph.value = ph.value.slice(0, -1);
+            if (disp) disp.textContent = ph ? ph.value : '';
         }
 
         // ── SMS: refresh thread ──

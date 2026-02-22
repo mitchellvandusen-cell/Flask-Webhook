@@ -3860,6 +3860,89 @@ def send_contact_sms(contact_id):
         return jsonify({"error": str(e)}), 500
 
 
+@voice_bp.route('/voice/contact/<contact_id>/ai-suggest', methods=['POST'])
+@login_required
+def ai_suggest_sms(contact_id):
+    """Generate an InsuranceGrokBot SMS draft based on conversation history."""
+    if not XAI_API_KEY:
+        return jsonify({"error": "AI not configured"}), 503
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT location_id, bot_first_name, voice_config FROM subscribers WHERE email = %s",
+            (current_user.email,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+        agent_name = row.get('bot_first_name') or 'InsuranceGrokBot'
+        voice_cfg = row.get('voice_config') or {}
+        company = voice_cfg.get('company_name', '') if isinstance(voice_cfg, dict) else ''
+    finally:
+        return_db_connection(conn)
+
+    access_token = get_valid_token(location_id)
+    if not access_token:
+        return jsonify({"error": "No valid GHL auth token"}), 401
+
+    # Fetch recent conversation history
+    try:
+        messages = fetch_targeted_ghl_history(contact_id, location_id, access_token, limit=15)
+    except Exception as e:
+        logger.error(f"AI suggest: failed to fetch history for {contact_id}: {e}")
+        messages = []
+
+    # Build conversation context for the AI
+    convo_lines = []
+    for m in messages[-12:]:  # last 12 messages for context
+        role = "Contact" if m.get('message_type') == 'contact' else "Agent"
+        body = (m.get('body') or m.get('message_text') or '').strip()
+        if body:
+            convo_lines.append(f"{role}: {body}")
+    convo_text = "\n".join(convo_lines) if convo_lines else "(No prior messages)"
+
+    system_prompt = (
+        f"You are {agent_name}, a friendly, professional insurance sales assistant"
+        + (f" for {company}" if company else "") + ". "
+        "Your job is to draft a concise, warm SMS reply to the contact based on the conversation below. "
+        "The reply should be natural, helpful, and move the conversation forward toward scheduling a call or closing a policy. "
+        "Respond with ONLY the SMS text — no quotes, no labels, no explanation. Keep it under 160 characters when possible."
+    )
+
+    try:
+        import httpx
+        resp = httpx.post(
+            "https://api.x.ai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {XAI_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "grok-3-mini-fast",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Conversation history:\n{convo_text}\n\nDraft a reply from the Agent:"}
+                ],
+                "max_tokens": 200,
+                "temperature": 0.7,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        suggestion = resp.json()['choices'][0]['message']['content'].strip()
+        # Strip surrounding quotes if AI wrapped the reply
+        if suggestion.startswith('"') and suggestion.endswith('"'):
+            suggestion = suggestion[1:-1]
+        logger.info(f"AI suggest generated for {contact_id} by {current_user.email}")
+        return jsonify({"suggestion": suggestion})
+    except Exception as e:
+        logger.error(f"AI suggest API call failed for {contact_id}: {e}")
+        return jsonify({"error": "AI generation failed"}), 500
+
+
 @voice_bp.route('/voice/pipelines', methods=['GET'])
 @login_required
 def get_pipelines():
