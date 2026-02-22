@@ -120,6 +120,14 @@
                             </a>
                         </div>
 
+                        <!-- Session-expired banner (hidden by default; shown by JS when needs_reauth) -->
+                        <div id="discordReauthBanner" style="display:none;padding:4px 12px 2px;">
+                            <a href="/discord/connect" style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(240,165,0,0.12);border:1px solid rgba(240,165,0,0.3);border-radius:7px;color:#f0a500;font-size:0.73rem;text-decoration:none;font-weight:600;">
+                                <i class="fa-solid fa-rotate-right" style="font-size:0.75rem;"></i>
+                                <span>Session expired — Reconnect</span>
+                            </a>
+                        </div>
+
                         <!-- Server count pill + add button -->
                         <div style="display:flex;align-items:center;gap:6px;padding:4px 12px 6px;">
                             <span style="font-size:0.75rem;color:#555;" id="discordServerCount">0/3 servers</span>
