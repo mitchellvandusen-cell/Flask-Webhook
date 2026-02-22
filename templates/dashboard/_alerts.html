@@ -1,8 +1,9 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} mb-4" style="border-radius:12px;">
+                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} mb-4 alert-dismissible fade show" style="border-radius:12px;" role="alert">
                         <i class="fa-solid fa-info-circle me-2"></i> {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter:invert(1);opacity:0.6;"></button>
                     </div>
                 {% endfor %}
             {% endif %}

@@ -52,6 +52,7 @@
             const icon = document.getElementById('sbToggleIcon');
             sb.classList.toggle('collapsed');
             const isCollapsed = sb.classList.contains('collapsed');
+            document.body.classList.toggle('sidebar-collapsed', isCollapsed);
             // Collapsed → chevron-right (click to expand); Expanded → bars (click to collapse)
             if (icon) icon.className = isCollapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-bars';
             document.getElementById('sbToggle').title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
@@ -77,6 +78,7 @@
             if (localStorage.getItem('sidebar_collapsed') === '1') {
                 const sb = document.getElementById('mainSidebar');
                 if (sb) sb.classList.add('collapsed');
+                document.body.classList.add('sidebar-collapsed');
                 const icon = document.getElementById('sbToggleIcon');
                 if (icon) icon.className = 'fa-solid fa-chevron-right';
                 const btn = document.getElementById('sbToggle');
