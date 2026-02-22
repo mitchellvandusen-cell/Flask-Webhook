@@ -6199,6 +6199,56 @@ def _discord_creds():
     return client_id, client_secret, redirect_uri
 
 
+def _discord_refresh_token(email: str, conn_row: dict):
+    """Silently refresh an expired Discord OAuth token. Returns new access_token or None."""
+    from datetime import datetime, timedelta
+    client_id = os.getenv("DISCORD_CLIENT_ID")
+    client_secret = os.getenv("DISCORD_CLIENT_SECRET")
+    refresh_tok = conn_row.get("refresh_token")
+    if not all([client_id, client_secret, refresh_tok]):
+        return None
+    try:
+        resp = requests.post(
+            f"{DISCORD_API}/oauth2/token",
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_tok,
+                "client_id": client_id,
+                "client_secret": client_secret,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            tok = resp.json()
+            new_access   = tok["access_token"]
+            new_refresh  = tok.get("refresh_token", refresh_tok)
+            expires_in   = tok.get("expires_in", 604800)
+            expires_at   = datetime.utcnow() + timedelta(seconds=expires_in)
+            save_discord_connection(
+                email=email,
+                discord_user_id=conn_row["discord_user_id"],
+                username=conn_row["username"],
+                global_name=conn_row.get("global_name"),
+                avatar=conn_row.get("avatar"),
+                access_token=new_access,
+                refresh_token=new_refresh,
+                token_expires_at=expires_at,
+            )
+            return new_access
+    except Exception as e:
+        logger.error(f"Discord token refresh failed for {email}: {e}")
+    return None
+
+
+def _discord_bot_headers():
+    """Return Authorization headers using DISCORD_BOT_TOKEN if set, else None."""
+    bot_token = os.getenv("DISCORD_BOT_TOKEN")
+    if bot_token:
+        return {"Authorization": f"Bot {bot_token}"}
+    return None
+
+
 @app.route("/discord/connect")
 @login_required
 def discord_connect():
@@ -6216,7 +6266,7 @@ def discord_connect():
         "response_type": "code",
         "client_id": client_id,
         "redirect_uri": redirect_uri,
-        "scope": "identify guilds",
+        "scope": "identify guilds guilds.members.read messages.read guilds.channels.read",
         "state": state,
     })
     return redirect(f"https://discord.com/oauth2/authorize?{params}")
@@ -6392,7 +6442,9 @@ def api_discord_servers():
 @app.route("/api/discord/channels/<guild_id>")
 @login_required
 def api_discord_channels(guild_id):
-    """Return text channels for a guild."""
+    """Return text channels for a guild.
+    Tries user bearer token first; falls back to bot token if bearer is rejected.
+    """
     conn_row = get_discord_connection(current_user.email)
     if not conn_row:
         return flask_jsonify({"error": "Not connected to Discord"}), 401
@@ -6403,30 +6455,52 @@ def api_discord_channels(guild_id):
     if guild_id not in saved_ids:
         return flask_jsonify({"error": "Server not in your workspace"}), 403
 
-    access_token = conn_row["access_token"]
+    guild_name = next((s["name"] for s in saved if s["guild_id"] == guild_id), "")
+    url = f"{DISCORD_API}/guilds/{guild_id}/channels"
+
+    def _parse_channels(resp):
+        data = resp.json()
+        if not isinstance(data, list):
+            return None, data
+        channels = [
+            {"id": c["id"], "name": c["name"], "position": c.get("position", 0)}
+            for c in data if c.get("type") == 0
+        ]
+        channels.sort(key=lambda c: c["position"])
+        return channels, None
+
     try:
-        resp = requests.get(
-            f"{DISCORD_API}/guilds/{guild_id}/channels",
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10,
-        )
-        channels_data = resp.json()
-        if not isinstance(channels_data, list):
-            logger.error(f"Discord channels error for guild {guild_id}: {channels_data}")
+        access_token = conn_row["access_token"]
+        resp = requests.get(url, headers={"Authorization": f"Bearer {access_token}"}, timeout=10)
+
+        # Try silent token refresh on 401
+        if resp.status_code == 401:
+            new_token = _discord_refresh_token(current_user.email, conn_row)
+            if new_token:
+                resp = requests.get(url, headers={"Authorization": f"Bearer {new_token}"}, timeout=10)
+
+        # If still failing with user token, fall back to bot token
+        if resp.status_code in (401, 403):
+            bot_headers = _discord_bot_headers()
+            if bot_headers:
+                resp = requests.get(url, headers=bot_headers, timeout=10)
+            else:
+                return flask_jsonify({
+                    "error": "Discord requires channel access permission. Reconnect Discord or add DISCORD_BOT_TOKEN to your .env.",
+                    "needs_reconnect": True,
+                    "needs_bot": True,
+                    "channels": [],
+                })
+
+        channels, err_data = _parse_channels(resp)
+        if channels is None:
+            logger.error(f"Discord channels error for guild {guild_id}: {err_data}")
+            err_code = err_data.get("code") if isinstance(err_data, dict) else 0
+            if err_code in (50001, 50013):
+                return flask_jsonify({"error": "Missing access. Add a bot to this server or reconnect Discord.", "needs_reconnect": True, "channels": []})
             return flask_jsonify({"error": "Could not load channels", "channels": []})
 
-        # Type 0 = text channel
-        text_channels = [
-            {"id": c["id"], "name": c["name"], "position": c.get("position", 0)}
-            for c in channels_data
-            if c.get("type") == 0
-        ]
-        text_channels.sort(key=lambda c: c["position"])
-
-        # Get guild name
-        guild_name = next((s["name"] for s in saved if s["guild_id"] == guild_id), "")
-
-        return flask_jsonify({"channels": text_channels, "guild_name": guild_name})
+        return flask_jsonify({"channels": channels, "guild_name": guild_name})
     except Exception as e:
         logger.error(f"Discord channels fetch failed for {guild_id}: {e}")
         return flask_jsonify({"error": "Failed to fetch channels", "channels": []})
@@ -6445,48 +6519,52 @@ def api_discord_messages(channel_id):
     discord_user_id = conn_row["discord_user_id"]
 
     if request.method == "POST":
-        # Send a message to Discord via the channel's webhook or REST API
         data = request.get_json(silent=True) or {}
         content = (data.get("content") or "").strip()
         if not content:
             return flask_jsonify({"error": "Empty message"}), 400
 
         global_name = conn_row.get("global_name") or conn_row.get("username") or "User"
-        avatar_url = None
-        if avatar_hash:
-            avatar_url = f"https://cdn.discordapp.com/avatars/{discord_user_id}/{avatar_hash}.png"
+        avatar_url = (f"https://cdn.discordapp.com/avatars/{discord_user_id}/{avatar_hash}.png"
+                      if avatar_hash else None)
 
         try:
-            # Check if a webhook URL is configured for this channel in env/db
-            # Fall back to direct API call with user's token
             webhook_url = os.getenv(f"DISCORD_WEBHOOK_{channel_id}")
             if webhook_url:
-                # Send via webhook (appears as user with their name/avatar)
                 resp = requests.post(
                     webhook_url,
-                    json={
-                        "content": content,
-                        "username": global_name,
-                        "avatar_url": avatar_url,
-                    },
+                    json={"content": content, "username": global_name, "avatar_url": avatar_url},
                     timeout=10,
                 )
                 if resp.status_code not in (200, 204):
                     return flask_jsonify({"error": "Discord webhook rejected message"}), 400
             else:
-                # Send via REST with user's OAuth token
-                resp = requests.post(
-                    f"{DISCORD_API}/channels/{channel_id}/messages",
-                    headers={"Authorization": f"Bearer {access_token}",
-                             "Content-Type": "application/json"},
-                    json={"content": content},
-                    timeout=10,
-                )
+                def _send(token):
+                    return requests.post(
+                        f"{DISCORD_API}/channels/{channel_id}/messages",
+                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                        json={"content": content},
+                        timeout=10,
+                    )
+                resp = _send(access_token)
+                if resp.status_code == 401:
+                    new_tok = _discord_refresh_token(current_user.email, conn_row)
+                    resp = _send(new_tok) if new_tok else resp
+                # Bot fallback for sending (if user token lacks perms)
+                if resp.status_code in (401, 403):
+                    bot_hdrs = _discord_bot_headers()
+                    if bot_hdrs:
+                        bot_hdrs["Content-Type"] = "application/json"
+                        resp = requests.post(
+                            f"{DISCORD_API}/channels/{channel_id}/messages",
+                            headers=bot_hdrs,
+                            json={"content": f"**{global_name}:** {content}"},
+                            timeout=10,
+                        )
                 if resp.status_code not in (200, 201):
                     err = resp.json() if resp.content else {}
                     logger.error(f"Discord send message error {resp.status_code}: {err}")
                     return flask_jsonify({"error": err.get("message", "Failed to send")}), 400
-
             return flask_jsonify({"status": "sent"})
         except Exception as e:
             logger.error(f"Discord send message exception: {e}")
@@ -6494,36 +6572,65 @@ def api_discord_messages(channel_id):
 
     # GET - fetch messages
     limit = min(int(request.args.get("limit", 50)), 100)
+    msg_url = f"{DISCORD_API}/channels/{channel_id}/messages"
+
+    def _fetch(hdrs):
+        return requests.get(msg_url, headers=hdrs, params={"limit": limit}, timeout=10)
+
     try:
-        resp = requests.get(
-            f"{DISCORD_API}/channels/{channel_id}/messages",
-            headers={"Authorization": f"Bearer {access_token}"},
-            params={"limit": limit},
-            timeout=10,
-        )
+        resp = _fetch({"Authorization": f"Bearer {access_token}"})
+        if resp.status_code == 401:
+            new_tok = _discord_refresh_token(current_user.email, conn_row)
+            if new_tok:
+                resp = _fetch({"Authorization": f"Bearer {new_tok}"})
+        # Bot fallback for reading
+        if resp.status_code in (401, 403):
+            bot_hdrs = _discord_bot_headers()
+            if bot_hdrs:
+                resp = _fetch(bot_hdrs)
+            else:
+                return flask_jsonify({"error": "Session expired. Please reconnect Discord.", "needs_reconnect": True, "messages": []})
+
         msgs_data = resp.json()
         if not isinstance(msgs_data, list):
             logger.error(f"Discord messages error for channel {channel_id}: {msgs_data}")
             return flask_jsonify({"error": "Could not fetch messages", "messages": []})
 
-        # Reverse to chronological order (Discord returns newest-first)
-        msgs_data.reverse()
+        msgs_data.reverse()  # Discord returns newest-first; reverse to chronological
 
         messages = []
         for m in msgs_data:
             author = m.get("author", {})
             author_id = author.get("id", "")
-            author_avatar = author.get("avatar")
-            avatar_url = None
-            if author_avatar:
-                avatar_url = f"https://cdn.discordapp.com/avatars/{author_id}/{author_avatar}.png?size=64"
+            av_hash = author.get("avatar")
+            av_url = (f"https://cdn.discordapp.com/avatars/{author_id}/{av_hash}.png?size=64"
+                      if av_hash else None)
+            # Reply reference
+            ref = m.get("referenced_message")
+            reply_to = None
+            if ref:
+                ra = ref.get("author", {})
+                reply_to = {
+                    "author": ra.get("global_name") or ra.get("username", "Unknown"),
+                    "content": (ref.get("content") or "")[:120],
+                }
             messages.append({
                 "id": m["id"],
                 "author": author.get("global_name") or author.get("username", "Unknown"),
                 "author_id": author_id,
-                "avatar_url": avatar_url,
+                "avatar_url": av_url,
                 "content": m.get("content", ""),
                 "timestamp": m.get("timestamp"),
+                "reply_to": reply_to,
+                "reactions": [
+                    {"emoji": r["emoji"].get("name", "?"), "count": r["count"]}
+                    for r in (m.get("reactions") or [])
+                ],
+                "attachments": [
+                    {"url": a["url"], "filename": a.get("filename", ""),
+                     "content_type": a.get("content_type", "")}
+                    for a in (m.get("attachments") or [])
+                ],
             })
 
         return flask_jsonify({"messages": messages})
