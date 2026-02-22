@@ -870,6 +870,44 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"AI minutes migration note: {e}")
 
+        # ── Discord Integration tables ──────────────────────────────────────
+        try:
+            cur_discord = conn.cursor()
+            cur_discord.execute("""
+                CREATE TABLE IF NOT EXISTS discord_connections (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL UNIQUE,
+                    discord_user_id TEXT NOT NULL,
+                    username TEXT,
+                    global_name TEXT,
+                    avatar TEXT,
+                    access_token TEXT NOT NULL,
+                    refresh_token TEXT,
+                    token_expires_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur_discord.execute("""
+                CREATE TABLE IF NOT EXISTS discord_servers (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    guild_id TEXT NOT NULL,
+                    guild_name TEXT NOT NULL,
+                    guild_icon TEXT,
+                    position INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(email, guild_id)
+                )
+            """)
+            cur_discord.execute("CREATE INDEX IF NOT EXISTS idx_discord_conn_email ON discord_connections(email)")
+            cur_discord.execute("CREATE INDEX IF NOT EXISTS idx_discord_servers_email ON discord_servers(email)")
+            conn.commit()
+            cur_discord.close()
+            logger.info("✅ Migration: Discord integration tables ready")
+        except Exception as e:
+            logger.debug(f"Discord migration note: {e}")
+
         # ── Super Admin role migration ──────────────────────────────────────
         # Ensures the platform owner always has super_admin role on every deploy.
         try:
@@ -2151,6 +2189,131 @@ def get_ai_minute_usage(email: str, limit: int = 50) -> list:
         return [dict(r) for r in rows]
     except Exception as e:
         logger.error(f"get_ai_minute_usage failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+# ════════════════════════════════════════════════════════════════
+# DISCORD INTEGRATION HELPERS
+# ════════════════════════════════════════════════════════════════
+
+def save_discord_connection(email: str, discord_user_id: str, username: str,
+                             global_name: str, avatar: str, access_token: str,
+                             refresh_token: str, token_expires_at) -> bool:
+    """Upsert a Discord OAuth connection for a user."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO discord_connections
+                (email, discord_user_id, username, global_name, avatar,
+                 access_token, refresh_token, token_expires_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (email) DO UPDATE SET
+                discord_user_id = EXCLUDED.discord_user_id,
+                username        = EXCLUDED.username,
+                global_name     = EXCLUDED.global_name,
+                avatar          = EXCLUDED.avatar,
+                access_token    = EXCLUDED.access_token,
+                refresh_token   = EXCLUDED.refresh_token,
+                token_expires_at= EXCLUDED.token_expires_at,
+                updated_at      = NOW()
+        """, (email, discord_user_id, username, global_name, avatar,
+              access_token, refresh_token, token_expires_at))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"save_discord_connection failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_discord_connection(email: str) -> Optional[dict]:
+    """Return the Discord connection row for a user, or None."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT * FROM discord_connections WHERE email = %s LIMIT 1
+        """, (email,))
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"get_discord_connection failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def delete_discord_connection(email: str) -> bool:
+    """Remove Discord connection (disconnect)."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM discord_connections WHERE email = %s", (email,))
+        cur.execute("DELETE FROM discord_servers WHERE email = %s", (email,))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"delete_discord_connection failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def save_discord_servers(email: str, servers: list) -> bool:
+    """Replace the user's saved Discord servers (max 3)."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM discord_servers WHERE email = %s", (email,))
+        for i, srv in enumerate(servers[:3]):
+            cur.execute("""
+                INSERT INTO discord_servers (email, guild_id, guild_name, guild_icon, position)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (email, guild_id) DO UPDATE SET
+                    guild_name = EXCLUDED.guild_name,
+                    guild_icon = EXCLUDED.guild_icon,
+                    position   = EXCLUDED.position
+            """, (email, srv['guild_id'], srv['name'], srv.get('icon'), i))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"save_discord_servers failed: {e}")
+        return False
+    finally:
+        return_db_connection(conn)
+
+
+def get_discord_servers(email: str) -> list:
+    """Return a user's saved Discord servers."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT guild_id, guild_name AS name, guild_icon AS icon
+            FROM discord_servers WHERE email = %s ORDER BY position
+        """, (email,))
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_discord_servers failed: {e}")
         return []
     finally:
         return_db_connection(conn)
