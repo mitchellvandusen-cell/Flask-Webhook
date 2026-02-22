@@ -1,0 +1,252 @@
+            <div class="tab-pane fade" id="connect" role="tabpanel">
+                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">
+                    <h3 class="mb-2" style="font-weight:700;"><i class="fa-solid fa-plug me-2" style="color:var(--accent);"></i>Connect Your CRM</h3>
+                    <p style="color:#aaa; margin-bottom: 24px;">Choose your CRM platform and follow the setup guide. Your webhook URL is unique to your account.</p>
+
+                    <!-- Webhook URL Display -->
+                    <div style="background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); border-radius: 12px; padding: 16px 20px; margin-bottom: 30px;">
+                        <label style="color:var(--accent); font-weight:700; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; display:block;">Your Webhook URL</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <code id="webhookUrl" style="color:#fff; font-size:0.95rem; word-break:break-all; flex:1;">{{ request.host_url }}webhook</code>
+                            <button class="btn btn-sm btn-outline-light" onclick="copyToClipboard(document.getElementById('webhookUrl').textContent)" title="Copy">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <small style="color:#888; margin-top:6px; display:block;">Paste this into your CRM's webhook/automation settings to receive inbound messages.</small>
+                    </div>
+
+                    <!-- CRM Selection -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn active" data-crm="ghl" onclick="selectCRM('ghl')">
+                                <i class="fa-solid fa-bolt me-1"></i> LeadConnector
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn" data-crm="salesforce" onclick="selectCRM('salesforce')">
+                                <i class="fa-solid fa-cloud me-1"></i> Salesforce
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn" data-crm="hubspot" onclick="selectCRM('hubspot')">
+                                <i class="fa-solid fa-h me-1"></i> HubSpot
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn" data-crm="pipedrive" onclick="selectCRM('pipedrive')">
+                                <i class="fa-solid fa-handshake me-1"></i> Pipedrive
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn" data-crm="zoho" onclick="selectCRM('zoho')">
+                                <i class="fa-solid fa-database me-1"></i> Zoho CRM
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn" data-crm="zapier" onclick="selectCRM('zapier')">
+                                <i class="fa-solid fa-plug me-1"></i> Zapier
+                            </button>
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <button class="btn w-100 crm-select-btn" data-crm="insureio" onclick="selectCRM('insureio')">
+                                <i class="fa-solid fa-shield-halved me-1"></i> Insureio
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CRM Setup Guides -->
+                    <div id="crmGuide-ghl" class="crm-guide">
+                        <h5 style="font-weight:700; color:var(--accent);">LeadConnector Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">Click <strong>"Connect LeadConnector"</strong> in the sidebar to authorize via OAuth.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Select your sub-account (location) when prompted.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">In LeadConnector, go to <strong>Settings &gt; Business Profile &gt; Integrations</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">Create a <strong>Custom Webhook</strong> workflow: When "Customer Replied" trigger fires &rarr; Send Webhook to your URL above.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">Select a <strong>Calendar</strong> from the Bot Config tab and set your timezone.</div></div>
+                        </div>
+                    </div>
+
+                    <div id="crmGuide-salesforce" class="crm-guide" style="display:none;">
+                        <h5 style="font-weight:700; color:var(--accent);">Salesforce Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Salesforce Setup, go to <strong>App Manager &gt; New Connected App</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Enable OAuth, add scopes: <code>api</code>, <code>refresh_token</code>. Copy your <strong>Client ID</strong> and <strong>Client Secret</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">Generate an <strong>Access Token</strong> via the OAuth flow or use <strong>Security Token + Password</strong> method.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">Your <strong>Instance URL</strong> looks like: <code>https://yourorg.my.salesforce.com</code></div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">For SMS: Add your <strong>Twilio credentials</strong> (Account SID, Auth Token, Phone Number) below.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">6</div><div class="wf-step-text">Set up an <strong>Apex Trigger or Flow</strong> that sends a webhook to your URL above when a lead message arrives.</div></div>
+                        </div>
+                    </div>
+
+                    <div id="crmGuide-hubspot" class="crm-guide" style="display:none;">
+                        <h5 style="font-weight:700; color:var(--accent);">HubSpot Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In HubSpot, go to <strong>Settings &gt; Integrations &gt; Private Apps</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Create a Private App with scopes: <code>crm.objects.contacts.read/write</code>, <code>crm.objects.deals.read/write</code>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">Copy the <strong>Access Token</strong> from the Private App page.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">For SMS: Add your <strong>Twilio credentials</strong> below. Messages log as Communications in the contact timeline.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">Create a <strong>HubSpot Workflow</strong>: When contact property changes &rarr; Send Webhook to your URL above.</div></div>
+                        </div>
+                    </div>
+
+                    <div id="crmGuide-pipedrive" class="crm-guide" style="display:none;">
+                        <h5 style="font-weight:700; color:var(--accent);">Pipedrive Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Pipedrive, go to <strong>Settings &gt; Personal Preferences &gt; API</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Copy your <strong>API Token</strong> and your <strong>Company Domain</strong> (e.g., "yourcompany" from yourcompany.pipedrive.com).</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">New contacts automatically get a <strong>Deal created</strong> in your pipeline.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">For SMS: Add your <strong>Twilio credentials</strong> below. Messages log as Notes on the Person record.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">Use <strong>Pipedrive Automations</strong> or <strong>Zapier</strong> to send a webhook to your URL above on new activity.</div></div>
+                        </div>
+                    </div>
+
+                    <div id="crmGuide-zoho" class="crm-guide" style="display:none;">
+                        <h5 style="font-weight:700; color:var(--accent);">Zoho CRM Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">Go to <strong>Zoho API Console</strong> (<code>api-console.zoho.com</code>) and create a <strong>Self Client</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Generate tokens with scopes: <code>ZohoCRM.modules.ALL</code>, <code>ZohoCRM.users.READ</code>. Copy <strong>Client ID</strong>, <strong>Client Secret</strong>, and <strong>Refresh Token</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">Select your <strong>Data Center</strong> (com, eu, in, com.au, jp).</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">For SMS: Add your <strong>Twilio credentials</strong> below. Zoho also supports <strong>native email sending</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">Create a <strong>Zoho CRM Workflow Rule</strong> with a Webhook action pointing to your URL above.</div></div>
+                        </div>
+                    </div>
+
+                    <div id="crmGuide-zapier" class="crm-guide" style="display:none;">
+                        <h5 style="font-weight:700; color:var(--accent);">Zapier Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Zapier, create a new Zap with a <strong>Webhooks by Zapier &gt; Catch Hook</strong> trigger.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Copy the <strong>Catch Hook URL</strong> that Zapier generates.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">Optionally create separate Zaps for <strong>messages</strong>, <strong>bookings</strong>, and <strong>contacts</strong> with separate hook URLs.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">Connect your output actions (SMS by Zapier, Twilio, Google Calendar, etc.).</div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">Set up a <strong>second Zap</strong> that sends inbound messages to your webhook URL above.</div></div>
+                        </div>
+                    </div>
+
+                    <div id="crmGuide-insureio" class="crm-guide" style="display:none;">
+                        <h5 style="font-weight:700; color:var(--accent);">Insureio Setup</h5>
+                        <div class="setup-steps">
+                            <div class="wf-step"><div class="wf-step-num">1</div><div class="wf-step-text">In Insureio, go to <strong>Account Settings</strong> and find your <strong>API Key</strong>.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">2</div><div class="wf-step-text">Find your <strong>Brand/Profile ID</strong> from the Brands section (required for lead creation).</div></div>
+                            <div class="wf-step"><div class="wf-step-num">3</div><div class="wf-step-text">For bookings: Set up a <strong>Calendly webhook</strong> or similar and paste the URL as your Booking Webhook.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">4</div><div class="wf-step-text">For SMS: Add your <strong>Twilio credentials</strong> below.</div></div>
+                            <div class="wf-step"><div class="wf-step-num">5</div><div class="wf-step-text">Use <strong>Zapier or a webhook relay</strong> to forward inbound messages to your URL above.</div></div>
+                        </div>
+                    </div>
+
+                    <!-- Integration Config Form -->
+                    <div id="integrationConfigForm" style="margin-top: 24px; display:none;">
+                        <hr style="border-color: var(--glass-border); margin: 20px 0;">
+                        <h5 style="font-weight:700;" id="configFormTitle">Configuration</h5>
+                        <div id="configFields" class="row g-3"></div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-primary" onclick="saveIntegration()">
+                                <i class="fa-solid fa-save me-1"></i> Save Configuration
+                            </button>
+                            <button class="btn btn-outline-light" onclick="testIntegration()">
+                                <i class="fa-solid fa-vial me-1"></i> Test Connection
+                            </button>
+                        </div>
+                        <div id="integrationResult" style="margin-top: 12px;"></div>
+                    </div>
+
+                    <!-- Current CRM Status -->
+                    {% if sub and sub.crm_type %}
+                    <div style="margin-top: 20px; padding: 12px 16px; background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); border-radius: 10px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small style="color:var(--accent);"><i class="fa-solid fa-circle-check me-1"></i> Currently connected: <strong>{{ sub.crm_type|upper }}</strong></small>
+                            {% if sub.crm_type == 'ghl' %}
+                            <a href="/oauth/initiate" class="btn btn-sm" style="background: rgba(0,180,255,0.1); border: 1px solid rgba(0,180,255,0.25); color: #00b4ff; font-weight: 600; font-size: 0.75rem; border-radius: 6px; padding: 4px 12px;">
+                                <i class="fa-solid fa-rotate me-1"></i>Reauthorize
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- ════════════════════════════════════════════════ -->
+                    <!-- OUTBOUND CALL TRIGGER -->
+                    <!-- ════════════════════════════════════════════════ -->
+                    <hr style="border-color: var(--glass-border); margin: 30px 0;">
+                    <h4 style="font-weight:700;"><i class="fa-solid fa-arrow-right-from-bracket me-2" style="color:var(--accent);"></i>Outbound Call Trigger</h4>
+                    <p style="color:#999; font-size:0.85rem; margin-bottom:12px;">Trigger an AI call from your CRM by sending a POST request:</p>
+                    <div class="mb-3 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <code style="background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.15); padding: 8px 14px; border-radius: 8px; color: var(--accent); font-size: 0.85rem; flex: 1; word-break: break-all;">
+                                POST https://{{ request.host }}/voice/outbound-call
+                            </code>
+                            <button class="btn btn-sm" onclick="copyToClipboard('https://{{ request.host }}/voice/outbound-call')"
+                                style="background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; white-space: nowrap;">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="mt-3" style="font-size: 0.8rem; color: #777;">
+                            <strong style="color:#aaa;">JSON Body:</strong>
+                            <pre style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; margin-top: 6px; color: #ccc; font-size: 0.78rem; overflow-x: auto;">{ "location_id": "{{ sub.location_id or 'your_location_id' }}", "phone": "+15551234567", "first_name": "John", "contact_id": "contact_abc123" }</pre>
+                        </div>
+                    </div>
+
+                    <!-- ════════════════════════════════════════════════ -->
+                    <!-- API ACCESS (Enterprise Integration) -->
+                    <!-- ════════════════════════════════════════════════ -->
+                    <hr style="border-color: var(--glass-border); margin: 30px 0;">
+                    <h4 style="font-weight:700;"><i class="fa-solid fa-code me-2" style="color:var(--accent);"></i>API Access</h4>
+                    <p style="color:#999; font-size:0.85rem; margin-bottom:16px;">
+                        Integrate any CRM, mobile app, or custom system using our OpenAI-compatible API.
+                        Send messages to <code>/api/v1/chat/completions</code> and receive bot replies via webhook.
+                    </p>
+
+                    <div id="apiKeySection">
+                        <div id="apiKeyStatus" style="padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                                <div>
+                                    <strong style="color:#fff;">API Key:</strong>
+                                    <span id="apiKeyDisplay" style="color:#888; font-family:monospace; font-size:0.85rem; margin-left:8px;">Loading...</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-success" onclick="generateApiKey()" id="btnGenKey">
+                                        <i class="fa-solid fa-key me-1"></i> Generate Key
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="revokeApiKey()" id="btnRevokeKey" style="display:none;">
+                                        <i class="fa-solid fa-ban me-1"></i> Revoke
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Webhook URL -->
+                        <div style="margin-top: 14px; display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:250px;">
+                                <label style="color:#bbb; font-size:0.8rem; margin-bottom:4px; display:block;">Outbound Webhook URL (HTTPS)</label>
+                                <input type="url" id="apiWebhookUrl" class="form-control form-control-sm"
+                                       placeholder="https://your-app.com/webhook/grokbot"
+                                       style="background: rgba(255,255,255,0.05); border-color: var(--glass-border); color:#fff;">
+                            </div>
+                            <button class="btn btn-sm btn-primary" onclick="saveWebhookUrl()" style="height:31px;">
+                                <i class="fa-solid fa-save me-1"></i> Save
+                            </button>
+                        </div>
+
+                        <!-- Webhook Secret Preview -->
+                        <div style="margin-top:10px;">
+                            <small style="color:#888;">
+                                <i class="fa-solid fa-shield-halved me-1"></i> Webhook Secret:
+                                <span id="webhookSecretPreview" style="font-family:monospace; color:#666;">—</span>
+                            </small>
+                        </div>
+
+                        <!-- Quick Reference -->
+                        <div style="margin-top:16px; padding:14px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.1); border-radius:10px;">
+                            <strong style="color:var(--accent); font-size:0.85rem;">Quick Start</strong>
+                            <pre style="color:#ccc; font-size:0.75rem; margin:8px 0 0; white-space:pre-wrap; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">curl -X POST {{ request.host_url }}api/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_id": "lead-123",
+    "messages": [{"role": "user", "content": "How much is life insurance?"}],
+    "first_name": "Maria"
+  }'</pre>
+                        </div>
+                    </div>
+
+                </div>
+            </div>

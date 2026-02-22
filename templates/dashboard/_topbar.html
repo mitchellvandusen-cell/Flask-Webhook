@@ -1,0 +1,24 @@
+        <!-- ── Top Bar ── -->
+        <div class="dash-topbar">
+            <div>
+                <h1 id="dashPageTitle">Dialer</h1>
+                <p class="dash-subtitle">InsuranceGrokBot Command Center</p>
+            </div>
+            <div class="dash-topbar-right">
+                <div class="status-badge"><div class="dot"></div> <span>Active</span></div>
+                <!-- Discord Notification Bell -->
+                <button class="discord-bell-btn" id="discordBellBtn" onclick="openLastDiscordChannel()" title="Discord messages" style="display:none;">
+                    <i class="fa-brands fa-discord"></i>
+                    <span class="discord-bell-badge" id="discordBellBadge">0</span>
+                </button>
+                <!-- Light / Dark Theme Toggle -->
+                <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch to light mode">
+                    <i class="fa-solid fa-sun"></i>
+                </button>
+                <div class="dash-user-pill">
+                    <div class="dash-avatar">{{ current_user.email[0].upper() }}</div>
+                    <span class="dash-user-email">{{ current_user.email }}</span>
+                </div>
+            </div>
+        </div>
+

@@ -1,0 +1,23 @@
+    <!-- Congratulations Popup -->
+    {% if show_congrats is defined and show_congrats %}
+    <div class="congrats-overlay visible" id="congratsOverlay">
+        <div class="congrats-card">
+            <button class="congrats-close" onclick="document.getElementById('congratsOverlay').classList.remove('visible');">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="congrats-icon">
+                <i class="fa-solid fa-rocket"></i>
+            </div>
+            <h2 style="font-weight: 900; font-size: 1.8rem; color: #fff; margin-bottom: 8px;">Congratulations!</h2>
+            <p style="color: rgba(255,255,255,0.5); font-size: 1rem; margin-bottom: 24px;">
+                Your account is connected. You can now create a workflow to start engaging leads.
+            </p>
+            <a href="#" class="congrats-btn" onclick="event.preventDefault(); document.getElementById('congratsOverlay').classList.remove('visible'); document.querySelector('[data-bs-target=\'#workflows\']').click();">
+                <i class="fa-solid fa-diagram-project me-2"></i> Create Workflow
+            </a>
+            <p style="color: #555; font-size: 0.8rem; margin-top: 16px;">
+                Fill in any pulsing fields first, then set up your workflow.
+            </p>
+        </div>
+    </div>
+    {% endif %}

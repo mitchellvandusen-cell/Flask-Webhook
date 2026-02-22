@@ -1,0 +1,373 @@
+            <div class="tab-pane fade" id="voice" role="tabpanel">
+                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+
+                    <!-- Header -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); display:flex; align-items:center; justify-content:center; margin-right: 16px;">
+                            <i class="fa-solid fa-phone" style="color: #00d9ff; font-size: 1.2rem;"></i>
+                        </div>
+                        <div>
+                            <h4 style="margin:0; font-weight:700;">Voice AI Agent</h4>
+                            <p style="margin:0; color:#888; font-size:0.85rem;">Real-time AI voice calls powered by Grok Speech-to-Speech</p>
+                        </div>
+                        <div class="ms-auto">
+                            <span id="voiceStatusBadge" class="badge" style="background: {% if voice_config.get('enabled') %}rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3){% else %}rgba(255,255,255,0.06); color: #666; border: 1px solid rgba(255,255,255,0.08){% endif %}; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem;">
+                                {% if voice_config.get('enabled') %}<i class="fa-solid fa-circle me-1" style="font-size:0.5rem; vertical-align:middle;"></i> Active{% else %}Inactive{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Enable Toggle -->
+                    <div class="mb-4 p-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+                        <div class="form-check form-switch d-flex align-items-center">
+                            <input class="form-check-input me-3" type="checkbox" id="voiceEnabled" {% if voice_config.get('enabled') %}checked{% endif %}
+                                style="width: 3em; height: 1.5em; cursor: pointer;">
+                            <label class="form-check-label" for="voiceEnabled" style="color: #fff; font-weight: 600; font-size: 1rem;">Enable Voice AI Agent</label>
+                        </div>
+                        <p style="color:#777; font-size:0.8rem; margin: 8px 0 0 3.5em;">When enabled, your phone number will handle inbound calls with AI and you can trigger outbound calls via webhook.</p>
+                    </div>
+
+                    <!-- ══ Voice Config: Two-column settings menu ══ -->
+                    <div style="display:flex;gap:16px;min-height:420px;">
+                        <!-- Left column: settings categories -->
+                        <div id="voiceSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
+                            <button class="voice-menu-item active" onclick="switchVoicePanel('settings')" id="vmenu-settings" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.15);border-radius:8px;color:#00d9ff;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-microphone" style="width:16px;text-align:center;"></i> Voice AI
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('activation')" id="vmenu-activation" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="width:16px;text-align:center;"></i> Activate Voice
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('numbers')" id="vmenu-numbers" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-phone-volume" style="width:16px;text-align:center;"></i> Numbers
+                            </button>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('trusthub')" id="vmenu-trusthub" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-shield-halved" style="width:16px;text-align:center;"></i> Spam Protection
+                            </button>
+                        </div>
+
+                        <!-- Right column: settings content -->
+                        <div style="flex:1;min-width:0;">
+
+                    <!-- ── Voice AI settings panel ── -->
+                    <!-- ── Activate Voice panel ── -->
+                    <div id="vstab-panel-activation" style="display:none;">
+                        <div class="p-4" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.15);border-radius:14px;">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fa-solid fa-wand-magic-sparkles" style="color:#00d9ff;"></i>
+                                </div>
+                                <div>
+                                    <h6 style="margin:0;font-weight:700;color:#fff;">Voice Service</h6>
+                                    {% if voice_config.get('twilio_sub_account_sid') %}
+                                    <p style="margin:0;color:#00ff88;font-size:0.8rem;"><i class="fa-solid fa-circle-check me-1"></i>Active — phone number and dialer ready</p>
+                                    {% else %}
+                                    <p style="margin:0;color:#888;font-size:0.8rem;">Click activate to create your voice account, then buy a phone number in the Numbers tab</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not voice_config.get('twilio_sub_account_sid') %}
+                            <button onclick="activateVoiceService()" id="activateVoiceBtn"
+                                style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:10px;padding:9px 20px;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+                                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Activate Voice
+                            </button>
+                            {% endif %}
+                            <div class="d-flex gap-3 flex-wrap mt-3">
+                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                    {% if voice_config.get('twilio_sub_account_sid') %}
+                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice Account</span>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice Account</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                    {% if voice_config.get('twilio_twiml_app_sid') %}
+                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Voice App</span>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Voice App</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                    {% if voice_config.get('twilio_phone_number') %}
+                                        <i class="fa-solid fa-circle-check" style="color:#00ff88;"></i><span style="color:#ccc;">Phone Number: {{ voice_config.get('twilio_phone_number', '') }}</span>
+                                    {% elif voice_config.get('twilio_sub_account_sid') %}
+                                        <i class="fa-solid fa-circle-exclamation" style="color:#fbbf24;"></i><span style="color:#fbbf24;">No number — buy one in the <strong>Numbers</strong> tab</span>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-xmark" style="color:#444;"></i><span style="color:#555;">Phone Number</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div id="activateVoiceResult" class="mt-2" style="display:none;font-size:0.8rem;"></div>
+                        </div>
+                    </div>
+
+                    <!-- ── Voice AI settings panel ── -->
+                    <div id="vstab-panel-settings">
+
+                    <!-- AI Voice -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">AI Voice</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <select class="form-control" id="voiceSelection"
+                                    style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; flex:1;">
+                                    <option value="ara" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice', 'ara') == 'ara' %}selected{% endif %}>Ara (Warm, Professional)</option>
+                                    <option value="eve" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'eve' %}selected{% endif %}>Eve (Confident, Clear)</option>
+                                    <option value="leo" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'leo' %}selected{% endif %}>Leo (Calm, Authoritative)</option>
+                                    <option value="rex" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'rex' %}selected{% endif %}>Rex (Bold, Energetic)</option>
+                                    <option value="sal" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'sal' %}selected{% endif %}>Sal (Friendly, Approachable)</option>
+                                    <option value="mika" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'mika' %}selected{% endif %}>Mika (Warm, Conversational)</option>
+                                    <option value="vale" style="background:#1a1a2e; color:#fff;" {% if voice_config.get('voice') == 'vale' %}selected{% endif %}>Vale (Professional, Measured)</option>
+                                </select>
+                                <button type="button" id="voicePreviewBtn" onclick="previewVoice()"
+                                    style="background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.2); color: #00d9ff; border-radius: 10px; padding: 6px 14px; white-space: nowrap; cursor: pointer; font-size: 0.85rem;"
+                                    title="Listen to this voice">
+                                    <i class="fa-solid fa-volume-high me-1"></i> Preview
+                                </button>
+                            </div>
+                            <small id="voicePreviewStatus" style="color:#666; font-size:0.75rem; display:none; margin-top:4px;"></small>
+                        </div>
+                    </div>
+
+                    <!-- Voice Settings -->
+                    <h6 style="color: var(--accent); font-weight: 700; margin-bottom: 12px;"><i class="fa-solid fa-microphone me-2"></i>Voice Settings</h6>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Voice Bot Name</label>
+                            <input type="text" class="form-control" id="voiceBotName" placeholder="e.g., Ava, Sarah, James..."
+                                value="{{ voice_config.get('voice_bot_name', '') }}"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px;">
+                            <small style="color:#666; font-size:0.75rem;">The name the AI uses on calls. Leave blank to use your SMS bot name ({{ sub.bot_first_name or 'Alex' }}). Use a different name if your voice doesn't match your SMS persona.</small>
+                        </div>
+                        <div class="col-12">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Custom Voice Instructions (optional)</label>
+                            <textarea class="form-control" id="voiceInstructions" rows="3" placeholder="e.g., 'Always confirm the beneficiary with the lead' or 'Mention our 30-day free look period' or 'Speak slowly and clearly'"
+                                style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.9rem;">{{ voice_config.get('voice_instructions', '') }}</textarea>
+                            <div style="margin-top:8px; padding:10px 12px; background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:8px;">
+                                <div style="color:#00d9ff; font-size:0.75rem; font-weight:600; margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i> Contact Fields Available to AI</div>
+                                <p style="color:#999; font-size:0.75rem; margin-bottom:4px;">The AI automatically has access to <strong style="color:#ccc;">all CRM custom fields</strong> for the contact being called (beneficiary, coverage amount, etc.). Just tell it what to do with them in your instructions.</p>
+                                <div style="color:#777; font-size:0.72rem; line-height:1.5;">
+                                    <strong style="color:#aaa;">Examples:</strong><br>
+                                    "Confirm the beneficiary name with the lead"<br>
+                                    "Reference their requested coverage amount"<br>
+                                    "If they have a spouse listed, ask about joint coverage"
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12" style="margin-top: 4px;">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">
+                                <i class="fa-solid fa-scroll me-1" style="color:#a78bfa;"></i> Call Script (optional)
+                            </label>
+                            <div style="position:relative;">
+                                <textarea class="form-control" id="voiceCallScript" rows="10"
+                                    placeholder="Paste your call script here. The AI will treat this as a reference guide — it will pull talking points, objection responses, and flow from the script naturally rather than reading it word for word."
+                                    style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size: 0.85rem; line-height:1.6; resize:vertical;">{{ voice_config.get('call_script', '') }}</textarea>
+                                <button type="button" onclick="clearCallScript()"
+                                    style="position:absolute; top:8px; right:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#888; border-radius:6px; padding:2px 8px; font-size:0.72rem; cursor:pointer;"
+                                    title="Clear script">clear</button>
+                            </div>
+                            <div style="margin-top:8px; padding:10px 12px; background:rgba(167,139,250,0.05); border:1px solid rgba(167,139,250,0.15); border-radius:8px;">
+                                <div style="color:#a78bfa; font-size:0.75rem; font-weight:600; margin-bottom:4px;"><i class="fa-solid fa-circle-info me-1"></i> How it works</div>
+                                <p style="color:#999; font-size:0.75rem; margin:0; line-height:1.5;">The AI uses this as a live reference — pulling objection handlers, rebuttals, and talking points from it as the conversation unfolds. It won't read it verbatim. Paste a full sales script, FAQ, or objection map and the AI will work from it naturally.</p>
+                            </div>
+                        </div>
+                    </div><!-- /row: Voice Settings (bot name, instructions, call script) -->
+                    <!-- Power Dialer settings moved to Dialer tab settings panel -->
+
+                    <!-- Actions -->
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <button class="btn px-4 py-2" onclick="saveVoiceConfig()"
+                            style="background: linear-gradient(135deg, var(--accent), #00b36b); color: #000; font-weight: 700; border-radius: 10px; border: none;">
+                            <i class="fa-solid fa-floppy-disk me-2"></i>Save Voice Settings
+                        </button>
+                        <button class="btn px-4 py-2" onclick="testVoiceConnection()"
+                            style="background: rgba(0,217,255,0.1); color: #00d9ff; border: 1px solid rgba(0,217,255,0.3); border-radius: 10px; font-weight: 600;">
+                            <i class="fa-solid fa-vial me-2"></i>Test Connection
+                        </button>
+                        <!-- External dashboard link removed — white-label -->
+                    </div>
+
+                    <!-- Status output -->
+                    <div id="voiceTestResult" class="mt-3" style="display:none;"></div>
+
+                    <!-- Pricing Info -->
+                    <div class="mt-4 p-3" style="background: rgba(255,165,0,0.04); border: 1px solid rgba(255,165,0,0.1); border-radius: 12px;">
+                        <p style="color:#aaa; font-size:0.8rem; margin:0;">
+                            <i class="fa-solid fa-circle-info me-1" style="color: #ffa500;"></i>
+                            <strong>Pricing:</strong> Voice calls use xAI at $0.07/min + voice rates (~$0.007/min inbound, ~$0.012/min outbound) + $1/mo per number. Average 5-min call costs ~$0.41. Voice minutes are included in your subscription.
+                        </p>
+                    </div>
+                    </div><!-- /vstab-panel-settings -->
+
+                    <!-- ══ Numbers sub-tab ══ -->
+                    <div id="vstab-panel-numbers" style="display:none;">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Your Phone Numbers</h6>
+                            <div class="d-flex gap-2">
+                                <button onclick="loadNumbersTab()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.78rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                </button>
+                                <button onclick="document.getElementById('vstabBuyPanel').style.display=document.getElementById('vstabBuyPanel').style.display==='none'?'block':'none'"
+                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:6px;padding:5px 14px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                                    <i class="fa-solid fa-plus me-1"></i>Buy Number
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Buy panel -->
+                        <div id="vstabBuyPanel" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.12);border-radius:10px;">
+                            <h6 style="color:#00d9ff;font-weight:700;margin-bottom:4px;font-size:0.88rem;"><i class="fa-solid fa-magnifying-glass me-1"></i>Search Available Numbers</h6>
+                            <div style="margin-bottom:10px;font-size:.72rem;color:#888;">Pricing: <span style="color:#00ff88;">Local $1.15/mo</span> &bull; <span style="color:#00ff88;">Toll-Free $2.15/mo</span> &bull; <span style="color:#00ff88;">Mobile $1.15/mo</span></div>
+                            <div class="d-flex gap-2 mb-2 flex-wrap">
+                                <select id="buyNumberType"
+                                    style="width:120px;background:#2a2a35;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                    <option value="local" style="background:#2a2a35;color:#fff;">Local</option>
+                                    <option value="toll_free" style="background:#2a2a35;color:#fff;">Toll-Free</option>
+                                    <option value="mobile" style="background:#2a2a35;color:#fff;">Mobile</option>
+                                </select>
+                                <input type="text" id="buyAreaCode" placeholder="Area code (e.g. 512)"
+                                    style="width:140px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <input type="text" id="buyState" placeholder="State (e.g. TX)"
+                                    style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <input type="text" id="buyCity" placeholder="City"
+                                    style="width:120px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                            </div>
+                            <div class="d-flex gap-2 mb-3 flex-wrap">
+                                <input type="text" id="buyZip" placeholder="Zip code"
+                                    style="width:110px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <input type="text" id="buyContains" placeholder="Contains (e.g. 555)"
+                                    style="width:160px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:7px 12px;border-radius:8px;font-size:0.82rem;outline:none;">
+                                <button onclick="searchAvailableNumbers()"
+                                    style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:0.82rem;font-weight:700;cursor:pointer;">
+                                    <i class="fa-solid fa-magnifying-glass me-1"></i>Search
+                                </button>
+                            </div>
+                            <div id="availableNumbersList" style="max-height:280px;overflow-y:auto;font-size:0.82rem;"></div>
+                        </div>
+                        <!-- Numbers list -->
+                        <div id="numbersListContainer" style="font-size:0.82rem;">
+                            <div style="text-align:center;padding:30px 20px;color:#555;">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.2rem;color:#00d9ff;display:block;margin-bottom:8px;"></i>
+                                Loading numbers...
+                            </div>
+                        </div>
+                    </div><!-- /vstab-panel-numbers -->
+
+                    <!-- ══ Spam Protection sub-tab ══ -->
+                    <div id="vstab-panel-trusthub" style="display:none;">
+
+                        <!-- Status Banner (shown after registration) -->
+                        <div id="spamProtectionStatus" style="display:none;"></div>
+
+                        <!-- Registration Form -->
+                        <div id="spamProtectionForm">
+                            <div class="mb-3 p-3" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:12px;">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                        <i class="fa-solid fa-shield-halved" style="color:#00ff88;"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:700;font-size:1rem;color:#fff;">Spam Protection</div>
+                                        <div style="font-size:0.78rem;color:#888;">Fill out your business details once. We'll automatically register your business identity, enable caller ID (CNAM) on all your numbers, and protect any future numbers you buy.</div>
+                                    </div>
+                                </div>
+
+                                <!-- What happens -->
+                                <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
+                                    <div style="font-size:0.75rem;color:#00d9ff;font-weight:600;margin-bottom:6px;"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>What happens when you register:</div>
+                                    <div style="font-size:0.75rem;color:#999;line-height:1.6;">
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> STIR/SHAKEN Full (A) attestation — already active<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Business identity registered<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> CNAM (Caller ID Name) enabled on all your numbers<br>
+                                        <i class="fa-solid fa-circle-check me-1" style="color:#00ff88;"></i> Future number purchases auto-protected
+                                    </div>
+                                </div>
+
+                                <!-- Form fields -->
+                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-8">
+                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">Business Name (must match IRS docs)</label>
+                                        <input type="text" id="spBizName" placeholder="ACME Insurance LLC"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('business_name', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
+                                        <input type="text" id="spEIN" placeholder="XX-XXXXXXX"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                </div>
+
+                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-location-dot me-1" style="color:#ffa500;"></i> Business Address</div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-12">
+                                        <input type="text" id="spStreet" placeholder="123 Main Street, Suite 100"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('street', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="text" id="spCity" placeholder="City"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('city', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" id="spState" placeholder="State" maxlength="2"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('state', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;text-transform:uppercase;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" id="spZip" placeholder="ZIP Code"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('zip', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                </div>
+
+                                <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-user me-1" style="color:#00d9ff;"></i> Contact Info</div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-4">
+                                        <input type="text" id="spContactName" placeholder="Full Name"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_name', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="email" id="spContactEmail" placeholder="Email"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_email', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="tel" id="spContactPhone" placeholder="Phone"
+                                            value="{{ (voice_config.get('trust_hub') or {}).get('contact_phone', '') }}"
+                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                    </div>
+                                </div>
+
+                                <!-- Register button -->
+                                <button id="spRegisterBtn" onclick="registerSpamProtection()"
+                                    style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;padding:12px 28px;font-size:0.9rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
+                                    <i class="fa-solid fa-shield-halved me-2"></i>Register & Protect All Numbers
+                                </button>
+                                <div id="spRegisterResult" style="margin-top:10px;font-size:0.78rem;text-align:center;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Protected Numbers List (always visible) -->
+                        <div id="spNumbersList" class="mt-3 p-3" style="background:rgba(0,217,255,0.03);border:1px solid rgba(0,217,255,0.08);border-radius:10px;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div style="font-weight:700;font-size:0.9rem;color:#fff;"><i class="fa-solid fa-phone-volume me-2" style="color:#00d9ff;"></i>Number Protection Status</div>
+                                <button onclick="loadSpamProtectionStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;cursor:pointer;">
+                                    <i class="fa-solid fa-arrows-rotate me-1"></i>Refresh
+                                </button>
+                            </div>
+                            <div id="spNumbersContent" style="font-size:0.78rem;">
+                                <div style="text-align:center;padding:12px;color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</div>
+                            </div>
+                        </div>
+
+                    </div><!-- /vstab-panel-trusthub -->
+
+                        </div><!-- /right column -->
+                    </div><!-- /two-column settings menu -->
+
+                </div><!-- /glass-panel -->
+            </div><!-- /voice tab-pane -->

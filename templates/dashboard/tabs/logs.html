@@ -1,0 +1,43 @@
+            <div class="tab-pane fade" id="logs" role="tabpanel">
+                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">
+                    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                        <h3 style="font-weight:700; margin:0;"><i class="fa-solid fa-list-check me-2" style="color:var(--accent);"></i>Webhook Activity Log</h3>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <select id="logFilterType" class="form-control" style="width:auto; min-width:150px;" onchange="loadLogs()">
+                                <option value="">All Events</option>
+                                <option value="webhook_received">Webhook Received</option>
+                                <option value="booking_attempt">Booking Attempt</option>
+                                <option value="booking_success">Booking Success</option>
+                                <option value="booking_failed">Booking Failed</option>
+                                <option value="message_sent">Message Sent</option>
+                                <option value="message_failed">Message Failed</option>
+                                <option value="error">Errors</option>
+                            </select>
+                            <select id="logFilterStatus" class="form-control" style="width:auto; min-width:120px;" onchange="loadLogs()">
+                                <option value="">All Status</option>
+                                <option value="success">Success</option>
+                                <option value="error">Error</option>
+                                <option value="warning">Warning</option>
+                                <option value="info">Info</option>
+                            </select>
+                            <button class="btn btn-outline-light btn-sm" onclick="loadLogs()">
+                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div id="logsContainer" style="max-height: 600px; overflow-y: auto;">
+                        <div class="text-center py-4" style="color:#888;">
+                            <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading logs...
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3" id="logsPagination" style="display:none!important;">
+                        <button class="btn btn-outline-light btn-sm" id="logsOlder" onclick="loadLogs('older')">
+                            <i class="fa-solid fa-arrow-left me-1"></i> Older
+                        </button>
+                        <span id="logsPageInfo" style="color:#888; font-size:0.85rem;"></span>
+                        <button class="btn btn-outline-light btn-sm" id="logsNewer" onclick="loadLogs('newer')">
+                            Newer <i class="fa-solid fa-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>

@@ -1,0 +1,80 @@
+            <!-- Create Workflow Tab -->
+            <div class="tab-pane fade" id="workflows" role="tabpanel">
+                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px;">
+                    <div class="d-flex align-items-center mb-4 gap-3">
+                        <div style="width:50px; height:50px; background:rgba(0, 255, 136, 0.08); border:1px solid rgba(0, 255, 136, 0.15); border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid fa-diagram-project" style="font-size:1.3rem; color:var(--accent);"></i>
+                        </div>
+                        <div>
+                            <h3 class="m-0" style="font-weight:700;">Create a Workflow</h3>
+                            <p class="m-0" style="color: #888; font-size: 0.85rem;">Set up automation in your Lead Connector account</p>
+                        </div>
+                    </div>
+
+                    <!-- Workflow Sub-tabs -->
+                    <div class="workflow-tabs">
+                        <button class="workflow-tab-btn active" onclick="switchWorkflow('reengage')">
+                            <i class="fa-solid fa-rotate me-2"></i>Re-Engage Workflow
+                        </button>
+                        <button class="workflow-tab-btn" onclick="switchWorkflow('smsreply')">
+                            <i class="fa-solid fa-comment-sms me-2"></i>SMS Reply Workflow
+                        </button>
+                    </div>
+
+                    <!-- Re-Engage Workflow -->
+                    <div class="workflow-content active" id="wf-reengage">
+                        <div style="margin-bottom: 16px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">InsuranceGrokBot Re-Engage Workflow</span>
+                        </div>
+
+                        <div class="wf-step">
+                            <div class="wf-step-num">1</div>
+                            <div class="wf-step-text">Create a <strong>new workflow from scratch</strong> in your Lead Connector account.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">2</div>
+                            <div class="wf-step-text">Assign the trigger to <strong>"Tag Added"</strong>.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">3</div>
+                            <div class="wf-step-text">Add a <strong>Wait delay</strong> (1 or 2 minutes).</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">4</div>
+                            <div class="wf-step-text">Select the <strong>"+"</strong> button, go to the <strong>"Apps"</strong> tab, scroll to <strong>InsuranceGrokBot</strong>, and select the action.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">5</div>
+                            <div class="wf-step-text">Add an <strong>"If/Else"</strong> condition. For the <strong>IF</strong>: check if contact has an <strong>"appointment booked"</strong> tag, then <strong>end the workflow</strong>.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">6</div>
+                            <div class="wf-step-text">Add a <strong>Wait</strong> step (1 day).</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">7</div>
+                            <div class="wf-step-text">Add a <strong>"Go-To"</strong> and select above the first wait, under the trigger. This creates the re-engagement loop.</div>
+                        </div>
+                    </div>
+
+                    <!-- SMS Reply Workflow -->
+                    <div class="workflow-content" id="wf-smsreply">
+                        <div style="margin-bottom: 16px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 700;">InsuranceGrokBot SMS Reply Workflow</span>
+                        </div>
+
+                        <div class="wf-step">
+                            <div class="wf-step-num">1</div>
+                            <div class="wf-step-text">Set the trigger to <strong>"SMS Received"</strong> by contact with tag.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">2</div>
+                            <div class="wf-step-text">Add a <strong>Wait</strong> step.</div>
+                        </div>
+                        <div class="wf-step">
+                            <div class="wf-step-num">3</div>
+                            <div class="wf-step-text">Select the <strong>"+"</strong> button, go to <strong>"Apps"</strong>, and add the <strong>InsuranceGrokBot</strong> action.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>

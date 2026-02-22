@@ -1,0 +1,75 @@
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert {{ 'alert-success' if category == 'success' else 'alert-danger' }} mb-4" style="border-radius:12px;">
+                        <i class="fa-solid fa-info-circle me-2"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Persistent Alerts (DB-backed, survive page reloads) -->
+        <div id="persistent-alerts-container"></div>
+
+        {% if is_placeholder is defined and is_placeholder %}
+        <!-- PLACEHOLDER ACCOUNT BANNER — email could not be determined during OAuth -->
+        <div class="onboarding-banner" id="placeholderBanner">
+            <i class="fa-solid fa-triangle-exclamation banner-icon"></i>
+            <div class="banner-body">
+                <h4>Action Required: Complete Your Account Setup</h4>
+                <p>
+                    We weren't able to retrieve your email or user details during the connection process.
+                    This is usually caused by pending scope approvals on the Lead Connector marketplace.
+                    Your bot won't be fully active until your account details are confirmed.
+                </p>
+                <a href="/support" class="banner-link">
+                    <i class="fa-solid fa-headset me-1"></i> Get Help &amp; Fix This
+                </a>
+            </div>
+            <button class="banner-dismiss" onclick="this.closest('.onboarding-banner').style.display='none'" aria-label="Dismiss">&times;</button>
+        </div>
+        {% elif is_incomplete is defined and is_incomplete and not needs_oauth %}
+        <!-- INCOMPLETE ACCOUNT BANNER — missing CRM user ID or location -->
+        <div class="onboarding-banner" id="incompleteBanner">
+            <i class="fa-solid fa-circle-info banner-icon"></i>
+            <div class="banner-body">
+                <h4>Almost There: Some Details Are Missing</h4>
+                <p>
+                    Your account connected successfully, but some CRM details (User ID or Location) could not
+                    be auto-populated. This can happen when certain Lead Connector scopes are still pending approval.
+                    You can enter them manually below, or contact support for assistance.
+                </p>
+                <a href="/support" class="banner-link">
+                    <i class="fa-solid fa-headset me-1"></i> Learn More &amp; Get Help
+                </a>
+            </div>
+            <button class="banner-dismiss" onclick="this.closest('.onboarding-banner').style.display='none'" aria-label="Dismiss">&times;</button>
+        </div>
+        {% endif %}
+
+        {% if needs_subscription %}
+        <div class="alert alert-warning mb-5" style="border-radius: 16px; border: 2px solid #ffc107; background: linear-gradient(135deg, rgba(255,193,7,0.1) 0%, rgba(255,193,7,0.05) 100%); padding: 30px;">
+            <div class="text-center">
+                <i class="fa-solid fa-exclamation-triangle" style="font-size: 3rem; color: #ffc107; margin-bottom: 20px;"></i>
+                <h3 style="font-weight: 700; margin-bottom: 15px;">Subscription Required</h3>
+                <p style="font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 25px;">
+                    You've successfully connected your Lead Connector account! To activate your bot and start using all features, please subscribe to the Individual Plan.
+                </p>
+                <div class="mb-4">
+                    <h2 style="font-weight: 900; color: var(--accent);">${{ subscription_price }}<span style="font-size: 1rem; font-weight: 400; color: var(--text-secondary);">/month</span></h2>
+                </div>
+                <a href="/checkout" class="btn btn-primary btn-lg" style="padding: 15px 40px; font-size: 1.1rem; border-radius: 12px;">
+                    <i class="fa-solid fa-credit-card me-2"></i>Subscribe Now - Individual Plan
+                </a>
+                <p class="mt-3 small" style="color:#aaa;">Cancel anytime &bull; No long-term contracts</p>
+            </div>
+        </div>
+        {% else %}
+        <!-- Navigation now in sidebar — hidden tab triggers kept for Bootstrap compat -->
+        <!-- These are invisible; sidebarNavigate() calls .click() on them programmatically -->
+        <ul class="nav nav-tabs" id="dashTabs" role="tablist" style="display:none!important;" aria-hidden="true">
+            <li class="nav-item"><button class="nav-link active" id="tbDialer" data-bs-toggle="tab" data-bs-target="#voicedialer" type="button" tabindex="-1"></button></li>
+            <li class="nav-item"><button class="nav-link" id="tbConfig" data-bs-toggle="tab" data-bs-target="#config" type="button" tabindex="-1"></button></li>
+            <li class="nav-item"><button class="nav-link" id="tbVoice" data-bs-toggle="tab" data-bs-target="#voice" type="button" tabindex="-1"></button></li>
+        </ul>
+

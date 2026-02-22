@@ -1,0 +1,41 @@
+
+    <!-- ════════════════════════════════════════════════
+         DISCORD MESSAGE PANEL
+         ════════════════════════════════════════════════ -->
+    <div id="discordPanel" style="position:relative;">
+        <div class="discord-panel-header">
+            <i class="fa-solid fa-hashtag" style="color:#5865f2;font-size:1rem;"></i>
+            <div>
+                <div class="ch-title" id="discordPanelChannelName">general</div>
+                <div class="ch-server-name" id="discordPanelServerName">Server</div>
+            </div>
+            <button class="discord-panel-close" onclick="closeDiscordPanel()" title="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="discordMessages" onscroll="onDiscordScroll()">
+            <div class="discord-state-msg" id="discordMsgPlaceholder">
+                <div class="state-icon"><i class="fa-brands fa-discord"></i></div>
+                <span class="state-title">No channel selected</span>
+                <span class="state-sub">Pick a channel from the sidebar to start reading and replying to team messages.</span>
+            </div>
+        </div>
+        <!-- Scroll-to-bottom button -->
+        <button id="discordScrollBtn" onclick="scrollDiscordToBottom()" title="Jump to latest">
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div class="discord-composer">
+            <div class="discord-composer-inner">
+                <textarea id="discordReplyText" rows="1" placeholder="Message #general…"
+                    onkeydown="discordReplyKeydown(event)"
+                    oninput="autoResizeDiscordReply(this)"></textarea>
+                <button class="discord-emoji-btn" onclick="openEmojiPicker()" title="Emoji">
+                    <i class="fa-regular fa-face-smile"></i>
+                </button>
+                <button class="discord-send-btn" id="discordSendBtn" onclick="sendDiscordMessage()" title="Send (Ctrl+Enter)">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="discord-composer-hint">Ctrl+Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+        </div>
+    </div>
