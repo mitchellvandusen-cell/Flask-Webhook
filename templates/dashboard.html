@@ -2037,32 +2037,32 @@
                     .dlr-msg-bot{background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#ccc;border-bottom-right-radius:4px;margin-left:auto;}
                     .dlr-field-label{font-size:0.82rem;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;}
                     .dlr-field-value{font-size:0.95rem;color:#ddd;margin-bottom:8px;}
-                    .dlr-tab-btn{background:none;border:none;color:#666;font-size:0.88rem;font-weight:600;padding:6px 12px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+                    .dlr-tab-btn{background:none;border:none;color:#666;font-size:0.95rem;font-weight:600;padding:9px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
                     .dlr-tab-btn.active{color:#00d9ff;border-bottom-color:#00d9ff;}
                     .dlr-tab-btn:hover{color:#aaa;}
                     /* Thread UI */
-                    .dlr-date-sep{text-align:center;margin:14px 0 10px;user-select:none;}
-                    .dlr-date-sep span{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:2px 10px;font-size:0.65rem;color:#444;letter-spacing:0.3px;}
-                    .dlr-msg-row{display:flex;flex-direction:column;margin-bottom:3px;}
+                    .dlr-date-sep{text-align:center;margin:16px 0 12px;user-select:none;}
+                    .dlr-date-sep span{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:4px 14px;font-size:0.78rem;color:#666;letter-spacing:0.3px;}
+                    .dlr-msg-row{display:flex;flex-direction:column;margin-bottom:4px;}
                     .dlr-msg-row.outbound{align-items:flex-end;}
                     .dlr-msg-row.inbound{align-items:flex-start;}
                     .dlr-msg-row.outbound + .dlr-msg-row.inbound,
-                    .dlr-msg-row.inbound + .dlr-msg-row.outbound{margin-top:8px;}
-                    .dlr-bubble{max-width:86%;padding:8px 12px;border-radius:14px;font-size:0.855rem;line-height:1.45;word-break:break-word;position:relative;}
+                    .dlr-msg-row.inbound + .dlr-msg-row.outbound{margin-top:10px;}
+                    .dlr-bubble{max-width:86%;padding:10px 14px;border-radius:16px;font-size:0.95rem;line-height:1.5;word-break:break-word;position:relative;}
                     .dlr-bubble.inbound{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.07);color:#ddd;border-bottom-left-radius:4px;}
                     .dlr-bubble.outbound{background:rgba(0,180,80,0.14);border:1px solid rgba(0,255,136,0.14);color:#e8ffe8;border-bottom-right-radius:4px;}
                     .dlr-bubble.outbound.pending{opacity:0.6;}
                     .dlr-bubble.outbound.sent{background:rgba(0,180,80,0.17);border-color:rgba(0,255,136,0.2);}
-                    .dlr-msg-meta{display:flex;align-items:center;gap:5px;padding:2px 4px 0;font-size:0.6rem;color:#444;}
+                    .dlr-msg-meta{display:flex;align-items:center;gap:6px;padding:3px 4px 0;font-size:0.72rem;color:#555;}
                     .dlr-msg-row.outbound .dlr-msg-meta{justify-content:flex-end;}
-                    .dlr-type-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:3px;padding:1px 5px;font-size:0.58rem;color:#666;font-weight:700;letter-spacing:0.3px;}
-                    .dlr-status-icon{font-size:0.65rem;}
+                    .dlr-type-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px 6px;font-size:0.68rem;color:#777;font-weight:700;letter-spacing:0.3px;}
+                    .dlr-status-icon{font-size:0.78rem;}
                     .dlr-status-icon.sent{color:#00ff88;}
                     .dlr-status-icon.pending{color:#888;}
                     .dlr-status-icon.error{color:#ef4444;}
                     /* Quick reply buttons */
-                    .dlr-qr-btn{background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.1);color:#5aa;border-radius:12px;padding:3px 9px;font-size:0.68rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s;}
-                    .dlr-qr-btn:hover{background:rgba(0,217,255,0.12);color:#00d9ff;}
+                    .dlr-qr-btn{background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#5bb;border-radius:14px;padding:6px 14px;font-size:0.82rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .15s,color .15s;}
+                    .dlr-qr-btn:hover{background:rgba(0,217,255,0.14);color:#00d9ff;}
                     /* Phone keypad */
                     .dlr-kbd-key{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;border-radius:8px;padding:8px 4px;font-size:0.9rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;transition:background .1s,transform .08s;user-select:none;}
                     .dlr-kbd-key:hover{background:rgba(0,217,255,0.12);border-color:rgba(0,217,255,0.2);color:#fff;}
@@ -2471,20 +2471,20 @@
                         <div id="dlrHistoryMessages" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
 
                             <!-- Thread Header (shown after contact selected) -->
-                            <div id="dlrMsgHeader" style="display:none;flex-shrink:0;padding:8px 12px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:8px;">
-                                <div id="dlrMsgAvatar" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.2),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;color:#00d9ff;flex-shrink:0;">?</div>
+                            <div id="dlrMsgHeader" style="display:none;flex-shrink:0;padding:10px 14px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:10px;">
+                                <div id="dlrMsgAvatar" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.2),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:#00d9ff;flex-shrink:0;">?</div>
                                 <div style="flex:1;min-width:0;">
-                                    <div id="dlrMsgContactName" style="font-weight:700;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
-                                    <div id="dlrMsgContactPhone" style="font-size:0.68rem;color:#555;"></div>
+                                    <div id="dlrMsgContactName" style="font-weight:700;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+                                    <div id="dlrMsgContactPhone" style="font-size:0.78rem;color:#666;margin-top:1px;"></div>
                                 </div>
-                                <span style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
-                                <button onclick="dlrRefreshMessages()" title="Refresh thread" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#555;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:0.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dlrRefreshBtn">
+                                <span style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
+                                <button onclick="dlrRefreshMessages()" title="Refresh thread" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#666;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dlrRefreshBtn">
                                     <i class="fa-solid fa-arrows-rotate"></i>
                                 </button>
                             </div>
 
                             <!-- Scrollable Thread -->
-                            <div id="dlrMessagesList" class="dlr-col-body" style="padding:10px 10px 4px;">
+                            <div id="dlrMessagesList" class="dlr-col-body" style="padding:12px 12px 6px;">
                                 <!-- Empty state -->
                                 <div id="dlrMsgEmptyState" style="text-align:center;padding:60px 16px;">
                                     <div style="width:48px;height:48px;border-radius:50%;background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
@@ -2499,15 +2499,15 @@
                             <div id="dlrSmsComposer" style="display:none;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.06);background:rgba(4,6,12,0.7);">
 
                                 <!-- Quick Replies Bar -->
-                                <div style="padding:5px 10px 0;display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;">
+                                <div style="padding:8px 12px 4px;display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;">
                                     <!-- AI Draft Button -->
                                     <button id="dlrAiDraftBtn" onclick="dlrAiSuggest()" title="Generate AI reply (InsuranceGrokBot)"
-                                        style="display:flex;align-items:center;gap:4px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.08));border:1px solid rgba(0,217,255,0.3);color:#00d9ff;border-radius:12px;padding:4px 10px;font-size:0.72rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;">
-                                        <i class="fa-solid fa-robot" style="font-size:0.75rem;"></i>
+                                        style="display:flex;align-items:center;gap:5px;flex-shrink:0;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.08));border:1px solid rgba(0,217,255,0.3);color:#00d9ff;border-radius:14px;padding:6px 14px;font-size:0.84rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;">
+                                        <i class="fa-solid fa-robot" style="font-size:0.85rem;"></i>
                                         <span id="dlrAiDraftLabel">AI Draft</span>
                                     </button>
-                                    <span style="font-size:0.62rem;color:#333;white-space:nowrap;flex-shrink:0;">|</span>
-                                    <span style="font-size:0.62rem;color:#444;white-space:nowrap;flex-shrink:0;">Quick:</span>
+                                    <span style="font-size:0.75rem;color:#333;white-space:nowrap;flex-shrink:0;">|</span>
+                                    <span style="font-size:0.78rem;color:#555;white-space:nowrap;flex-shrink:0;font-weight:600;">Quick:</span>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Following up — did you have a chance to review the options I sent over?')">Follow-up</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Hi! I wanted to make sure you got everything you needed. Any questions?')">Check-in</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Ready to go over your coverage options when you are — just reply here to get started.')">Coverage</button>
@@ -2516,29 +2516,29 @@
                                 </div>
 
                                 <!-- Compose Row -->
-                                <div style="display:flex;gap:6px;align-items:flex-end;padding:6px 10px;">
+                                <div style="display:flex;gap:8px;align-items:flex-end;padding:6px 12px;">
                                     <div style="flex:1;position:relative;">
                                         <textarea id="dlrSmsText"
-                                            placeholder="Text message via GHL…   (Enter ↵ to send, Shift+Enter for new line)"
-                                            rows="1"
-                                            style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#fff;padding:9px 12px;border-radius:10px;font-size:0.85rem;resize:none;outline:none;line-height:1.45;max-height:100px;overflow-y:auto;transition:border-color 0.15s;"
+                                            placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+                                            rows="2"
+                                            style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);color:#fff;padding:10px 14px;border-radius:12px;font-size:0.95rem;resize:none;outline:none;line-height:1.5;max-height:120px;overflow-y:auto;transition:border-color 0.15s;"
                                             oninput="dlrAutoGrow(this);dlrUpdateCharCount(this.value)"
-                                            onfocus="this.style.borderColor='rgba(0,217,255,0.3)'"
-                                            onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+                                            onfocus="this.style.borderColor='rgba(0,217,255,0.35)'"
+                                            onblur="this.style.borderColor='rgba(255,255,255,0.10)'"
                                             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dialerSendSms();}"
                                         ></textarea>
                                     </div>
                                     <button onclick="dialerSendSms()" id="dlrSmsSendBtn"
                                         title="Send SMS (Enter)"
-                                        style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;width:40px;height:40px;font-weight:900;font-size:0.95rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s;margin-bottom:1px;">
-                                        <i class="fa-solid fa-paper-plane" style="font-size:0.85rem;"></i>
+                                        style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:12px;width:46px;height:46px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s;margin-bottom:1px;">
+                                        <i class="fa-solid fa-paper-plane" style="font-size:1rem;"></i>
                                     </button>
                                 </div>
 
                                 <!-- Footer: status + char counter -->
-                                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 7px;">
-                                    <div id="dlrSmsStatus" style="font-size:0.68rem;color:#555;min-height:14px;"></div>
-                                    <div id="dlrCharCount" style="font-size:0.68rem;color:#444;font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 160</div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 14px 8px;">
+                                    <div id="dlrSmsStatus" style="font-size:0.78rem;color:#666;min-height:16px;"></div>
+                                    <div id="dlrCharCount" style="font-size:0.78rem;color:#555;font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 160</div>
                                 </div>
 
                             </div>
@@ -2713,18 +2713,16 @@
             const titleEl = document.getElementById('dashPageTitle');
             if (titleEl) titleEl.textContent = _pageTitles[tabId] || 'Dashboard';
 
-            // For Bootstrap tabs (voicedialer, config, voice), trigger the BS tab
-            const bsTrigger = document.getElementById({ voicedialer:'tbDialer', config:'tbConfig', voice:'tbVoice' }[tabId]);
-            if (bsTrigger) {
-                bsTrigger.click();
-                return;
-            }
-
-            // For custom tab panes (workflows, logs, etc.)
-            document.querySelectorAll('#dashTabs .nav-link').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('#dashTabsContent > .tab-pane').forEach(p => p.classList.remove('show', 'active'));
+            // Unified: hide ALL panes first, then show only the target.
+            // This prevents stacking when switching between Bootstrap-managed and
+            // manually-managed panes. We bypass Bootstrap's tab JS entirely since
+            // the nav is hidden — we own the show/active classes directly.
+            document.querySelectorAll('#dashTabsContent > .tab-pane').forEach(p => {
+                p.classList.remove('show', 'active');
+            });
             const pane = document.getElementById(tabId);
             if (pane) pane.classList.add('show', 'active');
+
             if (tabId === 'logs') loadLogs();
         }
 
