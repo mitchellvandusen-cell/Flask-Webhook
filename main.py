@@ -6362,10 +6362,35 @@ def discord_disconnect():
 @app.route("/api/discord/status")
 @login_required
 def api_discord_status():
-    """Return Discord connection status + saved servers."""
+    """Return Discord connection status + saved servers.
+
+    Proactively refreshes the OAuth token on every page load if it is
+    expired or expiring within the next 24 hours, so the user is never
+    silently stuck in a broken-but-looks-connected state.
+    """
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
     conn_row = get_discord_connection(current_user.email)
     if not conn_row:
         return flask_jsonify({"connected": False})
+
+    # ── Proactive token refresh ─────────────────────────────────────────────
+    needs_reauth = False
+    expires_at = conn_row.get("token_expires_at")
+    if expires_at:
+        # Normalize to offset-aware UTC (psycopg2 may return naive datetime)
+        if getattr(expires_at, 'tzinfo', None) is None:
+            expires_at = expires_at.replace(tzinfo=_tz.utc)
+        now = _dt.now(_tz.utc)
+        # Refresh if within 24 hours of expiry (or already expired)
+        if expires_at <= now + _td(hours=24):
+            new_tok = _discord_refresh_token(current_user.email, conn_row)
+            if new_tok:
+                # Reload fresh row with new token
+                conn_row = get_discord_connection(current_user.email) or conn_row
+            elif expires_at <= now:
+                # Token is expired AND refresh failed → user must re-authorize
+                needs_reauth = True
 
     avatar_url = None
     if conn_row.get("avatar"):
@@ -6373,7 +6398,6 @@ def api_discord_status():
                       f"{conn_row['discord_user_id']}/{conn_row['avatar']}.png?size=64")
 
     servers = get_discord_servers(current_user.email)
-    # Add icon_url to each server
     for srv in servers:
         if srv.get("icon"):
             srv["icon_url"] = (f"https://cdn.discordapp.com/icons/"
@@ -6383,6 +6407,7 @@ def api_discord_status():
 
     return flask_jsonify({
         "connected": True,
+        "needs_reauth": needs_reauth,
         "user": {
             "discord_id": conn_row["discord_user_id"],
             "username": conn_row["username"],
@@ -6396,18 +6421,33 @@ def api_discord_status():
 @app.route("/api/discord/guilds")
 @login_required
 def api_discord_guilds():
-    """Return guilds the user belongs to (fetched from Discord API)."""
+    """Return guilds the user belongs to (fetched from Discord API).
+
+    Refreshes the OAuth token silently on 401 before giving up.
+    Note: /users/@me/guilds requires user OAuth — no bot-token fallback.
+    """
     conn_row = get_discord_connection(current_user.email)
     if not conn_row:
         return flask_jsonify({"error": "Not connected to Discord"}), 401
 
     access_token = conn_row["access_token"]
+    url = f"{DISCORD_API}/users/@me/guilds"
     try:
-        resp = requests.get(
-            f"{DISCORD_API}/users/@me/guilds",
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10,
-        )
+        resp = requests.get(url, headers={"Authorization": f"Bearer {access_token}"}, timeout=10)
+
+        # Silent token refresh on 401, then retry once
+        if resp.status_code == 401:
+            new_tok = _discord_refresh_token(current_user.email, conn_row)
+            if new_tok:
+                resp = requests.get(url, headers={"Authorization": f"Bearer {new_tok}"}, timeout=10)
+
+        if resp.status_code == 401:
+            return flask_jsonify({
+                "error": "Discord session expired. Please reconnect.",
+                "needs_reconnect": True,
+                "guilds": [],
+            })
+
         guilds = resp.json()
         if not isinstance(guilds, list):
             logger.error(f"Discord guilds error: {guilds}")

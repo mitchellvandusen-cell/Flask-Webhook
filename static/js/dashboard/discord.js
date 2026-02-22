@@ -27,15 +27,17 @@ function loadDiscordStatus() {
             if (!data.connected) return;
             Discord.connected = true;
             Discord.user = data.user;
-            showDiscordConnected(data.user);
+            showDiscordConnected(data.user, data.needs_reauth);
             Discord.servers = data.servers || [];
             renderDiscordServers(Discord.servers);
             document.getElementById('discordBellBtn').style.display = 'flex';
+            // Start passive background poll so bell badge updates even when panel is closed
+            startBgNotifPoll();
         })
         .catch(() => {});
 }
 
-function showDiscordConnected(user) {
+function showDiscordConnected(user, needsReauth) {
     document.getElementById('discordNotConnected').style.display = 'none';
     document.getElementById('discordConnected').style.display = 'block';
     const avatarEl = document.getElementById('discordUserAvatar');
@@ -49,6 +51,9 @@ function showDiscordConnected(user) {
     }
     document.getElementById('discordUsername').textContent =
         user.global_name || user.username || 'Discord User';
+    // Show reconnect banner only when the session has truly expired and cannot be refreshed
+    const reauthBanner = document.getElementById('discordReauthBanner');
+    if (reauthBanner) reauthBanner.style.display = needsReauth ? 'block' : 'none';
 }
 
 // ─── Server list rendering ────────────────────────────────────────────────────
@@ -415,6 +420,25 @@ function startDiscordPoll() {
 function stopDiscordPoll() {
     if (Discord.pollTimer) { clearInterval(Discord.pollTimer); Discord.pollTimer = null; }
 }
+
+// ─── Background Notification Poll ────────────────────────────────────────────
+// Runs at 45-second intervals even when the Discord panel is closed, so the
+// bell badge stays accurate without requiring an open channel.
+let _bgNotifTimer = null;
+function startBgNotifPoll() {
+    if (_bgNotifTimer) return; // already running
+    _bgNotifTimer = setInterval(_bgNotifTick, 45000);
+}
+function stopBgNotifPoll() {
+    if (_bgNotifTimer) { clearInterval(_bgNotifTimer); _bgNotifTimer = null; }
+}
+function _bgNotifTick() {
+    if (!Discord.connected) { stopBgNotifPoll(); return; }
+    // Skip when the main 4-second poll is already running (panel open) — it handles everything
+    if (Discord.pollTimer) return;
+    pollBackgroundChannels();
+}
+
 function pollBackgroundChannels() {
     Discord.servers.forEach(srv => {
         const listEl = document.getElementById(`chList_${srv.guild_id}`);
@@ -571,7 +595,19 @@ function loadDiscordGuilds() {
     listEl.innerHTML = buildMessageSkeleton();
     fetch('/api/discord/guilds')
         .then(r => r.json())
-        .then(data => { Discord.guilds = data.guilds || []; renderGuildModal(); })
+        .then(data => {
+            if (data.error) {
+                const reconnectHtml = data.needs_reconnect
+                    ? `<br><a href="/discord/connect" style="color:#7289da;font-size:0.82rem;margin-top:8px;display:inline-block;"><i class="fa-brands fa-discord me-1"></i>Reconnect Discord</a>`
+                    : '';
+                listEl.innerHTML = `<div class="discord-state-msg" style="padding:20px;">
+                    <div class="state-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <span class="state-sub">${escapeHtml(data.error)}${reconnectHtml}</span></div>`;
+                return;
+            }
+            Discord.guilds = data.guilds || [];
+            renderGuildModal();
+        })
         .catch(() => {
             listEl.innerHTML = `<div class="discord-state-msg" style="padding:20px;">
                 <div class="state-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
