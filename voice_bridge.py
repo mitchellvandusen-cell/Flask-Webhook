@@ -1299,10 +1299,11 @@ def trigger_outbound_call():
     Called by CRM automations (webhook) or the dashboard.
     """
     data = request.json or {}
-    location_id = data.get('location_id', '')
-    lead_phone = data.get('phone', '')
-    lead_name = data.get('first_name', 'there')
-    contact_id = data.get('contact_id', '')
+    # Accept both GHL camelCase (locationId) and our snake_case (location_id)
+    location_id = data.get('location_id') or data.get('locationId', '')
+    lead_phone  = data.get('phone') or data.get('toNumber', '')
+    lead_name   = data.get('first_name') or data.get('firstName', 'there')
+    contact_id  = data.get('contact_id') or data.get('contactId', '')
 
     if not location_id or not lead_phone:
         return jsonify({"error": "location_id and phone are required"}), 400
