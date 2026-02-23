@@ -124,6 +124,7 @@
                 dialerSelected.clear();
                 dialerRenderContacts();
                 dialerUpdateSelectionUI();
+                dialerFetchCallCounts(); // batch-load local call counts for badges
             } catch(e) {
                 console.error('[Dialer] Contact fetch failed:', e);
                 list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
@@ -150,10 +151,12 @@
                 const sel = dialerSelected.has(c.id);
                 const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
                 const inQ = dialerQueue.some(q => q.id === c.id);
+                const callCount = _dialerCallCounts[c.id] || 0;
+                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="display:' + (callCount > 0 ? 'inline-flex' : 'none') + ';">' + callCount + '\u00d7</span>';
                 return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
                     '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
                     '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
-                    '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div><div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div></div>' +
+                    '<div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:2px;"><span style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</span>' + badgeHtml + '</div><div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div></div>' +
                     (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
                 '</div>';
             }).join('');
@@ -173,6 +176,8 @@
             dialerLoadAllCallHistory();
             dialerLoadRecordings();
             document.getElementById('dlrDetailActions').style.display = 'flex';
+            // Fetch merged GHL + local call count and update badge
+            dialerFetchMergedCallCount(c.id);
         }
 
         // ── Middle panel: full contact detail ──
@@ -2178,5 +2183,188 @@
             fetch('/voice/numbers/nickname', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone, nickname: name }) })
                 .then(r => { if (r.ok) loadNumbersTab(); })
                 .catch(() => alert('Network error'));
+        }
+
+        // ── Call Count Badge ────────────────────────────────────────────────────
+
+        // contactId → local call count (loaded in batch after fetchContacts)
+        let _dialerCallCounts = {};
+
+        // After contacts are loaded, batch-fetch local counts and re-render badges
+        async function dialerFetchCallCounts() {
+            if (!dialerContacts.length) return;
+            const ids = dialerContacts.map(c => c.id).join(',');
+            try {
+                const r = await fetch('/voice/contact-call-counts?ids=' + encodeURIComponent(ids));
+                if (!r.ok) return;
+                _dialerCallCounts = await r.json();
+                dialerRenderContactBadges();
+            } catch(e) {
+                // Non-critical; badges just stay empty
+            }
+        }
+
+        // Update call count badge for a specific contact row (without full re-render)
+        function dialerUpdateContactBadge(contactId, total) {
+            _dialerCallCounts[contactId] = total;
+            const badge = document.querySelector('[data-call-badge="' + contactId + '"]');
+            if (badge) {
+                badge.textContent = total + '\u00d7';
+                badge.style.display = total > 0 ? 'inline-flex' : 'none';
+            }
+        }
+
+        // Re-render just the badges without rebuilding the full list
+        function dialerRenderContactBadges() {
+            dialerContacts.forEach(c => {
+                const count = _dialerCallCounts[c.id] || 0;
+                const badge = document.querySelector('[data-call-badge="' + c.id + '"]');
+                if (badge) {
+                    badge.textContent = count + '\u00d7';
+                    badge.style.display = count > 0 ? 'inline-flex' : 'none';
+                }
+            });
+        }
+
+        // Fetch merged (GHL + local) count when a contact is selected; update badge
+        async function dialerFetchMergedCallCount(contactId) {
+            try {
+                const r = await fetch('/voice/contact/' + contactId + '/ghl-call-count');
+                if (!r.ok) return;
+                const d = await r.json();
+                dialerUpdateContactBadge(contactId, d.total || 0);
+            } catch(e) {
+                // Silently fail; local count badge is already shown
+            }
+        }
+
+        // ── Statistics Panel ────────────────────────────────────────────────────
+
+        let _dialerStatsPeriod = 'month';
+
+        function dialerToggleStats() {
+            const panel = document.getElementById('dialerStatsPanel');
+            const isOpen = panel.style.display !== 'none';
+            panel.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) dialerLoadStats();
+            // Update button highlight
+            const btn = document.getElementById('dialerStatsToggle');
+            if (btn) btn.style.color = isOpen ? '#aaa' : '#00d9ff';
+        }
+
+        function dialerSetStatsPeriod(period) {
+            _dialerStatsPeriod = period;
+            document.querySelectorAll('.dlr-stat-period').forEach(b => {
+                const active = b.dataset.period === period;
+                b.classList.toggle('active', active);
+                b.style.background = active ? 'rgba(0,217,255,0.15)' : 'transparent';
+                b.style.color = active ? '#00d9ff' : '#666';
+            });
+            dialerLoadStats();
+        }
+
+        async function dialerLoadStats() {
+            const container = document.getElementById('dialerStatsContent');
+            if (!container) return;
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.4rem;"></i></div>';
+            try {
+                const r = await _fetchRetry('/voice/stats?period=' + _dialerStatsPeriod, {}, { retries: 1, timeout: 15000, label: 'dialer-stats' });
+                if (!r.ok) { container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Could not load statistics.</div>'; return; }
+                const s = await r.json();
+                container.innerHTML = dialerRenderStats(s);
+            } catch(e) {
+                container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">Error loading statistics.</div>';
+            }
+        }
+
+        function _fmtDuration(secs) {
+            secs = Math.round(secs);
+            if (secs < 60) return secs + 's';
+            const m = Math.floor(secs / 60), s = secs % 60;
+            if (m < 60) return m + 'm ' + (s ? s + 's' : '');
+            const h = Math.floor(m / 60), rm = m % 60;
+            return h + 'h ' + (rm ? rm + 'm' : '');
+        }
+
+        function dialerRenderStats(s) {
+            // KPI cards row
+            const connectColor = s.connect_rate >= 20 ? '#00ff88' : s.connect_rate >= 10 ? '#ffa500' : '#ef4444';
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:20px;">';
+            html += _kpiCard(s.total_calls, 'Total Dials', '');
+            html += _kpiCard(s.outbound_calls, 'Outbound', '');
+            html += _kpiCard(s.connected_calls, 'Connected', '');
+            html += _kpiCard(s.connect_rate + '%', 'Connect Rate', connectColor);
+            html += _kpiCard(_fmtDuration(s.avg_duration), 'Avg Duration', '');
+            html += _kpiCard(_fmtDuration(s.total_duration), 'Total Talk Time', '#00d9ff');
+            html += _kpiCard(s.unique_contacts, 'Leads Dialed', '');
+            html += _kpiCard(s.calls_per_day, 'Calls / Day', '');
+            html += '</div>';
+
+            // Duration quality breakdown
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">';
+
+            // Left: Duration bars
+            html += '<div>';
+            html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Duration Breakdown</div>';
+            const maxDur = Math.max(s.over_6s, 1);
+            html += _durBar('6s+',   s.over_6s,   maxDur, '#00d9ff');
+            html += _durBar('1 min', s.over_1min,  maxDur, '#00b8d4');
+            html += _durBar('2 min', s.over_2min,  maxDur, '#00916a');
+            html += _durBar('5 min', s.over_5min,  maxDur, '#00ff88');
+            html += _durBar('10 min',s.over_10min, maxDur, '#ffa500');
+            html += '</div>';
+
+            // Right: Top contacts
+            html += '<div>';
+            html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Most Contacted</div>';
+            if (s.top_contacts && s.top_contacts.length) {
+                const maxTop = Math.max(...s.top_contacts.map(t => t.count), 1);
+                s.top_contacts.forEach(tc => {
+                    html += '<div class="dlr-bar-row">' +
+                        '<div class="dlr-bar-label" style="min-width:90px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:0.75rem;color:#888;">' + dialerEsc(tc.name) + '</div>' +
+                        '<div class="dlr-bar-track"><div class="dlr-bar-fill" style="width:' + Math.round(tc.count / maxTop * 100) + '%;background:rgba(0,217,255,0.5);"></div></div>' +
+                        '<div class="dlr-bar-count">' + tc.count + '</div>' +
+                    '</div>';
+                });
+            } else {
+                html += '<div style="color:#444;font-size:0.82rem;padding:10px 0;">No data yet</div>';
+            }
+            html += '</div>';
+            html += '</div>'; // grid
+
+            // Daily call volume chart
+            if (s.daily && s.daily.length > 1) {
+                html += '<div style="margin-bottom:6px;">';
+                html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
+                const maxDay = Math.max(...s.daily.map(d => d.calls), 1);
+                const barH = 60; // px max bar height
+                html += '<div style="display:flex;align-items:flex-end;gap:2px;height:' + (barH + 18) + 'px;overflow-x:auto;padding-bottom:2px;">';
+                s.daily.forEach(d => {
+                    const h = Math.max(2, Math.round(d.calls / maxDay * barH));
+                    const label = d.day ? d.day.substr(5) : ''; // MM-DD
+                    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:20px;" title="' + d.day + ': ' + d.calls + ' calls, ' + d.connected + ' connected">' +
+                        '<div style="font-size:0.55rem;color:#555;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
+                        '<div class="dlr-daily-bar" style="width:100%;height:' + h + 'px;"></div>' +
+                        '<div style="font-size:0.55rem;color:#444;white-space:nowrap;">' + label + '</div>' +
+                    '</div>';
+                });
+                html += '</div>';
+                html += '</div>';
+            }
+
+            return html;
+        }
+
+        function _kpiCard(val, label, color) {
+            return '<div class="dlr-kpi-card"><div class="dlr-kpi-val" style="' + (color ? 'color:' + color + ';' : '') + '">' + val + '</div><div class="dlr-kpi-label">' + label + '</div></div>';
+        }
+
+        function _durBar(label, count, maxVal, color) {
+            const pct = maxVal > 0 ? Math.round(count / maxVal * 100) : 0;
+            return '<div class="dlr-bar-row">' +
+                '<div class="dlr-bar-label">' + label + '</div>' +
+                '<div class="dlr-bar-track"><div class="dlr-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
+                '<div class="dlr-bar-count">' + count + '</div>' +
+            '</div>';
         }
 

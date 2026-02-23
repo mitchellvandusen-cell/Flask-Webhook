@@ -257,6 +257,9 @@ All tables created in `db.py`'s `init_db()` function:
 
 ### Voice (Blueprint, voice_bridge.py)
 - Voice WebSocket routes for Twilio ↔ xAI Realtime API bridging
+- `GET /voice/stats?period=<today|week|month|all>` — Aggregated call statistics (KPIs, duration buckets, daily/hourly breakdown, top contacts)
+- `GET /voice/contact-call-counts?ids=<csv>` — Batch local call counts for up to 300 contact IDs
+- `GET /voice/contact/<id>/ghl-call-count` — Merged call count: local dialer DB + GHL conversation calls (covers GHL-native + WAVV + dialer)
 
 ---
 
@@ -333,7 +336,7 @@ static/js/dashboard/
   logs.js           Activity log loading
   connect_crm.js    CRM connection UI
   voice.js          Voice config
-  dialer.js         Voice dialer
+  dialer.js         Voice dialer, call count badges, statistics panel
   numbers.js        Phone number management
   ai_minutes.js     AI Minutes UI
   carriers.js       Carrier chip selection
