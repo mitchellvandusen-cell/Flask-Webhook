@@ -21,6 +21,27 @@
 
 ---
 
+## 2026-02-23
+
+**[Feature]** — Dialer call statistics page and per-contact call count badge — Added a comprehensive statistics panel to the Power Dialer and a call-count badge on every contact row.
+
+- **3 new backend routes** in `voice_bridge.py`:
+  - `GET /voice/stats?period=<today|week|month|all>` — Returns SQL-aggregated KPIs: total dials, outbound/inbound split, connected calls, connect rate, avg & total talk time, calls over 6s/1m/2m/5m/10m, unique contacts dialed, calls-per-day, 30-day daily volume, hourly distribution, and top-5 most-called contacts.
+  - `GET /voice/contact-call-counts?ids=<csv>` — Batch local call counts for up to 300 contact IDs.
+  - `GET /voice/contact/<id>/ghl-call-count` — Returns merged count: local dialer DB calls + GHL conversation call messages (types 3, 4, TYPE_CALL), so GHL-native calls + WAVV calls + dialer calls all sum correctly.
+
+- **`dialer.html`** — Added "Stats" button (`fa-chart-bar`) to the top bar, a full-width stats overlay panel with period selector (Today / 7 Days / 30 Days / All Time), and CSS for KPI cards, duration bars, and the call count badge.
+
+- **`dialer.js`** — After `dialerFetchContacts()`, a batch call to `/voice/contact-call-counts` enriches every contact with a `×N` badge. When a contact is selected, `/voice/contact/<id>/ghl-call-count` fetches the merged total and updates the badge live. Stats panel functions: `dialerToggleStats()`, `dialerSetStatsPeriod()`, `dialerLoadStats()`, `dialerRenderStats()`, `_kpiCard()`, `_durBar()`, `_fmtDuration()`.
+
+**[Fix]** — Remove stray `<script>` tags from extracted JS modules (`numbers.js`, `alerts.js`, `api_keys.js`, `carriers.js`) that caused SyntaxErrors preventing pipeline filter and other UI from loading.
+
+**[Fix]** — Add missing `_esc()` and `_fmtPhone()` utilities to `numbers.js`.
+
+**[Fix]** — Remove visible text from `discord_modal.html` (orphaned split HTML comment from monolithic extraction).
+
+---
+
 ## 2026-02-22
 
 **[08:39 UTC]** — Add CLAUDE.md, dismissable banners, and Discord side panel — Added comprehensive CLAUDE.md project documentation file, made green flash banners dismissable with a Bootstrap close button, repositioned the Discord chat panel to slide out from the sidebar's right edge instead of the screen's right edge, and added a Discord Chat toggle in the sidebar footer with an unread badge indicator.

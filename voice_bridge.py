@@ -4050,3 +4050,247 @@ def get_pipelines():
     except Exception as e:
         logger.error(f"Failed to fetch pipelines: {e}")
         return jsonify({"pipelines": []})
+
+
+# ── Dialer Statistics ─────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/stats')
+@login_required
+def get_dialer_stats():
+    """Return aggregated call statistics for the current user's dialer."""
+    from datetime import datetime, timedelta
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "DB unavailable"}), 503
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Not found"}), 404
+        location_id = row[0]
+
+        period = request.args.get('period', 'month')
+        now = datetime.utcnow()
+        if period == 'today':
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'week':
+            start_date = now - timedelta(days=7)
+        elif period == 'month':
+            start_date = now - timedelta(days=30)
+        else:
+            start_date = datetime(2000, 1, 1)
+
+        # Core KPIs
+        cur.execute("""
+            SELECT
+                COUNT(*)                                                     AS total_calls,
+                COUNT(*) FILTER (WHERE direction = 'outbound')               AS outbound_calls,
+                COUNT(*) FILTER (WHERE direction = 'inbound')                AS inbound_calls,
+                COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)       AS avg_duration,
+                COALESCE(SUM(duration), 0)                                   AS total_duration,
+                COUNT(*) FILTER (WHERE duration >   6)                       AS over_6s,
+                COUNT(*) FILTER (WHERE duration >=  60)                      AS over_1min,
+                COUNT(*) FILTER (WHERE duration >= 120)                      AS over_2min,
+                COUNT(*) FILTER (WHERE duration >= 300)                      AS over_5min,
+                COUNT(*) FILTER (WHERE duration >= 600)                      AS over_10min,
+                COUNT(DISTINCT contact_id)                                   AS unique_contacts
+            FROM call_history
+            WHERE location_id = %s AND created_at >= %s
+        """, (location_id, start_date))
+        r = cur.fetchone()
+        total        = r[0] or 0
+        outbound     = r[1] or 0
+        inbound      = r[2] or 0
+        connected    = r[3] or 0
+        avg_dur      = float(r[4] or 0)
+        total_dur    = int(r[5] or 0)
+        over_6s      = r[6] or 0
+        over_1min    = r[7] or 0
+        over_2min    = r[8] or 0
+        over_5min    = r[9] or 0
+        over_10min   = r[10] or 0
+        unique_contacts = r[11] or 0
+        connect_rate = round(connected / total * 100, 1) if total else 0.0
+
+        # Days in period (for "per day" averages)
+        if period == 'today':
+            days = 1
+        elif period == 'week':
+            days = 7
+        elif period == 'month':
+            days = 30
+        else:
+            cur.execute("SELECT MIN(created_at) FROM call_history WHERE location_id = %s", (location_id,))
+            first = cur.fetchone()[0]
+            days = max(1, (now - first).days) if first else 1
+
+        # Daily call volume (last N days)
+        cur.execute("""
+            SELECT DATE(created_at AT TIME ZONE 'UTC') AS day,
+                   COUNT(*) AS calls,
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected
+            FROM call_history
+            WHERE location_id = %s AND created_at >= %s
+            GROUP BY day ORDER BY day
+        """, (location_id, start_date))
+        daily = [{"day": str(row[0]), "calls": row[1], "connected": row[2]} for row in cur.fetchall()]
+
+        # Hourly distribution
+        cur.execute("""
+            SELECT EXTRACT(HOUR FROM created_at)::int AS hr, COUNT(*) AS calls
+            FROM call_history
+            WHERE location_id = %s AND created_at >= %s
+            GROUP BY hr ORDER BY hr
+        """, (location_id, start_date))
+        hourly_map = {row[0]: row[1] for row in cur.fetchall()}
+        hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
+
+        # Top 5 most-called contacts
+        cur.execute("""
+            SELECT contact_id, contact_name, COUNT(*) AS cnt,
+                   MAX(created_at) AS last_called
+            FROM call_history
+            WHERE location_id = %s AND created_at >= %s
+            GROUP BY contact_id, contact_name
+            ORDER BY cnt DESC LIMIT 5
+        """, (location_id, start_date))
+        top_contacts = [
+            {"id": row[0], "name": row[1] or "Unknown", "count": row[2], "last_called": str(row[3])}
+            for row in cur.fetchall()
+        ]
+
+        cur.close()
+        return jsonify({
+            "period": period,
+            "total_calls": total,
+            "outbound_calls": outbound,
+            "inbound_calls": inbound,
+            "connected_calls": connected,
+            "connect_rate": connect_rate,
+            "avg_duration": round(avg_dur, 1),
+            "total_duration": total_dur,
+            "over_6s": over_6s,
+            "over_1min": over_1min,
+            "over_2min": over_2min,
+            "over_5min": over_5min,
+            "over_10min": over_10min,
+            "unique_contacts": unique_contacts,
+            "calls_per_day": round(total / days, 1),
+            "daily": daily,
+            "hourly": hourly,
+            "top_contacts": top_contacts,
+        })
+    except Exception as e:
+        logger.error(f"get_dialer_stats failed: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+@voice_bp.route('/voice/contact-call-counts')
+@login_required
+def get_contact_call_counts():
+    """Batch local call counts for a list of contact IDs."""
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        return jsonify({})
+    contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({})
+        location_id = row[0]
+        cur.execute("""
+            SELECT contact_id, COUNT(*) AS cnt
+            FROM call_history
+            WHERE location_id = %s AND contact_id = ANY(%s)
+            GROUP BY contact_id
+        """, (location_id, contact_ids))
+        result = {r[0]: r[1] for r in cur.fetchall()}
+        cur.close()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"get_contact_call_counts failed: {e}")
+        return jsonify({})
+    finally:
+        return_db_connection(conn)
+
+
+@voice_bp.route('/voice/contact/<contact_id>/ghl-call-count')
+@login_required
+def get_contact_ghl_call_count(contact_id):
+    """Return merged call count: local dialer DB + GHL conversation calls."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"local": 0, "ghl": 0, "total": 0})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"local": 0, "ghl": 0, "total": 0})
+        location_id = row[0]
+
+        cur.execute(
+            "SELECT COUNT(*) FROM call_history WHERE location_id = %s AND contact_id = %s",
+            (location_id, contact_id)
+        )
+        local_count = cur.fetchone()[0] or 0
+        cur.close()
+    except Exception as e:
+        logger.error(f"local count failed for {contact_id}: {e}")
+        local_count = 0
+    finally:
+        return_db_connection(conn)
+
+    # Fetch GHL conversation call messages
+    ghl_count = 0
+    try:
+        access_token = get_valid_token(location_id)
+        if access_token and access_token != 'DEMO':
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Version": GHL_API_VERSION,
+                "Content-Type": "application/json"
+            }
+            search_resp = http_requests.get(
+                f"{GHL_API_BASE}/conversations/search",
+                headers=headers,
+                params={"locationId": location_id, "contactId": contact_id},
+                timeout=10
+            )
+            if search_resp.status_code == 200:
+                convos = search_resp.json().get("conversations", [])
+                if convos:
+                    convo_id = convos[0]["id"]
+                    msg_resp = http_requests.get(
+                        f"{GHL_API_BASE}/conversations/{convo_id}/messages",
+                        headers=headers,
+                        params={"limit": 100},
+                        timeout=10
+                    )
+                    if msg_resp.status_code == 200:
+                        payload = msg_resp.json().get("messages", [])
+                        raw_msgs = payload.get("messages", []) if isinstance(payload, dict) else payload
+                        for m in raw_msgs:
+                            if not isinstance(m, dict):
+                                continue
+                            mtype = m.get("type") or m.get("messageType", "")
+                            # GHL call message types: 3 (outbound call), 4 (inbound call), TYPE_CALL
+                            if mtype in (3, 4, "TYPE_CALL") or mtype in (3.0, 4.0):
+                                ghl_count += 1
+    except Exception as e:
+        logger.warning(f"GHL call count fetch failed for {contact_id}: {e}")
+
+    return jsonify({
+        "local": local_count,
+        "ghl": ghl_count,
+        "total": local_count + ghl_count,
+    })
