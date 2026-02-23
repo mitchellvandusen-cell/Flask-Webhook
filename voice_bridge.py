@@ -4071,6 +4071,13 @@ def get_dialer_stats():
             return jsonify({"error": "Not found"}), 404
         location_id = row[0]
 
+        # Ensure disposition column exists
+        try:
+            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
         period = request.args.get('period', 'month')
         now = datetime.utcnow()
         if period == 'today':
@@ -4085,35 +4092,35 @@ def get_dialer_stats():
         # Core KPIs
         cur.execute("""
             SELECT
-                COUNT(*)                                                     AS total_calls,
-                COUNT(*) FILTER (WHERE direction = 'outbound')               AS outbound_calls,
-                COUNT(*) FILTER (WHERE direction = 'inbound')                AS inbound_calls,
+                COUNT(*)                                                      AS total_calls,
+                COUNT(*) FILTER (WHERE direction = 'outbound')                AS outbound_calls,
+                COUNT(*) FILTER (WHERE direction = 'inbound')                 AS inbound_calls,
                 COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
-                COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)       AS avg_duration,
-                COALESCE(SUM(duration), 0)                                   AS total_duration,
-                COUNT(*) FILTER (WHERE duration >   6)                       AS over_6s,
-                COUNT(*) FILTER (WHERE duration >=  60)                      AS over_1min,
-                COUNT(*) FILTER (WHERE duration >= 120)                      AS over_2min,
-                COUNT(*) FILTER (WHERE duration >= 300)                      AS over_5min,
-                COUNT(*) FILTER (WHERE duration >= 600)                      AS over_10min,
-                COUNT(DISTINCT contact_id)                                   AS unique_contacts
+                COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)        AS avg_duration,
+                COALESCE(SUM(duration), 0)                                    AS total_duration,
+                COUNT(*) FILTER (WHERE duration >   6)                        AS over_6s,
+                COUNT(*) FILTER (WHERE duration >=  60)                       AS over_1min,
+                COUNT(*) FILTER (WHERE duration >= 120)                       AS over_2min,
+                COUNT(*) FILTER (WHERE duration >= 300)                       AS over_5min,
+                COUNT(*) FILTER (WHERE duration >= 600)                       AS over_10min,
+                COUNT(DISTINCT contact_id)                                    AS unique_contacts
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
         """, (location_id, start_date))
         r = cur.fetchone()
-        total        = r[0] or 0
-        outbound     = r[1] or 0
-        inbound      = r[2] or 0
-        connected    = r[3] or 0
-        avg_dur      = float(r[4] or 0)
-        total_dur    = int(r[5] or 0)
-        over_6s      = r[6] or 0
-        over_1min    = r[7] or 0
-        over_2min    = r[8] or 0
-        over_5min    = r[9] or 0
-        over_10min   = r[10] or 0
+        total           = r[0] or 0
+        outbound        = r[1] or 0
+        inbound         = r[2] or 0
+        connected       = r[3] or 0
+        avg_dur         = float(r[4] or 0)
+        total_dur       = int(r[5] or 0)
+        over_6s         = r[6] or 0
+        over_1min       = r[7] or 0
+        over_2min       = r[8] or 0
+        over_5min       = r[9] or 0
+        over_10min      = r[10] or 0
         unique_contacts = r[11] or 0
-        connect_rate = round(connected / total * 100, 1) if total else 0.0
+        connect_rate    = round(connected / total * 100, 1) if total else 0.0
 
         # Days in period (for "per day" averages)
         if period == 'today':
@@ -4127,16 +4134,77 @@ def get_dialer_stats():
             first = cur.fetchone()[0]
             days = max(1, (now - first).days) if first else 1
 
-        # Daily call volume (last N days)
+        # Prior period comparison (skip for 'all')
+        prior = None
+        if period != 'all':
+            period_len  = now - start_date
+            prior_end   = start_date
+            prior_start = start_date - period_len
+            cur.execute("""
+                SELECT
+                    COUNT(*)                                                      AS total_calls,
+                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected_calls,
+                    COALESCE(SUM(duration), 0)                                    AS total_duration,
+                    COALESCE(AVG(duration) FILTER (WHERE duration > 0), 0)        AS avg_duration
+                FROM call_history
+                WHERE location_id = %s AND created_at >= %s AND created_at < %s
+            """, (location_id, prior_start, prior_end))
+            pr          = cur.fetchone()
+            p_total     = pr[0] or 0
+            p_connected = pr[1] or 0
+            p_dur       = int(pr[2] or 0)
+            p_avg_dur   = float(pr[3] or 0)
+            p_rate      = round(p_connected / p_total * 100, 1) if p_total else 0.0
+
+            def _pct_delta(curr, prev):
+                if prev == 0:
+                    return None
+                return round((curr - prev) / prev * 100, 1)
+
+            prior = {
+                "total_calls":     p_total,
+                "connected_calls": p_connected,
+                "connect_rate":    p_rate,
+                "total_duration":  p_dur,
+                "avg_duration":    p_avg_dur,
+                # % change for counts; absolute pp difference for rate
+                "delta_calls":     _pct_delta(total, p_total),
+                "delta_connected": _pct_delta(connected, p_connected),
+                "delta_rate":      round(connect_rate - p_rate, 1),
+                "delta_duration":  _pct_delta(total_dur, p_dur),
+            }
+
+        # Disposition breakdown
+        dispositions = {}
+        try:
+            cur.execute("""
+                SELECT
+                    COALESCE(NULLIF(TRIM(disposition), ''), 'none') AS disp,
+                    COUNT(*) AS cnt
+                FROM call_history
+                WHERE location_id = %s AND created_at >= %s
+                  AND disposition IS NOT NULL AND TRIM(disposition) != ''
+                GROUP BY disp
+                ORDER BY cnt DESC
+            """, (location_id, start_date))
+            dispositions = {row[0]: row[1] for row in cur.fetchall()}
+        except Exception:
+            conn.rollback()
+
+        # Daily call volume with talk time
         cur.execute("""
             SELECT DATE(created_at AT TIME ZONE 'UTC') AS day,
                    COUNT(*) AS calls,
-                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected
+                   COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
+                   COALESCE(SUM(duration), 0) AS total_secs
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
             GROUP BY day ORDER BY day
         """, (location_id, start_date))
-        daily = [{"day": str(row[0]), "calls": row[1], "connected": row[2]} for row in cur.fetchall()]
+        daily = [
+            {"day": str(row[0]), "calls": row[1], "connected": row[2], "total_secs": row[3]}
+            for row in cur.fetchall()
+        ]
 
         # Hourly distribution
         cur.execute("""
@@ -4164,24 +4232,26 @@ def get_dialer_stats():
 
         cur.close()
         return jsonify({
-            "period": period,
-            "total_calls": total,
-            "outbound_calls": outbound,
-            "inbound_calls": inbound,
+            "period":          period,
+            "total_calls":     total,
+            "outbound_calls":  outbound,
+            "inbound_calls":   inbound,
             "connected_calls": connected,
-            "connect_rate": connect_rate,
-            "avg_duration": round(avg_dur, 1),
-            "total_duration": total_dur,
-            "over_6s": over_6s,
-            "over_1min": over_1min,
-            "over_2min": over_2min,
-            "over_5min": over_5min,
-            "over_10min": over_10min,
+            "connect_rate":    connect_rate,
+            "avg_duration":    round(avg_dur, 1),
+            "total_duration":  total_dur,
+            "over_6s":         over_6s,
+            "over_1min":       over_1min,
+            "over_2min":       over_2min,
+            "over_5min":       over_5min,
+            "over_10min":      over_10min,
             "unique_contacts": unique_contacts,
-            "calls_per_day": round(total / days, 1),
-            "daily": daily,
-            "hourly": hourly,
-            "top_contacts": top_contacts,
+            "calls_per_day":   round(total / days, 1),
+            "daily":           daily,
+            "hourly":          hourly,
+            "top_contacts":    top_contacts,
+            "prior":           prior,
+            "dispositions":    dispositions,
         })
     except Exception as e:
         logger.error(f"get_dialer_stats failed: {e}")
