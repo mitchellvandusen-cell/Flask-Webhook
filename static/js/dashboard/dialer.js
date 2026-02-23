@@ -124,7 +124,8 @@
                 dialerSelected.clear();
                 dialerRenderContacts();
                 dialerUpdateSelectionUI();
-                dialerFetchCallCounts(); // batch-load local call counts for badges
+                // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
+                dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
             } catch(e) {
                 console.error('[Dialer] Contact fetch failed:', e);
                 list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
@@ -2197,10 +2198,36 @@
             try {
                 const r = await fetch('/voice/contact-call-counts?ids=' + encodeURIComponent(ids));
                 if (!r.ok) return;
-                _dialerCallCounts = await r.json();
+                const counts = await r.json();
+                Object.assign(_dialerCallCounts, counts);
                 dialerRenderContactBadges();
             } catch(e) {
                 // Non-critical; badges just stay empty
+            }
+        }
+
+        // After local counts show, upgrade badges with GHL+WAVV counts in background
+        async function dialerFetchMergedCounts() {
+            if (!dialerContacts.length) return;
+            // Cap at 50 — backend limit
+            const ids = dialerContacts.slice(0, 50).map(c => c.id).join(',');
+            try {
+                const r = await fetch('/voice/contact-call-counts/merged?ids=' + encodeURIComponent(ids));
+                if (!r.ok) return;
+                const merged = await r.json();
+                // Only update badges where merged count is higher (additive; never regress)
+                Object.entries(merged).forEach(([id, total]) => {
+                    if (total > (_dialerCallCounts[id] || 0)) {
+                        _dialerCallCounts[id] = total;
+                        const badge = document.querySelector('[data-call-badge="' + id + '"]');
+                        if (badge) {
+                            badge.textContent = total + '\u00d7';
+                            badge.style.display = 'inline-flex';
+                        }
+                    }
+                });
+            } catch(e) {
+                // Silently fail; local counts already shown
             }
         }
 

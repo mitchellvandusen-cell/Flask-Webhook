@@ -4294,6 +4294,103 @@ def get_contact_call_counts():
         return_db_connection(conn)
 
 
+@voice_bp.route('/voice/contact-call-counts/merged')
+@login_required
+def get_contact_call_counts_merged():
+    """Batch merged (local DB + GHL) call counts for up to 50 contact IDs."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        return jsonify({})
+    contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:50]
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({cid: 0 for cid in contact_ids})
+    location_id = None
+    local_counts = {}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({})
+        location_id = row[0]
+        cur.execute("""
+            SELECT contact_id, COUNT(*) AS cnt
+            FROM call_history
+            WHERE location_id = %s AND contact_id = ANY(%s)
+            GROUP BY contact_id
+        """, (location_id, contact_ids))
+        local_counts = {r[0]: r[1] for r in cur.fetchall()}
+        cur.close()
+    except Exception as e:
+        logger.error(f"merged call counts local query failed: {e}")
+    finally:
+        return_db_connection(conn)
+
+    # GHL counts in parallel threads
+    ghl_counts = {cid: 0 for cid in contact_ids}
+    if location_id:
+        try:
+            access_token = get_valid_token(location_id)
+            if access_token and access_token != 'DEMO':
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Version": GHL_API_VERSION,
+                    "Content-Type": "application/json",
+                }
+
+                def _fetch_ghl(cid):
+                    try:
+                        sr = http_requests.get(
+                            f"{GHL_API_BASE}/conversations/search",
+                            headers=headers,
+                            params={"locationId": location_id, "contactId": cid},
+                            timeout=6,
+                        )
+                        if sr.status_code != 200:
+                            return cid, 0
+                        convos = sr.json().get("conversations", [])
+                        if not convos:
+                            return cid, 0
+                        convo_id = convos[0]["id"]
+                        mr = http_requests.get(
+                            f"{GHL_API_BASE}/conversations/{convo_id}/messages",
+                            headers=headers,
+                            params={"limit": 100},
+                            timeout=6,
+                        )
+                        if mr.status_code != 200:
+                            return cid, 0
+                        payload = mr.json().get("messages", [])
+                        raw_msgs = payload.get("messages", []) if isinstance(payload, dict) else payload
+                        count = sum(
+                            1 for m in raw_msgs
+                            if isinstance(m, dict)
+                            and (m.get("type") or m.get("messageType", "")) in (3, 4, "TYPE_CALL", 3.0, 4.0)
+                        )
+                        return cid, count
+                    except Exception:
+                        return cid, 0
+
+                with ThreadPoolExecutor(max_workers=8) as pool:
+                    futures = {pool.submit(_fetch_ghl, cid): cid for cid in contact_ids}
+                    for future in as_completed(futures, timeout=15):
+                        try:
+                            cid, count = future.result()
+                            ghl_counts[cid] = count
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"GHL batch call count failed: {e}")
+
+    result = {cid: (local_counts.get(cid, 0) or 0) + (ghl_counts.get(cid, 0) or 0)
+              for cid in contact_ids}
+    return jsonify(result)
+
+
 @voice_bp.route('/voice/contact/<contact_id>/ghl-call-count')
 @login_required
 def get_contact_ghl_call_count(contact_id):
