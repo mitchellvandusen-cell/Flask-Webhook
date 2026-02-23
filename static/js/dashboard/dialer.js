@@ -124,7 +124,8 @@
                 dialerSelected.clear();
                 dialerRenderContacts();
                 dialerUpdateSelectionUI();
-                dialerFetchCallCounts(); // batch-load local call counts for badges
+                // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
+                dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
             } catch(e) {
                 console.error('[Dialer] Contact fetch failed:', e);
                 list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
@@ -2197,10 +2198,36 @@
             try {
                 const r = await fetch('/voice/contact-call-counts?ids=' + encodeURIComponent(ids));
                 if (!r.ok) return;
-                _dialerCallCounts = await r.json();
+                const counts = await r.json();
+                Object.assign(_dialerCallCounts, counts);
                 dialerRenderContactBadges();
             } catch(e) {
                 // Non-critical; badges just stay empty
+            }
+        }
+
+        // After local counts show, upgrade badges with GHL+WAVV counts in background
+        async function dialerFetchMergedCounts() {
+            if (!dialerContacts.length) return;
+            // Cap at 50 — backend limit
+            const ids = dialerContacts.slice(0, 50).map(c => c.id).join(',');
+            try {
+                const r = await fetch('/voice/contact-call-counts/merged?ids=' + encodeURIComponent(ids));
+                if (!r.ok) return;
+                const merged = await r.json();
+                // Only update badges where merged count is higher (additive; never regress)
+                Object.entries(merged).forEach(([id, total]) => {
+                    if (total > (_dialerCallCounts[id] || 0)) {
+                        _dialerCallCounts[id] = total;
+                        const badge = document.querySelector('[data-call-badge="' + id + '"]');
+                        if (badge) {
+                            badge.textContent = total + '\u00d7';
+                            badge.style.display = 'inline-flex';
+                        }
+                    }
+                });
+            } catch(e) {
+                // Silently fail; local counts already shown
             }
         }
 
@@ -2287,37 +2314,136 @@
         }
 
         function dialerRenderStats(s) {
-            // KPI cards row
+            const p = s.prior || {};
+
+            // Delta badge: % change for counts, pp for rates
+            function _delta(val, isPP) {
+                if (val === null || val === undefined) return '';
+                const sign  = val > 0 ? '+' : '';
+                const color = val > 0 ? '#00ff88' : val < 0 ? '#ef4444' : '#555';
+                const arrow = val > 0 ? '▲' : val < 0 ? '▼' : '';
+                const suffix = isPP ? 'pp' : '%';
+                return '<div style="font-size:0.67rem;margin-top:3px;color:' + color + ';">' + arrow + ' ' + sign + val + suffix + '</div>';
+            }
+
+            // ── KPI CARDS ──
             const connectColor = s.connect_rate >= 20 ? '#00ff88' : s.connect_rate >= 10 ? '#ffa500' : '#ef4444';
             let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:20px;">';
-            html += _kpiCard(s.total_calls, 'Total Dials', '');
-            html += _kpiCard(s.outbound_calls, 'Outbound', '');
-            html += _kpiCard(s.connected_calls, 'Connected', '');
-            html += _kpiCard(s.connect_rate + '%', 'Connect Rate', connectColor);
-            html += _kpiCard(_fmtDuration(s.avg_duration), 'Avg Duration', '');
-            html += _kpiCard(_fmtDuration(s.total_duration), 'Total Talk Time', '#00d9ff');
-            html += _kpiCard(s.unique_contacts, 'Leads Dialed', '');
-            html += _kpiCard(s.calls_per_day, 'Calls / Day', '');
+            html += _kpiCard(s.total_calls,                   'Total Dials',    '',          _delta(p.delta_calls));
+            html += _kpiCard(s.outbound_calls,                'Outbound',       '',          '');
+            html += _kpiCard(s.connected_calls,               'Connected',      '',          _delta(p.delta_connected));
+            html += _kpiCard(s.connect_rate + '%',            'Connect Rate',   connectColor,_delta(p.delta_rate, true));
+            html += _kpiCard(_fmtDuration(s.avg_duration),    'Avg Duration',   '',          '');
+            html += _kpiCard(_fmtDuration(s.total_duration),  'Total Talk Time','#00d9ff',   _delta(p.delta_duration));
+            html += _kpiCard(s.unique_contacts,               'Leads Dialed',   '',          '');
+            html += _kpiCard(s.calls_per_day,                 'Calls / Day',    '',          '');
             html += '</div>';
 
-            // Duration quality breakdown
+            // ── DURATION | OUTCOME BREAKDOWN ──
             html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">';
 
             // Left: Duration bars
             html += '<div>';
             html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Duration Breakdown</div>';
             const maxDur = Math.max(s.over_6s, 1);
-            html += _durBar('6s+',   s.over_6s,   maxDur, '#00d9ff');
-            html += _durBar('1 min', s.over_1min,  maxDur, '#00b8d4');
-            html += _durBar('2 min', s.over_2min,  maxDur, '#00916a');
-            html += _durBar('5 min', s.over_5min,  maxDur, '#00ff88');
-            html += _durBar('10 min',s.over_10min, maxDur, '#ffa500');
+            html += _durBar('6s+',    s.over_6s,    maxDur, '#00d9ff');
+            html += _durBar('1 min',  s.over_1min,  maxDur, '#00b8d4');
+            html += _durBar('2 min',  s.over_2min,  maxDur, '#00916a');
+            html += _durBar('5 min',  s.over_5min,  maxDur, '#00ff88');
+            html += _durBar('10 min', s.over_10min, maxDur, '#ffa500');
             html += '</div>';
 
-            // Right: Top contacts
+            // Right: Outcome (disposition) breakdown
             html += '<div>';
-            html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Most Contacted</div>';
+            html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Outcome Breakdown</div>';
+            const DISP_MAP = {
+                'left_voicemail': { label: 'Left Voicemail',  color: '#a855f7' },
+                'not_answered':   { label: 'No Answer',       color: '#6b7280' },
+                'hung_up':        { label: 'Hung Up',         color: '#ef4444' },
+                'not_interested': { label: 'Not Interested',  color: '#f97316' },
+                'none':           { label: 'No Disposition',  color: '#4b5563' },
+            };
+            const disps = s.dispositions || {};
+            const totalDisp = Object.values(disps).reduce((a, b) => a + b, 0);
+            let outcomeList = Object.entries(disps).map(([k, v]) => {
+                const info = DISP_MAP[k] || { label: k.replace(/_/g,' '), color: '#555' };
+                return { label: info.label, count: v, color: info.color };
+            });
+            const undisposed = Math.max(0, s.total_calls - totalDisp);
+            if (undisposed > 0) outcomeList.push({ label: 'Not Dispositioned', count: undisposed, color: '#2a2a3e' });
+            outcomeList.sort((a, b) => b.count - a.count);
+            const maxOutcome = Math.max(...outcomeList.map(o => o.count), 1);
+            if (!outcomeList.length || s.total_calls === 0) {
+                html += '<div style="color:#444;font-size:0.78rem;padding:6px 0;line-height:1.5;">No disposition data yet.<br><span style="color:#333;font-size:0.7rem;">Set call dispositions after each call to see your outcome breakdown here.</span></div>';
+            } else {
+                outcomeList.forEach(o => {
+                    const pct = s.total_calls > 0 ? Math.round(o.count / s.total_calls * 100) : 0;
+                    html += '<div class="dlr-bar-row" style="margin-bottom:5px;">' +
+                        '<div style="min-width:105px;max-width:105px;font-size:0.73rem;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(o.label) + '</div>' +
+                        '<div class="dlr-bar-track"><div class="dlr-bar-fill" style="width:' + Math.round(o.count / maxOutcome * 100) + '%;background:' + o.color + ';"></div></div>' +
+                        '<div style="font-size:0.72rem;color:#aaa;min-width:56px;text-align:right;font-family:\'JetBrains Mono\',monospace;">' + pct + '% <span style="color:#555;">(' + o.count + ')</span></div>' +
+                    '</div>';
+                });
+            }
+            html += '</div>';
+            html += '</div>'; // end 2-col grid
+
+            // ── BEST HOURS TO CALL ──
+            if (s.hourly && s.hourly.some(h => h.calls > 0)) {
+                const HOUR_LABELS = ['12am','1am','2am','3am','4am','5am','6am','7am','8am','9am','10am','11am',
+                                     '12pm','1pm','2pm','3pm','4pm','5pm','6pm','7pm','8pm','9pm','10pm','11pm'];
+                const top3 = [...s.hourly].filter(h => h.calls > 0).sort((a,b) => b.calls - a.calls).slice(0, 3);
+                if (top3.length) {
+                    const rankColors = ['#00ff88','#00d9ff','#a78bfa'];
+                    html += '<div style="margin-bottom:16px;padding:12px 16px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;display:flex;align-items:center;gap:16px;">';
+                    html += '<i class="fa-solid fa-clock" style="color:#00ff88;font-size:1rem;flex-shrink:0;"></i>';
+                    html += '<div style="flex:1;">';
+                    html += '<div style="font-size:0.78rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Best Hours to Call</div>';
+                    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+                    top3.forEach((h, i) => {
+                        html += '<div style="background:rgba(255,255,255,0.03);border:1px solid ' + rankColors[i] + '55;border-radius:8px;padding:7px 16px;text-align:center;">' +
+                            '<div style="font-size:1.05rem;font-weight:800;color:' + rankColors[i] + ';">' + HOUR_LABELS[h.hour] + '</div>' +
+                            '<div style="font-size:0.64rem;color:#555;margin-top:2px;">' + h.calls + ' call' + (h.calls !== 1 ? 's' : '') + '</div>' +
+                        '</div>';
+                    });
+                    html += '</div></div></div>';
+                }
+            }
+
+            // ── DAILY VOLUME (dual-tone: total + connected) ──
+            if (s.daily && s.daily.length > 1) {
+                html += '<div style="margin-bottom:16px;">';
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+                html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
+                html += '<div style="display:flex;gap:14px;">' +
+                    '<span style="font-size:0.68rem;color:#555;"><span style="color:rgba(0,217,255,0.5);">■</span> Dials</span>' +
+                    '<span style="font-size:0.68rem;color:#555;"><span style="color:#00ff88;">■</span> Connected</span>' +
+                '</div>';
+                html += '</div>';
+                const maxDay = Math.max(...s.daily.map(d => d.calls), 1);
+                const barH   = 64;
+                html += '<div style="display:flex;align-items:flex-end;gap:2px;height:' + (barH + 30) + 'px;overflow-x:auto;padding-bottom:2px;">';
+                s.daily.forEach(d => {
+                    const hTotal = Math.max(2, Math.round(d.calls / maxDay * barH));
+                    const hConn  = d.calls > 0 ? Math.max(1, Math.round(d.connected / d.calls * hTotal)) : 0;
+                    const label  = d.day ? d.day.substr(5) : '';
+                    const talkLbl = d.total_secs ? Math.round(d.total_secs / 60) + 'm talk' : '';
+                    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:22px;" title="' + d.day + ': ' + d.calls + ' dials, ' + d.connected + ' connected' + (talkLbl ? ', ' + talkLbl : '') + '">' +
+                        '<div style="font-size:0.52rem;color:#444;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
+                        '<div style="width:100%;position:relative;height:' + hTotal + 'px;">' +
+                            '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hTotal + 'px;background:rgba(0,217,255,0.25);border-radius:3px 3px 0 0;"></div>' +
+                            (hConn > 0 ? '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hConn + 'px;background:rgba(0,255,136,0.65);border-radius:2px 2px 0 0;"></div>' : '') +
+                        '</div>' +
+                        '<div style="font-size:0.52rem;color:#444;white-space:nowrap;">' + label + '</div>' +
+                    '</div>';
+                });
+                html += '</div></div>';
+            }
+
+            // ── MOST CONTACTED ──
             if (s.top_contacts && s.top_contacts.length) {
+                html += '<div>';
+                html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Most Contacted</div>';
                 const maxTop = Math.max(...s.top_contacts.map(t => t.count), 1);
                 s.top_contacts.forEach(tc => {
                     html += '<div class="dlr-bar-row">' +
@@ -2326,37 +2452,14 @@
                         '<div class="dlr-bar-count">' + tc.count + '</div>' +
                     '</div>';
                 });
-            } else {
-                html += '<div style="color:#444;font-size:0.82rem;padding:10px 0;">No data yet</div>';
-            }
-            html += '</div>';
-            html += '</div>'; // grid
-
-            // Daily call volume chart
-            if (s.daily && s.daily.length > 1) {
-                html += '<div style="margin-bottom:6px;">';
-                html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
-                const maxDay = Math.max(...s.daily.map(d => d.calls), 1);
-                const barH = 60; // px max bar height
-                html += '<div style="display:flex;align-items:flex-end;gap:2px;height:' + (barH + 18) + 'px;overflow-x:auto;padding-bottom:2px;">';
-                s.daily.forEach(d => {
-                    const h = Math.max(2, Math.round(d.calls / maxDay * barH));
-                    const label = d.day ? d.day.substr(5) : ''; // MM-DD
-                    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:20px;" title="' + d.day + ': ' + d.calls + ' calls, ' + d.connected + ' connected">' +
-                        '<div style="font-size:0.55rem;color:#555;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
-                        '<div class="dlr-daily-bar" style="width:100%;height:' + h + 'px;"></div>' +
-                        '<div style="font-size:0.55rem;color:#444;white-space:nowrap;">' + label + '</div>' +
-                    '</div>';
-                });
-                html += '</div>';
                 html += '</div>';
             }
 
             return html;
         }
 
-        function _kpiCard(val, label, color) {
-            return '<div class="dlr-kpi-card"><div class="dlr-kpi-val" style="' + (color ? 'color:' + color + ';' : '') + '">' + val + '</div><div class="dlr-kpi-label">' + label + '</div></div>';
+        function _kpiCard(val, label, color, deltaHtml) {
+            return '<div class="dlr-kpi-card"><div class="dlr-kpi-val" style="' + (color ? 'color:' + color + ';' : '') + '">' + val + '</div><div class="dlr-kpi-label">' + label + '</div>' + (deltaHtml || '') + '</div>';
         }
 
         function _durBar(label, count, maxVal, color) {

@@ -38,7 +38,7 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS,
                 create_api_key_for_user, revoke_api_key, save_outbound_webhook_url,
                 get_ai_minute_balance, credit_ai_minutes, get_ai_minute_purchases,
-                get_ai_minute_usage,
+                get_ai_minute_usage, audit_ai_minutes,
                 save_discord_connection, get_discord_connection, delete_discord_connection,
                 save_discord_servers, get_discord_servers,
                 save_discord_webhook_channel, get_discord_webhook_channels,
@@ -815,7 +815,7 @@ def stripe_webhook():
             pkg_minutes = int(session.metadata.get("package_minutes", 0))
             pkg_label = session.metadata.get("package_label", "")
             amount = session.amount_total or 0
-            credit_ai_minutes(
+            credited = credit_ai_minutes(
                 email=email,
                 minutes=pkg_minutes,
                 stripe_session_id=session.id,
@@ -823,7 +823,20 @@ def stripe_webhook():
                 package_label=pkg_label,
                 amount_cents=amount,
             )
-            logger.info(f"✅ AI Minutes: Credited {pkg_minutes} minutes to {email}")
+            if credited:
+                # Receipt audit: verify balance matches purchase + usage records.
+                # Self-heals any drift that slipped through (e.g. prior bad state).
+                result = audit_ai_minutes(email)
+                if result.get("corrected"):
+                    logger.warning(
+                        f"⚠️  Post-purchase audit corrected {email}: "
+                        f"drift was {result['drift']:+d} min "
+                        f"(balance {result['actual_balance']} → {result['expected_balance']})"
+                    )
+                logger.info(
+                    f"✅ AI Minutes: Credited {pkg_minutes} min to {email} — "
+                    f"balance now {result.get('expected_balance', '?')} min"
+                )
             return '', 200
 
         # 1. EXTRACT METADATA
@@ -2933,6 +2946,67 @@ def api_discover_installs():
                       details={"errors": results["errors"]})
 
     return safe_jsonify(results)
+
+
+@app.route("/api/admin/audit-ai-minutes", methods=["GET", "POST"])
+@login_required
+def api_admin_audit_ai_minutes():
+    """
+    Admin: run the AI minutes receipt audit for one user or all users.
+
+    GET  /api/admin/audit-ai-minutes?email=user@example.com
+         → audit a single account
+
+    POST /api/admin/audit-ai-minutes
+         body: {"email": "user@example.com"}   (single)
+         body: {"email": "ALL"}                (all subscribers with a balance)
+
+    Returns a JSON report; any drifted accounts are automatically corrected.
+    """
+    if not hasattr(current_user, 'email') or current_user.email not in ADMIN_EMAILS:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if request.method == "GET":
+        email = request.args.get("email", "").strip().lower()
+    else:
+        data = request.get_json(silent=True) or {}
+        email = data.get("email", "").strip().lower()
+
+    if not email:
+        return jsonify({"error": "email param required"}), 400
+
+    if email == "all":
+        # Audit every account that has a balance record
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "db_unavailable"}), 503
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT email FROM ai_minute_balances ORDER BY email")
+            all_emails = [r[0] for r in cur.fetchall()]
+            cur.close()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            return_db_connection(conn)
+
+        results = []
+        corrected_count = 0
+        for em in all_emails:
+            res = audit_ai_minutes(em)
+            results.append(res)
+            if res.get("corrected"):
+                corrected_count += 1
+
+        return jsonify({
+            "audited": len(results),
+            "corrected": corrected_count,
+            "results": results,
+        })
+
+    else:
+        result = audit_ai_minutes(email)
+        return jsonify(result)
 
 
 def _build_setup_checklist_html(missing: list, domain_url: str, user_type: str) -> str:

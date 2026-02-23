@@ -2076,35 +2076,59 @@ def get_ai_minute_balance(email: str) -> dict:
 def credit_ai_minutes(email: str, minutes: int, stripe_session_id: str = None,
                       stripe_payment_intent: str = None, package_label: str = None,
                       amount_cents: int = 0) -> bool:
-    """Credit AI minutes to a subscriber after purchase."""
+    """Credit AI minutes to a subscriber after purchase.
+
+    Idempotent: if stripe_session_id has already been marked 'completed' in
+    ai_minute_purchases, the balance is NOT touched again.  This prevents
+    double-crediting from Stripe webhook retries or any other duplicate calls.
+    """
     conn = get_db_connection()
     if not conn:
         return False
     try:
         cur = conn.cursor()
-        # Upsert balance
+
+        # ── Idempotency guard ──────────────────────────────────────────────────
+        # Check BEFORE touching the balance so a duplicate webhook never
+        # increments the counter a second time.
+        if stripe_session_id:
+            cur.execute(
+                "SELECT 1 FROM ai_minute_purchases "
+                "WHERE stripe_session_id = %s AND status = 'completed'",
+                (stripe_session_id,)
+            )
+            if cur.fetchone():
+                logger.warning(
+                    f"⚠️  Duplicate AI minutes credit blocked — "
+                    f"session {stripe_session_id} already processed for {email}"
+                )
+                cur.close()
+                return True  # idempotent; treat as success
+
+        # ── Credit balance (only reached once per session) ────────────────────
         cur.execute("""
             INSERT INTO ai_minute_balances (email, balance_minutes, total_purchased, updated_at)
             VALUES (%s, %s, %s, NOW())
             ON CONFLICT (email) DO UPDATE SET
-                balance_minutes = ai_minute_balances.balance_minutes + EXCLUDED.balance_minutes,
-                total_purchased = ai_minute_balances.total_purchased + EXCLUDED.total_purchased,
-                updated_at = NOW()
+                balance_minutes  = ai_minute_balances.balance_minutes  + EXCLUDED.balance_minutes,
+                total_purchased  = ai_minute_balances.total_purchased  + EXCLUDED.total_purchased,
+                updated_at       = NOW()
         """, (email, minutes, minutes))
-        # Record purchase
+
+        # ── Record purchase (DO NOTHING on conflict = safe re-entry) ──────────
         if stripe_session_id:
             cur.execute("""
                 INSERT INTO ai_minute_purchases
                     (email, stripe_session_id, stripe_payment_intent, package_minutes,
                      package_label, amount_cents, status, completed_at)
                 VALUES (%s, %s, %s, %s, %s, %s, 'completed', NOW())
-                ON CONFLICT (stripe_session_id) DO UPDATE SET
-                    status = 'completed', completed_at = NOW()
+                ON CONFLICT (stripe_session_id) DO NOTHING
             """, (email, stripe_session_id, stripe_payment_intent, minutes,
                   package_label, amount_cents))
+
         conn.commit()
         cur.close()
-        logger.info(f"✅ Credited {minutes} AI minutes to {email}")
+        logger.info(f"✅ Credited {minutes} AI minutes to {email} (session={stripe_session_id})")
         return True
     except Exception as e:
         logger.error(f"credit_ai_minutes failed: {e}")
@@ -2210,6 +2234,104 @@ def get_ai_minute_usage(email: str, limit: int = 50) -> list:
         return []
     finally:
         return_db_connection(conn)
+
+def audit_ai_minutes(email: str) -> dict:
+    """Reconcile ai_minute_balances against the immutable source-of-truth tables.
+
+    Source of truth:
+      - Total purchased  = SUM(package_minutes) from ai_minute_purchases WHERE status='completed'
+      - Total used       = SUM(minutes_deducted) from ai_minute_usage_logs
+      - Correct balance  = total_purchased - total_used  (floor 0)
+
+    If the live balance_minutes differs from that calculation the row is
+    corrected in place and the drift is logged as a warning.
+
+    Returns a dict:
+      {
+        "email":            str,
+        "purchased":        int,   # sum of completed purchase records
+        "used":             int,   # sum of usage log entries
+        "expected_balance": int,
+        "actual_balance":   int,
+        "drift":            int,   # actual - expected (positive = over-credited)
+        "corrected":        bool,
+      }
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "db_unavailable"}
+    try:
+        cur = conn.cursor()
+
+        # Sum every completed purchase receipt
+        cur.execute(
+            "SELECT COALESCE(SUM(package_minutes), 0) "
+            "FROM ai_minute_purchases WHERE email = %s AND status = 'completed'",
+            (email,)
+        )
+        total_purchased = int(cur.fetchone()[0] or 0)
+
+        # Sum every usage entry
+        cur.execute(
+            "SELECT COALESCE(SUM(minutes_deducted), 0) "
+            "FROM ai_minute_usage_logs WHERE email = %s",
+            (email,)
+        )
+        total_used = int(cur.fetchone()[0] or 0)
+
+        expected_balance = max(0, total_purchased - total_used)
+
+        # Current live balance
+        cur.execute(
+            "SELECT balance_minutes FROM ai_minute_balances WHERE email = %s",
+            (email,)
+        )
+        row = cur.fetchone()
+        actual_balance = int(row[0] if row else 0)
+
+        drift = actual_balance - expected_balance  # +ve = over-credited, -ve = under-credited
+        corrected = False
+
+        if drift != 0:
+            logger.warning(
+                f"⚠️  AI minutes audit drift for {email}: "
+                f"actual={actual_balance}, expected={expected_balance}, drift={drift:+d} min — correcting"
+            )
+            # Write the corrected values derived purely from receipts
+            cur.execute("""
+                INSERT INTO ai_minute_balances
+                    (email, balance_minutes, total_purchased, total_used, updated_at)
+                VALUES (%s, %s, %s, %s, NOW())
+                ON CONFLICT (email) DO UPDATE SET
+                    balance_minutes = EXCLUDED.balance_minutes,
+                    total_purchased = EXCLUDED.total_purchased,
+                    total_used      = EXCLUDED.total_used,
+                    updated_at      = NOW()
+            """, (email, expected_balance, total_purchased, total_used))
+            conn.commit()
+            corrected = True
+            logger.info(
+                f"✅ AI minutes audit corrected {email}: "
+                f"{actual_balance} → {expected_balance} (purchased={total_purchased}, used={total_used})"
+            )
+
+        cur.close()
+        return {
+            "email":            email,
+            "purchased":        total_purchased,
+            "used":             total_used,
+            "expected_balance": expected_balance,
+            "actual_balance":   actual_balance,
+            "drift":            drift,
+            "corrected":        corrected,
+        }
+    except Exception as e:
+        logger.error(f"audit_ai_minutes failed for {email}: {e}")
+        conn.rollback()
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
 
 # ════════════════════════════════════════════════════════════════
 # DISCORD INTEGRATION HELPERS
