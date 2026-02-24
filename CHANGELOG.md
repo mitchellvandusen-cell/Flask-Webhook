@@ -21,6 +21,18 @@
 
 ---
 
+## 2026-02-24
+
+**[Fix]** — Instant AI audio cutoff on agent intercept (takeover) — Eliminated the "AI keeps talking while agent says Hello" problem during call intercept.
+
+- **`voice_bridge.py`** — Added takeover detection inside the `receive_from_xai()` loop. Previously, only the `receive_from_twilio()` loop checked for takeover signals, meaning AI audio chunks continued streaming to the caller during the gap between the intercept signal and Twilio's redirect. Now both relay directions check `_transfer_requests` on every iteration.
+  - Sends Twilio `clear` event on intercept in both relay directions, flushing any buffered AI audio from Twilio's pipeline so the caller hears silence instead of residual AI speech.
+  - Added `'transferred'` to the listen stream's terminal status check so live listeners are notified immediately when a call is intercepted (previously only checked `completed`, `failed`, `canceled`).
+
+- **`dialer.js`** — Added immediate listen-stream shutdown in `dialerTakeover()`. The listen WebSocket and AudioContext are now closed before the takeover HTTP request fires, preventing audio echo/feedback during the VoIP handover.
+
+---
+
 ## 2026-02-23
 
 **[Feature]** — Dialer call statistics page and per-contact call count badge — Added a comprehensive statistics panel to the Power Dialer and a call-count badge on every contact row.

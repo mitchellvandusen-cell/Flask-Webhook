@@ -1,6 +1,6 @@
 # InsuranceGrokBot — Technical Owner's Manual
 
-**Last updated: 2026-02-22**
+**Last updated: 2026-02-24**
 
 This document explains how the system actually works, written in plain English based on a full review of the live codebase. Think of this as the car owner's manual: not "here's the philosophy," but "here's where the engine is, why each part exists, and what to do when it makes a weird noise."
 
@@ -453,6 +453,16 @@ When the AI decides to call a tool, xAI sends a `response.function_call_argument
 ### Live Listen
 
 Supervisors can listen to a live call in real time from the dashboard. The `/voice/listen-stream` WebSocket endpoint subscribes to the call's audio feed. During the call, every audio chunk put into `_call_listeners[call_sid]` by the main bridge is relayed to all listener sockets.
+
+The browser decodes the raw mulaw audio chunks using Web Audio API (`AudioContext` at 8kHz) with a jitter-buffer scheduler for gapless playback. This avoids the latency overhead of HTML5 `<audio>` elements and achieves sub-200ms monitoring latency.
+
+### Agent Intercept (Takeover)
+
+When an agent clicks "Intercept" in the dialer, the system performs an instant handover:
+
+1. **Browser**: The listen stream is stopped immediately to prevent audio echo/feedback.
+2. **HTTP endpoint** (`POST /voice/takeover`): Sets `_transfer_requests[call_sid]` and either redirects the Twilio call to the browser VoIP client (preferred) or falls back to the agent's phone number.
+3. **Both relay loops** (`receive_from_twilio` and `receive_from_xai`): Check `_transfer_requests` on every iteration. When detected, they immediately send a Twilio `clear` event to flush any buffered AI audio from Twilio's pipeline, then stop relaying. This eliminates the gap where the AI would continue speaking after the intercept button was pressed.
 
 ### Fast Startup Optimization
 
