@@ -683,6 +683,10 @@
         async function dialerStartCall(phone, firstName, contactId, displayName) {
             // Validate phone before attempting
             if (!phone || phone.replace(/[^0-9+]/g, '').length < 10) {
+                // Mark queue item as failed so advance() handles it correctly (retry or skip)
+                if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                    dialerQueue[dialerCallIdx].status = 'failed';
+                }
                 dialerShowBanner(displayName || firstName, 'Invalid phone number', true);
                 setTimeout(dialerHideBanner, 3000);
                 if (dialerQueueRunning) setTimeout(dialerAdvance, 1500);
@@ -697,6 +701,10 @@
                 }, { retries: 1, timeout: 20000, label: 'dial' });
                 const d = await r.json();
                 if (!r.ok) {
+                    // Mark queue item as failed so advance() handles it correctly (retry or skip)
+                    if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                        dialerQueue[dialerCallIdx].status = 'failed';
+                    }
                     dialerShowBanner(displayName, d.error || 'Failed to initiate call', true);
                     setTimeout(dialerHideBanner, 4000);
                     if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
@@ -707,6 +715,10 @@
                 dialerStartPoll();
             } catch(e) {
                 console.error('[Dialer] startCall network error:', e);
+                // Mark queue item as failed so advance() handles it correctly (retry or skip)
+                if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
+                    dialerQueue[dialerCallIdx].status = 'failed';
+                }
                 dialerShowBanner(displayName, 'Network error — retrying...', true);
                 setTimeout(dialerHideBanner, 4000);
                 if (dialerQueueRunning) setTimeout(dialerAdvance, 3000);
@@ -756,21 +768,28 @@
                         document.getElementById('dialerBannerTimer').style.display = 'block';
                         // Enable all call controls
                         _dialerEnableControls(true);
+                        // Pre-warm VoIP device in background so Intercept is instant
+                        if (voipSetupDone && !voipReady && !_voipInitializing) {
+                            console.log('[VoIP] Pre-warming: initializing device in background for instant intercept');
+                            initVoIPDevice().catch(e => console.warn('[VoIP] Pre-warm failed (non-fatal):', e));
+                        }
                     } else if (d.status === 'ringing' || d.status === 'initiated') {
                         el.textContent = 'Ringing...'; el.style.color = '#00d9ff';
                         _dialerBannerState('ringing');
                     } else if (d.status === 'transferred') {
+                        // Stop polling IMMEDIATELY to prevent duplicate advance calls
+                        clearInterval(dialerPollTimer);
+                        dialerPollTimer = null;
                         el.textContent = 'Transferred to Agent'; el.style.color = '#ffa500';
                         _dialerBannerState('connected');
-                        // Keep banner visible briefly, then end
+                        // Keep banner visible briefly, then clean up and advance
                         setTimeout(() => {
-                            clearInterval(dialerPollTimer);
                             dialerStopAiTimer();
                             _dialerLastCallSid = dialerCallSid;
                             dialerCallSid = null;
                             dialerHideBanner();
                             dialerRenderQueue();
-                            if (dialerQueueRunning) setTimeout(dialerAdvance, 1200);
+                            if (dialerQueueRunning) dialerAdvance();
                         }, 2500);
                         return;
                     } else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
@@ -895,34 +914,72 @@
         let _dialerListening = false;
         let _listenWs = null;
         let _listenAudioCtx = null;
+        let _listenReconnects = 0;
+        const _LISTEN_MAX_RECONNECTS = 5;
 
         function dialerToggleListen() {
             if (document.getElementById('dialerListenBtn').disabled) return;
             _dialerListening = !_dialerListening;
             const btn = document.getElementById('dialerListenBtn');
-            btn.style.background = _dialerListening ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)';
-            btn.style.color = _dialerListening ? '#00d9ff' : '#ccc';
-            btn.querySelector('i').className = _dialerListening ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
 
             if (_dialerListening) {
+                btn.style.background = 'rgba(0,217,255,0.15)';
+                btn.style.color = '#00d9ff';
+                btn.querySelector('i').className = 'fa-solid fa-ear-listen';
+                btn.querySelector('span').textContent = 'Listening...';
+                _listenReconnects = 0;
                 _startListenStream();
             } else {
                 _stopListenStream();
+                btn.style.background = 'rgba(255,255,255,0.04)';
+                btn.style.color = '#ccc';
+                btn.querySelector('i').className = 'fa-solid fa-volume-high';
+                btn.querySelector('span').textContent = 'Listen';
             }
         }
 
         let _listenNextTime = 0; // scheduled playback time for gapless audio
+        let _listenConnected = false; // tracks whether WS confirmed listening
 
         function _startListenStream() {
-            if (!dialerCallSid) { _dialerListening = false; return; }
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            _listenWs = new WebSocket(`${proto}//${location.host}/voice/listen-stream`);
-            _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
-            // Resume AudioContext (Chrome/Safari require user gesture)
-            if (_listenAudioCtx.state === 'suspended') {
-                _listenAudioCtx.resume().then(() => console.log('[Listen] AudioContext resumed'));
+            if (!dialerCallSid) { _dialerListening = false; _resetListenBtn(); return; }
+
+            // Clean up any previous connection
+            if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
+            if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
+            _listenConnected = false;
+
+            try {
+                const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+                _listenWs = new WebSocket(`${proto}//${location.host}/voice/listen-stream`);
+            } catch(e) {
+                console.error('[Listen] WebSocket creation failed:', e);
+                _resetListenBtn();
+                return;
+            }
+
+            try {
+                _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+                // Resume AudioContext in user gesture context (critical for Chrome/Safari)
+                if (_listenAudioCtx.state === 'suspended') {
+                    _listenAudioCtx.resume().then(() => console.log('[Listen] AudioContext resumed'));
+                }
+            } catch(e) {
+                console.error('[Listen] AudioContext creation failed:', e);
+                if (_listenWs) { try { _listenWs.close(); } catch(x) {} _listenWs = null; }
+                _resetListenBtn();
+                return;
             }
             _listenNextTime = 0;
+
+            // Connection timeout: if WS doesn't confirm within 8s, something is wrong
+            const connectTimeout = setTimeout(() => {
+                if (!_listenConnected && _dialerListening) {
+                    console.error('[Listen] Connection timeout — no listening confirmation after 8s');
+                    _stopListenStream();
+                    _resetListenBtn();
+                }
+            }, 8000);
 
             _listenWs.onopen = () => {
                 console.log('[Listen] WebSocket connected, subscribing to', dialerCallSid);
@@ -932,35 +989,47 @@
             _listenWs.onmessage = (evt) => {
                 try {
                     const msg = JSON.parse(evt.data);
-                    if (msg.audio) {
+                    if (msg.status === 'listening') {
+                        _listenConnected = true;
+                        clearTimeout(connectTimeout);
+                        _listenReconnects = 0; // reset on successful connect
+                        console.log('[Listen] Server confirmed listening');
+                    } else if (msg.audio) {
                         _playMulawChunk(msg.audio);
                     } else if (msg.status === 'call_ended') {
                         console.log('[Listen] Call ended');
+                        clearTimeout(connectTimeout);
                         _stopListenStream();
-                        _dialerListening = false;
-                        const btn = document.getElementById('dialerListenBtn');
-                        btn.style.background = 'rgba(255,255,255,0.04)';
-                        btn.style.color = '#ccc';
-                        btn.querySelector('i').className = 'fa-solid fa-volume-xmark';
+                        _resetListenBtn();
                     } else if (msg.error) {
                         console.error('[Listen] Server error:', msg.error);
+                        clearTimeout(connectTimeout);
+                        _stopListenStream();
+                        _resetListenBtn();
                     }
+                    // keepalive messages are silently ignored
                 } catch(e) { console.error('[Listen] Message parse error:', e); }
             };
 
             _listenWs.onclose = () => {
+                clearTimeout(connectTimeout);
                 console.log('[Listen] WebSocket closed');
-                // Auto-reconnect if we were still supposed to be listening and call is active
-                if (_dialerListening && dialerCallSid) {
-                    console.log('[Listen] Auto-reconnecting in 1.5s...');
+                // Auto-reconnect with limit
+                if (_dialerListening && dialerCallSid && _listenReconnects < _LISTEN_MAX_RECONNECTS) {
+                    _listenReconnects++;
+                    const delay = Math.min(1500 * _listenReconnects, 5000);
+                    console.log(`[Listen] Auto-reconnecting in ${delay}ms (attempt ${_listenReconnects}/${_LISTEN_MAX_RECONNECTS})...`);
                     setTimeout(() => {
                         if (_dialerListening && dialerCallSid) {
                             _startListenStream();
                         } else {
                             _resetListenBtn();
                         }
-                    }, 1500);
+                    }, delay);
                 } else {
+                    if (_listenReconnects >= _LISTEN_MAX_RECONNECTS) {
+                        console.error('[Listen] Max reconnect attempts reached');
+                    }
                     _resetListenBtn();
                 }
             };
@@ -971,6 +1040,7 @@
         }
 
         function _stopListenStream() {
+            _listenConnected = false;
             if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
             if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
             _listenNextTime = 0;
@@ -978,11 +1048,13 @@
 
         function _resetListenBtn() {
             _dialerListening = false;
+            _listenConnected = false;
             const btn = document.getElementById('dialerListenBtn');
             if (btn) {
                 btn.style.background = 'rgba(255,255,255,0.04)';
                 btn.style.color = '#ccc';
-                btn.querySelector('i').className = 'fa-solid fa-volume-xmark';
+                btn.querySelector('i').className = 'fa-solid fa-volume-high';
+                btn.querySelector('span').textContent = 'Listen';
             }
         }
 
@@ -1082,13 +1154,7 @@
             // Immediately stop listen stream to prevent echo/feedback during handover
             if (_dialerListening) {
                 _stopListenStream();
-                _dialerListening = false;
-                const listenBtn = document.getElementById('dialerListenBtn');
-                if (listenBtn) {
-                    listenBtn.style.background = 'rgba(255,255,255,0.04)';
-                    listenBtn.style.color = '#ccc';
-                    listenBtn.querySelector('i').className = 'fa-solid fa-volume-xmark';
-                }
+                _resetListenBtn();
             }
 
             try {
@@ -1377,6 +1443,7 @@
 
         function dialerStopQueue() {
             dialerQueueRunning = false;
+            _advanceLocked = false;
             dialerUpdateBtn();
             // Hang up any active AI dialer call (with retry)
             if (dialerCallSid) {
@@ -1445,8 +1512,13 @@
             console.log(`[Dialer] Calling ${item.name} (${item.phone}) — attempt ${item.attempts}/${dialerMaxAttempts}`);
             dialerStartCall(item.phone, item.firstName || item.name, item.id, item.name);
         }
+        // Guard: prevent concurrent advance calls (the root cause of queue skipping)
+        let _advanceLocked = false;
         function dialerAdvance() {
-            if (!dialerQueueRunning) { dialerHideBanner(); return; }
+            if (!dialerQueueRunning) { _advanceLocked = false; dialerHideBanner(); return; }
+            // Prevent re-entrant calls — multiple timeouts can fire dialerAdvance simultaneously
+            if (_advanceLocked) { console.log('[Dialer] Advance blocked (already advancing)'); return; }
+            _advanceLocked = true;
 
             // Check if current contact needs a retry (no-answer, busy, failed, voicemail)
             if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
@@ -1457,7 +1529,7 @@
                     current.status = 'pending';
                     dialerRenderQueue();
                     // 2-second delay before retry to avoid hammering and give networks time
-                    setTimeout(() => { if (dialerQueueRunning) dialerDialNext(); }, 2000);
+                    setTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 2000);
                     return;
                 }
                 // Max attempts exhausted — mark as final status
@@ -1468,9 +1540,9 @@
 
             // Move to next pending contact
             dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
-            if (dialerCallIdx < 0) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
+            if (dialerCallIdx < 0) { _advanceLocked = false; dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
             // Brief 1s pause before next contact
-            setTimeout(() => { if (dialerQueueRunning) dialerDialNext(); }, 1000);
+            setTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 1000);
         }
 
         // ── Recording + Transcript ──
