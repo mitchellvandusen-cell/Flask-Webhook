@@ -3847,7 +3847,7 @@ def send_contact_sms(contact_id):
         return jsonify({"error": "No valid GHL auth token. Reconnect your CRM."}), 401
 
     try:
-        success, _fail_reason = send_sms_via_ghl(
+        success, _fail_reason, _http_detail = send_sms_via_ghl(
             contact_id=contact_id,
             message=message,
             access_token=access_token,
