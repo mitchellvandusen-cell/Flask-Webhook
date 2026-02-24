@@ -1078,6 +1078,19 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Intercepting...</span>';
             const statusEl = document.getElementById('dialerCallStatus');
             if (statusEl) { statusEl.textContent = 'Intercepting...'; statusEl.style.color = '#ffa500'; }
+
+            // Immediately stop listen stream to prevent echo/feedback during handover
+            if (_dialerListening) {
+                _stopListenStream();
+                _dialerListening = false;
+                const listenBtn = document.getElementById('dialerListenBtn');
+                if (listenBtn) {
+                    listenBtn.style.background = 'rgba(255,255,255,0.04)';
+                    listenBtn.style.color = '#ccc';
+                    listenBtn.querySelector('i').className = 'fa-solid fa-volume-xmark';
+                }
+            }
+
             try {
                 // Always use VoIP for browser intercept — initialize device if needed
                 let useVoip = false;

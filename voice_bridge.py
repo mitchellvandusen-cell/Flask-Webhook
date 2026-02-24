@@ -1702,7 +1702,13 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                             if req.get('type') == 'takeover':
                                 transfer_info = _transfer_requests.pop(call_sid, {})
                                 target = transfer_info.get('target', '')
-                                logger.info(f"Immediate takeover: {call_sid} -> {target}")
+                                logger.info(f"⚡ Immediate takeover (Twilio relay): {call_sid} -> {target}")
+
+                                # Flush buffered AI audio from Twilio's pipeline
+                                try:
+                                    ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                except Exception:
+                                    pass
 
                                 t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
                                 if t_sub_sid and target:
@@ -1782,6 +1788,21 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                     async for xai_message in xai_ws:
                         if not call_active:
                             break
+
+                        # ── Instant takeover check in XAI relay ──
+                        # Without this, AI audio keeps streaming to the caller
+                        # during the gap between takeover signal and Twilio redirect.
+                        if call_sid and call_sid in _transfer_requests:
+                            req = _transfer_requests.get(call_sid, {})
+                            if req.get('type') == 'takeover':
+                                logger.info(f"⚡ Instant AI audio cutoff (XAI relay): {call_sid}")
+                                # Flush any buffered AI audio from Twilio's pipeline
+                                try:
+                                    ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                except Exception:
+                                    pass
+                                call_active = False
+                                break
 
                         response   = json.loads(xai_message)
                         event_type = response.get('type', '')
@@ -2035,7 +2056,7 @@ def run_listen_stream(ws):
             except _queue_module.Empty:
                 # Check if call is still active
                 if call_sid not in _active_calls or \
-                        _active_calls.get(call_sid, {}).get('status') in ('completed', 'failed', 'canceled'):
+                        _active_calls.get(call_sid, {}).get('status') in ('completed', 'failed', 'canceled', 'transferred'):
                     ws.send(json.dumps({"status": "call_ended"}))
                     break
                 # Send keepalive
