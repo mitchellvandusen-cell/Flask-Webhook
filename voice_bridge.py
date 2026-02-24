@@ -430,10 +430,10 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
             if conn:
                 cur = conn.cursor()
                 cur.execute(
-                    "SELECT COUNT(*) FROM call_history WHERE contact_id = %s AND direction LIKE 'outbound%%'",
+                    "SELECT COUNT(*) AS cnt FROM call_history WHERE contact_id = %s AND direction LIKE 'outbound%%'",
                     (contact_id,)
                 )
-                previous_call_count = cur.fetchone()[0]
+                previous_call_count = cur.fetchone()['cnt']
                 cur.close()
                 return_db_connection(conn)
         except Exception as e:
@@ -4090,7 +4090,7 @@ def get_dialer_stats():
         row = cur.fetchone()
         if not row:
             return jsonify({"error": "Not found"}), 404
-        location_id = row[0]
+        location_id = row['location_id']
 
         # Ensure disposition column exists
         try:
@@ -4129,18 +4129,18 @@ def get_dialer_stats():
             WHERE location_id = %s AND created_at >= %s
         """, (location_id, start_date))
         r = cur.fetchone()
-        total           = r[0] or 0
-        outbound        = r[1] or 0
-        inbound         = r[2] or 0
-        connected       = r[3] or 0
-        avg_dur         = float(r[4] or 0)
-        total_dur       = int(r[5] or 0)
-        over_6s         = r[6] or 0
-        over_1min       = r[7] or 0
-        over_2min       = r[8] or 0
-        over_5min       = r[9] or 0
-        over_10min      = r[10] or 0
-        unique_contacts = r[11] or 0
+        total           = r['total_calls'] or 0
+        outbound        = r['outbound_calls'] or 0
+        inbound         = r['inbound_calls'] or 0
+        connected       = r['connected_calls'] or 0
+        avg_dur         = float(r['avg_duration'] or 0)
+        total_dur       = int(r['total_duration'] or 0)
+        over_6s         = r['over_6s'] or 0
+        over_1min       = r['over_1min'] or 0
+        over_2min       = r['over_2min'] or 0
+        over_5min       = r['over_5min'] or 0
+        over_10min      = r['over_10min'] or 0
+        unique_contacts = r['unique_contacts'] or 0
         connect_rate    = round(connected / total * 100, 1) if total else 0.0
 
         # Days in period (for "per day" averages)
@@ -4151,8 +4151,8 @@ def get_dialer_stats():
         elif period == 'month':
             days = 30
         else:
-            cur.execute("SELECT MIN(created_at) FROM call_history WHERE location_id = %s", (location_id,))
-            first = cur.fetchone()[0]
+            cur.execute("SELECT MIN(created_at) AS first_call FROM call_history WHERE location_id = %s", (location_id,))
+            first = cur.fetchone()['first_call']
             days = max(1, (now - first).days) if first else 1
 
         # Prior period comparison (skip for 'all')
@@ -4171,10 +4171,10 @@ def get_dialer_stats():
                 WHERE location_id = %s AND created_at >= %s AND created_at < %s
             """, (location_id, prior_start, prior_end))
             pr          = cur.fetchone()
-            p_total     = pr[0] or 0
-            p_connected = pr[1] or 0
-            p_dur       = int(pr[2] or 0)
-            p_avg_dur   = float(pr[3] or 0)
+            p_total     = pr['total_calls'] or 0
+            p_connected = pr['connected_calls'] or 0
+            p_dur       = int(pr['total_duration'] or 0)
+            p_avg_dur   = float(pr['avg_duration'] or 0)
             p_rate      = round(p_connected / p_total * 100, 1) if p_total else 0.0
 
             def _pct_delta(curr, prev):
@@ -4208,7 +4208,7 @@ def get_dialer_stats():
                 GROUP BY disp
                 ORDER BY cnt DESC
             """, (location_id, start_date))
-            dispositions = {row[0]: row[1] for row in cur.fetchall()}
+            dispositions = {row['disp']: row['cnt'] for row in cur.fetchall()}
         except Exception:
             conn.rollback()
 
@@ -4223,7 +4223,7 @@ def get_dialer_stats():
             GROUP BY day ORDER BY day
         """, (location_id, start_date))
         daily = [
-            {"day": str(row[0]), "calls": row[1], "connected": row[2], "total_secs": row[3]}
+            {"day": str(row['day']), "calls": row['calls'], "connected": row['connected'], "total_secs": row['total_secs']}
             for row in cur.fetchall()
         ]
 
@@ -4234,7 +4234,7 @@ def get_dialer_stats():
             WHERE location_id = %s AND created_at >= %s
             GROUP BY hr ORDER BY hr
         """, (location_id, start_date))
-        hourly_map = {row[0]: row[1] for row in cur.fetchall()}
+        hourly_map = {row['hr']: row['calls'] for row in cur.fetchall()}
         hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
 
         # Top 5 most-called contacts
@@ -4247,7 +4247,7 @@ def get_dialer_stats():
             ORDER BY cnt DESC LIMIT 5
         """, (location_id, start_date))
         top_contacts = [
-            {"id": row[0], "name": row[1] or "Unknown", "count": row[2], "last_called": str(row[3])}
+            {"id": row['contact_id'], "name": row['contact_name'] or "Unknown", "count": row['cnt'], "last_called": str(row['last_called'])}
             for row in cur.fetchall()
         ]
 
@@ -4298,14 +4298,14 @@ def get_contact_call_counts():
         row = cur.fetchone()
         if not row:
             return jsonify({})
-        location_id = row[0]
+        location_id = row['location_id']
         cur.execute("""
             SELECT contact_id, COUNT(*) AS cnt
             FROM call_history
             WHERE location_id = %s AND contact_id = ANY(%s)
             GROUP BY contact_id
         """, (location_id, contact_ids))
-        result = {r[0]: r[1] for r in cur.fetchall()}
+        result = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
         cur.close()
         return jsonify(result)
     except Exception as e:
@@ -4337,14 +4337,14 @@ def get_contact_call_counts_merged():
         row = cur.fetchone()
         if not row:
             return jsonify({})
-        location_id = row[0]
+        location_id = row['location_id']
         cur.execute("""
             SELECT contact_id, COUNT(*) AS cnt
             FROM call_history
             WHERE location_id = %s AND contact_id = ANY(%s)
             GROUP BY contact_id
         """, (location_id, contact_ids))
-        local_counts = {r[0]: r[1] for r in cur.fetchall()}
+        local_counts = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
         cur.close()
     except Exception as e:
         logger.error(f"merged call counts local query failed: {e}")
@@ -4425,13 +4425,13 @@ def get_contact_ghl_call_count(contact_id):
         row = cur.fetchone()
         if not row:
             return jsonify({"local": 0, "ghl": 0, "total": 0})
-        location_id = row[0]
+        location_id = row['location_id']
 
         cur.execute(
-            "SELECT COUNT(*) FROM call_history WHERE location_id = %s AND contact_id = %s",
+            "SELECT COUNT(*) AS cnt FROM call_history WHERE location_id = %s AND contact_id = %s",
             (location_id, contact_id)
         )
-        local_count = cur.fetchone()[0] or 0
+        local_count = cur.fetchone()['cnt'] or 0
         cur.close()
     except Exception as e:
         logger.error(f"local count failed for {contact_id}: {e}")

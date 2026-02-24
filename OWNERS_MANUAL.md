@@ -464,6 +464,22 @@ When an agent clicks "Intercept" in the dialer, the system performs an instant h
 2. **HTTP endpoint** (`POST /voice/takeover`): Sets `_transfer_requests[call_sid]` and either redirects the Twilio call to the browser VoIP client (preferred) or falls back to the agent's phone number.
 3. **Both relay loops** (`receive_from_twilio` and `receive_from_xai`): Check `_transfer_requests` on every iteration. When detected, they immediately send a Twilio `clear` event to flush any buffered AI audio from Twilio's pipeline, then stop relaying. This eliminates the gap where the AI would continue speaking after the intercept button was pressed.
 
+For fastest intercept, the VoIP device is pre-warmed in the background when an AI call connects (status changes to `in-progress`). This means the Twilio Voice SDK, mic permissions, and signaling registration are all ready before the agent clicks the button.
+
+### Power Dialer Queue
+
+The auto-dial queue processes contacts sequentially with retry logic:
+
+1. **Queue start**: `dialerToggleQueue()` finds the first `pending` contact and starts dialing.
+2. **Dial**: `dialerDialNext()` increments the attempt counter, marks the item `initiated`, and calls `dialerStartCall()`.
+3. **Poll**: `dialerStartPoll()` checks `/voice/call-status/{call_sid}` every 1.5s. When the call reaches a terminal state (`completed`, `busy`, `no-answer`, `failed`, `canceled`), the poll stops and `dialerAdvance()` is called.
+4. **Advance**: Checks if the current contact should be retried (retry-eligible statuses + attempts < `dialerMaxAttempts`). If yes, resets to `pending` and redials after 2s. If not, moves to the next `pending` contact.
+5. **Guard**: A `_advanceLocked` flag prevents concurrent advance calls — multiple timeouts can fire simultaneously (e.g., from transfer + poll), and without the lock, two advance calls would each find the next pending item and double-skip.
+
+Key reliability features:
+- All `dialerStartCall` failure paths (invalid phone, API error, network error) explicitly set the queue item to `failed` status before advancing. This ensures the retry logic can evaluate correctly instead of silently skipping.
+- The `transferred` poll handler clears the poll interval immediately (not inside a delayed callback) to prevent duplicate advance scheduling.
+
 ### Fast Startup Optimization
 
 To minimize the delay before the AI says the first word, the bridge uses a two-phase prompt strategy:

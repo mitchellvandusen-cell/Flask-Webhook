@@ -23,13 +23,43 @@
 
 ## 2026-02-24
 
-**[Fix]** — Instant AI audio cutoff on agent intercept (takeover) — Eliminated the "AI keeps talking while agent says Hello" problem during call intercept.
+**[Fix]** — Dialer UI, hangup reliability, KPI stats, and call count badges — Critical RealDictCursor compatibility fix, UI layout improvement, and hangup flow hardening.
 
-- **`voice_bridge.py`** — Added takeover detection inside the `receive_from_xai()` loop. Previously, only the `receive_from_twilio()` loop checked for takeover signals, meaning AI audio chunks continued streaming to the caller during the gap between the intercept signal and Twilio's redirect. Now both relay directions check `_transfer_requests` on every iteration.
-  - Sends Twilio `clear` event on intercept in both relay directions, flushing any buffered AI audio from Twilio's pipeline so the caller hears silence instead of residual AI speech.
-  - Added `'transferred'` to the listen stream's terminal status check so live listeners are notified immediately when a call is intercepted (previously only checked `completed`, `failed`, `canceled`).
+### KPI Stats + Call Count Badges (root cause fix)
+- **`voice_bridge.py`** — All stats/counts routes (`/voice/stats`, `/voice/contact-call-counts`, `/voice/contact-call-counts/merged`, `/voice/contact/<id>/ghl-call-count`) used integer index access (`row[0]`) on query results, but the DB pool uses `RealDictCursor` which returns dict-like rows. `row[0]` raised `KeyError: 0`, silently failing and returning empty data. **Fix:** Replaced all integer index access with column name key access (`row['location_id']`, `row['total_calls']`, etc.) across 8 queries.
 
-- **`dialer.js`** — Added immediate listen-stream shutdown in `dialerTakeover()`. The listen WebSocket and AudioContext are now closed before the takeover HTTP request fires, preventing audio echo/feedback during the VoIP handover.
+### Hangup Button + Banner
+- **`dialer.js`** — `dialerStopQueue()` previously nulled `dialerCallSid`, cleared the poll timer, and hid the banner instantly — before the hangup API even responded. If the call was still connecting on Twilio's side, the user lost all visibility. **Fix:** Now shows "Hanging up..." banner state, sends the hangup request, waits for the response, then cleans up after a brief delay.
+
+### UI Layout
+- **`dialer.html`** — Moved the Queue section above the Contact List in the left column (was at the bottom, now directly below the search/filters). Changed chevron direction to match new position.
+
+### Call Count Badges
+- **`dialer.js`** — Added phone icon (`fa-phone`) to call count badges for clearer visual identification. All badge render/update paths (`dialerRenderContacts`, `dialerRenderContactBadges`, `dialerUpdateContactBadge`, `dialerFetchMergedCounts`) now use consistent `innerHTML` with the icon.
+
+### Stats Period
+- **`dialer.js`** — Fixed default stats period mismatch: JS variable was `'month'` but HTML button showed "Today" as active. Aligned to `'today'`.
+
+---
+
+**[Fix]** — Enterprise-grade dialer: fix queue skipping, harden listen/intercept/mute — Three root-cause bugs in the power dialer queue caused contacts to be skipped. Listen, intercept, and mute hardened with proper error handling, VoIP pre-warming, and reconnection logic.
+
+### Queue (3 bugs fixed)
+- **`dialer.js`** — `dialerStartCall()` failures (invalid phone, API error, network error) left queue items stuck in `'initiated'` status. `dialerAdvance()` only retried `['no-answer','busy','failed','canceled']`, so initiated items were silently skipped. **Fix:** All failure paths now set `item.status = 'failed'` before advancing.
+- **`dialer.js`** — The `'transferred'` poll handler kept the poll interval running for 2.5s after detection. Each subsequent poll iteration scheduled a duplicate `setTimeout → dialerAdvance`, causing double-advance (skipping the next contact). **Fix:** `clearInterval(dialerPollTimer)` is now called immediately when `'transferred'` is first seen.
+- **`dialer.js`** — Added `_advanceLocked` guard to prevent concurrent `dialerAdvance()` calls from multiple timeouts firing simultaneously. Lock is released in every exit path (stop, retry, next, finish).
+
+### Listen (Fly on the Wall)
+- **`dialer.js`** — Hardened the listen stream with: connection timeout (8s), server-confirmed listening status, reconnection limit (5 attempts with exponential backoff), proper AudioContext error handling with try-catch, and clean teardown of previous connections before reconnecting.
+
+### Intercept
+- **`dialer.js`** — VoIP device is now pre-warmed in background when an AI call connects (`status === 'in-progress'`). Previously, clicking Intercept required loading the Twilio SDK + fetching token + mic permission + registration (~15s). Now VoIP is ready by the time the agent clicks Intercept.
+- **`dialer.js`** — Listen stream is stopped via `_resetListenBtn()` before sending the takeover request, preventing echo/feedback during handover.
+
+### Backend (voice_bridge.py)
+- Added instant takeover detection in the `receive_from_xai()` relay loop — AI audio stops immediately when agent clicks Intercept (previously only checked in `receive_from_twilio()` direction).
+- Sends Twilio `clear` event on intercept in both relay directions, flushing buffered AI audio.
+- Added `'transferred'` to the listen stream's terminal status check.
 
 ---
 
