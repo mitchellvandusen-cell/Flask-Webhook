@@ -15,53 +15,208 @@
         var style = document.createElement('style');
         style.id = 'igb-tutorial-css';
         style.textContent = [
-            /* Overlay */
-            '.driver-overlay { background: rgba(0,0,0,0.72) !important; }',
 
-            /* Base popover — dark glass matching dashboard */
-            '.driver-popover { background: #12121e !important; color: #d0d0d0 !important; border: 1px solid rgba(0,255,136,0.12) !important; border-radius: 14px !important; box-shadow: 0 24px 80px rgba(0,0,0,0.65), 0 0 40px rgba(0,255,136,0.04) !important; max-width: 420px !important; font-family: "Outfit", sans-serif !important; }',
-            '.driver-popover-title { color: #00ff88 !important; font-weight: 600 !important; font-size: 0.95rem !important; line-height: 1.4 !important; }',
-            '.driver-popover-description { color: #b0b0b8 !important; font-size: 0.82rem !important; line-height: 1.6 !important; margin-top: 6px !important; }',
-            '.driver-popover-description p { margin: 0 0 6px; }',
-            '.driver-popover-close-btn { color: #555 !important; }',
-            '.driver-popover-close-btn:hover { color: #fff !important; }',
+            /* ── Popover entry animation ── */
+            '@keyframes igbTutIn { from { opacity:0; transform: scale(0.94) translateY(6px); } to { opacity:1; transform: scale(1) translateY(0); } }',
 
-            /* Progress text */
-            '.driver-popover-progress-text { color: #555 !important; font-size: 0.7rem !important; font-family: "JetBrains Mono", monospace !important; }',
+            /* ── Overlay: deeper, vignette feel ── */
+            '.driver-overlay { background: rgba(0,0,0,0) !important; }',
 
-            /* Navigation buttons */
-            '.driver-popover-navigation-btns { gap: 8px !important; }',
-            '.driver-popover-next-btn { background: linear-gradient(135deg, #00ff88, #00b36b) !important; color: #000 !important; border: none !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 0.8rem !important; padding: 7px 18px !important; text-shadow: none !important; }',
-            '.driver-popover-next-btn:hover { filter: brightness(1.1) !important; }',
-            '.driver-popover-prev-btn { background: rgba(255,255,255,0.07) !important; color: #888 !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; font-weight: 500 !important; font-size: 0.8rem !important; padding: 7px 18px !important; }',
-            '.driver-popover-prev-btn:hover { background: rgba(255,255,255,0.12) !important; color: #bbb !important; }',
+            /* ── GLASSMORPHISM POPOVER ─────────────────────────────────────
+               True frosted-glass: semi-transparent bg + backdrop-filter blur
+               Multi-layer shadow for depth. Top-edge light streak for glass.
+            ────────────────────────────────────────────────────────────── */
+            '.driver-popover {',
+            '  background: rgba(10, 10, 26, 0.72) !important;',
+            '  backdrop-filter: blur(28px) saturate(180%) !important;',
+            '  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;',
+            '  border: 1px solid rgba(255,255,255,0.10) !important;',
+            '  border-top: 1px solid rgba(255,255,255,0.18) !important;',
+            '  border-radius: 18px !important;',
+            '  box-shadow:',
+            '    0 0 0 0.5px rgba(0,255,136,0.12),',
+            '    0 8px 32px rgba(0,0,0,0.55),',
+            '    0 32px 80px rgba(0,0,0,0.45),',
+            '    inset 0 1px 0 rgba(255,255,255,0.12),',
+            '    inset 0 -1px 0 rgba(0,0,0,0.3) !important;',
+            '  padding: 22px 24px 20px !important;',
+            '  min-height: unset !important;',
+            '  max-width: 400px !important;',
+            '  font-family: "Outfit", sans-serif !important;',
+            '  animation: igbTutIn 0.22s cubic-bezier(0.34,1.26,0.64,1) !important;',
+            '}',
 
-            /* Arrow */
-            '.driver-popover-arrow-side-left.driver-popover-arrow { border-right-color: #12121e !important; }',
-            '.driver-popover-arrow-side-right.driver-popover-arrow { border-left-color: #12121e !important; }',
-            '.driver-popover-arrow-side-top.driver-popover-arrow { border-bottom-color: #12121e !important; }',
-            '.driver-popover-arrow-side-bottom.driver-popover-arrow { border-top-color: #12121e !important; }',
+            /* ── Title ── */
+            '.driver-popover-title {',
+            '  color: #e8e8f0 !important;',
+            '  font-weight: 700 !important;',
+            '  font-size: 1rem !important;',
+            '  line-height: 1.35 !important;',
+            '  margin: 0 0 8px !important;',
+            '  padding: 0 !important;',
+            '  letter-spacing: -0.01em !important;',
+            '}',
 
-            /* Chapter marker popovers */
-            '.igb-tut-chapter .driver-popover-title { font-size: 1.15rem !important; text-align: center !important; }',
-            '.igb-tut-chapter .driver-popover-description { text-align: center !important; }',
-            '.igb-tut-chapter { max-width: 480px !important; border: 1px solid rgba(0,217,255,0.15) !important; }',
+            /* ── Description ── */
+            '.driver-popover-description {',
+            '  color: rgba(210, 210, 230, 0.88) !important;',
+            '  font-size: 0.84rem !important;',
+            '  line-height: 1.65 !important;',
+            '  margin: 0 !important;',
+            '  padding: 0 !important;',
+            '  font-weight: 400 !important;',
+            '}',
+            '.driver-popover-description strong { color: #fff !important; font-weight: 600 !important; }',
+            '.driver-popover-description em { color: #a0e8c8 !important; font-style: normal !important; }',
+            '.driver-popover-description code { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); color: #00ff88; border-radius: 4px; padding: 1px 6px; font-size: 0.78rem; font-family: "JetBrains Mono", monospace; }',
+            '.driver-popover-description p { margin: 0 0 6px !important; }',
 
-            /* Chapter number badge */
-            '.igb-ch-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2.5px; color: #00d9ff; background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.18); padding: 2px 10px; border-radius: 20px; margin-bottom: 6px; }',
+            /* ── Divider between description and footer ── */
+            '.driver-popover-footer {',
+            '  display: flex !important;',
+            '  align-items: center !important;',
+            '  margin-top: 18px !important;',
+            '  padding-top: 14px !important;',
+            '  border-top: 1px solid rgba(255,255,255,0.07) !important;',
+            '  gap: 8px !important;',
+            '}',
 
-            /* Skip chapter button */
-            '.igb-tut-skip { display: inline-block; margin-top: 10px; background: none; border: 1px solid rgba(255,255,255,0.12); color: #777; font-size: 0.72rem; padding: 4px 14px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }',
-            '.igb-tut-skip:hover { border-color: rgba(0,217,255,0.3); color: #00d9ff; background: rgba(0,217,255,0.05); }',
+            /* ── Progress text ── */
+            '.driver-popover-progress-text {',
+            '  color: rgba(255,255,255,0.28) !important;',
+            '  font-size: 0.68rem !important;',
+            '  font-family: "JetBrains Mono", monospace !important;',
+            '  letter-spacing: 0.04em !important;',
+            '  flex: 1 !important;',
+            '}',
 
-            /* Finish popover */
-            '.igb-tut-finish { max-width: 500px !important; border: 1px solid rgba(0,255,136,0.2) !important; }',
-            '.igb-tut-finish .driver-popover-title { font-size: 1.2rem !important; text-align: center !important; }',
+            /* ── Buttons ── */
+            '.driver-popover-navigation-btns { gap: 6px !important; flex-shrink: 0 !important; }',
+
+            /* Next / Done — accent green pill */
+            '.driver-popover-next-btn {',
+            '  background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%) !important;',
+            '  color: #050505 !important;',
+            '  border: none !important;',
+            '  border-radius: 50px !important;',
+            '  font-weight: 700 !important;',
+            '  font-size: 0.78rem !important;',
+            '  padding: 7px 20px !important;',
+            '  letter-spacing: 0.02em !important;',
+            '  text-shadow: none !important;',
+            '  box-shadow: 0 2px 12px rgba(0,255,136,0.35) !important;',
+            '  transition: filter 0.15s, box-shadow 0.15s !important;',
+            '  cursor: pointer !important;',
+            '}',
+            '.driver-popover-next-btn:hover {',
+            '  filter: brightness(1.08) !important;',
+            '  box-shadow: 0 4px 20px rgba(0,255,136,0.5) !important;',
+            '}',
+
+            /* Back — ghost pill */
+            '.driver-popover-prev-btn {',
+            '  background: rgba(255,255,255,0.06) !important;',
+            '  color: rgba(255,255,255,0.55) !important;',
+            '  border: 1px solid rgba(255,255,255,0.1) !important;',
+            '  border-radius: 50px !important;',
+            '  font-weight: 500 !important;',
+            '  font-size: 0.78rem !important;',
+            '  padding: 6px 16px !important;',
+            '  cursor: pointer !important;',
+            '  transition: background 0.15s, color 0.15s !important;',
+            '}',
+            '.driver-popover-prev-btn:hover { background: rgba(255,255,255,0.12) !important; color: rgba(255,255,255,0.85) !important; }',
+
+            /* Close button */
+            '.driver-popover-close-btn {',
+            '  color: rgba(255,255,255,0.3) !important;',
+            '  font-size: 1.1rem !important;',
+            '  top: 14px !important; right: 16px !important;',
+            '  transition: color 0.15s !important;',
+            '}',
+            '.driver-popover-close-btn:hover { color: rgba(255,255,255,0.8) !important; }',
+
+            /* ── Arrow — match glass bg ── */
+            '.driver-popover-arrow-side-left.driver-popover-arrow  { border-right-color: rgba(14,14,32,0.9) !important; }',
+            '.driver-popover-arrow-side-right.driver-popover-arrow { border-left-color:  rgba(14,14,32,0.9) !important; }',
+            '.driver-popover-arrow-side-top.driver-popover-arrow   { border-bottom-color: rgba(14,14,32,0.9) !important; }',
+            '.driver-popover-arrow-side-bottom.driver-popover-arrow{ border-top-color:   rgba(14,14,32,0.9) !important; }',
+
+            /* ── ELEMENT HIGHLIGHT — green glow ring ──────────────────────
+               driver.js adds .driver-active-element to the element under focus.
+               We add a pulsing accent ring so it's unmissable.
+            ────────────────────────────────────────────────────────────── */
+            '@keyframes igbRingPulse { 0%,100% { box-shadow: 0 0 0 3px rgba(0,255,136,0.5), 0 0 28px rgba(0,255,136,0.25); } 50% { box-shadow: 0 0 0 5px rgba(0,255,136,0.35), 0 0 48px rgba(0,255,136,0.18); } }',
+            '.driver-active-element, .driver-highlighted-element {',
+            '  outline: 2px solid rgba(0,255,136,0.7) !important;',
+            '  outline-offset: 3px !important;',
+            '  border-radius: 8px !important;',
+            '  animation: igbRingPulse 2s ease-in-out infinite !important;',
+            '}',
+
+            /* ── CHAPTER MARKER popovers (wider, centered) ── */
+            '.igb-tut-chapter {',
+            '  max-width: 460px !important;',
+            '  border: 1px solid rgba(0,217,255,0.12) !important;',
+            '  border-top: 1px solid rgba(0,217,255,0.25) !important;',
+            '  box-shadow:',
+            '    0 0 0 0.5px rgba(0,217,255,0.1),',
+            '    0 8px 32px rgba(0,0,0,0.55),',
+            '    0 32px 80px rgba(0,0,0,0.45),',
+            '    inset 0 1px 0 rgba(0,217,255,0.15) !important;',
+            '}',
+            '.igb-tut-chapter .driver-popover-title { font-size: 1.15rem !important; text-align: center !important; color: #fff !important; }',
+            '.igb-tut-chapter .driver-popover-description { text-align: center !important; color: rgba(200,200,220,0.85) !important; }',
+
+            /* ── FINISH popover ── */
+            '.igb-tut-finish {',
+            '  max-width: 480px !important;',
+            '  border: 1px solid rgba(0,255,136,0.15) !important;',
+            '  border-top: 1px solid rgba(0,255,136,0.3) !important;',
+            '  box-shadow:',
+            '    0 0 0 0.5px rgba(0,255,136,0.15),',
+            '    0 8px 32px rgba(0,0,0,0.55),',
+            '    0 32px 80px rgba(0,0,0,0.45),',
+            '    inset 0 1px 0 rgba(0,255,136,0.2) !important;',
+            '}',
+            '.igb-tut-finish .driver-popover-title { font-size: 1.2rem !important; text-align: center !important; color: #00ff88 !important; }',
             '.igb-tut-finish .driver-popover-description { text-align: center !important; }',
 
-            /* Keyboard hint */
-            '.igb-key-hint { display: block; margin-top: 8px; font-size: 0.68rem; color: #555; }',
-            '.igb-key-hint kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 3px; padding: 1px 5px; font-family: "JetBrains Mono", monospace; font-size: 0.65rem; }'
+            /* ── Chapter badge pill ── */
+            '.igb-ch-badge {',
+            '  display: inline-block;',
+            '  font-size: 0.58rem;',
+            '  font-weight: 700;',
+            '  text-transform: uppercase;',
+            '  letter-spacing: 2.5px;',
+            '  color: #00d9ff;',
+            '  background: rgba(0,217,255,0.08);',
+            '  border: 1px solid rgba(0,217,255,0.2);',
+            '  padding: 2px 10px;',
+            '  border-radius: 20px;',
+            '  margin-bottom: 8px;',
+            '}',
+
+            /* ── Skip chapter button ── */
+            '.igb-tut-skip {',
+            '  display: inline-block;',
+            '  margin-top: 12px;',
+            '  background: rgba(255,255,255,0.04);',
+            '  border: 1px solid rgba(255,255,255,0.1);',
+            '  color: rgba(255,255,255,0.4);',
+            '  font-size: 0.71rem;',
+            '  padding: 5px 16px;',
+            '  border-radius: 50px;',
+            '  cursor: pointer;',
+            '  font-family: "Outfit", sans-serif;',
+            '  transition: all 0.18s;',
+            '}',
+            '.igb-tut-skip:hover { border-color: rgba(0,217,255,0.35); color: #00d9ff; background: rgba(0,217,255,0.06); }',
+
+            /* ── Keyboard hint ── */
+            '.igb-key-hint { display: block; margin-top: 10px; font-size: 0.67rem; color: rgba(255,255,255,0.28); }',
+            '.igb-key-hint kbd { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 1px 6px; font-family: "JetBrains Mono", monospace; font-size: 0.64rem; color: rgba(255,255,255,0.5); }'
+
         ].join('\n');
         document.head.appendChild(style);
     }
@@ -183,12 +338,35 @@
             popover: { title: 'Activity Logs', description: 'Audit log of every webhook, message sent, booking attempt, and error — filterable by event type and status. Great for debugging.', side: 'right' }
         });
 
-        // Topbar elements
+        // Topbar
         steps.push({ element: '#themeToggleBtn',
             popover: { title: 'Theme Toggle', description: 'Switch between <strong>dark mode</strong> and <strong>light mode</strong>. Your preference is saved automatically.', side: 'bottom' }
         });
-        steps.push({ element: '#discordBellBtn',
-            popover: { title: 'Discord Notifications', description: 'Quick access to your Discord team chat. The badge shows <strong>unread message count</strong> across your connected servers.', side: 'bottom' }
+
+        // Sidebar footer — tutorial button itself
+        steps.push({ element: '#sbnTutorial',
+            popover: { title: 'Tutorial Button', description: 'This button. Click it <strong>any time</strong> to replay this entire walkthrough from the beginning. It\'s always here in the footer.', side: 'right' }
+        });
+
+        // Operator Profile
+        steps.push({ element: '#user_name',
+            popover: { title: 'Operator Name', description: 'Your name as it appears in the system. The AI uses this to sign off messages and in the voice intro — <em>"This is [Your Name] from ABC Insurance."</em>', side: 'right' },
+            onHighlightStarted: function() { ensureOpen('sbSectionMore'); }
+        });
+        steps.push({ element: '#bio',
+            popover: { title: 'Agent Notes', description: 'Internal notes about yourself or your agency. The AI can reference this context when personalizing conversations — licenses held, specialties, territories.', side: 'right' }
+        });
+
+        // System Params
+        steps.push({ element: '.sb-params',
+            popover: { title: 'System Parameters', description: 'Technical readout showing your <strong>Location ID</strong> (copy button included), OAuth <strong>access &amp; refresh tokens</strong>, and CRM connection status. If the bot stops working, check here first.', side: 'right' },
+            onHighlightStarted: function() {
+                var p = document.querySelector('.sb-params');
+                if (p) p.style.display = 'block';
+            }
+        });
+        steps.push({ element: '#connectBtn',
+            popover: { title: 'Connect / Reauthorize CRM', description: 'If your CRM connection expires or needs to be refreshed, click this button to re-run the OAuth flow. The green pulsing button means action is needed.', side: 'right' }
         });
 
         // ============================================================
@@ -217,10 +395,72 @@
             popover: { title: 'Latency Monitor', description: 'Real-time <strong>ping indicator</strong> showing connection quality to the voice servers. Green = great (<100ms), Orange = okay (<300ms), Red = poor.', side: 'bottom' }
         });
         steps.push({ element: '#dialerStatsToggle',
-            popover: { title: 'Call Statistics', description: 'Open the <strong>stats panel</strong> to view call KPIs — total calls, durations, hourly breakdown, top contacts. Filter by today, 7 days, 30 days, or all time.', side: 'bottom' }
+            popover: { title: 'Call Statistics', description: 'Opens the stats panel — click it now to see what\'s inside.', side: 'bottom' }
+        });
+        steps.push({ element: '#dialerStatsPanel',
+            popover: { title: 'Stats Panel', description: 'Your call performance at a glance. Filter by <strong>Today, 7 Days, 30 Days, or All Time</strong>. Shows total calls made, connection rate, average duration, and an hourly breakdown chart. Hit the refresh icon to update.', side: 'bottom' },
+            onHighlightStarted: function() {
+                if (typeof dialerToggleStats === 'function') {
+                    var panel = document.getElementById('dialerStatsPanel');
+                    if (panel && panel.style.display === 'none') dialerToggleStats();
+                }
+            },
+            onDeselected: function() {
+                var panel = document.getElementById('dialerStatsPanel');
+                if (panel && panel.style.display !== 'none' && typeof dialerToggleStats === 'function') dialerToggleStats();
+            }
         });
         steps.push({ element: '#dialerSettingsToggle',
-            popover: { title: 'Dialer Settings', description: 'Configure dial attempts, auto-recording, auto-transcription, local presence, voicemail drop, transfer number, and audio device selection.', side: 'bottom' }
+            popover: { title: 'Dialer Settings', description: 'Opens the settings panel — let\'s walk through every option inside.', side: 'bottom' }
+        });
+        steps.push({ element: '#dialerSettingsPanel',
+            popover: { title: 'Settings Panel', description: 'All dialer configuration in one place. Expand to see each setting below.', side: 'bottom' },
+            onHighlightStarted: function() {
+                if (typeof toggleDialerSettings === 'function') {
+                    var panel = document.getElementById('dialerSettingsPanel');
+                    if (panel && panel.style.display === 'none') toggleDialerSettings();
+                }
+            }
+        });
+        steps.push({ element: '#voiceDialAttempts',
+            popover: { title: 'Dial Attempts', description: 'How many times the auto-dialer retries a <strong>no-answer</strong> before moving to the next contact. 2 is the sweet spot — aggressive enough to reach leads, not so many you annoy them.', side: 'right' }
+        });
+        steps.push({ element: '#voiceAutoRecord',
+            popover: { title: 'Auto-Record', description: 'Automatically records every outbound call. Recordings appear in the Recordings tab and can be played back, downloaded, or transcribed.', side: 'right' }
+        });
+        steps.push({ element: '#voiceAutoTranscribe',
+            popover: { title: 'Auto-Transcribe', description: 'Generates a full <strong>word-for-word transcript</strong> of every recorded call. Transcripts are labeled by speaker (Lead / AI Agent) and stored permanently.', side: 'right' }
+        });
+        steps.push({ element: '#voiceLocalPresence',
+            popover: { title: 'Local Presence', description: 'Calls leads from a number that <strong>matches their area code</strong>, dramatically improving answer rates. Requires multiple local numbers in your pool.', side: 'right' }
+        });
+        steps.push({ element: '#voiceVoicemailDrop',
+            popover: { title: 'Voicemail Drop', description: 'When the AI detects a voicemail, it automatically leaves a <strong>pre-recorded message</strong> and moves to the next contact — no dead air, no wasted time.', side: 'right' }
+        });
+        steps.push({ element: '#voiceTransferNumber',
+            popover: { title: 'Transfer Number', description: 'The phone number calls are transferred to when a lead asks to speak to someone live. Usually your <strong>personal cell or office line</strong>. Enter in E.164 format (+1XXXXXXXXXX).', side: 'right' }
+        });
+        steps.push({ element: '#audioInputDevice',
+            popover: { title: 'Microphone Selection', description: 'Choose which microphone to use when you <strong>take over a call</strong> (intercept) or make a Human-mode call. If you\'re on a headset, select it here.', side: 'right' }
+        });
+        steps.push({ element: '#audioOutputDevice',
+            popover: { title: 'Speaker Selection', description: 'Choose where call audio plays when you <strong>listen in</strong> or intercept. Use headphones for privacy and better audio quality.', side: 'right' },
+            onDeselected: function() {
+                // close settings panel when done
+                var panel = document.getElementById('dialerSettingsPanel');
+                if (panel && panel.style.display !== 'none' && typeof toggleDialerSettings === 'function') toggleDialerSettings();
+            }
+        });
+        steps.push({ element: '#voipSetupBanner',
+            popover: { title: 'VoIP Setup', description: 'If you haven\'t set up browser calling yet, this orange banner appears. Click <strong>"Setup VoIP"</strong> to register your browser as a Twilio endpoint — required for Human-mode calls and intercept.', side: 'bottom' },
+            onHighlightStarted: function() {
+                var banner = document.getElementById('voipSetupBanner');
+                if (banner) { banner.style.display = 'flex'; banner.dataset.tutorialShown = '1'; }
+            },
+            onDeselected: function() {
+                var banner = document.getElementById('voipSetupBanner');
+                if (banner && banner.dataset.tutorialShown) { banner.style.display = 'none'; delete banner.dataset.tutorialShown; }
+            }
         });
 
         // Contacts column
@@ -283,10 +523,28 @@
 
         // Disposition
         steps.push({ element: '#dialerDisposition',
-            popover: { title: 'Call Disposition', description: 'After each call ends, this panel appears so you can tag the outcome: <strong>Not Answered, Hung Up, Not Interested, Left Voicemail, or None</strong>. Dispositions help track your pipeline.', side: 'bottom' },
-            onHighlightStarted: function() {
-                showEl('dialerDisposition', 'flex');
-            },
+            popover: { title: 'Call Disposition Panel', description: 'After each call ends, this row appears so you can <strong>tag the outcome</strong>. Selecting a disposition logs the result and helps the AI adapt its approach on future calls with that lead.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
+        });
+        steps.push({ element: '[onclick*="not_answered"]',
+            popover: { title: 'Not Answered', description: '<strong>Nobody picked up.</strong> The auto-dialer logs this as a missed attempt and will retry based on your Dial Attempts setting. AI may follow up via SMS automatically.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
+        });
+        steps.push({ element: '[onclick*="hung_up"]',
+            popover: { title: 'Hung Up', description: '<strong>Lead answered but disconnected.</strong> Common with cold leads. The AI notes this in the contact\'s history and may adapt its opener on the next attempt.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
+        });
+        steps.push({ element: '[onclick*="not_interested"]',
+            popover: { title: 'Not Interested', description: '<strong>Lead declined.</strong> Tags this contact as opted-out of active outreach. The AI will back off and not aggressively re-engage unless the lead initiates contact again.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
+        });
+        steps.push({ element: '[onclick*="left_voicemail"]',
+            popover: { title: 'Left Voicemail', description: '<strong>Voicemail was left.</strong> Logs the attempt so the AI knows a message was sent. Prevents immediate re-voicemail on the next dial attempt — respects the lead\'s inbox.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); }
+        });
+        steps.push({ element: '[onclick="dialerSetDisposition(\'none\')"]',
+            popover: { title: 'No Disposition', description: '<strong>Skip tagging</strong> and move on without logging an outcome. Useful for test calls, system checks, or when no label accurately describes what happened.', side: 'bottom' },
+            onHighlightStarted: function() { showEl('dialerDisposition', 'flex'); },
             onDeselected: function() {
                 hideEl('dialerDisposition');
                 hideEl('dialerCallBanner');
@@ -314,7 +572,43 @@
             popover: { title: 'Messages Tab', description: 'View the full <strong>SMS conversation history</strong> with the selected contact — both inbound (their messages) and outbound (your bot or manual replies). Messages come from your CRM.', side: 'bottom' }
         });
         steps.push({ element: '#dlrAiDraftBtn',
-            popover: { title: 'AI Draft Reply', description: 'Click to have the AI <strong>generate a contextual reply</strong> based on the full conversation. It drafts the message — you review, edit if needed, and send. Quick replies below offer one-tap templates.', side: 'bottom' }
+            popover: { title: 'AI Draft Reply', description: 'Click to have the AI <strong>generate a contextual reply</strong> based on the full conversation. It drafts the message — you review, edit if needed, and send. Click again for a fresh draft if the first isn\'t right.', side: 'bottom' },
+            onHighlightStarted: function() {
+                var c = document.getElementById('dlrSmsComposer');
+                if (c) { c.style.display = 'block'; c.dataset.tutorialShown = '1'; }
+            }
+        });
+        steps.push({ element: '.dlr-qr-btn',
+            popover: { title: 'Quick Reply Templates', description: 'One-tap pre-written responses: <strong>Follow-up, Check-in, Coverage, Schedule,</strong> and <strong>On it</strong>. Click any chip to instantly fill the compose box — edit the text before sending if needed. Great for high-volume dialing sessions.', side: 'top' },
+            onHighlightStarted: function() {
+                var c = document.getElementById('dlrSmsComposer');
+                if (c) c.style.display = 'block';
+            }
+        });
+        steps.push({ element: '#dlrSmsText',
+            popover: { title: 'Message Composer', description: 'Type your SMS message here. The box <strong>auto-grows</strong> as you type. Press <strong>Enter</strong> to send instantly, or <strong>Shift+Enter</strong> for a new line. AI-generated drafts also populate here for review.', side: 'top' },
+            onHighlightStarted: function() {
+                var c = document.getElementById('dlrSmsComposer');
+                if (c) c.style.display = 'block';
+            }
+        });
+        steps.push({ element: '#dlrSmsSendBtn',
+            popover: { title: 'Send Message', description: 'Send your composed message through the CRM SMS channel. The message appears in the thread immediately with a status icon: <em>green checkmark = delivered, orange = pending, red = failed.</em>', side: 'left' },
+            onHighlightStarted: function() {
+                var c = document.getElementById('dlrSmsComposer');
+                if (c) c.style.display = 'block';
+            }
+        });
+        steps.push({ element: '#dlrCharCount',
+            popover: { title: 'Character Counter', description: 'Live SMS character count. Turns <strong>orange at 140 chars</strong> (approaching limit) and <strong>red at 160+</strong> (splits into multi-part SMS, which costs extra). Keeping messages under 160 chars maximizes deliverability.', side: 'top' },
+            onHighlightStarted: function() {
+                var c = document.getElementById('dlrSmsComposer');
+                if (c) c.style.display = 'block';
+            },
+            onDeselected: function() {
+                var c = document.getElementById('dlrSmsComposer');
+                if (c && c.dataset.tutorialShown) { c.style.display = 'none'; delete c.dataset.tutorialShown; }
+            }
         });
         steps.push({ element: '#dlrTabCalls',
             popover: { title: 'Calls Tab', description: 'View <strong>call history</strong> for the selected contact (or all contacts). Each entry shows status, duration, direction, and disposition. Switch between contact-specific and "View All" mode.', side: 'bottom' }
@@ -429,20 +723,53 @@
 
         // Advanced settings
         steps.push({ element: '#professionalism_level',
-            popover: { title: 'Professionalism Slider', description: 'Slide from <strong>Casual</strong> (friendly, emoji-heavy) to <strong>Ultra Professional</strong> (formal, corporate tone). Most insurance agents do well at level 3–4.', side: 'right' },
+            popover: { title: 'Professionalism Slider', description: 'Slide from <strong>Casual</strong> (friendly, conversational, emojis welcome) to <strong>Ultra Professional</strong> (formal, corporate, no slang). Most insurance agents land at level 3–4 — approachable but credible.', side: 'right' },
             onHighlightStarted: function() { goTab('advanced'); }
         });
+        steps.push({ element: '#auto_emoji',
+            popover: { title: 'Emoji Usage', description: 'Allow the AI to use <strong>emojis in SMS messages</strong>. On = warm and expressive. Off = clean, text-only — better for formal or older demographics. You can toggle this independently of the professionalism level.', side: 'right' }
+        });
+        steps.push({ element: '.resp-len-btn',
+            popover: { title: 'Response Length', description: 'Control how verbose the AI\'s replies are:<br><strong>Short</strong> — 1–2 sentences, crisp and punchy.<br><strong>Balanced</strong> — 2–4 sentences, recommended for most agents.<br><strong>Detailed</strong> — Full explanations, great for complex coverage questions where leads need education.', side: 'right' }
+        });
         steps.push({ element: '#humor_enabled',
-            popover: { title: 'Behavior Toggles', description: 'Toggle individual behaviors: <strong>Humor Mode</strong> (light jokes), <strong>Lead Re-engagement</strong> (follow-up loops), <strong>Booking Confirmation</strong> (confirm after booking), <strong>Speed to Lead</strong> (instant response), <strong>Conversation Memory</strong> (remember past interactions), and <strong>Multi-Language Detection</strong>.', side: 'right' }
+            popover: { title: 'Humor Mode', description: 'After 5+ unanswered messages, the AI sends a <strong>light, tasteful joke</strong> to re-engage cold leads. It sounds natural and disarming — and it works. Leads who ghosted often respond to the joke and re-enter the conversation.', side: 'right' }
+        });
+        steps.push({ element: '#lead_reengagement',
+            popover: { title: 'Lead Re-engagement', description: 'Automatically <strong>follows up with silent leads</strong> on a spaced schedule. The AI sends varied nudge messages so it never feels repetitive. Runs until the lead responds, books, or asks to stop.', side: 'right' }
+        });
+        steps.push({ element: '#booking_confirmation',
+            popover: { title: 'Booking Confirmation', description: 'Before officially writing the appointment to your calendar, the AI <strong>re-confirms the date and time</strong> with the lead. Eliminates the "I didn\'t know we had a meeting" situation and reduces no-shows significantly.', side: 'right' }
+        });
+        steps.push({ element: '#speed_to_lead',
+            popover: { title: 'Speed to Lead', description: 'Fires an <strong>instant AI reply</strong> the moment a new lead arrives. Studies show contacting a lead within 5 minutes is 9× more effective than waiting 30 minutes. This toggle ensures your bot beats every competitor to the conversation.', side: 'right' }
+        });
+        steps.push({ element: '#conversation_memory',
+            popover: { title: 'Conversation Memory', description: 'The AI <strong>remembers details from past conversations</strong> — their spouse\'s name, health concerns, coverage objections, previous quotes. When leads return, they feel recognized, not cold-called all over again.', side: 'right' }
+        });
+        steps.push({ element: '#multi_language',
+            popover: { title: 'Multi-Language Detection', description: 'Automatically <strong>detects the lead\'s language and replies in kind</strong>. If they text in Spanish, the AI responds in Spanish. Supports 30+ languages. Essential if you serve diverse markets.', side: 'right' }
+        });
+        steps.push({ element: '#objection_persistence',
+            popover: { title: 'Objection Persistence', description: 'How many angles the AI tries when a lead pushes back before offering a <strong>graceful exit</strong>. Level 1 = soft and accepting. Level 5 = tenacious multi-angle rebuttal. Most agents find levels 2–3 strike the right balance.', side: 'right' }
         });
         steps.push({ element: '#after_hours_enabled',
-            popover: { title: 'After Hours Mode', description: 'Set <strong>operating hours</strong> for the bot. When enabled, the AI adjusts its behavior outside business hours — offering to schedule a callback instead of transferring.', side: 'right' }
+            popover: { title: 'After Hours Mode', description: 'Define your <strong>business hours</strong>. Outside those hours, instead of doing a full AI conversation, the bot informs the lead it\'s after hours and offers to follow up first thing in the morning — professional and on-brand.', side: 'right' }
+        });
+        steps.push({ element: '#outboundContainer',
+            popover: { title: 'Custom Outbound Messages', description: '<strong>Build a text drip sequence.</strong> Each message is sent once per lead in order — GrokBot checks them off as they go. After all custom messages are exhausted, the AI switches to fully autonomous mode. The result: <em>your curated drip + the AI\'s intelligence.</em>', side: 'right' }
+        });
+        steps.push({ element: '[onclick*="addOutboundMsg"]',
+            popover: { title: 'Add Outbound Message', description: 'Click to add a new message to your drip sequence. Write the message, save — and GrokBot will start using it for every new lead from that point forward. There\'s no limit to how many messages you can add.', side: 'right' }
         });
         steps.push({ element: '#custom_behavior',
-            popover: { title: 'Custom Behavior Instructions', description: 'Free-form text area for <strong>any additional rules</strong> you want the AI to follow. Examples: "Always ask about their family situation", "Never discuss competitor rates", "Mention our 5-star Google rating."', side: 'right' }
+            popover: { title: 'Custom Behavior Instructions', description: 'Free-form rules that <strong>override the AI\'s defaults</strong>. Write anything:<br><em>"Always mention our 5-star Google rating"</em><br><em>"Never discuss policy prices — get them on a call first"</em><br><em>"Thank veterans for their service"</em><br>The more specific, the better the AI performs.', side: 'right' }
+        });
+        steps.push({ element: '[onclick*="resetAdvancedSettings"]',
+            popover: { title: 'Reset to Defaults', description: 'Reverts all advanced settings back to factory defaults. <strong>Use carefully</strong> — this will overwrite all customizations. Good for troubleshooting if behavior feels off after recent changes.', side: 'top' }
         });
         steps.push({ element: '#saveAdvancedBtn',
-            popover: { title: 'Save Advanced Settings', description: 'Save all personality and behavior changes. These apply to both SMS and voice AI conversations.', side: 'top' }
+            popover: { title: 'Save Advanced Settings', description: 'Saves all your personality, behavior, and drip message changes. They apply immediately to <strong>all future conversations</strong> — both SMS and voice AI.', side: 'top' }
         });
 
         // ============================================================
@@ -456,7 +783,13 @@
             onHighlightStarted: function() { goTab('aiminutes'); }
         });
         steps.push({ element: '#aimPackages',
-            popover: { title: 'Purchase Packages', description: 'Buy AI minute bundles. Larger packages offer <strong>better per-minute pricing</strong>. Minutes never expire and stack on top of your existing balance.', side: 'top' }
+            popover: { title: 'Purchase Packages', description: 'Buy AI minute bundles. Larger packages offer <strong>better per-minute pricing</strong>. Minutes never expire and stack on top of your existing balance — buy in bulk for the best rate.', side: 'top' }
+        });
+
+        // Billing
+        steps.push({ element: '#billing',
+            popover: { title: 'Billing & Subscription', description: 'Manage your <strong>InsuranceGrokBot subscription</strong> here. Click <strong>"Open Stripe Portal"</strong> to access the secure Stripe dashboard — update your payment card, view past invoices, download receipts, or cancel your plan. If you installed via GHL Marketplace, manage billing from within your Lead Connector account.', side: 'top' },
+            onHighlightStarted: function() { goTab('billing'); }
         });
 
         // Logs
@@ -482,7 +815,30 @@
             }
         });
         steps.push({ element: '#discordChatToggleBtn',
-            popover: { title: 'Discord Chat Toggle', description: 'Opens the <strong>Discord chat panel</strong> that slides out from the sidebar. View messages, reply, send new messages — all without switching apps. The badge shows unread count.', side: 'right' }
+            popover: { title: 'Discord Chat Toggle', description: 'Opens the <strong>Discord chat panel</strong> that slides out from the sidebar. View messages, reply, send new messages — all without switching apps. The badge shows unread message count.', side: 'right' }
+        });
+        steps.push({ element: '#discordMessages',
+            popover: { title: 'Discord Message Feed', description: 'Live messages from your selected Discord channel appear here. The panel <strong>polls every 4 seconds</strong> while open, and checks for unread messages every 45 seconds in the background — keeping you connected without refreshing the page.', side: 'left' },
+            onHighlightStarted: function() {
+                if (typeof openDiscordPanel === 'function') openDiscordPanel();
+            }
+        });
+        steps.push({ element: '#discordReplyText',
+            popover: { title: 'Discord Reply Box', description: 'Type a message to your team here. Press <strong>Ctrl+Enter</strong> to send, or <strong>Shift+Enter</strong> for a new line. Supports standard Discord markdown: **bold**, _italic_, `code blocks`. Great for quick handoff notes during live calls.', side: 'top' }
+        });
+        steps.push({ element: '#discordSendBtn',
+            popover: { title: 'Send to Discord', description: 'Sends your message to the Discord channel. Your team sees it instantly in Discord (on any device) as well as here in the panel. Use it for <strong>real-time handoffs</strong> — "Hot lead on the line, name: John Smith, call him now!"', side: 'top' }
+        });
+        steps.push({ element: '#discordScrollBtn',
+            popover: { title: 'Jump to Latest', description: 'Appears when you\'ve <strong>scrolled up</strong> in message history. Click to jump back to the most recent messages. Automatically hides when you\'re already at the bottom.', side: 'left' },
+            onHighlightStarted: function() {
+                var btn = document.getElementById('discordScrollBtn');
+                if (btn) { btn.style.display = 'block'; btn.dataset.tutorialShown = '1'; }
+            },
+            onDeselected: function() {
+                var btn = document.getElementById('discordScrollBtn');
+                if (btn && btn.dataset.tutorialShown) { btn.style.display = 'none'; delete btn.dataset.tutorialShown; }
+            }
         });
 
         // ============================================================
@@ -530,28 +886,33 @@
         var built = buildSteps();
         var steps = built.steps;
 
-        // Skip-to-chapter global function
+        // Skip-to-chapter: try moveTo, fall back to drive(idx)
         window._igbSkipTo = function(idx) {
-            if (_driverObj) _driverObj.moveTo(idx);
+            if (!_driverObj) return;
+            if (typeof _driverObj.moveTo === 'function') {
+                _driverObj.moveTo(idx);
+            } else {
+                _driverObj.destroy();
+                setTimeout(function() { _driverObj.drive(idx); }, 50);
+            }
         };
 
         _driverObj = window.driver.js.driver({
             steps: steps,
-            showProgress: true,
+            showProgress: false,
             showButtons: ['next', 'previous', 'close'],
             allowClose: true,
             overlayColor: '#000',
-            overlayOpacity: 0.72,
-            stagePadding: 8,
+            overlayOpacity: 0.7,
+            stagePadding: 10,
             stageRadius: 10,
-            popoverOffset: 12,
+            popoverOffset: 14,
             animate: true,
             smoothScroll: true,
             allowKeyboardControl: true,
             doneBtnText: 'Finish',
-            nextBtnText: 'Next',
-            prevBtnText: 'Back',
-            progressText: '{{current}} / {{total}}',
+            nextBtnText: 'Next &rarr;',
+            prevBtnText: '&larr; Back',
             onDestroyStarted: function() {
                 markTutorialDone();
                 // Clean up any UI elements we showed for demo purposes
