@@ -1384,7 +1384,7 @@ def recover_failed_webhooks(max_age_hours: int = 24) -> dict:
     return stats
 
 
-def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
+def backfill_failed_webhooks(max_age_hours: int = 96) -> dict:
     """Recover dropped webhooks and failed SMS sends from webhook_logs.
 
     Works BACKWARDS from outcomes — finds webhook_received entries that never

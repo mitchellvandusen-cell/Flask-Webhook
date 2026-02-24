@@ -2671,7 +2671,7 @@ def api_cron_backfill_failed_webhooks():
     Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
 
     Query params:
-        max_age_hours (int, default 48): How far back to look for failures
+        max_age_hours (int, default 96): How far back to look for failures
         key (str): CRON_SECRET for authentication
     """
     cron_secret = os.getenv("CRON_SECRET", "")
@@ -2685,9 +2685,20 @@ def api_cron_backfill_failed_webhooks():
 
     try:
         from tasks import backfill_failed_webhooks
-        max_age_hours = int(request.args.get("max_age_hours", 48))
-        stats = backfill_failed_webhooks(max_age_hours=max_age_hours)
-        return safe_jsonify({"success": True, **stats})
+        max_age_hours = int(request.args.get("max_age_hours", 96))
+
+        # Run in background via RQ — the backfill sleeps 0.5s per entry
+        # which easily exceeds the gunicorn worker timeout for large batches.
+        if not ensure_redis():
+            return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
+
+        job = q_production.enqueue(
+            backfill_failed_webhooks,
+            max_age_hours=max_age_hours,
+            job_timeout=600,
+            result_ttl=86400,
+        )
+        return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
     except Exception as e:
         logger.error(f"Cron backfill-failed-webhooks crashed: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": str(e)}), 200
