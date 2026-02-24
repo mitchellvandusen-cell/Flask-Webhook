@@ -204,12 +204,17 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
 
             if new_access:
                 # Success — persist new tokens to DB
+                # CRITICAL: DB write must succeed or the single-use refresh_token is lost
                 fix_type = result_type if result_type != oauth_app_type else None
                 if fix_type:
                     logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
                                   f"{oauth_app_type} → {fix_type}")
-                update_subscriber_token(location_id, new_access, new_refresh,
-                                       expires_in, oauth_app_type=fix_type)
+                db_saved = update_subscriber_token(location_id, new_access, new_refresh,
+                                                   expires_in, oauth_app_type=fix_type)
+                if not db_saved:
+                    logger.error(f"🚨 CRITICAL: Token refreshed but DB write failed for "
+                                f"{location_id} — returning new token but refresh_token "
+                                f"may be lost on next cycle")
                 return new_access
 
             # Failed with this cred set
@@ -320,8 +325,11 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None) -> tu
                 if fix_type:
                     logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
                                   f"{oauth_app_type} → {fix_type}")
-                update_subscriber_token(location_id, new_access, new_refresh,
-                                       expires_in, oauth_app_type=fix_type)
+                db_saved = update_subscriber_token(location_id, new_access, new_refresh,
+                                                   expires_in, oauth_app_type=fix_type)
+                if not db_saved:
+                    logger.error(f"🚨 CRITICAL: Token refreshed but DB write failed for "
+                                f"{location_id} — refresh_token may be lost on next cycle")
                 return new_access, True, None
 
             last_error = result_type
@@ -405,10 +413,15 @@ def refresh_tokens_proactively(buffer_minutes: int = 30):
                 loc_id, refresh_tok, cred, oauth_type)
             if new_access:
                 fix_type = result_type if result_type != oauth_type else None
-                update_subscriber_token(loc_id, new_access, new_refresh,
-                                       expires_in, oauth_app_type=fix_type)
-                stats["refreshed"] += 1
-                refreshed = True
+                db_saved = update_subscriber_token(loc_id, new_access, new_refresh,
+                                                   expires_in, oauth_app_type=fix_type)
+                if db_saved:
+                    stats["refreshed"] += 1
+                    refreshed = True
+                else:
+                    logger.error(f"🚨 Proactive refresh: token refreshed but DB write "
+                                f"failed for {loc_id}")
+                    stats["errors"] += 1
                 logger.info(f"✅ Proactive refresh success: {loc_id}")
                 break
 
