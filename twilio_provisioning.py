@@ -612,35 +612,96 @@ def create_a2p_brand(sub_account_sid: str,
                      website: str = "",
                      vertical: str = "INSURANCE") -> dict:
     """
-    Register a new A2P 10DLC Brand via Twilio's Trust Hub /
-    Brand Registration API.
+    Register a new A2P 10DLC Brand via Twilio's Trust Hub + Brand
+    Registration API.  Follows the ISV onboarding flow:
 
-    Twilio docs: POST /v1/a2p/BrandRegistrations
-    Returns the BrandRegistration SID and initial status.
+    1. Create Secondary Customer Profile
+    2. Create EndUser (us_a2p_messaging_profile_information) with biz details
+    3. Create TrustProduct (A2P Messaging Profile Bundle)
+    4. Attach EndUser → TrustProduct
+    5. Attach CustomerProfile → TrustProduct
+    6. Submit TrustProduct for evaluation
+    7. Create BrandRegistration (customer_profile_bundle_sid = profile,
+       a2p_profile_bundle_sid = trust_product)
+
+    Twilio docs:
+      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
     """
     client = get_master_client()
     try:
-        # Step 1: Create a Customer Profile for A2P under the master account
-        # (A2P brands are registered at the master level, even for sub-accounts)
+        # ── Step 1: Secondary Customer Profile ──
         profile = client.trusthub.v1.customer_profiles.create(
             friendly_name=f"A2P Brand: {business_name}",
             email=contact_email,
             policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",
         )
-        logger.info(f"Created A2P Trust Profile: {profile.sid}")
+        logger.info(f"Created A2P Customer Profile: {profile.sid}")
 
-        # Step 2: Create the Brand Registration
-        brand_kwargs = {
-            "customer_profile_bundle_sid": profile.sid,
-            "a2p_profile_bundle_sid": profile.sid,
-        }
-        brand = client.messaging.v1.brand_registrations.create(**brand_kwargs)
+        # ── Step 2: EndUser with business information ──
+        end_user = client.trusthub.v1.end_users.create(
+            friendly_name=f"{business_name} A2P EndUser",
+            type="us_a2p_messaging_profile_information",
+            attributes={
+                "company_type": business_type,
+                "stock_exchange": stock_exchange,
+                "stock_ticker": stock_ticker,
+                "brand_name": business_name,
+                "ein": ein,
+                "ein_issuing_country": "US",
+                "street": street,
+                "city": city,
+                "state": state,
+                "postal_code": zip_code,
+                "country": "US",
+                "website": website or "",
+                "vertical": vertical,
+                "phone_number": contact_phone,
+                "email": contact_email,
+            },
+        )
+        logger.info(f"Created A2P EndUser: {end_user.sid}")
+
+        # ── Step 3: TrustProduct (A2P Messaging Profile Bundle) ──
+        trust_product = client.trusthub.v1.trust_products.create(
+            friendly_name=f"A2P Profile: {business_name}",
+            email=contact_email,
+            policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",
+        )
+        logger.info(f"Created A2P TrustProduct: {trust_product.sid}")
+
+        # ── Step 4: Attach EndUser → TrustProduct ──
+        client.trusthub.v1.trust_products(trust_product.sid) \
+            .trust_products_entity_assignments.create(
+                object_sid=end_user.sid,
+            )
+
+        # ── Step 5: Attach CustomerProfile → TrustProduct ──
+        client.trusthub.v1.trust_products(trust_product.sid) \
+            .trust_products_entity_assignments.create(
+                object_sid=profile.sid,
+            )
+
+        # ── Step 6: Submit TrustProduct for evaluation ──
+        client.trusthub.v1.trust_products(trust_product.sid).update(
+            status="pending-review",
+        )
+        logger.info(f"Submitted TrustProduct {trust_product.sid} for review")
+
+        # ── Step 7: Register Brand ──
+        # customer_profile_bundle_sid = Customer Profile SID (BU...)
+        # a2p_profile_bundle_sid      = TrustProduct SID (BU...)  ← NOT the profile!
+        brand = client.messaging.v1.brand_registrations.create(
+            customer_profile_bundle_sid=profile.sid,
+            a2p_profile_bundle_sid=trust_product.sid,
+        )
 
         logger.info(f"Created A2P Brand: {brand.sid} status={brand.status}")
         return {
             "brand_sid": brand.sid,
             "status": brand.status,
             "profile_sid": profile.sid,
+            "trust_product_sid": trust_product.sid,
+            "end_user_sid": end_user.sid,
             "business_name": business_name,
         }
     except TwilioRestException as e:
@@ -785,82 +846,48 @@ def get_a2p_campaign_status(messaging_service_sid: str,
         raise
 
 
-def import_external_brand(brand_id: str, brand_type: str = "STANDARD") -> dict:
-    """
-    Import an already-approved A2P 10DLC Brand from an external source
-    (e.g., GoHighLevel, another Twilio account, or The Campaign Registry
-    directly).
-
-    This creates a BrandRegistration linked to an external Brand ID
-    (TCR Brand ID).  The brand is NOT re-vetted — its existing score
-    and status carry over.
-
-    Twilio endpoint: POST /v1/a2p/BrandRegistrations
-    with a2p_profile_bundle_sid omitted and brand_type = "STANDARD"
-    """
-    client = get_master_client()
-    try:
-        brand = client.messaging.v1.brand_registrations.create(
-            a2p_profile_bundle_sid="",  # empty for external import
-            brand_type=brand_type,
-        )
-        logger.info(f"Imported external brand: {brand.sid} status={brand.status}")
-        return {
-            "brand_sid": brand.sid,
-            "status": brand.status,
-            "imported": True,
-            "external_brand_id": brand_id,
-        }
-    except TwilioRestException as e:
-        logger.error(f"External brand import failed: {e}")
-        raise
-
-
 def import_external_campaign(messaging_service_sid: str,
-                              brand_registration_sid: str,
-                              external_campaign_id: str) -> dict:
+                              campaign_id: str) -> dict:
     """
-    Import an already-approved A2P 10DLC Campaign that was registered
-    with The Campaign Registry (TCR) via another provider.
+    Link an externally-registered TCR Campaign to a Twilio Messaging Service
+    using the Externally Registered Campaigns (ERC) API.
 
-    This avoids re-registration and lets the subscriber use their existing
-    approval (from GHL, etc.) with numbers on our Twilio sub-account.
+    PREREQUISITE: The campaign must have already been shared with Twilio
+    as the Direct Connect Aggregator (DCA) via the TCR portal or TCR API.
+    The user must wait for the CAMPAIGN_SHARE_ACCEPT webhook from TCR
+    before calling this function.
 
-    Twilio endpoint:
-      POST /v1/Services/{MessagingServiceSid}/UsAppToPerson
-      with external_campaign_id set
+    campaign_id: TCR Campaign ID — 7-character alphanumeric starting with "C"
+                 (e.g., "C123456").
+
+    Twilio docs:
+      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/externally-registered-campaigns-api
+    Note: rate limited to 1 request per 5 seconds.  Failures from exceeding
+    the rate limit are asynchronous — the campaign moves to "failed" status.
     """
     client = get_master_client()
     try:
+        # The ERC API uses the same UsAppToPerson endpoint but only requires
+        # the campaign_id (the TCR Campaign ID).  Twilio recognises this as
+        # an external campaign and skips the normal registration fields.
         campaign = client.messaging.v1.services(
             messaging_service_sid
         ).us_app_to_person.create(
-            brand_registration_sid=brand_registration_sid,
-            description="Imported external campaign",
-            message_flow="Imported from external provider",
-            message_samples=["Imported campaign — samples not required"],
-            us_app_to_person_usecase="LOW_VOLUME",
-            has_embedded_links=False,
-            has_embedded_phone=False,
-            opt_in_message="Reply YES to opt in.",
-            opt_out_message="Reply STOP to unsubscribe.",
-            help_message="Reply HELP for support.",
-            opt_in_keywords=["START", "YES"],
-            opt_out_keywords=["STOP", "UNSUBSCRIBE"],
-            help_keywords=["HELP"],
+            campaign_id=campaign_id,
         )
         logger.info(
-            f"Imported external campaign: {campaign.sid} "
+            f"Linked external campaign: {campaign.sid} "
+            f"tcr_campaign_id={campaign_id} "
             f"status={campaign.campaign_status}"
         )
         return {
             "campaign_sid": campaign.sid,
             "campaign_status": campaign.campaign_status,
             "imported": True,
-            "external_campaign_id": external_campaign_id,
+            "external_campaign_id": campaign_id,
         }
     except TwilioRestException as e:
-        logger.error(f"External campaign import failed: {e}")
+        logger.error(f"External campaign link failed for {campaign_id}: {e}")
         raise
 
 

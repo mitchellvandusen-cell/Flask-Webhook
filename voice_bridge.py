@@ -3854,12 +3854,21 @@ def a2p_register_brand():
     ein = data.get('ein', '').strip()
     contact_email = data.get('contact_email', '').strip()
     contact_phone = data.get('contact_phone', '').strip()
+    brand_type = data.get('brand_type', 'LOW_VOLUME').upper().strip()
     if not business_name:
         return jsonify({"error": "Business name is required"}), 400
-    if not ein:
-        return jsonify({"error": "EIN is required"}), 400
+    if brand_type != 'SOLE_PROPRIETOR' and not ein:
+        return jsonify({"error": "EIN is required for non-Sole Proprietor brands"}), 400
     if not contact_email:
         return jsonify({"error": "Contact email is required"}), 400
+
+    # Map frontend brand_type to Twilio business_type param
+    biz_type_map = {
+        'SOLE_PROPRIETOR': 'sole_proprietor',
+        'LOW_VOLUME': 'private_profit',
+        'STANDARD': 'private_profit',
+    }
+    business_type = biz_type_map.get(brand_type, 'private_profit')
 
     try:
         result = twilio_provisioning.create_a2p_brand(
@@ -3872,6 +3881,7 @@ def a2p_register_brand():
             zip_code=data.get('zip', ''),
             contact_email=contact_email,
             contact_phone=contact_phone,
+            business_type=business_type,
             website=data.get('website', ''),
             vertical=data.get('vertical', 'INSURANCE'),
         )
@@ -3881,7 +3891,9 @@ def a2p_register_brand():
             "brand_sid": result["brand_sid"],
             "brand_status": result["status"],
             "profile_sid": result.get("profile_sid", ""),
+            "trust_product_sid": result.get("trust_product_sid", ""),
             "business_name": business_name,
+            "brand_type": brand_type,
             "registered_at": datetime.utcnow().isoformat(),
         })
         vc['a2p'] = a2p
@@ -4038,11 +4050,17 @@ def a2p_campaign_status():
 @login_required
 def a2p_import():
     """
-    Import an already-approved A2P Brand + Campaign from an external provider
-    (e.g., GoHighLevel, LeadConnector, another Twilio account).
+    Link an externally-registered TCR Campaign to a Twilio Messaging Service.
 
-    User provides their existing Brand ID and Campaign ID.
-    We create a Messaging Service, link the brand, and import the campaign.
+    Uses the Externally Registered Campaigns (ERC) API.  The user provides
+    their TCR Campaign ID (7 chars, starts with "C").
+
+    PREREQUISITE: Before calling this, the user must have shared their
+    campaign with Twilio as the Direct Connect Aggregator (DCA) via the
+    TCR web portal or TCR API, and received a CAMPAIGN_SHARE_ACCEPT.
+
+    Twilio docs:
+      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/externally-registered-campaigns-api
     """
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
@@ -4058,31 +4076,25 @@ def a2p_import():
         }), 402
 
     data = request.get_json() or {}
-    brand_id = data.get('brand_id', '').strip()
     campaign_id = data.get('campaign_id', '').strip()
 
-    if not brand_id:
-        return jsonify({"error": "Brand ID is required"}), 400
     if not campaign_id:
-        return jsonify({"error": "Campaign ID is required"}), 400
+        return jsonify({"error": "TCR Campaign ID is required"}), 400
 
-    # Validate phone number SIDs to associate
+    # Validate phone number SIDs to associate with the Messaging Service
     phone_number_sids = data.get('phone_number_sids', [])
 
     try:
-        # Step 1: Import the external brand
-        brand_result = twilio_provisioning.import_external_brand(brand_id)
-        brand_sid = brand_result["brand_sid"]
-
-        # Step 2: Create Messaging Service
+        # Step 1: Create Messaging Service (don't set usecase — Twilio
+        # assigns "undeclared" which is correct for external campaigns)
         ms_sid = a2p.get('messaging_service_sid', '')
         if not ms_sid:
             ms_result = twilio_provisioning.create_messaging_service(
-                sub_sid, f"A2P Import - {brand_id[:20]}"
+                sub_sid, f"A2P ERC - {campaign_id}"
             )
             ms_sid = ms_result["messaging_service_sid"]
 
-        # Step 3: Associate phone numbers
+        # Step 2: Add phone numbers to the Messaging Service sender pool
         if phone_number_sids:
             for pn_sid in phone_number_sids:
                 try:
@@ -4092,22 +4104,18 @@ def a2p_import():
                 except Exception as e:
                     logger.warning(f"Failed to add {pn_sid} to MS during import: {e}")
 
-        # Step 4: Import the external campaign
+        # Step 3: Link the external TCR Campaign via the ERC API
         campaign_result = twilio_provisioning.import_external_campaign(
             messaging_service_sid=ms_sid,
-            brand_registration_sid=brand_sid,
-            external_campaign_id=campaign_id,
+            campaign_id=campaign_id,
         )
 
-        # Persist
+        # Persist state
         a2p.update({
-            "brand_sid": brand_sid,
-            "brand_status": brand_result.get("status", "imported"),
             "campaign_sid": campaign_result["campaign_sid"],
             "campaign_status": campaign_result["campaign_status"],
             "messaging_service_sid": ms_sid,
             "imported": True,
-            "external_brand_id": brand_id,
             "external_campaign_id": campaign_id,
             "registered": True,
             "registered_at": datetime.utcnow().isoformat(),
@@ -4116,10 +4124,10 @@ def a2p_import():
         _save_voice_config(current_user.email, vc)
 
         return jsonify({
-            "brand_sid": brand_sid,
             "campaign_sid": campaign_result["campaign_sid"],
             "campaign_status": campaign_result["campaign_status"],
-            "message": "Brand and campaign imported successfully.",
+            "messaging_service_sid": ms_sid,
+            "message": "External campaign linked successfully.",
         })
     except Exception as e:
         logger.error(f"A2P import error: {e}", exc_info=True)
