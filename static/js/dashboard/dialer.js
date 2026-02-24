@@ -1231,14 +1231,27 @@
                 }, { retries: 1, timeout: 15000, label: 'takeover' });
                 const d = await r.json();
                 if (r.ok) {
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Intercepted</span>';
-                    btn.style.color = 'var(--accent)';
-                    btn.style.borderColor = 'rgba(0,255,136,0.3)';
-                    btn.style.background = 'rgba(0,255,136,0.08)';
-                    if (statusEl) { statusEl.textContent = useVoip ? 'You are now on the call (browser)' : 'Call transferred to your phone'; statusEl.style.color = 'var(--accent)'; }
-                    // Enable mic mute button now
-                    const muteMicBtn = document.getElementById('dialerMuteMicBtn');
-                    if (muteMicBtn) { muteMicBtn.disabled = false; muteMicBtn.style.cursor = 'pointer'; }
+                    const isStopped = d.status === 'stopped';
+                    btn.innerHTML = isStopped
+                        ? '<i class="fa-solid fa-stop"></i><span>AI Stopped</span>'
+                        : '<i class="fa-solid fa-check"></i><span>Intercepted</span>';
+                    btn.style.color = isStopped ? '#ffa500' : 'var(--accent)';
+                    btn.style.borderColor = isStopped ? 'rgba(255,165,0,0.3)' : 'rgba(0,255,136,0.3)';
+                    btn.style.background = isStopped ? 'rgba(255,165,0,0.08)' : 'rgba(0,255,136,0.08)';
+                    if (statusEl) {
+                        if (isStopped) {
+                            statusEl.textContent = 'AI stopped — call ended';
+                            statusEl.style.color = '#ffa500';
+                        } else {
+                            statusEl.textContent = useVoip ? 'You are now on the call (browser)' : 'Call transferred to your phone';
+                            statusEl.style.color = 'var(--accent)';
+                        }
+                    }
+                    // Enable mic mute button now (only for live intercept, not stop)
+                    if (!isStopped) {
+                        const muteMicBtn = document.getElementById('dialerMuteMicBtn');
+                        if (muteMicBtn) { muteMicBtn.disabled = false; muteMicBtn.style.cursor = 'pointer'; }
+                    }
                 } else {
                     _takingOver = false;
                     const errMsg = d.error || 'Intercept failed';

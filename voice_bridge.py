@@ -85,6 +85,45 @@ XAI_SAMPLE_RATE = 16000     # xAI Realtime API
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 
+# ──────────────────────────────────────────────────────────────
+# SOFTWARE VOICEMAIL DETECTION (transcription-based)
+# Catches voicemail MUCH faster than Twilio AMD by analyzing
+# xAI's real-time transcriptions. Twilio AMD with DetectMessageEnd
+# waits for the entire greeting to finish → AI talks to voicemail
+# for 30+ seconds. This fires on the FIRST voicemail phrase.
+# ──────────────────────────────────────────────────────────────
+_VM_PHRASES = [
+    "at the tone",
+    "leave a message",
+    "leave your message",
+    "record your message",
+    "after the beep",
+    "leave your name",
+    "not available right now",
+    "is not available",
+    "can't come to the phone",
+    "cannot come to the phone",
+    "unable to take your call",
+    "reached the voicemail",
+    "reached the voice mail",
+    "voicemail box",
+    "mailbox is full",
+    "please leave a detailed message",
+    "press pound when finished",
+    "when you have finished recording",
+    "when you've finished recording",
+    "not here right now",
+    "please try again later",
+    "leave a brief message",
+]
+
+def _is_voicemail_phrase(text: str) -> bool:
+    """Check if transcribed text contains definitive voicemail indicators."""
+    if not text:
+        return False
+    lower = text.lower()
+    return any(phrase in lower for phrase in _VM_PHRASES)
+
 
 # ──────────────────────────────────────────────────────────────
 # TWILIO CALL CONTROL HELPERS
@@ -250,9 +289,9 @@ async def _generate_voice_preview(voice_name):
             await ws.send(json.dumps({"type": "response.create"}))
 
             # Collect audio response with deadline
-            deadline = asyncio.get_event_loop().time() + 15
+            deadline = asyncio.get_running_loop().time() + 15
             async for message in ws:
-                if asyncio.get_event_loop().time() > deadline:
+                if asyncio.get_running_loop().time() > deadline:
                     break
                 data = json.loads(message)
                 event_type = data.get('type', '')
@@ -1250,8 +1289,10 @@ def transfer_twiml():
 def amd_status_callback():
     """
     Twilio async AMD callback. Called when machine detection finishes.
-    - machine_end_beep / machine_end_silence: beep passed → leave voicemail then hang up
-    - machine_start / fax: no recording opportunity → hang up immediately
+    NOTE: This fires LATE (after full voicemail greeting). Our software
+    voicemail detection in the bridge is much faster. This is a safety net.
+    - machine_end_beep / machine_end_silence / machine_end_other: hang up immediately
+    - machine_start / fax: hang up immediately
     - human / not_sure: call continues with existing stream
     """
     call_sid    = request.values.get('CallSid', '')
@@ -1664,7 +1705,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             async def enrich_session():
                 """Load full sales director context and calendar, then update the session."""
                 try:
-                    full_prompt = await asyncio.get_event_loop().run_in_executor(
+                    full_prompt = await asyncio.get_running_loop().run_in_executor(
                         None,
                         lambda: build_voice_system_prompt(
                             subscriber=subscriber,
@@ -1720,7 +1761,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                         _active_calls[call_sid]['status'] = 'transferred'
                                 break
 
-                        message = await asyncio.get_event_loop().run_in_executor(
+                        message = await asyncio.get_running_loop().run_in_executor(
                             None, ws.receive
                         )
                         if message is None:
@@ -1899,6 +1940,31 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                             if transcript_text:
                                 call_transcript.append({"role": "lead", "text": transcript_text})
                                 logger.info(f"🎙️ Lead said: {transcript_text[:80]}")
+
+                                # ── Software voicemail detection (outbound AI calls) ──
+                                # Fires on first voicemail phrase — WAY faster than
+                                # Twilio AMD which waits for entire greeting to end.
+                                # Respects voicemail_drop setting: OFF = hang up, ON = let AI talk.
+                                if direction == 'outbound' and not voice_config.get('voicemail_drop', False):
+                                    if _is_voicemail_phrase(transcript_text):
+                                        logger.info(f"📞 VM detected (software): '{transcript_text[:60]}' — hanging up")
+                                        # Flush any buffered AI audio from Twilio pipeline
+                                        try:
+                                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                        except Exception:
+                                            pass
+                                        # Mark as no-answer so dialer retries
+                                        if call_sid in _active_calls:
+                                            _active_calls[call_sid]['_amd_result'] = 'no-answer'
+                                        # Hang up via Twilio REST
+                                        vm_sub_sid = voice_config.get('twilio_sub_account_sid', '')
+                                        if vm_sub_sid and call_sid:
+                                            try:
+                                                _twilio_hangup(call_sid, vm_sub_sid)
+                                            except Exception as e:
+                                                logger.warning(f"VM hangup failed: {e}")
+                                        call_active = False
+                                        break
 
                         # Transcription: AI response -> text
                         elif event_type == 'response.audio_transcript.done':
@@ -2764,7 +2830,21 @@ def voice_takeover():
         # Phone intercept: transfer to agent's phone number
         target = data.get('target') or voice_cfg.get('transfer_number', '')
         if not target:
-            return jsonify({"error": "No transfer number configured and VoIP not available. Set a Transfer Number in Voice Settings or enable VoIP."}), 400
+            # No VoIP, no transfer number — at minimum STOP the AI by hanging up
+            logger.info(f"Takeover (hangup): no VoIP/transfer number, stopping AI call {call_sid}")
+            _transfer_requests[call_sid] = {
+                'type': 'takeover',
+                'target': '',
+                'reason': 'Agent stopped AI (no VoIP/transfer)',
+            }
+            try:
+                _twilio_hangup(call_sid, sub_sid)
+            except Exception as e:
+                logger.warning(f"Takeover hangup failed: {e}")
+            if call_sid in _active_calls:
+                _active_calls[call_sid]['status'] = 'canceled'
+            return jsonify({"status": "stopped", "call_sid": call_sid,
+                            "target": "AI stopped (call ended — set up VoIP or Transfer Number to take over live)"})
 
         # Normalize target
         if not target.startswith('+'):
