@@ -16,6 +16,7 @@ import time
 import asyncio
 import struct
 import base64
+from datetime import datetime
 import audioop   # mulaw<->PCM transcoding
 import numpy as np
 import soxr                    # High-quality polyphase sinc resampler (anti-aliased)
@@ -3790,6 +3791,359 @@ def spam_protection_status():
         "stir_shaken": "active",
         "auto_cnam": trust_hub.get('auto_cnam', False),
     })
+
+
+# ──────────────────────────────────────────────────────────────
+# A2P 10DLC — BRAND & CAMPAIGN REGISTRATION / IMPORT
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/a2p/status', methods=['GET'])
+@login_required
+def a2p_status():
+    """Return current A2P 10DLC registration status from voice_config."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+
+    return jsonify({
+        "registered": a2p.get('registered', False),
+        "brand_sid": a2p.get('brand_sid', ''),
+        "brand_status": a2p.get('brand_status', ''),
+        "campaign_sid": a2p.get('campaign_sid', ''),
+        "campaign_status": a2p.get('campaign_status', ''),
+        "messaging_service_sid": a2p.get('messaging_service_sid', ''),
+        "use_case": a2p.get('use_case', ''),
+        "imported": a2p.get('imported', False),
+        "external_brand_id": a2p.get('external_brand_id', ''),
+        "external_campaign_id": a2p.get('external_campaign_id', ''),
+        "registered_at": a2p.get('registered_at', ''),
+        "is_sub_user": is_sub_user,
+        "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
+    })
+
+
+@voice_bp.route('/voice/a2p/register-brand', methods=['POST'])
+@login_required
+def a2p_register_brand():
+    """
+    Register a new A2P 10DLC Brand via Twilio.
+    Requires business details (reuses trust_hub data if available).
+    Sub-account users must have paid the A2P fee first.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+    a2p = (vc or {}).get('a2p', {})
+
+    # Sub-users must pay before registering
+    if is_sub_user and not a2p.get('a2p_fee_paid', False):
+        return jsonify({
+            "error": "A2P registration fee required. Please complete payment first.",
+            "payment_required": True,
+        }), 402
+
+    data = request.get_json() or {}
+
+    # Validate required fields
+    business_name = data.get('business_name', '').strip()
+    ein = data.get('ein', '').strip()
+    contact_email = data.get('contact_email', '').strip()
+    contact_phone = data.get('contact_phone', '').strip()
+    if not business_name:
+        return jsonify({"error": "Business name is required"}), 400
+    if not ein:
+        return jsonify({"error": "EIN is required"}), 400
+    if not contact_email:
+        return jsonify({"error": "Contact email is required"}), 400
+
+    try:
+        result = twilio_provisioning.create_a2p_brand(
+            sub_account_sid=sub_sid,
+            business_name=business_name,
+            ein=ein,
+            street=data.get('street', ''),
+            city=data.get('city', ''),
+            state=data.get('state', ''),
+            zip_code=data.get('zip', ''),
+            contact_email=contact_email,
+            contact_phone=contact_phone,
+            website=data.get('website', ''),
+            vertical=data.get('vertical', 'INSURANCE'),
+        )
+
+        # Persist to voice_config
+        a2p.update({
+            "brand_sid": result["brand_sid"],
+            "brand_status": result["status"],
+            "profile_sid": result.get("profile_sid", ""),
+            "business_name": business_name,
+            "registered_at": datetime.utcnow().isoformat(),
+        })
+        vc['a2p'] = a2p
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "brand_sid": result["brand_sid"],
+            "status": result["status"],
+            "message": "Brand submitted for vetting. This typically takes 1-7 business days.",
+        })
+    except Exception as e:
+        logger.error(f"A2P brand registration error: {e}", exc_info=True)
+        return jsonify({"error": f"Brand registration failed: {str(e)}"}), 500
+
+
+@voice_bp.route('/voice/a2p/brand-status', methods=['GET'])
+@login_required
+def a2p_brand_status():
+    """Poll the current vetting status of the A2P Brand."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    brand_sid = a2p.get('brand_sid', '')
+    if not brand_sid:
+        return jsonify({"error": "No brand registered"}), 404
+
+    try:
+        result = twilio_provisioning.get_a2p_brand_status(brand_sid)
+
+        # Update stored status if changed
+        if result["status"] != a2p.get("brand_status"):
+            a2p["brand_status"] = result["status"]
+            vc['a2p'] = a2p
+            _save_voice_config(current_user.email, vc)
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"A2P brand status error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/a2p/create-campaign', methods=['POST'])
+@login_required
+def a2p_create_campaign():
+    """
+    Create an A2P 10DLC Campaign and Messaging Service.
+    Brand must be approved first.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    brand_sid = a2p.get('brand_sid', '')
+
+    if not brand_sid:
+        return jsonify({"error": "Register a brand first before creating a campaign"}), 400
+
+    data = request.get_json() or {}
+    description = data.get('description', 'Insurance agent SMS communication').strip()
+    use_case = data.get('use_case', 'LOW_VOLUME').strip()
+    sample_messages = data.get('sample_messages', [])
+    message_flow = data.get('message_flow', '').strip()
+    phone_number_sids = data.get('phone_number_sids', [])
+
+    if use_case not in twilio_provisioning.A2P_USE_CASES:
+        return jsonify({"error": f"Invalid use case. Must be one of: {', '.join(twilio_provisioning.A2P_USE_CASES)}"}), 400
+
+    try:
+        # Step 1: Create Messaging Service (or reuse existing)
+        ms_sid = a2p.get('messaging_service_sid', '')
+        if not ms_sid:
+            biz_name = a2p.get('business_name', 'Insurance Bot')
+            ms_result = twilio_provisioning.create_messaging_service(
+                sub_sid, f"A2P - {biz_name}"
+            )
+            ms_sid = ms_result["messaging_service_sid"]
+            a2p["messaging_service_sid"] = ms_sid
+
+        # Step 2: Associate phone numbers with the Messaging Service
+        if phone_number_sids:
+            for pn_sid in phone_number_sids:
+                try:
+                    twilio_provisioning.add_phone_to_messaging_service(
+                        sub_sid, ms_sid, pn_sid
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to add {pn_sid} to MS: {e}")
+
+        # Step 3: Create the Campaign
+        campaign_result = twilio_provisioning.create_a2p_campaign(
+            messaging_service_sid=ms_sid,
+            brand_registration_sid=brand_sid,
+            description=description,
+            use_case=use_case,
+            sample_messages=sample_messages if sample_messages else None,
+            message_flow=message_flow or None,
+            has_embedded_links=data.get('has_embedded_links', False),
+            has_embedded_phone=data.get('has_embedded_phone', False),
+        )
+
+        # Persist
+        a2p.update({
+            "campaign_sid": campaign_result["campaign_sid"],
+            "campaign_status": campaign_result["campaign_status"],
+            "use_case": use_case,
+            "registered": True,
+        })
+        vc['a2p'] = a2p
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "campaign_sid": campaign_result["campaign_sid"],
+            "campaign_status": campaign_result["campaign_status"],
+            "messaging_service_sid": ms_sid,
+            "message": "Campaign submitted for approval. Typically approved within 24-48 hours.",
+        })
+    except Exception as e:
+        logger.error(f"A2P campaign creation error: {e}", exc_info=True)
+        return jsonify({"error": f"Campaign creation failed: {str(e)}"}), 500
+
+
+@voice_bp.route('/voice/a2p/campaign-status', methods=['GET'])
+@login_required
+def a2p_campaign_status():
+    """Poll the approval status of the A2P Campaign."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    ms_sid = a2p.get('messaging_service_sid', '')
+    campaign_sid = a2p.get('campaign_sid', '')
+    if not ms_sid or not campaign_sid:
+        return jsonify({"error": "No campaign registered"}), 404
+
+    try:
+        result = twilio_provisioning.get_a2p_campaign_status(ms_sid, campaign_sid)
+
+        if result["campaign_status"] != a2p.get("campaign_status"):
+            a2p["campaign_status"] = result["campaign_status"]
+            vc['a2p'] = a2p
+            _save_voice_config(current_user.email, vc)
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"A2P campaign status error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/a2p/import', methods=['POST'])
+@login_required
+def a2p_import():
+    """
+    Import an already-approved A2P Brand + Campaign from an external provider
+    (e.g., GoHighLevel, LeadConnector, another Twilio account).
+
+    User provides their existing Brand ID and Campaign ID.
+    We create a Messaging Service, link the brand, and import the campaign.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+    a2p = (vc or {}).get('a2p', {})
+
+    if is_sub_user and not a2p.get('a2p_fee_paid', False):
+        return jsonify({
+            "error": "A2P registration fee required. Please complete payment first.",
+            "payment_required": True,
+        }), 402
+
+    data = request.get_json() or {}
+    brand_id = data.get('brand_id', '').strip()
+    campaign_id = data.get('campaign_id', '').strip()
+
+    if not brand_id:
+        return jsonify({"error": "Brand ID is required"}), 400
+    if not campaign_id:
+        return jsonify({"error": "Campaign ID is required"}), 400
+
+    # Validate phone number SIDs to associate
+    phone_number_sids = data.get('phone_number_sids', [])
+
+    try:
+        # Step 1: Import the external brand
+        brand_result = twilio_provisioning.import_external_brand(brand_id)
+        brand_sid = brand_result["brand_sid"]
+
+        # Step 2: Create Messaging Service
+        ms_sid = a2p.get('messaging_service_sid', '')
+        if not ms_sid:
+            ms_result = twilio_provisioning.create_messaging_service(
+                sub_sid, f"A2P Import - {brand_id[:20]}"
+            )
+            ms_sid = ms_result["messaging_service_sid"]
+
+        # Step 3: Associate phone numbers
+        if phone_number_sids:
+            for pn_sid in phone_number_sids:
+                try:
+                    twilio_provisioning.add_phone_to_messaging_service(
+                        sub_sid, ms_sid, pn_sid
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to add {pn_sid} to MS during import: {e}")
+
+        # Step 4: Import the external campaign
+        campaign_result = twilio_provisioning.import_external_campaign(
+            messaging_service_sid=ms_sid,
+            brand_registration_sid=brand_sid,
+            external_campaign_id=campaign_id,
+        )
+
+        # Persist
+        a2p.update({
+            "brand_sid": brand_sid,
+            "brand_status": brand_result.get("status", "imported"),
+            "campaign_sid": campaign_result["campaign_sid"],
+            "campaign_status": campaign_result["campaign_status"],
+            "messaging_service_sid": ms_sid,
+            "imported": True,
+            "external_brand_id": brand_id,
+            "external_campaign_id": campaign_id,
+            "registered": True,
+            "registered_at": datetime.utcnow().isoformat(),
+        })
+        vc['a2p'] = a2p
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "brand_sid": brand_sid,
+            "campaign_sid": campaign_result["campaign_sid"],
+            "campaign_status": campaign_result["campaign_status"],
+            "message": "Brand and campaign imported successfully.",
+        })
+    except Exception as e:
+        logger.error(f"A2P import error: {e}", exc_info=True)
+        return jsonify({"error": f"Import failed: {str(e)}"}), 500
+
+
+@voice_bp.route('/voice/a2p/mark-fee-paid', methods=['POST'])
+@login_required
+def a2p_mark_fee_paid():
+    """
+    Called after successful Stripe payment for A2P registration fee.
+    Marks the subscriber's a2p.a2p_fee_paid = True so they can proceed.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    a2p['a2p_fee_paid'] = True
+    a2p['fee_paid_at'] = datetime.utcnow().isoformat()
+    vc['a2p'] = a2p
+    _save_voice_config(current_user.email, vc)
+
+    return jsonify({"ok": True, "message": "A2P fee marked as paid."})
 
 
 # ──────────────────────────────────────────────────────────────

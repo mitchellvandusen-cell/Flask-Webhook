@@ -233,3 +233,397 @@
             // Pre-load data so Numbers/Trust Hub tabs render instantly
             loadNumbersTab();
         });
+
+        // ===== A2P 10DLC TAB =====
+        var _a2pStatus = null;
+        var _a2pNumbersCache = [];
+
+        async function a2pLoadStatus() {
+            try {
+                const r = await fetch('/voice/a2p/status');
+                const d = await r.json();
+                if (!r.ok) { console.warn('[A2P] Status error:', d); return; }
+                _a2pStatus = d;
+                a2pRenderUI(d);
+            } catch(e) { console.error('[A2P] Load status error:', e); }
+        }
+
+        function a2pRenderUI(d) {
+            const banner = document.getElementById('a2pStatusBanner');
+            const payGate = document.getElementById('a2pPaymentGate');
+            const modeSelector = document.getElementById('a2pModeSelector');
+            const brandForm = document.getElementById('a2pBrandForm');
+            const campaignForm = document.getElementById('a2pCampaignForm');
+            const statusPanel = document.getElementById('a2pBrandStatusPanel');
+            const importPanel = document.getElementById('a2pImportPanel');
+            const registerPanel = document.getElementById('a2pRegisterPanel');
+
+            // Payment gate for sub-users
+            if (d.is_sub_user && !d.a2p_fee_paid && !d.registered) {
+                if (payGate) payGate.style.display = 'block';
+                if (modeSelector) modeSelector.style.display = 'none';
+                if (importPanel) importPanel.style.display = 'none';
+                if (registerPanel) registerPanel.style.display = 'none';
+                return;
+            } else {
+                if (payGate) payGate.style.display = 'none';
+            }
+
+            // Fully registered: show success banner
+            if (d.registered && d.campaign_sid) {
+                if (banner) {
+                    banner.style.display = 'block';
+                    const statusColor = d.campaign_status === 'VERIFIED' ? '#00ff88' : '#fbbf24';
+                    const statusLabel = d.campaign_status === 'VERIFIED' ? 'Approved' : (d.campaign_status || 'Pending');
+                    banner.innerHTML =
+                        '<div class="mb-3 p-3" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;">' +
+                            '<div class="d-flex align-items-center gap-3">' +
+                                '<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,255,136,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+                                    '<i class="fa-solid fa-certificate" style="color:#00ff88;"></i>' +
+                                '</div>' +
+                                '<div style="flex:1;">' +
+                                    '<div style="font-weight:700;color:#00ff88;font-size:0.9rem;">A2P 10DLC ' + (d.imported ? 'Imported' : 'Registered') + '</div>' +
+                                    '<div style="font-size:0.75rem;color:#aaa;">' +
+                                        'Brand: <span style="color:#ccc;font-family:\'JetBrains Mono\',monospace;font-size:0.7rem;">' + _esc(d.brand_sid) + '</span>' +
+                                        ' &bull; Campaign: <span style="color:' + statusColor + ';font-weight:600;">' + _esc(statusLabel) + '</span>' +
+                                        (d.registered_at ? ' &bull; ' + new Date(d.registered_at).toLocaleDateString() : '') +
+                                    '</div>' +
+                                '</div>' +
+                                '<button onclick="a2pRefreshStatus()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:6px;padding:5px 12px;font-size:0.72rem;cursor:pointer;white-space:nowrap;">' +
+                                    '<i class="fa-solid fa-arrows-rotate me-1"></i>Refresh' +
+                                '</button>' +
+                            '</div>' +
+                        '</div>';
+                }
+                if (modeSelector) modeSelector.style.display = 'none';
+                if (importPanel) importPanel.style.display = 'none';
+                if (registerPanel) registerPanel.style.display = 'none';
+                if (statusPanel) statusPanel.style.display = 'none';
+                return;
+            }
+
+            // Brand submitted but no campaign yet
+            if (d.brand_sid && !d.campaign_sid) {
+                if (banner) banner.style.display = 'none';
+                if (statusPanel) {
+                    statusPanel.style.display = 'block';
+                    a2pRenderBrandStatus(d);
+                }
+                // Show campaign form if brand is approved
+                const approved = (d.brand_status || '').toUpperCase() === 'APPROVED';
+                if (approved && registerPanel) {
+                    registerPanel.style.display = 'block';
+                    if (brandForm) brandForm.style.display = 'none';
+                    if (campaignForm) campaignForm.style.display = 'block';
+                    a2pUpdateStepPills(2);
+                    a2pLoadNumbersForCampaign('a2pCampaignNumbersList');
+                }
+                if (modeSelector) modeSelector.style.display = 'none';
+                if (importPanel) importPanel.style.display = 'none';
+                return;
+            }
+
+            // Fresh state: show mode selector (default import)
+            if (banner) banner.style.display = 'none';
+            if (statusPanel) statusPanel.style.display = 'none';
+            if (modeSelector) modeSelector.style.display = 'flex';
+            a2pSwitchMode('import');
+            a2pLoadNumbersForCampaign('a2pImportNumbersList');
+        }
+
+        function a2pRenderBrandStatus(d) {
+            const el = document.getElementById('a2pBrandStatusContent');
+            if (!el) return;
+            const s = (d.brand_status || 'PENDING').toUpperCase();
+            const colors = { APPROVED: '#00ff88', PENDING: '#fbbf24', IN_REVIEW: '#00d9ff', FAILED: '#ef4444' };
+            const color = colors[s] || '#888';
+            el.innerHTML =
+                '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">' +
+                    '<div style="display:flex;align-items:center;gap:6px;">' +
+                        '<span style="font-weight:700;color:#ccc;">Brand:</span>' +
+                        '<span style="color:' + color + ';font-weight:600;">' + _esc(s) + '</span>' +
+                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.68rem;">' + _esc(d.brand_sid || '') + '</span>' +
+                    '</div>' +
+                '</div>' +
+                (d.campaign_sid ?
+                    '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">' +
+                        '<span style="font-weight:700;color:#ccc;">Campaign:</span>' +
+                        '<span style="color:#00d9ff;font-weight:600;">' + _esc(d.campaign_status || 'PENDING') + '</span>' +
+                        '<span style="color:#555;font-family:\'JetBrains Mono\',monospace;font-size:0.68rem;">' + _esc(d.campaign_sid) + '</span>' +
+                    '</div>' : ''
+                ) +
+                (s !== 'APPROVED' && s !== 'FAILED' ?
+                    '<div style="margin-top:6px;font-size:0.72rem;color:#888;"><i class="fa-solid fa-clock me-1" style="color:#fbbf24;"></i>Brand vetting typically takes 1-7 business days. Click Refresh to check.</div>' : ''
+                );
+        }
+
+        function a2pSwitchMode(mode) {
+            const importPanel = document.getElementById('a2pImportPanel');
+            const registerPanel = document.getElementById('a2pRegisterPanel');
+            const importBtn = document.getElementById('a2pModeImportBtn');
+            const registerBtn = document.getElementById('a2pModeRegisterBtn');
+            if (mode === 'import') {
+                if (importPanel) importPanel.style.display = 'block';
+                if (registerPanel) registerPanel.style.display = 'none';
+                if (importBtn) { importBtn.style.background = 'rgba(0,255,136,0.06)'; importBtn.style.border = '1px solid rgba(0,255,136,0.2)'; importBtn.style.color = '#00ff88'; }
+                if (registerBtn) { registerBtn.style.background = 'rgba(255,255,255,0.03)'; registerBtn.style.border = '1px solid rgba(255,255,255,0.08)'; registerBtn.style.color = '#888'; }
+                a2pLoadNumbersForCampaign('a2pImportNumbersList');
+            } else {
+                if (importPanel) importPanel.style.display = 'none';
+                if (registerPanel) { registerPanel.style.display = 'block'; }
+                if (registerBtn) { registerBtn.style.background = 'rgba(167,139,250,0.08)'; registerBtn.style.border = '1px solid rgba(167,139,250,0.2)'; registerBtn.style.color = '#a78bfa'; }
+                if (importBtn) { importBtn.style.background = 'rgba(255,255,255,0.03)'; importBtn.style.border = '1px solid rgba(255,255,255,0.08)'; importBtn.style.color = '#888'; }
+                // Show brand form, hide campaign form
+                var bf = document.getElementById('a2pBrandForm');
+                var cf = document.getElementById('a2pCampaignForm');
+                if (bf) bf.style.display = 'block';
+                if (cf) cf.style.display = 'none';
+                a2pUpdateStepPills(1);
+            }
+        }
+
+        function a2pUpdateStepPills(step) {
+            var s1 = document.getElementById('a2pStep1Pill');
+            var s2 = document.getElementById('a2pStep2Pill');
+            if (s1) {
+                s1.style.background = step >= 1 ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.02)';
+                s1.style.border = step >= 1 ? '1px solid rgba(167,139,250,0.25)' : '1px solid rgba(255,255,255,0.06)';
+                s1.style.color = step >= 1 ? '#a78bfa' : '#555';
+            }
+            if (s2) {
+                s2.style.background = step >= 2 ? 'rgba(0,217,255,0.1)' : 'rgba(255,255,255,0.02)';
+                s2.style.border = step >= 2 ? '1px solid rgba(0,217,255,0.25)' : '1px solid rgba(255,255,255,0.06)';
+                s2.style.color = step >= 2 ? '#00d9ff' : '#555';
+            }
+        }
+
+        async function a2pLoadNumbersForCampaign(containerId) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (_a2pNumbersCache.length) { a2pRenderNumberCheckboxes(el, _a2pNumbersCache); return; }
+            el.innerHTML = '<span style="color:#555;"><i class="fa-solid fa-spinner fa-spin me-1" style="color:#00d9ff;"></i>Loading...</span>';
+            try {
+                const r = await fetch('/voice/numbers');
+                const d = await r.json();
+                if (!r.ok || !d.numbers) { el.innerHTML = '<span style="color:#888;">No numbers found.</span>'; return; }
+                _a2pNumbersCache = d.numbers;
+                a2pRenderNumberCheckboxes(el, d.numbers);
+            } catch(e) { el.innerHTML = '<span style="color:#ef4444;">Failed to load numbers.</span>'; }
+        }
+
+        function a2pRenderNumberCheckboxes(el, numbers) {
+            if (!numbers.length) { el.innerHTML = '<span style="color:#888;">No numbers. Buy a number in the Numbers tab first.</span>'; return; }
+            el.innerHTML = numbers.map(function(n) {
+                return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;">' +
+                    '<input type="checkbox" class="a2p-number-cb" value="' + _esc(n.sid) + '" checked style="accent-color:#00d9ff;">' +
+                    '<span style="color:#ccc;">' + _esc(_fmtPhone(n.phone)) + '</span>' +
+                    (n.nickname ? '<span style="color:#555;font-size:0.7rem;">(' + _esc(n.nickname) + ')</span>' : '') +
+                    '<span style="margin-left:auto;font-size:0.65rem;color:#00d9ff;">' +
+                        (n.capabilities && n.capabilities.sms ? 'SMS ' : '') +
+                        (n.capabilities && n.capabilities.voice ? 'Voice' : '') +
+                    '</span>' +
+                '</label>';
+            }).join('');
+        }
+
+        function a2pGetSelectedNumberSids(containerId) {
+            var el = document.getElementById(containerId);
+            if (!el) return [];
+            return Array.from(el.querySelectorAll('.a2p-number-cb:checked')).map(function(cb) { return cb.value; });
+        }
+
+        // ── Import External Brand + Campaign ──
+        async function a2pImportExternal() {
+            var brandId = (document.getElementById('a2pImportBrandId')?.value || '').trim();
+            var campaignId = (document.getElementById('a2pImportCampaignId')?.value || '').trim();
+            var result = document.getElementById('a2pImportResult');
+            var btn = document.getElementById('a2pImportBtn');
+
+            if (!brandId) { result.innerHTML = '<span style="color:#ef4444;">Brand ID is required</span>'; return; }
+            if (!campaignId) { result.innerHTML = '<span style="color:#ef4444;">Campaign ID is required</span>'; return; }
+
+            var numberSids = a2pGetSelectedNumberSids('a2pImportNumbersList');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Importing...';
+            result.innerHTML = '';
+            try {
+                var r = await fetch('/voice/a2p/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ brand_id: brandId, campaign_id: campaignId, phone_number_sids: numberSids }),
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Imported successfully!') + '</span>';
+                    setTimeout(function() { a2pLoadStatus(); }, 500);
+                } else {
+                    if (d.payment_required) {
+                        result.innerHTML = '<span style="color:#ffa500;">Payment required. Redirecting...</span>';
+                        a2pPayFee();
+                    } else {
+                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Import failed') + '</span>';
+                    }
+                }
+            } catch(e) {
+                result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-file-import me-2"></i>Import Brand & Campaign';
+        }
+
+        // ── Register New Brand ──
+        async function a2pRegisterBrand() {
+            var result = document.getElementById('a2pBrandResult');
+            var btn = document.getElementById('a2pRegisterBrandBtn');
+            var payload = {
+                business_name: (document.getElementById('a2pBizName')?.value || '').trim(),
+                ein: (document.getElementById('a2pEIN')?.value || '').trim(),
+                street: (document.getElementById('a2pStreet')?.value || '').trim(),
+                city: (document.getElementById('a2pCity')?.value || '').trim(),
+                state: (document.getElementById('a2pState')?.value || '').trim(),
+                zip: (document.getElementById('a2pZip')?.value || '').trim(),
+                contact_email: (document.getElementById('a2pContactEmail')?.value || '').trim(),
+                contact_phone: (document.getElementById('a2pContactPhone')?.value || '').trim(),
+                website: (document.getElementById('a2pWebsite')?.value || '').trim(),
+            };
+            if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name required</span>'; return; }
+            if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN required</span>'; return; }
+            if (!payload.contact_email) { result.innerHTML = '<span style="color:#ef4444;">Contact email required</span>'; return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting brand...';
+            result.innerHTML = '';
+            try {
+                var r = await fetch('/voice/a2p/register-brand', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Brand submitted!') + '</span>';
+                    setTimeout(function() { a2pLoadStatus(); }, 500);
+                } else {
+                    if (d.payment_required) {
+                        result.innerHTML = '<span style="color:#ffa500;">Payment required. Redirecting...</span>';
+                        a2pPayFee();
+                    } else {
+                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Registration failed') + '</span>';
+                    }
+                }
+            } catch(e) {
+                result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Submit Brand for Vetting';
+        }
+
+        // ── Create Campaign ──
+        async function a2pCreateCampaign() {
+            var result = document.getElementById('a2pCampaignResult');
+            var btn = document.getElementById('a2pCreateCampaignBtn');
+            var description = (document.getElementById('a2pDescription')?.value || '').trim();
+            var samplesRaw = (document.getElementById('a2pSampleMessages')?.value || '').trim();
+            var messageFlow = (document.getElementById('a2pMessageFlow')?.value || '').trim();
+            var useCase = document.getElementById('a2pUseCase')?.value || 'LOW_VOLUME';
+            var numberSids = a2pGetSelectedNumberSids('a2pCampaignNumbersList');
+
+            if (description.length < 40) { result.innerHTML = '<span style="color:#ef4444;">Description must be at least 40 characters</span>'; return; }
+            var samples = samplesRaw.split('\n').map(function(s) { return s.trim(); }).filter(function(s) { return s.length >= 20; });
+            if (samples.length < 2) { result.innerHTML = '<span style="color:#ef4444;">At least 2 sample messages required (min 20 chars each)</span>'; return; }
+            if (messageFlow.length < 40) { result.innerHTML = '<span style="color:#ef4444;">Message flow must be at least 40 characters</span>'; return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Submitting campaign...';
+            result.innerHTML = '';
+            try {
+                var r = await fetch('/voice/a2p/create-campaign', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        description: description,
+                        use_case: useCase,
+                        sample_messages: samples,
+                        message_flow: messageFlow,
+                        has_embedded_links: document.getElementById('a2pEmbeddedLinks')?.checked || false,
+                        has_embedded_phone: document.getElementById('a2pEmbeddedPhone')?.checked || false,
+                        phone_number_sids: numberSids,
+                    }),
+                });
+                var d = await r.json();
+                if (r.ok) {
+                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Campaign submitted!') + '</span>';
+                    setTimeout(function() { a2pLoadStatus(); }, 500);
+                } else {
+                    result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Campaign creation failed') + '</span>';
+                }
+            } catch(e) {
+                result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bullhorn me-2"></i>Submit Campaign for Approval';
+        }
+
+        // ── Refresh Status ──
+        async function a2pRefreshStatus() {
+            try {
+                // Refresh brand status if exists
+                if (_a2pStatus && _a2pStatus.brand_sid) {
+                    var r = await fetch('/voice/a2p/brand-status');
+                    if (r.ok) {
+                        var d = await r.json();
+                        _a2pStatus.brand_status = d.status;
+                    }
+                }
+                // Refresh campaign status if exists
+                if (_a2pStatus && _a2pStatus.campaign_sid) {
+                    var r2 = await fetch('/voice/a2p/campaign-status');
+                    if (r2.ok) {
+                        var d2 = await r2.json();
+                        _a2pStatus.campaign_status = d2.campaign_status;
+                    }
+                }
+            } catch(e) { console.error('[A2P] Refresh error:', e); }
+            a2pLoadStatus();
+        }
+
+        // ── Pay A2P Fee (Stripe) ──
+        async function a2pPayFee() {
+            var btn = document.getElementById('a2pPayFeeBtn');
+            var result = document.getElementById('a2pPayResult');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Redirecting to payment...'; }
+            try {
+                var r = await fetch('/a2p/checkout', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}',
+                });
+                var d = await r.json();
+                if (d.checkout_url) {
+                    window.location.href = d.checkout_url;
+                } else {
+                    if (result) result.innerHTML = '<span style="color:#ef4444;">' + _esc(d.error || 'Failed to create checkout') + '</span>';
+                }
+            } catch(e) {
+                if (result) result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock me-2"></i>Pay Registration Fee — $19'; }
+        }
+
+        // Check URL params for A2P payment success
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.get('a2p_payment_success') === '1') {
+                // Mark fee as paid via API
+                fetch('/voice/a2p/mark-fee-paid', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' })
+                    .then(function() {
+                        // Switch to Voice Config > 10DLC tab
+                        if (typeof switchVoicePanel === 'function') switchVoicePanel('a2p');
+                    });
+                // Clean URL
+                var url = new URL(window.location);
+                url.searchParams.delete('a2p_payment_success');
+                window.history.replaceState({}, '', url);
+            }
+        })();

@@ -18,10 +18,67 @@
 | 2026-02-22 | Dashboard refactored from monolithic 7000-line HTML into 32 component files |
 | 2026-02-22 | Full Discord OAuth integration with persistent auth, team chat panel in sidebar |
 | 2026-02-22 | CLAUDE.md documentation added; dismissable banners; Discord side panel repositioned |
+| 2026-02-24 | A2P 10DLC compliance system: brand/campaign registration + external import from GHL |
 
 ---
 
 ## 2026-02-24
+
+**[Feature]** — A2P 10DLC brand & campaign registration system — Full compliance workflow for registering brands and campaigns with Twilio's A2P 10DLC program, plus import of externally-approved brands/campaigns from GHL/LeadConnector.
+
+### Backend (twilio_provisioning.py)
+- 8 new A2P functions: `create_a2p_brand()`, `get_a2p_brand_status()`, `create_messaging_service()`, `add_phone_to_messaging_service()`, `create_a2p_campaign()`, `get_a2p_campaign_status()`, `import_external_brand()`, `import_external_campaign()`, plus `list_messaging_services()`.
+- Brand registration creates Trust Hub Customer Profile + EndUser + TrustProduct + Brand Registration in one flow.
+- Campaign registration creates a Messaging Service, links phone numbers to its sender pool, then submits the campaign with use case, sample messages, opt-in/out details, and help keywords.
+- External import supports CNP migration of TCR-approved brands and campaigns from other CSPs (e.g., GHL/LeadConnector) into Twilio.
+- `A2P_USE_CASES` constant defines all valid campaign categories (2FA, CUSTOMER_CARE, LOW_VOLUME, MARKETING, MIXED, etc.).
+
+### Backend (voice_bridge.py)
+- 7 new routes under `/voice/a2p/`:
+  - `GET /voice/a2p/status` — Current A2P registration state from `voice_config.a2p`.
+  - `POST /voice/a2p/register-brand` — Submit brand for vetting (sub-account users gated by payment check).
+  - `GET /voice/a2p/brand-status` — Poll Twilio for brand vetting progress.
+  - `POST /voice/a2p/create-campaign` — Create campaign + messaging service + link numbers.
+  - `GET /voice/a2p/campaign-status` — Poll campaign approval status.
+  - `POST /voice/a2p/import` — Import external brand ID + campaign ID.
+  - `POST /voice/a2p/mark-fee-paid` — Mark A2P registration fee as paid.
+- All routes persist state to `voice_config["a2p"]` JSONB — no new DB tables needed.
+
+### Backend (main.py)
+- `POST /a2p/checkout` — Creates Stripe checkout session for A2P registration fee ($19 = $4 brand vetting + $15 campaign review).
+- Stripe webhook handler extended to process `purchase_type: "a2p_registration"` and set `voice_config.a2p.a2p_fee_paid = true`.
+- New env var: `A2P_REGISTRATION_PRICE_ID` — Stripe price ID for the A2P fee.
+
+### Frontend (voice.html)
+- New "10DLC" sub-tab in Voice Config column menu with `fa-certificate` icon.
+- Status banner showing current registration state (none → brand submitted → brand approved → campaign submitted → campaign approved).
+- Mode selector: "Import Existing" vs. "Register New" with separate panels.
+- Import panel: paste fields for Brand ID and Campaign ID from GHL/LeadConnector.
+- Register panel: 2-step wizard — Step 1 (brand form with business details, pre-filled from Trust Hub) → Step 2 (campaign form with use case, sample messages, opt-in/out, help keywords, phone number checkboxes).
+- Payment gate for sub-account users: Stripe checkout required before registration.
+- Step indicator pills showing progress through the registration flow.
+
+### Frontend (numbers.js)
+- 13+ new functions: `a2pLoadStatus()`, `a2pRenderUI()`, `a2pSwitchMode()`, `a2pImportExternal()`, `a2pRegisterBrand()`, `a2pCreateCampaign()`, `a2pRefreshStatus()`, `a2pPayFee()`, `a2pLoadNumbersForCampaign()`, `a2pRenderNumberCheckboxes()`, `a2pGetSelectedNumberSids()`, `a2pRenderBrandStatus()`, `a2pUpdateStepPills()`.
+- URL parameter handler for `a2p_payment_success` redirect after Stripe checkout.
+- Number cache (`_a2pNumbersCache`) to avoid redundant fetches when switching tabs.
+
+### Frontend (sidebar.js)
+- Updated `switchVoicePanel()` to include `'a2p'` panel and trigger `a2pLoadStatus()`.
+
+---
+
+**[Enhancement]** — Glassmorphism tutorial popover redesign — Complete CSS overhaul of the driver.js tutorial popover with premium frosted-glass visual effects.
+
+- **`tutorial.js`** — Rewrote all popover CSS with multi-layer radial gradient background, `backdrop-filter: blur(40px) saturate(200%)`, `::before` pseudo-element top-edge light streak, 6-layer box-shadow for depth/glow, refined entry animation with `filter:blur(4px)` fade, and improved button styling with cyan accent glow.
+
+---
+
+**[Fix]** — Tutorial popover centering broken — `position: relative !important` on `.driver-popover` overrode driver.js's own `position: fixed` used for centering popovers on screen.
+
+- **`tutorial.js`** — Removed the single line `position: relative !important;` that was added for the `::before` pseudo-element (driver.js already creates a positioned ancestor).
+
+---
 
 **[Fix]** — Dialer UI, hangup reliability, KPI stats, and call count badges — Critical RealDictCursor compatibility fix, UI layout improvement, and hangup flow hardening.
 

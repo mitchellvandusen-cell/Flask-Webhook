@@ -27,6 +27,7 @@ This document explains how the system actually works, written in plain English b
 17. [Security Model](#17-security-model)
 18. [Environment Variables Reference](#18-environment-variables-reference)
 19. [Troubleshooting Guide](#19-troubleshooting-guide)
+20. [A2P 10DLC Compliance](#20-a2p-10dlc-compliance)
 
 ---
 
@@ -847,6 +848,92 @@ Stripe signs its webhooks. If `STRIPE_WEBHOOK_SECRET` is wrong or missing, every
 ### External API Rate Limit Too Aggressive
 
 If legitimate integrations are hitting the 429 rate limit, increase `API_RATE_LIMIT_RPM` in the environment. The default is 120 requests per minute. Be aware this is per API key, so multiple keys from the same subscriber each get their own limit.
+
+---
+
+## 20. A2P 10DLC Compliance
+
+### What Is A2P 10DLC?
+
+A2P stands for "Application-to-Person." 10DLC stands for "10-Digit Long Code" — a regular US phone number (e.g., 555-123-4567). When a business sends text messages to customers from a regular phone number using software (as opposed to a human typing on a phone), that's A2P messaging.
+
+US carriers (AT&T, T-Mobile, Verizon) now require all businesses sending A2P messages over 10DLC numbers to register their brand and messaging campaigns. Without registration, messages may be silently filtered, throttled, or blocked entirely. This system handles that registration.
+
+### Where the Code Lives
+
+- **`twilio_provisioning.py`** — All Twilio API calls for A2P: brand registration, campaign creation, status polling, external import.
+- **`voice_bridge.py`** — HTTP routes that the dashboard calls (7 routes under `/voice/a2p/`).
+- **`main.py`** — Stripe checkout route for the A2P registration fee.
+- **`templates/dashboard/tabs/voice.html`** — The "10DLC" sub-tab UI in Voice Config.
+- **`static/js/dashboard/numbers.js`** — All frontend JavaScript for the A2P flows.
+
+### How It's Stored
+
+All A2P state lives in the existing `voice_config` JSONB column on the `subscribers` table, under a key called `a2p`. No new database tables were created. This matches the pattern used by Trust Hub (`voice_config.trust_hub`) and phone numbers (`voice_config.numbers`).
+
+The `a2p` object looks like this when fully registered:
+
+```json
+{
+  "brand_sid": "BN...",
+  "brand_status": "APPROVED",
+  "campaign_sid": "QE...",
+  "campaign_status": "VERIFIED",
+  "messaging_service_sid": "MG...",
+  "a2p_fee_paid": true,
+  "registered_at": "2026-02-24T12:00:00Z"
+}
+```
+
+### Two Paths to Compliance
+
+Users have two options:
+
+**Option 1 — Import Existing (for agencies already registered through GHL)**
+
+Many agencies already have approved A2P brands and campaigns through GoHighLevel (which uses LeadConnector as its Campaign Service Provider). These agencies can paste their existing Brand SID and Campaign SID into the import panel. The system calls `import_external_brand()` and `import_external_campaign()` in `twilio_provisioning.py`, which use Twilio's CNP (Campaign Number Provider) migration to bring the approved registrations into Twilio so the agency can send messages directly through our platform.
+
+**Option 2 — Register New (for agencies without existing registration)**
+
+This is a multi-step wizard:
+
+1. **Brand Registration** — The user fills out a form with their business name, EIN (tax ID), address, phone, email, website, and business type. The backend calls `create_a2p_brand()` which creates a Trust Hub Customer Profile, attaches an EndUser and TrustProduct, then submits the brand for vetting. Twilio's vetting partner (Campaign Registry / TCR) reviews the brand. This typically takes hours but can take up to a few days.
+
+2. **Brand Vetting** — The dashboard polls `GET /voice/a2p/brand-status` to check vetting progress. The UI shows the current status (PENDING, IN_REVIEW, APPROVED, FAILED) and auto-refreshes.
+
+3. **Campaign Registration** — Once the brand is approved, the user fills out a campaign form: use case category (e.g., CUSTOMER_CARE, MARKETING, LOW_VOLUME), two sample messages, opt-in/opt-out/help keyword configuration, and which phone numbers to include. The backend calls `create_a2p_campaign()` which creates a Messaging Service on the user's Twilio sub-account, adds the selected phone numbers to its sender pool, then submits the campaign for carrier review.
+
+4. **Campaign Approval** — Carriers review the campaign (typically hours). The dashboard polls `GET /voice/a2p/campaign-status`. Once approved, the phone numbers are cleared for A2P messaging.
+
+### Payment Gate for Sub-Accounts
+
+A2P registration incurs real Twilio fees: $4 for brand vetting + $15 for campaign review = $19 total. For sub-account users (agencies managed by a parent agency owner), the system requires payment via Stripe before they can submit their registration. The flow:
+
+1. Sub-user clicks "Pay A2P Fee" in the dashboard.
+2. `POST /a2p/checkout` in `main.py` creates a Stripe checkout session for $19.
+3. After payment, Stripe fires a webhook. The handler sets `voice_config.a2p.a2p_fee_paid = true` in the database.
+4. The dashboard redirects back with `?a2p_payment_success=1` and the registration form unlocks.
+
+Agency owners and super admins bypass the payment gate (costs are absorbed by the parent account).
+
+### Twilio API Details
+
+The registration uses several Twilio APIs in sequence:
+
+- **Trust Hub API** (`/v1/CustomerProfiles`) — Creates the identity profile that backs the brand registration.
+- **Brand Registration API** (`/v1/a2p/BrandRegistrations`) — Submits the brand to TCR for vetting.
+- **Messaging Service API** (`/v1/Services`) — Creates a Messaging Service that groups phone numbers for campaign use.
+- **Campaign Registration API** (`/v1/Services/{sid}/Compliance/Usa2p`) — Submits the campaign with use case, samples, and keywords.
+
+The `A2P_USE_CASES` constant in `twilio_provisioning.py` defines valid campaign categories: 2FA, ACCOUNT_NOTIFICATION, CUSTOMER_CARE, DELIVERY_NOTIFICATION, FRAUD_ALERT, HIGHER_EDUCATION, LOW_VOLUME, MARKETING, MIXED, POLLING_VOTING, PUBLIC_SERVICE_ANNOUNCEMENT, SECURITY_ALERT, and SOLE_PROPRIETOR.
+
+### Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `A2P_REGISTRATION_PRICE_ID` | Stripe price ID for the $19 A2P registration fee |
+
+The Twilio credentials used are the same `TWILIO_MASTER_ACCOUNT_SID` / `TWILIO_MASTER_AUTH_TOKEN` already configured for the platform. Brand registration happens at the master account level; Messaging Services are created on each user's sub-account.
 
 ---
 
