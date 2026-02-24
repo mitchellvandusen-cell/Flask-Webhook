@@ -359,6 +359,106 @@ def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
             return_db_connection(conn)
 
 
+def save_failed_webhook_payload(location_id: str, contact_id: str,
+                                payload: dict, failure_reason: str) -> bool:
+    """Persist a failed webhook payload for later recovery by the scourer.
+
+    Called when process_webhook_task aborts due to a token error. The full
+    payload is saved so the scourer can re-queue it once a valid token is obtained.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        # Strip _original_payload to avoid double-nesting and keep size manageable
+        clean_payload = {k: v for k, v in payload.items() if k != '_original_payload'}
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO failed_webhook_payloads
+                (location_id, contact_id, payload, failure_reason)
+            VALUES (%s, %s, %s, %s)
+        """, (location_id, contact_id, json.dumps(clean_payload), failure_reason))
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"save_failed_webhook_payload failed: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_unretried_failed_webhooks(location_id: str = None,
+                                  max_age_hours: int = 24,
+                                  limit: int = 200) -> list:
+    """Fetch failed webhook payloads that haven't been retried yet.
+
+    If location_id is provided, only fetch for that location.
+    Otherwise, fetch across all locations (for the scourer cron).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        if location_id:
+            cur.execute("""
+                SELECT id, location_id, contact_id, payload, failure_reason, created_at
+                FROM failed_webhook_payloads
+                WHERE location_id = %s
+                  AND retried = FALSE
+                  AND created_at > NOW() - INTERVAL '%s hours'
+                ORDER BY created_at ASC
+                LIMIT %s
+            """, (location_id, max_age_hours, limit))
+        else:
+            cur.execute("""
+                SELECT id, location_id, contact_id, payload, failure_reason, created_at
+                FROM failed_webhook_payloads
+                WHERE retried = FALSE
+                  AND created_at > NOW() - INTERVAL '%s hours'
+                ORDER BY created_at ASC
+                LIMIT %s
+            """, (max_age_hours, limit))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_unretried_failed_webhooks failed: {e}")
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def mark_failed_webhook_retried(payload_id: int, success: bool,
+                                result: str = None) -> bool:
+    """Mark a failed webhook payload as retried."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE failed_webhook_payloads
+            SET retried = TRUE,
+                retry_result = %s,
+                retried_at = NOW()
+            WHERE id = %s
+        """, (result or ("success" if success else "failed"), payload_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"mark_failed_webhook_retried failed for id {payload_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
 def init_db() -> bool:
     """Initialize the MASTER subscribers table and all supporting tables."""
     conn = get_db_connection()
@@ -987,6 +1087,30 @@ def init_db() -> bool:
             logger.info("✅ Migration: Discord integration tables ready")
         except Exception as e:
             logger.debug(f"Discord migration note: {e}")
+
+        # 23. MIGRATION: Create failed_webhook_payloads table for token-failure recovery
+        try:
+            cur_fwp = conn.cursor()
+            cur_fwp.execute("""
+                CREATE TABLE IF NOT EXISTS failed_webhook_payloads (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT,
+                    payload JSONB NOT NULL,
+                    failure_reason TEXT NOT NULL,
+                    retried BOOLEAN DEFAULT FALSE,
+                    retry_result TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    retried_at TIMESTAMP
+                )
+            """)
+            cur_fwp.execute("CREATE INDEX IF NOT EXISTS idx_fwp_location_retried ON failed_webhook_payloads(location_id, retried)")
+            cur_fwp.execute("CREATE INDEX IF NOT EXISTS idx_fwp_created ON failed_webhook_payloads(created_at)")
+            conn.commit()
+            cur_fwp.close()
+            logger.info("✅ Migration: Created failed_webhook_payloads table")
+        except Exception as e:
+            logger.debug(f"failed_webhook_payloads migration note: {e}")
 
         # ── Super Admin role migration ──────────────────────────────────────
         # Ensures the platform owner always has super_admin role on every deploy.

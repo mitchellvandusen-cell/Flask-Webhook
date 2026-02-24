@@ -7,7 +7,7 @@ import time
 from typing import Tuple, Optional
 from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -640,6 +640,11 @@ def process_webhook_task(payload: dict):
                         except Exception as retry_err:
                             logger.error(f"Failed to re-queue task: {retry_err}")
 
+                # Persist payload so the scourer can replay it once token is fixed
+                save_failed_webhook_payload(location_id, contact_id, payload, token_error)
+                logger.info(f"💾 Saved failed webhook payload for {contact_id} "
+                           f"(reason={token_error}) — scourer will retry later")
+
                 return {"status": "error", "reason": f"token refresh failed: {token_error}"}
 
             # If we got an expired token as last resort, log a warning but continue
@@ -1225,3 +1230,146 @@ def _audit_and_retry_failed_tasks(location_id: str, working_token: str):
 
     except Exception as e:
         logger.error(f"Token recovery audit failed for {location_id}: {e}", exc_info=True)
+
+
+def recover_failed_webhooks(max_age_hours: int = 24) -> dict:
+    """Scourer: find all webhook tasks that failed due to token errors in the
+    last N hours and attempt to reprocess them.
+
+    Flow:
+    1. Query failed_webhook_payloads table for unretried entries
+    2. Group by location_id
+    3. For each location, attempt to get a valid token (force-refresh)
+    4. If token obtained, re-queue each failed payload via process_webhook_task
+    5. Mark each payload as retried with the result
+
+    This is designed to be called by a cron endpoint (e.g., every 15 minutes)
+    and is safe to run concurrently — each payload is marked retried atomically
+    before reprocessing.
+
+    Returns:
+        dict with stats: {locations_checked, locations_recovered, total_found,
+                          requeued, skipped, token_failures}
+    """
+    stats = {
+        "locations_checked": 0,
+        "locations_recovered": 0,
+        "total_found": 0,
+        "requeued": 0,
+        "skipped": 0,
+        "token_failures": 0,
+    }
+
+    try:
+        # Step 1: Get all unretried failed webhooks
+        failed = get_unretried_failed_webhooks(max_age_hours=max_age_hours, limit=200)
+        stats["total_found"] = len(failed)
+
+        if not failed:
+            logger.info(f"🔍 SCOURER: No unretried failed webhooks in last {max_age_hours}h")
+            return stats
+
+        logger.info(f"🔍 SCOURER: Found {len(failed)} unretried failed webhooks "
+                   f"in last {max_age_hours}h — attempting recovery")
+
+        # Step 2: Group by location_id
+        by_location = {}
+        for entry in failed:
+            loc = entry['location_id']
+            if loc not in by_location:
+                by_location[loc] = []
+            by_location[loc].append(entry)
+
+        # Step 3: For each location, try to get a valid token
+        for location_id, entries in by_location.items():
+            stats["locations_checked"] += 1
+            logger.info(f"🔄 SCOURER: Processing {len(entries)} failed webhooks "
+                       f"for location {location_id}")
+
+            # Force-refresh token — tries both Public and Private app credentials
+            try:
+                token, was_refreshed, token_err = get_valid_token_with_status(
+                    location_id, force_refresh=True)
+            except Exception as e:
+                logger.error(f"SCOURER: Token refresh exception for {location_id}: {e}")
+                token = None
+                token_err = str(e)
+
+            if not token:
+                logger.warning(f"⚠️ SCOURER: Still no valid token for {location_id} "
+                              f"(error={token_err}) — skipping {len(entries)} webhooks")
+                stats["token_failures"] += 1
+                # Don't mark as retried — leave for next scourer run
+                # (token might become available after user re-auths)
+                continue
+
+            logger.info(f"✅ SCOURER: Got valid token for {location_id} — "
+                       f"re-queuing {len(entries)} failed webhooks")
+            stats["locations_recovered"] += 1
+
+            # Step 4: Re-queue each failed payload
+            for entry in entries:
+                payload_id = entry['id']
+                contact_id = entry.get('contact_id', 'unknown')
+                stored_payload = entry.get('payload') or {}
+
+                # Ensure payload is a dict (JSONB comes back as dict from psycopg2)
+                if isinstance(stored_payload, str):
+                    try:
+                        import json as _json
+                        stored_payload = _json.loads(stored_payload)
+                    except Exception:
+                        logger.error(f"SCOURER: Invalid JSON payload for id={payload_id}")
+                        mark_failed_webhook_retried(payload_id, success=False,
+                                                    result="invalid_payload")
+                        stats["skipped"] += 1
+                        continue
+
+                # Tag the payload so the task knows it's a scourer replay
+                stored_payload["_scourer_replay"] = True
+                stored_payload["_scourer_replay_id"] = payload_id
+
+                try:
+                    import redis
+                    from rq import Queue
+                    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+                    r = redis.from_url(redis_url, socket_timeout=5,
+                                       socket_connect_timeout=5)
+                    q = Queue('production', connection=r)
+                    q.enqueue(
+                        process_webhook_task,
+                        stored_payload,
+                        job_timeout=120,
+                        result_ttl=86400,
+                    )
+                    mark_failed_webhook_retried(payload_id, success=True,
+                                                result="requeued")
+                    stats["requeued"] += 1
+                    logger.info(f"✅ SCOURER: Re-queued webhook for {contact_id} "
+                               f"(payload_id={payload_id})")
+                except Exception as enqueue_err:
+                    logger.error(f"SCOURER: Failed to re-queue payload {payload_id}: "
+                                f"{enqueue_err}")
+                    mark_failed_webhook_retried(payload_id, success=False,
+                                                result=f"enqueue_error: {str(enqueue_err)[:100]}")
+                    stats["skipped"] += 1
+
+                # Small delay to avoid hammering Redis
+                time.sleep(0.5)
+
+        logger.info(f"📊 SCOURER COMPLETE: checked {stats['locations_checked']} locations | "
+                   f"recovered {stats['locations_recovered']} | "
+                   f"requeued {stats['requeued']}/{stats['total_found']} webhooks | "
+                   f"token failures: {stats['token_failures']}")
+
+        if stats["requeued"] > 0:
+            log_webhook_event("SYSTEM", "scourer_complete", "success",
+                              f"Scourer recovered {stats['requeued']} failed webhooks "
+                              f"across {stats['locations_recovered']} locations",
+                              details=stats)
+
+    except Exception as e:
+        logger.error(f"SCOURER CRITICAL ERROR: {e}", exc_info=True)
+        stats["error"] = str(e)
+
+    return stats
