@@ -7,7 +7,7 @@ import time
 from typing import Tuple, Optional
 from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -1043,6 +1043,9 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                                       contact_id=contact_id, details={"error": error, "status_code": status_code})
 
             elif not is_demo:
+                sent = False
+                fail_reason = None
+
                 if use_crm_adapter:
                     # Non-GHL CRM: Use adapter for messaging
                     try:
@@ -1050,16 +1053,62 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                         adapter = get_adapter_for_subscriber(subscriber)
                         if adapter.SUPPORTS_MESSAGING:
                             sent = adapter.send_message(contact_id, reply)
+                            fail_reason = None if sent else 'adapter'
                         else:
                             # CRM doesn't support messaging - use GHL as messaging fallback
                             # (some users use Zapier for booking but GHL for SMS)
-                            sent = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                            sent, fail_reason = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
                     except Exception as adapter_err:
                         logger.error(f"CRM adapter send_message error: {adapter_err}")
                         sent = False
+                        fail_reason = 'adapter'
                 else:
-                    # GHL: Use existing direct code path (unchanged)
-                    sent = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                    # GHL: Use existing direct code path
+                    sent, fail_reason = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+
+                # === TOKEN RECOVERY ===
+                # If SMS failed due to 401/403 auth, force-refresh the token and retry.
+                # Works for BOTH Public (marketplace) and Private app credentials —
+                # get_valid_token_with_status tries all configured credential sets.
+                if not sent and fail_reason == 'auth':
+                    logger.warning(f"🔄 TOKEN RECOVERY: SMS auth failure for {contact_id} — "
+                                  f"force-refreshing token for {location_id}")
+                    recovered_token, was_refreshed, recovery_err = get_valid_token_with_status(
+                        location_id, force_refresh=True)
+
+                    if recovered_token and recovered_token != auth_token:
+                        logger.info(f"🔄 Got fresh token for {location_id} — retrying SMS")
+                        auth_token = recovered_token
+                        subscriber['access_token'] = recovered_token
+                        sent, fail_reason = send_sms_via_ghl(
+                            contact_id, reply, recovered_token, location_id)
+
+                        if sent:
+                            logger.info(f"✅ TOKEN RECOVERY SUCCESS: SMS sent for {contact_id} "
+                                       f"after token refresh")
+                            log_webhook_event(location_id, "token_recovery", "success",
+                                              f"Token recovered + SMS sent for {contact_id}",
+                                              contact_id=contact_id)
+                            # Audit and retry ALL recent auth-failed messages for this location
+                            _audit_and_retry_failed_tasks(location_id, recovered_token)
+                        else:
+                            logger.error(f"❌ TOKEN RECOVERY: Got new token but SMS still "
+                                        f"failed ({fail_reason}) for {contact_id}")
+                            log_webhook_event(location_id, "token_recovery", "warning",
+                                              f"Token refreshed but SMS retry failed ({fail_reason})",
+                                              contact_id=contact_id)
+                    elif recovered_token and recovered_token == auth_token:
+                        # Same token returned — refresh didn't actually happen
+                        logger.warning(f"⚠️ TOKEN RECOVERY: Force-refresh returned same token "
+                                      f"for {location_id} — token may be valid but GHL "
+                                      f"rejected the SMS for another reason")
+                    else:
+                        logger.error(f"❌ TOKEN RECOVERY FAILED: Could not refresh token "
+                                    f"for {location_id} (error={recovery_err})")
+                        log_webhook_event(location_id, "token_recovery", "error",
+                                          f"Token recovery failed: {recovery_err}",
+                                          contact_id=contact_id,
+                                          details={"error": recovery_err})
 
                 if sent:
                     save_message(contact_id, reply, "assistant")
@@ -1068,11 +1117,14 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                                       f"Reply sent ({len(reply)} chars)",
                                       contact_id=contact_id, details={"preview": reply[:80]})
                 else:
-                    logger.warning("Message send failed — saved locally")
+                    logger.warning(f"Message send failed ({fail_reason}) — saved locally")
                     save_message(contact_id, reply, "assistant")
                     log_webhook_event(location_id, "message_failed", "error",
-                                      "Message send failed",
-                                      contact_id=contact_id)
+                                      f"Message send failed ({fail_reason})",
+                                      contact_id=contact_id,
+                                      details={"failure_reason": fail_reason or "unknown",
+                                               "reply": reply[:500],
+                                               "contact_id": contact_id})
             else:
                 save_message(contact_id, reply, "assistant")
                 logger.info("⚠ DEMO MODE: Message saved internally")
@@ -1088,3 +1140,88 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
     finally:
         elapsed = time.time() - start_time
         logger.info(f"⏹ TASK END | contact={contact_id} | took {elapsed:.2f}s")
+
+
+def _audit_and_retry_failed_tasks(location_id: str, working_token: str):
+    """After a successful token recovery, audit all recent auth-failed messages
+    for this location and retry sending them with the working token.
+
+    This catches messages that failed while the token was expired/revoked but
+    the reply was already generated by the AI. Instead of re-running the full
+    AI pipeline, we just re-send the saved reply text.
+
+    Only retries messages from the last 60 minutes to avoid resending stale content.
+    Each message is marked as 'retried' in the DB to prevent infinite retry loops.
+    """
+    try:
+        failed_messages = get_auth_failed_messages(location_id, max_age_minutes=60, limit=50)
+        if not failed_messages:
+            logger.info(f"🔍 Token recovery audit: no auth-failed messages to retry "
+                       f"for {location_id}")
+            return
+
+        logger.info(f"🔍 TOKEN RECOVERY AUDIT: Found {len(failed_messages)} auth-failed "
+                   f"messages for {location_id} — retrying with recovered token")
+
+        retried_count = 0
+        success_count = 0
+
+        for entry in failed_messages:
+            log_id = entry.get('id')
+            cid = entry.get('contact_id')
+            details = entry.get('details') or {}
+
+            # Get the reply text that was saved when the original send failed
+            reply_text = details.get('reply')
+            if not reply_text or not cid:
+                logger.debug(f"Skipping audit entry {log_id}: missing reply or contact_id")
+                mark_webhook_log_retried(log_id, success=False)
+                continue
+
+            retried_count += 1
+            logger.info(f"🔄 AUDIT RETRY [{retried_count}/{len(failed_messages)}]: "
+                       f"Resending to {cid} ({len(reply_text)} chars)")
+
+            sent, fail_reason = send_sms_via_ghl(cid, reply_text, working_token, location_id)
+
+            if sent:
+                success_count += 1
+                mark_webhook_log_retried(log_id, success=True)
+                log_webhook_event(location_id, "audit_retry_sent", "success",
+                                  f"Audit retry: message resent to {cid}",
+                                  contact_id=cid,
+                                  details={"original_log_id": log_id,
+                                           "preview": reply_text[:80]})
+                logger.info(f"✅ AUDIT RETRY: Successfully resent to {cid}")
+            else:
+                mark_webhook_log_retried(log_id, success=False)
+                log_webhook_event(location_id, "audit_retry_failed", "error",
+                                  f"Audit retry failed for {cid} ({fail_reason})",
+                                  contact_id=cid,
+                                  details={"original_log_id": log_id,
+                                           "failure_reason": fail_reason})
+                logger.warning(f"❌ AUDIT RETRY: Failed to resend to {cid} ({fail_reason})")
+
+                # If this retry also failed with auth, stop — token might be bad again
+                if fail_reason == 'auth':
+                    logger.error(f"🛑 AUDIT RETRY: Auth failure on retry — stopping audit "
+                                f"(token may have expired again)")
+                    break
+
+            # Small delay between sends to avoid rate limiting
+            time.sleep(1)
+
+        logger.info(f"📊 TOKEN RECOVERY AUDIT COMPLETE for {location_id}: "
+                   f"{success_count}/{retried_count} messages resent successfully "
+                   f"(out of {len(failed_messages)} total failed)")
+
+        if success_count > 0:
+            log_webhook_event(location_id, "audit_complete", "success",
+                              f"Token recovery audit: {success_count}/{retried_count} "
+                              f"messages resent",
+                              details={"total_found": len(failed_messages),
+                                       "retried": retried_count,
+                                       "succeeded": success_count})
+
+    except Exception as e:
+        logger.error(f"Token recovery audit failed for {location_id}: {e}", exc_info=True)

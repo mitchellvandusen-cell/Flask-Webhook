@@ -268,6 +268,68 @@ def log_webhook_event(location_id: str, event_type: str, status: str = "info",
             return_db_connection(conn)
 
 
+def get_auth_failed_messages(location_id: str, max_age_minutes: int = 60,
+                             limit: int = 50) -> list:
+    """Fetch recent message_failed webhook logs caused by auth errors, that haven't
+    been retried yet. Used by the token recovery audit system.
+
+    Returns list of dicts with: id, contact_id, details (contains reply text).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, contact_id, details, created_at
+            FROM webhook_logs
+            WHERE location_id = %s
+              AND event_type = 'message_failed'
+              AND status = 'error'
+              AND details->>'failure_reason' = 'auth'
+              AND (details->>'retried') IS NULL
+              AND created_at > NOW() - INTERVAL '%s minutes'
+            ORDER BY created_at ASC
+            LIMIT %s
+        """, (location_id, max_age_minutes, limit))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_auth_failed_messages failed: {e}")
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def mark_webhook_log_retried(log_id: int, success: bool = True) -> bool:
+    """Mark a webhook_log entry as retried (prevents re-processing by audit).
+
+    Updates the JSONB details field to add retried=true and retry_result.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE webhook_logs
+            SET details = details || %s::jsonb
+            WHERE id = %s
+        """, (json.dumps({"retried": True,
+                          "retry_result": "success" if success else "failed"}), log_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"mark_webhook_log_retried failed for log {log_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
 def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
                      event_type: str = None, status: str = None) -> list:
     """Fetch webhook logs for a subscriber, newest first."""
