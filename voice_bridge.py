@@ -2513,6 +2513,15 @@ def dial_contact():
 
     use_amd = dial_mode == 'ai'
 
+    # Idempotency guard: prevent double-dial to the same phone number.
+    # If a non-terminal call to this phone already exists for this location, return it.
+    for sid, info in list(_active_calls.items()):
+        if (info.get('phone') == phone
+                and info.get('_location_id') == location_id
+                and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+            logger.warning(f"Double-dial blocked: {phone} already has active call {sid[:16]} (status={info.get('status')})")
+            return jsonify({"status": "calling", "call_sid": sid, "dial_mode": dial_mode})
+
     try:
         host = request.host
         webhook_base_url = f"https://{host}"
