@@ -434,42 +434,44 @@
 
         // ── Import External Brand + Campaign ──
         async function a2pImportExternal() {
-            var brandId = (document.getElementById('a2pImportBrandId')?.value || '').trim();
-            var campaignId = (document.getElementById('a2pImportCampaignId')?.value || '').trim();
+            var campaignId = (document.getElementById('a2pImportCampaignId')?.value || '').trim().toUpperCase();
             var result = document.getElementById('a2pImportResult');
             var btn = document.getElementById('a2pImportBtn');
 
-            if (!brandId) { result.innerHTML = '<span style="color:#ef4444;">Brand ID is required</span>'; return; }
-            if (!campaignId) { result.innerHTML = '<span style="color:#ef4444;">Campaign ID is required</span>'; return; }
+            if (!campaignId) { result.innerHTML = '<span style="color:#ef4444;">TCR Campaign ID is required</span>'; return; }
+            if (!/^C[A-Z0-9]{6}$/i.test(campaignId)) {
+                result.innerHTML = '<span style="color:#ef4444;">Campaign ID must be 7 characters starting with C (e.g. C123456)</span>';
+                return;
+            }
 
             var numberSids = a2pGetSelectedNumberSids('a2pImportNumbersList');
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Importing...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Linking campaign...';
             result.innerHTML = '';
             try {
                 var r = await fetch('/voice/a2p/import', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ brand_id: brandId, campaign_id: campaignId, phone_number_sids: numberSids }),
+                    body: JSON.stringify({ campaign_id: campaignId, phone_number_sids: numberSids }),
                 });
                 var d = await r.json();
                 if (r.ok) {
-                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Imported successfully!') + '</span>';
+                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Campaign linked successfully!') + '</span>';
                     setTimeout(function() { a2pLoadStatus(); }, 500);
                 } else {
                     if (d.payment_required) {
                         result.innerHTML = '<span style="color:#ffa500;">Payment required. Redirecting...</span>';
                         a2pPayFee();
                     } else {
-                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Import failed') + '</span>';
+                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Link failed') + '</span>';
                     }
                 }
             } catch(e) {
                 result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
             }
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-file-import me-2"></i>Import Brand & Campaign';
+            btn.innerHTML = '<i class="fa-solid fa-file-import me-2"></i>Link External Campaign';
         }
 
         // ── Register New Brand ──
