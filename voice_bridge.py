@@ -4352,6 +4352,7 @@ def get_contact_call_counts_merged():
         return_db_connection(conn)
 
     # GHL counts in parallel threads
+    _CALL_TYPES = {3, 4, 3.0, 4.0, "3", "4", "TYPE_CALL", "TYPE_VOICEMAIL", "Call", "call"}
     ghl_counts = {cid: 0 for cid in contact_ids}
     if location_id:
         try:
@@ -4369,36 +4370,58 @@ def get_contact_call_counts_merged():
                             f"{GHL_API_BASE}/conversations/search",
                             headers=headers,
                             params={"locationId": location_id, "contactId": cid},
-                            timeout=6,
+                            timeout=8,
                         )
                         if sr.status_code != 200:
+                            logger.debug(f"[merged] convo search {sr.status_code} for {cid}")
                             return cid, 0
                         convos = sr.json().get("conversations", [])
                         if not convos:
                             return cid, 0
                         convo_id = convos[0]["id"]
-                        mr = http_requests.get(
-                            f"{GHL_API_BASE}/conversations/{convo_id}/messages",
-                            headers=headers,
-                            params={"limit": 100},
-                            timeout=6,
-                        )
-                        if mr.status_code != 200:
-                            return cid, 0
-                        payload = mr.json().get("messages", [])
-                        raw_msgs = payload.get("messages", []) if isinstance(payload, dict) else payload
-                        count = sum(
-                            1 for m in raw_msgs
-                            if isinstance(m, dict)
-                            and (m.get("type") or m.get("messageType", "")) in (3, 4, "TYPE_CALL", 3.0, 4.0)
-                        )
+
+                        # Paginate through ALL messages to count every call
+                        count = 0
+                        last_message_id = None
+                        max_pages = 10  # safety cap: 10 pages × 100 = 1000 msgs
+                        for _ in range(max_pages):
+                            params = {"limit": 100}
+                            if last_message_id:
+                                params["lastMessageId"] = last_message_id
+                            mr = http_requests.get(
+                                f"{GHL_API_BASE}/conversations/{convo_id}/messages",
+                                headers=headers,
+                                params=params,
+                                timeout=8,
+                            )
+                            if mr.status_code != 200:
+                                logger.debug(f"[merged] msgs {mr.status_code} for {cid} page")
+                                break
+                            data = mr.json()
+                            raw_msgs = data.get("messages", [])
+                            if isinstance(raw_msgs, dict):
+                                raw_msgs = raw_msgs.get("messages", [])
+                            for m in raw_msgs:
+                                if not isinstance(m, dict):
+                                    continue
+                                mtype = m.get("type", m.get("messageType", ""))
+                                if mtype in _CALL_TYPES:
+                                    count += 1
+                            # Check for next page
+                            next_page = data.get("nextPage", False)
+                            new_last_id = data.get("lastMessageId")
+                            if not next_page or not new_last_id or new_last_id == last_message_id:
+                                break
+                            last_message_id = new_last_id
+
                         return cid, count
-                    except Exception:
+                    except Exception as exc:
+                        logger.debug(f"[merged] _fetch_ghl error for {cid}: {exc}")
                         return cid, 0
 
                 with ThreadPoolExecutor(max_workers=8) as pool:
                     futures = {pool.submit(_fetch_ghl, cid): cid for cid in contact_ids}
-                    for future in as_completed(futures, timeout=15):
+                    for future in as_completed(futures, timeout=30):
                         try:
                             cid, count = future.result()
                             ghl_counts[cid] = count
@@ -4439,7 +4462,8 @@ def get_contact_ghl_call_count(contact_id):
     finally:
         return_db_connection(conn)
 
-    # Fetch GHL conversation call messages
+    # Fetch GHL conversation call messages (paginate through all)
+    _CALL_TYPES = {3, 4, 3.0, 4.0, "3", "4", "TYPE_CALL", "TYPE_VOICEMAIL", "Call", "call"}
     ghl_count = 0
     try:
         access_token = get_valid_token(location_id)
@@ -4459,22 +4483,38 @@ def get_contact_ghl_call_count(contact_id):
                 convos = search_resp.json().get("conversations", [])
                 if convos:
                     convo_id = convos[0]["id"]
-                    msg_resp = http_requests.get(
-                        f"{GHL_API_BASE}/conversations/{convo_id}/messages",
-                        headers=headers,
-                        params={"limit": 100},
-                        timeout=10
-                    )
-                    if msg_resp.status_code == 200:
-                        payload = msg_resp.json().get("messages", [])
-                        raw_msgs = payload.get("messages", []) if isinstance(payload, dict) else payload
+                    last_message_id = None
+                    max_pages = 10  # safety cap: 10 pages × 100 = 1000 msgs
+                    for _ in range(max_pages):
+                        params = {"limit": 100}
+                        if last_message_id:
+                            params["lastMessageId"] = last_message_id
+                        msg_resp = http_requests.get(
+                            f"{GHL_API_BASE}/conversations/{convo_id}/messages",
+                            headers=headers,
+                            params=params,
+                            timeout=10
+                        )
+                        if msg_resp.status_code != 200:
+                            break
+                        data = msg_resp.json()
+                        raw_msgs = data.get("messages", [])
+                        if isinstance(raw_msgs, dict):
+                            raw_msgs = raw_msgs.get("messages", [])
                         for m in raw_msgs:
                             if not isinstance(m, dict):
                                 continue
-                            mtype = m.get("type") or m.get("messageType", "")
-                            # GHL call message types: 3 (outbound call), 4 (inbound call), TYPE_CALL
-                            if mtype in (3, 4, "TYPE_CALL") or mtype in (3.0, 4.0):
+                            mtype = m.get("type", m.get("messageType", ""))
+                            if mtype in _CALL_TYPES:
                                 ghl_count += 1
+                        # Check for next page
+                        next_page = data.get("nextPage", False)
+                        new_last_id = data.get("lastMessageId")
+                        if not next_page or not new_last_id or new_last_id == last_message_id:
+                            break
+                        last_message_id = new_last_id
+            else:
+                logger.debug(f"GHL convo search returned {search_resp.status_code} for contact {contact_id}")
     except Exception as e:
         logger.warning(f"GHL call count fetch failed for {contact_id}: {e}")
 
