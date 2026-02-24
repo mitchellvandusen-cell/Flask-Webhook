@@ -2599,6 +2599,33 @@ def api_send_reminders():
         }), 200  # Return 200 so cron-job.org doesn't mark as failed
 
 
+@app.route("/api/cron/refresh-tokens", methods=["GET", "POST"])
+def api_cron_refresh_tokens():
+    """
+    Cron-triggered endpoint: proactively refresh GHL OAuth tokens that will
+    expire within 30 minutes. Prevents token expiry from blocking webhook processing.
+    Schedule this every 15 minutes via cron-job.org or Railway cron.
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from ghl_api import refresh_tokens_proactively
+        buffer_minutes = int(request.args.get("buffer", 30))
+        stats = refresh_tokens_proactively(buffer_minutes=buffer_minutes)
+        return safe_jsonify({"success": True, **stats})
+    except Exception as e:
+        logger.error(f"Cron refresh-tokens crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
 @app.route("/api/admin/send-email", methods=["GET", "POST"])
 def api_admin_send_email():
     """
