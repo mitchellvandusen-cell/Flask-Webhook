@@ -58,7 +58,6 @@
             '  max-width: 400px !important;',
             '  font-family: "Outfit", sans-serif !important;',
             '  animation: igbTutIn 0.35s cubic-bezier(0.22,1,0.36,1) !important;',
-            '  position: relative !important;',
             '}',
 
             /* ── Top-edge light streak (glass refraction highlight) ── */
