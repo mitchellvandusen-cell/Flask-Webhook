@@ -330,6 +330,35 @@ def mark_webhook_log_retried(log_id: int, success: bool = True) -> bool:
             return_db_connection(conn)
 
 
+def mark_webhook_log_backfill_retried(log_id: int, success: bool = True) -> bool:
+    """Mark a webhook_received log entry as backfill-retried.
+
+    Uses the 'backfill_retried' key (distinct from 'retried' used by the
+    scourer/audit) so the dropped-webhook query can filter them out.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE webhook_logs
+            SET details = details || %s::jsonb
+            WHERE id = %s
+        """, (json.dumps({"backfill_retried": True,
+                          "backfill_result": "success" if success else "failed"}), log_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"mark_webhook_log_backfill_retried failed for log {log_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
 def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
                      event_type: str = None, status: str = None) -> list:
     """Fetch webhook logs for a subscriber, newest first."""
@@ -361,57 +390,79 @@ def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
 
 def get_token_failed_webhook_logs(max_age_hours: int = 48,
                                   limit: int = 500) -> list:
-    """Query webhook_logs for historical 'Token refresh failed' errors that
-    haven't been retried yet. Used by the one-shot backfill to recover
-    webhooks that failed BEFORE the failed_webhook_payloads table existed.
+    """Find dropped webhooks and failed SMS sends from webhook_logs.
 
-    For each error entry, we also look up the matching 'webhook_received' log
-    to recover the message_preview and first_name.
+    Works BACKWARDS from outcomes — does NOT rely on error entries existing.
+
+    Catches TWO types of failures:
+
+      1. 'dropped' — A 'webhook_received' entry exists but there is NO
+         matching 'message_sent', 'api_webhook_sent', or 'audit_retry_sent'
+         within 10 minutes after it.  These are messages that were received
+         but never replied to (token refresh failed, task crashed, etc.).
+         Needs a full pipeline re-queue.
+
+      2. 'sms_http_fail' — event_type='message_failed'. The AI reply was
+         generated but the SMS HTTP call failed.  The reply text is saved
+         in details->>'reply' so we only need to re-send the SMS.
 
     Returns list of dicts with: id, location_id, contact_id, details,
-    created_at, message_preview, first_name.
+    created_at, message_preview, first_name, entry_type.
     """
     conn = get_db_connection()
     if not conn:
         return []
     try:
         cur = conn.cursor()
-        # Fetch the error entries
         cur.execute("""
-            SELECT e.id, e.location_id, e.contact_id, e.details, e.created_at,
-                   -- Find the closest 'webhook_received' entry for this contact
-                   -- within a 5-minute window before the error
-                   (
-                       SELECT wr.details->>'message_preview'
-                       FROM webhook_logs wr
-                       WHERE wr.location_id = e.location_id
-                         AND wr.contact_id = e.contact_id
-                         AND wr.event_type = 'webhook_received'
-                         AND wr.created_at BETWEEN e.created_at - INTERVAL '5 minutes'
-                                               AND e.created_at
-                       ORDER BY wr.created_at DESC
-                       LIMIT 1
-                   ) AS message_preview,
-                   (
-                       SELECT wr2.summary
-                       FROM webhook_logs wr2
-                       WHERE wr2.location_id = e.location_id
-                         AND wr2.contact_id = e.contact_id
-                         AND wr2.event_type = 'webhook_received'
-                         AND wr2.created_at BETWEEN e.created_at - INTERVAL '5 minutes'
-                                                AND e.created_at
-                       ORDER BY wr2.created_at DESC
-                       LIMIT 1
-                   ) AS received_summary
-            FROM webhook_logs e
-            WHERE e.event_type = 'error'
-              AND e.status = 'error'
-              AND e.summary LIKE 'Token refresh failed%%'
-              AND (e.details->>'retried') IS NULL
-              AND e.created_at > NOW() - INTERVAL '%s hours'
-            ORDER BY e.created_at ASC
+            (
+                SELECT wr.id, wr.location_id, wr.contact_id, wr.details,
+                       wr.event_type, wr.summary, wr.created_at,
+                       'dropped' AS entry_type,
+                       wr.details->>'message_preview' AS message_preview,
+                       wr.summary AS received_summary
+                FROM webhook_logs wr
+                WHERE wr.event_type = 'webhook_received'
+                  AND wr.created_at > NOW() - INTERVAL '%s hours'
+                  AND (wr.details->>'backfill_retried') IS NULL
+                  AND wr.contact_id IS NOT NULL
+                  -- No successful reply within 10 min
+                  AND NOT EXISTS (
+                      SELECT 1 FROM webhook_logs ms
+                      WHERE ms.location_id = wr.location_id
+                        AND ms.contact_id  = wr.contact_id
+                        AND ms.event_type IN (
+                            'message_sent', 'api_webhook_sent', 'audit_retry_sent'
+                        )
+                        AND ms.created_at BETWEEN wr.created_at
+                                              AND wr.created_at + INTERVAL '10 minutes'
+                  )
+                  -- Exclude if there's a message_failed (handled separately below)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM webhook_logs mf
+                      WHERE mf.location_id = wr.location_id
+                        AND mf.contact_id  = wr.contact_id
+                        AND mf.event_type  = 'message_failed'
+                        AND mf.created_at BETWEEN wr.created_at
+                                              AND wr.created_at + INTERVAL '10 minutes'
+                  )
+            )
+            UNION ALL
+            (
+                SELECT e.id, e.location_id, e.contact_id, e.details,
+                       e.event_type, e.summary, e.created_at,
+                       'sms_http_fail' AS entry_type,
+                       NULL AS message_preview,
+                       NULL AS received_summary
+                FROM webhook_logs e
+                WHERE e.event_type = 'message_failed'
+                  AND e.status = 'error'
+                  AND (e.details->>'retried') IS NULL
+                  AND e.created_at > NOW() - INTERVAL '%s hours'
+            )
+            ORDER BY created_at ASC
             LIMIT %s
-        """, (max_age_hours, limit))
+        """, (max_age_hours, max_age_hours, limit))
         rows = cur.fetchall()
         results = []
         for r in rows:

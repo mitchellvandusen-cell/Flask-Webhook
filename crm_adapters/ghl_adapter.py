@@ -22,7 +22,7 @@ class GHLAdapter(CRMAdapter):
 
     def send_message(self, contact_id: str, message: str, **kwargs) -> bool:
         from ghl_message import send_sms_via_ghl
-        sent, _reason = send_sms_via_ghl(
+        sent, _reason, _http_detail = send_sms_via_ghl(
             contact_id=contact_id,
             message_body=message,
             access_token=self.access_token,
