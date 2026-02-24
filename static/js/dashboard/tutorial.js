@@ -75,8 +75,9 @@
             '.driver-popover-footer {',
             '  display: flex !important;',
             '  align-items: center !important;',
-            '  margin-top: 18px !important;',
-            '  padding-top: 14px !important;',
+            '  margin-top: 14px !important;',
+            '  padding-top: 10px !important;',
+            '  padding-bottom: 0 !important;',
             '  border-top: 1px solid rgba(255,255,255,0.07) !important;',
             '  gap: 8px !important;',
             '}',
@@ -423,28 +424,28 @@
             }
         });
         steps.push({ element: '#voiceDialAttempts',
-            popover: { title: 'Dial Attempts', description: 'How many times the auto-dialer retries a <strong>no-answer</strong> before moving to the next contact. 2 is the sweet spot — aggressive enough to reach leads, not so many you annoy them.', side: 'right' }
+            popover: { title: 'Dial Attempts', description: 'How many times the auto-dialer retries a <strong>no-answer</strong> before moving to the next contact. 2 is the sweet spot — aggressive enough to reach leads, not so many you annoy them.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceAutoRecord',
-            popover: { title: 'Auto-Record', description: 'Automatically records every outbound call. Recordings appear in the Recordings tab and can be played back, downloaded, or transcribed.', side: 'right' }
+            popover: { title: 'Auto-Record', description: 'Automatically records every outbound call. Recordings appear in the Recordings tab and can be played back, downloaded, or transcribed.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceAutoTranscribe',
-            popover: { title: 'Auto-Transcribe', description: 'Generates a full <strong>word-for-word transcript</strong> of every recorded call. Transcripts are labeled by speaker (Lead / AI Agent) and stored permanently.', side: 'right' }
+            popover: { title: 'Auto-Transcribe', description: 'Generates a full <strong>word-for-word transcript</strong> of every recorded call. Transcripts are labeled by speaker (Lead / AI Agent) and stored permanently.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceLocalPresence',
-            popover: { title: 'Local Presence', description: 'Calls leads from a number that <strong>matches their area code</strong>, dramatically improving answer rates. Requires multiple local numbers in your pool.', side: 'right' }
+            popover: { title: 'Local Presence', description: 'Calls leads from a number that <strong>matches their area code</strong>, dramatically improving answer rates. Requires multiple local numbers in your pool.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceVoicemailDrop',
-            popover: { title: 'Voicemail Drop', description: 'When the AI detects a voicemail, it automatically leaves a <strong>pre-recorded message</strong> and moves to the next contact — no dead air, no wasted time.', side: 'right' }
+            popover: { title: 'Voicemail Drop', description: 'When the AI detects a voicemail, it automatically leaves a <strong>pre-recorded message</strong> and moves to the next contact — no dead air, no wasted time.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceTransferNumber',
-            popover: { title: 'Transfer Number', description: 'The phone number calls are transferred to when a lead asks to speak to someone live. Usually your <strong>personal cell or office line</strong>. Enter in E.164 format (+1XXXXXXXXXX).', side: 'right' }
+            popover: { title: 'Transfer Number', description: 'The phone number calls are transferred to when a lead asks to speak to someone live. Usually your <strong>personal cell or office line</strong>. Enter in E.164 format (+1XXXXXXXXXX).', side: 'left', align: 'start' }
         });
         steps.push({ element: '#audioInputDevice',
-            popover: { title: 'Microphone Selection', description: 'Choose which microphone to use when you <strong>take over a call</strong> (intercept) or make a Human-mode call. If you\'re on a headset, select it here.', side: 'right' }
+            popover: { title: 'Microphone Selection', description: 'Choose which microphone to use when you <strong>take over a call</strong> (intercept) or make a Human-mode call. If you\'re on a headset, select it here.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#audioOutputDevice',
-            popover: { title: 'Speaker Selection', description: 'Choose where call audio plays when you <strong>listen in</strong> or intercept. Use headphones for privacy and better audio quality.', side: 'right' },
+            popover: { title: 'Speaker Selection', description: 'Choose where call audio plays when you <strong>listen in</strong> or intercept. Use headphones for privacy and better audio quality.', side: 'left', align: 'start' },
             onDeselected: function() {
                 // close settings panel when done
                 var panel = document.getElementById('dialerSettingsPanel');
@@ -452,7 +453,7 @@
             }
         });
         steps.push({ element: '#voipSetupBanner',
-            popover: { title: 'VoIP Setup', description: 'If you haven\'t set up browser calling yet, this orange banner appears. Click <strong>"Setup VoIP"</strong> to register your browser as a Twilio endpoint — required for Human-mode calls and intercept.', side: 'bottom' },
+            popover: { title: 'VoIP Setup', description: 'If you haven\'t set up browser calling yet, this orange banner appears. Click <strong>"Setup VoIP"</strong> to register your browser as a voice endpoint — required for Human-mode calls and intercept.', side: 'bottom' },
             onHighlightStarted: function() {
                 var banner = document.getElementById('voipSetupBanner');
                 if (banner) { banner.style.display = 'flex'; banner.dataset.tutorialShown = '1'; }
@@ -632,13 +633,13 @@
             onHighlightStarted: function() { goTab('config'); }
         });
         steps.push({ element: '#calendar_select',
-            popover: { title: 'Calendar Selection', description: 'Click <strong>"Load Calendars"</strong> to pull your CRM calendars, then select the one the bot should book appointments into. This is critical for the booking flow to work.', side: 'right' }
+            popover: { title: 'Calendar Selection', description: 'Click <strong>"Load Calendars"</strong> to pull your CRM calendars, then select the one the bot should book appointments into. This is critical for the booking flow to work.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#bot_name',
-            popover: { title: 'Bot Name', description: 'The name the SMS bot introduces itself as. Example: "Sarah" or "Alex". This appears in outbound messages — <em>"Hi! This is Sarah from..."</em>', side: 'right' }
+            popover: { title: 'Bot Name', description: 'The name the SMS bot introduces itself as. Example: "Sarah" or "Alex". This appears in outbound messages — <em>"Hi! This is Sarah from..."</em>', side: 'left', align: 'start' }
         });
         steps.push({ element: '#initial_message',
-            popover: { title: 'Initial Outreach Message', description: 'The <strong>first SMS</strong> the bot sends to new leads. Make it warm, personal, and action-oriented. The bot sends this when a new lead webhook fires.', side: 'right' }
+            popover: { title: 'Initial Outreach Message', description: 'The <strong>first SMS</strong> the bot sends to new leads. Make it warm, personal, and action-oriented. The bot sends this when a new lead webhook fires.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#save-config-btn',
             popover: { title: 'Save Configuration', description: 'Always click <strong>Save</strong> after making changes. Your config is stored securely and takes effect immediately for all new conversations.', side: 'top' }
@@ -651,37 +652,37 @@
         steps.push(chapterStep(7, 'Voice AI Agent', 'Configure the voice AI that handles phone calls. Choose the voice, write the script, set behavior rules, and activate your phone number.'));
 
         steps.push({ element: '#voiceStatusBadge',
-            popover: { title: 'Voice AI Status', description: 'Shows whether Voice AI is currently <strong>enabled</strong> (green) or <strong>disabled</strong> (red). Toggle with the switch to the right.', side: 'right' },
+            popover: { title: 'Voice AI Status', description: 'Shows whether Voice AI is currently <strong>enabled</strong> (green) or <strong>disabled</strong> (red). Toggle with the switch to the right.', side: 'left', align: 'start' },
             onHighlightStarted: function() { goTab('voice'); }
         });
         steps.push({ element: '#voiceEnabled',
-            popover: { title: 'Enable / Disable Voice', description: 'Master switch for the voice AI agent. When <strong>off</strong>, all outbound and inbound voice AI features are disabled. Turn it on to start using the dialer\'s AI mode.', side: 'right' }
+            popover: { title: 'Enable / Disable Voice', description: 'Master switch for the voice AI agent. When <strong>off</strong>, all outbound and inbound voice AI features are disabled. Turn it on to start using the dialer\'s AI mode.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceSelection',
-            popover: { title: 'AI Voice Selection', description: 'Choose from <strong>7 AI voices</strong>: Ara, Eve, Leo, Rex, Sal, Mika, and Vale. Each has a unique tone — from warm and friendly to confident and authoritative.', side: 'right' }
+            popover: { title: 'AI Voice Selection', description: 'Choose from <strong>7 AI voices</strong>: Ara, Eve, Leo, Rex, Sal, Mika, and Vale. Each has a unique tone — from warm and friendly to confident and authoritative.', side: 'bottom', align: 'start' }
         });
         steps.push({ element: '#voicePreviewBtn',
-            popover: { title: 'Preview Voice', description: 'Click to hear a <strong>sample of the selected voice</strong>. Test different voices to find the one that best matches your agency\'s brand.', side: 'right' }
+            popover: { title: 'Preview Voice', description: 'Click to hear a <strong>sample of the selected voice</strong>. Test different voices to find the one that best matches your agency\'s brand.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#voiceBotName',
-            popover: { title: 'Voice Agent Name', description: 'The name the AI introduces itself as on calls. Example: <em>"Hi, this is Sarah calling from ABC Insurance."</em>', side: 'right' }
+            popover: { title: 'Voice Agent Name', description: 'The name the AI introduces itself as on calls. Example: <em>"Hi, this is Sarah calling from ABC Insurance."</em>', side: 'bottom', align: 'start' }
         });
         steps.push({ element: '#voiceCallScript',
-            popover: { title: 'Call Script', description: 'The <strong>reference script</strong> your AI agent follows. Write your ideal call flow — greeting, qualification questions, objection handling, and booking close. The AI adapts it naturally while staying on-script.', side: 'right' }
+            popover: { title: 'Call Script', description: 'The <strong>reference script</strong> your AI agent follows. Write your ideal call flow — greeting, qualification questions, objection handling, and booking close. The AI adapts it naturally while staying on-script.', side: 'bottom', align: 'start' }
         });
         steps.push({ element: '#voiceInstructions',
-            popover: { title: 'Behavior Instructions', description: 'Custom <strong>behavioral rules</strong> for the voice AI. Example: "Never offer quotes over the phone" or "Always mention our 30-year track record." These instructions shape how the AI handles conversations.', side: 'right' }
+            popover: { title: 'Behavior Instructions', description: 'Custom <strong>behavioral rules</strong> for the voice AI. Example: "Never offer quotes over the phone" or "Always mention our 30-year track record." These instructions shape how the AI handles conversations.', side: 'bottom', align: 'start' }
         });
 
         // Voice sub-tabs
         steps.push({ element: '#vmenu-activation',
-            popover: { title: 'Activate Voice', description: 'This panel provisions your <strong>Twilio sub-account, phone number, and voice app</strong>. Click "Activate Voice" once to set everything up. After activation, your dialer is ready to make calls.', side: 'right' }
+            popover: { title: 'Activate Voice', description: 'This panel provisions your <strong>voice sub-account, phone number, and voice app</strong>. Click "Activate Voice" once to set everything up. After activation, your dialer is ready to make calls.', side: 'bottom' }
         });
         steps.push({ element: '#vmenu-numbers',
-            popover: { title: 'Phone Numbers', description: 'Manage your voice phone numbers. <strong>Buy additional numbers</strong> (local, toll-free, or mobile), view your active numbers, enable CNAM caller ID, and release numbers you no longer need.', side: 'right' }
+            popover: { title: 'Phone Numbers', description: 'Manage your voice phone numbers. <strong>Buy additional numbers</strong> (local, toll-free, or mobile), view your active numbers, enable CNAM caller ID, and release numbers you no longer need.', side: 'bottom' }
         });
         steps.push({ element: '#vmenu-trusthub',
-            popover: { title: 'Spam Protection', description: 'Register your business with Twilio\'s Trust Hub to <strong>reduce spam flagging</strong>. Enter your business name, EIN, and address. Protected numbers show your real business name on caller ID.', side: 'right' }
+            popover: { title: 'Spam Protection', description: 'Register your business with the Trust Hub to <strong>reduce spam flagging</strong>. Enter your business name, EIN, and address. Protected numbers show your real business name on caller ID.', side: 'bottom' }
         });
 
         // ============================================================
@@ -723,47 +724,47 @@
 
         // Advanced settings
         steps.push({ element: '#professionalism_level',
-            popover: { title: 'Professionalism Slider', description: 'Slide from <strong>Casual</strong> (friendly, conversational, emojis welcome) to <strong>Ultra Professional</strong> (formal, corporate, no slang). Most insurance agents land at level 3–4 — approachable but credible.', side: 'right' },
+            popover: { title: 'Professionalism Slider', description: 'Slide from <strong>Casual</strong> (friendly, conversational, emojis welcome) to <strong>Ultra Professional</strong> (formal, corporate, no slang). Most insurance agents land at level 3–4 — approachable but credible.', side: 'bottom', align: 'start' },
             onHighlightStarted: function() { goTab('advanced'); }
         });
         steps.push({ element: '#auto_emoji',
-            popover: { title: 'Emoji Usage', description: 'Allow the AI to use <strong>emojis in SMS messages</strong>. On = warm and expressive. Off = clean, text-only — better for formal or older demographics. You can toggle this independently of the professionalism level.', side: 'right' }
+            popover: { title: 'Emoji Usage', description: 'Allow the AI to use <strong>emojis in SMS messages</strong>. On = warm and expressive. Off = clean, text-only — better for formal or older demographics. You can toggle this independently of the professionalism level.', side: 'left', align: 'start' }
         });
         steps.push({ element: '.resp-len-btn',
-            popover: { title: 'Response Length', description: 'Control how verbose the AI\'s replies are:<br><strong>Short</strong> — 1–2 sentences, crisp and punchy.<br><strong>Balanced</strong> — 2–4 sentences, recommended for most agents.<br><strong>Detailed</strong> — Full explanations, great for complex coverage questions where leads need education.', side: 'right' }
+            popover: { title: 'Response Length', description: 'Control how verbose the AI\'s replies are:<br><strong>Short</strong> — 1–2 sentences, crisp and punchy.<br><strong>Balanced</strong> — 2–4 sentences, recommended for most agents.<br><strong>Detailed</strong> — Full explanations, great for complex coverage questions where leads need education.', side: 'bottom', align: 'start' }
         });
         steps.push({ element: '#humor_enabled',
-            popover: { title: 'Humor Mode', description: 'After 5+ unanswered messages, the AI sends a <strong>light, tasteful joke</strong> to re-engage cold leads. It sounds natural and disarming — and it works. Leads who ghosted often respond to the joke and re-enter the conversation.', side: 'right' }
+            popover: { title: 'Humor Mode', description: 'After 5+ unanswered messages, the AI sends a <strong>light, tasteful joke</strong> to re-engage cold leads. It sounds natural and disarming — and it works. Leads who ghosted often respond to the joke and re-enter the conversation.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#lead_reengagement',
-            popover: { title: 'Lead Re-engagement', description: 'Automatically <strong>follows up with silent leads</strong> on a spaced schedule. The AI sends varied nudge messages so it never feels repetitive. Runs until the lead responds, books, or asks to stop.', side: 'right' }
+            popover: { title: 'Lead Re-engagement', description: 'Automatically <strong>follows up with silent leads</strong> on a spaced schedule. The AI sends varied nudge messages so it never feels repetitive. Runs until the lead responds, books, or asks to stop.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#booking_confirmation',
-            popover: { title: 'Booking Confirmation', description: 'Before officially writing the appointment to your calendar, the AI <strong>re-confirms the date and time</strong> with the lead. Eliminates the "I didn\'t know we had a meeting" situation and reduces no-shows significantly.', side: 'right' }
+            popover: { title: 'Booking Confirmation', description: 'Before officially writing the appointment to your calendar, the AI <strong>re-confirms the date and time</strong> with the lead. Eliminates the "I didn\'t know we had a meeting" situation and reduces no-shows significantly.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#speed_to_lead',
-            popover: { title: 'Speed to Lead', description: 'Fires an <strong>instant AI reply</strong> the moment a new lead arrives. Studies show contacting a lead within 5 minutes is 9× more effective than waiting 30 minutes. This toggle ensures your bot beats every competitor to the conversation.', side: 'right' }
+            popover: { title: 'Speed to Lead', description: 'Fires an <strong>instant AI reply</strong> the moment a new lead arrives. Studies show contacting a lead within 5 minutes is 9× more effective than waiting 30 minutes. This toggle ensures your bot beats every competitor to the conversation.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#conversation_memory',
-            popover: { title: 'Conversation Memory', description: 'The AI <strong>remembers details from past conversations</strong> — their spouse\'s name, health concerns, coverage objections, previous quotes. When leads return, they feel recognized, not cold-called all over again.', side: 'right' }
+            popover: { title: 'Conversation Memory', description: 'The AI <strong>remembers details from past conversations</strong> — their spouse\'s name, health concerns, coverage objections, previous quotes. When leads return, they feel recognized, not cold-called all over again.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#multi_language',
-            popover: { title: 'Multi-Language Detection', description: 'Automatically <strong>detects the lead\'s language and replies in kind</strong>. If they text in Spanish, the AI responds in Spanish. Supports 30+ languages. Essential if you serve diverse markets.', side: 'right' }
+            popover: { title: 'Multi-Language Detection', description: 'Automatically <strong>detects the lead\'s language and replies in kind</strong>. If they text in Spanish, the AI responds in Spanish. Supports 30+ languages. Essential if you serve diverse markets.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#objection_persistence',
-            popover: { title: 'Objection Persistence', description: 'How many angles the AI tries when a lead pushes back before offering a <strong>graceful exit</strong>. Level 1 = soft and accepting. Level 5 = tenacious multi-angle rebuttal. Most agents find levels 2–3 strike the right balance.', side: 'right' }
+            popover: { title: 'Objection Persistence', description: 'How many angles the AI tries when a lead pushes back before offering a <strong>graceful exit</strong>. Level 1 = soft and accepting. Level 5 = tenacious multi-angle rebuttal. Most agents find levels 2–3 strike the right balance.', side: 'bottom', align: 'start' }
         });
         steps.push({ element: '#after_hours_enabled',
-            popover: { title: 'After Hours Mode', description: 'Define your <strong>business hours</strong>. Outside those hours, instead of doing a full AI conversation, the bot informs the lead it\'s after hours and offers to follow up first thing in the morning — professional and on-brand.', side: 'right' }
+            popover: { title: 'After Hours Mode', description: 'Define your <strong>business hours</strong>. Outside those hours, instead of doing a full AI conversation, the bot informs the lead it\'s after hours and offers to follow up first thing in the morning — professional and on-brand.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#outboundContainer',
-            popover: { title: 'Custom Outbound Messages', description: '<strong>Build a text drip sequence.</strong> Each message is sent once per lead in order — GrokBot checks them off as they go. After all custom messages are exhausted, the AI switches to fully autonomous mode. The result: <em>your curated drip + the AI\'s intelligence.</em>', side: 'right' }
+            popover: { title: 'Custom Outbound Messages', description: '<strong>Build a text drip sequence.</strong> Each message is sent once per lead in order — GrokBot checks them off as they go. After all custom messages are exhausted, the AI switches to fully autonomous mode. The result: <em>your curated drip + the AI\'s intelligence.</em>', side: 'top', align: 'start' }
         });
         steps.push({ element: '[onclick*="addOutboundMsg"]',
-            popover: { title: 'Add Outbound Message', description: 'Click to add a new message to your drip sequence. Write the message, save — and GrokBot will start using it for every new lead from that point forward. There\'s no limit to how many messages you can add.', side: 'right' }
+            popover: { title: 'Add Outbound Message', description: 'Click to add a new message to your drip sequence. Write the message, save — and GrokBot will start using it for every new lead from that point forward. There\'s no limit to how many messages you can add.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#custom_behavior',
-            popover: { title: 'Custom Behavior Instructions', description: 'Free-form rules that <strong>override the AI\'s defaults</strong>. Write anything:<br><em>"Always mention our 5-star Google rating"</em><br><em>"Never discuss policy prices — get them on a call first"</em><br><em>"Thank veterans for their service"</em><br>The more specific, the better the AI performs.', side: 'right' }
+            popover: { title: 'Custom Behavior Instructions', description: 'Free-form rules that <strong>override the AI\'s defaults</strong>. Write anything:<br><em>"Always mention our 5-star Google rating"</em><br><em>"Never discuss policy prices — get them on a call first"</em><br><em>"Thank veterans for their service"</em><br>The more specific, the better the AI performs.', side: 'top', align: 'start' }
         });
         steps.push({ element: '[onclick*="resetAdvancedSettings"]',
             popover: { title: 'Reset to Defaults', description: 'Reverts all advanced settings back to factory defaults. <strong>Use carefully</strong> — this will overwrite all customizations. Good for troubleshooting if behavior feels off after recent changes.', side: 'top' }
