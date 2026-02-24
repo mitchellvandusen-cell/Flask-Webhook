@@ -813,6 +813,7 @@ def init_db() -> bool:
             """)
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location ON call_history(location_id)")
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_call_sid ON call_history(call_sid)")
+            cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location_contact ON call_history(location_id, contact_id)")
             conn.commit()
             cur_calls.close()
             logger.info("✅ Migration: Created call_history table")
