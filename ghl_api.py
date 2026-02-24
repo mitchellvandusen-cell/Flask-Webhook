@@ -244,10 +244,18 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
     return None
 
 
-def get_valid_token_with_status(location_id: str, subscriber: dict = None) -> tuple:
+def get_valid_token_with_status(location_id: str, subscriber: dict = None,
+                                force_refresh: bool = False) -> tuple:
     """
     Like get_valid_token but returns (token, was_refreshed, error_reason) tuple.
     Callers can use this to decide whether to create alerts or retry.
+
+    Args:
+        location_id: GHL location ID
+        subscriber: Optional pre-fetched subscriber dict
+        force_refresh: If True, skip expiry check and always attempt a fresh
+                       refresh. Use this when the current token was rejected
+                       by GHL (401/403) even though it hasn't expired per our DB.
 
     Returns:
         (token, True, None)       — Fresh token from successful refresh
@@ -274,27 +282,31 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None) -> tu
             return access_token, False, None
         return None, False, 'no_tokens'
 
-    # Parse expires_at
-    if expires_at and isinstance(expires_at, str):
-        try:
-            expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-        except Exception:
-            expires_at = None
+    # Skip expiry check when force_refresh is set — the token was rejected by GHL
+    if not force_refresh:
+        # Parse expires_at
+        if expires_at and isinstance(expires_at, str):
+            try:
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except Exception:
+                expires_at = None
 
-    # Check expiry
-    token_expired = True
-    if expires_at:
-        try:
-            now = datetime.now()
-            if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
-                expires_at = expires_at.replace(tzinfo=None)
-            if expires_at > now + timedelta(minutes=5):
-                token_expired = False
-        except TypeError:
-            pass
+        # Check expiry
+        token_expired = True
+        if expires_at:
+            try:
+                now = datetime.now()
+                if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
+                    expires_at = expires_at.replace(tzinfo=None)
+                if expires_at > now + timedelta(minutes=5):
+                    token_expired = False
+            except TypeError:
+                pass
 
-    if not token_expired:
-        return access_token, False, None
+        if not token_expired:
+            return access_token, False, None
+    else:
+        logger.info(f"🔄 Force-refresh requested for {location_id} — skipping expiry check")
 
     # --- Token needs refresh ---
     marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()

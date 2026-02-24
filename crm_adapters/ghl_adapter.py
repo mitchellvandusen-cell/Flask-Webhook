@@ -22,12 +22,13 @@ class GHLAdapter(CRMAdapter):
 
     def send_message(self, contact_id: str, message: str, **kwargs) -> bool:
         from ghl_message import send_sms_via_ghl
-        return send_sms_via_ghl(
+        sent, _reason = send_sms_via_ghl(
             contact_id=contact_id,
             message_body=message,
             access_token=self.access_token,
             location_id=self.location_id
         )
+        return sent
 
     def get_free_slots(self) -> str:
         from ghl_calendar import consolidated_calendar_op
