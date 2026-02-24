@@ -1055,7 +1055,7 @@
         let _listenReconnects = 0;
         const _LISTEN_MAX_RECONNECTS = 5;
 
-        function dialerToggleListen() {
+        async function dialerToggleListen() {
             if (document.getElementById('dialerListenBtn').disabled) return;
             _dialerListening = !_dialerListening;
             const btn = document.getElementById('dialerListenBtn');
@@ -1066,7 +1066,7 @@
                 btn.querySelector('i').className = 'fa-solid fa-ear-listen';
                 btn.querySelector('span').textContent = 'Listening...';
                 _listenReconnects = 0;
-                _startListenStream();
+                await _startListenStream();
             } else {
                 _stopListenStream();
                 btn.style.background = 'rgba(255,255,255,0.04)';
@@ -1079,7 +1079,7 @@
         let _listenNextTime = 0; // scheduled playback time for gapless audio
         let _listenConnected = false; // tracks whether WS confirmed listening
 
-        function _startListenStream() {
+        async function _startListenStream() {
             if (!dialerCallSid) { _dialerListening = false; _resetListenBtn(); return; }
 
             // Clean up any previous connection
@@ -1087,28 +1087,33 @@
             if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
             _listenConnected = false;
 
+            // Create AudioContext FIRST — must happen inside user gesture context
+            // to bypass browser autoplay policy (Chrome/Safari block otherwise)
+            try {
+                _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
+                if (_listenAudioCtx.state === 'suspended') {
+                    await _listenAudioCtx.resume();
+                    console.log('[Listen] AudioContext resumed');
+                }
+            } catch(e) {
+                console.error('[Listen] AudioContext creation failed:', e);
+                _resetListenBtn();
+                return;
+            }
+            _listenNextTime = 0;
+
+            // Capture the call SID now — prevents race if dialerCallSid clears
+            const listenCallSid = dialerCallSid;
+
             try {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
                 _listenWs = new WebSocket(`${proto}//${location.host}/voice/listen-stream`);
             } catch(e) {
                 console.error('[Listen] WebSocket creation failed:', e);
+                if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(x) {} _listenAudioCtx = null; }
                 _resetListenBtn();
                 return;
             }
-
-            try {
-                _listenAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 8000 });
-                // Resume AudioContext in user gesture context (critical for Chrome/Safari)
-                if (_listenAudioCtx.state === 'suspended') {
-                    _listenAudioCtx.resume().then(() => console.log('[Listen] AudioContext resumed'));
-                }
-            } catch(e) {
-                console.error('[Listen] AudioContext creation failed:', e);
-                if (_listenWs) { try { _listenWs.close(); } catch(x) {} _listenWs = null; }
-                _resetListenBtn();
-                return;
-            }
-            _listenNextTime = 0;
 
             // Connection timeout: if WS doesn't confirm within 8s, something is wrong
             const connectTimeout = setTimeout(() => {
@@ -1120,8 +1125,13 @@
             }, 8000);
 
             _listenWs.onopen = () => {
-                console.log('[Listen] WebSocket connected, subscribing to', dialerCallSid);
-                _listenWs.send(JSON.stringify({ call_sid: dialerCallSid }));
+                console.log('[Listen] WebSocket connected, subscribing to', listenCallSid);
+                if (!listenCallSid) {
+                    console.error('[Listen] No call SID available — closing');
+                    _listenWs.close();
+                    return;
+                }
+                _listenWs.send(JSON.stringify({ call_sid: listenCallSid }));
             };
 
             _listenWs.onmessage = (evt) => {
