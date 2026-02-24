@@ -283,6 +283,85 @@
         let _dlrSmsContactId = null;
         let _dlrSmsContactName = '';
         let _dlrSmsContactPhone = '';
+        let _dlrAvailableChannels = ['ghl'];
+        let _dlrTwilioNumber = '';
+        let _dlrChannelsLoaded = false;
+
+        // ── Fetch available SMS channels from backend ──
+        async function dlrLoadChannels() {
+            if (_dlrChannelsLoaded) return;
+            try {
+                const r = await fetch('/voice/sms-channels');
+                if (!r.ok) return;
+                const d = await r.json();
+                _dlrAvailableChannels = d.channels || ['ghl'];
+                _dlrTwilioNumber = d.twilio_number || '';
+                _dlrChannelsLoaded = true;
+                dlrUpdateChannelUI();
+            } catch(e) {
+                console.warn('Failed to load SMS channels:', e);
+            }
+        }
+
+        // ── Update channel selector UI based on available channels ──
+        function dlrUpdateChannelUI() {
+            const row = document.getElementById('dlrChannelRow');
+            const sel = document.getElementById('dlrChannelSelect');
+            const badge = document.getElementById('dlrChannelBadge');
+            if (!sel) return;
+
+            // Rebuild options
+            sel.innerHTML = '';
+            if (_dlrAvailableChannels.includes('ghl')) {
+                var opt = document.createElement('option');
+                opt.value = 'ghl';
+                opt.textContent = 'GHL / Lead Connector';
+                sel.appendChild(opt);
+            }
+            if (_dlrAvailableChannels.includes('twilio')) {
+                var opt = document.createElement('option');
+                opt.value = 'twilio';
+                opt.textContent = 'InsuranceGrokBot (' + formatPhone(_dlrTwilioNumber) + ')';
+                sel.appendChild(opt);
+            }
+
+            // Show selector if multiple channels available
+            if (row) row.style.display = _dlrAvailableChannels.length > 1 ? 'flex' : 'none';
+
+            // Update header badge
+            dlrOnChannelChange();
+        }
+
+        // ── Handle channel change ──
+        function dlrOnChannelChange() {
+            var sel = document.getElementById('dlrChannelSelect');
+            var badge = document.getElementById('dlrChannelBadge');
+            var note = document.getElementById('dlrChannelNote');
+            if (!sel) return;
+            var ch = sel.value;
+            if (badge) {
+                if (ch === 'twilio') {
+                    badge.textContent = 'via InsuranceGrokBot';
+                    badge.style.background = 'rgba(0,217,255,0.07)';
+                    badge.style.borderColor = 'rgba(0,217,255,0.15)';
+                    badge.style.color = '#00d9ff';
+                } else {
+                    badge.textContent = 'via GHL';
+                    badge.style.background = 'rgba(0,255,136,0.07)';
+                    badge.style.borderColor = 'rgba(0,255,136,0.15)';
+                    badge.style.color = '#00ff88';
+                }
+            }
+            if (note) {
+                note.textContent = ch === 'twilio' ? 'A2P 10DLC registered number' : '';
+            }
+        }
+
+        // ── Get current selected channel ──
+        function dlrGetChannel() {
+            var sel = document.getElementById('dlrChannelSelect');
+            return (sel && sel.value) || 'ghl';
+        }
 
         // ── Date separator helpers ──
         function _dlrDateLabel(ts) {
@@ -386,6 +465,8 @@
 
                 // Show composer
                 if (composer) composer.style.display = 'block';
+                // Load available SMS channels (async, non-blocking)
+                dlrLoadChannels();
                 // Reset textarea
                 const ta = document.getElementById('dlrSmsText');
                 if (ta) { ta.value = ''; ta.style.height = ''; dlrUpdateCharCount(''); }
@@ -579,7 +660,7 @@
             if (icon) { icon.className = 'fa-solid fa-circle-exclamation dlr-status-icon error'; icon.title = 'Failed to send'; }
         }
 
-        // ── SMS Send via GHL (full implementation) ──
+        // ── SMS Send via selected channel (GHL or Twilio) ──
         let _smsSending = false;
         async function dialerSendSms() {
             if (_smsSending || !_dlrSmsContactId) return;
@@ -597,6 +678,9 @@
                 return;
             }
 
+            const channel = dlrGetChannel();
+            const channelLabel = channel === 'twilio' ? 'InsuranceGrokBot' : 'GHL';
+
             // Optimistic UI — append pending bubble immediately
             const pendingId = 'sms_' + Date.now();
             _dlrAppendSentBubble(msgPanel, msg, pendingId);
@@ -608,18 +692,23 @@
 
             _smsSending = true;
             if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.5'; }
-            if (statusEl) { statusEl.textContent = 'Sending via GHL…'; statusEl.style.color = '#888'; }
+            if (statusEl) { statusEl.textContent = 'Sending via ' + channelLabel + '…'; statusEl.style.color = '#888'; }
 
             try {
+                const payload = { message: msg, channel: channel };
+                // Include contact phone for Twilio channel
+                if (channel === 'twilio' && _dlrSmsContactPhone) {
+                    payload.contact_phone = _dlrSmsContactPhone;
+                }
                 const r = await _fetchRetry('/voice/contact/' + _dlrSmsContactId + '/send-sms', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg })
+                    body: JSON.stringify(payload)
                 }, { retries: 1, timeout: 15000, label: 'send-sms' });
                 const d = await r.json();
                 if (r.ok) {
                     _dlrMarkBubbleSent(pendingId);
-                    if (statusEl) { statusEl.textContent = '✓ Delivered to GHL'; statusEl.style.color = '#00ff88'; }
+                    if (statusEl) { statusEl.textContent = '\u2713 Sent via ' + channelLabel; statusEl.style.color = '#00ff88'; }
                     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
                 } else {
                     _dlrMarkBubbleError(pendingId);
@@ -633,7 +722,7 @@
                 }
             } catch(e) {
                 _dlrMarkBubbleError(pendingId);
-                if (statusEl) { statusEl.textContent = 'Network error — tap to retry'; statusEl.style.color = '#ef4444'; }
+                if (statusEl) { statusEl.textContent = 'Network error \u2014 tap to retry'; statusEl.style.color = '#ef4444'; }
                 textEl.value = msg;
                 dlrAutoGrow(textEl);
                 dlrUpdateCharCount(msg);

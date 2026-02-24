@@ -846,51 +846,6 @@ def get_a2p_campaign_status(messaging_service_sid: str,
         raise
 
 
-def import_external_campaign(messaging_service_sid: str,
-                              campaign_id: str) -> dict:
-    """
-    Link an externally-registered TCR Campaign to a Twilio Messaging Service
-    using the Externally Registered Campaigns (ERC) API.
-
-    PREREQUISITE: The campaign must have already been shared with Twilio
-    as the Direct Connect Aggregator (DCA) via the TCR portal or TCR API.
-    The user must wait for the CAMPAIGN_SHARE_ACCEPT webhook from TCR
-    before calling this function.
-
-    campaign_id: TCR Campaign ID — 7-character alphanumeric starting with "C"
-                 (e.g., "C123456").
-
-    Twilio docs:
-      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/externally-registered-campaigns-api
-    Note: rate limited to 1 request per 5 seconds.  Failures from exceeding
-    the rate limit are asynchronous — the campaign moves to "failed" status.
-    """
-    client = get_master_client()
-    try:
-        # The ERC API uses the same UsAppToPerson endpoint but only requires
-        # the campaign_id (the TCR Campaign ID).  Twilio recognises this as
-        # an external campaign and skips the normal registration fields.
-        campaign = client.messaging.v1.services(
-            messaging_service_sid
-        ).us_app_to_person.create(
-            campaign_id=campaign_id,
-        )
-        logger.info(
-            f"Linked external campaign: {campaign.sid} "
-            f"tcr_campaign_id={campaign_id} "
-            f"status={campaign.campaign_status}"
-        )
-        return {
-            "campaign_sid": campaign.sid,
-            "campaign_status": campaign.campaign_status,
-            "imported": True,
-            "external_campaign_id": campaign_id,
-        }
-    except TwilioRestException as e:
-        logger.error(f"External campaign link failed for {campaign_id}: {e}")
-        raise
-
-
 def list_messaging_services(sub_account_sid: str) -> list:
     """List all Messaging Services on a sub-account."""
     client = get_sub_account_client(sub_account_sid)

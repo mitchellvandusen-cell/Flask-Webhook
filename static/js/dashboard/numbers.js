@@ -251,18 +251,14 @@
         function a2pRenderUI(d) {
             const banner = document.getElementById('a2pStatusBanner');
             const payGate = document.getElementById('a2pPaymentGate');
-            const modeSelector = document.getElementById('a2pModeSelector');
             const brandForm = document.getElementById('a2pBrandForm');
             const campaignForm = document.getElementById('a2pCampaignForm');
             const statusPanel = document.getElementById('a2pBrandStatusPanel');
-            const importPanel = document.getElementById('a2pImportPanel');
             const registerPanel = document.getElementById('a2pRegisterPanel');
 
             // Payment gate for sub-users
             if (d.is_sub_user && !d.a2p_fee_paid && !d.registered) {
                 if (payGate) payGate.style.display = 'block';
-                if (modeSelector) modeSelector.style.display = 'none';
-                if (importPanel) importPanel.style.display = 'none';
                 if (registerPanel) registerPanel.style.display = 'none';
                 return;
             } else {
@@ -282,7 +278,7 @@
                                     '<i class="fa-solid fa-certificate" style="color:#00ff88;"></i>' +
                                 '</div>' +
                                 '<div style="flex:1;">' +
-                                    '<div style="font-weight:700;color:#00ff88;font-size:0.9rem;">A2P 10DLC ' + (d.imported ? 'Imported' : 'Registered') + '</div>' +
+                                    '<div style="font-weight:700;color:#00ff88;font-size:0.9rem;">A2P 10DLC Registered</div>' +
                                     '<div style="font-size:0.75rem;color:#aaa;">' +
                                         'Brand: <span style="color:#ccc;font-family:\'JetBrains Mono\',monospace;font-size:0.7rem;">' + _esc(d.brand_sid) + '</span>' +
                                         ' &bull; Campaign: <span style="color:' + statusColor + ';font-weight:600;">' + _esc(statusLabel) + '</span>' +
@@ -295,8 +291,6 @@
                             '</div>' +
                         '</div>';
                 }
-                if (modeSelector) modeSelector.style.display = 'none';
-                if (importPanel) importPanel.style.display = 'none';
                 if (registerPanel) registerPanel.style.display = 'none';
                 if (statusPanel) statusPanel.style.display = 'none';
                 return;
@@ -318,17 +312,18 @@
                     a2pUpdateStepPills(2);
                     a2pLoadNumbersForCampaign('a2pCampaignNumbersList');
                 }
-                if (modeSelector) modeSelector.style.display = 'none';
-                if (importPanel) importPanel.style.display = 'none';
                 return;
             }
 
-            // Fresh state: show mode selector (default import)
+            // Fresh state: show registration form directly
             if (banner) banner.style.display = 'none';
             if (statusPanel) statusPanel.style.display = 'none';
-            if (modeSelector) modeSelector.style.display = 'flex';
-            a2pSwitchMode('import');
-            a2pLoadNumbersForCampaign('a2pImportNumbersList');
+            if (registerPanel) {
+                registerPanel.style.display = 'block';
+                if (brandForm) brandForm.style.display = 'block';
+                if (campaignForm) campaignForm.style.display = 'none';
+                a2pUpdateStepPills(1);
+            }
         }
 
         function a2pRenderBrandStatus(d) {
@@ -357,30 +352,8 @@
                 );
         }
 
-        function a2pSwitchMode(mode) {
-            const importPanel = document.getElementById('a2pImportPanel');
-            const registerPanel = document.getElementById('a2pRegisterPanel');
-            const importBtn = document.getElementById('a2pModeImportBtn');
-            const registerBtn = document.getElementById('a2pModeRegisterBtn');
-            if (mode === 'import') {
-                if (importPanel) importPanel.style.display = 'block';
-                if (registerPanel) registerPanel.style.display = 'none';
-                if (importBtn) { importBtn.style.background = 'rgba(0,255,136,0.06)'; importBtn.style.border = '1px solid rgba(0,255,136,0.2)'; importBtn.style.color = '#00ff88'; }
-                if (registerBtn) { registerBtn.style.background = 'rgba(255,255,255,0.03)'; registerBtn.style.border = '1px solid rgba(255,255,255,0.08)'; registerBtn.style.color = '#888'; }
-                a2pLoadNumbersForCampaign('a2pImportNumbersList');
-            } else {
-                if (importPanel) importPanel.style.display = 'none';
-                if (registerPanel) { registerPanel.style.display = 'block'; }
-                if (registerBtn) { registerBtn.style.background = 'rgba(167,139,250,0.08)'; registerBtn.style.border = '1px solid rgba(167,139,250,0.2)'; registerBtn.style.color = '#a78bfa'; }
-                if (importBtn) { importBtn.style.background = 'rgba(255,255,255,0.03)'; importBtn.style.border = '1px solid rgba(255,255,255,0.08)'; importBtn.style.color = '#888'; }
-                // Show brand form, hide campaign form
-                var bf = document.getElementById('a2pBrandForm');
-                var cf = document.getElementById('a2pCampaignForm');
-                if (bf) bf.style.display = 'block';
-                if (cf) cf.style.display = 'none';
-                a2pUpdateStepPills(1);
-            }
-        }
+
+
 
         function a2pUpdateStepPills(step) {
             var s1 = document.getElementById('a2pStep1Pill');
@@ -430,48 +403,6 @@
             var el = document.getElementById(containerId);
             if (!el) return [];
             return Array.from(el.querySelectorAll('.a2p-number-cb:checked')).map(function(cb) { return cb.value; });
-        }
-
-        // ── Import External Brand + Campaign ──
-        async function a2pImportExternal() {
-            var campaignId = (document.getElementById('a2pImportCampaignId')?.value || '').trim().toUpperCase();
-            var result = document.getElementById('a2pImportResult');
-            var btn = document.getElementById('a2pImportBtn');
-
-            if (!campaignId) { result.innerHTML = '<span style="color:#ef4444;">TCR Campaign ID is required</span>'; return; }
-            if (!/^C[A-Z0-9]{6}$/i.test(campaignId)) {
-                result.innerHTML = '<span style="color:#ef4444;">Campaign ID must be 7 characters starting with C (e.g. C123456)</span>';
-                return;
-            }
-
-            var numberSids = a2pGetSelectedNumberSids('a2pImportNumbersList');
-
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Linking campaign...';
-            result.innerHTML = '';
-            try {
-                var r = await fetch('/voice/a2p/import', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ campaign_id: campaignId, phone_number_sids: numberSids }),
-                });
-                var d = await r.json();
-                if (r.ok) {
-                    result.innerHTML = '<span style="color:#00ff88;"><i class="fa-solid fa-circle-check me-1"></i>' + _esc(d.message || 'Campaign linked successfully!') + '</span>';
-                    setTimeout(function() { a2pLoadStatus(); }, 500);
-                } else {
-                    if (d.payment_required) {
-                        result.innerHTML = '<span style="color:#ffa500;">Payment required. Redirecting...</span>';
-                        a2pPayFee();
-                    } else {
-                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + _esc(d.error || 'Link failed') + '</span>';
-                    }
-                }
-            } catch(e) {
-                result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
-            }
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-file-import me-2"></i>Link External Campaign';
         }
 
         // ── Register New Brand ──

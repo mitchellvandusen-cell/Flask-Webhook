@@ -3816,9 +3816,6 @@ def a2p_status():
         "campaign_status": a2p.get('campaign_status', ''),
         "messaging_service_sid": a2p.get('messaging_service_sid', ''),
         "use_case": a2p.get('use_case', ''),
-        "imported": a2p.get('imported', False),
-        "external_brand_id": a2p.get('external_brand_id', ''),
-        "external_campaign_id": a2p.get('external_campaign_id', ''),
         "registered_at": a2p.get('registered_at', ''),
         "is_sub_user": is_sub_user,
         "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
@@ -4046,94 +4043,6 @@ def a2p_campaign_status():
         return jsonify({"error": str(e)}), 500
 
 
-@voice_bp.route('/voice/a2p/import', methods=['POST'])
-@login_required
-def a2p_import():
-    """
-    Link an externally-registered TCR Campaign to a Twilio Messaging Service.
-
-    Uses the Externally Registered Campaigns (ERC) API.  The user provides
-    their TCR Campaign ID (7 chars, starts with "C").
-
-    PREREQUISITE: Before calling this, the user must have shared their
-    campaign with Twilio as the Direct Connect Aggregator (DCA) via the
-    TCR web portal or TCR API, and received a CAMPAIGN_SHARE_ACCEPT.
-
-    Twilio docs:
-      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/externally-registered-campaigns-api
-    """
-    subscriber, vc, sub_sid = _get_current_subscriber_voice()
-    if not sub_sid:
-        return jsonify({"error": "Voice service not provisioned"}), 400
-
-    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
-    a2p = (vc or {}).get('a2p', {})
-
-    if is_sub_user and not a2p.get('a2p_fee_paid', False):
-        return jsonify({
-            "error": "A2P registration fee required. Please complete payment first.",
-            "payment_required": True,
-        }), 402
-
-    data = request.get_json() or {}
-    campaign_id = data.get('campaign_id', '').strip()
-
-    if not campaign_id:
-        return jsonify({"error": "TCR Campaign ID is required"}), 400
-
-    # Validate phone number SIDs to associate with the Messaging Service
-    phone_number_sids = data.get('phone_number_sids', [])
-
-    try:
-        # Step 1: Create Messaging Service (don't set usecase — Twilio
-        # assigns "undeclared" which is correct for external campaigns)
-        ms_sid = a2p.get('messaging_service_sid', '')
-        if not ms_sid:
-            ms_result = twilio_provisioning.create_messaging_service(
-                sub_sid, f"A2P ERC - {campaign_id}"
-            )
-            ms_sid = ms_result["messaging_service_sid"]
-
-        # Step 2: Add phone numbers to the Messaging Service sender pool
-        if phone_number_sids:
-            for pn_sid in phone_number_sids:
-                try:
-                    twilio_provisioning.add_phone_to_messaging_service(
-                        sub_sid, ms_sid, pn_sid
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to add {pn_sid} to MS during import: {e}")
-
-        # Step 3: Link the external TCR Campaign via the ERC API
-        campaign_result = twilio_provisioning.import_external_campaign(
-            messaging_service_sid=ms_sid,
-            campaign_id=campaign_id,
-        )
-
-        # Persist state
-        a2p.update({
-            "campaign_sid": campaign_result["campaign_sid"],
-            "campaign_status": campaign_result["campaign_status"],
-            "messaging_service_sid": ms_sid,
-            "imported": True,
-            "external_campaign_id": campaign_id,
-            "registered": True,
-            "registered_at": datetime.utcnow().isoformat(),
-        })
-        vc['a2p'] = a2p
-        _save_voice_config(current_user.email, vc)
-
-        return jsonify({
-            "campaign_sid": campaign_result["campaign_sid"],
-            "campaign_status": campaign_result["campaign_status"],
-            "messaging_service_sid": ms_sid,
-            "message": "External campaign linked successfully.",
-        })
-    except Exception as e:
-        logger.error(f"A2P import error: {e}", exc_info=True)
-        return jsonify({"error": f"Import failed: {str(e)}"}), 500
-
-
 @voice_bp.route('/voice/a2p/mark-fee-paid', methods=['POST'])
 @login_required
 def a2p_mark_fee_paid():
@@ -4346,9 +4255,10 @@ def get_contact_messages(contact_id):
 @voice_bp.route('/voice/contact/<contact_id>/send-sms', methods=['POST'])
 @login_required
 def send_contact_sms(contact_id):
-    """Send an SMS to a contact directly via GHL — bypasses A2P 10DLC via GHL's approved number."""
+    """Send an SMS to a contact via GHL or Twilio (A2P 10DLC), based on 'channel' param."""
     data = request.json or {}
     message = (data.get('message') or '').strip()
+    channel = (data.get('channel') or 'ghl').lower().strip()
     if not message:
         return jsonify({"error": "message is required"}), 400
     if len(message) > 1600:
@@ -4359,15 +4269,64 @@ def send_contact_sms(contact_id):
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row or not row['location_id']:
             return jsonify({"error": "No location configured"}), 400
         location_id = row['location_id']
+        voice_config = row['voice_config'] or {}
     finally:
         return_db_connection(conn)
 
+    # ── Channel: Twilio (InsuranceGrokBot number, A2P registered) ──
+    if channel == 'twilio':
+        a2p = voice_config.get('a2p', {})
+        campaign_status = (a2p.get('campaign_status') or '').upper()
+        ms_sid = a2p.get('messaging_service_sid', '')
+        sub_sid = voice_config.get('twilio_sub_account_sid', '')
+        from_number = voice_config.get('twilio_phone_number', '')
+
+        if campaign_status != 'VERIFIED' or not ms_sid:
+            return jsonify({"error": "A2P 10DLC campaign not approved yet. Use GHL to send."}), 400
+        if not sub_sid or not from_number:
+            return jsonify({"error": "Twilio phone number not provisioned."}), 400
+
+        # Resolve contact phone number from GHL
+        contact_phone = (data.get('contact_phone') or '').strip()
+        if not contact_phone:
+            # Fetch from GHL if not provided
+            access_token = get_valid_token(location_id)
+            if access_token:
+                try:
+                    ghl_resp = http_requests.get(
+                        f"https://services.leadconnectorhq.com/contacts/{contact_id}",
+                        headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                        timeout=10,
+                    )
+                    if ghl_resp.ok:
+                        contact_phone = ghl_resp.json().get("contact", {}).get("phone", "")
+                except Exception as ghl_err:
+                    logger.warning(f"Failed to fetch contact phone for Twilio send: {ghl_err}")
+
+        if not contact_phone:
+            return jsonify({"error": "No phone number found for this contact."}), 400
+
+        try:
+            import twilio_provisioning
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            tw_msg = client.messages.create(
+                messaging_service_sid=ms_sid,
+                to=contact_phone,
+                body=message,
+            )
+            logger.info(f"Twilio SMS sent: {tw_msg.sid} to {contact_id} by {current_user.email} (A2P)")
+            return jsonify({"status": "sent", "channel": "twilio", "sid": tw_msg.sid})
+        except Exception as e:
+            logger.error(f"Twilio SMS send error for {contact_id}: {e}")
+            return jsonify({"error": f"Twilio send failed: {str(e)}"}), 500
+
+    # ── Channel: GHL (default) ──
     access_token = get_valid_token(location_id)
     if not access_token:
         return jsonify({"error": "No valid GHL auth token. Reconnect your CRM."}), 401
@@ -4380,13 +4339,48 @@ def send_contact_sms(contact_id):
             location_id=location_id,
         )
         if success:
-            logger.info(f"Manual SMS sent to {contact_id} by {current_user.email}")
-            return jsonify({"status": "sent"})
+            logger.info(f"Manual SMS sent to {contact_id} via GHL by {current_user.email}")
+            return jsonify({"status": "sent", "channel": "ghl"})
         else:
             return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
     except Exception as e:
         logger.error(f"SMS send error for {contact_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/sms-channels', methods=['GET'])
+@login_required
+def sms_channels():
+    """Return which SMS sending channels are available for the current user."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not subscriber:
+        return jsonify({"channels": ["ghl"]}), 200
+
+    location_id = subscriber.get('location_id', '')
+    has_ghl = bool(location_id and get_valid_token(location_id))
+
+    a2p = (vc or {}).get('a2p', {})
+    campaign_status = (a2p.get('campaign_status') or '').upper()
+    ms_sid = a2p.get('messaging_service_sid', '')
+    from_number = (vc or {}).get('twilio_phone_number', '')
+    has_twilio = bool(
+        campaign_status == 'VERIFIED'
+        and ms_sid
+        and sub_sid
+        and from_number
+    )
+
+    channels = []
+    if has_ghl:
+        channels.append("ghl")
+    if has_twilio:
+        channels.append("twilio")
+
+    return jsonify({
+        "channels": channels,
+        "twilio_number": from_number if has_twilio else "",
+        "a2p_status": campaign_status,
+    })
 
 
 @voice_bp.route('/voice/contact/<contact_id>/ai-suggest', methods=['POST'])
