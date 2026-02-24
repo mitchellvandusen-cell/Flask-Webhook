@@ -709,6 +709,11 @@
 
         // ── Calling (AI mode) ──
         async function dialerStartCall(phone, firstName, contactId, displayName) {
+            // Guard: don't start a new call if one is already active
+            if (dialerCallSid) {
+                console.warn('[Dialer] Blocked double-dial: call already active sid=' + dialerCallSid);
+                return;
+            }
             // Validate phone before attempting
             if (!phone || phone.replace(/[^0-9+]/g, '').length < 10) {
                 // Mark queue item as failed so advance() handles it correctly (retry or skip)
@@ -722,11 +727,12 @@
             }
             dialerShowBanner(displayName || firstName, 'Initiating...');
             try {
+                // retries: 0 — dialing is NOT idempotent; a retry creates a duplicate call
                 const r = await _fetchRetry('/voice/dial', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ phone, first_name: firstName, contact_id: contactId, dial_mode: dialerMode, dial_attempt: (dialerCallIdx >= 0 && dialerQueue[dialerCallIdx]) ? (dialerQueue[dialerCallIdx].attempts || 1) : 1 })
-                }, { retries: 1, timeout: 20000, label: 'dial' });
+                }, { retries: 0, timeout: 25000, label: 'dial' });
                 const d = await r.json();
                 if (!r.ok) {
                     // Mark queue item as failed so advance() handles it correctly (retry or skip)
