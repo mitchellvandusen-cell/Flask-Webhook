@@ -382,7 +382,7 @@
                             </div>
                             <div style="flex:1;">
                                 <div style="font-weight:700;font-size:1rem;color:#fff;">A2P 10DLC Compliance</div>
-                                <div style="font-size:0.78rem;color:#888;">Register your brand and campaign for compliant SMS messaging, or import an existing approval from GoHighLevel / LeadConnector.</div>
+                                <div style="font-size:0.78rem;color:#888;">Register your brand and campaign for compliant SMS messaging.</div>
                             </div>
                         </div>
 
@@ -426,65 +426,8 @@
                             </div>
                         </div>
 
-                        <!-- Mode toggle: Import existing vs Register new -->
-                        <div id="a2pModeSelector" class="d-flex gap-2 mb-3">
-                            <button id="a2pModeImportBtn" onclick="a2pSwitchMode('import')"
-                                style="flex:1;padding:12px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;color:#00ff88;font-weight:700;font-size:0.82rem;cursor:pointer;text-align:center;transition:all .15s;">
-                                <i class="fa-solid fa-file-import me-1"></i> Import Existing Approval
-                            </button>
-                            <button id="a2pModeRegisterBtn" onclick="a2pSwitchMode('register')"
-                                style="flex:1;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#888;font-weight:700;font-size:0.82rem;cursor:pointer;text-align:center;transition:all .15s;">
-                                <i class="fa-solid fa-pen-to-square me-1"></i> Register New Brand
-                            </button>
-                        </div>
-
-                        <!-- ── IMPORT MODE ── -->
-                        <div id="a2pImportPanel" class="p-3" style="background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.10);border-radius:12px;">
-                            <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-file-import me-2" style="color:#00ff88;"></i>Import External TCR Campaign</div>
-                            <p style="font-size:0.75rem;color:#888;margin-bottom:12px;">If you already have an approved A2P 10DLC campaign registered directly with The Campaign Registry (TCR) via GHL, LeadConnector, or another provider, you can link it here. Your existing carrier approval carries over — no re-registration or re-vetting.</p>
-
-                            <!-- Prerequisite warning -->
-                            <div class="mb-3 p-2" style="background:rgba(255,180,0,0.06);border:1px solid rgba(255,180,0,0.15);border-radius:8px;">
-                                <div style="font-size:0.72rem;color:#ffb400;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Prerequisite: Share Campaign with Twilio</div>
-                                <div style="font-size:0.72rem;color:#999;line-height:1.5;">
-                                    Before importing, your campaign must be shared with <strong style="color:#ccc;">Twilio</strong> as the Direct Connect Aggregator (DCA) via the TCR portal or TCR API.
-                                    Contact your current provider (GHL, LeadConnector, etc.) to initiate the CNP migration or campaign sharing.
-                                    You must receive a <strong style="color:#ccc;">CAMPAIGN_SHARE_ACCEPT</strong> confirmation before proceeding.
-                                </div>
-                            </div>
-
-                            <div class="mb-3 p-2" style="background:rgba(0,217,255,0.04);border:1px solid rgba(0,217,255,0.08);border-radius:8px;">
-                                <div style="font-size:0.72rem;color:#00d9ff;font-weight:600;margin-bottom:4px;"><i class="fa-solid fa-location-arrow me-1"></i>Where to find your TCR Campaign ID</div>
-                                <div style="font-size:0.72rem;color:#888;line-height:1.5;">
-                                    Your TCR Campaign ID is a 7-character alphanumeric code starting with <strong style="color:#ccc;">C</strong> (e.g., C123456).<br>
-                                    <strong style="color:#ccc;">GHL:</strong> Settings &rarr; Phone Numbers &rarr; Trust Center &rarr; A2P Registration &rarr; Campaign ID<br>
-                                    <strong style="color:#ccc;">LeadConnector:</strong> Settings &rarr; Phone Numbers &rarr; Regulatory Bundle &rarr; Campaign ID
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">TCR Campaign ID <span style="color:#555;">(7 chars, starts with C)</span></label>
-                                <input type="text" id="a2pImportCampaignId" placeholder="e.g. C123456" maxlength="7"
-                                    style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">
-                            </div>
-
-                            <!-- Phone number selection -->
-                            <div class="mb-3">
-                                <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:4px;">Link Phone Numbers <span style="color:#555;">(select which numbers to add to the Messaging Service)</span></label>
-                                <div id="a2pImportNumbersList" style="max-height:140px;overflow-y:auto;font-size:0.78rem;">
-                                    <span style="color:#555;">Loading numbers...</span>
-                                </div>
-                            </div>
-
-                            <button id="a2pImportBtn" onclick="a2pImportExternal()"
-                                style="background:linear-gradient(135deg,#00ff88,#00cc6a);border:none;color:#000;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;transition:opacity .2s;">
-                                <i class="fa-solid fa-file-import me-2"></i>Link External Campaign
-                            </button>
-                            <div id="a2pImportResult" style="margin-top:8px;font-size:0.78rem;text-align:center;"></div>
-                        </div>
-
-                        <!-- ── REGISTER NEW MODE ── -->
-                        <div id="a2pRegisterPanel" style="display:none;">
+                        <!-- ── REGISTER BRAND & CAMPAIGN ── -->
+                        <div id="a2pRegisterPanel">
 
                             <!-- Step indicator -->
                             <div id="a2pStepIndicator" class="d-flex gap-2 mb-3">

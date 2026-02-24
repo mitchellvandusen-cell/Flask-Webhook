@@ -3816,9 +3816,6 @@ def a2p_status():
         "campaign_status": a2p.get('campaign_status', ''),
         "messaging_service_sid": a2p.get('messaging_service_sid', ''),
         "use_case": a2p.get('use_case', ''),
-        "imported": a2p.get('imported', False),
-        "external_brand_id": a2p.get('external_brand_id', ''),
-        "external_campaign_id": a2p.get('external_campaign_id', ''),
         "registered_at": a2p.get('registered_at', ''),
         "is_sub_user": is_sub_user,
         "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
@@ -4044,94 +4041,6 @@ def a2p_campaign_status():
     except Exception as e:
         logger.error(f"A2P campaign status error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-
-
-@voice_bp.route('/voice/a2p/import', methods=['POST'])
-@login_required
-def a2p_import():
-    """
-    Link an externally-registered TCR Campaign to a Twilio Messaging Service.
-
-    Uses the Externally Registered Campaigns (ERC) API.  The user provides
-    their TCR Campaign ID (7 chars, starts with "C").
-
-    PREREQUISITE: Before calling this, the user must have shared their
-    campaign with Twilio as the Direct Connect Aggregator (DCA) via the
-    TCR web portal or TCR API, and received a CAMPAIGN_SHARE_ACCEPT.
-
-    Twilio docs:
-      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/externally-registered-campaigns-api
-    """
-    subscriber, vc, sub_sid = _get_current_subscriber_voice()
-    if not sub_sid:
-        return jsonify({"error": "Voice service not provisioned"}), 400
-
-    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
-    a2p = (vc or {}).get('a2p', {})
-
-    if is_sub_user and not a2p.get('a2p_fee_paid', False):
-        return jsonify({
-            "error": "A2P registration fee required. Please complete payment first.",
-            "payment_required": True,
-        }), 402
-
-    data = request.get_json() or {}
-    campaign_id = data.get('campaign_id', '').strip()
-
-    if not campaign_id:
-        return jsonify({"error": "TCR Campaign ID is required"}), 400
-
-    # Validate phone number SIDs to associate with the Messaging Service
-    phone_number_sids = data.get('phone_number_sids', [])
-
-    try:
-        # Step 1: Create Messaging Service (don't set usecase — Twilio
-        # assigns "undeclared" which is correct for external campaigns)
-        ms_sid = a2p.get('messaging_service_sid', '')
-        if not ms_sid:
-            ms_result = twilio_provisioning.create_messaging_service(
-                sub_sid, f"A2P ERC - {campaign_id}"
-            )
-            ms_sid = ms_result["messaging_service_sid"]
-
-        # Step 2: Add phone numbers to the Messaging Service sender pool
-        if phone_number_sids:
-            for pn_sid in phone_number_sids:
-                try:
-                    twilio_provisioning.add_phone_to_messaging_service(
-                        sub_sid, ms_sid, pn_sid
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to add {pn_sid} to MS during import: {e}")
-
-        # Step 3: Link the external TCR Campaign via the ERC API
-        campaign_result = twilio_provisioning.import_external_campaign(
-            messaging_service_sid=ms_sid,
-            campaign_id=campaign_id,
-        )
-
-        # Persist state
-        a2p.update({
-            "campaign_sid": campaign_result["campaign_sid"],
-            "campaign_status": campaign_result["campaign_status"],
-            "messaging_service_sid": ms_sid,
-            "imported": True,
-            "external_campaign_id": campaign_id,
-            "registered": True,
-            "registered_at": datetime.utcnow().isoformat(),
-        })
-        vc['a2p'] = a2p
-        _save_voice_config(current_user.email, vc)
-
-        return jsonify({
-            "campaign_sid": campaign_result["campaign_sid"],
-            "campaign_status": campaign_result["campaign_status"],
-            "messaging_service_sid": ms_sid,
-            "message": "External campaign linked successfully.",
-        })
-    except Exception as e:
-        logger.error(f"A2P import error: {e}", exc_info=True)
-        return jsonify({"error": f"Import failed: {str(e)}"}), 500
 
 
 @voice_bp.route('/voice/a2p/mark-fee-paid', methods=['POST'])
