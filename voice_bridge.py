@@ -3854,12 +3854,21 @@ def a2p_register_brand():
     ein = data.get('ein', '').strip()
     contact_email = data.get('contact_email', '').strip()
     contact_phone = data.get('contact_phone', '').strip()
+    brand_type = data.get('brand_type', 'LOW_VOLUME').upper().strip()
     if not business_name:
         return jsonify({"error": "Business name is required"}), 400
-    if not ein:
-        return jsonify({"error": "EIN is required"}), 400
+    if brand_type != 'SOLE_PROPRIETOR' and not ein:
+        return jsonify({"error": "EIN is required for non-Sole Proprietor brands"}), 400
     if not contact_email:
         return jsonify({"error": "Contact email is required"}), 400
+
+    # Map frontend brand_type to Twilio business_type param
+    biz_type_map = {
+        'SOLE_PROPRIETOR': 'sole_proprietor',
+        'LOW_VOLUME': 'private_profit',
+        'STANDARD': 'private_profit',
+    }
+    business_type = biz_type_map.get(brand_type, 'private_profit')
 
     try:
         result = twilio_provisioning.create_a2p_brand(
@@ -3872,6 +3881,7 @@ def a2p_register_brand():
             zip_code=data.get('zip', ''),
             contact_email=contact_email,
             contact_phone=contact_phone,
+            business_type=business_type,
             website=data.get('website', ''),
             vertical=data.get('vertical', 'INSURANCE'),
         )
@@ -3881,7 +3891,9 @@ def a2p_register_brand():
             "brand_sid": result["brand_sid"],
             "brand_status": result["status"],
             "profile_sid": result.get("profile_sid", ""),
+            "trust_product_sid": result.get("trust_product_sid", ""),
             "business_name": business_name,
+            "brand_type": brand_type,
             "registered_at": datetime.utcnow().isoformat(),
         })
         vc['a2p'] = a2p

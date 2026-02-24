@@ -478,6 +478,7 @@
         async function a2pRegisterBrand() {
             var result = document.getElementById('a2pBrandResult');
             var btn = document.getElementById('a2pRegisterBrandBtn');
+            var brandType = (document.getElementById('a2pBrandType')?.value || 'LOW_VOLUME');
             var payload = {
                 business_name: (document.getElementById('a2pBizName')?.value || '').trim(),
                 ein: (document.getElementById('a2pEIN')?.value || '').trim(),
@@ -488,9 +489,10 @@
                 contact_email: (document.getElementById('a2pContactEmail')?.value || '').trim(),
                 contact_phone: (document.getElementById('a2pContactPhone')?.value || '').trim(),
                 website: (document.getElementById('a2pWebsite')?.value || '').trim(),
+                brand_type: brandType,
             };
             if (!payload.business_name) { result.innerHTML = '<span style="color:#ef4444;">Business name required</span>'; return; }
-            if (!payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN required</span>'; return; }
+            if (brandType !== 'SOLE_PROPRIETOR' && !payload.ein) { result.innerHTML = '<span style="color:#ef4444;">EIN required for ' + (_a2pFees[brandType]?.label || brandType) + ' brands</span>'; return; }
             if (!payload.contact_email) { result.innerHTML = '<span style="color:#ef4444;">Contact email required</span>'; return; }
 
             btn.disabled = true;
@@ -590,16 +592,84 @@
             a2pLoadStatus();
         }
 
+        // ── A2P Fee Schedule (matches backend A2P_FEE_SCHEDULE) ──
+        var _a2pFees = {
+            SOLE_PROPRIETOR: { brand: 4.50, campaign: 15, label: 'Sole Proprietor' },
+            LOW_VOLUME:      { brand: 4.50, campaign: 15, label: 'Low Volume Standard' },
+            STANDARD:        { brand: 46,   campaign: 15, label: 'Standard' },
+        };
+
+        function a2pGetSelectedBrandType() {
+            // Payment gate has its own selector; brand form has another.
+            // Payment gate shown for sub-users, brand form for everyone.
+            var paySelect = document.getElementById('a2pPayBrandType');
+            var brandSelect = document.getElementById('a2pBrandType');
+            if (paySelect && paySelect.offsetParent !== null) return paySelect.value;
+            if (brandSelect) return brandSelect.value;
+            return 'LOW_VOLUME';
+        }
+
+        function a2pGetFeeTotal(brandType) {
+            var info = _a2pFees[brandType] || _a2pFees.LOW_VOLUME;
+            return info.brand + info.campaign;
+        }
+
+        // Update the payment gate button price when brand type changes
+        function a2pUpdatePaymentPrice() {
+            var select = document.getElementById('a2pPayBrandType');
+            var label = document.getElementById('a2pPayBtnLabel');
+            if (!select || !label) return;
+            var total = a2pGetFeeTotal(select.value);
+            label.textContent = 'Pay Registration Fee — $' + total.toFixed(2);
+            // Sync the brand form selector if it exists
+            var brandSelect = document.getElementById('a2pBrandType');
+            if (brandSelect) brandSelect.value = select.value;
+            a2pUpdateBrandFeeDisplay();
+        }
+
+        // Update the fee note in the brand registration form + toggle EIN/SSN label
+        function a2pUpdateBrandFeeDisplay() {
+            var select = document.getElementById('a2pBrandType');
+            var note = document.getElementById('a2pBrandFeeNote');
+            if (!select || !note) return;
+            var info = _a2pFees[select.value] || _a2pFees.LOW_VOLUME;
+            var total = info.brand + info.campaign;
+            note.textContent = 'One-time brand fee: $' + info.brand.toFixed(2) + ' + $' + info.campaign.toFixed(2) + ' campaign vetting = $' + total.toFixed(2) + ' total';
+
+            // Toggle EIN/SSN label — sole proprietors use SSN, others use EIN
+            var einLabel = document.getElementById('a2pEINLabel');
+            var einInput = document.getElementById('a2pEIN');
+            if (einLabel && einInput) {
+                if (select.value === 'SOLE_PROPRIETOR') {
+                    einLabel.textContent = 'SSN (last 4 digits)';
+                    einInput.placeholder = 'XXXX';
+                    einInput.maxLength = 4;
+                } else {
+                    einLabel.textContent = 'EIN (Tax ID)';
+                    einInput.placeholder = 'XX-XXXXXXX';
+                    einInput.maxLength = 10;
+                }
+            }
+
+            // Sync the payment gate selector if it exists
+            var paySelect = document.getElementById('a2pPayBrandType');
+            if (paySelect) paySelect.value = select.value;
+            a2pUpdatePaymentPrice();
+        }
+
         // ── Pay A2P Fee (Stripe) ──
         async function a2pPayFee() {
             var btn = document.getElementById('a2pPayFeeBtn');
             var result = document.getElementById('a2pPayResult');
+            var brandType = a2pGetSelectedBrandType();
+            var total = a2pGetFeeTotal(brandType);
+
             if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Redirecting to payment...'; }
             try {
                 var r = await fetch('/a2p/checkout', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: '{}',
+                    body: JSON.stringify({ brand_type: brandType }),
                 });
                 var d = await r.json();
                 if (d.checkout_url) {
@@ -610,7 +680,7 @@
             } catch(e) {
                 if (result) result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
             }
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock me-2"></i>Pay Registration Fee — $19'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-lock me-2"></i><span id="a2pPayBtnLabel">Pay Registration Fee — $' + total.toFixed(2) + '</span>'; }
         }
 
         // Check URL params for A2P payment success

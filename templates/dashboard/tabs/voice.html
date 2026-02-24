@@ -401,10 +401,26 @@
                                     <i class="fa-solid fa-credit-card" style="color:#ffa500;"></i>
                                     <span style="font-weight:700;color:#fff;">Registration Fee Required</span>
                                 </div>
-                                <p style="font-size:0.78rem;color:#aaa;margin:0 0 10px;">A2P 10DLC registration incurs a one-time fee charged by carriers ($4 brand vetting + $15 campaign review). Please complete payment to proceed.</p>
+                                <p style="font-size:0.78rem;color:#aaa;margin:0 0 10px;">A2P 10DLC registration incurs a one-time fee charged by carriers. The fee depends on your brand registration type. Select your brand type and complete payment to proceed.</p>
+
+                                <div class="mb-3">
+                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:4px;">Brand Type</label>
+                                    <select id="a2pPayBrandType" onchange="a2pUpdatePaymentPrice()"
+                                        style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;margin-bottom:8px;">
+                                        <option value="LOW_VOLUME">Low Volume Standard — $4.50 brand + $15 campaign = $19.50</option>
+                                        <option value="SOLE_PROPRIETOR">Sole Proprietor — $4.50 brand + $15 campaign = $19.50 (SSN required)</option>
+                                        <option value="STANDARD">Standard — $46 brand + $15 campaign = $61.00</option>
+                                    </select>
+                                    <div style="font-size:0.7rem;color:#666;line-height:1.4;">
+                                        <strong style="color:#aaa;">Low Volume Standard:</strong> EIN required, up to 2,000 msgs/day to T-Mobile, lowest cost.<br>
+                                        <strong style="color:#aaa;">Sole Proprietor:</strong> No EIN required, 1 phone number limit, 1 campaign limit.<br>
+                                        <strong style="color:#aaa;">Standard:</strong> EIN required, highest throughput (6,000+ msgs/day), includes secondary vetting.
+                                    </div>
+                                </div>
+
                                 <button id="a2pPayFeeBtn" onclick="a2pPayFee()"
-                                    style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;">
-                                    <i class="fa-solid fa-lock me-2"></i>Pay Registration Fee — $19
+                                    style="background:linear-gradient(135deg,#ffa500,#cc8400);border:none;color:#000;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;">
+                                    <i class="fa-solid fa-lock me-2"></i><span id="a2pPayBtnLabel">Pay Registration Fee — $19.50</span>
                                 </button>
                                 <div id="a2pPayResult" style="margin-top:8px;font-size:0.78rem;"></div>
                             </div>
@@ -483,7 +499,21 @@
                             <!-- STEP 1: Brand Registration -->
                             <div id="a2pBrandForm" class="p-3" style="background:rgba(167,139,250,0.03);border:1px solid rgba(167,139,250,0.10);border-radius:12px;">
                                 <div style="font-weight:700;font-size:0.9rem;color:#fff;margin-bottom:4px;"><i class="fa-solid fa-building me-2" style="color:#a78bfa;"></i>Brand Registration</div>
-                                <p style="font-size:0.75rem;color:#888;margin-bottom:12px;">Register your business identity. Twilio vets this with The Campaign Registry (TCR). Takes 1-7 business days. Brand vetting fee: <span style="color:#00ff88;font-weight:600;">$4</span>.</p>
+                                <p style="font-size:0.75rem;color:#888;margin-bottom:12px;">Register your business identity with The Campaign Registry (TCR). Takes 1-7 business days.</p>
+
+                                <!-- Brand type selector -->
+                                <div class="mb-3">
+                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:4px;">Brand Type</label>
+                                    <select id="a2pBrandType" onchange="a2pUpdateBrandFeeDisplay()"
+                                        style="width:100%;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
+                                        <option value="LOW_VOLUME">Low Volume Standard — $4.50 brand fee (EIN required, up to 2K msgs/day)</option>
+                                        <option value="SOLE_PROPRIETOR">Sole Proprietor — $4.50 brand fee (SSN required, 1 number limit)</option>
+                                        <option value="STANDARD">Standard — $46.00 brand fee (EIN required, 6K+ msgs/day, includes vetting)</option>
+                                    </select>
+                                    <div id="a2pBrandFeeNote" style="font-size:0.7rem;color:#00ff88;margin-top:4px;font-weight:600;">
+                                        One-time brand fee: $4.50 + $15.00 campaign vetting = $19.50 total
+                                    </div>
+                                </div>
 
                                 <div style="font-weight:600;font-size:0.82rem;color:#fff;margin-bottom:8px;"><i class="fa-solid fa-building me-1" style="color:#a78bfa;"></i> Business Details</div>
                                 <div class="row g-2 mb-3">
@@ -494,7 +524,7 @@
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">
                                     </div>
                                     <div class="col-md-4">
-                                        <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
+                                        <label id="a2pEINLabel" style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:3px;">EIN (Tax ID)</label>
                                         <input type="text" id="a2pEIN" placeholder="XX-XXXXXXX"
                                             value="{{ (voice_config.get('trust_hub') or {}).get('ein', '') }}"
                                             style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:8px 12px;border-radius:8px;font-size:0.85rem;outline:none;">

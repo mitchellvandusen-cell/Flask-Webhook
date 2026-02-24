@@ -841,11 +841,10 @@ def stripe_webhook():
 
         # ── A2P 10DLC registration fee ──
         if session.metadata.get("purchase_type") == "a2p_registration" and email:
-            logger.info(f"✅ A2P fee paid by {email} — marking a2p_fee_paid=True")
+            brand_type = session.metadata.get("brand_type", "LOW_VOLUME")
+            paid_cents = session.metadata.get("total_cents", "0")
+            logger.info(f"✅ A2P fee paid by {email} — brand_type={brand_type} amount=${int(paid_cents)/100:.2f}")
             try:
-                import requests as _req
-                # Call the internal route to mark fee as paid
-                # (safe: voice_bridge manages the voice_config state)
                 conn = get_db_connection()
                 if conn:
                     try:
@@ -859,6 +858,8 @@ def stripe_webhook():
                             a2p['a2p_fee_paid'] = True
                             a2p['fee_paid_at'] = __import__('datetime').datetime.utcnow().isoformat()
                             a2p['stripe_session_id'] = session.id
+                            a2p['paid_brand_type'] = brand_type
+                            a2p['paid_amount_cents'] = int(paid_cents)
                             vc['a2p'] = a2p
                             cur.execute(
                                 "UPDATE subscribers SET voice_config = %s WHERE email = %s",
@@ -4101,28 +4102,62 @@ def ai_minutes_checkout():
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
 
 
+# ── A2P 10DLC fee schedule (cents) ──
+# Brand registration fee + $15 campaign vetting fee per brand type.
+# Prices from Twilio / TCR as of Aug 2025.
+A2P_FEE_SCHEDULE = {
+    "SOLE_PROPRIETOR": {"brand_fee": 450, "campaign_fee": 1500, "label": "Sole Proprietor"},
+    "LOW_VOLUME":      {"brand_fee": 450, "campaign_fee": 1500, "label": "Low Volume Standard"},
+    "STANDARD":        {"brand_fee": 4600, "campaign_fee": 1500, "label": "Standard"},
+}
+
+
 @app.route("/a2p/checkout", methods=["POST"])
 @login_required
 def a2p_checkout():
     """
     Create a Stripe one-time payment session for A2P 10DLC registration fees.
-    Sub-account users pay Twilio's brand vetting + campaign registration fees
-    via Stripe, then the fee-paid flag is set and they can proceed to register.
-    Fee: $4 brand vetting + $15 campaign = $19 total (Twilio's standard rates).
+    Fee varies by brand type:
+      - Sole Proprietor:      $4.50 brand + $15 campaign = $19.50
+      - Low Volume Standard:  $4.50 brand + $15 campaign = $19.50
+      - Standard:             $46   brand + $15 campaign = $61.00
+    The frontend sends brand_type; we look up the fee and create a dynamic
+    Stripe checkout with the correct total via price_data.
     """
-    a2p_price_id = os.getenv("A2P_REGISTRATION_PRICE_ID", "")
-    if not a2p_price_id:
-        return flask_jsonify({"error": "A2P fee price not configured. Contact support."}), 500
+    data = request.get_json(silent=True) or {}
+    brand_type = (data.get("brand_type") or "LOW_VOLUME").upper().strip()
+
+    fee_info = A2P_FEE_SCHEDULE.get(brand_type)
+    if not fee_info:
+        return flask_jsonify({"error": f"Unknown brand type: {brand_type}"}), 400
+
+    total_cents = fee_info["brand_fee"] + fee_info["campaign_fee"]
+    label = fee_info["label"]
 
     try:
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             mode="payment",
             customer_email=current_user.email,
-            line_items=[{"price": a2p_price_id, "quantity": 1}],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": total_cents,
+                    "product_data": {
+                        "name": f"A2P 10DLC Registration — {label}",
+                        "description": (
+                            f"Brand registration (${fee_info['brand_fee'] / 100:.2f}) "
+                            f"+ Campaign vetting ($15.00)"
+                        ),
+                    },
+                },
+                "quantity": 1,
+            }],
             metadata={
                 "purchase_type": "a2p_registration",
                 "user_email": current_user.email,
+                "brand_type": brand_type,
+                "total_cents": str(total_cents),
             },
             success_url=f"{YOUR_DOMAIN}/dashboard?a2p_payment_success=1",
             cancel_url=f"{YOUR_DOMAIN}/dashboard?a2p_payment_cancel=1",
@@ -4134,6 +4169,22 @@ def a2p_checkout():
     except Exception as e:
         logger.error(f"A2P checkout error: {e}")
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@app.route("/a2p/fee-schedule")
+@login_required
+def a2p_fee_schedule():
+    """Return the A2P fee schedule so the frontend can display correct prices."""
+    schedule = {}
+    for key, info in A2P_FEE_SCHEDULE.items():
+        total = info["brand_fee"] + info["campaign_fee"]
+        schedule[key] = {
+            "label": info["label"],
+            "brand_fee": info["brand_fee"] / 100,
+            "campaign_fee": info["campaign_fee"] / 100,
+            "total": total / 100,
+        }
+    return flask_jsonify(schedule)
 
 
 @app.route("/ai-minutes/usage")
