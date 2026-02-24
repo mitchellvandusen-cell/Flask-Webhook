@@ -5,8 +5,9 @@ import re
 import os
 import time
 from typing import Tuple, Optional
+from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -15,7 +16,7 @@ from ghl_message import send_sms_via_ghl
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
 from ghl_calendar import consolidated_calendar_op
-from ghl_api import fetch_targeted_ghl_history, get_valid_token, fetch_contact_data_from_ghl
+from ghl_api import fetch_targeted_ghl_history, get_valid_token, get_valid_token_with_status, fetch_contact_data_from_ghl
 from contact_validator import validate_and_resolve_contact 
 
 logger = logging.getLogger('rq.worker')
@@ -580,10 +581,86 @@ def process_webhook_task(payload: dict):
                 logger.error(f"❌ ABORT: No subscriber config for {location_id}")
                 return {"status": "error", "reason": "no subscriber config"}
 
-            auth_token = get_valid_token(location_id)
+            # Pass subscriber to avoid redundant DB query inside get_valid_token
+            auth_token, was_refreshed, token_error = get_valid_token_with_status(
+                location_id, subscriber=subscriber)
+
             if not auth_token:
-                logger.error(f"❌ ABORT: Token refresh failed for {location_id}")
-                return {"status": "error", "reason": "token refresh failed"}
+                oauth_type = subscriber.get('oauth_app_type', 'unknown')
+                has_access = bool(subscriber.get('access_token'))
+                has_refresh = bool(subscriber.get('refresh_token'))
+                logger.error(f"❌ ABORT: Token refresh failed for {location_id} | "
+                            f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
+                            f"has_refresh_token={has_refresh} | error={token_error}")
+
+                # Create persistent dashboard alert so subscriber sees the issue
+                sub_email = subscriber.get('email')
+                if sub_email:
+                    save_persistent_alert(
+                        email=sub_email,
+                        alert_type="oauth_token_failure",
+                        title="CRM Connection Lost",
+                        message=(
+                            "Your GoHighLevel connection needs to be re-authorized. "
+                            "Incoming messages are not being processed. "
+                            "Please click 'Connect CRM' to reconnect."
+                        ),
+                        severity="error",
+                        location_id=location_id
+                    )
+
+                log_webhook_event(location_id, "error", "error",
+                                  f"Token refresh failed ({token_error}) — message dropped",
+                                  contact_id=contact_id,
+                                  details={"oauth_app_type": oauth_type, "error": token_error})
+
+                # Re-queue with backoff for transient failures (network, server errors)
+                # Don't retry auth errors — those need user action (re-auth)
+                if token_error in ('network_error', 'server_error'):
+                    retry_count = payload.get("_retry_count", 0)
+                    if retry_count < 3:
+                        payload["_retry_count"] = retry_count + 1
+                        delay_seconds = 30 * (2 ** retry_count)  # 30s, 60s, 120s
+                        try:
+                            import redis
+                            from rq import Queue
+                            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+                            r = redis.from_url(redis_url, socket_timeout=5,
+                                               socket_connect_timeout=5)
+                            q = Queue('production', connection=r)
+                            q.enqueue_in(
+                                timedelta(seconds=delay_seconds),
+                                process_webhook_task,
+                                payload,
+                                job_timeout=120,
+                                result_ttl=86400,
+                            )
+                            logger.info(f"🔄 Re-queued task for {contact_id} with "
+                                       f"{delay_seconds}s delay (retry {retry_count + 1}/3)")
+                        except Exception as retry_err:
+                            logger.error(f"Failed to re-queue task: {retry_err}")
+
+                return {"status": "error", "reason": f"token refresh failed: {token_error}"}
+
+            # If we got an expired token as last resort, log a warning but continue
+            if token_error == 'expired':
+                logger.warning(f"⚠️ Using possibly-expired token for {location_id} — "
+                              f"SMS may fail, but attempting anyway")
+                # Alert subscriber that their connection needs attention
+                sub_email = subscriber.get('email')
+                if sub_email:
+                    save_persistent_alert(
+                        email=sub_email,
+                        alert_type="oauth_token_expiring",
+                        title="CRM Connection Needs Attention",
+                        message=(
+                            "Your GoHighLevel token refresh is failing. "
+                            "Messages are still sending but may stop soon. "
+                            "Please reconnect your CRM to prevent interruption."
+                        ),
+                        severity="warning",
+                        location_id=location_id
+                    )
 
         # Inject fresh token (empty for API sources without GHL)
         subscriber['access_token'] = auth_token

@@ -2,6 +2,7 @@
 import requests
 import logging
 import os
+import time as _time
 from datetime import datetime, timedelta
 from db import get_subscriber_info_hybrid, update_subscriber_token
 
@@ -10,17 +11,134 @@ logger = logging.getLogger(__name__)
 GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token"
 GHL_HEADERS = {"Version": "2021-04-15", "Content-Type": "application/json"}
 
-def get_valid_token(location_id: str) -> str | None:
+# user_type values GHL accepts — Location for sub-accounts, Company for agency-level
+_USER_TYPES = ["Location", "Company"]
+
+
+def _get_env_with_fallback(*names):
+    """Try multiple env var names, return first non-empty value."""
+    for name in names:
+        val = os.getenv(name)
+        if val:
+            return val
+    return None
+
+
+def _load_oauth_credentials():
+    """Load both marketplace and private OAuth credential sets from environment.
+    Returns (marketplace_id, marketplace_secret, private_id, private_secret)."""
+    marketplace_id = _get_env_with_fallback("GHL_CLIENT_ID")
+    marketplace_secret = _get_env_with_fallback("GHL_CLIENT_SECRET")
+    private_id = _get_env_with_fallback("PRIVATE_APP_CLIENT_ID", "GHL_PRIVATE_CLIENT_ID")
+    private_secret = _get_env_with_fallback("PRIVATE_APP_SECRET_ID", "GHL_PRIVATE_CLIENT_SECRET")
+    return marketplace_id, marketplace_secret, private_id, private_secret
+
+
+def _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret, private_id, private_secret):
+    """Build ordered list of credential sets to try based on stored app_type.
+    Primary credentials first, then fallback."""
+    cred_sets = []
+    if oauth_app_type == 'private':
+        if private_id and private_secret:
+            cred_sets.append({"id": private_id, "secret": private_secret,
+                              "label": "PRIVATE APP", "type": "private"})
+        if marketplace_id and marketplace_secret:
+            cred_sets.append({"id": marketplace_id, "secret": marketplace_secret,
+                              "label": "MARKETPLACE (fallback)", "type": "marketplace"})
+    else:
+        if marketplace_id and marketplace_secret:
+            cred_sets.append({"id": marketplace_id, "secret": marketplace_secret,
+                              "label": "MARKETPLACE", "type": "marketplace"})
+        if private_id and private_secret:
+            cred_sets.append({"id": private_id, "secret": private_secret,
+                              "label": "PRIVATE APP (fallback)", "type": "private"})
+    return cred_sets
+
+
+def _attempt_token_refresh(location_id, refresh_token, cred, oauth_app_type):
+    """Try refreshing a token with a single credential set, trying both user_types.
+    Returns (new_access_token, new_refresh_token, expires_in, used_type) on success,
+    or (None, None, None, error_reason) on failure.
+    error_reason: 'auth_error', 'network_error', 'server_error', 'no_access_token'"""
+
+    for user_type in _USER_TYPES:
+        payload = {
+            "client_id": cred["id"],
+            "client_secret": cred["secret"],
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "user_type": user_type
+        }
+
+        last_err = None
+        for attempt in range(2):
+            try:
+                resp = requests.post(GHL_TOKEN_URL, data=payload, timeout=10)
+                resp.raise_for_status()
+                data = resp.json()
+
+                new_access = data.get('access_token')
+                new_refresh = data.get('refresh_token')
+                expires_in = data.get('expires_in', 86400)
+
+                if not new_access:
+                    logger.error(f"Refresh response missing access_token (user_type={user_type}): "
+                                f"{resp.text[:200]}")
+                    return None, None, None, 'no_access_token'
+
+                logger.info(f"✅ Token refreshed for {location_id} using {cred['label']} "
+                           f"(user_type={user_type})")
+                return new_access, new_refresh, expires_in, cred["type"]
+
+            except requests.HTTPError as e:
+                status = e.response.status_code if e.response else 0
+                err_text = e.response.text[:300] if e.response else 'no body'
+
+                if status in (400, 401, 403):
+                    # Auth error with this user_type — try the other user_type
+                    # before giving up on this credential set
+                    logger.debug(f"Token refresh {status} with {cred['label']}, "
+                                f"user_type={user_type}: {err_text}")
+                    last_err = 'auth_error'
+                    break  # Try next user_type
+                else:
+                    # 5xx or other — retry same request
+                    last_err = 'server_error'
+                    logger.warning(f"Token refresh attempt {attempt+1}/2 HTTP {status} "
+                                  f"({cred['label']}, user_type={user_type})")
+            except (requests.Timeout, requests.ConnectionError) as e:
+                last_err = 'network_error'
+                logger.warning(f"Token refresh attempt {attempt+1}/2 network error "
+                              f"({cred['label']}, user_type={user_type}): {e}")
+
+            if attempt == 0:
+                _time.sleep(2)
+
+    # Both user_types exhausted for this credential set
+    return None, None, None, last_err or 'auth_error'
+
+
+def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
     """
     Returns a valid Bearer access token or None on failure.
-    Refreshes if expired (5-min buffer). Falls back to persistent token if no refresh_token.
-    FIXED: Uses correct OAuth credentials based on app type (private vs marketplace).
+
+    Enterprise-grade token lifecycle:
+    1. Return cached token if not expired (5-min buffer)
+    2. Refresh using stored oauth_app_type credentials
+    3. Fallback to alternate credential set if primary fails
+    4. Try both Location and Company user_types for each credential set
+    5. Last resort: return existing access_token even if expired
+    6. Auto-correct oauth_app_type in DB if fallback creds succeed
+
+    Args:
+        location_id: GHL location ID
+        subscriber: Optional pre-fetched subscriber dict (avoids redundant DB query)
     """
     if location_id in {'DEMO', 'DEMO_LOC', 'TEST_LOCATION_456'}:
         print(f"ℹ️ Internal Mode: Skipping auth for {location_id}")
         return 'DEMO'
 
-    sub = get_subscriber_info_hybrid(location_id)
+    sub = subscriber or get_subscriber_info_hybrid(location_id)
     if not sub:
         logger.error(f"No subscriber config for {location_id}")
         return None
@@ -28,9 +146,9 @@ def get_valid_token(location_id: str) -> str | None:
     access_token = sub.get('access_token') or sub.get('crm_api_key')
     refresh_token = sub.get('refresh_token')
     expires_at = sub.get('token_expires_at')
-    oauth_app_type = sub.get('oauth_app_type', 'marketplace')  # Default to marketplace for legacy
+    oauth_app_type = sub.get('oauth_app_type', 'marketplace')
 
-    # Persistent/private token (no refresh_token)
+    # Persistent token (no refresh_token — e.g. API key users)
     if not refresh_token:
         if access_token:
             logger.debug(f"Using persistent token for {location_id}")
@@ -38,7 +156,7 @@ def get_valid_token(location_id: str) -> str | None:
         logger.error(f"No access_token or refresh_token for {location_id}")
         return None
 
-    # CRITICAL FIX: Convert expires_at to datetime if it's a string
+    # Convert expires_at to datetime if it's a string
     if expires_at:
         if isinstance(expires_at, str):
             try:
@@ -48,111 +166,262 @@ def get_valid_token(location_id: str) -> str | None:
                 expires_at = None
 
     # Check expiry with buffer (5-min safety margin)
-    if expires_at and expires_at > datetime.now() + timedelta(minutes=5):
-        return access_token
+    # Handle timezone-aware vs naive datetime comparison safely
+    if expires_at:
+        try:
+            now = datetime.now()
+            if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
+                expires_at = expires_at.replace(tzinfo=None)
+            if expires_at > now + timedelta(minutes=5):
+                return access_token
+        except TypeError:
+            logger.warning(f"Timezone comparison error for {location_id}, proceeding to refresh")
 
-    # DUAL-APP SUPPORT: Build credential sets to try.
-    # Primary: use the stored oauth_app_type. Fallback: try the other app's creds
-    # if the primary fails with an auth error (handles mismatched app type in DB).
-    marketplace_creds = (os.getenv("GHL_CLIENT_ID"), os.getenv("GHL_CLIENT_SECRET"))
-    private_creds = (os.getenv("PRIVATE_APP_CLIENT_ID"), os.getenv("PRIVATE_APP_SECRET_ID"))
-
-    cred_sets = []
-    if oauth_app_type == 'private':
-        if private_creds[0] and private_creds[1]:
-            cred_sets.append({"id": private_creds[0], "secret": private_creds[1],
-                              "label": "PRIVATE APP", "type": "private"})
-        # Fallback: try marketplace creds in case oauth_app_type was stored wrong
-        if marketplace_creds[0] and marketplace_creds[1]:
-            cred_sets.append({"id": marketplace_creds[0], "secret": marketplace_creds[1],
-                              "label": "MARKETPLACE (fallback)", "type": "marketplace"})
-    else:
-        if marketplace_creds[0] and marketplace_creds[1]:
-            cred_sets.append({"id": marketplace_creds[0], "secret": marketplace_creds[1],
-                              "label": "MARKETPLACE", "type": "marketplace"})
-        # Fallback: try private creds in case oauth_app_type was stored wrong
-        if private_creds[0] and private_creds[1]:
-            cred_sets.append({"id": private_creds[0], "secret": private_creds[1],
-                              "label": "PRIVATE APP (fallback)", "type": "private"})
+    # --- Token needs refresh ---
+    marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
+    cred_sets = _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret,
+                                 private_id, private_secret)
 
     if not cred_sets:
-        logger.error(f"No OAuth credentials configured for app_type={oauth_app_type}")
+        logger.error(f"No OAuth credentials configured for app_type={oauth_app_type} | "
+                     f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
+                     f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
+                     f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
+                     f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
+        if access_token:
+            logger.warning(f"⚠️ Returning possibly-expired token for {location_id} (no creds to refresh)")
+            return access_token
         return None
 
+    # Try each credential set with both user_types
     for cred_idx, cred in enumerate(cred_sets):
-        logger.info(f"🔄 Refreshing token for {location_id} using {cred['label']} credentials")
-
-        payload = {
-            "client_id": cred["id"],
-            "client_secret": cred["secret"],
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-            "user_type": "Location"
-        }
+        logger.info(f"🔄 Refreshing token for {location_id} using {cred['label']} "
+                    f"(app_type={oauth_app_type})")
 
         try:
-            last_err = None
-            for attempt in range(2):
-                try:
-                    resp = requests.post(GHL_TOKEN_URL, data=payload, timeout=10)
-                    resp.raise_for_status()
-                    data = resp.json()
+            new_access, new_refresh, expires_in, result_type = _attempt_token_refresh(
+                location_id, refresh_token, cred, oauth_app_type)
 
-                    new_access = data.get('access_token')
-                    new_refresh = data.get('refresh_token')
-                    expires_in = data.get('expires_in', 86400)  # default 24h
+            if new_access:
+                # Success — persist new tokens to DB
+                fix_type = result_type if result_type != oauth_app_type else None
+                if fix_type:
+                    logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
+                                  f"{oauth_app_type} → {fix_type}")
+                update_subscriber_token(location_id, new_access, new_refresh,
+                                       expires_in, oauth_app_type=fix_type)
+                return new_access
 
-                    if not new_access:
-                        logger.error(f"Refresh response missing access_token: {resp.text}")
-                        return None
-
-                    # If we succeeded with a fallback credential set, fix the stored app type
-                    fix_type = cred["type"] if cred["type"] != oauth_app_type else None
-                    if fix_type:
-                        logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
-                                      f"{oauth_app_type} → {fix_type}")
-                    update_subscriber_token(location_id, new_access, new_refresh,
-                                           expires_in, oauth_app_type=fix_type)
-                    logger.info(f"✅ Token refreshed successfully for {location_id} "
-                               f"using {cred['label']}")
-                    return new_access
-
-                except requests.HTTPError as e:
-                    status = e.response.status_code if e.response else 0
-                    if status in (400, 401, 403):
-                        # Auth error — wrong credentials for this refresh token.
-                        # If we have a fallback credential set, try it instead.
-                        err_text = e.response.text[:300] if e.response else 'no body'
-                        if cred_idx < len(cred_sets) - 1:
-                            logger.warning(f"Token refresh auth error {status} with {cred['label']} "
-                                          f"— will try fallback credentials. Detail: {err_text}")
-                            break  # Break retry loop, continue to next cred set
-                        else:
-                            logger.error(f"Token refresh auth error {status} with {cred['label']} "
-                                        f"(no more fallbacks): {err_text}")
-                            return None
-                    # 5xx or other — retry
-                    last_err = f"HTTP {status}"
-                    logger.warning(f"Token refresh attempt {attempt+1}/2 failed: {status}")
-                except (requests.Timeout, requests.ConnectionError) as e:
-                    last_err = str(e)
-                    logger.warning(f"Token refresh attempt {attempt+1}/2 network error: {e}")
-
-                if attempt == 0:
-                    import time as _time
-                    _time.sleep(2)  # Brief backoff before retry
+            # Failed with this cred set
+            if result_type == 'auth_error' and cred_idx < len(cred_sets) - 1:
+                logger.warning(f"Auth error with {cred['label']} — trying fallback credentials")
+                continue
+            elif result_type == 'auth_error':
+                logger.error(f"Token refresh auth error with {cred['label']} (no more fallbacks)")
             else:
-                # Retry loop exhausted without break (no auth error, just network/5xx)
-                logger.error(f"Token refresh failed after 2 attempts for {location_id} "
-                            f"using {cred['label']}: {last_err}")
-                return None
+                logger.error(f"Token refresh failed with {cred['label']}: {result_type}")
+                if cred_idx < len(cred_sets) - 1:
+                    continue  # Try next cred set on network/server errors too
 
         except Exception as e:
-            logger.error(f"Token refresh failed for {location_id}: {e}", exc_info=True)
-            return None
+            logger.error(f"Token refresh unexpected error for {location_id}: {e}", exc_info=True)
+            if cred_idx < len(cred_sets) - 1:
+                continue
 
-    logger.error(f"Token refresh failed for {location_id}: all credential sets exhausted")
+    # All credential sets exhausted — last resort: return existing token
+    if access_token:
+        logger.warning(f"⚠️ All refresh attempts failed for {location_id} — "
+                      f"returning existing token as last resort (may be expired)")
+        return access_token
+
+    logger.error(f"Token refresh failed for {location_id}: all credential sets exhausted, "
+                f"no existing token")
     return None
+
+
+def get_valid_token_with_status(location_id: str, subscriber: dict = None) -> tuple:
+    """
+    Like get_valid_token but returns (token, was_refreshed, error_reason) tuple.
+    Callers can use this to decide whether to create alerts or retry.
+
+    Returns:
+        (token, True, None)       — Fresh token from successful refresh
+        (token, False, None)      — Cached token, still valid
+        (token, False, 'expired') — Returning expired token as last resort
+        (None, False, reason)     — Complete failure, no usable token
+    """
+    if location_id in {'DEMO', 'DEMO_LOC', 'TEST_LOCATION_456'}:
+        return 'DEMO', False, None
+
+    sub = subscriber or get_subscriber_info_hybrid(location_id)
+    if not sub:
+        logger.error(f"No subscriber config for {location_id}")
+        return None, False, 'no_subscriber'
+
+    access_token = sub.get('access_token') or sub.get('crm_api_key')
+    refresh_token = sub.get('refresh_token')
+    expires_at = sub.get('token_expires_at')
+    oauth_app_type = sub.get('oauth_app_type', 'marketplace')
+
+    # Persistent token (no refresh_token)
+    if not refresh_token:
+        if access_token:
+            return access_token, False, None
+        return None, False, 'no_tokens'
+
+    # Parse expires_at
+    if expires_at and isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+        except Exception:
+            expires_at = None
+
+    # Check expiry
+    token_expired = True
+    if expires_at:
+        try:
+            now = datetime.now()
+            if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
+                expires_at = expires_at.replace(tzinfo=None)
+            if expires_at > now + timedelta(minutes=5):
+                token_expired = False
+        except TypeError:
+            pass
+
+    if not token_expired:
+        return access_token, False, None
+
+    # --- Token needs refresh ---
+    marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
+    cred_sets = _build_cred_sets(oauth_app_type, marketplace_id, marketplace_secret,
+                                 private_id, private_secret)
+
+    if not cred_sets:
+        logger.error(f"No OAuth credentials configured for app_type={oauth_app_type} | "
+                     f"GHL_CLIENT_ID={'set' if marketplace_id else 'MISSING'} | "
+                     f"GHL_CLIENT_SECRET={'set' if marketplace_secret else 'MISSING'} | "
+                     f"PRIVATE_APP_CLIENT_ID={'set' if private_id else 'MISSING'} | "
+                     f"PRIVATE_APP_SECRET_ID={'set' if private_secret else 'MISSING'}")
+        if access_token:
+            return access_token, False, 'no_credentials'
+        return None, False, 'no_credentials'
+
+    last_error = None
+    for cred_idx, cred in enumerate(cred_sets):
+        logger.info(f"🔄 Refreshing token for {location_id} using {cred['label']} "
+                    f"(app_type={oauth_app_type})")
+
+        try:
+            new_access, new_refresh, expires_in, result_type = _attempt_token_refresh(
+                location_id, refresh_token, cred, oauth_app_type)
+
+            if new_access:
+                fix_type = result_type if result_type != oauth_app_type else None
+                if fix_type:
+                    logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
+                                  f"{oauth_app_type} → {fix_type}")
+                update_subscriber_token(location_id, new_access, new_refresh,
+                                       expires_in, oauth_app_type=fix_type)
+                return new_access, True, None
+
+            last_error = result_type
+            if cred_idx < len(cred_sets) - 1:
+                continue
+
+        except Exception as e:
+            logger.error(f"Token refresh unexpected error: {e}", exc_info=True)
+            last_error = 'exception'
+            if cred_idx < len(cred_sets) - 1:
+                continue
+
+    # All failed — last resort
+    if access_token:
+        logger.warning(f"⚠️ All refresh attempts failed for {location_id} — "
+                      f"returning existing token as last resort")
+        return access_token, False, 'expired'
+
+    return None, False, last_error or 'all_creds_exhausted'
+
+
+def refresh_tokens_proactively(buffer_minutes: int = 30):
+    """
+    Proactively refresh tokens that will expire within buffer_minutes.
+    Call this from a cron job (e.g. every 15 minutes) to prevent token expiry
+    from blocking webhook processing.
+
+    Returns dict with counts: {refreshed, failed, skipped, errors}
+    """
+    from db import get_db_connection, return_db_connection
+    stats = {"refreshed": 0, "failed": 0, "skipped": 0, "errors": 0}
+
+    conn = get_db_connection()
+    if not conn:
+        logger.error("Proactive refresh: cannot get DB connection")
+        return stats
+
+    try:
+        cur = conn.cursor()
+        # Find subscribers with tokens expiring soon that have refresh_tokens
+        cur.execute("""
+            SELECT location_id, email, oauth_app_type, access_token, refresh_token,
+                   token_expires_at
+            FROM subscribers
+            WHERE refresh_token IS NOT NULL
+              AND token_expires_at IS NOT NULL
+              AND token_expires_at < NOW() + interval '%s minutes'
+              AND token_expires_at > NOW() - interval '7 days'
+        """, (buffer_minutes,))
+        expiring = cur.fetchall()
+        cur.close()
+    except Exception as e:
+        logger.error(f"Proactive refresh query failed: {e}")
+        return_db_connection(conn)
+        return stats
+    finally:
+        return_db_connection(conn)
+
+    if not expiring:
+        logger.info(f"Proactive refresh: no tokens expiring within {buffer_minutes} minutes")
+        return stats
+
+    logger.info(f"Proactive refresh: found {len(expiring)} tokens to refresh")
+
+    marketplace_id, marketplace_secret, private_id, private_secret = _load_oauth_credentials()
+
+    for row in expiring:
+        loc_id = row['location_id']
+        oauth_type = row.get('oauth_app_type', 'marketplace')
+        refresh_tok = row['refresh_token']
+
+        cred_sets = _build_cred_sets(oauth_type, marketplace_id, marketplace_secret,
+                                     private_id, private_secret)
+        if not cred_sets:
+            stats["skipped"] += 1
+            continue
+
+        refreshed = False
+        for cred in cred_sets:
+            new_access, new_refresh, expires_in, result_type = _attempt_token_refresh(
+                loc_id, refresh_tok, cred, oauth_type)
+            if new_access:
+                fix_type = result_type if result_type != oauth_type else None
+                update_subscriber_token(loc_id, new_access, new_refresh,
+                                       expires_in, oauth_app_type=fix_type)
+                stats["refreshed"] += 1
+                refreshed = True
+                logger.info(f"✅ Proactive refresh success: {loc_id}")
+                break
+
+        if not refreshed:
+            stats["failed"] += 1
+            logger.warning(f"⚠️ Proactive refresh failed: {loc_id} (app_type={oauth_type})")
+
+        # Brief pause between refreshes to avoid rate limiting
+        _time.sleep(0.5)
+
+    logger.info(f"Proactive refresh complete: {stats}")
+    return stats
+
 
 def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: str = None, limit: int = 20) -> list:
     """
@@ -167,7 +436,7 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
             return []
     if access_token == 'DEMO':
         return []
-    
+
     headers = {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
 
     try:
