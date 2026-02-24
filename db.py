@@ -1341,42 +1341,77 @@ def update_subscriber_token(
     oauth_app_type: Optional[str] = None
 ) -> bool:
     """Update OAuth tokens with expiry. Optionally fix oauth_app_type if credential
-    auto-detection found the stored type was wrong."""
-    conn = get_db_connection()
-    if not conn:
-        return False
-    try:
-        cur = conn.cursor()
-        if oauth_app_type:
-            cur.execute("""
-                UPDATE subscribers
-                SET access_token = %s,
-                    refresh_token = COALESCE(%s, refresh_token),
-                    token_expires_at = NOW() + interval '%s seconds',
-                    oauth_app_type = %s,
-                    updated_at = NOW()
-                WHERE location_id = %s
-            """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
-        else:
-            cur.execute("""
-                UPDATE subscribers
-                SET access_token = %s,
-                    refresh_token = COALESCE(%s, refresh_token),
-                    token_expires_at = NOW() + interval '%s seconds',
-                    updated_at = NOW()
-                WHERE location_id = %s
-            """, (access_token, refresh_token, expires_in, location_id))
-        conn.commit()
-        return cur.rowcount > 0
-    except psycopg2.Error as e:
-        logger.error(f"update_subscriber_token failed for {location_id}: {e}")
-        conn.rollback()
-        return False
-    finally:
-        if 'cur' in locals():
-            cur.close()
-        if conn:
-            return_db_connection(conn)
+    auto-detection found the stored type was wrong.
+
+    CRITICAL: GHL refresh tokens are single-use. If this write fails after a
+    successful token refresh, the old refresh_token is already invalidated by GHL
+    and the new one is lost — causing permanent lockout. This function retries
+    up to 3 times on failure to prevent that scenario.
+    """
+    import time as _t
+
+    for attempt in range(3):
+        conn = get_db_connection()
+        if not conn:
+            if attempt < 2:
+                logger.warning(f"update_subscriber_token: no DB connection "
+                              f"(attempt {attempt+1}/3), retrying...")
+                _t.sleep(1)
+                continue
+            logger.error(f"update_subscriber_token: no DB connection after 3 attempts "
+                        f"for {location_id} — TOKENS MAY BE LOST")
+            return False
+        try:
+            cur = conn.cursor()
+            # COALESCE keeps old refresh_token only if GHL didn't return a new one.
+            # This is a safety net — GHL almost always returns a new refresh_token.
+            if oauth_app_type:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET access_token = %s,
+                        refresh_token = COALESCE(%s, refresh_token),
+                        token_expires_at = NOW() + interval '%s seconds',
+                        oauth_app_type = %s,
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
+            else:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET access_token = %s,
+                        refresh_token = COALESCE(%s, refresh_token),
+                        token_expires_at = NOW() + interval '%s seconds',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (access_token, refresh_token, expires_in, location_id))
+            conn.commit()
+            updated = cur.rowcount > 0
+            if updated:
+                logger.info(f"✅ DB token persisted for {location_id} "
+                           f"(refresh_token={'new' if refresh_token else 'kept'})")
+            else:
+                logger.warning(f"⚠️ DB token update matched 0 rows for {location_id} "
+                              f"— location_id may not exist in subscribers table")
+            return updated
+        except psycopg2.Error as e:
+            logger.error(f"update_subscriber_token FAILED for {location_id} "
+                        f"(attempt {attempt+1}/3): {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            if attempt < 2:
+                _t.sleep(1)
+                continue
+            logger.error(f"🚨 CRITICAL: Token DB write failed after 3 attempts for {location_id} "
+                        f"— refresh_token may be permanently lost")
+            return False
+        finally:
+            if 'cur' in locals():
+                cur.close()
+            if conn:
+                return_db_connection(conn)
+    return False
 
 
 def get_users_needing_reminders() -> list:
