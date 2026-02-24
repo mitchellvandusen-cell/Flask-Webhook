@@ -45,24 +45,44 @@
 
         // ── Pipeline filter ──
         async function dialerLoadPipelines() {
+            const sel = document.getElementById('dialerPipelineFilter');
+            const manualWrap = document.getElementById('dialerPipelineManual');
+            const stageSel = document.getElementById('dialerStageFilter');
             try {
+                console.log('[Dialer] Fetching pipelines...');
                 const r = await fetch('/voice/pipelines');
-                if (!r.ok) return;
+                if (!r.ok) {
+                    console.warn('[Dialer] Pipelines fetch failed:', r.status, r.statusText);
+                    sel.innerHTML = '<option value="">All Contacts</option>';
+                    return;
+                }
                 const d = await r.json();
                 dialerPipelines = d.pipelines || [];
-                const sel = document.getElementById('dialerPipelineFilter');
-                const manualWrap = document.getElementById('dialerPipelineManual');
+                console.log('[Dialer] Pipelines loaded:', dialerPipelines.length, dialerPipelines.map(p => p.name));
                 if (d.scope_missing) {
                     // opportunities.readonly not yet approved — show manual ID input
                     sel.style.display = 'none';
                     manualWrap.style.display = 'block';
+                    stageSel.disabled = true;
+                    stageSel.innerHTML = '<option value="">All Stages (pipeline scope pending)</option>';
+                } else if (dialerPipelines.length === 0) {
+                    sel.style.display = 'block';
+                    manualWrap.style.display = 'none';
+                    sel.innerHTML = '<option value="">All Contacts</option><option value="" disabled style="color:#555;">No pipelines found in GHL</option>';
+                    stageSel.disabled = true;
+                    stageSel.innerHTML = '<option value="">All Stages (no pipelines)</option>';
                 } else {
                     sel.style.display = 'block';
                     manualWrap.style.display = 'none';
                     sel.innerHTML = '<option value="">All Contacts</option>' +
                         dialerPipelines.map(p => '<option value="' + p.id + '">' + dialerEsc(p.name) + '</option>').join('');
+                    stageSel.disabled = true;
+                    stageSel.innerHTML = '<option value="">All Stages (select a pipeline)</option>';
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.error('[Dialer] Pipeline load error:', e);
+                sel.innerHTML = '<option value="">All Contacts</option>';
+            }
         }
 
         let dialerManualPipelineTimer = null;
@@ -79,12 +99,14 @@
                 if (p && p.stages.length) {
                     stageSel.innerHTML = '<option value="">All Stages</option>' +
                         p.stages.map(s => '<option value="' + s.id + '">' + dialerEsc(s.name) + '</option>').join('');
-                    stageSel.style.display = 'block';
+                    stageSel.disabled = false;
                 } else {
-                    stageSel.style.display = 'none';
+                    stageSel.innerHTML = '<option value="">No stages in this pipeline</option>';
+                    stageSel.disabled = true;
                 }
             } else {
-                stageSel.style.display = 'none';
+                stageSel.innerHTML = '<option value="">All Stages (select a pipeline)</option>';
+                stageSel.disabled = true;
             }
             dialerFetchContacts();
         }
@@ -153,11 +175,12 @@
                 const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
                 const inQ = dialerQueue.some(q => q.id === c.id);
                 const callCount = _dialerCallCounts[c.id] || 0;
-                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="display:' + (callCount > 0 ? 'inline-flex' : 'none') + ';"><i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + callCount + '</span>';
+                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="display:' + (callCount > 0 ? 'inline-flex' : 'none') + ';">Dials: ' + callCount + '</span>';
                 return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
                     '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
                     '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
-                    '<div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:2px;"><span style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</span>' + badgeHtml + '</div><div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div></div>' +
+                    '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div><div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div></div>' +
+                    badgeHtml +
                     (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
                 '</div>';
             }).join('');
@@ -2363,7 +2386,7 @@
                             _dialerCallCounts[id] = total;
                             const badge = document.querySelector('[data-call-badge="' + id + '"]');
                             if (badge) {
-                                badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + total;
+                                badge.textContent = 'Dials: ' + total;
                                 badge.style.display = 'inline-flex';
                             }
                         }
@@ -2379,7 +2402,7 @@
             _dialerCallCounts[contactId] = total;
             const badge = document.querySelector('[data-call-badge="' + contactId + '"]');
             if (badge) {
-                badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + total;
+                badge.textContent = 'Dials: ' + total;
                 badge.style.display = total > 0 ? 'inline-flex' : 'none';
             }
         }
@@ -2390,7 +2413,7 @@
                 const count = _dialerCallCounts[c.id] || 0;
                 const badge = document.querySelector('[data-call-badge="' + c.id + '"]');
                 if (badge) {
-                    badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + count;
+                    badge.textContent = 'Dials: ' + count;
                     badge.style.display = count > 0 ? 'inline-flex' : 'none';
                 }
             });
@@ -2463,10 +2486,10 @@
             function _delta(val, isPP) {
                 if (val === null || val === undefined) return '';
                 const sign  = val > 0 ? '+' : '';
-                const color = val > 0 ? '#00ff88' : val < 0 ? '#ef4444' : '#555';
+                const color = val > 0 ? '#00ff88' : val < 0 ? '#ef4444' : '#888';
                 const arrow = val > 0 ? '▲' : val < 0 ? '▼' : '';
                 const suffix = isPP ? 'pp' : '%';
-                return '<div style="font-size:0.67rem;margin-top:3px;color:' + color + ';">' + arrow + ' ' + sign + val + suffix + '</div>';
+                return '<div style="font-size:0.78rem;margin-top:3px;color:' + color + ';font-weight:600;">' + arrow + ' ' + sign + val + suffix + '</div>';
             }
 
             // ── KPI CARDS ──
@@ -2483,11 +2506,11 @@
             html += '</div>';
 
             // ── DURATION | OUTCOME BREAKDOWN ──
-            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">';
 
             // Left: Duration bars
             html += '<div>';
-            html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Duration Breakdown</div>';
+            html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Duration Breakdown</div>';
             const maxDur = Math.max(s.over_6s, 1);
             html += _durBar('6s+',    s.over_6s,    maxDur, '#00d9ff');
             html += _durBar('1 min',  s.over_1min,  maxDur, '#00b8d4');
@@ -2498,7 +2521,7 @@
 
             // Right: Outcome (disposition) breakdown
             html += '<div>';
-            html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Outcome Breakdown</div>';
+            html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Outcome Breakdown</div>';
             const DISP_MAP = {
                 'left_voicemail': { label: 'Left Voicemail',  color: '#a855f7' },
                 'not_answered':   { label: 'No Answer',       color: '#6b7280' },
@@ -2517,14 +2540,14 @@
             outcomeList.sort((a, b) => b.count - a.count);
             const maxOutcome = Math.max(...outcomeList.map(o => o.count), 1);
             if (!outcomeList.length || s.total_calls === 0) {
-                html += '<div style="color:#444;font-size:0.78rem;padding:6px 0;line-height:1.5;">No disposition data yet.<br><span style="color:#333;font-size:0.7rem;">Set call dispositions after each call to see your outcome breakdown here.</span></div>';
+                html += '<div style="color:#888;font-size:0.88rem;padding:8px 0;line-height:1.6;">No disposition data yet.<br><span style="color:#666;font-size:0.82rem;">Set call dispositions after each call to see your outcome breakdown here.</span></div>';
             } else {
                 outcomeList.forEach(o => {
                     const pct = s.total_calls > 0 ? Math.round(o.count / s.total_calls * 100) : 0;
-                    html += '<div class="dlr-bar-row" style="margin-bottom:5px;">' +
-                        '<div style="min-width:105px;max-width:105px;font-size:0.73rem;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(o.label) + '</div>' +
-                        '<div class="dlr-bar-track"><div class="dlr-bar-fill" style="width:' + Math.round(o.count / maxOutcome * 100) + '%;background:' + o.color + ';"></div></div>' +
-                        '<div style="font-size:0.72rem;color:#aaa;min-width:56px;text-align:right;font-family:\'JetBrains Mono\',monospace;">' + pct + '% <span style="color:#555;">(' + o.count + ')</span></div>' +
+                    html += '<div class="dlr-bar-row" style="margin-bottom:6px;">' +
+                        '<div style="min-width:120px;max-width:120px;font-size:0.88rem;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(o.label) + '</div>' +
+                        '<div class="dlr-bar-track" style="height:10px;"><div class="dlr-bar-fill" style="width:' + Math.round(o.count / maxOutcome * 100) + '%;background:' + o.color + ';"></div></div>' +
+                        '<div style="font-size:0.85rem;color:#ddd;min-width:64px;text-align:right;font-family:\'JetBrains Mono\',monospace;">' + pct + '% <span style="color:#888;">(' + o.count + ')</span></div>' +
                     '</div>';
                 });
             }
@@ -2538,15 +2561,15 @@
                 const top3 = [...s.hourly].filter(h => h.calls > 0).sort((a,b) => b.calls - a.calls).slice(0, 3);
                 if (top3.length) {
                     const rankColors = ['#00ff88','#00d9ff','#a78bfa'];
-                    html += '<div style="margin-bottom:16px;padding:12px 16px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;display:flex;align-items:center;gap:16px;">';
-                    html += '<i class="fa-solid fa-clock" style="color:#00ff88;font-size:1rem;flex-shrink:0;"></i>';
+                    html += '<div style="margin-bottom:20px;padding:14px 18px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;display:flex;align-items:center;gap:16px;">';
+                    html += '<i class="fa-solid fa-clock" style="color:#00ff88;font-size:1.2rem;flex-shrink:0;"></i>';
                     html += '<div style="flex:1;">';
-                    html += '<div style="font-size:0.78rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Best Hours to Call</div>';
-                    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+                    html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Best Hours to Call</div>';
+                    html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
                     top3.forEach((h, i) => {
-                        html += '<div style="background:rgba(255,255,255,0.03);border:1px solid ' + rankColors[i] + '55;border-radius:8px;padding:7px 16px;text-align:center;">' +
-                            '<div style="font-size:1.05rem;font-weight:800;color:' + rankColors[i] + ';">' + HOUR_LABELS[h.hour] + '</div>' +
-                            '<div style="font-size:0.64rem;color:#555;margin-top:2px;">' + h.calls + ' call' + (h.calls !== 1 ? 's' : '') + '</div>' +
+                        html += '<div style="background:rgba(255,255,255,0.03);border:1px solid ' + rankColors[i] + '55;border-radius:8px;padding:10px 20px;text-align:center;">' +
+                            '<div style="font-size:1.15rem;font-weight:800;color:' + rankColors[i] + ';">' + HOUR_LABELS[h.hour] + '</div>' +
+                            '<div style="font-size:0.82rem;color:#aaa;margin-top:3px;">' + h.calls + ' call' + (h.calls !== 1 ? 's' : '') + '</div>' +
                         '</div>';
                     });
                     html += '</div></div></div>';
@@ -2555,29 +2578,29 @@
 
             // ── DAILY VOLUME (dual-tone: total + connected) ──
             if (s.daily && s.daily.length > 1) {
-                html += '<div style="margin-bottom:16px;">';
-                html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-                html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
+                html += '<div style="margin-bottom:20px;">';
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+                html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
                 html += '<div style="display:flex;gap:14px;">' +
-                    '<span style="font-size:0.68rem;color:#555;"><span style="color:rgba(0,217,255,0.5);">■</span> Dials</span>' +
-                    '<span style="font-size:0.68rem;color:#555;"><span style="color:#00ff88;">■</span> Connected</span>' +
+                    '<span style="font-size:0.82rem;color:#aaa;"><span style="color:rgba(0,217,255,0.6);">■</span> Dials</span>' +
+                    '<span style="font-size:0.82rem;color:#aaa;"><span style="color:#00ff88;">■</span> Connected</span>' +
                 '</div>';
                 html += '</div>';
                 const maxDay = Math.max(...s.daily.map(d => d.calls), 1);
-                const barH   = 64;
-                html += '<div style="display:flex;align-items:flex-end;gap:2px;height:' + (barH + 30) + 'px;overflow-x:auto;padding-bottom:2px;">';
+                const barH   = 80;
+                html += '<div style="display:flex;align-items:flex-end;gap:3px;height:' + (barH + 36) + 'px;overflow-x:auto;padding-bottom:2px;">';
                 s.daily.forEach(d => {
                     const hTotal = Math.max(2, Math.round(d.calls / maxDay * barH));
                     const hConn  = d.calls > 0 ? Math.max(1, Math.round(d.connected / d.calls * hTotal)) : 0;
                     const label  = d.day ? d.day.substr(5) : '';
                     const talkLbl = d.total_secs ? Math.round(d.total_secs / 60) + 'm talk' : '';
-                    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:22px;" title="' + d.day + ': ' + d.calls + ' dials, ' + d.connected + ' connected' + (talkLbl ? ', ' + talkLbl : '') + '">' +
-                        '<div style="font-size:0.52rem;color:#444;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
+                    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:26px;" title="' + d.day + ': ' + d.calls + ' dials, ' + d.connected + ' connected' + (talkLbl ? ', ' + talkLbl : '') + '">' +
+                        '<div style="font-size:0.72rem;color:#aaa;font-weight:600;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
                         '<div style="width:100%;position:relative;height:' + hTotal + 'px;">' +
                             '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hTotal + 'px;background:rgba(0,217,255,0.25);border-radius:3px 3px 0 0;"></div>' +
                             (hConn > 0 ? '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hConn + 'px;background:rgba(0,255,136,0.65);border-radius:2px 2px 0 0;"></div>' : '') +
                         '</div>' +
-                        '<div style="font-size:0.52rem;color:#444;white-space:nowrap;">' + label + '</div>' +
+                        '<div style="font-size:0.72rem;color:#aaa;white-space:nowrap;">' + label + '</div>' +
                     '</div>';
                 });
                 html += '</div></div>';
@@ -2586,13 +2609,13 @@
             // ── MOST CONTACTED ──
             if (s.top_contacts && s.top_contacts.length) {
                 html += '<div>';
-                html += '<div style="font-size:0.82rem;font-weight:700;color:#aaa;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Most Contacted</div>';
+                html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Most Contacted</div>';
                 const maxTop = Math.max(...s.top_contacts.map(t => t.count), 1);
                 s.top_contacts.forEach(tc => {
-                    html += '<div class="dlr-bar-row">' +
-                        '<div class="dlr-bar-label" style="min-width:90px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:0.75rem;color:#888;">' + dialerEsc(tc.name) + '</div>' +
-                        '<div class="dlr-bar-track"><div class="dlr-bar-fill" style="width:' + Math.round(tc.count / maxTop * 100) + '%;background:rgba(0,217,255,0.5);"></div></div>' +
-                        '<div class="dlr-bar-count">' + tc.count + '</div>' +
+                    html += '<div class="dlr-bar-row" style="margin-bottom:5px;">' +
+                        '<div class="dlr-bar-label" style="min-width:110px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:0.88rem;color:#ccc;">' + dialerEsc(tc.name) + '</div>' +
+                        '<div class="dlr-bar-track" style="height:10px;"><div class="dlr-bar-fill" style="width:' + Math.round(tc.count / maxTop * 100) + '%;background:rgba(0,217,255,0.5);"></div></div>' +
+                        '<div class="dlr-bar-count" style="font-size:0.88rem;color:#ddd;">' + tc.count + '</div>' +
                     '</div>';
                 });
                 html += '</div>';
@@ -2607,10 +2630,10 @@
 
         function _durBar(label, count, maxVal, color) {
             const pct = maxVal > 0 ? Math.round(count / maxVal * 100) : 0;
-            return '<div class="dlr-bar-row">' +
-                '<div class="dlr-bar-label">' + label + '</div>' +
-                '<div class="dlr-bar-track"><div class="dlr-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
-                '<div class="dlr-bar-count">' + count + '</div>' +
+            return '<div class="dlr-bar-row" style="margin-bottom:6px;">' +
+                '<div class="dlr-bar-label" style="font-size:0.88rem;color:#ccc;">' + label + '</div>' +
+                '<div class="dlr-bar-track" style="height:10px;"><div class="dlr-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
+                '<div class="dlr-bar-count" style="font-size:0.88rem;color:#ddd;">' + count + '</div>' +
             '</div>';
         }
 
