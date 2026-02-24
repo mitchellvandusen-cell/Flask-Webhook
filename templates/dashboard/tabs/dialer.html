@@ -508,7 +508,7 @@
                                     <div id="dlrMsgContactName" style="font-weight:700;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
                                     <div id="dlrMsgContactPhone" style="font-size:0.78rem;color:#666;margin-top:1px;"></div>
                                 </div>
-                                <span style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
+                                <span id="dlrChannelBadge" style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
                                 <button onclick="dlrRefreshMessages()" title="Refresh thread" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#666;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dlrRefreshBtn">
                                     <i class="fa-solid fa-arrows-rotate"></i>
                                 </button>
@@ -544,6 +544,16 @@
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Ready to go over your coverage options when you are — just reply here to get started.')">Coverage</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Are you available for a quick 10-minute call today or tomorrow?')">Schedule</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Got your message! I\'ll look into that and get back to you shortly.')">On it</button>
+                                </div>
+
+                                <!-- Send From Channel Selector -->
+                                <div id="dlrChannelRow" style="display:none;padding:4px 12px 0;align-items:center;gap:8px;">
+                                    <span style="font-size:0.75rem;color:#555;font-weight:600;white-space:nowrap;">Send from:</span>
+                                    <select id="dlrChannelSelect" onchange="dlrOnChannelChange()"
+                                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);color:#ccc;padding:4px 10px;border-radius:8px;font-size:0.78rem;outline:none;cursor:pointer;min-width:180px;">
+                                        <option value="ghl">GHL / Lead Connector</option>
+                                    </select>
+                                    <span id="dlrChannelNote" style="font-size:0.68rem;color:#555;"></span>
                                 </div>
 
                                 <!-- Compose Row -->
