@@ -7,7 +7,7 @@ import time
 from typing import Tuple, Optional
 from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, mark_webhook_log_backfill_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -1385,29 +1385,35 @@ def recover_failed_webhooks(max_age_hours: int = 24) -> dict:
 
 
 def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
-    """Recover failed webhooks and SMS sends from webhook_logs.
+    """Recover dropped webhooks and failed SMS sends from webhook_logs.
+
+    Works BACKWARDS from outcomes — finds webhook_received entries that never
+    got a corresponding message_sent (dropped messages), regardless of whether
+    an explicit error entry exists.  Also catches SMS HTTP failures where the
+    reply is saved but the send failed.
 
     Handles TWO failure types:
 
-    1. token_refresh — Token refresh failed before any SMS was attempted.
-       Reconstructs a minimal payload and re-queues the full AI pipeline.
+    1. dropped — A webhook_received exists with no matching message_sent
+       within 10 min.  Reconstructs a minimal payload and re-queues the
+       full AI pipeline.
 
     2. sms_http_fail — The AI reply was generated but the SMS HTTP call
        failed (auth 401/403, rate-limit 429, network, etc.). The reply text
        is already saved in the log's details->>'reply', so we just re-send
        the SMS directly — no need to re-run the LLM.
 
-    Safe to run multiple times: each webhook_log entry is marked as retried
-    via JSONB update before re-queuing/re-sending.
+    Safe to run multiple times: webhook_received entries are marked with
+    backfill_retried=true; message_failed entries with retried=true.
 
     Returns:
-        dict with stats: {total_found, token_refresh_found, sms_http_found,
+        dict with stats: {total_found, dropped_found, sms_http_found,
                           locations_checked, locations_recovered, requeued,
                           sms_resent, skipped, token_failures, no_message}
     """
     stats = {
         "total_found": 0,
-        "token_refresh_found": 0,
+        "dropped_found": 0,
         "sms_http_found": 0,
         "locations_checked": 0,
         "locations_recovered": 0,
@@ -1424,7 +1430,7 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
         stats["total_found"] = len(failed_logs)
 
         if not failed_logs:
-            logger.info(f"🔍 BACKFILL: No unretried failures in webhook_logs "
+            logger.info(f"🔍 BACKFILL: No dropped/failed webhooks in webhook_logs "
                        f"for last {max_age_hours}h")
             return stats
 
@@ -1433,11 +1439,11 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
             if entry.get('entry_type') == 'sms_http_fail':
                 stats["sms_http_found"] += 1
             else:
-                stats["token_refresh_found"] += 1
+                stats["dropped_found"] += 1
 
-        logger.info(f"🔍 BACKFILL: Found {len(failed_logs)} failures in last "
-                   f"{max_age_hours}h — {stats['token_refresh_found']} token refresh, "
-                   f"{stats['sms_http_found']} SMS HTTP — attempting recovery")
+        logger.info(f"🔍 BACKFILL: Found {len(failed_logs)} issues in last "
+                   f"{max_age_hours}h — {stats['dropped_found']} dropped webhooks, "
+                   f"{stats['sms_http_found']} SMS HTTP failures — attempting recovery")
 
         # Step 2: Group by location_id
         by_location = {}
@@ -1450,10 +1456,10 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
         # Step 3: For each location, try to get a valid token
         for location_id, entries in by_location.items():
             stats["locations_checked"] += 1
-            n_token = sum(1 for e in entries if e.get('entry_type') == 'token_refresh')
+            n_dropped = sum(1 for e in entries if e.get('entry_type') == 'dropped')
             n_sms = sum(1 for e in entries if e.get('entry_type') == 'sms_http_fail')
             logger.info(f"🔄 BACKFILL: Processing location {location_id} — "
-                       f"{n_token} token-refresh, {n_sms} SMS-HTTP failures")
+                       f"{n_dropped} dropped, {n_sms} SMS-HTTP failures")
 
             # Force-refresh token
             try:
@@ -1471,18 +1477,21 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                 continue
 
             logger.info(f"✅ BACKFILL: Got valid token for {location_id} — "
-                       f"processing {len(entries)} failures")
+                       f"processing {len(entries)} entries")
             stats["locations_recovered"] += 1
 
             # Step 4: Process each entry based on its type
             for entry in entries:
                 log_id = entry['id']
                 contact_id = entry.get('contact_id')
-                entry_type = entry.get('entry_type', 'token_refresh')
+                entry_type = entry.get('entry_type', 'dropped')
 
                 if not contact_id:
                     logger.warning(f"BACKFILL: Skipping log {log_id} — no contact_id")
-                    mark_webhook_log_retried(log_id, success=False)
+                    if entry_type == 'sms_http_fail':
+                        mark_webhook_log_retried(log_id, success=False)
+                    else:
+                        mark_webhook_log_backfill_retried(log_id, success=False)
                     stats["skipped"] += 1
                     continue
 
@@ -1517,7 +1526,7 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                         stats["skipped"] += 1
 
                 else:
-                    # Token refresh failure: re-queue full pipeline
+                    # Dropped webhook: re-queue full AI pipeline
                     message_preview = entry.get('message_preview') or ''
                     first_name = entry.get('first_name') or ''
 
@@ -1549,14 +1558,15 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                             job_timeout=120,
                             result_ttl=86400,
                         )
-                        mark_webhook_log_retried(log_id, success=True)
+                        mark_webhook_log_backfill_retried(log_id, success=True)
                         stats["requeued"] += 1
-                        logger.info(f"✅ BACKFILL: Re-queued historical webhook for "
-                                   f"{contact_id} (log_id={log_id})")
+                        logger.info(f"✅ BACKFILL: Re-queued dropped webhook for "
+                                   f"{contact_id} (log_id={log_id}, "
+                                   f"msg={message_preview[:50] if message_preview else 'N/A'})")
                     except Exception as enqueue_err:
                         logger.error(f"BACKFILL: Failed to re-queue log {log_id}: "
                                     f"{enqueue_err}")
-                        mark_webhook_log_retried(log_id, success=False)
+                        mark_webhook_log_backfill_retried(log_id, success=False)
                         stats["skipped"] += 1
 
                 time.sleep(0.5)
@@ -1564,7 +1574,7 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
         total_recovered = stats['requeued'] + stats['sms_resent']
         logger.info(f"📊 BACKFILL COMPLETE: checked {stats['locations_checked']} locations | "
                    f"recovered {stats['locations_recovered']} | "
-                   f"requeued {stats['requeued']} pipelines + "
+                   f"requeued {stats['requeued']} dropped + "
                    f"resent {stats['sms_resent']} SMS / "
                    f"{stats['total_found']} total | "
                    f"token failures: {stats['token_failures']} | "
@@ -1572,9 +1582,10 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
 
         if total_recovered > 0:
             log_webhook_event("SYSTEM", "backfill_complete", "success",
-                              f"Backfill recovered {total_recovered} failed entries "
-                              f"({stats['requeued']} re-queued, {stats['sms_resent']} "
-                              f"SMS resent) across {stats['locations_recovered']} locations",
+                              f"Backfill recovered {total_recovered} entries "
+                              f"({stats['requeued']} dropped re-queued, "
+                              f"{stats['sms_resent']} SMS resent) across "
+                              f"{stats['locations_recovered']} locations",
                               details=stats)
 
     except Exception as e:
