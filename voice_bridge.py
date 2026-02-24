@@ -1763,26 +1763,18 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                 try:
                     while call_active:
                         # Check for immediate takeover (agent barge-in)
+                        # Only mute AI audio here — the REST route handles the actual
+                        # Twilio redirect to avoid double-fire race conditions.
                         if call_sid and call_sid in _transfer_requests:
                             req = _transfer_requests.get(call_sid, {})
                             if req.get('type') == 'takeover':
-                                transfer_info = _transfer_requests.pop(call_sid, {})
-                                target = transfer_info.get('target', '')
-                                logger.info(f"⚡ Immediate takeover (Twilio relay): {call_sid} -> {target}")
-
+                                logger.info(f"⚡ Instant AI audio cutoff (Twilio loop): {call_sid}")
                                 # Flush buffered AI audio from Twilio's pipeline
                                 try:
                                     ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
                                 except Exception:
                                     pass
-
-                                t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
-                                if t_sub_sid and target:
-                                    call_active = False
-                                    t_host = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
-                                    _twilio_transfer(call_sid, t_sub_sid, target, f"https://{t_host}" if t_host else '')
-                                    if call_sid in _active_calls:
-                                        _active_calls[call_sid]['status'] = 'transferred'
+                                call_active = False
                                 break
 
                         message = await asyncio.get_running_loop().run_in_executor(
@@ -2031,22 +2023,9 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
 
                                 _pending_transfer = False
 
-                            # Check for takeover request (human barge-in)
-                            elif call_sid and call_sid in _transfer_requests:
-                                transfer_info = _transfer_requests.pop(call_sid, {})
-                                if transfer_info.get('type') == 'takeover':
-                                    target = transfer_info.get('target', '')
-                                    logger.info(f"🔄 Executing takeover: call {call_sid} -> {target}")
-
-                                    t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
-                                    if t_sub_sid and target:
-                                        call_active = False
-                                        await asyncio.sleep(0.3)
-                                        host_t = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
-                                        _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_t}" if host_t else '')
-                                        logger.info(f"🔄 Takeover transfer to {target}")
-                                        if call_sid in _active_calls:
-                                            _active_calls[call_sid]['status'] = 'transferred'
+                            # Takeover (human barge-in) is handled by the instant
+                            # cutoff at the top of this loop + REST route redirect.
+                            # No duplicate Twilio transfer here.
 
                 except websockets.exceptions.ConnectionClosed:
                     logger.info("🎙️ XAI WebSocket closed")
@@ -2076,6 +2055,16 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                 logger.info(f"🎙️ Saved transcript ({len(call_transcript)} turns) for call {call_sid}")
             except Exception as e:
                 logger.error(f"Failed to save transcript: {e}")
+        # Mark call as completed if still showing in-progress
+        # (Twilio status callback may arrive later, but this prevents
+        #  stale in-progress entries that allow intercept on ended calls)
+        if call_sid and call_sid in _active_calls:
+            cur_status = _active_calls[call_sid].get('status', '')
+            if cur_status in ('ringing', 'queued', 'initiated', 'in-progress'):
+                _active_calls[call_sid]['status'] = 'completed'
+        # Clean up any leftover transfer request
+        if call_sid:
+            _transfer_requests.pop(call_sid, None)
         # Log call end
         try:
             log_webhook_event(
@@ -2115,9 +2104,21 @@ def run_listen_stream(ws):
 
     try:
         # First message from browser: { "call_sid": "CAxxxxxx" }
-        init_msg = ws.receive()
+        # Use a timeout to avoid blocking forever if client connects but
+        # never sends the init message (browser autoplay block, etc.)
+        try:
+            init_msg = ws.receive(timeout=10)
+        except Exception:
+            init_msg = None
+
         if not init_msg:
+            logger.debug("Listen stream: no init message received (connection closed or timeout)")
+            try:
+                ws.send(json.dumps({"error": "No init message received"}))
+            except Exception:
+                pass
             return
+
         init_data = json.loads(init_msg)
         call_sid = init_data.get('call_sid', '')
 
@@ -2127,6 +2128,11 @@ def run_listen_stream(ws):
 
         if call_sid not in _active_calls:
             ws.send(json.dumps({"error": "Call not found or already ended"}))
+            return
+
+        call_status = _active_calls.get(call_sid, {}).get('status', '')
+        if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer'):
+            ws.send(json.dumps({"error": f"Call already ended ({call_status})"}))
             return
 
         # Register this listener
