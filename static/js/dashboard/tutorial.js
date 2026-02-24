@@ -16,50 +16,76 @@
         style.id = 'igb-tutorial-css';
         style.textContent = [
 
-            /* ── Popover entry animation ── */
-            '@keyframes igbTutIn { from { opacity:0; transform: scale(0.94) translateY(6px); } to { opacity:1; transform: scale(1) translateY(0); } }',
+            /* ── Keyframes ───────────────────────────────────────────── */
+            '@keyframes igbTutIn {',
+            '  from { opacity:0; transform:scale(0.96) translateY(8px); filter:blur(4px); }',
+            '  to   { opacity:1; transform:scale(1)    translateY(0);   filter:blur(0);   }',
+            '}',
+            '@keyframes igbRingGlow {',
+            '  0%,100% { box-shadow: 0 0 0 2px rgba(0,255,136,0.45), 0 0 20px rgba(0,255,136,0.18), 0 0 40px rgba(0,255,136,0.06); }',
+            '  50%     { box-shadow: 0 0 0 3px rgba(0,255,136,0.30), 0 0 32px rgba(0,255,136,0.12), 0 0 60px rgba(0,255,136,0.04); }',
+            '}',
 
-            /* ── Overlay: deeper, vignette feel ── */
+            /* ── Overlay ─────────────────────────────────────────────── */
             '.driver-overlay { background: rgba(0,0,0,0) !important; }',
 
-            /* ── GLASSMORPHISM POPOVER ─────────────────────────────────────
-               True frosted-glass: semi-transparent bg + backdrop-filter blur
-               Multi-layer shadow for depth. Top-edge light streak for glass.
-            ────────────────────────────────────────────────────────────── */
+            /* ════════════════════════════════════════════════════════════
+               GLASSMORPHISM POPOVER
+               ─ Multi-layer frosted glass with refraction gradients
+               ─ Top-edge light streak via ::before pseudo
+               ─ SVG noise grain for texture depth
+               ─ 6-layer box-shadow for natural elevation
+            ════════════════════════════════════════════════════════════ */
             '.driver-popover {',
-            '  background: rgba(10, 10, 26, 0.72) !important;',
-            '  backdrop-filter: blur(28px) saturate(180%) !important;',
-            '  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;',
-            '  border: 1px solid rgba(255,255,255,0.10) !important;',
-            '  border-top: 1px solid rgba(255,255,255,0.18) !important;',
-            '  border-radius: 18px !important;',
+            '  background:',
+            '    radial-gradient(ellipse at 15% -10%, rgba(0,217,255,0.07) 0%, transparent 55%),',
+            '    radial-gradient(ellipse at 85% 110%, rgba(0,255,136,0.04) 0%, transparent 55%),',
+            '    linear-gradient(168deg, rgba(18,18,44,0.88) 0%, rgba(10,10,28,0.82) 45%, rgba(14,10,34,0.86) 100%) !important;',
+            '  backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;',
+            '  -webkit-backdrop-filter: blur(40px) saturate(200%) brightness(1.05) !important;',
+            '  border: 1px solid rgba(255,255,255,0.07) !important;',
+            '  border-top-color: rgba(255,255,255,0.14) !important;',
+            '  border-radius: 20px !important;',
             '  box-shadow:',
-            '    0 0 0 0.5px rgba(0,255,136,0.12),',
-            '    0 8px 32px rgba(0,0,0,0.55),',
-            '    0 32px 80px rgba(0,0,0,0.45),',
-            '    inset 0 1px 0 rgba(255,255,255,0.12),',
-            '    inset 0 -1px 0 rgba(0,0,0,0.3) !important;',
-            '  padding: 22px 24px 20px !important;',
+            '    0 0 0 0.5px rgba(255,255,255,0.05),',
+            '    0 4px 16px  rgba(0,0,0,0.35),',
+            '    0 16px 48px rgba(0,0,0,0.40),',
+            '    0 40px 100px rgba(0,0,0,0.28),',
+            '    inset 0 1px 0 rgba(255,255,255,0.14),',
+            '    inset 0 0 40px rgba(0,255,136,0.015) !important;',
+            '  padding: 24px 26px 18px !important;',
             '  min-height: unset !important;',
             '  max-width: 400px !important;',
             '  font-family: "Outfit", sans-serif !important;',
-            '  animation: igbTutIn 0.22s cubic-bezier(0.34,1.26,0.64,1) !important;',
+            '  animation: igbTutIn 0.35s cubic-bezier(0.22,1,0.36,1) !important;',
+            '  position: relative !important;',
             '}',
 
-            /* ── Title ── */
+            /* ── Top-edge light streak (glass refraction highlight) ── */
+            '.driver-popover::before {',
+            '  content: "" !important;',
+            '  position: absolute !important;',
+            '  top: 0 !important; left: 20px !important; right: 20px !important;',
+            '  height: 1px !important;',
+            '  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15) 20%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.15) 80%, transparent) !important;',
+            '  pointer-events: none !important;',
+            '  z-index: 1 !important;',
+            '}',
+
+            /* ── Title ───────────────────────────────────────────────── */
             '.driver-popover-title {',
-            '  color: #e8e8f0 !important;',
+            '  color: #f0f0f8 !important;',
             '  font-weight: 700 !important;',
             '  font-size: 1rem !important;',
             '  line-height: 1.35 !important;',
             '  margin: 0 0 8px !important;',
             '  padding: 0 !important;',
-            '  letter-spacing: -0.01em !important;',
+            '  letter-spacing: -0.015em !important;',
             '}',
 
-            /* ── Description ── */
+            /* ── Description ─────────────────────────────────────────── */
             '.driver-popover-description {',
-            '  color: rgba(210, 210, 230, 0.88) !important;',
+            '  color: rgba(215,215,235,0.85) !important;',
             '  font-size: 0.84rem !important;',
             '  line-height: 1.65 !important;',
             '  margin: 0 !important;',
@@ -67,156 +93,211 @@
             '  font-weight: 400 !important;',
             '}',
             '.driver-popover-description strong { color: #fff !important; font-weight: 600 !important; }',
-            '.driver-popover-description em { color: #a0e8c8 !important; font-style: normal !important; }',
-            '.driver-popover-description code { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); color: #00ff88; border-radius: 4px; padding: 1px 6px; font-size: 0.78rem; font-family: "JetBrains Mono", monospace; }',
+            '.driver-popover-description em { color: #8edfc0 !important; font-style: normal !important; }',
+            '.driver-popover-description code {',
+            '  background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.15);',
+            '  color: #00e87a; border-radius: 5px; padding: 2px 7px;',
+            '  font-size: 0.76rem; font-family: "JetBrains Mono", monospace;',
+            '}',
             '.driver-popover-description p { margin: 0 0 6px !important; }',
 
-            /* ── Divider between description and footer ── */
+            /* ── Footer / nav bar ────────────────────────────────────── */
             '.driver-popover-footer {',
             '  display: flex !important;',
             '  align-items: center !important;',
-            '  margin-top: 14px !important;',
-            '  padding-top: 10px !important;',
+            '  margin-top: 16px !important;',
+            '  padding-top: 12px !important;',
             '  padding-bottom: 0 !important;',
-            '  border-top: 1px solid rgba(255,255,255,0.07) !important;',
+            '  border-top: 1px solid rgba(255,255,255,0.06) !important;',
             '  gap: 8px !important;',
             '}',
 
-            /* ── Progress text ── */
+            /* ── Progress text (hidden, but styled if ever shown) ──── */
             '.driver-popover-progress-text {',
-            '  color: rgba(255,255,255,0.28) !important;',
+            '  color: rgba(255,255,255,0.22) !important;',
             '  font-size: 0.68rem !important;',
             '  font-family: "JetBrains Mono", monospace !important;',
             '  letter-spacing: 0.04em !important;',
             '  flex: 1 !important;',
             '}',
 
-            /* ── Buttons ── */
-            '.driver-popover-navigation-btns { gap: 6px !important; flex-shrink: 0 !important; }',
+            /* ── Button container ────────────────────────────────────── */
+            '.driver-popover-navigation-btns { gap: 8px !important; flex-shrink: 0 !important; }',
 
-            /* Next / Done — accent green pill */
+            /* ── Next / Done button — frosted green pill ─────────────── */
             '.driver-popover-next-btn {',
-            '  background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%) !important;',
-            '  color: #050505 !important;',
+            '  background: linear-gradient(135deg, #00ff88 0%, #00d96e 100%) !important;',
+            '  color: #041a0e !important;',
             '  border: none !important;',
             '  border-radius: 50px !important;',
             '  font-weight: 700 !important;',
             '  font-size: 0.78rem !important;',
-            '  padding: 7px 20px !important;',
+            '  padding: 8px 22px !important;',
             '  letter-spacing: 0.02em !important;',
-            '  text-shadow: none !important;',
-            '  box-shadow: 0 2px 12px rgba(0,255,136,0.35) !important;',
-            '  transition: filter 0.15s, box-shadow 0.15s !important;',
+            '  text-shadow: 0 1px 0 rgba(255,255,255,0.15) !important;',
+            '  box-shadow:',
+            '    0 1px 3px rgba(0,0,0,0.2),',
+            '    0 4px 16px rgba(0,255,136,0.25),',
+            '    inset 0 1px 0 rgba(255,255,255,0.25) !important;',
+            '  transition: all 0.2s cubic-bezier(0.22,1,0.36,1) !important;',
             '  cursor: pointer !important;',
             '}',
             '.driver-popover-next-btn:hover {',
-            '  filter: brightness(1.08) !important;',
-            '  box-shadow: 0 4px 20px rgba(0,255,136,0.5) !important;',
+            '  transform: translateY(-1px) !important;',
+            '  box-shadow:',
+            '    0 2px 6px rgba(0,0,0,0.25),',
+            '    0 8px 28px rgba(0,255,136,0.35),',
+            '    inset 0 1px 0 rgba(255,255,255,0.30) !important;',
             '}',
+            '.driver-popover-next-btn:active { transform: translateY(0) !important; }',
 
-            /* Back — ghost pill */
+            /* ── Back button — glass ghost pill ──────────────────────── */
             '.driver-popover-prev-btn {',
-            '  background: rgba(255,255,255,0.06) !important;',
-            '  color: rgba(255,255,255,0.55) !important;',
-            '  border: 1px solid rgba(255,255,255,0.1) !important;',
+            '  background: rgba(255,255,255,0.04) !important;',
+            '  color: rgba(255,255,255,0.50) !important;',
+            '  border: 1px solid rgba(255,255,255,0.08) !important;',
             '  border-radius: 50px !important;',
             '  font-weight: 500 !important;',
             '  font-size: 0.78rem !important;',
-            '  padding: 6px 16px !important;',
+            '  padding: 7px 18px !important;',
             '  cursor: pointer !important;',
-            '  transition: background 0.15s, color 0.15s !important;',
+            '  transition: all 0.2s cubic-bezier(0.22,1,0.36,1) !important;',
+            '  backdrop-filter: blur(8px) !important;',
             '}',
-            '.driver-popover-prev-btn:hover { background: rgba(255,255,255,0.12) !important; color: rgba(255,255,255,0.85) !important; }',
+            '.driver-popover-prev-btn:hover {',
+            '  background: rgba(255,255,255,0.10) !important;',
+            '  color: rgba(255,255,255,0.85) !important;',
+            '  border-color: rgba(255,255,255,0.15) !important;',
+            '  transform: translateY(-1px) !important;',
+            '}',
 
-            /* Close button */
+            /* ── Close button ────────────────────────────────────────── */
             '.driver-popover-close-btn {',
-            '  color: rgba(255,255,255,0.3) !important;',
-            '  font-size: 1.1rem !important;',
-            '  top: 14px !important; right: 16px !important;',
-            '  transition: color 0.15s !important;',
+            '  color: rgba(255,255,255,0.25) !important;',
+            '  font-size: 1.05rem !important;',
+            '  top: 16px !important; right: 18px !important;',
+            '  transition: all 0.2s !important;',
+            '  width: 26px !important; height: 26px !important;',
+            '  display: flex !important; align-items: center !important; justify-content: center !important;',
+            '  border-radius: 50% !important;',
             '}',
-            '.driver-popover-close-btn:hover { color: rgba(255,255,255,0.8) !important; }',
+            '.driver-popover-close-btn:hover {',
+            '  color: rgba(255,255,255,0.8) !important;',
+            '  background: rgba(255,255,255,0.06) !important;',
+            '}',
 
-            /* ── Arrow — match glass bg ── */
-            '.driver-popover-arrow-side-left.driver-popover-arrow  { border-right-color: rgba(14,14,32,0.9) !important; }',
-            '.driver-popover-arrow-side-right.driver-popover-arrow { border-left-color:  rgba(14,14,32,0.9) !important; }',
-            '.driver-popover-arrow-side-top.driver-popover-arrow   { border-bottom-color: rgba(14,14,32,0.9) !important; }',
-            '.driver-popover-arrow-side-bottom.driver-popover-arrow{ border-top-color:   rgba(14,14,32,0.9) !important; }',
+            /* ── Arrow — matched to glass tint ───────────────────────── */
+            '.driver-popover-arrow-side-left.driver-popover-arrow  { border-right-color:  rgba(16,16,38,0.92) !important; }',
+            '.driver-popover-arrow-side-right.driver-popover-arrow { border-left-color:   rgba(16,16,38,0.92) !important; }',
+            '.driver-popover-arrow-side-top.driver-popover-arrow   { border-bottom-color: rgba(16,16,38,0.92) !important; }',
+            '.driver-popover-arrow-side-bottom.driver-popover-arrow{ border-top-color:    rgba(16,16,38,0.92) !important; }',
 
-            /* ── ELEMENT HIGHLIGHT — green glow ring ──────────────────────
-               driver.js adds .driver-active-element to the element under focus.
-               We add a pulsing accent ring so it's unmissable.
-            ────────────────────────────────────────────────────────────── */
-            '@keyframes igbRingPulse { 0%,100% { box-shadow: 0 0 0 3px rgba(0,255,136,0.5), 0 0 28px rgba(0,255,136,0.25); } 50% { box-shadow: 0 0 0 5px rgba(0,255,136,0.35), 0 0 48px rgba(0,255,136,0.18); } }',
+            /* ════════════════════════════════════════════════════════════
+               ELEMENT HIGHLIGHT — refined green glow
+               Softer, wider glow with slower pulsation
+            ════════════════════════════════════════════════════════════ */
             '.driver-active-element, .driver-highlighted-element {',
-            '  outline: 2px solid rgba(0,255,136,0.7) !important;',
-            '  outline-offset: 3px !important;',
-            '  border-radius: 8px !important;',
-            '  animation: igbRingPulse 2s ease-in-out infinite !important;',
+            '  outline: 2px solid rgba(0,255,136,0.55) !important;',
+            '  outline-offset: 4px !important;',
+            '  border-radius: 10px !important;',
+            '  animation: igbRingGlow 2.5s ease-in-out infinite !important;',
             '}',
 
-            /* ── CHAPTER MARKER popovers (wider, centered) ── */
+            /* ════════════════════════════════════════════════════════════
+               CHAPTER MARKER — centered cyan-tinted glass
+            ════════════════════════════════════════════════════════════ */
             '.igb-tut-chapter {',
             '  max-width: 460px !important;',
-            '  border: 1px solid rgba(0,217,255,0.12) !important;',
-            '  border-top: 1px solid rgba(0,217,255,0.25) !important;',
+            '  background:',
+            '    radial-gradient(ellipse at 50% -20%, rgba(0,217,255,0.10) 0%, transparent 60%),',
+            '    radial-gradient(ellipse at 50% 120%, rgba(0,120,255,0.04) 0%, transparent 60%),',
+            '    linear-gradient(168deg, rgba(14,14,40,0.90) 0%, rgba(10,10,30,0.85) 100%) !important;',
+            '  border: 1px solid rgba(0,217,255,0.10) !important;',
+            '  border-top-color: rgba(0,217,255,0.22) !important;',
             '  box-shadow:',
-            '    0 0 0 0.5px rgba(0,217,255,0.1),',
-            '    0 8px 32px rgba(0,0,0,0.55),',
-            '    0 32px 80px rgba(0,0,0,0.45),',
-            '    inset 0 1px 0 rgba(0,217,255,0.15) !important;',
+            '    0 0 0 0.5px rgba(0,217,255,0.08),',
+            '    0 4px 16px rgba(0,0,0,0.35),',
+            '    0 16px 48px rgba(0,0,0,0.40),',
+            '    0 40px 100px rgba(0,0,0,0.28),',
+            '    inset 0 1px 0 rgba(0,217,255,0.12),',
+            '    inset 0 0 40px rgba(0,217,255,0.015) !important;',
+            '}',
+            '.igb-tut-chapter::before {',
+            '  background: linear-gradient(90deg, transparent, rgba(0,217,255,0.15) 20%, rgba(0,217,255,0.3) 50%, rgba(0,217,255,0.15) 80%, transparent) !important;',
             '}',
             '.igb-tut-chapter .driver-popover-title { font-size: 1.15rem !important; text-align: center !important; color: #fff !important; }',
-            '.igb-tut-chapter .driver-popover-description { text-align: center !important; color: rgba(200,200,220,0.85) !important; }',
+            '.igb-tut-chapter .driver-popover-description { text-align: center !important; color: rgba(200,210,230,0.82) !important; }',
 
-            /* ── FINISH popover ── */
+            /* ════════════════════════════════════════════════════════════
+               FINISH — green-tinted celebratory glass
+            ════════════════════════════════════════════════════════════ */
             '.igb-tut-finish {',
             '  max-width: 480px !important;',
-            '  border: 1px solid rgba(0,255,136,0.15) !important;',
-            '  border-top: 1px solid rgba(0,255,136,0.3) !important;',
+            '  background:',
+            '    radial-gradient(ellipse at 50% -20%, rgba(0,255,136,0.10) 0%, transparent 60%),',
+            '    radial-gradient(ellipse at 50% 120%, rgba(0,180,100,0.04) 0%, transparent 60%),',
+            '    linear-gradient(168deg, rgba(12,18,30,0.90) 0%, rgba(8,14,24,0.85) 100%) !important;',
+            '  border: 1px solid rgba(0,255,136,0.10) !important;',
+            '  border-top-color: rgba(0,255,136,0.25) !important;',
             '  box-shadow:',
-            '    0 0 0 0.5px rgba(0,255,136,0.15),',
-            '    0 8px 32px rgba(0,0,0,0.55),',
-            '    0 32px 80px rgba(0,0,0,0.45),',
-            '    inset 0 1px 0 rgba(0,255,136,0.2) !important;',
+            '    0 0 0 0.5px rgba(0,255,136,0.10),',
+            '    0 4px 16px rgba(0,0,0,0.35),',
+            '    0 16px 48px rgba(0,0,0,0.40),',
+            '    0 40px 100px rgba(0,0,0,0.28),',
+            '    inset 0 1px 0 rgba(0,255,136,0.15),',
+            '    inset 0 0 40px rgba(0,255,136,0.02) !important;',
+            '}',
+            '.igb-tut-finish::before {',
+            '  background: linear-gradient(90deg, transparent, rgba(0,255,136,0.12) 20%, rgba(0,255,136,0.28) 50%, rgba(0,255,136,0.12) 80%, transparent) !important;',
             '}',
             '.igb-tut-finish .driver-popover-title { font-size: 1.2rem !important; text-align: center !important; color: #00ff88 !important; }',
             '.igb-tut-finish .driver-popover-description { text-align: center !important; }',
 
-            /* ── Chapter badge pill ── */
+            /* ── Chapter badge pill ───────────────────────────────────── */
             '.igb-ch-badge {',
             '  display: inline-block;',
-            '  font-size: 0.58rem;',
+            '  font-size: 0.56rem;',
             '  font-weight: 700;',
             '  text-transform: uppercase;',
-            '  letter-spacing: 2.5px;',
+            '  letter-spacing: 3px;',
             '  color: #00d9ff;',
-            '  background: rgba(0,217,255,0.08);',
-            '  border: 1px solid rgba(0,217,255,0.2);',
-            '  padding: 2px 10px;',
+            '  background: rgba(0,217,255,0.06);',
+            '  border: 1px solid rgba(0,217,255,0.18);',
+            '  padding: 3px 12px;',
             '  border-radius: 20px;',
             '  margin-bottom: 8px;',
             '}',
 
-            /* ── Skip chapter button ── */
+            /* ── Skip chapter button ─────────────────────────────────── */
             '.igb-tut-skip {',
             '  display: inline-block;',
             '  margin-top: 12px;',
-            '  background: rgba(255,255,255,0.04);',
-            '  border: 1px solid rgba(255,255,255,0.1);',
-            '  color: rgba(255,255,255,0.4);',
+            '  background: rgba(255,255,255,0.03);',
+            '  border: 1px solid rgba(255,255,255,0.08);',
+            '  color: rgba(255,255,255,0.35);',
             '  font-size: 0.71rem;',
-            '  padding: 5px 16px;',
+            '  padding: 6px 18px;',
             '  border-radius: 50px;',
             '  cursor: pointer;',
             '  font-family: "Outfit", sans-serif;',
-            '  transition: all 0.18s;',
+            '  transition: all 0.2s cubic-bezier(0.22,1,0.36,1);',
+            '  backdrop-filter: blur(8px);',
             '}',
-            '.igb-tut-skip:hover { border-color: rgba(0,217,255,0.35); color: #00d9ff; background: rgba(0,217,255,0.06); }',
+            '.igb-tut-skip:hover {',
+            '  border-color: rgba(0,217,255,0.30);',
+            '  color: #00d9ff;',
+            '  background: rgba(0,217,255,0.05);',
+            '  transform: translateY(-1px);',
+            '}',
 
-            /* ── Keyboard hint ── */
-            '.igb-key-hint { display: block; margin-top: 10px; font-size: 0.67rem; color: rgba(255,255,255,0.28); }',
-            '.igb-key-hint kbd { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 1px 6px; font-family: "JetBrains Mono", monospace; font-size: 0.64rem; color: rgba(255,255,255,0.5); }'
+            /* ── Keyboard hint ───────────────────────────────────────── */
+            '.igb-key-hint { display: block; margin-top: 10px; font-size: 0.67rem; color: rgba(255,255,255,0.25); }',
+            '.igb-key-hint kbd {',
+            '  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);',
+            '  border-radius: 4px; padding: 1px 6px;',
+            '  font-family: "JetBrains Mono", monospace; font-size: 0.63rem;',
+            '  color: rgba(255,255,255,0.45);',
+            '}'
 
         ].join('\n');
         document.head.appendChild(style);
