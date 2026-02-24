@@ -179,11 +179,11 @@
                     '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
                     '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
                     '<div style="flex:1;min-width:0;">' +
-                        '<div style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name) + '</div>' +
-                        '<div style="display:flex;align-items:center;gap:6px;">' +
-                            '<span style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</span>' +
-                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '">Dials: ' + callCount + '</span>' +
+                        '<div style="display:flex;align-items:center;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+                            '<span style="font-weight:600;font-size:.92rem;">' + dialerEsc(c.name) + '</span>' +
+                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:.88rem;padding:1px 7px;">Dials: ' + callCount + '</span>' +
                         '</div>' +
+                        '<div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div>' +
                     '</div>' +
                     (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
                 '</div>';
