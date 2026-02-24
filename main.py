@@ -4340,7 +4340,7 @@ def oauth_initiate():
     use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
     if use_private:
-        client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+        client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
         env_label = "PRIVATE_APP_CLIENT_ID"
     else:
         client_id = os.getenv("GHL_CLIENT_ID")
@@ -4559,10 +4559,11 @@ def oauth_callback():
         use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
         # Build both credential sets for auto-detection when state=None
+        # Support both env var naming conventions (PRIVATE_APP_* and GHL_PRIVATE_*)
         marketplace_client_id = os.getenv("GHL_CLIENT_ID")
         marketplace_client_secret = os.getenv("GHL_CLIENT_SECRET")
-        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
-        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
+        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID") or os.getenv("GHL_PRIVATE_CLIENT_SECRET")
         has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
         has_private_creds = bool(private_client_id and private_client_secret)
 

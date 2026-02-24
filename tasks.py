@@ -582,7 +582,12 @@ def process_webhook_task(payload: dict):
 
             auth_token = get_valid_token(location_id)
             if not auth_token:
-                logger.error(f"❌ ABORT: Token refresh failed for {location_id}")
+                oauth_type = subscriber.get('oauth_app_type', 'unknown')
+                has_access = bool(subscriber.get('access_token'))
+                has_refresh = bool(subscriber.get('refresh_token'))
+                logger.error(f"❌ ABORT: Token refresh failed for {location_id} | "
+                            f"oauth_app_type={oauth_type} | has_access_token={has_access} | "
+                            f"has_refresh_token={has_refresh}")
                 return {"status": "error", "reason": "token refresh failed"}
 
         # Inject fresh token (empty for API sources without GHL)
