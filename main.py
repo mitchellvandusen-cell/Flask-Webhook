@@ -2658,6 +2658,41 @@ def api_cron_recover_failed_webhooks():
         return safe_jsonify({"success": False, "error": str(e)}), 200
 
 
+@app.route("/api/cron/backfill-failed-webhooks", methods=["GET", "POST"])
+def api_cron_backfill_failed_webhooks():
+    """
+    One-shot backfill: recover webhooks that failed due to token errors BEFORE
+    the failed_webhook_payloads table existed.
+
+    Scans webhook_logs for 'Token refresh failed' entries, reconstructs minimal
+    payloads from log data (location_id, contact_id, message_preview), and
+    re-queues them. Safe to run multiple times — logs are marked as retried.
+
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+
+    Query params:
+        max_age_hours (int, default 48): How far back to look for failures
+        key (str): CRON_SECRET for authentication
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from tasks import backfill_failed_webhooks
+        max_age_hours = int(request.args.get("max_age_hours", 48))
+        stats = backfill_failed_webhooks(max_age_hours=max_age_hours)
+        return safe_jsonify({"success": True, **stats})
+    except Exception as e:
+        logger.error(f"Cron backfill-failed-webhooks crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
 @app.route("/api/admin/send-email", methods=["GET", "POST"])
 def api_admin_send_email():
     """

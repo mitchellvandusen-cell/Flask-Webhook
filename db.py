@@ -359,6 +359,79 @@ def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
             return_db_connection(conn)
 
 
+def get_token_failed_webhook_logs(max_age_hours: int = 48,
+                                  limit: int = 500) -> list:
+    """Query webhook_logs for historical 'Token refresh failed' errors that
+    haven't been retried yet. Used by the one-shot backfill to recover
+    webhooks that failed BEFORE the failed_webhook_payloads table existed.
+
+    For each error entry, we also look up the matching 'webhook_received' log
+    to recover the message_preview and first_name.
+
+    Returns list of dicts with: id, location_id, contact_id, details,
+    created_at, message_preview, first_name.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        # Fetch the error entries
+        cur.execute("""
+            SELECT e.id, e.location_id, e.contact_id, e.details, e.created_at,
+                   -- Find the closest 'webhook_received' entry for this contact
+                   -- within a 5-minute window before the error
+                   (
+                       SELECT wr.details->>'message_preview'
+                       FROM webhook_logs wr
+                       WHERE wr.location_id = e.location_id
+                         AND wr.contact_id = e.contact_id
+                         AND wr.event_type = 'webhook_received'
+                         AND wr.created_at BETWEEN e.created_at - INTERVAL '5 minutes'
+                                               AND e.created_at
+                       ORDER BY wr.created_at DESC
+                       LIMIT 1
+                   ) AS message_preview,
+                   (
+                       SELECT wr2.summary
+                       FROM webhook_logs wr2
+                       WHERE wr2.location_id = e.location_id
+                         AND wr2.contact_id = e.contact_id
+                         AND wr2.event_type = 'webhook_received'
+                         AND wr2.created_at BETWEEN e.created_at - INTERVAL '5 minutes'
+                                                AND e.created_at
+                       ORDER BY wr2.created_at DESC
+                       LIMIT 1
+                   ) AS received_summary
+            FROM webhook_logs e
+            WHERE e.event_type = 'error'
+              AND e.status = 'error'
+              AND e.summary LIKE 'Token refresh failed%%'
+              AND (e.details->>'retried') IS NULL
+              AND e.created_at > NOW() - INTERVAL '%s hours'
+            ORDER BY e.created_at ASC
+            LIMIT %s
+        """, (max_age_hours, limit))
+        rows = cur.fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            # Extract first_name from "Webhook from FirstName" summary
+            summary = d.get('received_summary') or ''
+            if summary.startswith('Webhook from '):
+                d['first_name'] = summary.replace('Webhook from ', '').strip()
+            else:
+                d['first_name'] = ''
+            results.append(d)
+        return results
+    except Exception as e:
+        logger.error(f"get_token_failed_webhook_logs failed: {e}")
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
 def save_failed_webhook_payload(location_id: str, contact_id: str,
                                 payload: dict, failure_reason: str) -> bool:
     """Persist a failed webhook payload for later recovery by the scourer.

@@ -7,7 +7,7 @@ import time
 from typing import Tuple, Optional
 from datetime import timedelta
 from openai import OpenAI
-from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried
+from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS, save_persistent_alert, get_auth_failed_messages, mark_webhook_log_retried, save_failed_webhook_payload, get_unretried_failed_webhooks, mark_failed_webhook_retried, get_token_failed_webhook_logs
 from memory import save_message, save_new_facts
 from sales_director import generate_strategic_directive
 from age import calculate_age_from_dob
@@ -1370,6 +1370,161 @@ def recover_failed_webhooks(max_age_hours: int = 24) -> dict:
 
     except Exception as e:
         logger.error(f"SCOURER CRITICAL ERROR: {e}", exc_info=True)
+        stats["error"] = str(e)
+
+    return stats
+
+
+def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
+    """One-shot backfill: recover webhooks that failed due to token errors
+    BEFORE the failed_webhook_payloads table existed.
+
+    This scans webhook_logs for 'Token refresh failed' entries in the last N
+    hours, reconstructs minimal payloads from the log data (location_id,
+    contact_id, message_preview, first_name), and re-queues them.
+
+    The reconstructed payload has enough data for process_webhook_task to:
+    1. Validate the contact_id
+    2. Obtain a (now-refreshed) token
+    3. Fetch full conversation history from GHL (which includes the original
+       unanswered message)
+    4. Generate an AI reply and send it
+
+    Safe to run multiple times: each webhook_log entry is marked as retried
+    via JSONB update before re-queuing.
+
+    Returns:
+        dict with stats: {total_found, locations_checked, locations_recovered,
+                          requeued, skipped, token_failures, no_message}
+    """
+    stats = {
+        "total_found": 0,
+        "locations_checked": 0,
+        "locations_recovered": 0,
+        "requeued": 0,
+        "skipped": 0,
+        "token_failures": 0,
+        "no_message": 0,
+    }
+
+    try:
+        # Step 1: Query webhook_logs for historical token failures
+        failed_logs = get_token_failed_webhook_logs(max_age_hours=max_age_hours)
+        stats["total_found"] = len(failed_logs)
+
+        if not failed_logs:
+            logger.info(f"🔍 BACKFILL: No unretried token failures in webhook_logs "
+                       f"for last {max_age_hours}h")
+            return stats
+
+        logger.info(f"🔍 BACKFILL: Found {len(failed_logs)} historical token failures "
+                   f"in last {max_age_hours}h — attempting recovery")
+
+        # Step 2: Group by location_id
+        by_location = {}
+        for entry in failed_logs:
+            loc = entry['location_id']
+            if loc not in by_location:
+                by_location[loc] = []
+            by_location[loc].append(entry)
+
+        # Step 3: For each location, try to get a valid token
+        for location_id, entries in by_location.items():
+            stats["locations_checked"] += 1
+            logger.info(f"🔄 BACKFILL: Processing {len(entries)} historical failures "
+                       f"for location {location_id}")
+
+            # Force-refresh token
+            try:
+                token, was_refreshed, token_err = get_valid_token_with_status(
+                    location_id, force_refresh=True)
+            except Exception as e:
+                logger.error(f"BACKFILL: Token refresh exception for {location_id}: {e}")
+                token = None
+                token_err = str(e)
+
+            if not token:
+                logger.warning(f"⚠️ BACKFILL: Still no valid token for {location_id} "
+                              f"(error={token_err}) — skipping {len(entries)} webhooks")
+                stats["token_failures"] += 1
+                continue
+
+            logger.info(f"✅ BACKFILL: Got valid token for {location_id} — "
+                       f"re-queuing {len(entries)} historical failures")
+            stats["locations_recovered"] += 1
+
+            # Step 4: Reconstruct payloads and re-queue
+            for entry in entries:
+                log_id = entry['id']
+                contact_id = entry.get('contact_id')
+                message_preview = entry.get('message_preview') or ''
+                first_name = entry.get('first_name') or ''
+
+                if not contact_id:
+                    logger.warning(f"BACKFILL: Skipping log {log_id} — no contact_id")
+                    mark_webhook_log_retried(log_id, success=False)
+                    stats["skipped"] += 1
+                    continue
+
+                if not message_preview:
+                    logger.info(f"BACKFILL: Log {log_id} for {contact_id} has no "
+                               f"message_preview — will rely on GHL history sync")
+                    stats["no_message"] += 1
+                    # Still proceed — process_webhook_task will fetch GHL history
+                    # and the AI will see the unanswered message in conversation
+
+                # Reconstruct a minimal payload
+                reconstructed_payload = {
+                    "contact_id": contact_id,
+                    "location_id": location_id,
+                    "message": message_preview,
+                    "body": message_preview,
+                    "first_name": first_name,
+                    # Mark as backfill so the pipeline knows the message
+                    # may be truncated and should rely on GHL history
+                    "_backfill_replay": True,
+                    "_backfill_log_id": log_id,
+                }
+
+                try:
+                    import redis
+                    from rq import Queue
+                    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+                    r = redis.from_url(redis_url, socket_timeout=5,
+                                       socket_connect_timeout=5)
+                    q = Queue('production', connection=r)
+                    q.enqueue(
+                        process_webhook_task,
+                        reconstructed_payload,
+                        job_timeout=120,
+                        result_ttl=86400,
+                    )
+                    mark_webhook_log_retried(log_id, success=True)
+                    stats["requeued"] += 1
+                    logger.info(f"✅ BACKFILL: Re-queued historical webhook for "
+                               f"{contact_id} (log_id={log_id})")
+                except Exception as enqueue_err:
+                    logger.error(f"BACKFILL: Failed to re-queue log {log_id}: "
+                                f"{enqueue_err}")
+                    mark_webhook_log_retried(log_id, success=False)
+                    stats["skipped"] += 1
+
+                time.sleep(0.5)
+
+        logger.info(f"📊 BACKFILL COMPLETE: checked {stats['locations_checked']} locations | "
+                   f"recovered {stats['locations_recovered']} | "
+                   f"requeued {stats['requeued']}/{stats['total_found']} webhooks | "
+                   f"token failures: {stats['token_failures']} | "
+                   f"no_message: {stats['no_message']}")
+
+        if stats["requeued"] > 0:
+            log_webhook_event("SYSTEM", "backfill_complete", "success",
+                              f"Backfill recovered {stats['requeued']} historical "
+                              f"failed webhooks across {stats['locations_recovered']} locations",
+                              details=stats)
+
+    except Exception as e:
+        logger.error(f"BACKFILL CRITICAL ERROR: {e}", exc_info=True)
         stats["error"] = str(e)
 
     return stats
