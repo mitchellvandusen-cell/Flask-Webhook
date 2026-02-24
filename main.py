@@ -2671,7 +2671,7 @@ def api_cron_backfill_failed_webhooks():
     Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
 
     Query params:
-        max_age_hours (int, default 48): How far back to look for failures
+        max_age_hours (int, default 96): How far back to look for failures
         key (str): CRON_SECRET for authentication
     """
     cron_secret = os.getenv("CRON_SECRET", "")
@@ -2685,7 +2685,7 @@ def api_cron_backfill_failed_webhooks():
 
     try:
         from tasks import backfill_failed_webhooks
-        max_age_hours = int(request.args.get("max_age_hours", 48))
+        max_age_hours = int(request.args.get("max_age_hours", 96))
         stats = backfill_failed_webhooks(max_age_hours=max_age_hours)
         return safe_jsonify({"success": True, **stats})
     except Exception as e:
