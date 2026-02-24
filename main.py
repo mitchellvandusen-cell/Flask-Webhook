@@ -1848,6 +1848,7 @@ def save_voice_config():
         "auto_transcribe":       bool(data.get("auto_transcribe", False)),
         "local_presence":        bool(data.get("local_presence", False)),
         "transfer_number":       (data.get("transfer_number") or "").strip(),
+        "voicemail_drop":        bool(data.get("voicemail_drop", False)),
     })
     # Twilio sub-account fields are set by auto-provisioning only — never
     # overwritten by the user saving voice settings from the dashboard.
