@@ -1487,6 +1487,8 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                 entry_type = entry.get('entry_type', 'dropped')
 
                 if not contact_id:
+                    # Permanent — no contact_id will never be fixable, mark so
+                    # we don't re-process garbage forever
                     logger.warning(f"BACKFILL: Skipping log {log_id} — no contact_id")
                     if entry_type == 'sms_http_fail':
                         mark_webhook_log_retried(log_id, success=False)
@@ -1500,8 +1502,9 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                     details = entry.get('details') or {}
                     reply_text = details.get('reply', '')
                     if not reply_text:
+                        # Permanent — no reply text will never appear, mark it
                         logger.warning(f"BACKFILL: SMS log {log_id} for {contact_id} "
-                                      f"has no saved reply — skipping")
+                                      f"has no saved reply — skipping permanently")
                         mark_webhook_log_retried(log_id, success=False)
                         stats["skipped"] += 1
                         continue
@@ -1515,14 +1518,17 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                             logger.info(f"✅ BACKFILL: Re-sent SMS for {contact_id} "
                                        f"(log_id={log_id})")
                         else:
-                            mark_webhook_log_retried(log_id, success=False)
+                            # Transient — DON'T mark as retried so next run
+                            # picks it up again
                             stats["skipped"] += 1
                             logger.warning(f"BACKFILL: SMS re-send failed for "
-                                          f"{contact_id} ({fail_reason})")
+                                          f"{contact_id} ({fail_reason}) — "
+                                          f"will retry on next backfill run")
                     except Exception as send_err:
+                        # Transient — leave unmarked for next run
                         logger.error(f"BACKFILL: SMS re-send exception for "
-                                    f"{contact_id}: {send_err}")
-                        mark_webhook_log_retried(log_id, success=False)
+                                    f"{contact_id}: {send_err} — "
+                                    f"will retry on next backfill run")
                         stats["skipped"] += 1
 
                 else:
@@ -1564,9 +1570,9 @@ def backfill_failed_webhooks(max_age_hours: int = 48) -> dict:
                                    f"{contact_id} (log_id={log_id}, "
                                    f"msg={message_preview[:50] if message_preview else 'N/A'})")
                     except Exception as enqueue_err:
+                        # Transient — leave unmarked for next run
                         logger.error(f"BACKFILL: Failed to re-queue log {log_id}: "
-                                    f"{enqueue_err}")
-                        mark_webhook_log_backfill_retried(log_id, success=False)
+                                    f"{enqueue_err} — will retry on next backfill run")
                         stats["skipped"] += 1
 
                 time.sleep(0.5)
