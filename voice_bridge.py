@@ -1550,7 +1550,8 @@ async def handle_voice_stream(ws):
     call_script = voice_config.get("call_script", "").strip()
     # Direction context for the AI
     if direction == "outbound":
-        direction_context = f"CALL TYPE: You are CALLING {contact_name}. This is an OUTBOUND call — you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
+        _display_name = contact_name if contact_name not in ("there", "Manual", "") else "this person"
+        direction_context = f"CALL TYPE: You are CALLING {_display_name}. This is an OUTBOUND call — you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
     else:
         direction_context = "CALL TYPE: This is an INBOUND call — they called you. Respond to why they called. Be helpful and direct."
 
@@ -1572,7 +1573,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
     # Build greeting — short, casual, natural. NOT a script to read verbatim.
     greeting = voice_config.get("greeting", "").strip()
     if not greeting:
-        if direction == "outbound" and contact_name != "there":
+        if direction == "outbound" and contact_name not in ("there", "Manual", ""):
             greeting = f"Hey {contact_name}, it's {voice_bot_name}. How's it going?"
         elif direction == "outbound":
             greeting = f"Hey, it's {voice_bot_name}. I was hoping to catch you for a quick second."
@@ -2366,6 +2367,34 @@ def dial_contact():
 
     location_id  = subscriber.get('location_id', '')
     voice_config = subscriber.get('voice_config') or {}
+
+    # Manual dial: resolve contact name + ID by phone number lookup in GHL
+    if first_name in ('Manual', 'there', '') and phone and location_id:
+        try:
+            access_token = get_valid_token(location_id)
+            if access_token and access_token != 'DEMO':
+                resp = http_requests.get(
+                    f"{GHL_API_BASE}/contacts/",
+                    headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                    params={"query": phone, "locationId": location_id, "limit": 1},
+                    timeout=8
+                )
+                if resp.status_code == 200:
+                    contacts = resp.json().get("contacts", [])
+                    if contacts:
+                        c = contacts[0]
+                        resolved_name = c.get("firstName", "").strip()
+                        if resolved_name:
+                            first_name = resolved_name
+                            logger.info(f"Manual dial: resolved {phone} -> {first_name} (contact {c.get('id','')})")
+                        if not contact_id and c.get("id"):
+                            contact_id = c["id"]
+        except Exception as e:
+            logger.debug(f"Manual dial contact lookup failed (non-fatal): {e}")
+
+    # Fallback: treat placeholder names as "there" so greeting skips the name
+    if first_name in ('Manual', ''):
+        first_name = 'there'
 
     # Enforce max dial attempts server-side
     max_attempts = int(voice_config.get('dial_attempts', 2))
