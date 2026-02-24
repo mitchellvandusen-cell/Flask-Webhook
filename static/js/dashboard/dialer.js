@@ -688,8 +688,8 @@
                     dialerQueue[dialerCallIdx].status = 'failed';
                 }
                 dialerShowBanner(displayName || firstName, 'Invalid phone number', true);
-                setTimeout(dialerHideBanner, 3000);
-                if (dialerQueueRunning) setTimeout(dialerAdvance, 1500);
+                _dialerQueueTimeout(dialerHideBanner, 3000);
+                if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 1500);
                 return;
             }
             dialerShowBanner(displayName || firstName, 'Initiating...');
@@ -706,8 +706,8 @@
                         dialerQueue[dialerCallIdx].status = 'failed';
                     }
                     dialerShowBanner(displayName, d.error || 'Failed to initiate call', true);
-                    setTimeout(dialerHideBanner, 4000);
-                    if (dialerQueueRunning) setTimeout(dialerAdvance, 2000);
+                    _dialerQueueTimeout(dialerHideBanner, 4000);
+                    if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 2000);
                     return;
                 }
                 dialerCallSid = d.call_sid;
@@ -720,8 +720,8 @@
                     dialerQueue[dialerCallIdx].status = 'failed';
                 }
                 dialerShowBanner(displayName, 'Network error — retrying...', true);
-                setTimeout(dialerHideBanner, 4000);
-                if (dialerQueueRunning) setTimeout(dialerAdvance, 3000);
+                _dialerQueueTimeout(dialerHideBanner, 4000);
+                if (dialerQueueRunning) _dialerQueueTimeout(dialerAdvance, 3000);
             }
         }
 
@@ -783,7 +783,7 @@
                         el.textContent = 'Transferred to Agent'; el.style.color = '#ffa500';
                         _dialerBannerState('connected');
                         // Keep banner visible briefly, then clean up and advance
-                        setTimeout(() => {
+                        _dialerQueueTimeout(() => {
                             dialerStopAiTimer();
                             _dialerLastCallSid = dialerCallSid;
                             dialerCallSid = null;
@@ -795,17 +795,28 @@
                     } else if (['completed','busy','no-answer','failed','canceled'].includes(d.status)) {
                         clearInterval(dialerPollTimer);
                         dialerStopAiTimer();
-                        // Hide banner immediately when call ends
                         _dialerLastCallSid = dialerCallSid;
                         if (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) dialerQueue[dialerCallIdx].status = d.status;
                         dialerCallSid = null;
-                        dialerHideBanner();
                         dialerRenderQueue();
-                        // Show disposition for completed calls (not queue auto-advance)
                         if (!dialerQueueRunning) {
+                            // Not in queue mode — hide banner, show disposition
+                            dialerHideBanner();
                             dialerShowDisposition();
                         } else {
-                            setTimeout(dialerAdvance, 1200);
+                            // Queue mode: check if retry is coming — show status instead of hiding
+                            const current = (dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) ? dialerQueue[dialerCallIdx] : null;
+                            const retryStatuses = ['no-answer', 'busy', 'failed', 'canceled'];
+                            if (current && retryStatuses.includes(current.status) && (current.attempts || 0) < dialerMaxAttempts) {
+                                // Retry coming — keep banner visible with retry message
+                                const statusEl = document.getElementById('dialerCallStatus');
+                                statusEl.textContent = 'Retrying in 3s...';
+                                statusEl.style.color = '#ffa500';
+                                _dialerBannerState('ended');
+                            } else {
+                                dialerHideBanner();
+                            }
+                            _dialerQueueTimeout(dialerAdvance, 1200);
                         }
                     }
                 } catch(e) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } }
@@ -1441,10 +1452,27 @@
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading recordings</div>'; }
         }
 
+        // Registry for pending queue timers so we can cancel them on stop
+        let _dialerQueueTimers = [];
+        function _dialerQueueTimeout(fn, ms) {
+            const id = setTimeout(() => {
+                _dialerQueueTimers = _dialerQueueTimers.filter(t => t !== id);
+                fn();
+            }, ms);
+            _dialerQueueTimers.push(id);
+            return id;
+        }
+        function _dialerCancelQueueTimers() {
+            _dialerQueueTimers.forEach(id => clearTimeout(id));
+            _dialerQueueTimers = [];
+        }
+
         function dialerStopQueue() {
             dialerQueueRunning = false;
             _advanceLocked = false;
             dialerUpdateBtn();
+            // Cancel ALL pending advance/retry/next timers to prevent ghost callbacks
+            _dialerCancelQueueTimers();
             // Also hang up any active VoIP call
             if (voipConnection) voipHangup();
 
@@ -1455,7 +1483,16 @@
                 dialerShowBanner(nameEl ? nameEl.textContent : 'Call', 'Hanging up...');
                 _dialerBannerState('ended');
 
-                // Send hangup request — keep polling until we confirm call ended
+                // Safety timeout: force cleanup if API takes too long (network issue)
+                const forceCleanup = setTimeout(() => {
+                    console.warn('[Dialer] Hangup timeout — force cleanup');
+                    dialerCallSid = null;
+                    if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
+                    dialerHideBanner();
+                    dialerStopAiTimer();
+                }, 8000);
+
+                // Send hangup request
                 _fetchRetry('/voice/hangup', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -1465,6 +1502,7 @@
                 }).catch(e => {
                     console.error('[Dialer] Hangup failed after retries:', e.message);
                 }).finally(() => {
+                    clearTimeout(forceCleanup);
                     // Give Twilio a moment to process, then clean up
                     setTimeout(() => {
                         dialerCallSid = null;
@@ -1509,7 +1547,7 @@
             else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
         }
         function dialerToggleQueue() {
-            if (dialerQueueRunning) { dialerQueueRunning = false; dialerUpdateBtn(); return; }
+            if (dialerQueueRunning) { dialerQueueRunning = false; _advanceLocked = false; _dialerCancelQueueTimers(); dialerUpdateBtn(); return; }
             dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
             if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
             dialerQueueRunning = true;
@@ -1544,8 +1582,8 @@
                     console.log(`[Dialer] Retrying ${current.name} — attempt ${(current.attempts || 0) + 1}/${dialerMaxAttempts} in 2s`);
                     current.status = 'pending';
                     dialerRenderQueue();
-                    // 2-second delay before retry to avoid hammering and give networks time
-                    setTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 2000);
+                    // 2-second delay before retry; use queue timer so it's cancelable
+                    _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 2000);
                     return;
                 }
                 // Max attempts exhausted — mark as final status
@@ -1557,8 +1595,8 @@
             // Move to next pending contact
             dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
             if (dialerCallIdx < 0) { _advanceLocked = false; dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
-            // Brief 1s pause before next contact
-            setTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 1000);
+            // Brief 1s pause before next contact; use queue timer so it's cancelable
+            _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 1000);
         }
 
         // ── Recording + Transcript ──
@@ -2308,27 +2346,31 @@
         }
 
         // After local counts show, upgrade badges with GHL+WAVV counts in background
+        // Processes all contacts in chunks of 50 (backend limit per request)
         async function dialerFetchMergedCounts() {
             if (!dialerContacts.length) return;
-            // Cap at 50 — backend limit
-            const ids = dialerContacts.slice(0, 50).map(c => c.id).join(',');
-            try {
-                const r = await fetch('/voice/contact-call-counts/merged?ids=' + encodeURIComponent(ids));
-                if (!r.ok) return;
-                const merged = await r.json();
-                // Only update badges where merged count is higher (additive; never regress)
-                Object.entries(merged).forEach(([id, total]) => {
-                    if (total > (_dialerCallCounts[id] || 0)) {
-                        _dialerCallCounts[id] = total;
-                        const badge = document.querySelector('[data-call-badge="' + id + '"]');
-                        if (badge) {
-                            badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + total;
-                            badge.style.display = 'inline-flex';
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < dialerContacts.length; i += CHUNK_SIZE) {
+                const chunk = dialerContacts.slice(i, i + CHUNK_SIZE);
+                const ids = chunk.map(c => c.id).join(',');
+                try {
+                    const r = await fetch('/voice/contact-call-counts/merged?ids=' + encodeURIComponent(ids));
+                    if (!r.ok) continue;
+                    const merged = await r.json();
+                    // Only update badges where merged count is higher (additive; never regress)
+                    Object.entries(merged).forEach(([id, total]) => {
+                        if (total > (_dialerCallCounts[id] || 0)) {
+                            _dialerCallCounts[id] = total;
+                            const badge = document.querySelector('[data-call-badge="' + id + '"]');
+                            if (badge) {
+                                badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + total;
+                                badge.style.display = 'inline-flex';
+                            }
                         }
-                    }
-                });
-            } catch(e) {
-                // Silently fail; local counts already shown
+                    });
+                } catch(e) {
+                    console.error('[Dialer] Merged call counts chunk failed:', e);
+                }
             }
         }
 
