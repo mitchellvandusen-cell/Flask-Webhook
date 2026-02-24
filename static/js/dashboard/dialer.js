@@ -175,7 +175,7 @@
                 const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
                 const inQ = dialerQueue.some(q => q.id === c.id);
                 const callCount = _dialerCallCounts[c.id] || 0;
-                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="display:' + (callCount > 0 ? 'inline-flex' : 'none') + ';">Dials: ' + callCount + '</span>';
+                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '">Dials: ' + callCount + '</span>';
                 return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
                     '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
                     '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
@@ -2403,7 +2403,6 @@
             const badge = document.querySelector('[data-call-badge="' + contactId + '"]');
             if (badge) {
                 badge.textContent = 'Dials: ' + total;
-                badge.style.display = total > 0 ? 'inline-flex' : 'none';
             }
         }
 
@@ -2414,7 +2413,6 @@
                 const badge = document.querySelector('[data-call-badge="' + c.id + '"]');
                 if (badge) {
                     badge.textContent = 'Dials: ' + count;
-                    badge.style.display = count > 0 ? 'inline-flex' : 'none';
                 }
             });
         }
