@@ -1451,6 +1451,13 @@ def voice_status():
     logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
 
     # Track status in memory for dialer queue polling
+    # Twilio can deliver callbacks out of order (e.g. 'ringing' after 'in-progress'),
+    # so only allow forward transitions to prevent status regression.
+    _STATUS_ORDER = {
+        'queued': 0, 'initiated': 1, 'ringing': 2,
+        'in-progress': 3,
+        'completed': 4, 'busy': 4, 'no-answer': 4, 'failed': 4, 'canceled': 4,
+    }
     if call_sid in _active_calls:
         # If AMD hung up the call, Twilio still fires 'completed'. Preserve the
         # AMD-set status ('no-answer') so the frontend retry logic can trigger.
@@ -1459,7 +1466,14 @@ def voice_status():
         if call_status == 'completed' and amd_result:
             effective_status = amd_result
             logger.info(f"📞 AMD call {call_sid[:16]} ended — reporting as '{amd_result}' for retry")
-        _active_calls[call_sid]["status"] = effective_status
+
+        current_status = _active_calls[call_sid].get("status", "")
+        new_order = _STATUS_ORDER.get(effective_status, 99)
+        cur_order = _STATUS_ORDER.get(current_status, 99)
+        if new_order >= cur_order:
+            _active_calls[call_sid]["status"] = effective_status
+        else:
+            logger.info(f"📞 Ignoring out-of-order status '{effective_status}' for {call_sid[:16]} (current='{current_status}')")
         _active_calls[call_sid]["duration"] = int(duration or 0)
 
     # Persist to call_history DB
@@ -1558,6 +1572,15 @@ async def handle_voice_stream(ws):
         contact_id   = client_state_meta.get('contact_id',  '') or custom_params.get('contactId', '')
         contact_name = client_state_meta.get('contact_name','there') or custom_params.get('contactName', 'there')
         logger.info(f"Stream started: SID={stream_sid} call={call_sid} dir={direction} loc={location_id}")
+
+        # Belt-and-suspenders: if this is an outbound call and the media stream
+        # is connected, the call is definitely in-progress. Force the status
+        # update in case out-of-order Twilio callbacks haven't set it yet.
+        if call_sid and call_sid in _active_calls:
+            cur = _active_calls[call_sid].get('status', '')
+            if cur in ('initiated', 'ringing'):
+                _active_calls[call_sid]['status'] = 'in-progress'
+                logger.info(f"Stream forced status to in-progress for {call_sid[:16]} (was '{cur}')")
     else:
         logger.warning(f"Voice stream: Unexpected first event: {start_data.get('event')}")
         return
@@ -2560,7 +2583,9 @@ def get_call_status(call_sid):
                 status_copy = dict(info)
                 del _active_calls[call_sid]
                 return jsonify(status_copy)
+        logger.debug(f"Poll {call_sid[:16]}: status={info.get('status')}")
         return jsonify(info)
+    logger.debug(f"Poll {call_sid[:16]}: not found in _active_calls")
     return jsonify({"status": "unknown"}), 404
 
 
