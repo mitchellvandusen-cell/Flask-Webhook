@@ -839,6 +839,45 @@ def stripe_webhook():
                 )
             return '', 200
 
+        # ── A2P 10DLC registration fee ──
+        if session.metadata.get("purchase_type") == "a2p_registration" and email:
+            logger.info(f"✅ A2P fee paid by {email} — marking a2p_fee_paid=True")
+            try:
+                import requests as _req
+                # Call the internal route to mark fee as paid
+                # (safe: voice_bridge manages the voice_config state)
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
+                        row = cur.fetchone()
+                        if row:
+                            import json as _json
+                            vc = row['voice_config'] or {}
+                            a2p = vc.get('a2p', {})
+                            a2p['a2p_fee_paid'] = True
+                            a2p['fee_paid_at'] = __import__('datetime').datetime.utcnow().isoformat()
+                            a2p['stripe_session_id'] = session.id
+                            vc['a2p'] = a2p
+                            cur.execute(
+                                "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                (_json.dumps(vc), email)
+                            )
+                            conn.commit()
+                        cur.close()
+                    except Exception as e:
+                        logger.error(f"Failed to mark A2P fee paid: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"A2P fee webhook error: {e}")
+            return '', 200
+
         # 1. EXTRACT METADATA
         target_role = session.metadata.get("target_role", "individual")
         target_tier = session.metadata.get("target_tier", "individual")
@@ -4059,6 +4098,41 @@ def ai_minutes_checkout():
         return flask_jsonify({"error": "Payment configuration error. Contact support."}), 500
     except Exception as e:
         logger.error(f"AI minutes checkout error: {e}")
+        return flask_jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@app.route("/a2p/checkout", methods=["POST"])
+@login_required
+def a2p_checkout():
+    """
+    Create a Stripe one-time payment session for A2P 10DLC registration fees.
+    Sub-account users pay Twilio's brand vetting + campaign registration fees
+    via Stripe, then the fee-paid flag is set and they can proceed to register.
+    Fee: $4 brand vetting + $15 campaign = $19 total (Twilio's standard rates).
+    """
+    a2p_price_id = os.getenv("A2P_REGISTRATION_PRICE_ID", "")
+    if not a2p_price_id:
+        return flask_jsonify({"error": "A2P fee price not configured. Contact support."}), 500
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=[{"price": a2p_price_id, "quantity": 1}],
+            metadata={
+                "purchase_type": "a2p_registration",
+                "user_email": current_user.email,
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?a2p_payment_success=1",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?a2p_payment_cancel=1",
+        )
+        return flask_jsonify({"checkout_url": checkout_session.url})
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe A2P checkout error: {e}")
+        return flask_jsonify({"error": "Payment configuration error. Contact support."}), 500
+    except Exception as e:
+        logger.error(f"A2P checkout error: {e}")
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
 
 
