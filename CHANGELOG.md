@@ -23,6 +23,25 @@
 
 ## 2026-02-24
 
+**[Fix]** — Dialer UI, hangup reliability, KPI stats, and call count badges — Critical RealDictCursor compatibility fix, UI layout improvement, and hangup flow hardening.
+
+### KPI Stats + Call Count Badges (root cause fix)
+- **`voice_bridge.py`** — All stats/counts routes (`/voice/stats`, `/voice/contact-call-counts`, `/voice/contact-call-counts/merged`, `/voice/contact/<id>/ghl-call-count`) used integer index access (`row[0]`) on query results, but the DB pool uses `RealDictCursor` which returns dict-like rows. `row[0]` raised `KeyError: 0`, silently failing and returning empty data. **Fix:** Replaced all integer index access with column name key access (`row['location_id']`, `row['total_calls']`, etc.) across 8 queries.
+
+### Hangup Button + Banner
+- **`dialer.js`** — `dialerStopQueue()` previously nulled `dialerCallSid`, cleared the poll timer, and hid the banner instantly — before the hangup API even responded. If the call was still connecting on Twilio's side, the user lost all visibility. **Fix:** Now shows "Hanging up..." banner state, sends the hangup request, waits for the response, then cleans up after a brief delay.
+
+### UI Layout
+- **`dialer.html`** — Moved the Queue section above the Contact List in the left column (was at the bottom, now directly below the search/filters). Changed chevron direction to match new position.
+
+### Call Count Badges
+- **`dialer.js`** — Added phone icon (`fa-phone`) to call count badges for clearer visual identification. All badge render/update paths (`dialerRenderContacts`, `dialerRenderContactBadges`, `dialerUpdateContactBadge`, `dialerFetchMergedCounts`) now use consistent `innerHTML` with the icon.
+
+### Stats Period
+- **`dialer.js`** — Fixed default stats period mismatch: JS variable was `'month'` but HTML button showed "Today" as active. Aligned to `'today'`.
+
+---
+
 **[Fix]** — Enterprise-grade dialer: fix queue skipping, harden listen/intercept/mute — Three root-cause bugs in the power dialer queue caused contacts to be skipped. Listen, intercept, and mute hardened with proper error handling, VoIP pre-warming, and reconnection logic.
 
 ### Queue (3 bugs fixed)

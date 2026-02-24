@@ -153,7 +153,7 @@
                 const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
                 const inQ = dialerQueue.some(q => q.id === c.id);
                 const callCount = _dialerCallCounts[c.id] || 0;
-                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="display:' + (callCount > 0 ? 'inline-flex' : 'none') + ';">' + callCount + '\u00d7</span>';
+                const badgeHtml = '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="display:' + (callCount > 0 ? 'inline-flex' : 'none') + ';"><i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + callCount + '</span>';
                 return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
                     '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
                     '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
@@ -1445,24 +1445,40 @@
             dialerQueueRunning = false;
             _advanceLocked = false;
             dialerUpdateBtn();
-            // Hang up any active AI dialer call (with retry)
+            // Also hang up any active VoIP call
+            if (voipConnection) voipHangup();
+
             if (dialerCallSid) {
                 const sid = dialerCallSid;
-                dialerCallSid = null;
+                // Show "Hanging up..." in banner so user has visual feedback
+                const nameEl = document.getElementById('dialerCallName');
+                dialerShowBanner(nameEl ? nameEl.textContent : 'Call', 'Hanging up...');
+                _dialerBannerState('ended');
+
+                // Send hangup request — keep polling until we confirm call ended
                 _fetchRetry('/voice/hangup', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ call_sid: sid })
-                }, { retries: 2, timeout: 10000, label: 'hangup' }).catch(e => {
+                }, { retries: 2, timeout: 10000, label: 'hangup' }).then(() => {
+                    console.log('[Dialer] Hangup sent successfully for', sid);
+                }).catch(e => {
                     console.error('[Dialer] Hangup failed after retries:', e.message);
+                }).finally(() => {
+                    // Give Twilio a moment to process, then clean up
+                    setTimeout(() => {
+                        dialerCallSid = null;
+                        if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
+                        dialerHideBanner();
+                        dialerStopAiTimer();
+                    }, 600);
                 });
+            } else {
+                // No active call — just clean up immediately
+                if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
+                dialerHideBanner();
+                dialerStopAiTimer();
             }
-            // Also hang up any active VoIP call
-            if (voipConnection) voipHangup();
-            // Stop poll and hide banner immediately
-            if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
-            dialerHideBanner();
-            dialerStopAiTimer();
         }
 
         // ── Queue management ──
@@ -2306,7 +2322,7 @@
                         _dialerCallCounts[id] = total;
                         const badge = document.querySelector('[data-call-badge="' + id + '"]');
                         if (badge) {
-                            badge.textContent = total + '\u00d7';
+                            badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + total;
                             badge.style.display = 'inline-flex';
                         }
                     }
@@ -2321,7 +2337,7 @@
             _dialerCallCounts[contactId] = total;
             const badge = document.querySelector('[data-call-badge="' + contactId + '"]');
             if (badge) {
-                badge.textContent = total + '\u00d7';
+                badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + total;
                 badge.style.display = total > 0 ? 'inline-flex' : 'none';
             }
         }
@@ -2332,7 +2348,7 @@
                 const count = _dialerCallCounts[c.id] || 0;
                 const badge = document.querySelector('[data-call-badge="' + c.id + '"]');
                 if (badge) {
-                    badge.textContent = count + '\u00d7';
+                    badge.innerHTML = '<i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:2px;"></i>' + count;
                     badge.style.display = count > 0 ? 'inline-flex' : 'none';
                 }
             });
@@ -2352,7 +2368,7 @@
 
         // ── Statistics Panel ────────────────────────────────────────────────────
 
-        let _dialerStatsPeriod = 'month';
+        let _dialerStatsPeriod = 'today';
 
         function dialerToggleStats() {
             const panel = document.getElementById('dialerStatsPanel');

@@ -427,18 +427,11 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Contact List -->
-                        <div id="dialerContactList" class="dlr-col-body">
-                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
-                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
-                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
-                            </div>
-                        </div>
-                        <!-- Queue (bottom) -->
-                        <div style="border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                        <!-- Queue (above contacts) -->
+                        <div style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
                             <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
                                 <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dialerQueueCount" style="color:#00d9ff;">0</span></span>
-                                <i class="fa-solid fa-chevron-up" style="color:#555;font-size:0.6rem;"></i>
+                                <i class="fa-solid fa-chevron-down" style="color:#555;font-size:0.6rem;"></i>
                             </div>
                             <div id="dialerQueueBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
                                 <div id="dialerQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
@@ -450,6 +443,13 @@
                                     </button>
                                     <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.72rem;cursor:pointer;">Clear</button>
                                 </div>
+                            </div>
+                        </div>
+                        <!-- Contact List -->
+                        <div id="dialerContactList" class="dlr-col-body">
+                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
+                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
+                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
                             </div>
                         </div>
                     </div>
