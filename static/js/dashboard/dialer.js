@@ -6,6 +6,7 @@
         let dialerCallSid = null;
         let dialerCallIdx = -1;
         let dialerPollTimer = null;
+        let _dialerCallConnected = false;
         let dialerSearchTimer = null;
         let dialerActiveContact = null; // currently selected contact in middle panel
         let dialerPipelines = [];
@@ -738,6 +739,7 @@
                     return;
                 }
                 dialerCallSid = d.call_sid;
+                _dialerCallConnected = false;
                 dialerShowBanner(displayName, 'Ringing...');
                 dialerStartPoll();
             } catch(e) {
@@ -773,10 +775,12 @@
         function dialerStartPoll() {
             if (dialerPollTimer) clearInterval(dialerPollTimer);
             let pollCount = 0, errorCount = 0;
-            const MAX_POLLS = 60, MAX_ERRORS = 5;
+            const MAX_POLLS_RINGING = 120, MAX_ERRORS = 10;
             dialerPollTimer = setInterval(async () => {
                 if (!dialerCallSid) { clearInterval(dialerPollTimer); dialerHideBanner(); dialerStopAiTimer(); return; }
-                if (++pollCount > MAX_POLLS) {
+                ++pollCount;
+                // Only enforce poll limit while ringing/initiated — once connected, poll indefinitely
+                if (pollCount > MAX_POLLS_RINGING && !_dialerCallConnected) {
                     clearInterval(dialerPollTimer); dialerCallSid = null;
                     dialerHideBanner(); dialerStopAiTimer();
                     if (dialerQueueRunning) dialerAdvance();
@@ -789,6 +793,7 @@
                     const d = await r.json();
                     const el = document.getElementById('dialerCallStatus');
                     if (d.status === 'in-progress') {
+                        _dialerCallConnected = true;
                         el.textContent = 'Connected'; el.style.color = 'var(--accent)';
                         _dialerBannerState('connected');
                         dialerStartAiTimer();
