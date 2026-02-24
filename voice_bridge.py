@@ -2104,68 +2104,88 @@ def run_listen_stream(ws):
 
     try:
         # First message from browser: { "call_sid": "CAxxxxxx" }
-        # Use a timeout to avoid blocking forever if client connects but
-        # never sends the init message (browser autoplay block, etc.)
+        # Client sends this immediately in onopen, so plain receive() is fine.
+        # If connection drops before message arrives, receive() returns None.
         try:
-            init_msg = ws.receive(timeout=10)
-        except Exception:
+            init_msg = ws.receive()
+        except Exception as e:
+            logger.warning(f"Listen stream: receive() error waiting for init: {e}")
             init_msg = None
 
         if not init_msg:
-            logger.debug("Listen stream: no init message received (connection closed or timeout)")
+            logger.warning("Listen stream: connection closed before init message arrived")
+            return
+
+        init_data = json.loads(init_msg)
+        call_sid = init_data.get('call_sid') or ''
+        logger.info(f"Listen stream: init received, call_sid={call_sid[:16] if call_sid else 'EMPTY'}")
+
+        if not call_sid:
+            logger.warning("Listen stream: call_sid missing in init message")
             try:
-                ws.send(json.dumps({"error": "No init message received"}))
+                ws.send(json.dumps({"error": "call_sid required"}))
             except Exception:
                 pass
             return
 
-        init_data = json.loads(init_msg)
-        call_sid = init_data.get('call_sid', '')
-
-        if not call_sid:
-            ws.send(json.dumps({"error": "call_sid required"}))
-            return
-
         if call_sid not in _active_calls:
-            ws.send(json.dumps({"error": "Call not found or already ended"}))
+            logger.warning(f"Listen stream: {call_sid[:16]} not in _active_calls")
+            try:
+                ws.send(json.dumps({"error": "Call not found or already ended"}))
+            except Exception:
+                pass
             return
 
         call_status = _active_calls.get(call_sid, {}).get('status', '')
+        logger.info(f"Listen stream: {call_sid[:16]} status={call_status}")
         if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer'):
-            ws.send(json.dumps({"error": f"Call already ended ({call_status})"}))
+            logger.warning(f"Listen stream: {call_sid[:16]} already in terminal state {call_status}")
+            try:
+                ws.send(json.dumps({"error": f"Call already ended ({call_status})"}))
+            except Exception:
+                pass
             return
 
         # Register this listener
         if call_sid not in _call_listeners:
             _call_listeners[call_sid] = set()
         _call_listeners[call_sid].add(listener_queue)
-        logger.info(f"Live listen started for call {call_sid[:16]}")
+        logger.info(f"Live listen started for call {call_sid[:16]} (listeners: {len(_call_listeners[call_sid])})")
 
         ws.send(json.dumps({"status": "listening", "call_sid": call_sid}))
 
         # Forward audio chunks to browser
+        chunks_sent = 0
         while True:
             try:
                 # Block for up to 2 seconds waiting for audio
                 chunk = listener_queue.get(timeout=2)
-                # Send as JSON with mulaw base64 payload
                 ws.send(json.dumps({"audio": chunk}))
+                chunks_sent += 1
+                if chunks_sent == 1:
+                    logger.info(f"Listen stream: first audio chunk sent for {call_sid[:16]}")
             except _queue_module.Empty:
                 # Check if call is still active
-                if call_sid not in _active_calls or \
-                        _active_calls.get(call_sid, {}).get('status') in ('completed', 'failed', 'canceled', 'transferred'):
-                    ws.send(json.dumps({"status": "call_ended"}))
+                cur_status = _active_calls.get(call_sid, {}).get('status', '')
+                if call_sid not in _active_calls or cur_status in ('completed', 'failed', 'canceled', 'transferred'):
+                    logger.info(f"Listen stream: call {call_sid[:16]} ended (status={cur_status}), closing")
+                    try:
+                        ws.send(json.dumps({"status": "call_ended"}))
+                    except Exception:
+                        pass
                     break
                 # Send keepalive
                 try:
                     ws.send(json.dumps({"keepalive": True}))
                 except Exception:
+                    logger.debug(f"Listen stream: keepalive failed for {call_sid[:16]}, client disconnected")
                     break
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Listen stream: loop error for {call_sid[:16]}: {e}")
                 break
 
     except Exception as e:
-        logger.debug(f"Listen stream ended: {e}")
+        logger.warning(f"Listen stream: unexpected error: {e}")
     finally:
         # Unregister listener
         if call_sid and call_sid in _call_listeners:
