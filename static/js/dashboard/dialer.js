@@ -1293,6 +1293,8 @@
         let _takingOver = false;
         async function dialerTakeover() {
             if (!dialerCallSid || document.getElementById('dialerTakeoverBtn').disabled) return;
+            // Capture call SID NOW — before any awaits that could let the poll clear it
+            const takeoverCallSid = dialerCallSid;
             const btn = document.getElementById('dialerTakeoverBtn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Intercepting...</span>';
@@ -1327,12 +1329,12 @@
 
                 // Set flag so incoming handler auto-accepts this specific intercept call
                 if (useVoip) _takingOver = true;
-                console.log('[Dialer] Intercept: use_voip=' + useVoip + ' voipReady=' + voipReady);
+                console.log('[Dialer] Intercept: use_voip=' + useVoip + ' voipReady=' + voipReady + ' callSid=' + takeoverCallSid);
 
                 const r = await _fetchRetry('/voice/takeover', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ call_sid: dialerCallSid, use_voip: useVoip })
+                    body: JSON.stringify({ call_sid: takeoverCallSid, use_voip: useVoip })
                 }, { retries: 1, timeout: 15000, label: 'takeover' });
                 const d = await r.json();
                 if (r.ok) {
