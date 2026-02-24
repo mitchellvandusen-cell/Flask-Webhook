@@ -2460,8 +2460,8 @@ def get_call_status(call_sid):
         if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled"):
             poll_count = info.get('_terminal_polls', 0) + 1
             info['_terminal_polls'] = poll_count
-            # Clean up after 3 polls of a terminal state (gives frontend time)
-            if poll_count >= 3:
+            # Clean up after 20 polls of a terminal state (gives frontend plenty of time)
+            if poll_count >= 20:
                 status_copy = dict(info)
                 del _active_calls[call_sid]
                 return jsonify(status_copy)
