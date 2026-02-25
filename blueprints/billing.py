@@ -42,10 +42,10 @@ billing_bp = Blueprint('billing', __name__)
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 AI_MINUTE_PACKAGES = [
-    {"minutes": 500,   "label": "Starter",      "env_key": "500AI_PRICE_ID"},
-    {"minutes": 2000,  "label": "Growth",        "env_key": "2000AI_PRICE_ID"},
-    {"minutes": 5000,  "label": "Professional",  "env_key": "5000AI_PRICE_ID"},
-    {"minutes": 10000, "label": "Enterprise",    "env_key": "10000AI_PRICE_ID"},
+    {"minutes": 500,   "label": "Starter",      "env_key": "AI_MINUTES_PRICE_ID_500"},
+    {"minutes": 2000,  "label": "Growth",        "env_key": "AI_MINUTES_PRICE_ID_2000"},
+    {"minutes": 5000,  "label": "Professional",  "env_key": "AI_MINUTES_PRICE_ID_5000"},
+    {"minutes": 10000, "label": "Enterprise",    "env_key": "AI_MINUTES_PRICE_ID_10000"},
 ]
 
 # A2P 10DLC fee schedule (cents). Brand fee + $15 campaign vetting per brand type.
