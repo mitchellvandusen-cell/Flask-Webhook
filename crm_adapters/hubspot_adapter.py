@@ -26,6 +26,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 from crm_adapters.base import CRMAdapter
+from db import update_crm_config_token
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,8 @@ class HubSpotAdapter(CRMAdapter):
                 data = resp.json()
                 self.hs_token = data["access_token"]
                 logger.info("HubSpot token refreshed successfully")
+                if self.location_id:
+                    update_crm_config_token(self.location_id, self.hs_token)
                 return True
         except Exception as e:
             logger.error(f"HubSpot token refresh error: {e}")

@@ -93,6 +93,7 @@ def send_sms_via_ghl(
     last_status = 0
     last_body = ''
     total_attempts = 0
+    _token_refreshed = False  # Only attempt one token refresh per send call
     for attempt in range(1, max_retries + 1):
         total_attempts = attempt
         try:
@@ -109,8 +110,21 @@ def send_sms_via_ghl(
             if last_status == 429:  # Rate limit — longer wait
                 last_failure = 'rate_limit'
                 time_module.sleep(10)
-            elif last_status in (401, 403):  # Auth issue — don't retry with same token
-                logger.error(f"Auth failure (HTTP {last_status}) — aborting retries for token recovery")
+            elif last_status in (401, 403):  # Auth issue — try one token refresh then abort
+                if not _token_refreshed:
+                    logger.warning(f"Auth failure (HTTP {last_status}) — attempting token refresh for {location_id}")
+                    try:
+                        from ghl_api import get_valid_token
+                        fresh_token = get_valid_token(location_id)
+                        if fresh_token and fresh_token != access_token:
+                            access_token = fresh_token
+                            headers["Authorization"] = f"Bearer {fresh_token}"
+                            _token_refreshed = True
+                            logger.info(f"Token refreshed for {location_id} — retrying SMS send")
+                            continue  # retry with fresh token
+                    except Exception as _refresh_err:
+                        logger.error(f"Token refresh attempt failed for {location_id}: {_refresh_err}")
+                logger.error(f"Auth failure (HTTP {last_status}) — no valid token available, aborting")
                 return False, 'auth', {
                     "status_code": last_status,
                     "response_body": last_body,

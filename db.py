@@ -1677,6 +1677,10 @@ def update_subscriber_token(
             return False
         try:
             cur = conn.cursor()
+            # Acquire advisory lock scoped to this transaction to prevent multiple
+            # workers from racing on the same location_id's token refresh.
+            # hashtext() maps location_id string → bigint deterministically.
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (location_id,))
             # COALESCE keeps old refresh_token only if GHL didn't return a new one.
             # This is a safety net — GHL almost always returns a new refresh_token.
             if oauth_app_type:
@@ -1726,6 +1730,43 @@ def update_subscriber_token(
             if conn:
                 return_db_connection(conn)
     return False
+
+
+def update_crm_config_token(location_id: str, access_token: str) -> bool:
+    """
+    Persist a refreshed CRM adapter access_token into crm_config JSONB.
+    Used by HubSpot/Salesforce/Zoho adapters after a successful token refresh.
+    Updates only the access_token key — leaves all other crm_config keys intact.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers
+            SET crm_config = crm_config || jsonb_build_object('access_token', %s::text),
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (access_token, location_id))
+        conn.commit()
+        updated = cur.rowcount > 0
+        if updated:
+            logger.info(f"CRM config token persisted for {location_id}")
+        else:
+            logger.warning(f"update_crm_config_token: 0 rows updated for {location_id}")
+        return updated
+    except psycopg2.Error as e:
+        logger.error(f"update_crm_config_token failed for {location_id}: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        return_db_connection(conn)
 
 
 def get_subscribers_needing_token_refresh() -> list:
