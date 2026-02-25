@@ -1,0 +1,1004 @@
+# blueprints/oauth.py — GHL OAuth flow: initiate, callback, loading screen, subscriber refresh
+#
+# Routes:
+#   GET  /oauth/initiate    — Start GHL OAuth (redirect to consent page)
+#   GET  /oauth/callback    — GHL OAuth callback (token exchange, onboarding, DB write)
+#   GET  /oauth/loading     — Post-OAuth loading screen (private app flow)
+#   GET  /refresh           — Manually trigger subscriber sync
+
+import os
+import json
+import logging
+import requests
+from urllib.parse import urlencode
+
+from flask import (
+    Blueprint, request, redirect, url_for, render_template,
+    flash, jsonify as flask_jsonify, session
+)
+from flask_login import login_required, current_user, login_user
+
+from db import (
+    get_db_connection, return_db_connection, get_db_connection_with_retry,
+    User, log_webhook_event, save_persistent_alert,
+    mark_install_oauth_complete, find_marketplace_email,
+)
+from extensions import ADMIN_EMAILS, YOUR_DOMAIN
+from email_templates import _email_wrapper, _build_welcome_email
+from send_email_api import send_email_via_api
+from sync_subscribers import sync_subscribers
+
+logger = logging.getLogger(__name__)
+
+oauth_bp = Blueprint('oauth', __name__)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
+    """
+    Handle Lead Connector pagination — fetches all locations/users across pages.
+    Prevents onboarding failures when agencies have >20 locations.
+
+    Returns a flat list of all items.
+    """
+    items = []
+    url = base_url
+    page_count = 0
+
+    while url and page_count < max_pages:
+        try:
+            resp = requests.get(url, headers=headers, timeout=15)
+            if not resp.ok:
+                if resp.status_code in (401, 403):
+                    logger.warning(
+                        f"SCOPE MISSING: /{item_key}/ returned {resp.status_code} — "
+                        f"'{item_key}.readonly' scope likely not granted. "
+                        f"Falling back to token-based data."
+                    )
+                else:
+                    logger.error(
+                        f"Failed to fetch {item_key} (page {page_count + 1}): "
+                        f"{resp.status_code} {resp.text[:300]}"
+                    )
+                break
+
+            data = resp.json()
+            batch = data.get(item_key, [])
+            items.extend(batch)
+            page_count += 1
+
+            logger.info(f"Fetched {len(batch)} {item_key} from page {page_count} (total: {len(items)})")
+
+            meta = data.get('meta', {})
+            next_url = meta.get('nextPageUrl') or data.get('nextPageUrl')
+
+            if next_url:
+                url = next_url if next_url.startswith('http') else f"https://services.leadconnectorhq.com{next_url}"
+            else:
+                url = None
+
+        except Exception as e:
+            logger.error(f"Pagination error fetching {item_key} (page {page_count + 1}): {e}")
+            break
+
+    logger.info(f"Pagination complete: {len(items)} total {item_key} fetched across {page_count} pages")
+    return items
+
+
+def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL API"):
+    """
+    Make a GHL API call with 1 automatic retry on transient errors (5xx, timeout, connection).
+    Returns (response, error_message). On success error_message is None.
+    """
+    last_err = None
+    for attempt in range(2):
+        try:
+            if method == 'POST':
+                resp = requests.post(url, data=data, headers=headers, timeout=timeout)
+            else:
+                resp = requests.get(url, headers=headers, timeout=timeout)
+
+            if resp.status_code < 500:
+                return resp, None
+
+            last_err = f"{label} returned {resp.status_code}"
+            logger.warning(f"{label} attempt {attempt + 1}/2 got {resp.status_code}, body={resp.text[:300]}")
+        except requests.Timeout:
+            last_err = f"{label} timed out after {timeout}s"
+            logger.warning(f"{label} attempt {attempt + 1}/2 timed out")
+        except requests.ConnectionError as e:
+            last_err = f"{label} connection error: {e}"
+            logger.warning(f"{label} attempt {attempt + 1}/2 connection error: {e}")
+        except Exception as e:
+            last_err = f"{label} unexpected error: {e}"
+            logger.warning(f"{label} attempt {attempt + 1}/2 unexpected error: {e}")
+
+    return None, last_err
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@oauth_bp.route("/refresh")
+def refresh_subscribers():
+    """Manually trigger subscriber sync from external source."""
+    try:
+        sync_subscribers()
+        return "Synced", 200
+    except Exception:
+        return "Failed", 500
+
+
+@oauth_bp.route("/oauth/initiate")
+@login_required
+def oauth_initiate():
+    """
+    Initiates OAuth flow with Lead Connector.
+    Works BEFORE marketplace approval (using private app credentials).
+
+    User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
+
+    SECURITY: Requires active login and valid Stripe subscription.
+    """
+    is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+    needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+    if needs_subscription:
+        flash("You must have an active subscription to connect Lead Connector. Please subscribe first.", "error")
+        logger.warning(f"OAuth initiate blocked for {current_user.email} - no active subscription")
+        if current_user.role == 'agency_owner':
+            return redirect(url_for('agency.agency_dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
+
+    use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
+
+    if use_private:
+        client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
+        env_label = "PRIVATE_APP_CLIENT_ID"
+    else:
+        client_id = os.getenv("GHL_CLIENT_ID")
+        env_label = "GHL_CLIENT_ID"
+
+    domain = os.getenv("YOUR_DOMAIN")
+    if not client_id or not domain:
+        logger.error(
+            f"OAuth initiate failed: {env_label}={'set' if client_id else 'MISSING'}, "
+            f"YOUR_DOMAIN={'set' if domain else 'MISSING'}"
+        )
+        flash("OAuth is not configured. Please contact support.", "error")
+        return redirect(url_for('dashboard.dashboard'))
+
+    redirect_uri = f"{domain}/oauth/callback"
+
+    scopes = [
+        "calendars.readonly",
+        "calendars/events.readonly",
+        "calendars/events.write",
+        "calendars/groups.readonly",
+        "conversations/message.write",
+        "conversations/message.readonly",
+        "conversations.write",
+        "conversations.readonly",
+        "contacts.readonly",
+        "oauth.readonly",
+    ]
+    if use_private:
+        scopes += [
+            "locations.readonly",
+            "users.readonly",
+            "opportunities.readonly",
+        ]
+    scope_string = " ".join(scopes)
+
+    state = "private_app" if use_private else "website_user"
+
+    oauth_params = urlencode({
+        'response_type': 'code',
+        'redirect_uri': redirect_uri,
+        'client_id': client_id,
+        'scope': scope_string,
+        'state': state,
+    })
+    oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
+
+    logger.info(
+        f"Initiating OAuth flow for {current_user.email} (private={use_private}). "
+        f"Redirecting to GHL consent page."
+    )
+    return redirect(oauth_url)
+
+
+@oauth_bp.route("/oauth/callback")
+def oauth_callback():
+    """
+    GHL OAuth callback: exchanges authorization code for tokens, provisions
+    subscriber records in the DB, and sends welcome email.
+
+    Handles:
+    - Marketplace installs (no state)
+    - Private app installs (state="private_app")
+    - Website user reconnects (state="website_user")
+    - Dual-app auto-detection (tries marketplace creds first, then private)
+    - Company-level (agency) and Location-level installs
+    - Robust 5-step email recovery chain (never fails silently)
+    - Agency sub-account provisioning with paginated location fetch
+    """
+    code = request.args.get("code")
+    state = request.args.get("state")
+
+    logger.info(
+        f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
+        f"args={dict(request.args)}"
+    )
+
+    try:
+        log_webhook_event("oauth_global", "oauth_callback_hit", "info",
+                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
+                          details={"args": dict(request.args)})
+    except Exception:
+        pass
+
+    if not code:
+        logger.warning("OAuth callback: No authorization code in request params")
+        try:
+            log_webhook_event("oauth_global", "oauth_callback_error", "error",
+                              "No authorization code in callback params",
+                              details={"args": dict(request.args)})
+        except Exception:
+            pass
+        flash("No authorization code received.", "danger")
+        return redirect(url_for('public.home'))
+
+    try:
+        # ── Determine flow ────────────────────────────────────────────────────
+        is_website_user = (state == "website_user") or (state == "private_app")
+
+        if is_website_user:
+            if not current_user.is_authenticated:
+                flash("You must be logged in to connect Lead Connector.", "error")
+                logger.warning("OAuth callback blocked - user not authenticated")
+                return redirect(url_for('auth.login'))
+
+            is_admin = current_user.email.lower() in [e.lower() for e in ADMIN_EMAILS]
+            needs_subscription = not current_user.stripe_customer_id and not is_admin
+
+            if needs_subscription:
+                flash("Active subscription required to connect Lead Connector. Please subscribe first.", "error")
+                logger.warning(f"OAuth callback blocked for {current_user.email} - no active subscription")
+                if current_user.role == 'agency_owner':
+                    return redirect(url_for('agency.agency_dashboard'))
+                return redirect(url_for('dashboard.dashboard'))
+
+            logger.info(f"OAuth callback: Website user flow for {current_user.email}")
+        else:
+            logger.info("OAuth callback: Marketplace installation flow")
+
+        # ── Pick credentials ──────────────────────────────────────────────────
+        use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
+
+        marketplace_client_id = os.getenv("GHL_CLIENT_ID")
+        marketplace_client_secret = os.getenv("GHL_CLIENT_SECRET")
+        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
+        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID") or os.getenv("GHL_PRIVATE_CLIENT_SECRET")
+        has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
+        has_private_creds = bool(private_client_id and private_client_secret)
+
+        if state == "private_app":
+            is_private_app = True
+            client_id = private_client_id
+            client_secret = private_client_secret
+            cred_label = "PRIVATE_APP"
+        elif state is None and has_marketplace_creds and has_private_creds:
+            # DUAL-APP MODE: try marketplace first, fallback to private
+            is_private_app = False
+            client_id = marketplace_client_id
+            client_secret = marketplace_client_secret
+            cred_label = "AUTO-DETECT (trying marketplace first)"
+        elif state is None and use_private_env:
+            is_private_app = True
+            client_id = private_client_id
+            client_secret = private_client_secret
+            cred_label = "PRIVATE_APP (only app)"
+        else:
+            is_private_app = False
+            client_id = marketplace_client_id
+            client_secret = marketplace_client_secret
+            cred_label = "GHL (marketplace)"
+
+        domain = os.getenv("YOUR_DOMAIN")
+        if not client_id or not client_secret or not domain:
+            logger.error(
+                f"OAuth env vars missing ({cred_label}): "
+                f"client_id={'set' if client_id else 'MISSING'}, "
+                f"client_secret={'set' if client_secret else 'MISSING'}, "
+                f"YOUR_DOMAIN={'set' if domain else 'MISSING'}"
+            )
+            flash("OAuth is not configured. Please contact support.", "danger")
+            return redirect(url_for('public.home'))
+
+        logger.info(f"OAuth callback using {cred_label} credentials (state={state})")
+
+        # ── Step 1: Token exchange ─────────────────────────────────────────────
+        # Try Location user_type first, then Company (for agency-level installs).
+        # DUAL-APP: if both credential sets exist and state=None, auto-detect.
+        token_url = "https://services.leadconnectorhq.com/oauth/token"
+
+        cred_sets = [{"client_id": client_id, "client_secret": client_secret,
+                      "label": cred_label, "is_private": is_private_app}]
+        if state is None and has_marketplace_creds and has_private_creds:
+            cred_sets.append({
+                "client_id": private_client_id, "client_secret": private_client_secret,
+                "label": "PRIVATE_APP (fallback)", "is_private": True
+            })
+
+        token_data = None
+        token_user_type_used = None
+        for cred_set in cred_sets:
+            base_payload = {
+                "client_id": cred_set["client_id"],
+                "client_secret": cred_set["client_secret"],
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": f"{domain}/oauth/callback",
+            }
+
+            for user_type in ["Location", "Company"]:
+                payload = {**base_payload, "user_type": user_type}
+                logger.info(f"Token exchange attempt with user_type={user_type}, creds={cred_set['label']}")
+
+                token_resp, token_err = _ghl_api_call(
+                    'POST', token_url, data=payload, timeout=15,
+                    label=f"Token exchange ({user_type}, {cred_set['label']})"
+                )
+
+                if token_resp is None:
+                    logger.warning(f"Token exchange ({user_type}, {cred_set['label']}) unreachable: {token_err}")
+                    continue
+
+                if token_resp.ok:
+                    try:
+                        token_data = token_resp.json()
+                        token_user_type_used = user_type
+                        is_private_app = cred_set["is_private"]
+                        cred_label = cred_set["label"]
+                        logger.info(f"Token exchange SUCCESS with user_type={user_type}, creds={cred_set['label']}")
+                        break
+                    except ValueError:
+                        logger.error(
+                            f"Token exchange ({user_type}, {cred_set['label']}) "
+                            f"returned non-JSON: {token_resp.text[:500]}"
+                        )
+                        continue
+                elif token_resp.status_code == 400:
+                    logger.warning(
+                        f"Token exchange ({user_type}, {cred_set['label']}) got 400: "
+                        f"{token_resp.text[:300]} — trying next"
+                    )
+                    continue
+                else:
+                    logger.error(
+                        f"Token exchange ({user_type}, {cred_set['label']}) rejected: "
+                        f"{token_resp.status_code} {token_resp.text[:500]}"
+                    )
+                continue
+
+            if token_data:
+                break
+
+        if not token_data:
+            err_msg = "Token exchange failed for all user_types (Location, Company)"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
+                                  err_msg, details={"state": state, "code_present": bool(code)})
+            except Exception:
+                pass
+            flash("Failed to connect to Lead Connector. Please try again.", "danger")
+            return redirect(url_for('public.home'))
+
+        access_token = token_data.get('access_token')
+        if not access_token:
+            err_msg = f"Token exchange missing access_token: {json.dumps(token_data)[:500]}"
+            logger.error(err_msg)
+            try:
+                log_webhook_event("oauth_global", "oauth_no_access_token", "error",
+                                  err_msg, details=token_data)
+            except Exception:
+                pass
+            flash("Authorization failed — no access token received. Please try again.", "danger")
+            return redirect(url_for('public.home'))
+
+        primary_location_id = token_data.get('locationId')
+        company_id = token_data.get('companyId')
+        refresh_token = token_data.get('refresh_token')
+        expires_in = token_data.get('expires_in', 86400)
+
+        logger.info(
+            f"Step 1 complete: Token exchange OK via user_type={token_user_type_used}. "
+            f"locationId={primary_location_id}, companyId={company_id}, expires_in={expires_in}"
+        )
+
+        try:
+            log_webhook_event(
+                primary_location_id or company_id or "unknown",
+                "oauth_token_success", "success",
+                f"Token exchange OK: user_type={token_user_type_used}, "
+                f"locationId={primary_location_id}, companyId={company_id}",
+                details={
+                    "user_type_used": token_user_type_used,
+                    "locationId": primary_location_id,
+                    "companyId": company_id,
+                    "scopes": token_data.get('scope', 'unknown'),
+                }
+            )
+        except Exception:
+            pass
+
+        headers_ghl = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
+
+        # ── Step 2: Get user info ──────────────────────────────────────────────
+        me_resp, me_err = _ghl_api_call(
+            'GET', "https://services.leadconnectorhq.com/users/me",
+            headers=headers_ghl, timeout=10, label="/users/me"
+        )
+        me_data = {}
+        user_email = None
+        user_name = None
+
+        ghl_user_id = token_data.get('userId')
+        if ghl_user_id:
+            me_data['id'] = ghl_user_id
+
+        if me_resp and me_resp.ok:
+            try:
+                me_data = me_resp.json()
+                user_email = me_data.get('email')
+                user_name = me_data.get('name')
+            except ValueError:
+                logger.error(f"/users/me returned non-JSON: {me_resp.text[:300]}")
+        elif me_resp:
+            logger.error(f"/users/me failed: {me_resp.status_code} {me_resp.text[:300]}")
+            if me_resp.status_code in (401, 403):
+                logger.error("SCOPE ISSUE: /users/me returned 401/403 — token may lack required scopes")
+        else:
+            logger.error(f"/users/me unreachable: {me_err}")
+
+        # ── Robust 5-step email recovery chain ────────────────────────────────
+        # OAuth must NEVER fail silently. Try every source; placeholder as last resort.
+
+        # Fallback 1: email in token_data
+        if not user_email:
+            user_email = token_data.get('userEmail') or token_data.get('email')
+            if user_email:
+                logger.info(f"Fallback 1: Got email from token_data: {user_email}")
+
+        # Fallback 2: already logged in (website users / private app installs)
+        if not user_email and current_user.is_authenticated:
+            user_email = current_user.email
+            user_name = current_user.full_name or user_name
+            logger.info(f"Fallback 2: Using logged-in user's email: {user_email}")
+
+        # Fallback 3: marketplace_installs table bridge
+        if not user_email:
+            market_data = find_marketplace_email(
+                location_id=primary_location_id, company_id=company_id
+            )
+            if market_data:
+                user_email = market_data.get('user_email')
+                user_name = market_data.get('user_name') or user_name
+                logger.info(f"Fallback 3: BRIDGED email from marketplace_installs: {user_email}")
+
+        # Fallback 4: look up by GHL userId in subscribers table
+        if not user_email:
+            ghl_user_id = token_data.get('userId')
+            if ghl_user_id:
+                try:
+                    conn_lookup = get_db_connection()
+                    if conn_lookup:
+                        cur_lookup = conn_lookup.cursor()
+                        cur_lookup.execute(
+                            "SELECT email FROM subscribers WHERE crm_user_id = %s LIMIT 1",
+                            (ghl_user_id,)
+                        )
+                        found = cur_lookup.fetchone()
+                        if found:
+                            user_email = found['email']
+                            logger.info(f"Fallback 4: Found email via userId lookup: {user_email}")
+                        cur_lookup.close()
+                        return_db_connection(conn_lookup)
+                except Exception:
+                    pass
+
+        # Fallback 5: placeholder — onboarding completes, admin gets notified
+        if not user_email:
+            ghl_user_id = token_data.get('userId') or 'unknown'
+            user_email = f"install_{ghl_user_id}@placeholder.grokbot"
+            user_name = "New User (Update Email)"
+            logger.warning(f"Fallback 5: ALL email sources exhausted. Using placeholder: {user_email}")
+
+            try:
+                log_webhook_event(
+                    primary_location_id or "unknown", "oauth_placeholder_account", "warning",
+                    f"Placeholder account created: {user_email} — userId={ghl_user_id}, "
+                    f"locationId={primary_location_id}, companyId={company_id}",
+                    details={
+                        "userId": ghl_user_id,
+                        "locationId": primary_location_id,
+                        "companyId": company_id,
+                        "token_keys": list(token_data.keys()),
+                    }
+                )
+            except Exception:
+                pass
+
+            # Alert admin via email
+            try:
+                admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
+                domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+                alert_inner = f'''
+<tr><td style="padding: 20px 40px 30px;">
+    <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 800; color: #ff6b35;">Ghost Install Detected</h1>
+    <p style="font-size: 15px; color: #ccc; line-height: 1.6;">
+        A user installed the app but Lead Connector permissions blocked their email.
+        A placeholder account was created so they can access the dashboard.
+    </p>
+    <table cellpadding="0" cellspacing="0" width="100%" style="background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); margin: 20px 0;">
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888; width: 130px;">LC User ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{ghl_user_id}</td></tr>
+        <tr><td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #888;">Location ID</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #fff; font-family: monospace;">{primary_location_id or 'N/A'}</td></tr>
+        <tr><td style="padding: 12px 16px; color: #888;">Company ID</td>
+            <td style="padding: 12px 16px; color: #fff; font-family: monospace;">{company_id or 'N/A'}</td></tr>
+    </table>
+    <p style="font-size: 14px; color: #aaa;">Search this Location ID in your Lead Connector Agency View to find the user\'s real email, then update their record in the database.</p>
+</td></tr>'''
+                send_email_via_api(
+                    to_email=admin_target,
+                    subject="Ghost Install — Action Required",
+                    html_body=_email_wrapper(alert_inner, domain_url),
+                    text_body=f"Ghost install: userId={ghl_user_id}, "
+                              f"locationId={primary_location_id}, companyId={company_id}"
+                )
+                logger.info(f"Admin ghost-install alert sent to {admin_target}")
+            except Exception as e:
+                logger.error(f"Failed to send admin ghost-install alert: {e}")
+
+            try:
+                save_persistent_alert(
+                    email=ADMIN_EMAILS[0] if ADMIN_EMAILS else "admin",
+                    alert_type="ghost_install",
+                    title="Ghost Install — Email Unknown",
+                    message=(
+                        f"User installed app but email couldn't be retrieved. "
+                        f"userId={ghl_user_id}, locationId={primary_location_id}, companyId={company_id}. "
+                        f"Placeholder account: {user_email}"
+                    ),
+                    severity="warning",
+                    location_id=primary_location_id or "unknown",
+                )
+            except Exception:
+                pass
+
+        logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
+
+        # ── Step 3: Detect agency status ──────────────────────────────────────
+        is_agency_owner = False
+        agencies = []
+
+        agency_resp, agency_err = _ghl_api_call(
+            'GET', "https://services.leadconnectorhq.com/agencies/",
+            headers=headers_ghl, timeout=10, label="/agencies/"
+        )
+
+        if agency_resp and agency_resp.ok:
+            try:
+                agencies = agency_resp.json().get('agencies', [])
+                is_agency_owner = len(agencies) > 0
+            except (ValueError, KeyError, AttributeError):
+                logger.warning(f"/agencies/ returned unparseable response: {agency_resp.text[:300]}")
+                agencies = []
+        elif agency_resp and agency_resp.status_code < 500:
+            logger.info(f"/agencies/ returned {agency_resp.status_code} — treating as individual user")
+        else:
+            logger.warning(f"/agencies/ unavailable ({agency_err}), defaulting to individual classification")
+
+        logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, count={len(agencies)}")
+
+        # ── Step 4: Fetch all locations (paginated) ───────────────────────────
+        locations_url = "https://services.leadconnectorhq.com/locations/search"
+        if company_id:
+            locations_url += f"?companyId={company_id}"
+        sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+        num_subs = len(sub_accounts)
+        logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
+
+        # Fallback: if /locations/ returned 0 but we have locationId from the token,
+        # synthesize a minimal entry so onboarding still works.
+        using_location_fallback = False
+        if num_subs == 0 and primary_location_id:
+            using_location_fallback = True
+            logger.warning(
+                f"locations.readonly scope likely missing — /locations/ returned 0 results "
+                f"but token has locationId={primary_location_id}. Using fallback."
+            )
+            sub_accounts = [{'id': primary_location_id,
+                             'name': user_name or 'Primary Location',
+                             'timezone': None}]
+            num_subs = 1
+
+        # ── Step 5-6: Determine tier and primary location ─────────────────────
+        if is_website_user:
+            plan_tier = current_user.subscription_tier or 'individual'
+            use_agency_flow = plan_tier in ('agency_starter', 'agency_pro')
+            logger.info(
+                f"Website user: subscribed tier={plan_tier}, GHL agency={is_agency_owner}, "
+                f"using agency flow={use_agency_flow}"
+            )
+        else:
+            plan_tier = 'individual'
+            if is_agency_owner:
+                plan_tier = 'agency_pro' if num_subs >= 15 else 'agency_starter'
+            use_agency_flow = is_agency_owner
+
+        primary_sub = next((s for s in sub_accounts if s['id'] == primary_location_id), None)
+        primary_name = primary_sub.get('name', 'Unknown Location') if primary_sub else user_name
+        primary_timezone = primary_sub.get('timezone', None) if primary_sub else None
+
+        logger.info(
+            f"Step 5-6 complete: tier={plan_tier}, agency_flow={use_agency_flow}, "
+            f"primary_location={primary_name}"
+        )
+
+        # ── Step 7: Database operations ───────────────────────────────────────
+        conn = get_db_connection_with_retry(max_attempts=3)
+        if not conn:
+            logger.error("OAuth callback: DB connection failed after 3 retries — cannot complete onboarding")
+            flash("Database temporarily unavailable. Please try connecting again in a few minutes.", "danger")
+            return redirect(url_for('public.home'))
+
+        locations_to_provision = []
+        try:
+            cur = conn.cursor()
+
+            # A. Agency owner: insert/upsert agency_billing row
+            logger.info(
+                f"Step 7a: use_agency_flow={use_agency_flow}, is_website_user={is_website_user}, "
+                f"primary_location_id={primary_location_id}"
+            )
+            if use_agency_flow:
+                max_seats = 9999 if plan_tier == 'agency_pro' else 14
+                active_seats = max(0, num_subs - 1)
+                app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+
+                cur.execute("""
+                    INSERT INTO agency_billing (
+                        agency_email, location_id, full_name, subscription_tier,
+                        max_seats, active_seats, access_token, refresh_token,
+                        token_expires_at, timezone, crm_user_id, oauth_app_type,
+                        created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (agency_email) DO UPDATE SET
+                        location_id = EXCLUDED.location_id,
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        updated_at = NOW()
+                """, (
+                    user_email, primary_location_id, primary_name, plan_tier,
+                    max_seats, active_seats, access_token, refresh_token,
+                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
+                ))
+
+            # B. Reconnect/reinstall sync: if email already exists in subscribers,
+            # just sync OAuth tokens without overwriting subscription/config data.
+            app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+
+            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (user_email,))
+            existing_row = cur.fetchone()
+
+            if existing_row and primary_location_id:
+                existing_loc = existing_row['location_id']
+                sync_role = 'agency_owner' if use_agency_flow else None
+
+                cur.execute("""
+                    UPDATE subscribers
+                    SET location_id = %s,
+                        access_token = %s,
+                        refresh_token = %s,
+                        token_expires_at = NOW() + interval '%s seconds',
+                        crm_user_id = COALESCE(%s, crm_user_id),
+                        oauth_app_type = %s,
+                        role = COALESCE(%s, role),
+                        parent_agency_email = COALESCE(%s, parent_agency_email),
+                        onboarding_status = CASE
+                            WHEN onboarding_status IN ('pending', 'invited') THEN 'claimed'
+                            ELSE onboarding_status
+                        END,
+                        updated_at = NOW()
+                    WHERE email = %s
+                """, (
+                    primary_location_id, access_token, refresh_token,
+                    expires_in, me_data.get('id'), app_type,
+                    sync_role, user_email if use_agency_flow else None,
+                    user_email
+                ))
+                logger.info(
+                    f"Synced OAuth tokens for existing subscriber {user_email} "
+                    f"(location: {existing_loc} → {primary_location_id}, app_type={app_type})"
+                )
+
+            # C. Provision subscriber rows
+            if use_agency_flow and not using_location_fallback:
+                locations_to_provision = [s for s in sub_accounts if s['id'] != primary_location_id]
+            else:
+                locations_to_provision = [s for s in sub_accounts if s['id'] == primary_location_id]
+
+            if using_location_fallback and use_agency_flow:
+                logger.warning(
+                    f"Agency owner {user_email} in FALLBACK MODE: only provisioning primary "
+                    f"location {primary_location_id}. Sub-accounts added once locations.readonly approved."
+                )
+
+            if existing_row and primary_location_id:
+                locations_to_provision = [s for s in locations_to_provision
+                                          if s['id'] != primary_location_id]
+
+            logger.info(
+                f"Step 7c: Provisioning {len(locations_to_provision)} NEW subscriber rows "
+                f"(agency_flow={use_agency_flow}, fallback={using_location_fallback}, "
+                f"total_ghl_locations={num_subs})"
+            )
+
+            for sub in locations_to_provision:
+                sub_id = sub['id']
+                sub_name = sub.get('name', 'Unknown Location')
+                sub_timezone = sub.get('timezone')
+
+                is_owner_location = (sub_id == primary_location_id)
+                if use_agency_flow and is_owner_location:
+                    role = 'agency_owner'
+                elif use_agency_flow:
+                    role = 'agency_sub_account_user'
+                else:
+                    role = 'individual'
+                parent_agency_email = user_email if use_agency_flow else None
+
+                cur.execute("""
+                    INSERT INTO subscribers (
+                        location_id, email, full_name, role, subscription_tier,
+                        parent_agency_email, access_token, refresh_token,
+                        token_expires_at, timezone, crm_user_id,
+                        onboarding_status, oauth_app_type, created_at, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        NOW() + interval '%s seconds',
+                        %s, %s, %s, %s, NOW(), NOW()
+                    )
+                    ON CONFLICT (location_id) DO UPDATE SET
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        token_expires_at = EXCLUDED.token_expires_at,
+                        crm_user_id = COALESCE(EXCLUDED.crm_user_id, subscribers.crm_user_id),
+                        oauth_app_type = EXCLUDED.oauth_app_type,
+                        updated_at = NOW()
+                """, (
+                    sub_id, user_email, sub_name, role, plan_tier,
+                    parent_agency_email, access_token, refresh_token,
+                    expires_in,
+                    sub_timezone or 'America/Chicago', me_data.get('id'),
+                    'pending', app_type
+                ))
+
+            conn.commit()
+            logger.info(
+                f"Step 7 complete: Onboarded {user_email} (tier={plan_tier}, "
+                f"agency_flow={use_agency_flow}) — provisioned {len(locations_to_provision)} "
+                f"locations out of {num_subs} total in GHL."
+            )
+
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Database onboarding error for {user_email}: {e}", exc_info=True)
+            flash("Error completing setup. Please contact support.", "danger")
+            return redirect(url_for('public.home'))
+        finally:
+            cur.close()
+            return_db_connection(conn)
+
+        # ── Step 8: Post-onboarding (logging, alerts, email) ──────────────────
+
+        # 8a. Log onboarding event to webhook_logs
+        try:
+            log_webhook_event(
+                location_id=primary_location_id,
+                event_type="oauth_onboarding",
+                status="success",
+                summary=f"OAuth onboarding complete for {user_email}",
+                details={
+                    "email": user_email,
+                    "tier": plan_tier,
+                    "agency_flow": use_agency_flow,
+                    "locations_provisioned": len(locations_to_provision),
+                    "total_ghl_locations": num_subs,
+                    "fallback_mode": using_location_fallback,
+                    "is_website_user": is_website_user,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log onboarding event: {e}")
+
+        # 8a-2. Stamp install_completed_at for reminder scheduling
+        try:
+            _conn = get_db_connection_with_retry(2)
+            if _conn:
+                _cur = _conn.cursor()
+                if use_agency_flow:
+                    _cur.execute(
+                        "UPDATE agency_billing SET install_completed_at = NOW() "
+                        "WHERE agency_email = %s AND install_completed_at IS NULL",
+                        (user_email,)
+                    )
+                else:
+                    _cur.execute(
+                        "UPDATE subscribers SET install_completed_at = NOW() "
+                        "WHERE email = %s AND install_completed_at IS NULL",
+                        (user_email,)
+                    )
+                _conn.commit()
+                _cur.close()
+                return_db_connection(_conn)
+                logger.info(f"Install timestamp set for {user_email}")
+        except Exception as e:
+            logger.warning(f"Failed to set install_completed_at: {e}")
+
+        # 8a-3. Mark marketplace install as OAuth-complete
+        try:
+            if primary_location_id:
+                mark_install_oauth_complete(location_id=primary_location_id)
+            if company_id:
+                mark_install_oauth_complete(company_id=company_id)
+            logger.info(
+                f"Marketplace install marked OAuth-complete: "
+                f"location={primary_location_id}, company={company_id}"
+            )
+        except Exception as e:
+            logger.debug(f"mark_install_oauth_complete note: {e}")
+
+        # 8b. Persistent alert if scope is missing
+        if using_location_fallback:
+            try:
+                alert_msg = (
+                    "Your Lead Connector account connected successfully, but the "
+                    "locations.readonly scope is not yet approved in the Lead Connector marketplace. "
+                    "Your primary location is active and the bot is operational. "
+                )
+                if use_agency_flow:
+                    alert_msg += (
+                        f"However, your sub-account locations could not be discovered. "
+                        f"They will be auto-provisioned once the scope is approved. "
+                        f"Contact support if this persists beyond 10 days."
+                    )
+                else:
+                    alert_msg += "No action needed. This will resolve automatically."
+
+                save_persistent_alert(
+                    email=user_email,
+                    alert_type="scope_locations_readonly",
+                    title="Scope Pending: locations.readonly",
+                    message=alert_msg,
+                    severity="warning" if use_agency_flow else "info",
+                    location_id=primary_location_id,
+                )
+                log_webhook_event(
+                    location_id=primary_location_id,
+                    event_type="scope_issue",
+                    status="warning",
+                    summary="locations.readonly scope unavailable — using fallback",
+                    details={"fallback": True, "agency_flow": use_agency_flow},
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save scope alert: {e}")
+
+        # 8c. Welcome email (uses pre-built template from email_templates.py)
+        try:
+            domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
+            dashboard_link = (
+                f"{domain_url}/agency-dashboard" if use_agency_flow
+                else f"{domain_url}/dashboard"
+            )
+            welcome_html = _build_welcome_email(user_name, dashboard_link, domain_url)
+            email_sent = send_email_via_api(
+                to_email=user_email,
+                subject="Welcome to InsuranceGrokBot — Your AI Assistant is Ready",
+                html_body=welcome_html,
+                text_body=(
+                    f"Welcome to InsuranceGrokBot, {user_name}! "
+                    f"Dashboard: {dashboard_link} | "
+                    f"Support: {domain_url}/support | Status: {domain_url}/onboarding-status"
+                )
+            )
+            if email_sent:
+                logger.info(f"Welcome email sent to {user_email}")
+                log_webhook_event(primary_location_id, "welcome_email", "success",
+                                  f"Welcome email sent to {user_email}")
+            else:
+                logger.warning(f"Welcome email failed for {user_email}")
+                log_webhook_event(primary_location_id, "welcome_email", "error",
+                                  f"Welcome email failed for {user_email}")
+        except Exception as e:
+            logger.warning(f"Welcome email error for {user_email}: {e}")
+
+        # ── Step 9: Login and redirect ─────────────────────────────────────────
+        user = User.get(user_email)
+        if user:
+            login_user(user)
+            logger.info(f"Step 9 complete: Logged in {user_email}")
+        else:
+            logger.error(
+                f"User.get({user_email}) returned None after successful DB commit — login failed"
+            )
+            if is_website_user:
+                flash("Account created but login failed. Please log in manually.", "warning")
+                return redirect(url_for('auth.login'))
+
+        # Marketplace install → send to dashboard
+        if not is_website_user:
+            logger.info(f"=== MARKETPLACE INSTALL COMPLETE for {user_email} ===")
+            try:
+                log_webhook_event(
+                    primary_location_id or "unknown", "oauth_complete", "success",
+                    f"Marketplace install complete for {user_email} "
+                    f"(tier={plan_tier}, user_type_used={token_user_type_used})"
+                )
+            except Exception:
+                pass
+            if user:
+                flash("App installed successfully! Complete your dashboard setup to activate your bot.", "success")
+                if use_agency_flow:
+                    return redirect(url_for('agency.agency_dashboard'))
+                return redirect(url_for('dashboard.dashboard'))
+            else:
+                flash("App installed! Please log in or create a password to access your dashboard.", "success")
+                return redirect(url_for('auth.login'))
+
+        # Private app flow → OAuth loading screen
+        logger.info(f"=== PRIVATE APP OAUTH COMPLETE for {user_email} ===")
+        try:
+            log_webhook_event(
+                primary_location_id or "unknown", "oauth_complete", "success",
+                f"Private app OAuth complete for {user_email} (tier={plan_tier})"
+            )
+        except Exception:
+            pass
+        return redirect(url_for('oauth.oauth_loading'))
+
+    except requests.RequestException as e:
+        logger.error(f"OAuth network error: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_network_error", "error",
+                              f"OAuth network error: {e}")
+        except Exception:
+            pass
+        flash("Failed to connect to Lead Connector. Please try again.", "danger")
+        return redirect(url_for('public.home'))
+    except Exception as e:
+        logger.error(f"Critical OAuth failure: {e}", exc_info=True)
+        try:
+            log_webhook_event("oauth_global", "oauth_critical_error", "error",
+                              f"Critical OAuth failure: {e}")
+        except Exception:
+            pass
+        flash("An unexpected error occurred. Please try again or contact support.", "danger")
+        return redirect(url_for('public.home'))
+
+
+@oauth_bp.route("/oauth/loading")
+@login_required
+def oauth_loading():
+    """Loading screen shown after OAuth to visualize data gathering progress."""
+    return render_template('oauth-loading.html')

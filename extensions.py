@@ -80,6 +80,32 @@ def super_admin_required(f):
     return decorated
 
 
+# ── xAI / OpenAI client ───────────────────────────────────────────────────────
+# Initialized lazily so blueprints can import this module without needing an app context.
+
+client = None  # Set to OpenAI instance by main.py at startup
+
+
+def get_client():
+    """Return the xAI client, initializing if needed."""
+    global client
+    if client is None:
+        try:
+            from openai import OpenAI
+            api_key = os.getenv("XAI_API_KEY")
+            if api_key:
+                client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+        except Exception as e:
+            logger.error(f"Failed to initialize xAI client: {e}")
+    return client
+
+
+# ── Legacy Google Sheets (optional backup) ────────────────────────────────────
+# Set by main.py during initialization if Google Sheets credentials are present.
+gc = None
+sheet_url = None
+
+
 # ── Redis / RQ ────────────────────────────────────────────────────────────────
 
 _redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')

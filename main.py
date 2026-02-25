@@ -186,6 +186,10 @@ def add_iframe_headers(response):
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
     return response
 
+# === SHARED STATE MODULE ===
+# Import extensions.py so blueprints can share mail/client/gc/sheet_url via it.
+import extensions as _ext
+
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 client = None
@@ -194,6 +198,7 @@ if XAI_API_KEY:
         api_key=XAI_API_KEY,
         base_url="https://api.x.ai/v1"
     )
+    _ext.client = client  # Share xAI client with blueprints
 
 # == STRIPE & DOMAIN ==
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -207,12 +212,17 @@ app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False').lower() == 'true
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME'))
-mail = Mail(app)
+# Initialize the shared Mail instance from extensions.py so blueprints that import
+# `from extensions import mail` get a fully initialized Mail object.
+_ext.mail.init_app(app)
+mail = _ext.mail  # Backward-compat alias for legacy routes still in this file
 
 # Google Sheets Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
 
+gc = None
+sheet_url = None
 worksheet = None
 if creds_dict:
     try:
@@ -223,13 +233,15 @@ if creds_dict:
             sh = gc.open_by_url(sheet_url)
             worksheet = sh.sheet1
             logger.info("Google Sheet connected")
+        _ext.gc = gc            # Share Google Sheets client with blueprints (billing.py legacy sync)
+        _ext.sheet_url = sheet_url
     except Exception as e:
         logger.error(f"Google Sheet connection failed: {e}")
 
 # Flask-Login Setup
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "login"
+login_manager.login_view = "auth.login"  # Blueprint-qualified endpoint name
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -265,6 +277,44 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
+
+# =============================================================================
+# BLUEPRINT REGISTRATIONS
+# All blueprints are registered BEFORE any @app.route decorators so blueprint
+# routes take routing priority. Legacy routes below act as dead-code stubs
+# (kept for backward compatibility) and will be pruned in a future cleanup pass.
+# =============================================================================
+
+from blueprints.auth import auth_bp
+from blueprints.public import public_bp
+from blueprints.webhooks import webhooks_bp
+from blueprints.discord import discord_bp
+from blueprints.cron import cron_bp
+from blueprints.billing import billing_bp
+from blueprints.demo import demo_bp
+from blueprints.admin import admin_bp
+from blueprints.agency import agency_bp
+from blueprints.dashboard import dashboard_bp
+from blueprints.oauth import oauth_bp
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(public_bp)
+app.register_blueprint(webhooks_bp)
+app.register_blueprint(discord_bp)
+app.register_blueprint(cron_bp)
+app.register_blueprint(billing_bp)
+app.register_blueprint(demo_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(agency_bp)
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(oauth_bp)
+
+logger.info("All modular blueprints registered successfully.")
+
+# =============================================================================
+# LEGACY ROUTES — kept for reference; requests are handled by the blueprints
+# above. These will be removed in the next cleanup pass.
+# =============================================================================
 
 @app.route('/api/demo/reset', methods=['POST'])
 def demo_reset():
