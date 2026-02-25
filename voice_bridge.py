@@ -1277,10 +1277,13 @@ def intercept_twiml():
             content_type='text/xml'
         )
 
+    host = request.host
+    action_url = f"https://{host}/voice/transfer-complete?original_sid={call_sid}"
+
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
-        f'<Dial><Client>{identity}</Client></Dial>'
+        f'<Dial action="{action_url}" method="POST"><Client>{identity}</Client></Dial>'
         '</Response>'
     )
     return Response(twiml, content_type='text/xml')
@@ -1300,13 +1303,40 @@ def transfer_twiml():
             content_type='text/xml'
         )
 
+    # action URL tells Twilio to POST here when the <Dial> leg ends,
+    # so we can hang up the parent call cleanly instead of leaving it open.
+    host = request.host
+    action_url = f"https://{host}/voice/transfer-complete?original_sid={call_sid}"
+
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
-        f'<Dial>{transfer_to}</Dial>'
+        f'<Dial action="{action_url}" method="POST">{transfer_to}</Dial>'
         '</Response>'
     )
     return Response(twiml, content_type='text/xml')
+
+
+@voice_bp.route('/voice/transfer-complete', methods=['POST'])
+def transfer_complete():
+    """
+    Twilio calls this when the <Dial> leg of a transfer ends (callee hangs up,
+    busy, no-answer, etc.).  We return <Hangup/> so the parent call is released
+    instead of lingering in 'in-progress' forever.
+    """
+    original_sid = request.values.get('original_sid', '') or request.values.get('CallSid', '')
+    dial_status = request.values.get('DialCallStatus', 'unknown')
+    logger.info(f"Transfer complete: original_sid={original_sid[:16] if original_sid else 'none'} dial_status={dial_status}")
+
+    # Clean up in-memory tracking so the dialer UI can move on
+    if original_sid and original_sid in _active_calls:
+        _active_calls[original_sid]['status'] = 'completed'
+    _transfer_requests.pop(original_sid, None)
+
+    return Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
+        content_type='text/xml'
+    )
 
 
 @voice_bp.route('/voice/amd-status', methods=['POST'])
@@ -1480,7 +1510,7 @@ def voice_status():
     _STATUS_ORDER = {
         'queued': 0, 'initiated': 1, 'ringing': 2,
         'in-progress': 3,
-        'completed': 4, 'busy': 4, 'no-answer': 4, 'failed': 4, 'canceled': 4,
+        'completed': 4, 'busy': 4, 'no-answer': 4, 'failed': 4, 'canceled': 4, 'transferred': 4,
     }
     if call_sid in _active_calls:
         # If AMD hung up the call, Twilio still fires 'completed'. Preserve the
@@ -2656,7 +2686,7 @@ def get_call_status(call_sid):
     if call_sid in _active_calls:
         info = _active_calls[call_sid]
         # For terminal states, mark for cleanup but don't delete yet (allow re-polls)
-        if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled"):
+        if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
             poll_count = info.get('_terminal_polls', 0) + 1
             info['_terminal_polls'] = poll_count
             # Clean up after 20 polls of a terminal state (gives frontend plenty of time)
@@ -2701,13 +2731,34 @@ def hangup_active_call():
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
-    success = _twilio_hangup(call_sid, sub_sid)
-    if call_sid in _active_calls:
-        _active_calls[call_sid]['status'] = 'canceled'
+    # If the call was transferred, Twilio created a child call.  We need to
+    # complete the *parent* (original) call, plus any child leg that's still up.
+    was_transferred = (call_sid in _active_calls and
+                       _active_calls[call_sid].get('status') == 'transferred')
 
-    # Persist canceled status to DB so call history is accurate
+    success = _twilio_hangup(call_sid, sub_sid)
+
+    # Also try to complete any child calls spawned by the transfer <Dial>
+    if was_transferred:
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            child_calls = client.calls.list(parent_call_sid=call_sid, status='in-progress', limit=5)
+            for child in child_calls:
+                try:
+                    child.update(status='completed')
+                    logger.info(f"Completed child call {child.sid} of transferred parent {call_sid[:16]}")
+                except Exception as ce:
+                    logger.warning(f"Failed to complete child {child.sid}: {ce}")
+        except Exception as e:
+            logger.warning(f"Could not list child calls for {call_sid}: {e}")
+
+    if call_sid in _active_calls:
+        _active_calls[call_sid]['status'] = 'completed'
+    _transfer_requests.pop(call_sid, None)
+
+    # Persist to DB
     try:
-        update_call_history_status(call_sid, 'canceled', 0)
+        update_call_history_status(call_sid, 'completed', 0)
     except Exception as e:
         logger.warning(f"Hangup DB persist failed for {call_sid}: {e}")
 
@@ -4653,16 +4704,24 @@ def get_pipelines():
 def get_dialer_stats():
     """Return aggregated call statistics for the current user's dialer."""
     from datetime import datetime, timedelta
+    import pytz
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "DB unavailable"}), 503
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, timezone FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         if not row:
             return jsonify({"error": "Not found"}), 404
         location_id = row['location_id']
+
+        # Use the subscriber's configured timezone (falls back to Chicago)
+        tz_name = row.get('timezone') or 'America/Chicago'
+        try:
+            user_tz = pytz.timezone(tz_name)
+        except Exception:
+            user_tz = pytz.timezone('America/Chicago')
 
         # Ensure disposition column exists
         try:
@@ -4672,7 +4731,7 @@ def get_dialer_stats():
             conn.rollback()
 
         period = request.args.get('period', 'month')
-        now = datetime.utcnow()
+        now = datetime.now(user_tz)
         if period == 'today':
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == 'week':
@@ -4680,7 +4739,13 @@ def get_dialer_stats():
         elif period == 'month':
             start_date = now - timedelta(days=30)
         else:
-            start_date = datetime(2000, 1, 1)
+            start_date = datetime(2000, 1, 1, tzinfo=pytz.utc)
+
+        # Convert start_date to UTC for SQL comparison (created_at is stored as UTC)
+        if start_date.tzinfo is not None:
+            start_date_utc = start_date.astimezone(pytz.utc)
+        else:
+            start_date_utc = pytz.utc.localize(start_date)
 
         # Core KPIs
         cur.execute("""
@@ -4699,7 +4764,7 @@ def get_dialer_stats():
                 COUNT(DISTINCT contact_id)                                    AS unique_contacts
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
-        """, (location_id, start_date))
+        """, (location_id, start_date_utc))
         r = cur.fetchone()
         total           = r['total_calls'] or 0
         outbound        = r['outbound_calls'] or 0
@@ -4725,14 +4790,16 @@ def get_dialer_stats():
         else:
             cur.execute("SELECT MIN(created_at) AS first_call FROM call_history WHERE location_id = %s", (location_id,))
             first = cur.fetchone()['first_call']
+            if first and first.tzinfo is None:
+                first = pytz.utc.localize(first)
             days = max(1, (now - first).days) if first else 1
 
         # Prior period comparison (skip for 'all')
         prior = None
         if period != 'all':
             period_len  = now - start_date
-            prior_end   = start_date
-            prior_start = start_date - period_len
+            prior_end   = start_date_utc
+            prior_start = start_date_utc - period_len
             cur.execute("""
                 SELECT
                     COUNT(*)                                                      AS total_calls,
@@ -4779,33 +4846,33 @@ def get_dialer_stats():
                   AND disposition IS NOT NULL AND TRIM(disposition) != ''
                 GROUP BY disp
                 ORDER BY cnt DESC
-            """, (location_id, start_date))
+            """, (location_id, start_date_utc))
             dispositions = {row['disp']: row['cnt'] for row in cur.fetchall()}
         except Exception:
             conn.rollback()
 
-        # Daily call volume with talk time
+        # Daily call volume with talk time (in subscriber's local timezone)
         cur.execute("""
-            SELECT DATE(created_at AT TIME ZONE 'UTC') AS day,
+            SELECT DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) AS day,
                    COUNT(*) AS calls,
                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
                    COALESCE(SUM(duration), 0) AS total_secs
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
             GROUP BY day ORDER BY day
-        """, (location_id, start_date))
+        """, (tz_name, location_id, start_date_utc))
         daily = [
             {"day": str(row['day']), "calls": row['calls'], "connected": row['connected'], "total_secs": row['total_secs']}
             for row in cur.fetchall()
         ]
 
-        # Hourly distribution
+        # Hourly distribution (in subscriber's local timezone)
         cur.execute("""
-            SELECT EXTRACT(HOUR FROM created_at)::int AS hr, COUNT(*) AS calls
+            SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE %s)::int AS hr, COUNT(*) AS calls
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
             GROUP BY hr ORDER BY hr
-        """, (location_id, start_date))
+        """, (tz_name, location_id, start_date_utc))
         hourly_map = {row['hr']: row['calls'] for row in cur.fetchall()}
         hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
 
@@ -4817,7 +4884,7 @@ def get_dialer_stats():
             WHERE location_id = %s AND created_at >= %s
             GROUP BY contact_id, contact_name
             ORDER BY cnt DESC LIMIT 5
-        """, (location_id, start_date))
+        """, (location_id, start_date_utc))
         top_contacts = [
             {"id": row['contact_id'], "name": row['contact_name'] or "Unknown", "count": row['cnt'], "last_called": str(row['last_called'])}
             for row in cur.fetchall()
@@ -4826,6 +4893,7 @@ def get_dialer_stats():
         cur.close()
         return jsonify({
             "period":          period,
+            "timezone":        tz_name,
             "total_calls":     total,
             "outbound_calls":  outbound,
             "inbound_calls":   inbound,
