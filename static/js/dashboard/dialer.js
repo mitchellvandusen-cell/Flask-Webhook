@@ -1904,8 +1904,14 @@
         let voipSetupDone = !!(window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.voipSetupDone);
         let voipCurrentContact = null;
         let _voipInitializing = false;  // prevent duplicate init calls
-        let _selectedInputDeviceId = localStorage.getItem('voip_input_device') || '';
-        let _selectedOutputDeviceId = localStorage.getItem('voip_output_device') || '';
+        // Safe localStorage wrapper — cross-origin iframes (Safari ITP, third-party
+        // cookie restrictions) can block localStorage entirely. Graceful degradation:
+        // device prefs just reset each session instead of crashing VOIP.
+        function _lsGet(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+        function _lsSet(k,v) { try { localStorage.setItem(k,v); } catch(e) {} }
+        function _lsDel(k) { try { localStorage.removeItem(k); } catch(e) {} }
+        let _selectedInputDeviceId = _lsGet('voip_input_device') || '';
+        let _selectedOutputDeviceId = _lsGet('voip_output_device') || '';
 
         function setDialerMode(mode) {
             dialerMode = mode;
@@ -2272,7 +2278,7 @@
 
         function setAudioInputDevice(deviceId) {
             _selectedInputDeviceId = deviceId;
-            localStorage.setItem('voip_input_device', deviceId);
+            _lsSet('voip_input_device', deviceId);
             // Apply to Twilio Device audio helper if available
             if (voipDevice && voipDevice.audio && deviceId) {
                 voipDevice.audio.setInputDevice(deviceId)
@@ -2283,7 +2289,7 @@
 
         function setAudioOutputDevice(deviceId) {
             _selectedOutputDeviceId = deviceId;
-            localStorage.setItem('voip_output_device', deviceId);
+            _lsSet('voip_output_device', deviceId);
             // Apply to Twilio Device speaker output if available
             if (voipDevice && voipDevice.audio && voipDevice.audio.speakerDevices && deviceId) {
                 voipDevice.audio.speakerDevices.set(deviceId)
@@ -2384,7 +2390,7 @@
                         } else {
                             console.warn('[VoIP] Saved input device no longer available, using default mic');
                             _selectedInputDeviceId = '';
-                            localStorage.removeItem('voip_input_device');
+                            _lsDel('voip_input_device');
                         }
                     } catch(devErr) {
                         console.warn('[VoIP] Could not enumerate devices:', devErr);
