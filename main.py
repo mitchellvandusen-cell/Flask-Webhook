@@ -2646,11 +2646,10 @@ def api_send_reminders():
 @app.route("/api/cron/refresh-tokens", methods=["GET", "POST"])
 def api_cron_refresh_tokens():
     """
-    Proactive OAuth token refresh — called by external cron every 15 minutes.
-    Finds all subscribers whose tokens expire within 2 hours and refreshes them.
-    This prevents expired-token failures during webhook processing.
-
-    Auth: CRON_SECRET via Bearer header or ?key= query param.
+    Cron-triggered endpoint: proactively refresh GHL OAuth tokens that will
+    expire within 30 minutes. Prevents token expiry from blocking webhook processing.
+    Schedule this every 15 minutes via cron-job.org or Railway cron.
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
     """
     cron_secret = os.getenv("CRON_SECRET", "")
     auth_header = request.headers.get("Authorization", "")
@@ -2662,46 +2661,91 @@ def api_cron_refresh_tokens():
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     try:
-        expiring = get_subscribers_needing_token_refresh()
-        refreshed = 0
-        failed = 0
-        skipped = 0
-        errors = []
-
-        for sub in expiring:
-            loc_id = sub.get("location_id", "")
-            if not loc_id or loc_id.startswith("temp_") or loc_id in ("DEMO", "DEMO_LOC"):
-                skipped += 1
-                continue
-
-            try:
-                token = get_valid_token(loc_id)
-                if token:
-                    refreshed += 1
-                else:
-                    failed += 1
-                    errors.append(loc_id)
-            except Exception as e:
-                failed += 1
-                errors.append(f"{loc_id}: {str(e)[:80]}")
-                logger.warning(f"Proactive refresh failed for {loc_id}: {e}")
-
-        logger.info(f"Proactive token refresh: {refreshed} refreshed, {failed} failed, {skipped} skipped out of {len(expiring)} expiring")
-        return safe_jsonify({
-            "success": True,
-            "expiring": len(expiring),
-            "refreshed": refreshed,
-            "failed": failed,
-            "skipped": skipped,
-            "errors": errors[:20],  # Cap error list
-        })
-
+        from ghl_api import refresh_tokens_proactively
+        buffer_minutes = int(request.args.get("buffer", 30))
+        stats = refresh_tokens_proactively(buffer_minutes=buffer_minutes)
+        return safe_jsonify({"success": True, **stats})
     except Exception as e:
         logger.error(f"Cron refresh-tokens crashed: {e}", exc_info=True)
-        return safe_jsonify({
-            "success": False,
-            "error": str(e)
-        }), 200  # Return 200 so cron-job.org doesn't mark as failed
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@app.route("/api/cron/recover-failed-webhooks", methods=["GET", "POST"])
+def api_cron_recover_failed_webhooks():
+    """
+    Scourer endpoint: find webhook tasks that failed due to token errors in the
+    last N hours, attempt to get a fresh token, and re-queue them.
+
+    Schedule this every 15 minutes via cron-job.org or Railway cron.
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+
+    Query params:
+        max_age_hours (int, default 24): How far back to look for failures
+        key (str): CRON_SECRET for authentication
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from tasks import recover_failed_webhooks
+        max_age_hours = int(request.args.get("max_age_hours", 24))
+        stats = recover_failed_webhooks(max_age_hours=max_age_hours)
+        return safe_jsonify({"success": True, **stats})
+    except Exception as e:
+        logger.error(f"Cron recover-failed-webhooks crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@app.route("/api/cron/backfill-failed-webhooks", methods=["GET", "POST"])
+def api_cron_backfill_failed_webhooks():
+    """
+    One-shot backfill: recover webhooks that failed due to token errors BEFORE
+    the failed_webhook_payloads table existed.
+
+    Scans webhook_logs for 'Token refresh failed' entries, reconstructs minimal
+    payloads from log data (location_id, contact_id, message_preview), and
+    re-queues them. Safe to run multiple times — logs are marked as retried.
+
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+
+    Query params:
+        max_age_hours (int, default 96): How far back to look for failures
+        key (str): CRON_SECRET for authentication
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from tasks import backfill_failed_webhooks
+        max_age_hours = int(request.args.get("max_age_hours", 96))
+
+        # Run in background via RQ — the backfill sleeps 0.5s per entry
+        # which easily exceeds the gunicorn worker timeout for large batches.
+        if not ensure_redis():
+            return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
+
+        job = q_production.enqueue(
+            backfill_failed_webhooks,
+            max_age_hours=max_age_hours,
+            job_timeout=600,
+            result_ttl=86400,
+        )
+        return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
+    except Exception as e:
+        logger.error(f"Cron backfill-failed-webhooks crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
 
 
 @app.route("/api/admin/send-email", methods=["GET", "POST"])
@@ -4529,7 +4573,7 @@ def oauth_initiate():
     use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
     if use_private:
-        client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
+        client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
         env_label = "PRIVATE_APP_CLIENT_ID"
     else:
         client_id = os.getenv("GHL_CLIENT_ID")
@@ -4748,10 +4792,11 @@ def oauth_callback():
         use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
         # Build both credential sets for auto-detection when state=None
+        # Support both env var naming conventions (PRIVATE_APP_* and GHL_PRIVATE_*)
         marketplace_client_id = os.getenv("GHL_CLIENT_ID")
         marketplace_client_secret = os.getenv("GHL_CLIENT_SECRET")
-        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID")
-        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID")
+        private_client_id = os.getenv("PRIVATE_APP_CLIENT_ID") or os.getenv("GHL_PRIVATE_CLIENT_ID")
+        private_client_secret = os.getenv("PRIVATE_APP_SECRET_ID") or os.getenv("GHL_PRIVATE_CLIENT_SECRET")
         has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
         has_private_creds = bool(private_client_id and private_client_secret)
 

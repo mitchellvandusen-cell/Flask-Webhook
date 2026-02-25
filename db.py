@@ -269,6 +269,97 @@ def log_webhook_event(location_id: str, event_type: str, status: str = "info",
             return_db_connection(conn)
 
 
+def get_auth_failed_messages(location_id: str, max_age_minutes: int = 60,
+                             limit: int = 50) -> list:
+    """Fetch recent message_failed webhook logs caused by auth errors, that haven't
+    been retried yet. Used by the token recovery audit system.
+
+    Returns list of dicts with: id, contact_id, details (contains reply text).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, contact_id, details, created_at
+            FROM webhook_logs
+            WHERE location_id = %s
+              AND event_type = 'message_failed'
+              AND status = 'error'
+              AND details->>'failure_reason' = 'auth'
+              AND (details->>'retried') IS NULL
+              AND created_at > NOW() - INTERVAL '%s minutes'
+            ORDER BY created_at ASC
+            LIMIT %s
+        """, (location_id, max_age_minutes, limit))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_auth_failed_messages failed: {e}")
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def mark_webhook_log_retried(log_id: int, success: bool = True) -> bool:
+    """Mark a webhook_log entry as retried (prevents re-processing by audit).
+
+    Updates the JSONB details field to add retried=true and retry_result.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE webhook_logs
+            SET details = details || %s::jsonb
+            WHERE id = %s
+        """, (json.dumps({"retried": True,
+                          "retry_result": "success" if success else "failed"}), log_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"mark_webhook_log_retried failed for log {log_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def mark_webhook_log_backfill_retried(log_id: int, success: bool = True) -> bool:
+    """Mark a webhook_received log entry as backfill-retried.
+
+    Uses the 'backfill_retried' key (distinct from 'retried' used by the
+    scourer/audit) so the dropped-webhook query can filter them out.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE webhook_logs
+            SET details = details || %s::jsonb
+            WHERE id = %s
+        """, (json.dumps({"backfill_retried": True,
+                          "backfill_result": "success" if success else "failed"}), log_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"mark_webhook_log_backfill_retried failed for log {log_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
 def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
                      event_type: str = None, status: str = None) -> list:
     """Fetch webhook logs for a subscriber, newest first."""
@@ -293,6 +384,201 @@ def get_webhook_logs(location_id: str, limit: int = 100, offset: int = 0,
     except Exception as e:
         logger.error(f"Failed to fetch webhook logs: {e}")
         return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_token_failed_webhook_logs(max_age_hours: int = 48,
+                                  limit: int = 500) -> list:
+    """Find dropped webhooks and failed SMS sends from webhook_logs.
+
+    Works BACKWARDS from outcomes — does NOT rely on error entries existing.
+
+    Catches TWO types of failures:
+
+      1. 'dropped' — A 'webhook_received' entry exists but there is NO
+         matching 'message_sent', 'api_webhook_sent', or 'audit_retry_sent'
+         within 10 minutes after it.  These are messages that were received
+         but never replied to (token refresh failed, task crashed, etc.).
+         Needs a full pipeline re-queue.
+
+      2. 'sms_http_fail' — event_type='message_failed'. The AI reply was
+         generated but the SMS HTTP call failed.  The reply text is saved
+         in details->>'reply' so we only need to re-send the SMS.
+
+    Returns list of dicts with: id, location_id, contact_id, details,
+    created_at, message_preview, first_name, entry_type.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            (
+                SELECT wr.id, wr.location_id, wr.contact_id, wr.details,
+                       wr.event_type, wr.summary, wr.created_at,
+                       'dropped' AS entry_type,
+                       wr.details->>'message_preview' AS message_preview,
+                       wr.summary AS received_summary
+                FROM webhook_logs wr
+                WHERE wr.event_type = 'webhook_received'
+                  AND wr.created_at > NOW() - INTERVAL '%s hours'
+                  AND (wr.details->>'backfill_retried') IS NULL
+                  AND wr.contact_id IS NOT NULL
+                  -- No successful reply within 10 min
+                  AND NOT EXISTS (
+                      SELECT 1 FROM webhook_logs ms
+                      WHERE ms.location_id = wr.location_id
+                        AND ms.contact_id  = wr.contact_id
+                        AND ms.event_type IN (
+                            'message_sent', 'api_webhook_sent', 'audit_retry_sent'
+                        )
+                        AND ms.created_at BETWEEN wr.created_at
+                                              AND wr.created_at + INTERVAL '10 minutes'
+                  )
+                  -- Exclude if there's a message_failed (handled separately below)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM webhook_logs mf
+                      WHERE mf.location_id = wr.location_id
+                        AND mf.contact_id  = wr.contact_id
+                        AND mf.event_type  = 'message_failed'
+                        AND mf.created_at BETWEEN wr.created_at
+                                              AND wr.created_at + INTERVAL '10 minutes'
+                  )
+            )
+            UNION ALL
+            (
+                SELECT e.id, e.location_id, e.contact_id, e.details,
+                       e.event_type, e.summary, e.created_at,
+                       'sms_http_fail' AS entry_type,
+                       NULL AS message_preview,
+                       NULL AS received_summary
+                FROM webhook_logs e
+                WHERE e.event_type = 'message_failed'
+                  AND e.status = 'error'
+                  AND (e.details->>'retried') IS NULL
+                  AND e.created_at > NOW() - INTERVAL '%s hours'
+            )
+            ORDER BY created_at ASC
+            LIMIT %s
+        """, (max_age_hours, max_age_hours, limit))
+        rows = cur.fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            # Extract first_name from "Webhook from FirstName" summary
+            summary = d.get('received_summary') or ''
+            if summary.startswith('Webhook from '):
+                d['first_name'] = summary.replace('Webhook from ', '').strip()
+            else:
+                d['first_name'] = ''
+            results.append(d)
+        return results
+    except Exception as e:
+        logger.error(f"get_token_failed_webhook_logs failed: {e}")
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def save_failed_webhook_payload(location_id: str, contact_id: str,
+                                payload: dict, failure_reason: str) -> bool:
+    """Persist a failed webhook payload for later recovery by the scourer.
+
+    Called when process_webhook_task aborts due to a token error. The full
+    payload is saved so the scourer can re-queue it once a valid token is obtained.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        # Strip _original_payload to avoid double-nesting and keep size manageable
+        clean_payload = {k: v for k, v in payload.items() if k != '_original_payload'}
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO failed_webhook_payloads
+                (location_id, contact_id, payload, failure_reason)
+            VALUES (%s, %s, %s, %s)
+        """, (location_id, contact_id, json.dumps(clean_payload), failure_reason))
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"save_failed_webhook_payload failed: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def get_unretried_failed_webhooks(location_id: str = None,
+                                  max_age_hours: int = 24,
+                                  limit: int = 200) -> list:
+    """Fetch failed webhook payloads that haven't been retried yet.
+
+    If location_id is provided, only fetch for that location.
+    Otherwise, fetch across all locations (for the scourer cron).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        if location_id:
+            cur.execute("""
+                SELECT id, location_id, contact_id, payload, failure_reason, created_at
+                FROM failed_webhook_payloads
+                WHERE location_id = %s
+                  AND retried = FALSE
+                  AND created_at > NOW() - INTERVAL '%s hours'
+                ORDER BY created_at ASC
+                LIMIT %s
+            """, (location_id, max_age_hours, limit))
+        else:
+            cur.execute("""
+                SELECT id, location_id, contact_id, payload, failure_reason, created_at
+                FROM failed_webhook_payloads
+                WHERE retried = FALSE
+                  AND created_at > NOW() - INTERVAL '%s hours'
+                ORDER BY created_at ASC
+                LIMIT %s
+            """, (max_age_hours, limit))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_unretried_failed_webhooks failed: {e}")
+        return []
+    finally:
+        if conn:
+            return_db_connection(conn)
+
+
+def mark_failed_webhook_retried(payload_id: int, success: bool,
+                                result: str = None) -> bool:
+    """Mark a failed webhook payload as retried."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE failed_webhook_payloads
+            SET retried = TRUE,
+                retry_result = %s,
+                retried_at = NOW()
+            WHERE id = %s
+        """, (result or ("success" if success else "failed"), payload_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"mark_failed_webhook_retried failed for id {payload_id}: {e}")
+        if conn:
+            conn.rollback()
+        return False
     finally:
         if conn:
             return_db_connection(conn)
@@ -928,6 +1214,30 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"Discord migration note: {e}")
 
+        # 23. MIGRATION: Create failed_webhook_payloads table for token-failure recovery
+        try:
+            cur_fwp = conn.cursor()
+            cur_fwp.execute("""
+                CREATE TABLE IF NOT EXISTS failed_webhook_payloads (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT,
+                    payload JSONB NOT NULL,
+                    failure_reason TEXT NOT NULL,
+                    retried BOOLEAN DEFAULT FALSE,
+                    retry_result TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    retried_at TIMESTAMP
+                )
+            """)
+            cur_fwp.execute("CREATE INDEX IF NOT EXISTS idx_fwp_location_retried ON failed_webhook_payloads(location_id, retried)")
+            cur_fwp.execute("CREATE INDEX IF NOT EXISTS idx_fwp_created ON failed_webhook_payloads(created_at)")
+            conn.commit()
+            cur_fwp.close()
+            logger.info("✅ Migration: Created failed_webhook_payloads table")
+        except Exception as e:
+            logger.debug(f"failed_webhook_payloads migration note: {e}")
+
         # ── Super Admin role migration ──────────────────────────────────────
         # Ensures the platform owner always has super_admin role on every deploy.
         try:
@@ -1343,43 +1653,77 @@ def update_subscriber_token(
     oauth_app_type: Optional[str] = None
 ) -> bool:
     """Update OAuth tokens with expiry. Optionally fix oauth_app_type if credential
-    auto-detection found the stored type was wrong."""
-    conn = get_db_connection()
-    if not conn:
-        return False
-    try:
-        cur = conn.cursor()
-        # Use make_interval() to safely parameterize the interval
-        if oauth_app_type:
-            cur.execute("""
-                UPDATE subscribers
-                SET access_token = %s,
-                    refresh_token = COALESCE(%s, refresh_token),
-                    token_expires_at = NOW() + make_interval(secs => %s),
-                    oauth_app_type = %s,
-                    updated_at = NOW()
-                WHERE location_id = %s
-            """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
-        else:
-            cur.execute("""
-                UPDATE subscribers
-                SET access_token = %s,
-                    refresh_token = COALESCE(%s, refresh_token),
-                    token_expires_at = NOW() + make_interval(secs => %s),
-                    updated_at = NOW()
-                WHERE location_id = %s
-            """, (access_token, refresh_token, expires_in, location_id))
-        conn.commit()
-        return cur.rowcount > 0
-    except psycopg2.Error as e:
-        logger.error(f"update_subscriber_token failed for {location_id}: {e}")
-        conn.rollback()
-        return False
-    finally:
-        if 'cur' in locals():
-            cur.close()
-        if conn:
-            return_db_connection(conn)
+    auto-detection found the stored type was wrong.
+
+    CRITICAL: GHL refresh tokens are single-use. If this write fails after a
+    successful token refresh, the old refresh_token is already invalidated by GHL
+    and the new one is lost — causing permanent lockout. This function retries
+    up to 3 times on failure to prevent that scenario.
+    """
+    import time as _t
+
+    for attempt in range(3):
+        conn = get_db_connection()
+        if not conn:
+            if attempt < 2:
+                logger.warning(f"update_subscriber_token: no DB connection "
+                              f"(attempt {attempt+1}/3), retrying...")
+                _t.sleep(1)
+                continue
+            logger.error(f"update_subscriber_token: no DB connection after 3 attempts "
+                        f"for {location_id} — TOKENS MAY BE LOST")
+            return False
+        try:
+            cur = conn.cursor()
+            # COALESCE keeps old refresh_token only if GHL didn't return a new one.
+            # This is a safety net — GHL almost always returns a new refresh_token.
+            if oauth_app_type:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET access_token = %s,
+                        refresh_token = COALESCE(%s, refresh_token),
+                        token_expires_at = NOW() + interval '%s seconds',
+                        oauth_app_type = %s,
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
+            else:
+                cur.execute("""
+                    UPDATE subscribers
+                    SET access_token = %s,
+                        refresh_token = COALESCE(%s, refresh_token),
+                        token_expires_at = NOW() + interval '%s seconds',
+                        updated_at = NOW()
+                    WHERE location_id = %s
+                """, (access_token, refresh_token, expires_in, location_id))
+            conn.commit()
+            updated = cur.rowcount > 0
+            if updated:
+                logger.info(f"✅ DB token persisted for {location_id} "
+                           f"(refresh_token={'new' if refresh_token else 'kept'})")
+            else:
+                logger.warning(f"⚠️ DB token update matched 0 rows for {location_id} "
+                              f"— location_id may not exist in subscribers table")
+            return updated
+        except psycopg2.Error as e:
+            logger.error(f"update_subscriber_token FAILED for {location_id} "
+                        f"(attempt {attempt+1}/3): {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            if attempt < 2:
+                _t.sleep(1)
+                continue
+            logger.error(f"🚨 CRITICAL: Token DB write failed after 3 attempts for {location_id} "
+                        f"— refresh_token may be permanently lost")
+            return False
+        finally:
+            if 'cur' in locals():
+                cur.close()
+            if conn:
+                return_db_connection(conn)
+    return False
 
 
 def get_subscribers_needing_token_refresh() -> list:
