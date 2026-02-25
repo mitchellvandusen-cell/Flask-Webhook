@@ -797,7 +797,8 @@
         }
 
         // ── Calling (AI mode) ──
-        let _isDialing = false; // blocks double-dial while /voice/dial request is in-flight
+        let _isDialing     = false; // blocks double-dial while /voice/dial request is in-flight
+        let _hangupPending = false; // set when Hang Up is clicked while _isDialing; dialerStartCall will immediately cancel the new call
 
         async function dialerStartCall(phone, firstName, contactId, displayName) {
             // Guard: block if a call is already active OR if we're mid-dial-request.
@@ -842,6 +843,36 @@
                 }
                 dialerCallSid = d.call_sid;
                 _isDialing = false; // SID locked in — safe to clear the in-flight guard
+
+                // Race: Hang Up was clicked while this API request was in-flight.
+                // dialerCallSid was null then, so dialerStopQueue() set _hangupPending
+                // instead. Now that we have the real SID, hang it up immediately.
+                if (_hangupPending) {
+                    _hangupPending = false;
+                    const sidToKill = dialerCallSid;
+                    dialerCallSid = null;
+                    console.warn('[Dialer] Race hangup — Hang Up was clicked mid-dial, cancelling call', sidToKill);
+                    _fetchRetry('/voice/hangup', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ call_sid: sidToKill })
+                    }, { retries: 2, timeout: 10000, label: 'hangup-race' })
+                        .then(async r => {
+                            try {
+                                const rd = await r.json();
+                                if (rd.success === false) {
+                                    console.warn('[Dialer] Race hangup: Twilio says call may already have ended for', sidToKill);
+                                } else {
+                                    console.log('[Dialer] Race hangup confirmed for', sidToKill);
+                                }
+                            } catch(e) { console.log('[Dialer] Race hangup sent for', sidToKill); }
+                        })
+                        .catch(e => console.error('[Dialer] Race hangup request failed:', e.message));
+                    dialerHideBanner();
+                    dialerStopAiTimer();
+                    return;
+                }
+
                 _dialerCallConnected = false;
                 dialerShowBanner(displayName, 'Ringing...');
                 dialerStartPoll();
@@ -1637,6 +1668,7 @@
         function dialerStopQueue() {
             dialerQueueRunning = false;
             _advanceLocked = false;
+            const _wasDialing = _isDialing; // capture before clearing
             _isDialing = false; // release any in-flight dial guard
             dialerUpdateBtn();
             // Cancel ALL pending advance/retry/next timers to prevent ghost callbacks
@@ -1678,8 +1710,15 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ call_sid: sid })
-                }, { retries: 2, timeout: 10000, label: 'hangup' }).then(() => {
-                    console.log('[Dialer] Hangup sent for', sid);
+                }, { retries: 2, timeout: 10000, label: 'hangup' }).then(async r => {
+                    try {
+                        const rd = await r.json();
+                        if (rd.success === false) {
+                            console.warn('[Dialer] Hangup: Twilio reports call may already have ended for', sid, '—', rd.note || '');
+                        } else {
+                            console.log('[Dialer] Hangup confirmed for', sid);
+                        }
+                    } catch(e) { console.log('[Dialer] Hangup sent for', sid); }
                 }).catch(e => {
                     console.error('[Dialer] Hangup request failed:', e.message);
                 }).finally(() => {
@@ -1691,6 +1730,13 @@
                     }, 400);
                 });
             } else {
+                if (_wasDialing) {
+                    // Hang Up clicked while /voice/dial was still in-flight.
+                    // dialerCallSid is still null so we can't hang up yet —
+                    // flag it so dialerStartCall cancels the moment the SID arrives.
+                    _hangupPending = true;
+                    console.warn('[Dialer] Hang Up mid-dial — will cancel call as soon as API responds');
+                }
                 // No active call — clean up immediately
                 if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
                 dialerHideBanner();

@@ -2712,10 +2712,12 @@ def hangup_active_call():
         logger.warning(f"Hangup DB persist failed for {call_sid}: {e}")
 
     if success:
-        return jsonify({"status": "hung_up"})
-    # Even if Twilio hangup fails (call may have already ended), still return success
-    # since we've already updated our state
-    return jsonify({"status": "hung_up", "note": "call may have already ended"})
+        return jsonify({"status": "hung_up", "success": True})
+    # Twilio hangup failed — call may have already ended naturally.
+    # Return success:false so the client can log it; we still return 200
+    # so the UI cleans up (the call is gone either way).
+    logger.warning(f"Twilio hangup API returned failure for {call_sid} — call may have already ended")
+    return jsonify({"status": "hung_up", "success": False, "note": "call may have already ended"})
 
 
 # ──────────────────────────────────────────────────────────────
