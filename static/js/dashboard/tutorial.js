@@ -308,8 +308,8 @@
         var id = boot.userEmail || boot.locationId || 'anon';
         return STORAGE_PREFIX + id;
     }
-    function isTutorialDone()  { return localStorage.getItem(storageKey()) === '1'; }
-    function markTutorialDone(){ localStorage.setItem(storageKey(), '1'); }
+    function isTutorialDone()  { try { return localStorage.getItem(storageKey()) === '1'; } catch(e) { return false; } }
+    function markTutorialDone(){ try { localStorage.setItem(storageKey(), '1'); } catch(e) {} }
 
     // ── Navigation Helpers ─────────────────────────────────────
     var TAB_BTN_MAP = {

@@ -2,6 +2,10 @@
         // SIDEBAR NAVIGATION (2026)
         // ══════════════════════════════════
 
+        // Safe localStorage wrapper — cross-origin iframes can block storage access
+        function _lsGet(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+        function _lsSet(k,v) { try { localStorage.setItem(k,v); } catch(e) {} }
+
         // Page title map
         const _pageTitles = {
             voicedialer: 'Dialer', config: 'SMS Config', voice: 'Voice Config',
@@ -56,7 +60,7 @@
             // Collapsed → chevron-right (click to expand); Expanded → bars (click to collapse)
             if (icon) icon.className = isCollapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-bars';
             document.getElementById('sbToggle').title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
-            localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+            _lsSet('sidebar_collapsed', isCollapsed ? '1' : '0');
         }
 
         // Collapsible section toggle
@@ -75,7 +79,7 @@
 
         // Restore sidebar + theme state on page load
         document.addEventListener('DOMContentLoaded', function() {
-            if (localStorage.getItem('sidebar_collapsed') === '1') {
+            if (_lsGet('sidebar_collapsed') === '1') {
                 const sb = document.getElementById('mainSidebar');
                 if (sb) sb.classList.add('collapsed');
                 document.body.classList.add('sidebar-collapsed');
@@ -85,7 +89,7 @@
                 if (btn) btn.title = 'Expand sidebar';
             }
             // Restore light/dark theme
-            const savedTheme = localStorage.getItem('dash_theme') || 'dark';
+            const savedTheme = _lsGet('dash_theme') || 'dark';
             applyTheme(savedTheme, false);
         });
 
@@ -100,7 +104,7 @@
                 body.classList.remove('light-theme');
                 if (btn) { btn.innerHTML = '<i class="fa-solid fa-sun"></i>'; btn.title = 'Switch to light mode'; }
             }
-            if (save) localStorage.setItem('dash_theme', theme);
+            if (save) _lsSet('dash_theme', theme);
         }
         function toggleTheme() {
             const isLight = document.body.classList.contains('light-theme');
