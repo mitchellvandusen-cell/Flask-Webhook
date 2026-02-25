@@ -4,7 +4,7 @@
                     <h3 class="mb-3">Subscription Management</h3>
                     {% if current_user.stripe_customer_id %}
                         <p style="color:#aaa; max-width:400px; margin:0 auto 1.5rem;">Use the secure portal to update payment methods or view invoices.</p>
-                        <form method="post" action="/create-portal-session">
+                        <form method="post" action="/create-portal-session" target="_top">
                             <button type="submit" class="btn btn-primary px-5">Open Stripe Portal</button>
                         </form>
                     {% else %}
