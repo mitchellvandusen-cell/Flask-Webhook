@@ -797,14 +797,20 @@
         }
 
         // ── Calling (AI mode) ──
+        let _isDialing = false; // blocks double-dial while /voice/dial request is in-flight
+
         async function dialerStartCall(phone, firstName, contactId, displayName) {
-            // Guard: don't start a new call if one is already active
-            if (dialerCallSid) {
-                console.warn('[Dialer] Blocked double-dial: call already active sid=' + dialerCallSid);
+            // Guard: block if a call is already active OR if we're mid-dial-request.
+            // dialerCallSid is only set after the API responds, so _isDialing covers
+            // the window between button click and the server response.
+            if (dialerCallSid || _isDialing) {
+                console.warn('[Dialer] Blocked double-dial: call active or request in-flight');
                 return;
             }
+            _isDialing = true;
             // Validate phone before attempting
             if (!phone || phone.replace(/[^0-9+]/g, '').length < 10) {
+                _isDialing = false;
                 // Mark queue item as failed so advance() handles it correctly (retry or skip)
                 if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
                     dialerQueue[dialerCallIdx].status = 'failed';
@@ -824,6 +830,7 @@
                 }, { retries: 0, timeout: 25000, label: 'dial' });
                 const d = await r.json();
                 if (!r.ok) {
+                    _isDialing = false;
                     // Mark queue item as failed so advance() handles it correctly (retry or skip)
                     if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
                         dialerQueue[dialerCallIdx].status = 'failed';
@@ -834,10 +841,12 @@
                     return;
                 }
                 dialerCallSid = d.call_sid;
+                _isDialing = false; // SID locked in — safe to clear the in-flight guard
                 _dialerCallConnected = false;
                 dialerShowBanner(displayName, 'Ringing...');
                 dialerStartPoll();
             } catch(e) {
+                _isDialing = false;
                 console.error('[Dialer] startCall network error:', e);
                 // Mark queue item as failed so advance() handles it correctly (retry or skip)
                 if (dialerQueueRunning && dialerCallIdx >= 0 && dialerCallIdx < dialerQueue.length) {
@@ -1013,6 +1022,11 @@
             document.getElementById('dialerAiTimer').style.display = 'none';
         }
 
+        // ── In-call toggle state — declared before _dialerEnableControls so it can reset them ──
+        let _dialerListening = false;   // live listen WebSocket active
+        let _dialerMuted     = false;   // AI audio muted (listen speaker)
+        let _dialerMicMuted  = false;   // agent mic muted (post-intercept VoIP)
+
         // ── Enable / disable all in-call control buttons ──
         function _dialerEnableControls(enabled) {
             const btns = ['dialerListenBtn', 'dialerMuteBtn', 'dialerMuteMicBtn', 'dialerTakeoverBtn', 'dialerTransferBtn'];
@@ -1049,7 +1063,6 @@
         }
 
         // ── Live Listen (AI speakerphone — streams call audio to browser) ──
-        let _dialerListening = false;
         let _listenWs = null;
         let _listenAudioCtx = null;
         let _listenReconnects = 0;
@@ -1249,7 +1262,6 @@
         }
 
         // ── Mute AI: mutes call audio you hear (listen speaker) ──
-        let _dialerMuted = false;
         function dialerToggleMuteAI() {
             if (document.getElementById('dialerMuteBtn').disabled) return;
             _dialerMuted = !_dialerMuted;
@@ -1270,7 +1282,6 @@
         }
 
         // ── Mute Mic: mutes your microphone (only works after VoIP intercept) ──
-        let _dialerMicMuted = false;
         function dialerToggleMuteMic() {
             const btn = document.getElementById('dialerMuteMicBtn');
             if (!btn || btn.disabled) return;
@@ -1623,49 +1634,61 @@
         function dialerStopQueue() {
             dialerQueueRunning = false;
             _advanceLocked = false;
+            _isDialing = false; // release any in-flight dial guard
             dialerUpdateBtn();
             // Cancel ALL pending advance/retry/next timers to prevent ghost callbacks
             _dialerCancelQueueTimers();
-            // Also hang up any active VoIP call
+            // Hang up any active VoIP call immediately
             if (voipConnection) voipHangup();
 
             if (dialerCallSid) {
                 const sid = dialerCallSid;
-                // Show "Hanging up..." in banner so user has visual feedback
-                const nameEl = document.getElementById('dialerCallName');
-                dialerShowBanner(nameEl ? nameEl.textContent : 'Call', 'Hanging up...');
-                _dialerBannerState('ended');
 
-                // Safety timeout: force cleanup if API takes too long (network issue)
+                // ── Synchronous cleanup BEFORE the async hangup request ──
+                // Null the SID immediately so the poll can't re-fire against a
+                // "dead" call and overwrite "Hanging up..." with "Connected".
+                dialerCallSid = null;
+
+                // Kill the poll immediately — same reason.
+                if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
+
+                // Stop listen stream now while we still have accurate state.
+                _stopListenStream();
+
+                // Show "Hanging up..." — update DOM directly to avoid dialerShowBanner's
+                // ringing-blue side-effect; just keep the existing contact name in place.
+                const statusEl = document.getElementById('dialerCallStatus');
+                if (statusEl) { statusEl.textContent = 'Hanging up...'; statusEl.style.color = '#aaa'; }
+                _dialerBannerState('ended');
+                _dialerEnableControls(false);
+                document.getElementById('dialerCallBanner').style.display = 'block';
+
+                // Safety: force-close banner if the network is unreachable
                 const forceCleanup = setTimeout(() => {
                     console.warn('[Dialer] Hangup timeout — force cleanup');
-                    dialerCallSid = null;
-                    if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
                     dialerHideBanner();
                     dialerStopAiTimer();
-                }, 8000);
+                }, 6000);
 
-                // Send hangup request
+                // Send hangup to Twilio
                 _fetchRetry('/voice/hangup', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ call_sid: sid })
                 }, { retries: 2, timeout: 10000, label: 'hangup' }).then(() => {
-                    console.log('[Dialer] Hangup sent successfully for', sid);
+                    console.log('[Dialer] Hangup sent for', sid);
                 }).catch(e => {
-                    console.error('[Dialer] Hangup failed after retries:', e.message);
+                    console.error('[Dialer] Hangup request failed:', e.message);
                 }).finally(() => {
                     clearTimeout(forceCleanup);
-                    // Give Twilio a moment to process, then clean up
+                    // Brief delay so the user sees "Hanging up..." before it disappears
                     setTimeout(() => {
-                        dialerCallSid = null;
-                        if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
                         dialerHideBanner();
                         dialerStopAiTimer();
-                    }, 600);
+                    }, 400);
                 });
             } else {
-                // No active call — just clean up immediately
+                // No active call — clean up immediately
                 if (dialerPollTimer) { clearInterval(dialerPollTimer); dialerPollTimer = null; }
                 dialerHideBanner();
                 dialerStopAiTimer();
@@ -2240,6 +2263,11 @@
         async function voipMakeCall(phone, firstName, contactId, displayName) {
             if (!voipDevice || !voipReady) {
                 _showVoipStatus('VoIP not ready. Click Setup VoIP first.');
+                return;
+            }
+            // Block double-connect — reject if a VoIP call is already active
+            if (voipConnection) {
+                console.warn('[VoIP] Blocked double-dial: VoIP call already active');
                 return;
             }
             voipCurrentContact = { phone, firstName, contactId, displayName };
