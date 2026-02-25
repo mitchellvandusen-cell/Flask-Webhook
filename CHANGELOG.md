@@ -19,6 +19,35 @@
 | 2026-02-22 | Full Discord OAuth integration with persistent auth, team chat panel in sidebar |
 | 2026-02-22 | CLAUDE.md documentation added; dismissable banners; Discord side panel repositioned |
 | 2026-02-24 | A2P 10DLC compliance system: brand/campaign registration + external import from GHL |
+| 2026-02-25 | Enterprise OAuth proactive refresh, import consolidation, website honesty audit, transfer hangup fix, timezone-aware stats |
+
+---
+
+## 2026-02-25
+
+### Enterprise OAuth & Code Quality
+- **Proactive OAuth token refresh**: New `/api/cron/refresh-tokens` endpoint automatically refreshes all tokens expiring within 2 hours. Designed for 15-minute cron interval — tokens never expire mid-conversation again.
+- **SQL safety fix**: `update_subscriber_token()` now uses `make_interval(secs => %s)` instead of string interpolation for the interval parameter.
+- **Timezone-aware token comparison**: `get_valid_token()` handles both timezone-aware and naive datetime objects from the DB.
+- **Dead code removal**: Removed unused `count_consecutive_bot_messages()` from tasks.py.
+- **Import consolidation (round 1)**: Moved 40+ inline imports to module level across main.py, voice_bridge.py, and tasks.py. Eliminated `_re`, `_json`, `_dt`, `_td`, `_tz` aliases.
+- **Import consolidation (round 2)**: Moved `send_email_via_api`, `get_webhook_logs`, `get_subscribers_needing_token_refresh`, `get_valid_token`, CRM factory imports, and `build_system_prompt` to module level in main.py. Moved `time`, `math`, `timezone` to module level in db.py. Moved `quote` to module level in twilio_provisioning.py.
+- **Updated .gitignore**: Added `attached_assets/`, `check_accounts.py`, `*.pyc`, `*.log`, `.DS_Store`.
+
+### Website Honesty Audit
+- **comparison.html**: Fixed "Unlimited Minutes" claims to show "5,000 Minutes Included*" with fair-use disclaimer ($0.02/min overage). Updated footnote date to February 2026.
+- **faq.html**: Updated "Does it only work in Lead Connector?" from "Right now, yes" to accurately list all 7 CRM integrations.
+
+### Voice & Dialer Fixes
+- **Transfer hangup fix**: Added `action` URL to `<Dial>` in both `/voice/transfer-twiml` and `/voice/intercept-twiml`. New `/voice/transfer-complete` endpoint returns `<Hangup/>` so parent calls are released when transfer ends.
+- **Hangup for transferred calls**: `/voice/hangup` now detects transferred calls and completes child call legs via Twilio REST API before completing the parent.
+- **Terminal state cleanup**: `transferred` added to terminal status lists in call-status polling and voice status webhook.
+- **Timezone-aware stats**: `/voice/stats` now uses the subscriber's configured timezone instead of UTC for all date calculations.
+- **Gunicorn threads**: Increased from 4 → 40 with `--timeout 0` for WebSocket support.
+- **Hangup race fix**: Server-side success flag for reliable call termination.
+- **Worker timeout fix**: Resolved issue where worker timeouts killed active calls.
+- **Dialer cleanup**: Structural cleanup, double-dial guard, instant hangup, timer cleanup, heavy logging audit.
+- **Listen/intercept fixes**: Fixed listen WebSocket receive compatibility, intercept call SID race condition, intercept double-fire race.
 
 ---
 
