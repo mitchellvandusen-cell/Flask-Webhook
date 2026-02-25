@@ -1348,12 +1348,13 @@ def update_subscriber_token(
         return False
     try:
         cur = conn.cursor()
+        # Use make_interval() to safely parameterize the interval
         if oauth_app_type:
             cur.execute("""
                 UPDATE subscribers
                 SET access_token = %s,
                     refresh_token = COALESCE(%s, refresh_token),
-                    token_expires_at = NOW() + interval '%s seconds',
+                    token_expires_at = NOW() + make_interval(secs => %s),
                     oauth_app_type = %s,
                     updated_at = NOW()
                 WHERE location_id = %s
@@ -1363,7 +1364,7 @@ def update_subscriber_token(
                 UPDATE subscribers
                 SET access_token = %s,
                     refresh_token = COALESCE(%s, refresh_token),
-                    token_expires_at = NOW() + interval '%s seconds',
+                    token_expires_at = NOW() + make_interval(secs => %s),
                     updated_at = NOW()
                 WHERE location_id = %s
             """, (access_token, refresh_token, expires_in, location_id))
@@ -1378,6 +1379,36 @@ def update_subscriber_token(
             cur.close()
         if conn:
             return_db_connection(conn)
+
+
+def get_subscribers_needing_token_refresh() -> list:
+    """
+    Get all subscribers whose OAuth tokens expire within the next 2 hours.
+    Only returns rows that have a refresh_token (i.e., OAuth-connected users).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT location_id, access_token, refresh_token, token_expires_at, oauth_app_type
+            FROM subscribers
+            WHERE refresh_token IS NOT NULL
+              AND refresh_token != ''
+              AND token_expires_at IS NOT NULL
+              AND token_expires_at < NOW() + interval '2 hours'
+              AND token_expires_at > NOW() - interval '30 days'
+            ORDER BY token_expires_at ASC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_subscribers_needing_token_refresh failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
 
 
 def get_users_needing_reminders() -> list:

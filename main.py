@@ -21,7 +21,9 @@ from flask import jsonify as flask_jsonify
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+from urllib.parse import urlencode
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from rq import Queue
 from psycopg2.extras import RealDictCursor
@@ -473,7 +475,6 @@ def webhook():
     # Validate contact_id
     if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
         logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} | location_id={location_id}")
-        import json
         logger.critical(f"🚨 Original payload: {json.dumps(payload.get('_original_payload', {}), default=str)}")
         return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
 
@@ -852,7 +853,6 @@ def stripe_webhook():
                         cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
                         row = cur.fetchone()
                         if row:
-                            import json as _json
                             vc = row['voice_config'] or {}
                             a2p = vc.get('a2p', {})
                             a2p['a2p_fee_paid'] = True
@@ -863,7 +863,7 @@ def stripe_webhook():
                             vc['a2p'] = a2p
                             cur.execute(
                                 "UPDATE subscribers SET voice_config = %s WHERE email = %s",
-                                (_json.dumps(vc), email)
+                                (json.dumps(vc), email)
                             )
                             conn.commit()
                         cur.close()
@@ -2384,7 +2384,6 @@ def _is_admin_request():
 
 def super_admin_required(f):
     """Decorator: only allows users with role='super_admin'."""
-    from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_super_admin:
@@ -2634,6 +2633,70 @@ def api_send_reminders():
 
     except Exception as e:
         logger.error(f"Cron send-reminders crashed: {e}", exc_info=True)
+        return safe_jsonify({
+            "success": False,
+            "error": str(e)
+        }), 200  # Return 200 so cron-job.org doesn't mark as failed
+
+
+@app.route("/api/cron/refresh-tokens", methods=["GET", "POST"])
+def api_cron_refresh_tokens():
+    """
+    Proactive OAuth token refresh — called by external cron every 15 minutes.
+    Finds all subscribers whose tokens expire within 2 hours and refreshes them.
+    This prevents expired-token failures during webhook processing.
+
+    Auth: CRON_SECRET via Bearer header or ?key= query param.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from db import get_subscribers_needing_token_refresh
+        from ghl_api import get_valid_token
+
+        expiring = get_subscribers_needing_token_refresh()
+        refreshed = 0
+        failed = 0
+        skipped = 0
+        errors = []
+
+        for sub in expiring:
+            loc_id = sub.get("location_id", "")
+            if not loc_id or loc_id.startswith("temp_") or loc_id in ("DEMO", "DEMO_LOC"):
+                skipped += 1
+                continue
+
+            try:
+                token = get_valid_token(loc_id)
+                if token:
+                    refreshed += 1
+                else:
+                    failed += 1
+                    errors.append(loc_id)
+            except Exception as e:
+                failed += 1
+                errors.append(f"{loc_id}: {str(e)[:80]}")
+                logger.warning(f"Proactive refresh failed for {loc_id}: {e}")
+
+        logger.info(f"Proactive token refresh: {refreshed} refreshed, {failed} failed, {skipped} skipped out of {len(expiring)} expiring")
+        return safe_jsonify({
+            "success": True,
+            "expiring": len(expiring),
+            "refreshed": refreshed,
+            "failed": failed,
+            "skipped": skipped,
+            "errors": errors[:20],  # Cap error list
+        })
+
+    except Exception as e:
+        logger.error(f"Cron refresh-tokens crashed: {e}", exc_info=True)
         return safe_jsonify({
             "success": False,
             "error": str(e)
@@ -4508,7 +4571,7 @@ def oauth_initiate():
 
     # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
     # and cause GHL scope validation failures + state parameter loss
-    from urllib.parse import urlencode
+
     oauth_params = urlencode({
         'response_type': 'code',
         'redirect_uri': redirect_uri,
@@ -5791,7 +5854,6 @@ def claim_account():
 
         # Check if invite is expired (7 days)
         if sub['invite_sent_at']:
-            from datetime import timedelta
             expiry = sub['invite_sent_at'] + timedelta(days=7)
             if datetime.now() > expiry:
                 flash("This invite link has expired. Please ask your agency owner to resend.", "danger")
@@ -6403,7 +6465,6 @@ def _discord_creds():
 
 def _discord_refresh_token(email: str, conn_row: dict):
     """Silently refresh an expired Discord OAuth token. Returns new access_token or None."""
-    from datetime import datetime, timedelta
     client_id = os.getenv("DISCORD_CLIENT_ID")
     client_secret = os.getenv("DISCORD_CLIENT_SECRET")
     refresh_tok = conn_row.get("refresh_token")
@@ -6459,7 +6520,7 @@ def discord_connect():
     if not client_id:
         flash("Discord integration is not configured. Contact support.", "error")
         return redirect(url_for("dashboard"))
-    from urllib.parse import urlencode
+
     state = secrets.token_urlsafe(16)
     session["discord_oauth_state"] = state
     params = urlencode({
@@ -6513,7 +6574,6 @@ def discord_callback():
     refresh_token = token_data.get("refresh_token")
     expires_in    = token_data.get("expires_in", 604800)
 
-    from datetime import timedelta
     expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
     try:
@@ -6558,8 +6618,6 @@ def discord_disconnect():
 @login_required
 def api_discord_status():
     """Return connection status + saved servers with bot_in_server flag."""
-    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
-
     conn_row = get_discord_connection(current_user.email)
     if not conn_row:
         return flask_jsonify({"connected": False})
@@ -6568,9 +6626,9 @@ def api_discord_status():
     expires_at = conn_row.get("token_expires_at")
     if expires_at:
         if getattr(expires_at, 'tzinfo', None) is None:
-            expires_at = expires_at.replace(tzinfo=_tz.utc)
-        now = _dt.now(_tz.utc)
-        if expires_at <= now + _td(hours=24):
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if expires_at <= now + timedelta(hours=24):
             new_tok = _discord_refresh_token(current_user.email, conn_row)
             if new_tok:
                 conn_row = get_discord_connection(current_user.email) or conn_row
@@ -6662,7 +6720,7 @@ def api_discord_bot_invite(guild_id):
     client_id = os.getenv("DISCORD_CLIENT_ID")
     if not client_id:
         return flask_jsonify({"error": "Discord not configured"}), 500
-    from urllib.parse import urlencode
+
     invite_url = "https://discord.com/oauth2/authorize?" + urlencode({
         "client_id": client_id,
         "permissions": "274877974528",

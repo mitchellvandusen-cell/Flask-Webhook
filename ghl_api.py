@@ -2,6 +2,7 @@
 import requests
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 from db import get_subscriber_info_hybrid, update_subscriber_token
 
@@ -17,7 +18,7 @@ def get_valid_token(location_id: str) -> str | None:
     FIXED: Uses correct OAuth credentials based on app type (private vs marketplace).
     """
     if location_id in {'DEMO', 'DEMO_LOC', 'TEST_LOCATION_456'}:
-        print(f"ℹ️ Internal Mode: Skipping auth for {location_id}")
+        logger.debug(f"Internal Mode: Skipping auth for {location_id}")
         return 'DEMO'
 
     sub = get_subscriber_info_hybrid(location_id)
@@ -38,7 +39,7 @@ def get_valid_token(location_id: str) -> str | None:
         logger.error(f"No access_token or refresh_token for {location_id}")
         return None
 
-    # CRITICAL FIX: Convert expires_at to datetime if it's a string
+    # Convert expires_at to datetime if it's a string
     if expires_at:
         if isinstance(expires_at, str):
             try:
@@ -48,8 +49,14 @@ def get_valid_token(location_id: str) -> str | None:
                 expires_at = None
 
     # Check expiry with buffer (5-min safety margin)
-    if expires_at and expires_at > datetime.now() + timedelta(minutes=5):
-        return access_token
+    # Handle both timezone-aware and naive datetimes from the DB
+    if expires_at:
+        now = datetime.utcnow()
+        # Strip tzinfo for comparison if expires_at is offset-aware
+        if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
+            now = datetime.now(expires_at.tzinfo)
+        if expires_at > now + timedelta(minutes=5):
+            return access_token
 
     # DUAL-APP SUPPORT: Build credential sets to try.
     # Primary: use the stored oauth_app_type. Fallback: try the other app's creds
@@ -139,8 +146,7 @@ def get_valid_token(location_id: str) -> str | None:
                     logger.warning(f"Token refresh attempt {attempt+1}/2 network error: {e}")
 
                 if attempt == 0:
-                    import time as _time
-                    _time.sleep(2)  # Brief backoff before retry
+                    time.sleep(2)  # Brief backoff before retry
             else:
                 # Retry loop exhausted without break (no auth error, just network/5xx)
                 logger.error(f"Token refresh failed after 2 attempts for {location_id} "

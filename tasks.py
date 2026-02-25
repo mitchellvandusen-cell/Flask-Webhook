@@ -1,9 +1,9 @@
-# tasks.py - The Background Engine (2026) - FULLY FIXED VERSION
-# Fixes: Booking execution, idempotency race condition, typos
+# tasks.py - The Background Engine (2026)
 import logging
 import re
 import os
 import time
+import json
 from typing import Tuple, Optional
 from openai import OpenAI
 from db import get_subscriber_info_hybrid, get_db_connection, return_db_connection, get_message_count, sync_messages_to_db, log_webhook_event, get_bot_settings_by_location, BOT_SETTINGS_DEFAULTS
@@ -67,26 +67,6 @@ def is_valid_contact_id(contact_id: str) -> bool:
         return False
 
     return True
-
-
-def count_consecutive_bot_messages(recent_exchanges: list) -> int:
-    """
-    Count how many consecutive bot messages were sent without a lead response.
-    Returns the count of most recent consecutive bot messages.
-    """
-    if not recent_exchanges:
-        return 0
-
-    consecutive_bot = 0
-    # Iterate backwards through exchanges (most recent first)
-    for exchange in reversed(recent_exchanges):
-        if exchange.get("role") == "bot":
-            consecutive_bot += 1
-        else:
-            # Hit a lead message, stop counting
-            break
-
-    return consecutive_bot
 
 
 def _extract_times_from_text(text: str) -> list:
@@ -695,9 +675,8 @@ def process_webhook_task(payload: dict):
         # === Contracted Carriers ===
         contracted_carriers = subscriber.get('contracted_carriers') or []
         if isinstance(contracted_carriers, str):
-            import json as _json
             try:
-                contracted_carriers = _json.loads(contracted_carriers)
+                contracted_carriers = json.loads(contracted_carriers)
             except Exception:
                 contracted_carriers = []
 
