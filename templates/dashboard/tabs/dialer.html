@@ -55,17 +55,17 @@
                     .dlr-kpi-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 16px;text-align:center;min-width:0;}
                     .dlr-kpi-val{font-size:1.6rem;font-weight:800;color:#fff;line-height:1.1;font-family:'JetBrains Mono',monospace;}
                     .dlr-kpi-label{font-size:0.72rem;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;}
-                    .dlr-kpi-sub{font-size:0.78rem;color:#555;margin-top:2px;}
-                    .dlr-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
-                    .dlr-bar-label{font-size:0.78rem;color:#888;min-width:60px;text-align:right;}
-                    .dlr-bar-track{flex:1;height:8px;background:rgba(255,255,255,0.04);border-radius:4px;overflow:hidden;}
-                    .dlr-bar-fill{height:100%;border-radius:4px;transition:width .4s ease;}
-                    .dlr-bar-count{font-size:0.78rem;color:#aaa;min-width:32px;text-align:right;font-family:'JetBrains Mono',monospace;}
+                    .dlr-kpi-sub{font-size:0.82rem;color:#888;margin-top:2px;}
+                    .dlr-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;}
+                    .dlr-bar-label{font-size:0.88rem;color:#ccc;min-width:60px;text-align:right;}
+                    .dlr-bar-track{flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;}
+                    .dlr-bar-fill{height:100%;border-radius:5px;transition:width .4s ease;}
+                    .dlr-bar-count{font-size:0.88rem;color:#ddd;min-width:36px;text-align:right;font-family:'JetBrains Mono',monospace;}
                     .dlr-daily-bar{background:rgba(0,217,255,0.3);border-radius:3px 3px 0 0;min-height:2px;transition:height .3s ease;}
                     .dlr-daily-bar:hover{background:rgba(0,217,255,0.6);}
                     .dlr-stat-period{transition:all .15s;}
                     .dlr-stat-period.active{background:rgba(0,217,255,0.15)!important;color:#00d9ff!important;}
-                    .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:10px;padding:1px 6px;font-size:0.68rem;font-weight:700;font-family:'JetBrains Mono',monospace;margin-left:4px;flex-shrink:0;line-height:1.4;}
+                    .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(0,217,255,0.15);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:1px 7px;font-size:0.88rem;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0;line-height:1.3;white-space:nowrap;gap:4px;}
                 </style>
 
                 <!-- Top Bar -->
@@ -321,6 +321,18 @@
                             </div>
                         </div>
                         <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Voicemail Drop</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceVoicemailDrop"
+                                        {% if voice_config.get('voicemail_drop', False) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Let AI leave voicemail</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">OFF = hang up on VM, retry. ON = AI leaves message.</small>
+                        </div>
+                        <div class="col-md-4">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Transfer Number (Hot Handoff)</label>
                             <input type="tel" class="form-control" id="voiceTransferNumber"
                                 value="{{ voice_config.get('transfer_number', '') }}"
@@ -395,6 +407,7 @@
                             </div>
                             <select id="dialerPipelineFilter" onchange="dialerOnPipelineChange()" style="width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.85rem;outline:none;margin-bottom:4px;">
                                 <option value="">All Contacts</option>
+                                <option value="" disabled style="color:#555;">Loading pipelines...</option>
                             </select>
                             <!-- Fallback: shown when opportunities.readonly scope is pending approval -->
                             <div id="dialerPipelineManual" style="display:none;margin-bottom:4px;">
@@ -406,8 +419,8 @@
                                     Find your Pipeline ID in GHL &rarr; Opportunities &rarr; copy the <code style="background:rgba(255,255,255,0.08);padding:0 3px;border-radius:3px;">pipelineId=</code> value from the URL.
                                 </div>
                             </div>
-                            <select id="dialerStageFilter" onchange="dialerFetchContacts()" style="display:none;width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;">
-                                <option value="">All Stages</option>
+                            <select id="dialerStageFilter" onchange="dialerFetchContacts()" style="width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#666;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;" disabled>
+                                <option value="">All Stages (select a pipeline first)</option>
                             </select>
                         </div>
                         <!-- Select Actions -->
@@ -427,18 +440,11 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Contact List -->
-                        <div id="dialerContactList" class="dlr-col-body">
-                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
-                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
-                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
-                            </div>
-                        </div>
-                        <!-- Queue (bottom) -->
-                        <div style="border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                        <!-- Queue (above contacts) -->
+                        <div style="border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
                             <div style="padding:6px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById('dialerQueueBody').style.display=document.getElementById('dialerQueueBody').style.display==='none'?'block':'none'">
                                 <span style="font-size:0.75rem;font-weight:700;color:var(--accent);"><i class="fa-solid fa-list-ol me-1"></i>Queue <span id="dialerQueueCount" style="color:#00d9ff;">0</span></span>
-                                <i class="fa-solid fa-chevron-up" style="color:#555;font-size:0.6rem;"></i>
+                                <i class="fa-solid fa-chevron-down" style="color:#555;font-size:0.6rem;"></i>
                             </div>
                             <div id="dialerQueueBody" style="display:none;border-top:1px solid rgba(255,255,255,0.04);">
                                 <div id="dialerQueueList" style="max-height:160px;overflow-y:auto;padding:4px 8px;">
@@ -450,6 +456,13 @@
                                     </button>
                                     <button onclick="dialerClearQueue()" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#888;font-weight:600;font-size:0.72rem;cursor:pointer;">Clear</button>
                                 </div>
+                            </div>
+                        </div>
+                        <!-- Contact List -->
+                        <div id="dialerContactList" class="dlr-col-body">
+                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
+                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
+                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
                             </div>
                         </div>
                     </div>
@@ -495,7 +508,7 @@
                                     <div id="dlrMsgContactName" style="font-weight:700;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
                                     <div id="dlrMsgContactPhone" style="font-size:0.78rem;color:#666;margin-top:1px;"></div>
                                 </div>
-                                <span style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
+                                <span id="dlrChannelBadge" style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);color:#00ff88;font-size:0.72rem;font-weight:700;padding:3px 8px;border-radius:5px;flex-shrink:0;letter-spacing:0.5px;">via GHL</span>
                                 <button onclick="dlrRefreshMessages()" title="Refresh thread" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);color:#666;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dlrRefreshBtn">
                                     <i class="fa-solid fa-arrows-rotate"></i>
                                 </button>
@@ -531,6 +544,16 @@
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Ready to go over your coverage options when you are — just reply here to get started.')">Coverage</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Are you available for a quick 10-minute call today or tomorrow?')">Schedule</button>
                                     <button class="dlr-qr-btn" onclick="dlrSetQuickReply('Got your message! I\'ll look into that and get back to you shortly.')">On it</button>
+                                </div>
+
+                                <!-- Send From Channel Selector -->
+                                <div id="dlrChannelRow" style="display:none;padding:4px 12px 0;align-items:center;gap:8px;">
+                                    <span style="font-size:0.75rem;color:#555;font-weight:600;white-space:nowrap;">Send from:</span>
+                                    <select id="dlrChannelSelect" onchange="dlrOnChannelChange()"
+                                        style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);color:#ccc;padding:4px 10px;border-radius:8px;font-size:0.78rem;outline:none;cursor:pointer;min-width:180px;">
+                                        <option value="ghl">GHL / Lead Connector</option>
+                                    </select>
+                                    <span id="dlrChannelNote" style="font-size:0.68rem;color:#555;"></span>
                                 </div>
 
                                 <!-- Compose Row -->

@@ -10,12 +10,17 @@
 
 import json
 import os
+import re
 import logging
 import threading
 import time
 import asyncio
 import struct
 import base64
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import pytz
+import httpx
 import audioop   # mulaw<->PCM transcoding
 import numpy as np
 import soxr                    # High-quality polyphase sinc resampler (anti-aliased)
@@ -84,6 +89,45 @@ XAI_SAMPLE_RATE = 16000     # xAI Realtime API
 # Master Twilio credentials (from .env) — white-label
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+
+# ──────────────────────────────────────────────────────────────
+# SOFTWARE VOICEMAIL DETECTION (transcription-based)
+# Catches voicemail MUCH faster than Twilio AMD by analyzing
+# xAI's real-time transcriptions. Twilio AMD with DetectMessageEnd
+# waits for the entire greeting to finish → AI talks to voicemail
+# for 30+ seconds. This fires on the FIRST voicemail phrase.
+# ──────────────────────────────────────────────────────────────
+_VM_PHRASES = [
+    "at the tone",
+    "leave a message",
+    "leave your message",
+    "record your message",
+    "after the beep",
+    "leave your name",
+    "not available right now",
+    "is not available",
+    "can't come to the phone",
+    "cannot come to the phone",
+    "unable to take your call",
+    "reached the voicemail",
+    "reached the voice mail",
+    "voicemail box",
+    "mailbox is full",
+    "please leave a detailed message",
+    "press pound when finished",
+    "when you have finished recording",
+    "when you've finished recording",
+    "not here right now",
+    "please try again later",
+    "leave a brief message",
+]
+
+def _is_voicemail_phrase(text: str) -> bool:
+    """Check if transcribed text contains definitive voicemail indicators."""
+    if not text:
+        return False
+    lower = text.lower()
+    return any(phrase in lower for phrase in _VM_PHRASES)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -250,9 +294,9 @@ async def _generate_voice_preview(voice_name):
             await ws.send(json.dumps({"type": "response.create"}))
 
             # Collect audio response with deadline
-            deadline = asyncio.get_event_loop().time() + 15
+            deadline = asyncio.get_running_loop().time() + 15
             async for message in ws:
-                if asyncio.get_event_loop().time() > deadline:
+                if asyncio.get_running_loop().time() > deadline:
                     break
                 data = json.loads(message)
                 event_type = data.get('type', '')
@@ -430,10 +474,10 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
             if conn:
                 cur = conn.cursor()
                 cur.execute(
-                    "SELECT COUNT(*) FROM call_history WHERE contact_id = %s AND direction LIKE 'outbound%%'",
+                    "SELECT COUNT(*) AS cnt FROM call_history WHERE contact_id = %s AND direction LIKE 'outbound%%'",
                     (contact_id,)
                 )
-                previous_call_count = cur.fetchone()[0]
+                previous_call_count = cur.fetchone()['cnt']
                 cur.close()
                 return_db_connection(conn)
         except Exception as e:
@@ -458,13 +502,11 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     voice_personality = voice_personalities.get(selected_voice, voice_personalities["ara"])
 
     # ── Current date/time ──
-    from datetime import datetime as _dt
     try:
-        import pytz
         tz = pytz.timezone(timezone)
-        now_local = _dt.now(tz)
+        now_local = datetime.now(tz)
     except Exception:
-        now_local = _dt.now()
+        now_local = datetime.now()
     date_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p")
 
     # ── Recent conversation flow ──
@@ -887,6 +929,21 @@ def get_voice_tools():
                 "required": []
             }
         },
+        {
+            "type": "function",
+            "name": "end_call",
+            "description": "End (hang up) this phone call. Use this ONLY when: (1) the lead explicitly says goodbye and the conversation is clearly over, (2) the lead asks to be removed from the call list, (3) the lead is abusive or the call has no productive path forward. Say a brief, natural closing line first — then call this tool to hang up.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Brief reason for ending the call, e.g. 'lead said goodbye', 'lead requested removal', 'no productive path'"
+                    }
+                },
+                "required": []
+            }
+        },
     ]
 
 
@@ -980,6 +1037,14 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
             logger.warning("Could not find active call for transfer — setting global flag")
 
         return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
+
+    elif tool_name == "end_call":
+        reason = args.get("reason", "conversation complete")
+        logger.info(f"📵 end_call tool invoked: reason={reason}")
+        # The actual Twilio hangup is triggered in the bridge's response.done handler
+        # (same pattern as transfer_to_agent) — returning this string lets xAI
+        # generate its closing line before we hang up.
+        return "Acknowledged. Ending the call now."
 
     else:
         logger.warning(f"Unknown voice tool: {tool_name}")
@@ -1214,10 +1279,13 @@ def intercept_twiml():
             content_type='text/xml'
         )
 
+    host = request.host
+    action_url = f"https://{host}/voice/transfer-complete?original_sid={call_sid}"
+
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
-        f'<Dial><Client>{identity}</Client></Dial>'
+        f'<Dial action="{action_url}" method="POST"><Client>{identity}</Client></Dial>'
         '</Response>'
     )
     return Response(twiml, content_type='text/xml')
@@ -1237,21 +1305,50 @@ def transfer_twiml():
             content_type='text/xml'
         )
 
+    # action URL tells Twilio to POST here when the <Dial> leg ends,
+    # so we can hang up the parent call cleanly instead of leaving it open.
+    host = request.host
+    action_url = f"https://{host}/voice/transfer-complete?original_sid={call_sid}"
+
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
-        f'<Dial>{transfer_to}</Dial>'
+        f'<Dial action="{action_url}" method="POST">{transfer_to}</Dial>'
         '</Response>'
     )
     return Response(twiml, content_type='text/xml')
+
+
+@voice_bp.route('/voice/transfer-complete', methods=['POST'])
+def transfer_complete():
+    """
+    Twilio calls this when the <Dial> leg of a transfer ends (callee hangs up,
+    busy, no-answer, etc.).  We return <Hangup/> so the parent call is released
+    instead of lingering in 'in-progress' forever.
+    """
+    original_sid = request.values.get('original_sid', '') or request.values.get('CallSid', '')
+    dial_status = request.values.get('DialCallStatus', 'unknown')
+    logger.info(f"Transfer complete: original_sid={original_sid[:16] if original_sid else 'none'} dial_status={dial_status}")
+
+    # Clean up in-memory tracking so the dialer UI can move on
+    if original_sid and original_sid in _active_calls:
+        _active_calls[original_sid]['status'] = 'completed'
+    _transfer_requests.pop(original_sid, None)
+
+    return Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
+        content_type='text/xml'
+    )
 
 
 @voice_bp.route('/voice/amd-status', methods=['POST'])
 def amd_status_callback():
     """
     Twilio async AMD callback. Called when machine detection finishes.
-    - machine_end_beep / machine_end_silence: beep passed → leave voicemail then hang up
-    - machine_start / fax: no recording opportunity → hang up immediately
+    NOTE: This fires LATE (after full voicemail greeting). Our software
+    voicemail detection in the bridge is much faster. This is a safety net.
+    - machine_end_beep / machine_end_silence / machine_end_other: hang up immediately
+    - machine_start / fax: hang up immediately
     - human / not_sure: call continues with existing stream
     """
     call_sid    = request.values.get('CallSid', '')
@@ -1410,6 +1507,13 @@ def voice_status():
     logger.info(f"📞 Call status: SID={call_sid} status={call_status} duration={duration}s")
 
     # Track status in memory for dialer queue polling
+    # Twilio can deliver callbacks out of order (e.g. 'ringing' after 'in-progress'),
+    # so only allow forward transitions to prevent status regression.
+    _STATUS_ORDER = {
+        'queued': 0, 'initiated': 1, 'ringing': 2,
+        'in-progress': 3,
+        'completed': 4, 'busy': 4, 'no-answer': 4, 'failed': 4, 'canceled': 4, 'transferred': 4,
+    }
     if call_sid in _active_calls:
         # If AMD hung up the call, Twilio still fires 'completed'. Preserve the
         # AMD-set status ('no-answer') so the frontend retry logic can trigger.
@@ -1418,7 +1522,14 @@ def voice_status():
         if call_status == 'completed' and amd_result:
             effective_status = amd_result
             logger.info(f"📞 AMD call {call_sid[:16]} ended — reporting as '{amd_result}' for retry")
-        _active_calls[call_sid]["status"] = effective_status
+
+        current_status = _active_calls[call_sid].get("status", "")
+        new_order = _STATUS_ORDER.get(effective_status, 99)
+        cur_order = _STATUS_ORDER.get(current_status, 99)
+        if new_order >= cur_order:
+            _active_calls[call_sid]["status"] = effective_status
+        else:
+            logger.info(f"📞 Ignoring out-of-order status '{effective_status}' for {call_sid[:16]} (current='{current_status}')")
         _active_calls[call_sid]["duration"] = int(duration or 0)
 
     # Persist to call_history DB
@@ -1517,6 +1628,15 @@ async def handle_voice_stream(ws):
         contact_id   = client_state_meta.get('contact_id',  '') or custom_params.get('contactId', '')
         contact_name = client_state_meta.get('contact_name','there') or custom_params.get('contactName', 'there')
         logger.info(f"Stream started: SID={stream_sid} call={call_sid} dir={direction} loc={location_id}")
+
+        # Belt-and-suspenders: if this is an outbound call and the media stream
+        # is connected, the call is definitely in-progress. Force the status
+        # update in case out-of-order Twilio callbacks haven't set it yet.
+        if call_sid and call_sid in _active_calls:
+            cur = _active_calls[call_sid].get('status', '')
+            if cur in ('initiated', 'ringing'):
+                _active_calls[call_sid]['status'] = 'in-progress'
+                logger.info(f"Stream forced status to in-progress for {call_sid[:16]} (was '{cur}')")
     else:
         logger.warning(f"Voice stream: Unexpected first event: {start_data.get('event')}")
         return
@@ -1550,7 +1670,8 @@ async def handle_voice_stream(ws):
     call_script = voice_config.get("call_script", "").strip()
     # Direction context for the AI
     if direction == "outbound":
-        direction_context = f"CALL TYPE: You are CALLING {contact_name}. This is an OUTBOUND call — you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
+        _display_name = contact_name if contact_name not in ("there", "Manual", "") else "this person"
+        direction_context = f"CALL TYPE: You are CALLING {_display_name}. This is an OUTBOUND call — you initiated it. You called them. You are the caller, they are the person you dialed. Do NOT act like they called you. You reached out to share something valuable."
     else:
         direction_context = "CALL TYPE: This is an INBOUND call — they called you. Respond to why they called. Be helpful and direct."
 
@@ -1572,7 +1693,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
     # Build greeting — short, casual, natural. NOT a script to read verbatim.
     greeting = voice_config.get("greeting", "").strip()
     if not greeting:
-        if direction == "outbound" and contact_name != "there":
+        if direction == "outbound" and contact_name not in ("there", "Manual", ""):
             greeting = f"Hey {contact_name}, it's {voice_bot_name}. How's it going?"
         elif direction == "outbound":
             greeting = f"Hey, it's {voice_bot_name}. I was hoping to catch you for a quick second."
@@ -1663,7 +1784,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             async def enrich_session():
                 """Load full sales director context and calendar, then update the session."""
                 try:
-                    full_prompt = await asyncio.get_event_loop().run_in_executor(
+                    full_prompt = await asyncio.get_running_loop().run_in_executor(
                         None,
                         lambda: build_voice_system_prompt(
                             subscriber=subscriber,
@@ -1689,6 +1810,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Twilio
             call_active              = True
             _pending_transfer        = False  # set True when AI requests transfer; cleared on response.done
+            _pending_hangup          = False  # set True when AI calls end_call tool; hangs up on response.done
 
             # ── Twilio -> XAI: mulaw 8kHz → PCM16 16kHz ──
             async def receive_from_twilio():
@@ -1697,23 +1819,21 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                 try:
                     while call_active:
                         # Check for immediate takeover (agent barge-in)
+                        # Only mute AI audio here — the REST route handles the actual
+                        # Twilio redirect to avoid double-fire race conditions.
                         if call_sid and call_sid in _transfer_requests:
                             req = _transfer_requests.get(call_sid, {})
                             if req.get('type') == 'takeover':
-                                transfer_info = _transfer_requests.pop(call_sid, {})
-                                target = transfer_info.get('target', '')
-                                logger.info(f"Immediate takeover: {call_sid} -> {target}")
-
-                                t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
-                                if t_sub_sid and target:
-                                    call_active = False
-                                    t_host = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
-                                    _twilio_transfer(call_sid, t_sub_sid, target, f"https://{t_host}" if t_host else '')
-                                    if call_sid in _active_calls:
-                                        _active_calls[call_sid]['status'] = 'transferred'
+                                logger.info(f"⚡ Instant AI audio cutoff (Twilio loop): {call_sid}")
+                                # Flush buffered AI audio from Twilio's pipeline
+                                try:
+                                    ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                except Exception:
+                                    pass
+                                call_active = False
                                 break
 
-                        message = await asyncio.get_event_loop().run_in_executor(
+                        message = await asyncio.get_running_loop().run_in_executor(
                             None, ws.receive
                         )
                         if message is None:
@@ -1754,7 +1874,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             # ── xAI -> Twilio: PCM16 16kHz → mulaw 8kHz ──
             async def receive_from_xai():
                 """Relay xAI → Twilio. Transcode PCM16 16kHz to mulaw 8kHz."""
-                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer
+                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer, _pending_hangup
 
                 def _send_audio_to_twilio(raw_b64: str):
                     """Transcode xAI PCM16 16kHz → mulaw 8kHz and send to Twilio."""
@@ -1782,6 +1902,21 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                     async for xai_message in xai_ws:
                         if not call_active:
                             break
+
+                        # ── Instant takeover check in XAI relay ──
+                        # Without this, AI audio keeps streaming to the caller
+                        # during the gap between takeover signal and Twilio redirect.
+                        if call_sid and call_sid in _transfer_requests:
+                            req = _transfer_requests.get(call_sid, {})
+                            if req.get('type') == 'takeover':
+                                logger.info(f"⚡ Instant AI audio cutoff (XAI relay): {call_sid}")
+                                # Flush any buffered AI audio from Twilio's pipeline
+                                try:
+                                    ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                except Exception:
+                                    pass
+                                call_active = False
+                                break
 
                         response   = json.loads(xai_message)
                         event_type = response.get('type', '')
@@ -1871,12 +2006,43 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                 # by listening for response.done before transferring
                                 _pending_transfer = True
 
+                            # If end_call was requested, let the AI say its goodbye
+                            # (response.done), then hang up via Twilio REST
+                            if tool_name == 'end_call':
+                                logger.info(f"📵 end_call queued — waiting for AI goodbye before hangup")
+                                _pending_hangup = True
+
                         # Transcription: user speech -> text
                         elif event_type == 'conversation.item.input_audio_transcription.completed':
                             transcript_text = response.get('transcript', '').strip()
                             if transcript_text:
                                 call_transcript.append({"role": "lead", "text": transcript_text})
                                 logger.info(f"🎙️ Lead said: {transcript_text[:80]}")
+
+                                # ── Software voicemail detection (outbound AI calls) ──
+                                # Fires on first voicemail phrase — WAY faster than
+                                # Twilio AMD which waits for entire greeting to end.
+                                # Respects voicemail_drop setting: OFF = hang up, ON = let AI talk.
+                                if direction == 'outbound' and not voice_config.get('voicemail_drop', False):
+                                    if _is_voicemail_phrase(transcript_text):
+                                        logger.info(f"📞 VM detected (software): '{transcript_text[:60]}' — hanging up")
+                                        # Flush any buffered AI audio from Twilio pipeline
+                                        try:
+                                            ws.send(json.dumps({"event": "clear", "streamSid": stream_sid}))
+                                        except Exception:
+                                            pass
+                                        # Mark as no-answer so dialer retries
+                                        if call_sid in _active_calls:
+                                            _active_calls[call_sid]['_amd_result'] = 'no-answer'
+                                        # Hang up via Twilio REST
+                                        vm_sub_sid = voice_config.get('twilio_sub_account_sid', '')
+                                        if vm_sub_sid and call_sid:
+                                            try:
+                                                _twilio_hangup(call_sid, vm_sub_sid)
+                                            except Exception as e:
+                                                logger.warning(f"VM hangup failed: {e}")
+                                        call_active = False
+                                        break
 
                         # Transcription: AI response -> text
                         elif event_type == 'response.audio_transcript.done':
@@ -1919,22 +2085,24 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
 
                                 _pending_transfer = False
 
-                            # Check for takeover request (human barge-in)
-                            elif call_sid and call_sid in _transfer_requests:
-                                transfer_info = _transfer_requests.pop(call_sid, {})
-                                if transfer_info.get('type') == 'takeover':
-                                    target = transfer_info.get('target', '')
-                                    logger.info(f"🔄 Executing takeover: call {call_sid} -> {target}")
+                            # end_call: AI has finished its goodbye — hang up now
+                            if _pending_hangup:
+                                _pending_hangup = False
+                                hangup_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
+                                logger.info(f"📵 Executing end_call hangup for {call_sid}")
+                                if hangup_sub_sid and call_sid:
+                                    try:
+                                        _twilio_hangup(call_sid, hangup_sub_sid)
+                                        logger.info(f"📵 Hangup sent — call {call_sid[:16]} ended by AI")
+                                    except Exception as e:
+                                        logger.error(f"📵 Hangup failed: {e}")
+                                if call_sid in _active_calls:
+                                    _active_calls[call_sid]['status'] = 'completed'
+                                call_active = False
 
-                                    t_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
-                                    if t_sub_sid and target:
-                                        call_active = False
-                                        await asyncio.sleep(0.3)
-                                        host_t = _active_calls.get(call_sid, {}).get('_host', '') or os.getenv('RENDER_EXTERNAL_HOSTNAME', '')
-                                        _twilio_transfer(call_sid, t_sub_sid, target, f"https://{host_t}" if host_t else '')
-                                        logger.info(f"🔄 Takeover transfer to {target}")
-                                        if call_sid in _active_calls:
-                                            _active_calls[call_sid]['status'] = 'transferred'
+                            # Takeover (human barge-in) is handled by the instant
+                            # cutoff at the top of this loop + REST route redirect.
+                            # No duplicate Twilio transfer here.
 
                 except websockets.exceptions.ConnectionClosed:
                     logger.info("🎙️ XAI WebSocket closed")
@@ -1964,6 +2132,16 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                 logger.info(f"🎙️ Saved transcript ({len(call_transcript)} turns) for call {call_sid}")
             except Exception as e:
                 logger.error(f"Failed to save transcript: {e}")
+        # Mark call as completed if still showing in-progress
+        # (Twilio status callback may arrive later, but this prevents
+        #  stale in-progress entries that allow intercept on ended calls)
+        if call_sid and call_sid in _active_calls:
+            cur_status = _active_calls[call_sid].get('status', '')
+            if cur_status in ('ringing', 'queued', 'initiated', 'in-progress'):
+                _active_calls[call_sid]['status'] = 'completed'
+        # Clean up any leftover transfer request
+        if call_sid:
+            _transfer_requests.pop(call_sid, None)
         # Log call end
         try:
             log_webhook_event(
@@ -2003,51 +2181,88 @@ def run_listen_stream(ws):
 
     try:
         # First message from browser: { "call_sid": "CAxxxxxx" }
-        init_msg = ws.receive()
+        # Client sends this immediately in onopen, so plain receive() is fine.
+        # If connection drops before message arrives, receive() returns None.
+        try:
+            init_msg = ws.receive()
+        except Exception as e:
+            logger.warning(f"Listen stream: receive() error waiting for init: {e}")
+            init_msg = None
+
         if not init_msg:
+            logger.warning("Listen stream: connection closed before init message arrived")
             return
+
         init_data = json.loads(init_msg)
-        call_sid = init_data.get('call_sid', '')
+        call_sid = init_data.get('call_sid') or ''
+        logger.info(f"Listen stream: init received, call_sid={call_sid[:16] if call_sid else 'EMPTY'}")
 
         if not call_sid:
-            ws.send(json.dumps({"error": "call_sid required"}))
+            logger.warning("Listen stream: call_sid missing in init message")
+            try:
+                ws.send(json.dumps({"error": "call_sid required"}))
+            except Exception:
+                pass
             return
 
         if call_sid not in _active_calls:
-            ws.send(json.dumps({"error": "Call not found or already ended"}))
+            logger.warning(f"Listen stream: {call_sid[:16]} not in _active_calls")
+            try:
+                ws.send(json.dumps({"error": "Call not found or already ended"}))
+            except Exception:
+                pass
+            return
+
+        call_status = _active_calls.get(call_sid, {}).get('status', '')
+        logger.info(f"Listen stream: {call_sid[:16]} status={call_status}")
+        if call_status in ('completed', 'failed', 'canceled', 'transferred', 'no-answer'):
+            logger.warning(f"Listen stream: {call_sid[:16]} already in terminal state {call_status}")
+            try:
+                ws.send(json.dumps({"error": f"Call already ended ({call_status})"}))
+            except Exception:
+                pass
             return
 
         # Register this listener
         if call_sid not in _call_listeners:
             _call_listeners[call_sid] = set()
         _call_listeners[call_sid].add(listener_queue)
-        logger.info(f"Live listen started for call {call_sid[:16]}")
+        logger.info(f"Live listen started for call {call_sid[:16]} (listeners: {len(_call_listeners[call_sid])})")
 
         ws.send(json.dumps({"status": "listening", "call_sid": call_sid}))
 
         # Forward audio chunks to browser
+        chunks_sent = 0
         while True:
             try:
                 # Block for up to 2 seconds waiting for audio
                 chunk = listener_queue.get(timeout=2)
-                # Send as JSON with mulaw base64 payload
                 ws.send(json.dumps({"audio": chunk}))
+                chunks_sent += 1
+                if chunks_sent == 1:
+                    logger.info(f"Listen stream: first audio chunk sent for {call_sid[:16]}")
             except _queue_module.Empty:
                 # Check if call is still active
-                if call_sid not in _active_calls or \
-                        _active_calls.get(call_sid, {}).get('status') in ('completed', 'failed', 'canceled'):
-                    ws.send(json.dumps({"status": "call_ended"}))
+                cur_status = _active_calls.get(call_sid, {}).get('status', '')
+                if call_sid not in _active_calls or cur_status in ('completed', 'failed', 'canceled', 'transferred'):
+                    logger.info(f"Listen stream: call {call_sid[:16]} ended (status={cur_status}), closing")
+                    try:
+                        ws.send(json.dumps({"status": "call_ended"}))
+                    except Exception:
+                        pass
                     break
                 # Send keepalive
                 try:
                     ws.send(json.dumps({"keepalive": True}))
                 except Exception:
+                    logger.debug(f"Listen stream: keepalive failed for {call_sid[:16]}, client disconnected")
                     break
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Listen stream: loop error for {call_sid[:16]}: {e}")
                 break
 
     except Exception as e:
-        logger.debug(f"Listen stream ended: {e}")
+        logger.warning(f"Listen stream: unexpected error: {e}")
     finally:
         # Unregister listener
         if call_sid and call_sid in _call_listeners:
@@ -2072,7 +2287,6 @@ def test_voice_connection():
     # Test XAI API key
     if XAI_API_KEY:
         try:
-            import httpx
             resp = httpx.post(
                 "https://api.x.ai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {XAI_API_KEY}"},
@@ -2346,6 +2560,34 @@ def dial_contact():
     location_id  = subscriber.get('location_id', '')
     voice_config = subscriber.get('voice_config') or {}
 
+    # Manual dial: resolve contact name + ID by phone number lookup in GHL
+    if first_name in ('Manual', 'there', '') and phone and location_id:
+        try:
+            access_token = get_valid_token(location_id)
+            if access_token and access_token != 'DEMO':
+                resp = http_requests.get(
+                    f"{GHL_API_BASE}/contacts/",
+                    headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                    params={"query": phone, "locationId": location_id, "limit": 1},
+                    timeout=8
+                )
+                if resp.status_code == 200:
+                    contacts = resp.json().get("contacts", [])
+                    if contacts:
+                        c = contacts[0]
+                        resolved_name = c.get("firstName", "").strip()
+                        if resolved_name:
+                            first_name = resolved_name
+                            logger.info(f"Manual dial: resolved {phone} -> {first_name} (contact {c.get('id','')})")
+                        if not contact_id and c.get("id"):
+                            contact_id = c["id"]
+        except Exception as e:
+            logger.debug(f"Manual dial contact lookup failed (non-fatal): {e}")
+
+    # Fallback: treat placeholder names as "there" so greeting skips the name
+    if first_name in ('Manual', ''):
+        first_name = 'there'
+
     # Enforce max dial attempts server-side
     max_attempts = int(voice_config.get('dial_attempts', 2))
     if dial_attempt > max_attempts:
@@ -2373,6 +2615,15 @@ def dial_contact():
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
     use_amd = dial_mode == 'ai'
+
+    # Idempotency guard: prevent double-dial to the same phone number.
+    # If a non-terminal call to this phone already exists for this location, return it.
+    for sid, info in list(_active_calls.items()):
+        if (info.get('phone') == phone
+                and info.get('_location_id') == location_id
+                and info.get('status') not in ('completed', 'busy', 'no-answer', 'failed', 'canceled')):
+            logger.warning(f"Double-dial blocked: {phone} already has active call {sid[:16]} (status={info.get('status')})")
+            return jsonify({"status": "calling", "call_sid": sid, "dial_mode": dial_mode})
 
     try:
         host = request.host
@@ -2436,15 +2687,17 @@ def get_call_status(call_sid):
     if call_sid in _active_calls:
         info = _active_calls[call_sid]
         # For terminal states, mark for cleanup but don't delete yet (allow re-polls)
-        if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled"):
+        if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
             poll_count = info.get('_terminal_polls', 0) + 1
             info['_terminal_polls'] = poll_count
-            # Clean up after 3 polls of a terminal state (gives frontend time)
-            if poll_count >= 3:
+            # Clean up after 20 polls of a terminal state (gives frontend plenty of time)
+            if poll_count >= 20:
                 status_copy = dict(info)
                 del _active_calls[call_sid]
                 return jsonify(status_copy)
+        logger.debug(f"Poll {call_sid[:16]}: status={info.get('status')}")
         return jsonify(info)
+    logger.debug(f"Poll {call_sid[:16]}: not found in _active_calls")
     return jsonify({"status": "unknown"}), 404
 
 
@@ -2479,21 +2732,44 @@ def hangup_active_call():
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
-    success = _twilio_hangup(call_sid, sub_sid)
-    if call_sid in _active_calls:
-        _active_calls[call_sid]['status'] = 'canceled'
+    # If the call was transferred, Twilio created a child call.  We need to
+    # complete the *parent* (original) call, plus any child leg that's still up.
+    was_transferred = (call_sid in _active_calls and
+                       _active_calls[call_sid].get('status') == 'transferred')
 
-    # Persist canceled status to DB so call history is accurate
+    success = _twilio_hangup(call_sid, sub_sid)
+
+    # Also try to complete any child calls spawned by the transfer <Dial>
+    if was_transferred:
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            child_calls = client.calls.list(parent_call_sid=call_sid, status='in-progress', limit=5)
+            for child in child_calls:
+                try:
+                    child.update(status='completed')
+                    logger.info(f"Completed child call {child.sid} of transferred parent {call_sid[:16]}")
+                except Exception as ce:
+                    logger.warning(f"Failed to complete child {child.sid}: {ce}")
+        except Exception as e:
+            logger.warning(f"Could not list child calls for {call_sid}: {e}")
+
+    if call_sid in _active_calls:
+        _active_calls[call_sid]['status'] = 'completed'
+    _transfer_requests.pop(call_sid, None)
+
+    # Persist to DB
     try:
-        update_call_history_status(call_sid, 'canceled', 0)
+        update_call_history_status(call_sid, 'completed', 0)
     except Exception as e:
         logger.warning(f"Hangup DB persist failed for {call_sid}: {e}")
 
     if success:
-        return jsonify({"status": "hung_up"})
-    # Even if Twilio hangup fails (call may have already ended), still return success
-    # since we've already updated our state
-    return jsonify({"status": "hung_up", "note": "call may have already ended"})
+        return jsonify({"status": "hung_up", "success": True})
+    # Twilio hangup failed — call may have already ended naturally.
+    # Return success:false so the client can log it; we still return 200
+    # so the UI cleans up (the call is gone either way).
+    logger.warning(f"Twilio hangup API returned failure for {call_sid} — call may have already ended")
+    return jsonify({"status": "hung_up", "success": False, "note": "call may have already ended"})
 
 
 # ──────────────────────────────────────────────────────────────
@@ -2714,7 +2990,21 @@ def voice_takeover():
         # Phone intercept: transfer to agent's phone number
         target = data.get('target') or voice_cfg.get('transfer_number', '')
         if not target:
-            return jsonify({"error": "No transfer number configured and VoIP not available. Set a Transfer Number in Voice Settings or enable VoIP."}), 400
+            # No VoIP, no transfer number — at minimum STOP the AI by hanging up
+            logger.info(f"Takeover (hangup): no VoIP/transfer number, stopping AI call {call_sid}")
+            _transfer_requests[call_sid] = {
+                'type': 'takeover',
+                'target': '',
+                'reason': 'Agent stopped AI (no VoIP/transfer)',
+            }
+            try:
+                _twilio_hangup(call_sid, sub_sid)
+            except Exception as e:
+                logger.warning(f"Takeover hangup failed: {e}")
+            if call_sid in _active_calls:
+                _active_calls[call_sid]['status'] = 'canceled'
+            return jsonify({"status": "stopped", "call_sid": call_sid,
+                            "target": "AI stopped (call ended — set up VoIP or Transfer Number to take over live)"})
 
         # Normalize target
         if not target.startswith('+'):
@@ -3535,7 +3825,6 @@ def register_spam_protection():
         return jsonify({"error": "EIN is required"}), 400
 
     # Step 1: Save business profile to voice_config
-    from datetime import datetime
     trust_hub = vc.get('trust_hub', {})
     trust_hub.update({
         'business_name': business_name,
@@ -3626,6 +3915,276 @@ def spam_protection_status():
         "stir_shaken": "active",
         "auto_cnam": trust_hub.get('auto_cnam', False),
     })
+
+
+# ──────────────────────────────────────────────────────────────
+# A2P 10DLC — BRAND & CAMPAIGN REGISTRATION / IMPORT
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/a2p/status', methods=['GET'])
+@login_required
+def a2p_status():
+    """Return current A2P 10DLC registration status from voice_config."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+
+    return jsonify({
+        "registered": a2p.get('registered', False),
+        "brand_sid": a2p.get('brand_sid', ''),
+        "brand_status": a2p.get('brand_status', ''),
+        "campaign_sid": a2p.get('campaign_sid', ''),
+        "campaign_status": a2p.get('campaign_status', ''),
+        "messaging_service_sid": a2p.get('messaging_service_sid', ''),
+        "use_case": a2p.get('use_case', ''),
+        "registered_at": a2p.get('registered_at', ''),
+        "is_sub_user": is_sub_user,
+        "a2p_fee_paid": a2p.get('a2p_fee_paid', False),
+    })
+
+
+@voice_bp.route('/voice/a2p/register-brand', methods=['POST'])
+@login_required
+def a2p_register_brand():
+    """
+    Register a new A2P 10DLC Brand via Twilio.
+    Requires business details (reuses trust_hub data if available).
+    Sub-account users must have paid the A2P fee first.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    is_sub_user = bool((subscriber or {}).get('parent_agency_email'))
+    a2p = (vc or {}).get('a2p', {})
+
+    # Sub-users must pay before registering
+    if is_sub_user and not a2p.get('a2p_fee_paid', False):
+        return jsonify({
+            "error": "A2P registration fee required. Please complete payment first.",
+            "payment_required": True,
+        }), 402
+
+    data = request.get_json() or {}
+
+    # Validate required fields
+    business_name = data.get('business_name', '').strip()
+    ein = data.get('ein', '').strip()
+    contact_email = data.get('contact_email', '').strip()
+    contact_phone = data.get('contact_phone', '').strip()
+    brand_type = data.get('brand_type', 'LOW_VOLUME').upper().strip()
+    if not business_name:
+        return jsonify({"error": "Business name is required"}), 400
+    if brand_type != 'SOLE_PROPRIETOR' and not ein:
+        return jsonify({"error": "EIN is required for non-Sole Proprietor brands"}), 400
+    if not contact_email:
+        return jsonify({"error": "Contact email is required"}), 400
+
+    # Map frontend brand_type to Twilio business_type param
+    biz_type_map = {
+        'SOLE_PROPRIETOR': 'sole_proprietor',
+        'LOW_VOLUME': 'private_profit',
+        'STANDARD': 'private_profit',
+    }
+    business_type = biz_type_map.get(brand_type, 'private_profit')
+
+    try:
+        result = twilio_provisioning.create_a2p_brand(
+            sub_account_sid=sub_sid,
+            business_name=business_name,
+            ein=ein,
+            street=data.get('street', ''),
+            city=data.get('city', ''),
+            state=data.get('state', ''),
+            zip_code=data.get('zip', ''),
+            contact_email=contact_email,
+            contact_phone=contact_phone,
+            business_type=business_type,
+            website=data.get('website', ''),
+            vertical=data.get('vertical', 'INSURANCE'),
+        )
+
+        # Persist to voice_config
+        a2p.update({
+            "brand_sid": result["brand_sid"],
+            "brand_status": result["status"],
+            "profile_sid": result.get("profile_sid", ""),
+            "trust_product_sid": result.get("trust_product_sid", ""),
+            "business_name": business_name,
+            "brand_type": brand_type,
+            "registered_at": datetime.utcnow().isoformat(),
+        })
+        vc['a2p'] = a2p
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "brand_sid": result["brand_sid"],
+            "status": result["status"],
+            "message": "Brand submitted for vetting. This typically takes 1-7 business days.",
+        })
+    except Exception as e:
+        logger.error(f"A2P brand registration error: {e}", exc_info=True)
+        return jsonify({"error": f"Brand registration failed: {str(e)}"}), 500
+
+
+@voice_bp.route('/voice/a2p/brand-status', methods=['GET'])
+@login_required
+def a2p_brand_status():
+    """Poll the current vetting status of the A2P Brand."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    brand_sid = a2p.get('brand_sid', '')
+    if not brand_sid:
+        return jsonify({"error": "No brand registered"}), 404
+
+    try:
+        result = twilio_provisioning.get_a2p_brand_status(brand_sid)
+
+        # Update stored status if changed
+        if result["status"] != a2p.get("brand_status"):
+            a2p["brand_status"] = result["status"]
+            vc['a2p'] = a2p
+            _save_voice_config(current_user.email, vc)
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"A2P brand status error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/a2p/create-campaign', methods=['POST'])
+@login_required
+def a2p_create_campaign():
+    """
+    Create an A2P 10DLC Campaign and Messaging Service.
+    Brand must be approved first.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    brand_sid = a2p.get('brand_sid', '')
+
+    if not brand_sid:
+        return jsonify({"error": "Register a brand first before creating a campaign"}), 400
+
+    data = request.get_json() or {}
+    description = data.get('description', 'Insurance agent SMS communication').strip()
+    use_case = data.get('use_case', 'LOW_VOLUME').strip()
+    sample_messages = data.get('sample_messages', [])
+    message_flow = data.get('message_flow', '').strip()
+    phone_number_sids = data.get('phone_number_sids', [])
+
+    if use_case not in twilio_provisioning.A2P_USE_CASES:
+        return jsonify({"error": f"Invalid use case. Must be one of: {', '.join(twilio_provisioning.A2P_USE_CASES)}"}), 400
+
+    try:
+        # Step 1: Create Messaging Service (or reuse existing)
+        ms_sid = a2p.get('messaging_service_sid', '')
+        if not ms_sid:
+            biz_name = a2p.get('business_name', 'Insurance Bot')
+            ms_result = twilio_provisioning.create_messaging_service(
+                sub_sid, f"A2P - {biz_name}"
+            )
+            ms_sid = ms_result["messaging_service_sid"]
+            a2p["messaging_service_sid"] = ms_sid
+
+        # Step 2: Associate phone numbers with the Messaging Service
+        if phone_number_sids:
+            for pn_sid in phone_number_sids:
+                try:
+                    twilio_provisioning.add_phone_to_messaging_service(
+                        sub_sid, ms_sid, pn_sid
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to add {pn_sid} to MS: {e}")
+
+        # Step 3: Create the Campaign
+        campaign_result = twilio_provisioning.create_a2p_campaign(
+            messaging_service_sid=ms_sid,
+            brand_registration_sid=brand_sid,
+            description=description,
+            use_case=use_case,
+            sample_messages=sample_messages if sample_messages else None,
+            message_flow=message_flow or None,
+            has_embedded_links=data.get('has_embedded_links', False),
+            has_embedded_phone=data.get('has_embedded_phone', False),
+        )
+
+        # Persist
+        a2p.update({
+            "campaign_sid": campaign_result["campaign_sid"],
+            "campaign_status": campaign_result["campaign_status"],
+            "use_case": use_case,
+            "registered": True,
+        })
+        vc['a2p'] = a2p
+        _save_voice_config(current_user.email, vc)
+
+        return jsonify({
+            "campaign_sid": campaign_result["campaign_sid"],
+            "campaign_status": campaign_result["campaign_status"],
+            "messaging_service_sid": ms_sid,
+            "message": "Campaign submitted for approval. Typically approved within 24-48 hours.",
+        })
+    except Exception as e:
+        logger.error(f"A2P campaign creation error: {e}", exc_info=True)
+        return jsonify({"error": f"Campaign creation failed: {str(e)}"}), 500
+
+
+@voice_bp.route('/voice/a2p/campaign-status', methods=['GET'])
+@login_required
+def a2p_campaign_status():
+    """Poll the approval status of the A2P Campaign."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    ms_sid = a2p.get('messaging_service_sid', '')
+    campaign_sid = a2p.get('campaign_sid', '')
+    if not ms_sid or not campaign_sid:
+        return jsonify({"error": "No campaign registered"}), 404
+
+    try:
+        result = twilio_provisioning.get_a2p_campaign_status(ms_sid, campaign_sid)
+
+        if result["campaign_status"] != a2p.get("campaign_status"):
+            a2p["campaign_status"] = result["campaign_status"]
+            vc['a2p'] = a2p
+            _save_voice_config(current_user.email, vc)
+
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"A2P campaign status error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/a2p/mark-fee-paid', methods=['POST'])
+@login_required
+def a2p_mark_fee_paid():
+    """
+    Called after successful Stripe payment for A2P registration fee.
+    Marks the subscriber's a2p.a2p_fee_paid = True so they can proceed.
+    """
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not sub_sid:
+        return jsonify({"error": "Voice service not provisioned"}), 400
+
+    a2p = (vc or {}).get('a2p', {})
+    a2p['a2p_fee_paid'] = True
+    a2p['fee_paid_at'] = datetime.utcnow().isoformat()
+    vc['a2p'] = a2p
+    _save_voice_config(current_user.email, vc)
+
+    return jsonify({"ok": True, "message": "A2P fee marked as paid."})
 
 
 # ──────────────────────────────────────────────────────────────
@@ -3820,9 +4379,10 @@ def get_contact_messages(contact_id):
 @voice_bp.route('/voice/contact/<contact_id>/send-sms', methods=['POST'])
 @login_required
 def send_contact_sms(contact_id):
-    """Send an SMS to a contact directly via GHL — bypasses A2P 10DLC via GHL's approved number."""
+    """Send an SMS to a contact via GHL or Twilio (A2P 10DLC), based on 'channel' param."""
     data = request.json or {}
     message = (data.get('message') or '').strip()
+    channel = (data.get('channel') or 'ghl').lower().strip()
     if not message:
         return jsonify({"error": "message is required"}), 400
     if len(message) > 1600:
@@ -3833,15 +4393,63 @@ def send_contact_sms(contact_id):
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, voice_config FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row or not row['location_id']:
             return jsonify({"error": "No location configured"}), 400
         location_id = row['location_id']
+        voice_config = row['voice_config'] or {}
     finally:
         return_db_connection(conn)
 
+    # ── Channel: Twilio (InsuranceGrokBot number, A2P registered) ──
+    if channel == 'twilio':
+        a2p = voice_config.get('a2p', {})
+        campaign_status = (a2p.get('campaign_status') or '').upper()
+        ms_sid = a2p.get('messaging_service_sid', '')
+        sub_sid = voice_config.get('twilio_sub_account_sid', '')
+        from_number = voice_config.get('twilio_phone_number', '')
+
+        if campaign_status != 'VERIFIED' or not ms_sid:
+            return jsonify({"error": "A2P 10DLC campaign not approved yet. Use GHL to send."}), 400
+        if not sub_sid or not from_number:
+            return jsonify({"error": "Twilio phone number not provisioned."}), 400
+
+        # Resolve contact phone number from GHL
+        contact_phone = (data.get('contact_phone') or '').strip()
+        if not contact_phone:
+            # Fetch from GHL if not provided
+            access_token = get_valid_token(location_id)
+            if access_token:
+                try:
+                    ghl_resp = http_requests.get(
+                        f"https://services.leadconnectorhq.com/contacts/{contact_id}",
+                        headers={"Authorization": f"Bearer {access_token}", "Version": "2021-07-28"},
+                        timeout=10,
+                    )
+                    if ghl_resp.ok:
+                        contact_phone = ghl_resp.json().get("contact", {}).get("phone", "")
+                except Exception as ghl_err:
+                    logger.warning(f"Failed to fetch contact phone for Twilio send: {ghl_err}")
+
+        if not contact_phone:
+            return jsonify({"error": "No phone number found for this contact."}), 400
+
+        try:
+            client = twilio_provisioning.get_sub_account_client(sub_sid)
+            tw_msg = client.messages.create(
+                messaging_service_sid=ms_sid,
+                to=contact_phone,
+                body=message,
+            )
+            logger.info(f"Twilio SMS sent: {tw_msg.sid} to {contact_id} by {current_user.email} (A2P)")
+            return jsonify({"status": "sent", "channel": "twilio", "sid": tw_msg.sid})
+        except Exception as e:
+            logger.error(f"Twilio SMS send error for {contact_id}: {e}")
+            return jsonify({"error": f"Twilio send failed: {str(e)}"}), 500
+
+    # ── Channel: GHL (default) ──
     access_token = get_valid_token(location_id)
     if not access_token:
         return jsonify({"error": "No valid GHL auth token. Reconnect your CRM."}), 401
@@ -3854,13 +4462,48 @@ def send_contact_sms(contact_id):
             location_id=location_id,
         )
         if success:
-            logger.info(f"Manual SMS sent to {contact_id} by {current_user.email}")
-            return jsonify({"status": "sent"})
+            logger.info(f"Manual SMS sent to {contact_id} via GHL by {current_user.email}")
+            return jsonify({"status": "sent", "channel": "ghl"})
         else:
             return jsonify({"error": "Failed to send SMS via GHL. Check logs for details."}), 500
     except Exception as e:
         logger.error(f"SMS send error for {contact_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/sms-channels', methods=['GET'])
+@login_required
+def sms_channels():
+    """Return which SMS sending channels are available for the current user."""
+    subscriber, vc, sub_sid = _get_current_subscriber_voice()
+    if not subscriber:
+        return jsonify({"channels": ["ghl"]}), 200
+
+    location_id = subscriber.get('location_id', '')
+    has_ghl = bool(location_id and get_valid_token(location_id))
+
+    a2p = (vc or {}).get('a2p', {})
+    campaign_status = (a2p.get('campaign_status') or '').upper()
+    ms_sid = a2p.get('messaging_service_sid', '')
+    from_number = (vc or {}).get('twilio_phone_number', '')
+    has_twilio = bool(
+        campaign_status == 'VERIFIED'
+        and ms_sid
+        and sub_sid
+        and from_number
+    )
+
+    channels = []
+    if has_ghl:
+        channels.append("ghl")
+    if has_twilio:
+        channels.append("twilio")
+
+    return jsonify({
+        "channels": channels,
+        "twilio_number": from_number if has_twilio else "",
+        "a2p_status": campaign_status,
+    })
 
 
 @voice_bp.route('/voice/contact/<contact_id>/ai-suggest', methods=['POST'])
@@ -3873,8 +4516,6 @@ def ai_suggest_sms(contact_id):
     """
     # Re-use the same OpenAI client that tasks.py uses (XAI base_url)
     from tasks import client as _tasks_client
-    import re as _re
-    import json as _json
 
     if not _tasks_client:
         return jsonify({"error": "AI client not configured (XAI_API_KEY missing)"}), 503
@@ -3911,7 +4552,7 @@ def ai_suggest_sms(contact_id):
     contracted_carriers = subscriber.get('contracted_carriers') or []
     if isinstance(contracted_carriers, str):
         try:
-            contracted_carriers = _json.loads(contracted_carriers)
+            contracted_carriers = json.loads(contracted_carriers)
         except Exception:
             contracted_carriers = []
 
@@ -3981,10 +4622,10 @@ def ai_suggest_sms(contact_id):
         return jsonify({"error": "AI returned empty reply"}), 500
 
     # Same post-processing as tasks.py (strip markdown, normalize punctuation)
-    reply = _re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)
-    reply = _re.sub(r'\*([^*]+)\*', r'\1', reply)
-    reply = _re.sub(r'__([^_]+)__', r'\1', reply)
-    reply = _re.sub(r'_([^_]+)_', r'\1', reply)
+    reply = re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)
+    reply = re.sub(r'\*([^*]+)\*', r'\1', reply)
+    reply = re.sub(r'__([^_]+)__', r'\1', reply)
+    reply = re.sub(r'_([^_]+)_', r'\1', reply)
     reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
     logger.info(f"InsuranceGrokBot draft generated for {contact_id} by {current_user.email} | '{reply[:60]}'")
@@ -4059,17 +4700,23 @@ def get_pipelines():
 @login_required
 def get_dialer_stats():
     """Return aggregated call statistics for the current user's dialer."""
-    from datetime import datetime, timedelta
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "DB unavailable"}), 503
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        cur.execute("SELECT location_id, timezone FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         if not row:
             return jsonify({"error": "Not found"}), 404
-        location_id = row[0]
+        location_id = row['location_id']
+
+        # Use the subscriber's configured timezone (falls back to Chicago)
+        tz_name = row.get('timezone') or 'America/Chicago'
+        try:
+            user_tz = pytz.timezone(tz_name)
+        except Exception:
+            user_tz = pytz.timezone('America/Chicago')
 
         # Ensure disposition column exists
         try:
@@ -4079,7 +4726,7 @@ def get_dialer_stats():
             conn.rollback()
 
         period = request.args.get('period', 'month')
-        now = datetime.utcnow()
+        now = datetime.now(user_tz)
         if period == 'today':
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         elif period == 'week':
@@ -4087,7 +4734,13 @@ def get_dialer_stats():
         elif period == 'month':
             start_date = now - timedelta(days=30)
         else:
-            start_date = datetime(2000, 1, 1)
+            start_date = datetime(2000, 1, 1, tzinfo=pytz.utc)
+
+        # Convert start_date to UTC for SQL comparison (created_at is stored as UTC)
+        if start_date.tzinfo is not None:
+            start_date_utc = start_date.astimezone(pytz.utc)
+        else:
+            start_date_utc = pytz.utc.localize(start_date)
 
         # Core KPIs
         cur.execute("""
@@ -4106,20 +4759,20 @@ def get_dialer_stats():
                 COUNT(DISTINCT contact_id)                                    AS unique_contacts
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
-        """, (location_id, start_date))
+        """, (location_id, start_date_utc))
         r = cur.fetchone()
-        total           = r[0] or 0
-        outbound        = r[1] or 0
-        inbound         = r[2] or 0
-        connected       = r[3] or 0
-        avg_dur         = float(r[4] or 0)
-        total_dur       = int(r[5] or 0)
-        over_6s         = r[6] or 0
-        over_1min       = r[7] or 0
-        over_2min       = r[8] or 0
-        over_5min       = r[9] or 0
-        over_10min      = r[10] or 0
-        unique_contacts = r[11] or 0
+        total           = r['total_calls'] or 0
+        outbound        = r['outbound_calls'] or 0
+        inbound         = r['inbound_calls'] or 0
+        connected       = r['connected_calls'] or 0
+        avg_dur         = float(r['avg_duration'] or 0)
+        total_dur       = int(r['total_duration'] or 0)
+        over_6s         = r['over_6s'] or 0
+        over_1min       = r['over_1min'] or 0
+        over_2min       = r['over_2min'] or 0
+        over_5min       = r['over_5min'] or 0
+        over_10min      = r['over_10min'] or 0
+        unique_contacts = r['unique_contacts'] or 0
         connect_rate    = round(connected / total * 100, 1) if total else 0.0
 
         # Days in period (for "per day" averages)
@@ -4130,16 +4783,18 @@ def get_dialer_stats():
         elif period == 'month':
             days = 30
         else:
-            cur.execute("SELECT MIN(created_at) FROM call_history WHERE location_id = %s", (location_id,))
-            first = cur.fetchone()[0]
+            cur.execute("SELECT MIN(created_at) AS first_call FROM call_history WHERE location_id = %s", (location_id,))
+            first = cur.fetchone()['first_call']
+            if first and first.tzinfo is None:
+                first = pytz.utc.localize(first)
             days = max(1, (now - first).days) if first else 1
 
         # Prior period comparison (skip for 'all')
         prior = None
         if period != 'all':
             period_len  = now - start_date
-            prior_end   = start_date
-            prior_start = start_date - period_len
+            prior_end   = start_date_utc
+            prior_start = start_date_utc - period_len
             cur.execute("""
                 SELECT
                     COUNT(*)                                                      AS total_calls,
@@ -4150,10 +4805,10 @@ def get_dialer_stats():
                 WHERE location_id = %s AND created_at >= %s AND created_at < %s
             """, (location_id, prior_start, prior_end))
             pr          = cur.fetchone()
-            p_total     = pr[0] or 0
-            p_connected = pr[1] or 0
-            p_dur       = int(pr[2] or 0)
-            p_avg_dur   = float(pr[3] or 0)
+            p_total     = pr['total_calls'] or 0
+            p_connected = pr['connected_calls'] or 0
+            p_dur       = int(pr['total_duration'] or 0)
+            p_avg_dur   = float(pr['avg_duration'] or 0)
             p_rate      = round(p_connected / p_total * 100, 1) if p_total else 0.0
 
             def _pct_delta(curr, prev):
@@ -4186,34 +4841,34 @@ def get_dialer_stats():
                   AND disposition IS NOT NULL AND TRIM(disposition) != ''
                 GROUP BY disp
                 ORDER BY cnt DESC
-            """, (location_id, start_date))
-            dispositions = {row[0]: row[1] for row in cur.fetchall()}
+            """, (location_id, start_date_utc))
+            dispositions = {row['disp']: row['cnt'] for row in cur.fetchall()}
         except Exception:
             conn.rollback()
 
-        # Daily call volume with talk time
+        # Daily call volume with talk time (in subscriber's local timezone)
         cur.execute("""
-            SELECT DATE(created_at AT TIME ZONE 'UTC') AS day,
+            SELECT DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE %s) AS day,
                    COUNT(*) AS calls,
                    COUNT(*) FILTER (WHERE status = 'completed' AND duration > 0) AS connected,
                    COALESCE(SUM(duration), 0) AS total_secs
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
             GROUP BY day ORDER BY day
-        """, (location_id, start_date))
+        """, (tz_name, location_id, start_date_utc))
         daily = [
-            {"day": str(row[0]), "calls": row[1], "connected": row[2], "total_secs": row[3]}
+            {"day": str(row['day']), "calls": row['calls'], "connected": row['connected'], "total_secs": row['total_secs']}
             for row in cur.fetchall()
         ]
 
-        # Hourly distribution
+        # Hourly distribution (in subscriber's local timezone)
         cur.execute("""
-            SELECT EXTRACT(HOUR FROM created_at)::int AS hr, COUNT(*) AS calls
+            SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE 'UTC' AT TIME ZONE %s)::int AS hr, COUNT(*) AS calls
             FROM call_history
             WHERE location_id = %s AND created_at >= %s
             GROUP BY hr ORDER BY hr
-        """, (location_id, start_date))
-        hourly_map = {row[0]: row[1] for row in cur.fetchall()}
+        """, (tz_name, location_id, start_date_utc))
+        hourly_map = {row['hr']: row['calls'] for row in cur.fetchall()}
         hourly = [{"hour": h, "calls": hourly_map.get(h, 0)} for h in range(24)]
 
         # Top 5 most-called contacts
@@ -4224,15 +4879,16 @@ def get_dialer_stats():
             WHERE location_id = %s AND created_at >= %s
             GROUP BY contact_id, contact_name
             ORDER BY cnt DESC LIMIT 5
-        """, (location_id, start_date))
+        """, (location_id, start_date_utc))
         top_contacts = [
-            {"id": row[0], "name": row[1] or "Unknown", "count": row[2], "last_called": str(row[3])}
+            {"id": row['contact_id'], "name": row['contact_name'] or "Unknown", "count": row['cnt'], "last_called": str(row['last_called'])}
             for row in cur.fetchall()
         ]
 
         cur.close()
         return jsonify({
             "period":          period,
+            "timezone":        tz_name,
             "total_calls":     total,
             "outbound_calls":  outbound,
             "inbound_calls":   inbound,
@@ -4277,14 +4933,14 @@ def get_contact_call_counts():
         row = cur.fetchone()
         if not row:
             return jsonify({})
-        location_id = row[0]
+        location_id = row['location_id']
         cur.execute("""
             SELECT contact_id, COUNT(*) AS cnt
             FROM call_history
             WHERE location_id = %s AND contact_id = ANY(%s)
             GROUP BY contact_id
         """, (location_id, contact_ids))
-        result = {r[0]: r[1] for r in cur.fetchall()}
+        result = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
         cur.close()
         return jsonify(result)
     except Exception as e:
@@ -4298,7 +4954,6 @@ def get_contact_call_counts():
 @login_required
 def get_contact_call_counts_merged():
     """Batch merged (local DB + GHL) call counts for up to 50 contact IDs."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     ids_param = request.args.get('ids', '')
     if not ids_param:
@@ -4316,14 +4971,14 @@ def get_contact_call_counts_merged():
         row = cur.fetchone()
         if not row:
             return jsonify({})
-        location_id = row[0]
+        location_id = row['location_id']
         cur.execute("""
             SELECT contact_id, COUNT(*) AS cnt
             FROM call_history
             WHERE location_id = %s AND contact_id = ANY(%s)
             GROUP BY contact_id
         """, (location_id, contact_ids))
-        local_counts = {r[0]: r[1] for r in cur.fetchall()}
+        local_counts = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
         cur.close()
     except Exception as e:
         logger.error(f"merged call counts local query failed: {e}")
@@ -4331,6 +4986,7 @@ def get_contact_call_counts_merged():
         return_db_connection(conn)
 
     # GHL counts in parallel threads
+    _CALL_TYPES = {3, 4, 3.0, 4.0, "3", "4", "TYPE_CALL", "TYPE_VOICEMAIL", "Call", "call"}
     ghl_counts = {cid: 0 for cid in contact_ids}
     if location_id:
         try:
@@ -4348,36 +5004,58 @@ def get_contact_call_counts_merged():
                             f"{GHL_API_BASE}/conversations/search",
                             headers=headers,
                             params={"locationId": location_id, "contactId": cid},
-                            timeout=6,
+                            timeout=8,
                         )
                         if sr.status_code != 200:
+                            logger.debug(f"[merged] convo search {sr.status_code} for {cid}")
                             return cid, 0
                         convos = sr.json().get("conversations", [])
                         if not convos:
                             return cid, 0
                         convo_id = convos[0]["id"]
-                        mr = http_requests.get(
-                            f"{GHL_API_BASE}/conversations/{convo_id}/messages",
-                            headers=headers,
-                            params={"limit": 100},
-                            timeout=6,
-                        )
-                        if mr.status_code != 200:
-                            return cid, 0
-                        payload = mr.json().get("messages", [])
-                        raw_msgs = payload.get("messages", []) if isinstance(payload, dict) else payload
-                        count = sum(
-                            1 for m in raw_msgs
-                            if isinstance(m, dict)
-                            and (m.get("type") or m.get("messageType", "")) in (3, 4, "TYPE_CALL", 3.0, 4.0)
-                        )
+
+                        # Paginate through ALL messages to count every call
+                        count = 0
+                        last_message_id = None
+                        max_pages = 10  # safety cap: 10 pages × 100 = 1000 msgs
+                        for _ in range(max_pages):
+                            params = {"limit": 100}
+                            if last_message_id:
+                                params["lastMessageId"] = last_message_id
+                            mr = http_requests.get(
+                                f"{GHL_API_BASE}/conversations/{convo_id}/messages",
+                                headers=headers,
+                                params=params,
+                                timeout=8,
+                            )
+                            if mr.status_code != 200:
+                                logger.debug(f"[merged] msgs {mr.status_code} for {cid} page")
+                                break
+                            data = mr.json()
+                            raw_msgs = data.get("messages", [])
+                            if isinstance(raw_msgs, dict):
+                                raw_msgs = raw_msgs.get("messages", [])
+                            for m in raw_msgs:
+                                if not isinstance(m, dict):
+                                    continue
+                                mtype = m.get("type", m.get("messageType", ""))
+                                if mtype in _CALL_TYPES:
+                                    count += 1
+                            # Check for next page
+                            next_page = data.get("nextPage", False)
+                            new_last_id = data.get("lastMessageId")
+                            if not next_page or not new_last_id or new_last_id == last_message_id:
+                                break
+                            last_message_id = new_last_id
+
                         return cid, count
-                    except Exception:
+                    except Exception as exc:
+                        logger.debug(f"[merged] _fetch_ghl error for {cid}: {exc}")
                         return cid, 0
 
                 with ThreadPoolExecutor(max_workers=8) as pool:
                     futures = {pool.submit(_fetch_ghl, cid): cid for cid in contact_ids}
-                    for future in as_completed(futures, timeout=15):
+                    for future in as_completed(futures, timeout=30):
                         try:
                             cid, count = future.result()
                             ghl_counts[cid] = count
@@ -4404,13 +5082,13 @@ def get_contact_ghl_call_count(contact_id):
         row = cur.fetchone()
         if not row:
             return jsonify({"local": 0, "ghl": 0, "total": 0})
-        location_id = row[0]
+        location_id = row['location_id']
 
         cur.execute(
-            "SELECT COUNT(*) FROM call_history WHERE location_id = %s AND contact_id = %s",
+            "SELECT COUNT(*) AS cnt FROM call_history WHERE location_id = %s AND contact_id = %s",
             (location_id, contact_id)
         )
-        local_count = cur.fetchone()[0] or 0
+        local_count = cur.fetchone()['cnt'] or 0
         cur.close()
     except Exception as e:
         logger.error(f"local count failed for {contact_id}: {e}")
@@ -4418,7 +5096,8 @@ def get_contact_ghl_call_count(contact_id):
     finally:
         return_db_connection(conn)
 
-    # Fetch GHL conversation call messages
+    # Fetch GHL conversation call messages (paginate through all)
+    _CALL_TYPES = {3, 4, 3.0, 4.0, "3", "4", "TYPE_CALL", "TYPE_VOICEMAIL", "Call", "call"}
     ghl_count = 0
     try:
         access_token = get_valid_token(location_id)
@@ -4438,22 +5117,38 @@ def get_contact_ghl_call_count(contact_id):
                 convos = search_resp.json().get("conversations", [])
                 if convos:
                     convo_id = convos[0]["id"]
-                    msg_resp = http_requests.get(
-                        f"{GHL_API_BASE}/conversations/{convo_id}/messages",
-                        headers=headers,
-                        params={"limit": 100},
-                        timeout=10
-                    )
-                    if msg_resp.status_code == 200:
-                        payload = msg_resp.json().get("messages", [])
-                        raw_msgs = payload.get("messages", []) if isinstance(payload, dict) else payload
+                    last_message_id = None
+                    max_pages = 10  # safety cap: 10 pages × 100 = 1000 msgs
+                    for _ in range(max_pages):
+                        params = {"limit": 100}
+                        if last_message_id:
+                            params["lastMessageId"] = last_message_id
+                        msg_resp = http_requests.get(
+                            f"{GHL_API_BASE}/conversations/{convo_id}/messages",
+                            headers=headers,
+                            params=params,
+                            timeout=10
+                        )
+                        if msg_resp.status_code != 200:
+                            break
+                        data = msg_resp.json()
+                        raw_msgs = data.get("messages", [])
+                        if isinstance(raw_msgs, dict):
+                            raw_msgs = raw_msgs.get("messages", [])
                         for m in raw_msgs:
                             if not isinstance(m, dict):
                                 continue
-                            mtype = m.get("type") or m.get("messageType", "")
-                            # GHL call message types: 3 (outbound call), 4 (inbound call), TYPE_CALL
-                            if mtype in (3, 4, "TYPE_CALL") or mtype in (3.0, 4.0):
+                            mtype = m.get("type", m.get("messageType", ""))
+                            if mtype in _CALL_TYPES:
                                 ghl_count += 1
+                        # Check for next page
+                        next_page = data.get("nextPage", False)
+                        new_last_id = data.get("lastMessageId")
+                        if not next_page or not new_last_id or new_last_id == last_message_id:
+                            break
+                        last_message_id = new_last_id
+            else:
+                logger.debug(f"GHL convo search returned {search_resp.status_code} for contact {contact_id}")
     except Exception as e:
         logger.warning(f"GHL call count fetch failed for {contact_id}: {e}")
 

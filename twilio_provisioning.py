@@ -18,6 +18,7 @@ import os
 import json
 import logging
 import time
+from urllib.parse import quote
 
 from twilio.rest import Client as TwilioClient
 from twilio.base.exceptions import TwilioRestException
@@ -417,7 +418,6 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
 
         # Pass custom params as URL params so they arrive in the TwiML webhook
         if custom_params:
-            from urllib.parse import quote
             url_params = "&".join(f"{k}={quote(str(v))}" for k, v in custom_params.items())
             kwargs["url"] = f"{webhook_base_url}/voice/outbound-twiml?{url_params}"
 
@@ -574,6 +574,294 @@ def get_spam_protection_status(sub_account_sid: str) -> dict:
     except TwilioRestException as e:
         logger.error(f"Failed to get spam protection status: {e}")
         return {"numbers_total": 0, "numbers_protected": 0}
+
+
+# ──────────────────────────────────────────────────────────────
+# A2P 10DLC — BRAND & CAMPAIGN REGISTRATION
+# ──────────────────────────────────────────────────────────────
+#
+# Twilio A2P 10DLC flow:
+#   1. Create a Trust Product (Brand) under the master account
+#   2. Submit Brand for vetting (Twilio charges a one-time fee)
+#   3. Create a Messaging Service on the sub-account
+#   4. Associate phone number(s) with the Messaging Service
+#   5. Create a Campaign under the Brand and link to Messaging Service
+#
+# OR — import an already-approved Brand/Campaign from another provider
+# (e.g., GHL/LeadConnector) using the BrandRegistration + external
+# campaign import flow.
+#
+# All state is stored in voice_config["a2p"] JSONB.
+
+# ── Valid A2P use-case categories for campaign registration ──
+A2P_USE_CASES = [
+    "2FA", "ACCOUNT_NOTIFICATION", "CUSTOMER_CARE", "DELIVERY_NOTIFICATION",
+    "FRAUD_ALERT", "HIGHER_EDUCATION", "LOW_VOLUME", "MARKETING",
+    "MIXED", "POLLING_VOTING", "PUBLIC_SERVICE_ANNOUNCEMENT",
+    "SECURITY_ALERT", "SOLE_PROPRIETOR",
+]
+
+
+def create_a2p_brand(sub_account_sid: str,
+                     business_name: str, ein: str,
+                     street: str, city: str, state: str, zip_code: str,
+                     contact_email: str, contact_phone: str,
+                     business_type: str = "private_profit",
+                     stock_exchange: str = "NONE",
+                     stock_ticker: str = "",
+                     website: str = "",
+                     vertical: str = "INSURANCE") -> dict:
+    """
+    Register a new A2P 10DLC Brand via Twilio's Trust Hub + Brand
+    Registration API.  Follows the ISV onboarding flow:
+
+    1. Create Secondary Customer Profile
+    2. Create EndUser (us_a2p_messaging_profile_information) with biz details
+    3. Create TrustProduct (A2P Messaging Profile Bundle)
+    4. Attach EndUser → TrustProduct
+    5. Attach CustomerProfile → TrustProduct
+    6. Submit TrustProduct for evaluation
+    7. Create BrandRegistration (customer_profile_bundle_sid = profile,
+       a2p_profile_bundle_sid = trust_product)
+
+    Twilio docs:
+      https://www.twilio.com/docs/messaging/compliance/a2p-10dlc/onboarding-isv-api
+    """
+    client = get_master_client()
+    try:
+        # ── Step 1: Secondary Customer Profile ──
+        profile = client.trusthub.v1.customer_profiles.create(
+            friendly_name=f"A2P Brand: {business_name}",
+            email=contact_email,
+            policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",
+        )
+        logger.info(f"Created A2P Customer Profile: {profile.sid}")
+
+        # ── Step 2: EndUser with business information ──
+        end_user = client.trusthub.v1.end_users.create(
+            friendly_name=f"{business_name} A2P EndUser",
+            type="us_a2p_messaging_profile_information",
+            attributes={
+                "company_type": business_type,
+                "stock_exchange": stock_exchange,
+                "stock_ticker": stock_ticker,
+                "brand_name": business_name,
+                "ein": ein,
+                "ein_issuing_country": "US",
+                "street": street,
+                "city": city,
+                "state": state,
+                "postal_code": zip_code,
+                "country": "US",
+                "website": website or "",
+                "vertical": vertical,
+                "phone_number": contact_phone,
+                "email": contact_email,
+            },
+        )
+        logger.info(f"Created A2P EndUser: {end_user.sid}")
+
+        # ── Step 3: TrustProduct (A2P Messaging Profile Bundle) ──
+        trust_product = client.trusthub.v1.trust_products.create(
+            friendly_name=f"A2P Profile: {business_name}",
+            email=contact_email,
+            policy_sid="RNb0d4771c2c98518d916a3d4cd70a8f8b",
+        )
+        logger.info(f"Created A2P TrustProduct: {trust_product.sid}")
+
+        # ── Step 4: Attach EndUser → TrustProduct ──
+        client.trusthub.v1.trust_products(trust_product.sid) \
+            .trust_products_entity_assignments.create(
+                object_sid=end_user.sid,
+            )
+
+        # ── Step 5: Attach CustomerProfile → TrustProduct ──
+        client.trusthub.v1.trust_products(trust_product.sid) \
+            .trust_products_entity_assignments.create(
+                object_sid=profile.sid,
+            )
+
+        # ── Step 6: Submit TrustProduct for evaluation ──
+        client.trusthub.v1.trust_products(trust_product.sid).update(
+            status="pending-review",
+        )
+        logger.info(f"Submitted TrustProduct {trust_product.sid} for review")
+
+        # ── Step 7: Register Brand ──
+        # customer_profile_bundle_sid = Customer Profile SID (BU...)
+        # a2p_profile_bundle_sid      = TrustProduct SID (BU...)  ← NOT the profile!
+        brand = client.messaging.v1.brand_registrations.create(
+            customer_profile_bundle_sid=profile.sid,
+            a2p_profile_bundle_sid=trust_product.sid,
+        )
+
+        logger.info(f"Created A2P Brand: {brand.sid} status={brand.status}")
+        return {
+            "brand_sid": brand.sid,
+            "status": brand.status,
+            "profile_sid": profile.sid,
+            "trust_product_sid": trust_product.sid,
+            "end_user_sid": end_user.sid,
+            "business_name": business_name,
+        }
+    except TwilioRestException as e:
+        logger.error(f"A2P Brand registration failed: {e}")
+        raise
+
+
+def get_a2p_brand_status(brand_sid: str) -> dict:
+    """Check the vetting status of an A2P Brand."""
+    client = get_master_client()
+    try:
+        brand = client.messaging.v1.brand_registrations(brand_sid).fetch()
+        return {
+            "brand_sid": brand.sid,
+            "status": brand.status,
+            "brand_score": getattr(brand, "brand_score", None),
+            "brand_feedback": getattr(brand, "brand_feedback", None),
+            "errors": getattr(brand, "errors", []),
+        }
+    except TwilioRestException as e:
+        logger.error(f"Failed to fetch brand status: {e}")
+        raise
+
+
+def create_messaging_service(sub_account_sid: str,
+                              friendly_name: str) -> dict:
+    """
+    Create a Messaging Service on the sub-account.
+    This is required to associate phone numbers with an A2P campaign.
+    """
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        svc = client.messaging.v1.services.create(
+            friendly_name=friendly_name,
+            inbound_request_url="",  # We handle SMS via GHL, not Twilio inbound
+            inbound_method="POST",
+            use_inbound_webhook_on_number=True,
+        )
+        logger.info(f"Created Messaging Service: {svc.sid} on {sub_account_sid}")
+        return {"messaging_service_sid": svc.sid}
+    except TwilioRestException as e:
+        logger.error(f"Failed to create Messaging Service: {e}")
+        raise
+
+
+def add_phone_to_messaging_service(sub_account_sid: str,
+                                    messaging_service_sid: str,
+                                    phone_number_sid: str) -> bool:
+    """Associate a phone number with a Messaging Service."""
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        client.messaging.v1.services(messaging_service_sid).phone_numbers.create(
+            phone_number_sid=phone_number_sid,
+        )
+        logger.info(f"Added {phone_number_sid} to MessagingService {messaging_service_sid}")
+        return True
+    except TwilioRestException as e:
+        logger.error(f"Failed to add phone to messaging service: {e}")
+        raise
+
+
+def create_a2p_campaign(messaging_service_sid: str,
+                         brand_registration_sid: str,
+                         description: str,
+                         use_case: str = "LOW_VOLUME",
+                         sample_messages: list = None,
+                         has_embedded_links: bool = False,
+                         has_embedded_phone: bool = False,
+                         message_flow: str = "") -> dict:
+    """
+    Create an A2P 10DLC Campaign and associate it with a Messaging Service.
+
+    Twilio endpoint: POST /v1/Services/{MessagingServiceSid}/UsAppToPerson
+    This is the final step — once the campaign is approved, the number can
+    send 10DLC-compliant SMS.
+    """
+    client = get_master_client()
+
+    if not sample_messages:
+        sample_messages = [
+            "Hi {name}, this is {agent} from {agency}. I wanted to follow up on your insurance inquiry.",
+            "Thanks for your interest! I have a few options that might work for you. When is a good time to chat?",
+        ]
+    if not message_flow:
+        message_flow = (
+            "Consumers opt-in by filling out an online form requesting "
+            "an insurance quote. An agent replies via SMS to schedule "
+            "a consultation."
+        )
+
+    try:
+        campaign = client.messaging.v1.services(
+            messaging_service_sid
+        ).us_app_to_person.create(
+            brand_registration_sid=brand_registration_sid,
+            description=description[:4096],
+            message_flow=message_flow[:2048],
+            message_samples=sample_messages[:5],
+            us_app_to_person_usecase=use_case,
+            has_embedded_links=has_embedded_links,
+            has_embedded_phone=has_embedded_phone,
+            opt_in_message="Reply YES to confirm you'd like to receive messages from us.",
+            opt_out_message="Reply STOP to unsubscribe. You will no longer receive messages from us.",
+            help_message="Reply HELP for support. Msg & data rates may apply.",
+            opt_in_keywords=["START", "YES"],
+            opt_out_keywords=["STOP", "UNSUBSCRIBE", "CANCEL"],
+            help_keywords=["HELP", "INFO"],
+        )
+        logger.info(
+            f"Created A2P Campaign: {campaign.sid} "
+            f"status={campaign.campaign_status} "
+            f"on MessagingService {messaging_service_sid}"
+        )
+        return {
+            "campaign_sid": campaign.sid,
+            "campaign_status": campaign.campaign_status,
+            "messaging_service_sid": messaging_service_sid,
+            "use_case": use_case,
+        }
+    except TwilioRestException as e:
+        logger.error(f"A2P Campaign creation failed: {e}")
+        raise
+
+
+def get_a2p_campaign_status(messaging_service_sid: str,
+                             campaign_sid: str) -> dict:
+    """Check the approval status of an A2P Campaign."""
+    client = get_master_client()
+    try:
+        campaign = client.messaging.v1.services(
+            messaging_service_sid
+        ).us_app_to_person(campaign_sid).fetch()
+        return {
+            "campaign_sid": campaign.sid,
+            "campaign_status": campaign.campaign_status,
+            "description": getattr(campaign, "description", ""),
+            "use_case": getattr(campaign, "us_app_to_person_usecase", ""),
+            "errors": getattr(campaign, "errors", []),
+        }
+    except TwilioRestException as e:
+        logger.error(f"Failed to fetch campaign status: {e}")
+        raise
+
+
+def list_messaging_services(sub_account_sid: str) -> list:
+    """List all Messaging Services on a sub-account."""
+    client = get_sub_account_client(sub_account_sid)
+    try:
+        services = client.messaging.v1.services.list(limit=50)
+        return [
+            {
+                "sid": s.sid,
+                "friendly_name": s.friendly_name,
+                "date_created": s.date_created.isoformat() if s.date_created else "",
+            }
+            for s in services
+        ]
+    except TwilioRestException as e:
+        logger.error(f"Failed to list messaging services: {e}")
+        return []
 
 
 # ──────────────────────────────────────────────────────────────

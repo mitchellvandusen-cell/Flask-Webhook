@@ -29,7 +29,7 @@ Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
 
 ```
 Procfile:
-  web:           gunicorn main:app --threads 4
+  web:           gunicorn main:app --threads 40 --timeout 0
   worker-prod-1..4: python worker.py production   (4 parallel RQ workers)
   worker-demo:      python worker.py demo          (1 demo worker)
 ```
@@ -54,7 +54,20 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 | `contact_validator.py` | Contact ID validation/resolution | small |
 | `reply_sanitizer.py` | Sanitize/clean LLM replies before sending | small |
 | `llm_caller.py` | Clean LLM invocation wrapper | small |
-| `carrier_list.py` | 70+ insurance carriers list | small |
+| `twilio_provisioning.py` | Twilio sub-account provisioning, number management, Trust Hub, A2P 10DLC registration | medium |
+| `carrier_list.py` | 63 insurance carriers for UI picker | small |
+| `insurance_companies.py` | 270+ carrier names/aliases for AI detection | small |
+| `insurance_knowledge.py` | Deep product knowledge (term, whole, IUL, FE) for AI context | medium |
+| `underwriting.py` | Live carrier underwriting rules from Google Sheets | medium |
+| `conversation_engine.py` | Conversation stage analysis, objection classification | medium |
+| `sales_director.py` | Strategic directive generator for AI pipeline | medium |
+| `age.py` | DOB-to-age calculator for contact profiles | small |
+| `ghl_api.py` | GHL OAuth token management + API helpers | small |
+| `ghl_calendar.py` | GHL calendar booking operations | medium |
+| `ghl_message.py` | GHL SMS delivery | small |
+| `webhook_delivery.py` | Outbound webhook delivery with HMAC signing + retries | small |
+| `send_email_api.py` | Mailgun API email sender | small |
+| `utils.py` | JSON serialization helpers + AI reply cleaning | small |
 | `sync_subscribers.py` | Syncs subscriber DB from external source at startup | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
@@ -87,6 +100,7 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 - `STRIPE_PRICE_ID` — Individual plan price ID
 - `STRIPE_AGENCY_STARTER_PRICE_ID`, `STRIPE_AGENCY_PRO_PRICE_ID`
 - `AI_MINUTES_PRICE_ID_*` — Usage-based AI minutes packages
+- `A2P_REGISTRATION_PRICE_ID` — Stripe price ID for A2P 10DLC registration fee ($19)
 
 ### Email
 - `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`
@@ -106,6 +120,9 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 
 ### Subscription
 - `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 97)
+
+### Cron / Background
+- `CRON_SECRET` — Shared secret for authenticating cron endpoints (`/api/cron/send-reminders`, `/api/cron/refresh-tokens`)
 
 ---
 
@@ -185,6 +202,7 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /cancel` — Subscription cancelled page
 - `GET /success` — Subscription success page
 - `POST /create-portal-session` — Stripe billing portal
+- `POST /a2p/checkout` — A2P 10DLC registration fee checkout ($19 via Stripe)
 
 ### AI Minutes
 - `GET /ai-minutes/balance` — Check balance
@@ -254,6 +272,7 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET|POST /api/cron/refresh-tokens` — Proactively refresh GHL OAuth tokens expiring within 30 min (schedule every 15 min; auth via `CRON_SECRET`)
 - `GET|POST /api/cron/recover-failed-webhooks` — Find webhook tasks that failed due to token errors in the last N hours, get fresh token, re-queue them (schedule every 15 min; auth via `CRON_SECRET`)
 - `GET|POST /api/cron/backfill-failed-webhooks` — One-shot backfill: recover webhooks that failed before `failed_webhook_payloads` table existed, reconstruct payloads from `webhook_logs`, re-queue (safe to run multiple times; auth via `CRON_SECRET`)
+- `GET|POST /api/cron/refresh-tokens` — Proactive OAuth token refresh (refreshes tokens expiring within 2 hours; designed for 15-minute cron interval)
 
 ### Website Bot
 - `POST /website-bot-webhook` — External website chatbot webhook
@@ -263,9 +282,19 @@ All tables created in `db.py`'s `init_db()` function:
 
 ### Voice (Blueprint, voice_bridge.py)
 - Voice WebSocket routes for Twilio ↔ xAI Realtime API bridging
-- `GET /voice/stats?period=<today|week|month|all>` — Aggregated call statistics (KPIs, duration buckets, daily/hourly breakdown, top contacts)
+- `POST /voice/transfer-complete` — Twilio action callback when transfer `<Dial>` ends; returns `<Hangup/>` to release parent call
+- `GET /voice/stats?period=<today|week|month|all>` — Aggregated call statistics (KPIs, duration buckets, daily/hourly breakdown, top contacts); uses subscriber's timezone
 - `GET /voice/contact-call-counts?ids=<csv>` — Batch local call counts for up to 300 contact IDs
 - `GET /voice/contact/<id>/ghl-call-count` — Merged call count: local dialer DB + GHL conversation calls (covers GHL-native + WAVV + dialer)
+
+### A2P 10DLC (Blueprint, voice_bridge.py)
+- `GET /voice/a2p/status` — Current A2P registration state from voice_config JSONB
+- `POST /voice/a2p/register-brand` — Submit brand for Twilio A2P vetting (sub-users gated by payment)
+- `GET /voice/a2p/brand-status` — Poll brand vetting progress from Twilio
+- `POST /voice/a2p/create-campaign` — Create campaign + messaging service + link phone numbers
+- `GET /voice/a2p/campaign-status` — Poll campaign approval status
+- `POST /voice/a2p/import` — Import externally-approved brand + campaign IDs (CNP migration)
+- `POST /voice/a2p/mark-fee-paid` — Mark A2P registration fee as paid for sub-account users
 
 ---
 
@@ -292,6 +321,39 @@ When a GHL webhook arrives at `POST /webhook`:
 - Audio pipeline: soxr resampling + audioop mulaw/PCM conversion + scipy Butterworth EQ
 - In-memory call tracking: `_active_calls`, `_transfer_requests`, `_call_listeners`
 - Supports real-time voice AI conversations using xAI's Realtime API
+- A2P 10DLC registration routes for brand/campaign compliance (see A2P 10DLC section below)
+
+---
+
+## A2P 10DLC Compliance (twilio_provisioning.py + voice_bridge.py)
+
+### What It Is
+A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated registration system for sending business SMS over standard phone numbers. Without registration, messages may be filtered or blocked by carriers.
+
+### Architecture
+- **State storage**: All A2P data stored in `voice_config["a2p"]` JSONB on the `subscribers` table — no new DB tables needed. Matches the existing pattern used by Trust Hub and Numbers.
+- **Two flows**: (1) Register New — creates Trust Hub profile + Brand Registration + Campaign via Twilio APIs. (2) Import Existing — imports TCR-approved brand/campaign IDs from external providers (GHL/LeadConnector) via CNP migration.
+- **Payment gate**: Sub-account users (`parent_agency_email IS NOT NULL`) must pay the A2P registration fee ($19) via Stripe before submitting. Agency owners and super admins bypass the gate.
+- **Provisioning functions**: `twilio_provisioning.py` contains `create_a2p_brand()`, `get_a2p_brand_status()`, `create_messaging_service()`, `add_phone_to_messaging_service()`, `create_a2p_campaign()`, `get_a2p_campaign_status()`, `import_external_brand()`, `import_external_campaign()`.
+
+### Registration Flow
+1. User fills out brand form (business name, EIN, address, contact) → `POST /voice/a2p/register-brand` → Twilio Trust Hub + Brand Registration.
+2. Twilio vets the brand (hours to days) → `GET /voice/a2p/brand-status` polls for approval.
+3. User fills out campaign form (use case, sample messages, opt-in/out) and selects phone numbers → `POST /voice/a2p/create-campaign` → creates Messaging Service, links numbers, submits campaign.
+4. Carrier review (hours to days) → `GET /voice/a2p/campaign-status` polls for approval.
+
+### voice_config.a2p Schema
+```json
+{
+  "brand_sid": "BN...",
+  "brand_status": "APPROVED",
+  "campaign_sid": "QE...",
+  "campaign_status": "VERIFIED",
+  "messaging_service_sid": "MG...",
+  "a2p_fee_paid": true,
+  "registered_at": "2026-02-24T..."
+}
+```
 
 ---
 
@@ -343,7 +405,7 @@ static/js/dashboard/
   connect_crm.js    CRM connection UI
   voice.js          Voice config
   dialer.js         Voice dialer, call count badges, statistics panel
-  numbers.js        Phone number management
+  numbers.js        Phone number management + A2P 10DLC registration UI
   ai_minutes.js     AI Minutes UI
   carriers.js       Carrier chip selection
   advanced.js       Advanced settings
@@ -421,7 +483,7 @@ cp .env.example .env
 # Fill in required values
 
 # Start web server
-gunicorn main:app --threads 4
+gunicorn main:app --threads 40 --timeout 0
 
 # Start workers (in separate terminals)
 python worker.py production
@@ -456,7 +518,7 @@ python worker.py demo
 
 ## Carrier List
 
-`carrier_list.py` contains 70+ insurance carriers as `{"key": "...", "name": "..."}` dicts. The bot only references carriers the agent has selected in their dashboard. Used for both the chip picker UI and the AI system prompt context.
+`carrier_list.py` contains 63 insurance carriers as `{"key": "...", "name": "..."}` dicts for the dashboard chip picker UI. `insurance_companies.py` has 270+ carrier names including aliases for AI-powered carrier detection in conversations. The bot only references carriers the agent has selected.
 
 ---
 

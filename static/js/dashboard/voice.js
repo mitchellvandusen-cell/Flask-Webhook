@@ -111,6 +111,7 @@
                 auto_transcribe: document.getElementById('voiceAutoTranscribe')?.checked ?? false,
                 local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
                 transfer_number: document.getElementById('voiceTransferNumber')?.value?.trim() || '',
+                voicemail_drop: document.getElementById('voiceVoicemailDrop')?.checked ?? false,
             };
 
             _fetchRetry('/api/voice-config', {

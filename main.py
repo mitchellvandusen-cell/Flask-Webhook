@@ -21,7 +21,9 @@ from flask import jsonify as flask_jsonify
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+from urllib.parse import urlencode
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from rq import Queue
 from psycopg2.extras import RealDictCursor
@@ -42,11 +44,14 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 save_discord_connection, get_discord_connection, delete_discord_connection,
                 save_discord_servers, get_discord_servers,
                 save_discord_webhook_channel, get_discord_webhook_channels,
-                delete_discord_webhook_channel)
+                delete_discord_webhook_channel,
+                get_webhook_logs, get_subscribers_needing_token_refresh)
 from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
+from send_email_api import send_email_via_api
+from ghl_api import get_valid_token
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -60,7 +65,9 @@ from tasks import process_webhook_task
 from memory import get_known_facts, get_narrative, get_recent_messages 
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
-from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
+from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS, build_system_prompt
+from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
+                                  list_available_crms, CRM_REGISTRY, get_crm_adapter)
 from contact_validator import validate_and_resolve_contact
 load_dotenv()
 
@@ -69,9 +76,8 @@ app = Flask(__name__)
 # --- PII Redaction Filter for Production Logs ---
 class PIIRedactionFilter(logging.Filter):
     """Redacts phone numbers and email addresses from log messages."""
-    import re as _re
-    _phone_re = _re.compile(r'\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
-    _email_re = _re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+    _phone_re = re.compile(r'\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
+    _email_re = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
 
     def filter(self, record):
         if isinstance(record.msg, str):
@@ -473,7 +479,6 @@ def webhook():
     # Validate contact_id
     if not contact_id or str(contact_id).strip().lower() in ["unknown", "none", "null", ""] or len(str(contact_id).strip()) < 5:
         logger.critical(f"🚨 WEBHOOK REJECTED | contact_id={contact_id} | location_id={location_id}")
-        import json
         logger.critical(f"🚨 Original payload: {json.dumps(payload.get('_original_payload', {}), default=str)}")
         return flask_jsonify({"status": "rejected", "reason": "invalid_contact_id"}), 400
 
@@ -584,7 +589,7 @@ def app_installed_webhook():
         # If we have an email, send a welcome/setup email immediately
         if user_email:
             try:
-                from send_email_api import send_email_via_api
+
                 domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
                 display_name = user_name or "there"
 
@@ -837,6 +842,45 @@ def stripe_webhook():
                     f"✅ AI Minutes: Credited {pkg_minutes} min to {email} — "
                     f"balance now {result.get('expected_balance', '?')} min"
                 )
+            return '', 200
+
+        # ── A2P 10DLC registration fee ──
+        if session.metadata.get("purchase_type") == "a2p_registration" and email:
+            brand_type = session.metadata.get("brand_type", "LOW_VOLUME")
+            paid_cents = session.metadata.get("total_cents", "0")
+            logger.info(f"✅ A2P fee paid by {email} — brand_type={brand_type} amount=${int(paid_cents)/100:.2f}")
+            try:
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
+                        row = cur.fetchone()
+                        if row:
+                            vc = row['voice_config'] or {}
+                            a2p = vc.get('a2p', {})
+                            a2p['a2p_fee_paid'] = True
+                            a2p['fee_paid_at'] = __import__('datetime').datetime.utcnow().isoformat()
+                            a2p['stripe_session_id'] = session.id
+                            a2p['paid_brand_type'] = brand_type
+                            a2p['paid_amount_cents'] = int(paid_cents)
+                            vc['a2p'] = a2p
+                            cur.execute(
+                                "UPDATE subscribers SET voice_config = %s WHERE email = %s",
+                                (json.dumps(vc), email)
+                            )
+                            conn.commit()
+                        cur.close()
+                    except Exception as e:
+                        logger.error(f"Failed to mark A2P fee paid: {e}")
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    finally:
+                        return_db_connection(conn)
+            except Exception as e:
+                logger.error(f"A2P fee webhook error: {e}")
             return '', 200
 
         # 1. EXTRACT METADATA
@@ -1714,7 +1758,7 @@ def dashboard():
     # --- 8. BOT SETTINGS ---
     bot_settings = get_bot_settings(current_user.email)
 
-    from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
+
 
     # --- 9. VOICE CONFIG ---
     voice_config = current_user.voice_config or {}
@@ -1848,6 +1892,7 @@ def save_voice_config():
         "auto_transcribe":       bool(data.get("auto_transcribe", False)),
         "local_presence":        bool(data.get("local_presence", False)),
         "transfer_number":       (data.get("transfer_number") or "").strip(),
+        "voicemail_drop":        bool(data.get("voicemail_drop", False)),
     })
     # Twilio sub-account fields are set by auto-provisioning only — never
     # overwritten by the user saving voice settings from the dashboard.
@@ -2100,7 +2145,7 @@ def run_demo_janitor():
 @app.route("/integrations")
 def integrations_page():
     """Public-facing integrations page showing supported CRM platforms."""
-    from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
+
     crms = list_available_crms()
     return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
 
@@ -2199,7 +2244,7 @@ def save_integration_config():
     crm_config = data.get("crm_config", {})
 
     # Validate crm_type
-    from crm_adapters.factory import CRM_REGISTRY
+
     if crm_type not in CRM_REGISTRY:
         return safe_jsonify({"error": f"Unsupported CRM type: {crm_type}"}), 400
 
@@ -2256,7 +2301,7 @@ def test_integration():
     }
 
     try:
-        from crm_adapters.factory import get_crm_adapter
+
         adapter = get_crm_adapter(crm_type, subscriber_data)
         result = adapter.validate_credentials()
         return safe_jsonify(result)
@@ -2269,7 +2314,7 @@ def test_integration():
 @login_required
 def get_webhook_logs_api():
     """Fetch webhook logs for the current user's location."""
-    from db import get_webhook_logs
+
     location_id = current_user.location_id
     if not location_id:
         return safe_jsonify({"logs": [], "total": 0})
@@ -2343,7 +2388,6 @@ def _is_admin_request():
 
 def super_admin_required(f):
     """Decorator: only allows users with role='super_admin'."""
-    from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_super_admin:
@@ -2460,7 +2504,7 @@ def revert_impersonation():
 @super_admin_required
 def god_mode_logs(location_id):
     """God Mode: view webhook logs for any location."""
-    from db import get_webhook_logs
+
     limit = min(int(request.args.get("limit", 100)), 500)
     offset = int(request.args.get("offset", 0))
     event_type = request.args.get("event_type", "").strip() or None
@@ -2524,7 +2568,7 @@ def api_send_reminders():
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     try:
-        from send_email_api import send_email_via_api
+
         domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
         users = get_users_needing_reminders()
@@ -3556,7 +3600,6 @@ def demo_chat_api():
 
         # 3. Use your full brain
         from sales_director import generate_strategic_directive
-        from prompt import build_system_prompt
 
         director_output = generate_strategic_directive(
             contact_id=contact_id,
@@ -4166,6 +4209,91 @@ def ai_minutes_checkout():
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
 
 
+# ── A2P 10DLC fee schedule (cents) ──
+# Brand registration fee + $15 campaign vetting fee per brand type.
+# Prices from Twilio / TCR as of Aug 2025.
+A2P_FEE_SCHEDULE = {
+    "SOLE_PROPRIETOR": {"brand_fee": 450, "campaign_fee": 1500, "label": "Sole Proprietor"},
+    "LOW_VOLUME":      {"brand_fee": 450, "campaign_fee": 1500, "label": "Low Volume Standard"},
+    "STANDARD":        {"brand_fee": 4600, "campaign_fee": 1500, "label": "Standard"},
+}
+
+
+@app.route("/a2p/checkout", methods=["POST"])
+@login_required
+def a2p_checkout():
+    """
+    Create a Stripe one-time payment session for A2P 10DLC registration fees.
+    Fee varies by brand type:
+      - Sole Proprietor:      $4.50 brand + $15 campaign = $19.50
+      - Low Volume Standard:  $4.50 brand + $15 campaign = $19.50
+      - Standard:             $46   brand + $15 campaign = $61.00
+    The frontend sends brand_type; we look up the fee and create a dynamic
+    Stripe checkout with the correct total via price_data.
+    """
+    data = request.get_json(silent=True) or {}
+    brand_type = (data.get("brand_type") or "LOW_VOLUME").upper().strip()
+
+    fee_info = A2P_FEE_SCHEDULE.get(brand_type)
+    if not fee_info:
+        return flask_jsonify({"error": f"Unknown brand type: {brand_type}"}), 400
+
+    total_cents = fee_info["brand_fee"] + fee_info["campaign_fee"]
+    label = fee_info["label"]
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            mode="payment",
+            customer_email=current_user.email,
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": total_cents,
+                    "product_data": {
+                        "name": f"A2P 10DLC Registration — {label}",
+                        "description": (
+                            f"Brand registration (${fee_info['brand_fee'] / 100:.2f}) "
+                            f"+ Campaign vetting ($15.00)"
+                        ),
+                    },
+                },
+                "quantity": 1,
+            }],
+            metadata={
+                "purchase_type": "a2p_registration",
+                "user_email": current_user.email,
+                "brand_type": brand_type,
+                "total_cents": str(total_cents),
+            },
+            success_url=f"{YOUR_DOMAIN}/dashboard?a2p_payment_success=1",
+            cancel_url=f"{YOUR_DOMAIN}/dashboard?a2p_payment_cancel=1",
+        )
+        return flask_jsonify({"checkout_url": checkout_session.url})
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe A2P checkout error: {e}")
+        return flask_jsonify({"error": "Payment configuration error. Contact support."}), 500
+    except Exception as e:
+        logger.error(f"A2P checkout error: {e}")
+        return flask_jsonify({"error": "Unable to create checkout session."}), 500
+
+
+@app.route("/a2p/fee-schedule")
+@login_required
+def a2p_fee_schedule():
+    """Return the A2P fee schedule so the frontend can display correct prices."""
+    schedule = {}
+    for key, info in A2P_FEE_SCHEDULE.items():
+        total = info["brand_fee"] + info["campaign_fee"]
+        schedule[key] = {
+            "label": info["label"],
+            "brand_fee": info["brand_fee"] / 100,
+            "campaign_fee": info["campaign_fee"] / 100,
+            "total": total / 100,
+        }
+    return flask_jsonify(schedule)
+
+
 @app.route("/ai-minutes/usage")
 @login_required
 def ai_minutes_usage():
@@ -4487,7 +4615,7 @@ def oauth_initiate():
 
     # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
     # and cause GHL scope validation failures + state parameter loss
-    from urllib.parse import urlencode
+
     oauth_params = urlencode({
         'response_type': 'code',
         'redirect_uri': redirect_uri,
@@ -4905,7 +5033,7 @@ def oauth_callback():
 
             # ADMIN ALERT: email the admin so they can manually resolve
             try:
-                from send_email_api import send_email_via_api
+
                 admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
                 domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
                 alert_inner = f'''
@@ -5298,7 +5426,7 @@ def oauth_callback():
 
         # 8c. Welcome email on install (premium branded template)
         try:
-            from send_email_api import send_email_via_api
+
             domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
             dashboard_link = f"{domain_url}/agency-dashboard" if use_agency_flow else f"{domain_url}/dashboard"
 
@@ -5771,7 +5899,6 @@ def claim_account():
 
         # Check if invite is expired (7 days)
         if sub['invite_sent_at']:
-            from datetime import timedelta
             expiry = sub['invite_sent_at'] + timedelta(days=7)
             if datetime.now() > expiry:
                 flash("This invite link has expired. Please ask your agency owner to resend.", "danger")
@@ -6000,7 +6127,7 @@ def get_agency_logs(location_id):
     """Get webhook logs for a specific sub-account location (agency owners only)."""
     if current_user.role != 'agency_owner':
         return flask_jsonify({"error": "Access denied"}), 403
-    from db import get_webhook_logs
+
     limit = min(int(request.args.get("limit", 50)), 200)
     offset = int(request.args.get("offset", 0))
     event_type = request.args.get("event_type", "").strip() or None
@@ -6383,7 +6510,6 @@ def _discord_creds():
 
 def _discord_refresh_token(email: str, conn_row: dict):
     """Silently refresh an expired Discord OAuth token. Returns new access_token or None."""
-    from datetime import datetime, timedelta
     client_id = os.getenv("DISCORD_CLIENT_ID")
     client_secret = os.getenv("DISCORD_CLIENT_SECRET")
     refresh_tok = conn_row.get("refresh_token")
@@ -6439,7 +6565,7 @@ def discord_connect():
     if not client_id:
         flash("Discord integration is not configured. Contact support.", "error")
         return redirect(url_for("dashboard"))
-    from urllib.parse import urlencode
+
     state = secrets.token_urlsafe(16)
     session["discord_oauth_state"] = state
     params = urlencode({
@@ -6493,7 +6619,6 @@ def discord_callback():
     refresh_token = token_data.get("refresh_token")
     expires_in    = token_data.get("expires_in", 604800)
 
-    from datetime import timedelta
     expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
     try:
@@ -6538,8 +6663,6 @@ def discord_disconnect():
 @login_required
 def api_discord_status():
     """Return connection status + saved servers with bot_in_server flag."""
-    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
-
     conn_row = get_discord_connection(current_user.email)
     if not conn_row:
         return flask_jsonify({"connected": False})
@@ -6548,9 +6671,9 @@ def api_discord_status():
     expires_at = conn_row.get("token_expires_at")
     if expires_at:
         if getattr(expires_at, 'tzinfo', None) is None:
-            expires_at = expires_at.replace(tzinfo=_tz.utc)
-        now = _dt.now(_tz.utc)
-        if expires_at <= now + _td(hours=24):
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if expires_at <= now + timedelta(hours=24):
             new_tok = _discord_refresh_token(current_user.email, conn_row)
             if new_tok:
                 conn_row = get_discord_connection(current_user.email) or conn_row
@@ -6642,7 +6765,7 @@ def api_discord_bot_invite(guild_id):
     client_id = os.getenv("DISCORD_CLIENT_ID")
     if not client_id:
         return flask_jsonify({"error": "Discord not configured"}), 500
-    from urllib.parse import urlencode
+
     invite_url = "https://discord.com/oauth2/authorize?" + urlencode({
         "client_id": client_id,
         "permissions": "274877974528",

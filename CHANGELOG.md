@@ -10,7 +10,7 @@
 |------|-----------|
 | 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements |
 | 2026-02-19 | AI Minutes Marketplace launched (purchase bundles, auto-deduct on calls) |
-| 2026-02-20 | Complete voice infrastructure migration from Telnyx to white-label Twilio sub-accounts |
+| 2026-02-20 | Complete voice infrastructure migration from Telnyx to white-label Twilio sub-accounts | 
 | 2026-02-20 | Super Admin God Mode with user impersonation added (RBAC) |
 | 2026-02-20 | Power dialer triple-retry logic, audio anti-aliasing pipeline, AMD overhaul |
 | 2026-02-20 | Twilio Voice SDK upgraded from 1.x to 2.x; self-hosted SDK to fix VoIP connectivity |
@@ -19,6 +19,7 @@
 | 2026-02-22 | Full Discord OAuth integration with persistent auth, team chat panel in sidebar |
 | 2026-02-22 | CLAUDE.md documentation added; dismissable banners; Discord side panel repositioned |
 | 2026-02-24 | Enterprise OAuth token refresh, proactive token cron, webhook scourer + backfill recovery |
+| 2026-02-24 | A2P 10DLC compliance system: brand/campaign registration + external import from GHL |
 
 ---
 
@@ -39,6 +40,99 @@
 **[Fix]** — Re-queue `sms_http_fail` contacts through full pipeline instead of re-calling GHL API directly.
 
 **[Fix]** — Critical: retry DB token writes and verify persistence after OAuth refresh.
+**[Feature]** — A2P 10DLC brand & campaign registration system — Full compliance workflow for registering brands and campaigns with Twilio's A2P 10DLC program, plus import of externally-approved brands/campaigns from GHL/LeadConnector.
+
+### Backend (twilio_provisioning.py)
+- 8 new A2P functions: `create_a2p_brand()`, `get_a2p_brand_status()`, `create_messaging_service()`, `add_phone_to_messaging_service()`, `create_a2p_campaign()`, `get_a2p_campaign_status()`, `import_external_brand()`, `import_external_campaign()`, plus `list_messaging_services()`.
+- Brand registration creates Trust Hub Customer Profile + EndUser + TrustProduct + Brand Registration in one flow.
+- Campaign registration creates a Messaging Service, links phone numbers to its sender pool, then submits the campaign with use case, sample messages, opt-in/out details, and help keywords.
+- External import supports CNP migration of TCR-approved brands and campaigns from other CSPs (e.g., GHL/LeadConnector) into Twilio.
+- `A2P_USE_CASES` constant defines all valid campaign categories (2FA, CUSTOMER_CARE, LOW_VOLUME, MARKETING, MIXED, etc.).
+
+### Backend (voice_bridge.py)
+- 7 new routes under `/voice/a2p/`:
+  - `GET /voice/a2p/status` — Current A2P registration state from `voice_config.a2p`.
+  - `POST /voice/a2p/register-brand` — Submit brand for vetting (sub-account users gated by payment check).
+  - `GET /voice/a2p/brand-status` — Poll Twilio for brand vetting progress.
+  - `POST /voice/a2p/create-campaign` — Create campaign + messaging service + link numbers.
+  - `GET /voice/a2p/campaign-status` — Poll campaign approval status.
+  - `POST /voice/a2p/import` — Import external brand ID + campaign ID.
+  - `POST /voice/a2p/mark-fee-paid` — Mark A2P registration fee as paid.
+- All routes persist state to `voice_config["a2p"]` JSONB — no new DB tables needed.
+
+### Backend (main.py)
+- `POST /a2p/checkout` — Creates Stripe checkout session for A2P registration fee ($19 = $4 brand vetting + $15 campaign review).
+- Stripe webhook handler extended to process `purchase_type: "a2p_registration"` and set `voice_config.a2p.a2p_fee_paid = true`.
+- New env var: `A2P_REGISTRATION_PRICE_ID` — Stripe price ID for the A2P fee.
+
+### Frontend (voice.html)
+- New "10DLC" sub-tab in Voice Config column menu with `fa-certificate` icon.
+- Status banner showing current registration state (none → brand submitted → brand approved → campaign submitted → campaign approved).
+- Mode selector: "Import Existing" vs. "Register New" with separate panels.
+- Import panel: paste fields for Brand ID and Campaign ID from GHL/LeadConnector.
+- Register panel: 2-step wizard — Step 1 (brand form with business details, pre-filled from Trust Hub) → Step 2 (campaign form with use case, sample messages, opt-in/out, help keywords, phone number checkboxes).
+- Payment gate for sub-account users: Stripe checkout required before registration.
+- Step indicator pills showing progress through the registration flow.
+
+### Frontend (numbers.js)
+- 13+ new functions: `a2pLoadStatus()`, `a2pRenderUI()`, `a2pSwitchMode()`, `a2pImportExternal()`, `a2pRegisterBrand()`, `a2pCreateCampaign()`, `a2pRefreshStatus()`, `a2pPayFee()`, `a2pLoadNumbersForCampaign()`, `a2pRenderNumberCheckboxes()`, `a2pGetSelectedNumberSids()`, `a2pRenderBrandStatus()`, `a2pUpdateStepPills()`.
+- URL parameter handler for `a2p_payment_success` redirect after Stripe checkout.
+- Number cache (`_a2pNumbersCache`) to avoid redundant fetches when switching tabs.
+
+### Frontend (sidebar.js)
+- Updated `switchVoicePanel()` to include `'a2p'` panel and trigger `a2pLoadStatus()`.
+
+---
+
+**[Enhancement]** — Glassmorphism tutorial popover redesign — Complete CSS overhaul of the driver.js tutorial popover with premium frosted-glass visual effects.
+
+- **`tutorial.js`** — Rewrote all popover CSS with multi-layer radial gradient background, `backdrop-filter: blur(40px) saturate(200%)`, `::before` pseudo-element top-edge light streak, 6-layer box-shadow for depth/glow, refined entry animation with `filter:blur(4px)` fade, and improved button styling with cyan accent glow.
+
+---
+
+**[Fix]** — Tutorial popover centering broken — `position: relative !important` on `.driver-popover` overrode driver.js's own `position: fixed` used for centering popovers on screen.
+
+- **`tutorial.js`** — Removed the single line `position: relative !important;` that was added for the `::before` pseudo-element (driver.js already creates a positioned ancestor).
+
+---
+
+**[Fix]** — Dialer UI, hangup reliability, KPI stats, and call count badges — Critical RealDictCursor compatibility fix, UI layout improvement, and hangup flow hardening.
+
+### KPI Stats + Call Count Badges (root cause fix)
+- **`voice_bridge.py`** — All stats/counts routes (`/voice/stats`, `/voice/contact-call-counts`, `/voice/contact-call-counts/merged`, `/voice/contact/<id>/ghl-call-count`) used integer index access (`row[0]`) on query results, but the DB pool uses `RealDictCursor` which returns dict-like rows. `row[0]` raised `KeyError: 0`, silently failing and returning empty data. **Fix:** Replaced all integer index access with column name key access (`row['location_id']`, `row['total_calls']`, etc.) across 8 queries.
+
+### Hangup Button + Banner
+- **`dialer.js`** — `dialerStopQueue()` previously nulled `dialerCallSid`, cleared the poll timer, and hid the banner instantly — before the hangup API even responded. If the call was still connecting on Twilio's side, the user lost all visibility. **Fix:** Now shows "Hanging up..." banner state, sends the hangup request, waits for the response, then cleans up after a brief delay.
+
+### UI Layout
+- **`dialer.html`** — Moved the Queue section above the Contact List in the left column (was at the bottom, now directly below the search/filters). Changed chevron direction to match new position.
+
+### Call Count Badges
+- **`dialer.js`** — Added phone icon (`fa-phone`) to call count badges for clearer visual identification. All badge render/update paths (`dialerRenderContacts`, `dialerRenderContactBadges`, `dialerUpdateContactBadge`, `dialerFetchMergedCounts`) now use consistent `innerHTML` with the icon.
+
+### Stats Period
+- **`dialer.js`** — Fixed default stats period mismatch: JS variable was `'month'` but HTML button showed "Today" as active. Aligned to `'today'`.
+
+---
+
+**[Fix]** — Enterprise-grade dialer: fix queue skipping, harden listen/intercept/mute — Three root-cause bugs in the power dialer queue caused contacts to be skipped. Listen, intercept, and mute hardened with proper error handling, VoIP pre-warming, and reconnection logic.
+
+### Queue (3 bugs fixed)
+- **`dialer.js`** — `dialerStartCall()` failures (invalid phone, API error, network error) left queue items stuck in `'initiated'` status. `dialerAdvance()` only retried `['no-answer','busy','failed','canceled']`, so initiated items were silently skipped. **Fix:** All failure paths now set `item.status = 'failed'` before advancing.
+- **`dialer.js`** — The `'transferred'` poll handler kept the poll interval running for 2.5s after detection. Each subsequent poll iteration scheduled a duplicate `setTimeout → dialerAdvance`, causing double-advance (skipping the next contact). **Fix:** `clearInterval(dialerPollTimer)` is now called immediately when `'transferred'` is first seen.
+- **`dialer.js`** — Added `_advanceLocked` guard to prevent concurrent `dialerAdvance()` calls from multiple timeouts firing simultaneously. Lock is released in every exit path (stop, retry, next, finish).
+
+### Listen (Fly on the Wall)
+- **`dialer.js`** — Hardened the listen stream with: connection timeout (8s), server-confirmed listening status, reconnection limit (5 attempts with exponential backoff), proper AudioContext error handling with try-catch, and clean teardown of previous connections before reconnecting.
+
+### Intercept
+- **`dialer.js`** — VoIP device is now pre-warmed in background when an AI call connects (`status === 'in-progress'`). Previously, clicking Intercept required loading the Twilio SDK + fetching token + mic permission + registration (~15s). Now VoIP is ready by the time the agent clicks Intercept.
+- **`dialer.js`** — Listen stream is stopped via `_resetListenBtn()` before sending the takeover request, preventing echo/feedback during handover.
+
+### Backend (voice_bridge.py)
+- Added instant takeover detection in the `receive_from_xai()` relay loop — AI audio stops immediately when agent clicks Intercept (previously only checked in `receive_from_twilio()` direction).
+- Sends Twilio `clear` event on intercept in both relay directions, flushing buffered AI audio.
+- Added `'transferred'` to the listen stream's terminal status check.
 
 ---
 
@@ -218,3 +312,4 @@
 **[19:42 UTC]** — Show all call controls in banner always (disabled until connected) — Made call control buttons (mute, hold, transfer, hang up) always visible in the call banner but disabled until a call is in the connected state.
 
 **[19:34 UTC]** — Fix Numbers tab showing nothing: null-safety + row[0] KeyError — Fixed a `KeyError` crash and added null-safety checks in the Numbers tab backend route so the tab renders correctly even with incomplete data.
+

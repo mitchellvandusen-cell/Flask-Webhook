@@ -135,7 +135,7 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
         subscriber: Optional pre-fetched subscriber dict (avoids redundant DB query)
     """
     if location_id in {'DEMO', 'DEMO_LOC', 'TEST_LOCATION_456'}:
-        print(f"ℹ️ Internal Mode: Skipping auth for {location_id}")
+        logger.debug(f"Internal Mode: Skipping auth for {location_id}")
         return 'DEMO'
 
     sub = subscriber or get_subscriber_info_hybrid(location_id)

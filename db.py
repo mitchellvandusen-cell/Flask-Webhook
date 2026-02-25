@@ -6,8 +6,10 @@ import threading
 import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
+import time
+import math
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
 from psycopg2 import pool
@@ -228,14 +230,13 @@ def dismiss_persistent_alert(alert_id: int, email: str):
 
 def get_db_connection_with_retry(max_attempts: int = 3) -> Optional:
     """Get a DB connection with retry. For critical paths like OAuth."""
-    import time as _time
     for attempt in range(max_attempts):
         conn = get_db_connection()
         if conn:
             return conn
         logger.warning(f"DB connection attempt {attempt+1}/{max_attempts} failed")
         if attempt < max_attempts - 1:
-            _time.sleep(2 ** attempt)  # 1s, 2s backoff
+            time.sleep(2 ** attempt)  # 1s, 2s backoff
     logger.error(f"DB connection failed after {max_attempts} attempts")
     return None
 
@@ -1099,6 +1100,7 @@ def init_db() -> bool:
             """)
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location ON call_history(location_id)")
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_call_sid ON call_history(call_sid)")
+            cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location_contact ON call_history(location_id, contact_id)")
             conn.commit()
             cur_calls.close()
             logger.info("✅ Migration: Created call_history table")
@@ -1724,6 +1726,36 @@ def update_subscriber_token(
     return False
 
 
+def get_subscribers_needing_token_refresh() -> list:
+    """
+    Get all subscribers whose OAuth tokens expire within the next 2 hours.
+    Only returns rows that have a refresh_token (i.e., OAuth-connected users).
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT location_id, access_token, refresh_token, token_expires_at, oauth_app_type
+            FROM subscribers
+            WHERE refresh_token IS NOT NULL
+              AND refresh_token != ''
+              AND token_expires_at IS NOT NULL
+              AND token_expires_at < NOW() + interval '2 hours'
+              AND token_expires_at > NOW() - interval '30 days'
+            ORDER BY token_expires_at ASC
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"get_subscribers_needing_token_refresh failed: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
 def get_users_needing_reminders() -> list:
     """
     Find users who need a reminder email. Catches TWO scenarios:
@@ -1788,13 +1820,12 @@ def get_users_needing_reminders() -> list:
         results = []
         for row in list(individual_rows) + list(agency_rows):
             r = dict(row)
-            from datetime import datetime as _dt, timezone as _tz
             ref_time = r.get("ref_time")
             if not ref_time:
                 continue
             if hasattr(ref_time, 'tzinfo') and ref_time.tzinfo is None:
-                ref_time = ref_time.replace(tzinfo=_tz.utc)
-            hours_since = (_dt.now(_tz.utc) - ref_time).total_seconds() / 3600
+                ref_time = ref_time.replace(tzinfo=timezone.utc)
+            hours_since = (datetime.now(timezone.utc) - ref_time).total_seconds() / 3600
 
             if hours_since >= 72 and not r.get("reminder_72h_sent"):
                 r["reminder_type"] = "72h"
@@ -2487,7 +2518,6 @@ def deduct_ai_minutes(email: str, duration_seconds: int, call_sid: str = None,
                       phone: str = None, direction: str = 'outbound') -> dict:
     """Deduct AI minutes after a call. Returns deduction info."""
     # Round up to nearest minute
-    import math
     minutes_used = max(1, math.ceil(duration_seconds / 60))
 
     conn = get_db_connection()

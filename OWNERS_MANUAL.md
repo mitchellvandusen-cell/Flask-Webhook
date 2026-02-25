@@ -1,6 +1,6 @@
 # InsuranceGrokBot — Technical Owner's Manual
 
-**Last updated: 2026-02-22**
+**Last updated: 2026-02-25**
 
 This document explains how the system actually works, written in plain English based on a full review of the live codebase. Think of this as the car owner's manual: not "here's the philosophy," but "here's where the engine is, why each part exists, and what to do when it makes a weird noise."
 
@@ -27,6 +27,7 @@ This document explains how the system actually works, written in plain English b
 17. [Security Model](#17-security-model)
 18. [Environment Variables Reference](#18-environment-variables-reference)
 19. [Troubleshooting Guide](#19-troubleshooting-guide)
+20. [A2P 10DLC Compliance](#20-a2p-10dlc-compliance)
 
 ---
 
@@ -43,7 +44,7 @@ The agency sees it as their own branded bot. The lead just sees an SMS from the 
 ### The Stack in Plain English
 
 - **Flask** — The web framework that answers HTTP requests. Runs inside Gunicorn, which is a production-grade server.
-- **Gunicorn** — Runs Flask with 4 threads so multiple requests can be handled simultaneously.
+- **Gunicorn** — Runs Flask with 40 threads and no timeout, supporting both HTTP and long-lived WebSocket connections (voice, live listen).
 - **PostgreSQL** — The main database. Stores subscriber configs, conversation history, facts about leads, billing, etc.
 - **Redis + RQ** — Redis is a fast in-memory database used as a job queue. RQ (Redis Queue) is a library that lets Flask hand off slow work to background workers so the web server can respond immediately.
 - **xAI Grok** — The LLM (large language model) that generates SMS replies and voice responses.
@@ -454,6 +455,32 @@ When the AI decides to call a tool, xAI sends a `response.function_call_argument
 
 Supervisors can listen to a live call in real time from the dashboard. The `/voice/listen-stream` WebSocket endpoint subscribes to the call's audio feed. During the call, every audio chunk put into `_call_listeners[call_sid]` by the main bridge is relayed to all listener sockets.
 
+The browser decodes the raw mulaw audio chunks using Web Audio API (`AudioContext` at 8kHz) with a jitter-buffer scheduler for gapless playback. This avoids the latency overhead of HTML5 `<audio>` elements and achieves sub-200ms monitoring latency.
+
+### Agent Intercept (Takeover)
+
+When an agent clicks "Intercept" in the dialer, the system performs an instant handover:
+
+1. **Browser**: The listen stream is stopped immediately to prevent audio echo/feedback.
+2. **HTTP endpoint** (`POST /voice/takeover`): Sets `_transfer_requests[call_sid]` and either redirects the Twilio call to the browser VoIP client (preferred) or falls back to the agent's phone number.
+3. **Both relay loops** (`receive_from_twilio` and `receive_from_xai`): Check `_transfer_requests` on every iteration. When detected, they immediately send a Twilio `clear` event to flush any buffered AI audio from Twilio's pipeline, then stop relaying. This eliminates the gap where the AI would continue speaking after the intercept button was pressed.
+
+For fastest intercept, the VoIP device is pre-warmed in the background when an AI call connects (status changes to `in-progress`). This means the Twilio Voice SDK, mic permissions, and signaling registration are all ready before the agent clicks the button.
+
+### Power Dialer Queue
+
+The auto-dial queue processes contacts sequentially with retry logic:
+
+1. **Queue start**: `dialerToggleQueue()` finds the first `pending` contact and starts dialing.
+2. **Dial**: `dialerDialNext()` increments the attempt counter, marks the item `initiated`, and calls `dialerStartCall()`.
+3. **Poll**: `dialerStartPoll()` checks `/voice/call-status/{call_sid}` every 1.5s. When the call reaches a terminal state (`completed`, `busy`, `no-answer`, `failed`, `canceled`), the poll stops and `dialerAdvance()` is called.
+4. **Advance**: Checks if the current contact should be retried (retry-eligible statuses + attempts < `dialerMaxAttempts`). If yes, resets to `pending` and redials after 2s. If not, moves to the next `pending` contact.
+5. **Guard**: A `_advanceLocked` flag prevents concurrent advance calls — multiple timeouts can fire simultaneously (e.g., from transfer + poll), and without the lock, two advance calls would each find the next pending item and double-skip.
+
+Key reliability features:
+- All `dialerStartCall` failure paths (invalid phone, API error, network error) explicitly set the queue item to `failed` status before advancing. This ensures the retry logic can evaluate correctly instead of silently skipping.
+- The `transferred` poll handler clears the poll interval immediately (not inside a delayed callback) to prevent duplicate advance scheduling.
+
 ### Fast Startup Optimization
 
 To minimize the delay before the AI says the first word, the bridge uses a two-phase prompt strategy:
@@ -604,7 +631,11 @@ The Procfile runs 4 production workers and 1 demo worker simultaneously, for 5 p
 - `fetch_targeted_ghl_history(contact_id, location_id, token, limit)` — Fetches conversation history from GHL to sync into the local database.
 - `search_contact_by_phone()` / `search_contact_by_name()` — Used by the contact validator.
 
-GHL uses OAuth 2.0. Each subscriber has their own `access_token` and `refresh_token`. Access tokens expire; `get_valid_token()` checks the expiry and calls the refresh endpoint if needed, then updates the database.
+GHL uses OAuth 2.0. Each subscriber has their own `access_token` and `refresh_token`. Access tokens expire (typically every 24 hours); `get_valid_token()` checks the expiry (with a 5-minute safety buffer) and calls the refresh endpoint if needed, then updates the database.
+
+**Proactive Token Refresh:** An external cron job hits `/api/cron/refresh-tokens` every 15 minutes. This endpoint finds all subscribers whose tokens expire within the next 2 hours and refreshes them proactively — preventing expired-token failures during webhook processing.
+
+**Dual-App Support:** The system supports both GHL marketplace and private OAuth apps. If a refresh fails with auth credentials, it automatically tries the fallback credential set and updates the stored `oauth_app_type` if the fallback succeeds.
 
 ### CRM Adapters
 
@@ -754,7 +785,7 @@ The `PIIRedactionFilter` on all log handlers means phone numbers and email addre
 
 **Step 3: Check the xAI API key.** If `XAI_API_KEY` is invalid or expired, every LLM call will fail. The worker logs will show authentication errors from the xAI API.
 
-**Step 4: Check the GHL OAuth tokens.** If the GHL access token expired and cannot be refreshed (e.g., the refresh token was revoked), `get_valid_token()` will fail and the worker will abort with "token refresh failed". The subscriber needs to reconnect GHL OAuth from the dashboard.
+**Step 4: Check the GHL OAuth tokens.** The proactive cron job (`/api/cron/refresh-tokens`) should keep tokens fresh automatically. If tokens are still expiring, verify the cron job is hitting every 15 minutes with the correct `CRON_SECRET`. If the refresh token itself was revoked (e.g., user disconnected the app in GHL), no amount of refreshing will help — the subscriber needs to reconnect GHL OAuth from the dashboard.
 
 **Step 5: Check for TCPA opt-outs.** If the lead sent "stop" at any point, the bot will not respond to that contact. This is intentional and correct. To re-enable, the lead must opt back in through the proper channel.
 
@@ -821,6 +852,92 @@ Stripe signs its webhooks. If `STRIPE_WEBHOOK_SECRET` is wrong or missing, every
 ### External API Rate Limit Too Aggressive
 
 If legitimate integrations are hitting the 429 rate limit, increase `API_RATE_LIMIT_RPM` in the environment. The default is 120 requests per minute. Be aware this is per API key, so multiple keys from the same subscriber each get their own limit.
+
+---
+
+## 20. A2P 10DLC Compliance
+
+### What Is A2P 10DLC?
+
+A2P stands for "Application-to-Person." 10DLC stands for "10-Digit Long Code" — a regular US phone number (e.g., 555-123-4567). When a business sends text messages to customers from a regular phone number using software (as opposed to a human typing on a phone), that's A2P messaging.
+
+US carriers (AT&T, T-Mobile, Verizon) now require all businesses sending A2P messages over 10DLC numbers to register their brand and messaging campaigns. Without registration, messages may be silently filtered, throttled, or blocked entirely. This system handles that registration.
+
+### Where the Code Lives
+
+- **`twilio_provisioning.py`** — All Twilio API calls for A2P: brand registration, campaign creation, status polling, external import.
+- **`voice_bridge.py`** — HTTP routes that the dashboard calls (7 routes under `/voice/a2p/`).
+- **`main.py`** — Stripe checkout route for the A2P registration fee.
+- **`templates/dashboard/tabs/voice.html`** — The "10DLC" sub-tab UI in Voice Config.
+- **`static/js/dashboard/numbers.js`** — All frontend JavaScript for the A2P flows.
+
+### How It's Stored
+
+All A2P state lives in the existing `voice_config` JSONB column on the `subscribers` table, under a key called `a2p`. No new database tables were created. This matches the pattern used by Trust Hub (`voice_config.trust_hub`) and phone numbers (`voice_config.numbers`).
+
+The `a2p` object looks like this when fully registered:
+
+```json
+{
+  "brand_sid": "BN...",
+  "brand_status": "APPROVED",
+  "campaign_sid": "QE...",
+  "campaign_status": "VERIFIED",
+  "messaging_service_sid": "MG...",
+  "a2p_fee_paid": true,
+  "registered_at": "2026-02-24T12:00:00Z"
+}
+```
+
+### Two Paths to Compliance
+
+Users have two options:
+
+**Option 1 — Import Existing (for agencies already registered through GHL)**
+
+Many agencies already have approved A2P brands and campaigns through GoHighLevel (which uses LeadConnector as its Campaign Service Provider). These agencies can paste their existing Brand SID and Campaign SID into the import panel. The system calls `import_external_brand()` and `import_external_campaign()` in `twilio_provisioning.py`, which use Twilio's CNP (Campaign Number Provider) migration to bring the approved registrations into Twilio so the agency can send messages directly through our platform.
+
+**Option 2 — Register New (for agencies without existing registration)**
+
+This is a multi-step wizard:
+
+1. **Brand Registration** — The user fills out a form with their business name, EIN (tax ID), address, phone, email, website, and business type. The backend calls `create_a2p_brand()` which creates a Trust Hub Customer Profile, attaches an EndUser and TrustProduct, then submits the brand for vetting. Twilio's vetting partner (Campaign Registry / TCR) reviews the brand. This typically takes hours but can take up to a few days.
+
+2. **Brand Vetting** — The dashboard polls `GET /voice/a2p/brand-status` to check vetting progress. The UI shows the current status (PENDING, IN_REVIEW, APPROVED, FAILED) and auto-refreshes.
+
+3. **Campaign Registration** — Once the brand is approved, the user fills out a campaign form: use case category (e.g., CUSTOMER_CARE, MARKETING, LOW_VOLUME), two sample messages, opt-in/opt-out/help keyword configuration, and which phone numbers to include. The backend calls `create_a2p_campaign()` which creates a Messaging Service on the user's Twilio sub-account, adds the selected phone numbers to its sender pool, then submits the campaign for carrier review.
+
+4. **Campaign Approval** — Carriers review the campaign (typically hours). The dashboard polls `GET /voice/a2p/campaign-status`. Once approved, the phone numbers are cleared for A2P messaging.
+
+### Payment Gate for Sub-Accounts
+
+A2P registration incurs real Twilio fees: $4 for brand vetting + $15 for campaign review = $19 total. For sub-account users (agencies managed by a parent agency owner), the system requires payment via Stripe before they can submit their registration. The flow:
+
+1. Sub-user clicks "Pay A2P Fee" in the dashboard.
+2. `POST /a2p/checkout` in `main.py` creates a Stripe checkout session for $19.
+3. After payment, Stripe fires a webhook. The handler sets `voice_config.a2p.a2p_fee_paid = true` in the database.
+4. The dashboard redirects back with `?a2p_payment_success=1` and the registration form unlocks.
+
+Agency owners and super admins bypass the payment gate (costs are absorbed by the parent account).
+
+### Twilio API Details
+
+The registration uses several Twilio APIs in sequence:
+
+- **Trust Hub API** (`/v1/CustomerProfiles`) — Creates the identity profile that backs the brand registration.
+- **Brand Registration API** (`/v1/a2p/BrandRegistrations`) — Submits the brand to TCR for vetting.
+- **Messaging Service API** (`/v1/Services`) — Creates a Messaging Service that groups phone numbers for campaign use.
+- **Campaign Registration API** (`/v1/Services/{sid}/Compliance/Usa2p`) — Submits the campaign with use case, samples, and keywords.
+
+The `A2P_USE_CASES` constant in `twilio_provisioning.py` defines valid campaign categories: 2FA, ACCOUNT_NOTIFICATION, CUSTOMER_CARE, DELIVERY_NOTIFICATION, FRAUD_ALERT, HIGHER_EDUCATION, LOW_VOLUME, MARKETING, MIXED, POLLING_VOTING, PUBLIC_SERVICE_ANNOUNCEMENT, SECURITY_ALERT, and SOLE_PROPRIETOR.
+
+### Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `A2P_REGISTRATION_PRICE_ID` | Stripe price ID for the $19 A2P registration fee |
+
+The Twilio credentials used are the same `TWILIO_MASTER_ACCOUNT_SID` / `TWILIO_MASTER_AUTH_TOKEN` already configured for the platform. Brand registration happens at the master account level; Messaging Services are created on each user's sub-account.
 
 ---
 

@@ -14,6 +14,9 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+    <!-- Driver.js — interactive tutorial engine -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
+
     <style>
         /* Fix placeholder text visibility on dark backgrounds */
         .form-control::placeholder,
@@ -24,6 +27,13 @@
         }
         /* Dark theme for all select dropdowns */
         select option { background: #2a2a35; color: #fff; }
+        /* Light theme overrides for placeholders and selects */
+        body.light-theme .form-control::placeholder,
+        body.light-theme textarea::placeholder,
+        body.light-theme input::placeholder {
+            color: #a0aec0 !important;
+        }
+        body.light-theme select option { background: #fff !important; color: #1a1a2e !important; }
         /* Pulsing green border glow for fields that need attention */
         @keyframes pulse-green {
             0%, 100% {
