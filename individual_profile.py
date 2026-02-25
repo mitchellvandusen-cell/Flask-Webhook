@@ -62,6 +62,7 @@ def build_comprehensive_profile(
 
     # Start with intake data
     identity_parts = []
+    age_int = 0
     if name:
         identity_parts.append(name)
     if age:
@@ -70,9 +71,49 @@ def build_comprehensive_profile(
             if 18 <= age_int <= 120:
                 identity_parts.append(f"age {age_int}")
         except (AttributeError, ValueError):
-            pass
+            age_int = 0
 
     identity_line = ", ".join(identity_parts) if identity_parts else ""
+
+    # ─── Age bracket → mandatory product focus note ───
+    # This is hardcoded logic, not a soft prompt hint.
+    # The LLM must read this and respect it when choosing product language.
+    age_bracket_note = ""
+    if 18 <= age_int <= 54:
+        age_bracket_note = (
+            f"AGE BRACKET ({age_int}): WORKING-AGE. "
+            "Relevant products: Term Life, IUL, Whole Life. "
+            "Final expense and burial insurance are NOT appropriate — do not bring them up. "
+            "Frame coverage around income replacement, family protection, mortgage payoff, "
+            "and living benefits. Employer group coverage gaps are fair game to discuss."
+        )
+    elif 55 <= age_int <= 64:
+        age_bracket_note = (
+            f"AGE BRACKET ({age_int}): TRANSITION. "
+            "Relevant products: Final Expense, Whole Life, short-term Term (10-15yr). "
+            "IUL is only viable if they are in excellent health — cash value runway is limited. "
+            "This person may be semi-retired. Do not assume full-time employment or heavy work coverage. "
+            "Frame coverage around protecting a spouse, covering end-of-life costs, "
+            "and not leaving a financial burden on family."
+        )
+    elif 65 <= age_int <= 75:
+        age_bracket_note = (
+            f"AGE BRACKET ({age_int}): SENIOR. "
+            "Relevant products: Final Expense, Whole Life. "
+            "CRITICAL: Term and IUL are NOT appropriate at this age — do not suggest them. "
+            "This person is RETIRED. Never mention work coverage, employer plans, or group policies. "
+            "Frame conversations around protecting a spouse, covering funeral/burial costs, "
+            "leaving something for children or grandchildren, and not burdening family financially."
+        )
+    elif age_int >= 76:
+        age_bracket_note = (
+            f"AGE BRACKET ({age_int}): LATE SENIOR. "
+            "Realistic products: Guaranteed Issue Life, Final Expense (limited carriers accept this age). "
+            "CRITICAL: Term, IUL, and standard whole life are NOT options. "
+            "This person is RETIRED. Never mention work coverage, term, or IUL. "
+            "Be realistic and compassionate. The core driver is leaving something behind "
+            "and not burdening family with funeral/final costs."
+        )
 
     # Format facts as the core of the dossier
     if facts_safe:
@@ -85,10 +126,12 @@ def build_comprehensive_profile(
     if profile_context["health_issues"]:
         health_note = f"\nHealth mentions: {', '.join(profile_context['health_issues'])}. Tread carefully, stay empathetic."
 
+    age_bracket_line = f"\n{age_bracket_note}" if age_bracket_note else ""
+
     final_profile = f"""WHO THIS PERSON IS:
 {identity_line}
 {facts_block}
-{health_note}
+{health_note}{age_bracket_line}
 This is everything confirmed about the lead so far. Use it as quiet intuition. Adapt to who they are. Never re-ask things listed here."""
 
     return final_profile, profile_context

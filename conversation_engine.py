@@ -454,7 +454,7 @@ def analyze_insurance_context(text: str, all_lead_text: str, age: int = 0) -> In
 # MAIN ANALYSIS
 # ===================================
 
-def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "") -> LogicSignal:
+def analyze_logic_flow(messages: List[Dict[str, str]], message: str = "", age: int = 0) -> LogicSignal:
     """
     Analyze recent conversation to produce LogicSignal.
     Uses a small Grok call for accurate intent + objection detection, keyword fallback.
@@ -634,7 +634,7 @@ Context clues:
         buying_signal = detect_buying_signal(recent_lead_text)
 
     # ─── Insurance product context analysis ───
-    ins_ctx = analyze_insurance_context(message or "", all_lead_text)
+    ins_ctx = analyze_insurance_context(message or "", all_lead_text, age=age)
 
     # ─── Depth guard: too many technical questions = book appointment ───
     too_deep = bool(ins_ctx.guidance_note and "DEPTH GUARD" in ins_ctx.guidance_note)
