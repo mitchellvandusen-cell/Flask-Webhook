@@ -10,7 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Enterprise Gunicorn config for WebSockets: 20 threads, 1-hour timeout
-CMD ["sh", "-c", "gunicorn main:app --worker-class gthread --threads 40 --timeout 14400 --bind 0.0.0.0:$PORT"]
+CMD gunicorn main:app --worker-class gthread --threads 40 --timeout 14400 --bind 0.0.0.0:$PORT
+
 
 
 
