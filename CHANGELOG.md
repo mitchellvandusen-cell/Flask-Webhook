@@ -8,7 +8,7 @@
 
 | Date | Milestone |
 |------|-----------|
-| 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements |
+| 2026-02-19 | Initial visible history begins; voice dialer UI, Trust Hub tabs, AMD fixes, AI latency improvements | 
 | 2026-02-19 | AI Minutes Marketplace launched (purchase bundles, auto-deduct on calls) |
 | 2026-02-20 | Complete voice infrastructure migration from Telnyx to white-label Twilio sub-accounts | 
 | 2026-02-20 | Super Admin God Mode with user impersonation added (RBAC) |
@@ -390,5 +390,6 @@
 **[19:42 UTC]** — Show all call controls in banner always (disabled until connected) — Made call control buttons (mute, hold, transfer, hang up) always visible in the call banner but disabled until a call is in the connected state.
 
 **[19:34 UTC]** — Fix Numbers tab showing nothing: null-safety + row[0] KeyError — Fixed a `KeyError` crash and added null-safety checks in the Numbers tab backend route so the tab renders correctly even with incomplete data.
+
 
 
