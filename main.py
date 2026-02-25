@@ -9,7 +9,6 @@ import json
 import redis
 import requests
 import secrets
-import httpx
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
@@ -976,9 +975,10 @@ def stripe_webhook():
                     logger.info(f"✅ Provisioned {target_tier.upper()} {target_role} account for: {email}")
 
                     # 4. REDUNDANT SYNC TO GOOGLE SHEETS (Optional Backup)
-                    # You can keep this block if you still want the backup
                     try:
-                        from main import gc, sheet_url
+                        import extensions as _ext_gs
+                        gc = _ext_gs.gc
+                        sheet_url = _ext_gs.sheet_url
                         if gc and sheet_url:
                             sh = gc.open_by_url(sheet_url)
                             user_sheet = sh.worksheet("Users") # You might want to rename this tab to 'Subscribers' in sheets too later
@@ -1521,41 +1521,6 @@ def agency_dashboard():
                            carrier_list=CARRIER_LIST,
                            selected_carriers=agency_carriers,
                            bot_settings=agency_bot_settings)
-def save_profile():
-    data = request.get_json()
-    if not data:
-        return flask_jsonify({"error": "No data provided"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return flask_jsonify({"error": "Database error"}), 500
-
-    try:
-        cur = conn.cursor()
-        
-        # Update the User table
-        cur.execute("""
-            UPDATE users 
-            SET user_name = %s,
-                phone = %s,
-                bio = %s
-            WHERE email = %s
-        """, (
-            data.get('name'), 
-            data.get('phone'), 
-            data.get('bio'), 
-            current_user.email
-        ))
-        
-        conn.commit()
-        return flask_jsonify({"status": "success", "message": "Profile updated"})
-        
-    except Exception as e:
-        conn.rollback()
-        return flask_jsonify({"error": str(e)}), 500
-    finally:
-        cur.close()
-        return_db_connection(conn)
 
 @app.route("/app")
 def app_entry():

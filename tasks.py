@@ -21,8 +21,6 @@ from contact_validator import validate_and_resolve_contact
 
 logger = logging.getLogger('rq.worker')
 
-import re
-
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 

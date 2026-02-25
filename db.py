@@ -1532,10 +1532,12 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
         
     # 2. Fallback path: Google Sheets
     try:
-        from main import gc, sheet_url
-    except ImportError:
-        logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
-        return None
+        import extensions as _ext_gs
+        gc = _ext_gs.gc
+        sheet_url = _ext_gs.sheet_url
+    except Exception:
+        gc = None
+        sheet_url = None
    
     if not gc or not sheet_url:
         logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
@@ -2256,7 +2258,6 @@ def save_bot_settings(email: str, settings: dict) -> bool:
 
 import secrets
 import hmac as _hmac
-import hashlib
 
 def generate_api_key() -> str:
     """Generate a secure API key with sk_live_ prefix."""
