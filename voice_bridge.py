@@ -927,6 +927,21 @@ def get_voice_tools():
                 "required": []
             }
         },
+        {
+            "type": "function",
+            "name": "end_call",
+            "description": "End (hang up) this phone call. Use this ONLY when: (1) the lead explicitly says goodbye and the conversation is clearly over, (2) the lead asks to be removed from the call list, (3) the lead is abusive or the call has no productive path forward. Say a brief, natural closing line first — then call this tool to hang up.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Brief reason for ending the call, e.g. 'lead said goodbye', 'lead requested removal', 'no productive path'"
+                    }
+                },
+                "required": []
+            }
+        },
     ]
 
 
@@ -1020,6 +1035,14 @@ def execute_voice_tool(tool_name, arguments, subscriber, contact_id=None, first_
             logger.warning("Could not find active call for transfer — setting global flag")
 
         return f"Transfer initiated to the senior advisor. Tell the lead to hold on for just a moment while you connect them. The transfer is happening now."
+
+    elif tool_name == "end_call":
+        reason = args.get("reason", "conversation complete")
+        logger.info(f"📵 end_call tool invoked: reason={reason}")
+        # The actual Twilio hangup is triggered in the bridge's response.done handler
+        # (same pattern as transfer_to_agent) — returning this string lets xAI
+        # generate its closing line before we hang up.
+        return "Acknowledged. Ending the call now."
 
     else:
         logger.warning(f"Unknown voice tool: {tool_name}")
@@ -1755,6 +1778,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             ai_chunks_sent           = 0     # count of 20 ms PCM chunks sent → Twilio
             call_active              = True
             _pending_transfer        = False  # set True when AI requests transfer; cleared on response.done
+            _pending_hangup          = False  # set True when AI calls end_call tool; hangs up on response.done
 
             # ── Twilio -> XAI: mulaw 8kHz → PCM16 16kHz ──
             async def receive_from_twilio():
@@ -1818,7 +1842,7 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
             # ── xAI -> Twilio: PCM16 16kHz → mulaw 8kHz ──
             async def receive_from_xai():
                 """Relay xAI → Twilio. Transcode PCM16 16kHz to mulaw 8kHz."""
-                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer
+                nonlocal last_assistant_item, response_start_timestamp, ai_chunks_sent, call_active, _pending_transfer, _pending_hangup
 
                 def _send_audio_to_twilio(raw_b64: str):
                     """Transcode xAI PCM16 16kHz → mulaw 8kHz and send to Twilio."""
@@ -1950,6 +1974,12 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                 # by listening for response.done before transferring
                                 _pending_transfer = True
 
+                            # If end_call was requested, let the AI say its goodbye
+                            # (response.done), then hang up via Twilio REST
+                            if tool_name == 'end_call':
+                                logger.info(f"📵 end_call queued — waiting for AI goodbye before hangup")
+                                _pending_hangup = True
+
                         # Transcription: user speech -> text
                         elif event_type == 'conversation.item.input_audio_transcription.completed':
                             transcript_text = response.get('transcript', '').strip()
@@ -2022,6 +2052,21 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                                         logger.error(f"🔄 Transfer failed for {call_sid}")
 
                                 _pending_transfer = False
+
+                            # end_call: AI has finished its goodbye — hang up now
+                            if _pending_hangup:
+                                _pending_hangup = False
+                                hangup_sub_sid = (subscriber.get('voice_config') or {}).get('twilio_sub_account_sid', '')
+                                logger.info(f"📵 Executing end_call hangup for {call_sid}")
+                                if hangup_sub_sid and call_sid:
+                                    try:
+                                        _twilio_hangup(call_sid, hangup_sub_sid)
+                                        logger.info(f"📵 Hangup sent — call {call_sid[:16]} ended by AI")
+                                    except Exception as e:
+                                        logger.error(f"📵 Hangup failed: {e}")
+                                if call_sid in _active_calls:
+                                    _active_calls[call_sid]['status'] = 'completed'
+                                call_active = False
 
                             # Takeover (human barge-in) is handled by the instant
                             # cutoff at the top of this loop + REST route redirect.
@@ -2667,10 +2712,12 @@ def hangup_active_call():
         logger.warning(f"Hangup DB persist failed for {call_sid}: {e}")
 
     if success:
-        return jsonify({"status": "hung_up"})
-    # Even if Twilio hangup fails (call may have already ended), still return success
-    # since we've already updated our state
-    return jsonify({"status": "hung_up", "note": "call may have already ended"})
+        return jsonify({"status": "hung_up", "success": True})
+    # Twilio hangup failed — call may have already ended naturally.
+    # Return success:false so the client can log it; we still return 200
+    # so the UI cleans up (the call is gone either way).
+    logger.warning(f"Twilio hangup API returned failure for {call_sid} — call may have already ended")
+    return jsonify({"status": "hung_up", "success": False, "note": "call may have already ended"})
 
 
 # ──────────────────────────────────────────────────────────────
