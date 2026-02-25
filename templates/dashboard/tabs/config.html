@@ -1,62 +1,161 @@
             <div class="tab-pane fade" id="config" role="tabpanel">
-                <div class="glass-panel" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">
-                    <h3 class="mb-4" style="font-weight:700;">Parameters</h3>
+                <div class="glass-panel p-4" style="background: var(--card-glass); border: 1px solid var(--glass-border); border-radius: 20px;">
+
+                    <!-- Header -->
+                    <div class="d-flex align-items-center mb-4">
+                        <div style="width:48px;height:48px;border-radius:12px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:center;margin-right:16px;">
+                            <i class="fa-solid fa-sliders" style="color:var(--accent);font-size:1.2rem;"></i>
+                        </div>
+                        <div>
+                            <h4 style="margin:0;font-weight:700;">Bot Configuration</h4>
+                            <p style="margin:0;color:#888;font-size:0.85rem;">Set up your AI agent's identity, calendar, and CRM connection</p>
+                        </div>
+                    </div>
+
                     <form method="post" id="main-config-form">
                         {{ form.hidden_tag() }}
-                        <div class="row g-4">
-                            <div class="col-md-6 {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
-                                {{ form.location_id.label(class="form-label") }}
-                                {{ form.location_id(class="form-control") }}
-                            </div>
-                            <div class="col-md-6 {% if missing_fields is defined and 'calendar_id' in missing_fields %}field-needs-attention{% endif %}">
-                                <label class="form-label">Calendar</label>
-                                <div class="d-flex gap-2">
-                                    <select id="calendar_select" class="form-control" name="calendar_id" required>
-                                        <option value="">-- Select Calendar --</option>
-                                        {% if form.calendar_id.data %}
-                                        <option value="{{ form.calendar_id.data }}" selected>{{ current_user.calendar_name or form.calendar_id.data }}</option>
-                                        {% endif %}
-                                    </select>
-                                    <button type="button" class="btn btn-outline-primary" onclick="loadCalendars()" style="white-space: nowrap;">
-                                        <i class="fa-solid fa-sync"></i> Load
-                                    </button>
-                                </div>
-                                <input type="hidden" id="calendar_name" name="calendar_name" value="{{ current_user.calendar_name or '' }}">
-                            </div>
-                            <div class="col-md-6">
-                                {{ form.crm_user_id.label(class="form-label") }}
-                                {{ form.crm_user_id(class="form-control") }}
-                            </div>
-                            <div class="col-md-6 {% if missing_fields is defined and 'timezone' in missing_fields %}field-needs-attention{% endif %}">
-                                {{ form.timezone.label(class="form-label") }}
-                                {{ form.timezone(class="form-control") }}
-                            </div>
-                            <div class="col-md-6 {% if missing_fields is defined and 'bot_name' in missing_fields %}field-needs-attention{% endif %}">
-                                {{ form.bot_name.label(class="form-label") }}
-                                {{ form.bot_name(class="form-control") }}
-                            </div>
-                            <div class="col-12 {% if missing_fields is defined and 'initial_message' in missing_fields %}field-needs-attention{% endif %}">
-                                {{ form.initial_message.label(class="form-label") }}
-                                {{ form.initial_message(class="form-control", rows="3") }}
-                            </div>
-                            <div class="col-md-6">
-                                {{ form.personal_website.label(class="form-label") }}
-                                {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
-                                <small class="text-muted">GrokBot will share this when leads ask for your website</small>
-                            </div>
-                            <div class="col-12 text-end mt-4">
-                                <button type="button" class="btn btn-primary px-5" id="save-config-btn" onclick="saveConfig()">Save Configuration</button>
+
+                        <!-- ══ Config: Two-column settings menu ══ -->
+                        <div style="display:flex;gap:16px;min-height:360px;">
+
+                            <!-- Left column: settings categories -->
+                            <div id="configSettingsMenu" style="width:220px;flex-shrink:0;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:8px;">
+                                <button type="button" class="cfg-menu-item active" onclick="switchConfigPanel('identity')" id="cmenu-identity"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);border-radius:8px;color:var(--accent);font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                    <i class="fa-solid fa-robot" style="width:16px;text-align:center;"></i> Bot Identity
+                                </button>
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('calendar')" id="cmenu-calendar"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                    <i class="fa-solid fa-calendar-check" style="width:16px;text-align:center;"></i> Calendar & CRM
+                                </button>
+                                {% if current_user.role == 'agency_owner' %}
+                                <button type="button" class="cfg-menu-item" onclick="switchConfigPanel('agency')" id="cmenu-agency"
+                                    style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                    <i class="fa-solid fa-users-cog" style="width:16px;text-align:center;"></i> Agency
+                                </button>
+                                {% endif %}
                             </div>
 
-                            {% if current_user.role == 'agency_owner' %}
-                                <div class="col-12 text-end mt-4">
-                                    <a href="/agency-dashboard" class="btn btn-outline-accent px-5">
-                                        <i class="fas fa-users-cog me-2"></i>
-                                        Manage Agency ({{ agency_seats_count }} {{ 'seat' if agency_seats_count == 1 else 'seats' }})
-                                    </a>
+                            <!-- Right column: panel content -->
+                            <div style="flex:1;min-width:0;">
+
+                                <!-- ── Bot Identity panel ── -->
+                                <div id="cfgtab-panel-identity">
+                                    <div class="row g-3">
+                                        <div class="col-12 {% if missing_fields is defined and 'bot_name' in missing_fields %}field-needs-attention{% endif %}">
+                                            {{ form.bot_name.label(class="form-label") }}
+                                            {{ form.bot_name(class="form-control", placeholder="e.g. Alex") }}
+                                            <small class="text-muted">The name your AI agent introduces itself as in conversations</small>
+                                        </div>
+                                        <div class="col-12 {% if missing_fields is defined and 'initial_message' in missing_fields %}field-needs-attention{% endif %}">
+                                            {{ form.initial_message.label(class="form-label") }}
+                                            {{ form.initial_message(class="form-control", rows="4") }}
+                                            <small class="text-muted">The first SMS the bot sends when a new lead arrives</small>
+                                        </div>
+                                        <div class="col-12">
+                                            {{ form.personal_website.label(class="form-label") }}
+                                            {{ form.personal_website(class="form-control", placeholder="https://yoursite.com") }}
+                                            <small class="text-muted">GrokBot will share this when leads ask for your website</small>
+                                        </div>
+                                    </div>
                                 </div>
-                            {% endif %}
+
+                                <!-- ── Calendar & CRM panel ── -->
+                                <div id="cfgtab-panel-calendar" style="display:none;">
+                                    <div class="row g-3">
+                                        <div class="col-12 {% if missing_fields is defined and 'location_id' in missing_fields %}field-needs-attention{% endif %}">
+                                            {{ form.location_id.label(class="form-label") }}
+                                            {{ form.location_id(class="form-control") }}
+                                            <small class="text-muted">Your GoHighLevel Location ID — found in GHL Settings → Business Info</small>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">CRM User ID</label>
+                                            {{ form.crm_user_id(class="form-control") }}
+                                            <small class="text-muted">Your GHL User ID for attributing booked appointments</small>
+                                        </div>
+                                        <div class="col-12 {% if missing_fields is defined and 'timezone' in missing_fields %}field-needs-attention{% endif %}">
+                                            {{ form.timezone.label(class="form-label") }}
+                                            {{ form.timezone(class="form-control") }}
+                                            <small class="text-muted">Used for after-hours logic and appointment scheduling</small>
+                                        </div>
+                                        <div class="col-12 {% if missing_fields is defined and 'calendar_id' in missing_fields %}field-needs-attention{% endif %}">
+                                            <label class="form-label">Calendar</label>
+                                            <div class="d-flex gap-2">
+                                                <select id="calendar_select" class="form-control" name="calendar_id" required>
+                                                    <option value="">-- Select Calendar --</option>
+                                                    {% if form.calendar_id.data %}
+                                                    <option value="{{ form.calendar_id.data }}" selected>{{ current_user.calendar_name or form.calendar_id.data }}</option>
+                                                    {% endif %}
+                                                </select>
+                                                <button type="button" class="btn btn-outline-primary" onclick="loadCalendars()" style="white-space:nowrap;">
+                                                    <i class="fa-solid fa-sync"></i> Load
+                                                </button>
+                                            </div>
+                                            <input type="hidden" id="calendar_name" name="calendar_name" value="{{ current_user.calendar_name or '' }}">
+                                            <small class="text-muted">The calendar used for AI-booked appointments</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if current_user.role == 'agency_owner' %}
+                                <!-- ── Agency panel ── -->
+                                <div id="cfgtab-panel-agency" style="display:none;">
+                                    <div class="p-4" style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.12);border-radius:14px;">
+                                        <div class="d-flex align-items-center gap-3 mb-3">
+                                            <div style="width:40px;height:40px;border-radius:10px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                                <i class="fa-solid fa-users-cog" style="color:var(--accent);"></i>
+                                            </div>
+                                            <div>
+                                                <h6 style="margin:0;font-weight:700;color:#fff;">Agency Dashboard</h6>
+                                                <p style="margin:0;color:#888;font-size:0.8rem;">Manage your sub-accounts and team members</p>
+                                            </div>
+                                        </div>
+                                        <p style="color:#aaa;font-size:0.85rem;margin-bottom:16px;">
+                                            You currently have <strong style="color:var(--accent);">{{ agency_seats_count }} {{ 'seat' if agency_seats_count == 1 else 'seats' }}</strong> under your agency plan.
+                                            Visit the agency dashboard to invite sub-users, manage their configurations, and view their activity logs.
+                                        </p>
+                                        <a href="/agency-dashboard" class="btn btn-outline-accent px-4">
+                                            <i class="fa-solid fa-users-cog me-2"></i>
+                                            Open Agency Dashboard
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                            </div><!-- /right column -->
+                        </div><!-- /two-column flex -->
+
+                        <!-- Save button (below the panels, always visible) -->
+                        <div class="text-end mt-4">
+                            <button type="button" class="btn btn-primary px-5" id="save-config-btn" onclick="saveConfig()">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Save Configuration
+                            </button>
                         </div>
+
                     </form>
                 </div>
             </div>
+
+            <script>
+            // ── Bot Config panel switcher ──────────────────────────────────
+            function switchConfigPanel(name) {
+                // Hide all panels
+                document.querySelectorAll('[id^="cfgtab-panel-"]').forEach(p => p.style.display = 'none');
+                // Deactivate all menu items
+                document.querySelectorAll('.cfg-menu-item').forEach(btn => {
+                    btn.style.background = 'transparent';
+                    btn.style.border = '1px solid transparent';
+                    btn.style.color = '#888';
+                });
+                // Show target panel
+                const panel = document.getElementById('cfgtab-panel-' + name);
+                if (panel) panel.style.display = '';
+                // Activate menu item
+                const activeBtn = document.getElementById('cmenu-' + name);
+                if (activeBtn) {
+                    activeBtn.style.background = 'rgba(0,255,136,0.08)';
+                    activeBtn.style.border = '1px solid rgba(0,255,136,0.15)';
+                    activeBtn.style.color = 'var(--accent)';
+                }
+            }
+            </script>

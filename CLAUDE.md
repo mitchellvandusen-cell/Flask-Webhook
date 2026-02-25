@@ -286,6 +286,8 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /voice/stats?period=<today|week|month|all>` — Aggregated call statistics (KPIs, duration buckets, daily/hourly breakdown, top contacts); uses subscriber's timezone
 - `GET /voice/contact-call-counts?ids=<csv>` — Batch local call counts for up to 300 contact IDs
 - `GET /voice/contact/<id>/ghl-call-count` — Merged call count: local dialer DB + GHL conversation calls (covers GHL-native + WAVV + dialer)
+- `GET /voice/call-history` — Paginated call history for current user (limit/offset params, max 200)
+- `POST /voice/transcribe-recording` — On-demand recording transcription: downloads MP3 from Twilio, sends to xAI Whisper, saves transcript to call_history.transcript. Body: `{call_sid, recording_url}`
 
 ### A2P 10DLC (Blueprint, voice_bridge.py)
 - `GET /voice/a2p/status` — Current A2P registration state from voice_config JSONB
@@ -513,6 +515,13 @@ python worker.py demo
 - RQ jobs named `worker-{queue}-{uuid8}` for debugging
 - spaCy model loaded once at module level in `tasks.py`
 - `XAI_API_KEY` used with `OpenAI(api_key=..., base_url="https://api.x.ai/v1")`
+- `update_subscriber_token()` uses `pg_advisory_xact_lock(hashtext(location_id))` before UPDATE to prevent token refresh race conditions across 4 parallel workers
+- `update_crm_config_token(location_id, access_token)` in `db.py` uses JSONB `||` merge to update only `access_token` in `crm_config` without clobbering other fields
+- CRM adapters (HubSpot, Salesforce, Zoho) call `update_crm_config_token()` after token refresh to persist to DB
+- `ghl_message.py` auto-retries with refreshed token on HTTP 401/403; `_token_refreshed` flag prevents infinite retry loops
+- Dashboard tabs (Bot Config, Voice Config, Connect/Integrations) use two-column side-menu layout with `switchConfigPanel()`, `switchVoicePanel()`, `switchConnectPanel()` JS functions
+- `_showDashToast(ok, msg)` global utility injected by `dashboard.html` before all JS modules — used by all save functions for consistent bottom-right toast feedback
+- On-demand recording transcription via `POST /voice/transcribe-recording` — downloads MP3 from Twilio, transcribes via xAI Whisper, saves to `call_history.transcript`
 
 ---
 

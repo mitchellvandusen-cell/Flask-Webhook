@@ -20,6 +20,84 @@
 | 2026-02-22 | CLAUDE.md documentation added; dismissable banners; Discord side panel repositioned |
 | 2026-02-24 | Enterprise OAuth token refresh, proactive token cron, webhook scourer + backfill recovery |
 | 2026-02-24 | A2P 10DLC compliance system: brand/campaign registration + external import from GHL |
+| 2026-02-25 | Enterprise OAuth proactive refresh, import consolidation, website honesty audit, transfer hangup fix, timezone-aware stats |
+
+---
+
+## 2026-02-25 (Session 2)
+
+### OAuth Hardening & CRM Token Persistence
+- **Advisory lock on token refresh**: `update_subscriber_token()` in `db.py` now acquires `pg_advisory_xact_lock(hashtext(location_id))` before updating GHL tokens. Prevents 4 parallel RQ workers from racing on single-use GHL refresh tokens — the token is refreshed once and all workers see the updated value.
+- **CRM adapter token persistence**: HubSpot, Salesforce, and Zoho CRM adapters now call `update_crm_config_token()` (new `db.py` function) after a successful token refresh. Previously refreshed tokens were only updated in-memory and lost on worker restart.
+- **`update_crm_config_token()` function**: New DB function using JSONB `||` merge operator to update only `access_token` in `crm_config` without clobbering other fields.
+- **SMS 401 auto-retry**: `ghl_message.py` now attempts a one-shot token refresh on HTTP 401/403 during SMS send. Uses `_token_refreshed` guard flag to prevent infinite retry loops.
+- **Unused import cleanup**: Removed `import httpx` from `memory.py` and `import random` from `prompt.py` (confirmed unused by grep scan).
+
+### Dashboard UX Overhaul
+- **Shared save toast**: Added `_showDashToast(ok, msg)` global utility to `dashboard.html` (injected before JS modules load). Appears as a bottom-right fixed-position toast with green (success) or red (error) background and slide-in animation.
+- **Save feedback consistency**: All save functions now use `_showDashToast()` for error and success feedback:
+  - `carriers.js`: Replaced `alert()` calls with toast on success and error
+  - `advanced.js`: Replaced `alert()` calls with toast on success and error
+  - `voice.js`: Added toast on success and error alongside existing inline panel feedback
+  - `save_config.js`: Existing save overlay unchanged (it already shows clear "Saving to database..." → checkmark UX)
+- **Bot Config tab redesigned**: `config.html` converted from a flat grid form to a two-column side-menu layout matching the Voice Config tab. Three menu panels: "Bot Identity" (bot_name, initial_message, website), "Calendar & CRM" (location_id, crm_user_id, timezone, calendar), "Agency" (agency owners only — links to agency dashboard with seat count).
+- **Integrations/Connect tab redesigned**: `connect.html` converted to two-column side-menu layout. Four menu panels: "LeadConnector" (GHL OAuth guide + status), "Other CRMs" (Salesforce/HubSpot/Pipedrive/Zoho/Zapier/Insureio setup guides + config form), "API Access" (key generation, webhook URL, quick start), "Outbound Calls" (POST endpoint reference). Webhook URL display moved to always-visible top section.
+- **Light theme extended**: Added missing light-theme CSS overrides to `style.css` for:
+  - `.dtmf-key` (dial keypad buttons)
+  - `#dialerStatsPanel`, `#dialerSettingsPanel` (call statistics and settings overlays)
+  - `.dlr-kpi-card`, `.dlr-kpi-val`, `.dlr-kpi-label` (stats KPI cards)
+  - `.dlr-stat-period` (stats period selector buttons)
+  - `.dlr-daily-bar`, `.dlr-call-badge` (call activity charts)
+  - `#dialerHistoryList`, `#dialerRecordingsList` (call history and recording rows)
+  - `#transcriptModal` (transcript view modal)
+  - `.voice-menu-item`, `.cfg-menu-item`, `.conn-menu-item` (new side-menu buttons)
+  - `#voiceSettingsMenu`, `#configSettingsMenu`, `#connectSettingsMenu` (new side-menu containers)
+
+### Voice Dialer — On-Demand Transcription
+- **"Transcribe Now" button**: Recordings in the Recordings tab and Call History tab now show a gold "Transcribe" button for calls that have a `recording_url` but no transcript yet.
+- **`POST /voice/transcribe-recording` endpoint**: New route in `voice_bridge.py`. Downloads the recording MP3 from Twilio (using master account credentials), sends to xAI Whisper API (`whisper-large-3`), saves structured transcript to `call_history.transcript` via `save_call_transcript()`, returns the transcript JSON.
+- **`transcribeNow()` JS function**: Handles button state (spinner → success/error), calls the endpoint, then swaps the "Transcribe" button to a "View Transcript" button on success and shows a toast notification.
+- **Transcript modal improved**: `showTranscript()` now renders `role: "call_recording"` entries (from on-demand transcription) as a full-width transcript block with microphone icon, alongside the existing lead/AI bubble layout for real-time call transcripts.
+
+### Agency Dashboard
+- **Theme toggle added**: Agency dashboard now has a light/dark theme toggle button in the top-right utility bar. Uses the same `dash_theme` localStorage key as the main dashboard — theme state is shared between both pages.
+- **Voice Dialer link**: Added a "Voice Dialer" link button in the agency dashboard utility bar (top) and bottom navigation section.
+
+### Support Page
+- **Error codes section**: Added new "Error Codes & Log Messages" section with 7 accordion groups: OAuth/Token errors, Webhook processing errors, SMS/Twilio errors, AI/LLM errors, Voice/Dialer errors, Billing/Stripe errors, Database/Server errors. Each error includes cause and fix instructions.
+- **Quick link card**: Added "Error Codes" card to the top quick links grid.
+
+### OWNERS_MANUAL.md
+- **Troubleshooting expanded**: Added sections for recording transcription failures, dashboard save button issues, side-menu navigation debugging.
+- **Error code quick reference table**: Added full table of all log messages with source file, severity, and meaning.
+
+---
+
+## 2026-02-25
+
+### Enterprise OAuth & Code Quality
+- **Proactive OAuth token refresh**: New `/api/cron/refresh-tokens` endpoint automatically refreshes all tokens expiring within 2 hours. Designed for 15-minute cron interval — tokens never expire mid-conversation again.
+- **SQL safety fix**: `update_subscriber_token()` now uses `make_interval(secs => %s)` instead of string interpolation for the interval parameter.
+- **Timezone-aware token comparison**: `get_valid_token()` handles both timezone-aware and naive datetime objects from the DB.
+- **Dead code removal**: Removed unused `count_consecutive_bot_messages()` from tasks.py.
+- **Import consolidation (round 1)**: Moved 40+ inline imports to module level across main.py, voice_bridge.py, and tasks.py. Eliminated `_re`, `_json`, `_dt`, `_td`, `_tz` aliases.
+- **Import consolidation (round 2)**: Moved `send_email_via_api`, `get_webhook_logs`, `get_subscribers_needing_token_refresh`, `get_valid_token`, CRM factory imports, and `build_system_prompt` to module level in main.py. Moved `time`, `math`, `timezone` to module level in db.py. Moved `quote` to module level in twilio_provisioning.py.
+- **Updated .gitignore**: Added `attached_assets/`, `check_accounts.py`, `*.pyc`, `*.log`, `.DS_Store`.
+
+### Website Honesty Audit
+- **comparison.html**: Fixed "Unlimited Minutes" claims to show "5,000 Minutes Included*" with fair-use disclaimer ($0.02/min overage). Updated footnote date to February 2026.
+- **faq.html**: Updated "Does it only work in Lead Connector?" from "Right now, yes" to accurately list all 7 CRM integrations.
+
+### Voice & Dialer Fixes
+- **Transfer hangup fix**: Added `action` URL to `<Dial>` in both `/voice/transfer-twiml` and `/voice/intercept-twiml`. New `/voice/transfer-complete` endpoint returns `<Hangup/>` so parent calls are released when transfer ends.
+- **Hangup for transferred calls**: `/voice/hangup` now detects transferred calls and completes child call legs via Twilio REST API before completing the parent.
+- **Terminal state cleanup**: `transferred` added to terminal status lists in call-status polling and voice status webhook.
+- **Timezone-aware stats**: `/voice/stats` now uses the subscriber's configured timezone instead of UTC for all date calculations.
+- **Gunicorn threads**: Increased from 4 → 40 with `--timeout 0` for WebSocket support.
+- **Hangup race fix**: Server-side success flag for reliable call termination.
+- **Worker timeout fix**: Resolved issue where worker timeouts killed active calls.
+- **Dialer cleanup**: Structural cleanup, double-dial guard, instant hangup, timer cleanup, heavy logging audit.
+- **Listen/intercept fixes**: Fixed listen WebSocket receive compatibility, intercept call SID race condition, intercept double-fire race.
 
 ---
 

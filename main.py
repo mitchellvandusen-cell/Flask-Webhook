@@ -9,12 +9,11 @@ import json
 import redis
 import requests
 import secrets
-import httpx
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response, abort
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
 from flask import jsonify as flask_jsonify
@@ -46,12 +45,10 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 save_discord_webhook_channel, get_discord_webhook_channels,
                 delete_discord_webhook_channel,
                 get_webhook_logs, get_subscribers_needing_token_refresh)
-from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
+from carrier_list import CARRIER_LIST, validate_carrier_keys
 from sync_subscribers import sync_subscribers
-from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
 from send_email_api import send_email_via_api
-from ghl_api import get_valid_token
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -68,7 +65,6 @@ from utils import make_json_serializable, clean_ai_reply
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS, build_system_prompt
 from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
                                   list_available_crms, CRM_REGISTRY, get_crm_adapter)
-from contact_validator import validate_and_resolve_contact
 load_dotenv()
 
 app = Flask(__name__)
@@ -186,6 +182,10 @@ def add_iframe_headers(response):
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
     return response
 
+# === SHARED STATE MODULE ===
+# Import extensions.py so blueprints can share mail/client/gc/sheet_url via it.
+import extensions as _ext
+
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 client = None
@@ -194,6 +194,7 @@ if XAI_API_KEY:
         api_key=XAI_API_KEY,
         base_url="https://api.x.ai/v1"
     )
+    _ext.client = client  # Share xAI client with blueprints
 
 # == STRIPE & DOMAIN ==
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -207,12 +208,17 @@ app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'False').lower() == 'true
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', os.getenv('MAIL_USERNAME'))
-mail = Mail(app)
+# Initialize the shared Mail instance from extensions.py so blueprints that import
+# `from extensions import mail` get a fully initialized Mail object.
+_ext.mail.init_app(app)
+mail = _ext.mail  # Backward-compat alias for legacy routes still in this file
 
 # Google Sheets Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
 
+gc = None
+sheet_url = None
 worksheet = None
 if creds_dict:
     try:
@@ -223,13 +229,15 @@ if creds_dict:
             sh = gc.open_by_url(sheet_url)
             worksheet = sh.sheet1
             logger.info("Google Sheet connected")
+        _ext.gc = gc            # Share Google Sheets client with blueprints (billing.py legacy sync)
+        _ext.sheet_url = sheet_url
     except Exception as e:
         logger.error(f"Google Sheet connection failed: {e}")
 
 # Flask-Login Setup
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "login"
+login_manager.login_view = "auth.login"  # Blueprint-qualified endpoint name
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -265,6 +273,44 @@ class ReviewForm(FlaskForm):
     stars = SelectField("Rating", choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], validators=[DataRequired()])
     submit = SubmitField("Submit Review")
 
+
+# =============================================================================
+# BLUEPRINT REGISTRATIONS
+# All blueprints are registered BEFORE any @app.route decorators so blueprint
+# routes take routing priority. Legacy routes below act as dead-code stubs
+# (kept for backward compatibility) and will be pruned in a future cleanup pass.
+# =============================================================================
+
+from blueprints.auth import auth_bp
+from blueprints.public import public_bp
+from blueprints.webhooks import webhooks_bp
+from blueprints.discord import discord_bp
+from blueprints.cron import cron_bp
+from blueprints.billing import billing_bp
+from blueprints.demo import demo_bp
+from blueprints.admin import admin_bp
+from blueprints.agency import agency_bp
+from blueprints.dashboard import dashboard_bp
+from blueprints.oauth import oauth_bp
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(public_bp)
+app.register_blueprint(webhooks_bp)
+app.register_blueprint(discord_bp)
+app.register_blueprint(cron_bp)
+app.register_blueprint(billing_bp)
+app.register_blueprint(demo_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(agency_bp)
+app.register_blueprint(dashboard_bp)
+app.register_blueprint(oauth_bp)
+
+logger.info("All modular blueprints registered successfully.")
+
+# =============================================================================
+# LEGACY ROUTES — kept for reference; requests are handled by the blueprints
+# above. These will be removed in the next cleanup pass.
+# =============================================================================
 
 @app.route('/api/demo/reset', methods=['POST'])
 def demo_reset():
@@ -789,8 +835,6 @@ def dialer():
 def getting_started():
     return render_template('getting-started.html')
 
-import uuid # Make sure this is imported at top of file
-
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
@@ -860,7 +904,7 @@ def stripe_webhook():
                             vc = row['voice_config'] or {}
                             a2p = vc.get('a2p', {})
                             a2p['a2p_fee_paid'] = True
-                            a2p['fee_paid_at'] = __import__('datetime').datetime.utcnow().isoformat()
+                            a2p['fee_paid_at'] = datetime.utcnow().isoformat()
                             a2p['stripe_session_id'] = session.id
                             a2p['paid_brand_type'] = brand_type
                             a2p['paid_amount_cents'] = int(paid_cents)
@@ -926,9 +970,10 @@ def stripe_webhook():
                     logger.info(f"✅ Provisioned {target_tier.upper()} {target_role} account for: {email}")
 
                     # 4. REDUNDANT SYNC TO GOOGLE SHEETS (Optional Backup)
-                    # You can keep this block if you still want the backup
                     try:
-                        from main import gc, sheet_url
+                        import extensions as _ext_gs
+                        gc = _ext_gs.gc
+                        sheet_url = _ext_gs.sheet_url
                         if gc and sheet_url:
                             sh = gc.open_by_url(sheet_url)
                             user_sheet = sh.worksheet("Users") # You might want to rename this tab to 'Subscribers' in sheets too later
@@ -1471,41 +1516,6 @@ def agency_dashboard():
                            carrier_list=CARRIER_LIST,
                            selected_carriers=agency_carriers,
                            bot_settings=agency_bot_settings)
-def save_profile():
-    data = request.get_json()
-    if not data:
-        return flask_jsonify({"error": "No data provided"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return flask_jsonify({"error": "Database error"}), 500
-
-    try:
-        cur = conn.cursor()
-        
-        # Update the User table
-        cur.execute("""
-            UPDATE users 
-            SET user_name = %s,
-                phone = %s,
-                bio = %s
-            WHERE email = %s
-        """, (
-            data.get('name'), 
-            data.get('phone'), 
-            data.get('bio'), 
-            current_user.email
-        ))
-        
-        conn.commit()
-        return flask_jsonify({"status": "success", "message": "Profile updated"})
-        
-    except Exception as e:
-        conn.rollback()
-        return flask_jsonify({"error": str(e)}), 500
-    finally:
-        cur.close()
-        return_db_connection(conn)
 
 @app.route("/app")
 def app_entry():
@@ -2766,7 +2776,6 @@ def api_admin_send_email():
     if not message:
         return safe_jsonify({"error": "Missing 'message' parameter"}), 400
 
-    from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
     # Build a clean branded email with the custom message
@@ -2853,7 +2862,6 @@ def api_send_install_setup_email(install_id):
     if not email:
         return safe_jsonify({"error": "No email address for this install"}), 400
 
-    from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
     name = target.get("user_name") or "there"
 
@@ -2882,7 +2890,6 @@ def api_send_all_setup_emails():
     if not _is_admin_request():
         return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
-    from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
     incomplete = get_incomplete_installs()
@@ -4277,21 +4284,6 @@ def a2p_checkout():
         logger.error(f"A2P checkout error: {e}")
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
 
-
-@app.route("/a2p/fee-schedule")
-@login_required
-def a2p_fee_schedule():
-    """Return the A2P fee schedule so the frontend can display correct prices."""
-    schedule = {}
-    for key, info in A2P_FEE_SCHEDULE.items():
-        total = info["brand_fee"] + info["campaign_fee"]
-        schedule[key] = {
-            "label": info["label"],
-            "brand_fee": info["brand_fee"] / 100,
-            "campaign_fee": info["campaign_fee"] / 100,
-            "total": total / 100,
-        }
-    return flask_jsonify(schedule)
 
 
 @app.route("/ai-minutes/usage")

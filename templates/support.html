@@ -57,6 +57,12 @@
             </a>
         </div>
         <div class="col-md-3 col-6">
+            <a href="#error-codes" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
+                <i class="fa-solid fa-triangle-exclamation text-accent mb-2" style="font-size: 1.8rem;"></i>
+                <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Error Codes</div>
+            </a>
+        </div>
+        <div class="col-md-3 col-6">
             <a href="#voice-ai" class="card glass-card text-center p-3 text-decoration-none h-100" style="transition: transform 0.2s;">
                 <i class="fa-solid fa-phone text-accent mb-2" style="font-size: 1.8rem;"></i>
                 <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">Voice AI</div>
@@ -1369,6 +1375,190 @@
                 </div>
 
             </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!-- ERROR CODES & LOG MESSAGES -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div id="error-codes" style="margin-bottom: 60px;">
+        <h2 style="font-weight: 800; font-size: 1.8rem; margin-bottom: 8px;">
+            <i class="fa-solid fa-triangle-exclamation me-2" style="color: var(--accent);"></i>Error Codes &amp; Log Messages
+        </h2>
+        <p class="text-secondary mb-4" style="font-size: 1rem;">
+            Reference guide for error messages you may see in your Activity Logs or browser console.
+            Each code is explained with the cause and recommended fix.
+        </p>
+
+        <div class="accordion" id="errorCodesAccordion">
+
+            <!-- OAuth / Token Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-oauth"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-key me-2" style="color: var(--accent);"></i>OAuth &amp; Token Errors
+                    </button>
+                </h2>
+                <div id="err-oauth" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>Auth failure (HTTP 401)</code></td><td>GHL OAuth token expired or revoked</td><td>Go to dashboard → Connect tab → click Reauthorize. The bot auto-retries with a refreshed token once per message.</td></tr>
+                                <tr><td><code>Auth failure (HTTP 403)</code></td><td>Access denied — insufficient scopes or account suspended</td><td>Reauthorize via OAuth, ensuring you grant all requested permissions. Check if your GHL account has marketplace access enabled.</td></tr>
+                                <tr><td><code>Token refresh failed</code></td><td>GHL refresh token expired (tokens expire after 90 days of inactivity)</td><td>Reauthorize via <strong>Sidebar → Connect LeadConnector</strong> or visit <code>/oauth/initiate</code>.</td></tr>
+                                <tr><td><code>No valid token available</code></td><td>OAuth refresh returned empty or the refresh token itself is expired</td><td>Full reauthorization required. Visit <code>/oauth/initiate</code> and complete the OAuth flow.</td></tr>
+                                <tr><td><code>missing token or location_id</code></td><td>SMS send attempted before OAuth was completed</td><td>Complete the OAuth connection for your GHL location. Check Bot Config tab to confirm Location ID is set.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Webhook Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-webhook"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-webhook me-2" style="color: var(--accent);"></i>Webhook Processing Errors
+                    </button>
+                </h2>
+                <div id="err-webhook" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>DUPLICATE webhook ignored</code></td><td>GHL sent the same webhook twice (common with retries)</td><td>No action needed — this is normal deduplication behavior. The message was already processed.</td></tr>
+                                <tr><td><code>Invalid signature</code></td><td>Webhook signature verification failed</td><td>Verify your <code>MARKETPLACE_WEBHOOK_SECRET</code> env var matches what's configured in the GHL marketplace app settings.</td></tr>
+                                <tr><td><code>contact_id unknown or missing</code></td><td>Webhook payload missing the GHL contact ID</td><td>Check your GHL workflow trigger. Ensure "Customer Replied" trigger is used, not a form submission trigger, and that contact data is included.</td></tr>
+                                <tr><td><code>Job queue full</code></td><td>RQ worker queue is saturated (>500 jobs pending)</td><td>Check Redis health. Restart workers with <code>python worker.py production</code>. May indicate a surge of webhooks.</td></tr>
+                                <tr><td><code>Worker timeout</code></td><td>AI processing took too long (&gt;120s)</td><td>Usually a transient xAI API slowdown. The lead's next message will be processed normally. Monitor frequency — if frequent, check <code>XAI_API_KEY</code> rate limits.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SMS / Twilio Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-sms"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-comment-sms me-2" style="color: var(--accent);"></i>SMS / Twilio Errors
+                    </button>
+                </h2>
+                <div id="err-sms" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>MESSAGE BLOCKED BY SAFETY NET</code></td><td>The LLM reply contained system prompt artifacts or reasoning tags (&lt;thinking&gt;)</td><td>This is a protective filter. Check your prompt configuration for syntax errors. The next message attempt will be clean.</td></tr>
+                                <tr><td><code>SKIP DUPLICATE SMS</code></td><td>Identical message was already sent to this contact in the last 5 minutes</td><td>No action needed — this prevents double-sending if a webhook fires twice.</td></tr>
+                                <tr><td><code>SMS failed: rate_limit (HTTP 429)</code></td><td>Twilio or GHL rate limit hit</td><td>The system retries automatically with backoff. If persistent, check if you're using a shared short code vs. a dedicated long code. Upgrade to A2P 10DLC for higher throughput.</td></tr>
+                                <tr><td><code>SMS failed: network</code></td><td>Network timeout reaching GHL/Twilio API</td><td>Transient issue — the system retries 3 times. If persistent, check your server's outbound connectivity.</td></tr>
+                                <tr><td><code>Cannot send SMS: invalid contact_id</code></td><td>Contact ID was "unknown" or empty</td><td>Ensure GHL contact is properly created before the bot fires. Check your GHL workflow trigger to confirm it includes contactId.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI / LLM Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-ai"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-brain me-2" style="color: var(--accent);"></i>AI / LLM Errors
+                    </button>
+                </h2>
+                <div id="err-ai" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>XAI_API_KEY not configured</code></td><td>Missing environment variable</td><td>Set <code>XAI_API_KEY</code> in your <code>.env</code> file. Obtain from <a href="https://x.ai" target="_blank" style="color: var(--accent);">x.ai</a> console.</td></tr>
+                                <tr><td><code>Grok API error: 429</code></td><td>xAI rate limit reached</td><td>Your account has hit the tokens-per-minute limit. Upgrade your xAI plan or stagger message processing. The system retries automatically.</td></tr>
+                                <tr><td><code>LLM returned empty response</code></td><td>xAI returned an empty completion (rare model issue)</td><td>The system sends a fallback message to the lead. If frequent, check xAI status page.</td></tr>
+                                <tr><td><code>Narrative observer failed</code></td><td>Error in the conversation summary pipeline</td><td>Non-critical — the bot continues without an updated narrative. Usually a transient API timeout. Check xAI status.</td></tr>
+                                <tr><td><code>AI minutes balance: 0</code></td><td>Voice AI minute credits exhausted</td><td>Purchase additional AI Minutes from the AI Minutes tab in your dashboard.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice / WebSocket Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-voice"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-phone me-2" style="color: var(--accent);"></i>Voice &amp; Dialer Errors
+                    </button>
+                </h2>
+                <div id="err-voice" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>Voice not activated</code></td><td>Twilio sub-account not provisioned</td><td>Go to Voice tab → Click <strong>Activate Voice Service</strong>. This creates a Twilio sub-account and provisions the dialer.</td></tr>
+                                <tr><td><code>No phone number configured</code></td><td>Voice is activated but no number purchased</td><td>Go to Voice tab → Numbers → Buy a Number. Numbers cost ~$1.15/month from Twilio.</td></tr>
+                                <tr><td><code>WebSocket disconnected</code></td><td>Real-time voice WebSocket dropped during a call</td><td>Transient network issue. The call will end gracefully. Check your server's WebSocket timeout settings if persistent.</td></tr>
+                                <tr><td><code>xAI Realtime API connection failed</code></td><td>xAI Realtime API unreachable</td><td>Check xAI status page. Verify <code>XAI_API_KEY</code> has Realtime API access. Retry in a few minutes.</td></tr>
+                                <tr><td><code>Transcription failed: Download failed</code></td><td>Recording URL inaccessible or Twilio auth failed</td><td>Ensure <code>TWILIO_MASTER_ACCOUNT_SID</code> and <code>TWILIO_MASTER_AUTH_TOKEN</code> are correct. The recording must be at least 60 seconds old.</td></tr>
+                                <tr><td><code>Voicemail detected — hanging up</code></td><td>AI detected voicemail greeting patterns in real-time transcript</td><td>Normal behavior — the dialer automatically retries based on your dial attempt settings. Adjust in Voice tab → Dialer Settings.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stripe / Billing Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-billing"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-credit-card me-2" style="color: var(--accent);"></i>Billing &amp; Stripe Errors
+                    </button>
+                </h2>
+                <div id="err-billing" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>Subscription inactive — paywall shown</code></td><td>Stripe subscription cancelled, past_due, or unpaid</td><td>Go to <a href="/dashboard#billing" style="color:var(--accent);">Billing tab</a> → Update payment method. Or resubscribe at <a href="/checkout" style="color:var(--accent);">/checkout</a>.</td></tr>
+                                <tr><td><code>Stripe webhook signature invalid</code></td><td><code>STRIPE_WEBHOOK_SECRET</code> mismatch</td><td>Verify the webhook secret in your Stripe dashboard matches your <code>STRIPE_WEBHOOK_SECRET</code> env var.</td></tr>
+                                <tr><td><code>customer.subscription.deleted</code></td><td>Stripe subscription was deleted (not just cancelled)</td><td>The dashboard will show a paywall. Subscribe again at <code>/checkout</code>.</td></tr>
+                                <tr><td><code>invoice.payment_failed</code></td><td>Card declined on renewal</td><td>Update your payment method in Stripe billing portal. Stripe will retry payment 3 times over 7 days before cancelling.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Errors -->
+            <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-db"
+                        style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
+                        <i class="fa-solid fa-database me-2" style="color: var(--accent);"></i>Database &amp; Server Errors
+                    </button>
+                </h2>
+                <div id="err-db" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
+                    <div class="accordion-body" style="color: #ccc;">
+                        <table class="table table-dark table-bordered" style="font-size: 0.88rem;">
+                            <thead><tr style="color: var(--accent);"><th>Log Message / Code</th><th>Cause</th><th>Fix</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>DB connection pool exhausted</code></td><td>All 20 DB connections in use — high traffic spike</td><td>The system queues up to 500 waiters (10s timeout). Transient during high traffic. Consider scaling workers or increasing <code>DB_POOL_MAX</code>.</td></tr>
+                                <tr><td><code>DB connection failed</code></td><td>PostgreSQL server unreachable</td><td>Check <code>DATABASE_URL</code> env var. Verify PostgreSQL server is running and accessible from your server's network.</td></tr>
+                                <tr><td><code>Redis connection failed</code></td><td>Redis server unreachable — job queuing unavailable</td><td>Check <code>REDIS_URL</code> env var. Restart Redis: <code>redis-server</code> or <code>systemctl restart redis</code>. The system auto-reconnects.</td></tr>
+                                <tr><td><code>save_message failed</code></td><td>Error saving message to contact_messages table</td><td>Check PostgreSQL logs. Usually a constraint violation or connection issue. The message processing continues even if storage fails.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 

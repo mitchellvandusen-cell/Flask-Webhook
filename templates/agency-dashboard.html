@@ -4,6 +4,17 @@
 {% block content %}
 <div class="container" style="padding-top: 120px; padding-bottom: 80px;">
    
+    <!-- Agency topbar utilities -->
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:16px;">
+        <a href="/dashboard" style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);color:var(--accent,#00ff88);border-radius:8px;padding:6px 14px;font-size:0.82rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+            <i class="fa-solid fa-phone-volume"></i> Voice Dialer
+        </a>
+        <button id="agencyThemeToggle" onclick="agencyToggleTheme()" title="Switch to light mode"
+            style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 12px;font-size:0.95rem;cursor:pointer;transition:all .2s;">
+            <i class="fa-solid fa-sun"></i>
+        </button>
+    </div>
+
     <div class="text-center mb-5">
         <h1 style="font-weight: 900; font-size: 3rem; margin-bottom: 10px;">
             Agency <span class="text-accent">Command Center</span>
@@ -809,12 +820,15 @@
         </div>
     </div>
 
-    <div class="text-center mt-5 d-flex justify-content-center gap-3">
+    <div class="text-center mt-5 d-flex justify-content-center gap-3 flex-wrap">
         <a href="/" class="btn btn-outline-light">
             <i class="fa-solid fa-house me-2"></i>Homepage
         </a>
         <a href="/dashboard" class="btn btn-outline-light">
-            Back to Personal Dashboard
+            <i class="fa-solid fa-gauge me-2"></i>Personal Dashboard
+        </a>
+        <a href="/dashboard" class="btn" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;">
+            <i class="fa-solid fa-phone-volume me-2"></i>Voice Dialer
         </a>
     </div>
     {% endif %}
@@ -1447,5 +1461,28 @@
     }
 
     document.addEventListener('DOMContentLoaded', loadApiStatus);
+
+    // ── Agency Dashboard Theme Toggle ──────────────────────────
+    function agencyApplyTheme(theme, save) {
+        const body = document.body;
+        const btn = document.getElementById('agencyThemeToggle');
+        if (theme === 'light') {
+            body.classList.add('light-theme');
+            if (btn) { btn.innerHTML = '<i class="fa-solid fa-moon"></i>'; btn.title = 'Switch to dark mode'; }
+        } else {
+            body.classList.remove('light-theme');
+            if (btn) { btn.innerHTML = '<i class="fa-solid fa-sun"></i>'; btn.title = 'Switch to light mode'; }
+        }
+        if (save) localStorage.setItem('dash_theme', theme);
+    }
+    function agencyToggleTheme() {
+        const isLight = document.body.classList.contains('light-theme');
+        agencyApplyTheme(isLight ? 'dark' : 'light', true);
+    }
+    // Apply saved theme on load (shared key with main dashboard)
+    (function() {
+        const saved = localStorage.getItem('dash_theme') || 'dark';
+        agencyApplyTheme(saved, false);
+    })();
 </script>
 {% endblock %}

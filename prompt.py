@@ -2,7 +2,6 @@
 
 import logging
 from typing import List, Dict, Optional
-import random
 from insurance_knowledge import POLICY_KNOWLEDGE
 logger = logging.getLogger(__name__)
 

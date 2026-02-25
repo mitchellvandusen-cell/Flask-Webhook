@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 from crm_adapters.base import CRMAdapter
+from db import update_crm_config_token
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,8 @@ class SalesforceAdapter(CRMAdapter):
                 data = resp.json()
                 self.sf_token = data["access_token"]
                 logger.info("Salesforce token refreshed successfully")
+                if self.location_id:
+                    update_crm_config_token(self.location_id, self.sf_token)
                 return True
             logger.error(f"Salesforce token refresh failed: {resp.status_code}")
         except Exception as e:

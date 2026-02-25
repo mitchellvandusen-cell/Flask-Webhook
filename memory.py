@@ -9,7 +9,6 @@ from openai import OpenAI
 from db import get_db_connection, return_db_connection
 from psycopg2.extras import execute_values
 from datetime import datetime
-import httpx
 
 logger = logging.getLogger(__name__)
 

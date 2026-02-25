@@ -21,8 +21,6 @@ from contact_validator import validate_and_resolve_contact
 
 logger = logging.getLogger('rq.worker')
 
-import re
-
 # === API CLIENT ===
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 
@@ -1304,8 +1302,7 @@ def recover_failed_webhooks(max_age_hours: int = 24) -> dict:
                 # Ensure payload is a dict (JSONB comes back as dict from psycopg2)
                 if isinstance(stored_payload, str):
                     try:
-                        import json as _json
-                        stored_payload = _json.loads(stored_payload)
+                        stored_payload = json.loads(stored_payload)
                     except Exception:
                         logger.error(f"SCOURER: Invalid JSON payload for id={payload_id}")
                         mark_failed_webhook_retried(payload_id, success=False,

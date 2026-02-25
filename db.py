@@ -1532,10 +1532,12 @@ def get_subscriber_info_hybrid(location_id: str) -> Optional[Dict[str, Any]]:
         
     # 2. Fallback path: Google Sheets
     try:
-        from main import gc, sheet_url
-    except ImportError:
-        logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
-        return None
+        import extensions as _ext_gs
+        gc = _ext_gs.gc
+        sheet_url = _ext_gs.sheet_url
+    except Exception:
+        gc = None
+        sheet_url = None
    
     if not gc or not sheet_url:
         logger.warning("Sheets recovery unavailable: Credentials or URL missing.")
@@ -1675,6 +1677,10 @@ def update_subscriber_token(
             return False
         try:
             cur = conn.cursor()
+            # Acquire advisory lock scoped to this transaction to prevent multiple
+            # workers from racing on the same location_id's token refresh.
+            # hashtext() maps location_id string → bigint deterministically.
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (location_id,))
             # COALESCE keeps old refresh_token only if GHL didn't return a new one.
             # This is a safety net — GHL almost always returns a new refresh_token.
             if oauth_app_type:
@@ -1724,6 +1730,43 @@ def update_subscriber_token(
             if conn:
                 return_db_connection(conn)
     return False
+
+
+def update_crm_config_token(location_id: str, access_token: str) -> bool:
+    """
+    Persist a refreshed CRM adapter access_token into crm_config JSONB.
+    Used by HubSpot/Salesforce/Zoho adapters after a successful token refresh.
+    Updates only the access_token key — leaves all other crm_config keys intact.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE subscribers
+            SET crm_config = crm_config || jsonb_build_object('access_token', %s::text),
+                updated_at = NOW()
+            WHERE location_id = %s
+        """, (access_token, location_id))
+        conn.commit()
+        updated = cur.rowcount > 0
+        if updated:
+            logger.info(f"CRM config token persisted for {location_id}")
+        else:
+            logger.warning(f"update_crm_config_token: 0 rows updated for {location_id}")
+        return updated
+    except psycopg2.Error as e:
+        logger.error(f"update_crm_config_token failed for {location_id}: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        return_db_connection(conn)
 
 
 def get_subscribers_needing_token_refresh() -> list:
@@ -2122,26 +2165,6 @@ def get_contracted_carriers(email: str) -> list:
         return_db_connection(conn)
 
 
-def get_contracted_carriers_by_location(location_id: str) -> list:
-    """Load carriers by location_id (used in webhook/task context where we don't have email)."""
-    conn = get_db_connection()
-    if not conn:
-        return []
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT contracted_carriers FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
-        row = cur.fetchone()
-        cur.close()
-        if row and row.get('contracted_carriers'):
-            carriers = row['contracted_carriers']
-            return carriers if isinstance(carriers, list) else json.loads(carriers)
-        return []
-    except Exception as e:
-        logger.error(f"get_contracted_carriers_by_location failed: {e}")
-        return []
-    finally:
-        return_db_connection(conn)
-
 
 # ===================================================
 # BOT SETTINGS HELPERS
@@ -2256,7 +2279,6 @@ def save_bot_settings(email: str, settings: dict) -> bool:
 
 import secrets
 import hmac as _hmac
-import hashlib
 
 def generate_api_key() -> str:
     """Generate a secure API key with sk_live_ prefix."""

@@ -74,6 +74,38 @@
     };
     </script>
 
+    <!-- ── Shared dashboard utilities (must come before all modules) ── -->
+    <script>
+    // _showDashToast(ok, msg) — consistent save feedback used by all tab JS modules
+    function _showDashToast(ok, msg, duration) {
+        duration = duration || 3000;
+        var color = ok ? 'rgba(0,200,100,0.95)' : 'rgba(220,50,50,0.95)';
+        var icon  = ok ? 'fa-circle-check' : 'fa-circle-xmark';
+        var el = document.createElement('div');
+        el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;' +
+            'background:' + color + ';color:#fff;padding:11px 20px;border-radius:10px;' +
+            'font-size:0.88rem;font-weight:600;box-shadow:0 4px 24px rgba(0,0,0,0.35);' +
+            'display:flex;align-items:center;gap:9px;pointer-events:none;' +
+            'animation:_toastSlideIn .22s ease;';
+        el.innerHTML = '<i class="fa-solid ' + icon + '"></i><span>' + msg + '</span>';
+        document.body.appendChild(el);
+        setTimeout(function() {
+            el.style.transition = 'opacity .3s';
+            el.style.opacity = '0';
+            setTimeout(function() { el.remove(); }, 320);
+        }, duration);
+    }
+    // Inject keyframe once
+    (function() {
+        if (!document.getElementById('_dashToastStyle')) {
+            var s = document.createElement('style');
+            s.id = '_dashToastStyle';
+            s.textContent = '@keyframes _toastSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+            document.head.appendChild(s);
+        }
+    })();
+    </script>
+
     <!-- ── Dashboard JS modules (load order matters) ── -->
     <script src="{{ url_for('static', filename='js/dashboard/sidebar.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/save_config.js') }}"></script>

@@ -59,16 +59,17 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
             if (data.status === 'success') {
+                _showDashToast(true, 'Carriers saved!');
                 status.style.display = 'inline';
                 setTimeout(() => { status.style.display = 'none'; }, 3000);
             } else {
-                alert('Failed to save carriers: ' + (data.error || 'Unknown error'));
+                _showDashToast(false, 'Failed to save carriers: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(err => {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Carriers';
-            alert('Network error saving carriers.');
+            _showDashToast(false, 'Network error saving carriers.');
         });
     }
 

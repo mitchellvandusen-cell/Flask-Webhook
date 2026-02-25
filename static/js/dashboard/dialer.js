@@ -1594,6 +1594,7 @@
                         (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
                         (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
                         (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        (!hasTx && hasRec && c.call_sid ? '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.14);color:#ffb400;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '') +
                     '</div>';
                 }).join('');
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading history</div>'; }
@@ -1637,14 +1638,17 @@
                     const dur = c.duration ? Math.floor(c.duration/60) + ':' + String(c.duration%60).padStart(2,'0') : '--:--';
                     const dt = c.created_at ? new Date(c.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
                     const hasTx = c.transcript && c.transcript.length > 0;
+                    const sid = dialerEsc(c.call_sid || '');
+                    const recUrl = dialerEsc(c.recording_url);
                     return '<div style="display:flex;align-items:center;gap:6px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.88rem;">' +
                         '<div style="flex:1;min-width:0;">' +
                             '<div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(c.contact_name || c.phone || 'Unknown') + '</div>' +
                             '<div style="font-size:.78rem;color:#555;">' + dt + ' &middot; ' + dur + '</div>' +
                         '</div>' +
-                        '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Play"><i class="fa-solid fa-play me-1"></i>Play</button>' +
-                        '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:var(--accent);border-radius:4px;padding:3px 8px;font-size:.82rem;text-decoration:none;cursor:pointer;white-space:nowrap;" title="Download"><i class="fa-solid fa-download me-1"></i>DL</a>' +
-                        (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        '<button onclick="playRecording(\'' + recUrl + '\')" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Play"><i class="fa-solid fa-play me-1"></i>Play</button>' +
+                        '<a href="' + recUrl + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:var(--accent);border-radius:4px;padding:3px 8px;font-size:.82rem;text-decoration:none;cursor:pointer;white-space:nowrap;" title="Download"><i class="fa-solid fa-download me-1"></i>DL</a>' +
+                        (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="View Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        (!hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.15);color:#ffb400;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Transcribe</button>' : '') +
                     '</div>';
                 }).join('');
             } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:12px;text-align:center;font-size:.88rem;">Error loading recordings</div>'; }
@@ -1838,6 +1842,12 @@
             else {
                 content.innerHTML = transcript.map(t => {
                     const isLead = t.role === 'lead';
+                    const isRec = t.role === 'call_recording';
+                    if (isRec) {
+                        return '<div style="margin-bottom:10px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;font-size:.88rem;color:#ccc;line-height:1.6;">' +
+                            '<div style="font-size:.68rem;color:#888;margin-bottom:6px;"><i class="fa-solid fa-microphone me-1"></i>Recording Transcript</div>' +
+                            dialerEsc(t.text) + '</div>';
+                    }
                     return '<div style="margin-bottom:10px;display:flex;flex-direction:column;align-items:' + (isLead ? 'flex-start' : 'flex-end') + ';">' +
                         '<div style="font-size:.68rem;color:#888;margin-bottom:2px;">' + (isLead ? 'Lead' : 'AI Agent') + '</div>' +
                         '<div class="dlr-msg-bubble ' + (isLead ? 'dlr-msg-lead' : 'dlr-msg-bot') + '">' + dialerEsc(t.text) + '</div></div>';
@@ -1846,6 +1856,42 @@
             modal.style.display = 'flex';
         }
         function closeTranscriptModal() { document.getElementById('transcriptModal').style.display = 'none'; }
+
+        async function transcribeNow(callSid, recordingUrl, btnEl) {
+            if (!callSid || !recordingUrl) return;
+            const origHTML = btnEl.innerHTML;
+            btnEl.disabled = true;
+            btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            try {
+                const r = await _fetchRetry('/voice/transcribe-recording', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({call_sid: callSid, recording_url: recordingUrl})
+                }, {retries: 1, timeout: 60000, label: 'transcribe'});
+                const d = await r.json();
+                if (r.ok && d.transcript && d.transcript.length) {
+                    // Swap button to "View Transcript"
+                    btnEl.innerHTML = '<i class="fa-solid fa-file-lines"></i>';
+                    btnEl.style.background = 'rgba(0,255,136,0.08)';
+                    btnEl.style.border = '1px solid rgba(0,255,136,0.12)';
+                    btnEl.style.color = 'var(--accent)';
+                    btnEl.disabled = false;
+                    btnEl.title = 'View Transcript';
+                    const tx = d.transcript;
+                    btnEl.setAttribute('onclick', '');
+                    btnEl.onclick = () => showTranscript(tx);
+                    _showDashToast(true, 'Transcription complete!');
+                } else {
+                    btnEl.disabled = false;
+                    btnEl.innerHTML = origHTML;
+                    _showDashToast(false, d.error || 'Transcription failed');
+                }
+            } catch(e) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origHTML;
+                _showDashToast(false, 'Network error — transcription failed');
+            }
+        }
 
         // ===== CALL MODE MANAGEMENT =====
         let dialerMode = 'ai';
