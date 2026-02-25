@@ -22,7 +22,8 @@ from flask_login import current_user
 from psycopg2.extras import RealDictCursor
 
 from extensions import YOUR_DOMAIN, safe_jsonify, get_client
-from db import get_db_connection, return_db_connection, get_known_facts, get_narrative
+from db import get_db_connection, return_db_connection
+from memory import get_known_facts, get_narrative
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS, build_system_prompt
 from llm_caller import generate_clean_reply
 from utils import clean_ai_reply
