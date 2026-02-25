@@ -101,6 +101,9 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 - `DISCORD_BOT_TOKEN` — Bot token for reading/posting messages
 - `DISCORD_REDIRECT_URI` — OAuth callback URL
 
+### Cron / Scheduled Jobs
+- `CRON_SECRET` — Shared secret for authenticating cron endpoints (passed as `?key=` query param or `Authorization: Bearer` header)
+
 ### Subscription
 - `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 97)
 
@@ -248,6 +251,9 @@ All tables created in `db.py`'s `init_db()` function:
 
 ### Cron
 - `GET|POST /api/cron/send-reminders` — Send onboarding reminder emails
+- `GET|POST /api/cron/refresh-tokens` — Proactively refresh GHL OAuth tokens expiring within 30 min (schedule every 15 min; auth via `CRON_SECRET`)
+- `GET|POST /api/cron/recover-failed-webhooks` — Find webhook tasks that failed due to token errors in the last N hours, get fresh token, re-queue them (schedule every 15 min; auth via `CRON_SECRET`)
+- `GET|POST /api/cron/backfill-failed-webhooks` — One-shot backfill: recover webhooks that failed before `failed_webhook_payloads` table existed, reconstruct payloads from `webhook_logs`, re-queue (safe to run multiple times; auth via `CRON_SECRET`)
 
 ### Website Bot
 - `POST /website-bot-webhook` — External website chatbot webhook

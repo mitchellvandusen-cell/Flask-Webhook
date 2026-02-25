@@ -18,6 +18,27 @@
 | 2026-02-22 | Dashboard refactored from monolithic 7000-line HTML into 32 component files |
 | 2026-02-22 | Full Discord OAuth integration with persistent auth, team chat panel in sidebar |
 | 2026-02-22 | CLAUDE.md documentation added; dismissable banners; Discord side panel repositioned |
+| 2026-02-24 | Enterprise OAuth token refresh, proactive token cron, webhook scourer + backfill recovery |
+
+---
+
+## 2026-02-24
+
+**[Feature]** — Enterprise-grade OAuth token refresh + proactive cron endpoint — Rewrote the GHL OAuth token refresh logic for 10/10 reliability with retry, diagnostics, and last-resort fallback. Added `POST /api/cron/refresh-tokens` endpoint (auth via `CRON_SECRET`) to proactively refresh tokens expiring within 30 minutes. Schedule every 15 minutes via cron-job.org.
+
+**[Feature]** — Token recovery + audit retry on SMS 401/403 — When an SMS send fails with HTTP 401 or 403, the pipeline now attempts a fresh token recovery and retries the send with the new token before giving up.
+
+**[Feature]** — Webhook scourer: auto-recover token-failed tasks — Added `POST /api/cron/recover-failed-webhooks` endpoint that scans `failed_webhook_payloads` for tasks that failed due to token errors in the last 24 hours, fetches a fresh token, and re-queues them. Schedule every 15 minutes.
+
+**[Feature]** — Backfill historical token failures from webhook_logs — Added `POST /api/cron/backfill-failed-webhooks` endpoint that recovers webhooks that failed before the `failed_webhook_payloads` table existed. Reconstructs payloads from `webhook_logs` entries (location_id, contact_id, message_preview) and re-queues through the full AI pipeline. Safe to run multiple times — entries are marked as retried. Catches both dropped webhooks and `sms_http_fail` entries.
+
+**[Fix]** — Backfill runs as RQ background job to avoid gunicorn worker timeout.
+
+**[Fix]** — Expanded backfill window from 48h to 96h.
+
+**[Fix]** — Re-queue `sms_http_fail` contacts through full pipeline instead of re-calling GHL API directly.
+
+**[Fix]** — Critical: retry DB token writes and verify persistence after OAuth refresh.
 
 ---
 
