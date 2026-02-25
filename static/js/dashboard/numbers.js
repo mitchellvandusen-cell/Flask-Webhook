@@ -606,7 +606,7 @@
                 });
                 var d = await r.json();
                 if (d.checkout_url) {
-                    window.location.href = d.checkout_url;
+                    window.top.location.href = d.checkout_url;
                 } else {
                     if (result) result.innerHTML = '<span style="color:#ef4444;">' + _esc(d.error || 'Failed to create checkout') + '</span>';
                 }

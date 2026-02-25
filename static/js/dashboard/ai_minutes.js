@@ -73,7 +73,7 @@
                 });
                 const data = await res.json();
                 if (data.checkout_url) {
-                    window.location.href = data.checkout_url;
+                    window.top.location.href = data.checkout_url;
                 } else {
                     alert(data.error || 'Failed to create checkout session');
                     btn.disabled = false;

@@ -102,7 +102,7 @@
                 <div class="sb-section-body" id="discordSidebarBody">
                     <!-- Shown when NOT connected -->
                     <div id="discordNotConnected">
-                        <a href="/discord/connect" class="discord-connect-btn" id="discordConnectBtn">
+                        <a href="/discord/connect" class="discord-connect-btn" id="discordConnectBtn" target="_top">
                             <i class="fa-brands fa-discord" style="font-size:1rem;"></i>
                             <span>Connect to Discord</span>
                         </a>
@@ -122,7 +122,7 @@
 
                         <!-- Session-expired banner (hidden by default; shown by JS when needs_reauth) -->
                         <div id="discordReauthBanner" style="display:none;padding:4px 12px 2px;">
-                            <a href="/discord/connect" style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(240,165,0,0.12);border:1px solid rgba(240,165,0,0.3);border-radius:7px;color:#f0a500;font-size:0.73rem;text-decoration:none;font-weight:600;">
+                            <a href="/discord/connect" target="_top" style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(240,165,0,0.12);border:1px solid rgba(240,165,0,0.3);border-radius:7px;color:#f0a500;font-size:0.73rem;text-decoration:none;font-weight:600;">
                                 <i class="fa-solid fa-rotate-right" style="font-size:0.75rem;"></i>
                                 <span>Session expired — Reconnect</span>
                             </a>
@@ -178,15 +178,15 @@
                             </div>
                         </div>
                         {% if needs_oauth is defined and needs_oauth %}
-                        <a href="/oauth/initiate" class="connect-btn-pulse" id="connectBtn" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                        <a href="/oauth/initiate" class="connect-btn-pulse" id="connectBtn" target="_top" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
                             <i class="fa-solid fa-link me-1"></i>Connect CRM
                         </a>
                         {% elif not access_token_display or access_token_display == '' %}
-                        <a href="/oauth/initiate" class="connect-btn-pulse" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
+                        <a href="/oauth/initiate" class="connect-btn-pulse" target="_top" style="display:block;background:linear-gradient(135deg,#00c853,#00a843);color:#000;font-weight:700;padding:8px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.8rem;margin-top:6px;">
                             <i class="fa-solid fa-link me-1"></i>Connect CRM
                         </a>
                         {% else %}
-                        <a href="/oauth/initiate" style="display:block;background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);color:#00b4ff;font-weight:600;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.75rem;margin-top:6px;">
+                        <a href="/oauth/initiate" target="_top" style="display:block;background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);color:#00b4ff;font-weight:600;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:0.75rem;margin-top:6px;">
                             <i class="fa-solid fa-rotate me-1"></i>Reauthorize CRM
                         </a>
                         {% endif %}
