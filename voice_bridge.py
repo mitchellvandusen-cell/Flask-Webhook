@@ -10,13 +10,17 @@
 
 import json
 import os
+import re
 import logging
 import threading
 import time
 import asyncio
 import struct
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import pytz
+import httpx
 import audioop   # mulaw<->PCM transcoding
 import numpy as np
 import soxr                    # High-quality polyphase sinc resampler (anti-aliased)
@@ -498,13 +502,11 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
     voice_personality = voice_personalities.get(selected_voice, voice_personalities["ara"])
 
     # ── Current date/time ──
-    from datetime import datetime as _dt
     try:
-        import pytz
         tz = pytz.timezone(timezone)
-        now_local = _dt.now(tz)
+        now_local = datetime.now(tz)
     except Exception:
-        now_local = _dt.now()
+        now_local = datetime.now()
     date_str = now_local.strftime("%A, %B %d, %Y at %I:%M %p")
 
     # ── Recent conversation flow ──
@@ -2285,7 +2287,6 @@ def test_voice_connection():
     # Test XAI API key
     if XAI_API_KEY:
         try:
-            import httpx
             resp = httpx.post(
                 "https://api.x.ai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {XAI_API_KEY}"},
@@ -3824,7 +3825,6 @@ def register_spam_protection():
         return jsonify({"error": "EIN is required"}), 400
 
     # Step 1: Save business profile to voice_config
-    from datetime import datetime
     trust_hub = vc.get('trust_hub', {})
     trust_hub.update({
         'business_name': business_name,
@@ -4437,7 +4437,6 @@ def send_contact_sms(contact_id):
             return jsonify({"error": "No phone number found for this contact."}), 400
 
         try:
-            import twilio_provisioning
             client = twilio_provisioning.get_sub_account_client(sub_sid)
             tw_msg = client.messages.create(
                 messaging_service_sid=ms_sid,
@@ -4517,8 +4516,6 @@ def ai_suggest_sms(contact_id):
     """
     # Re-use the same OpenAI client that tasks.py uses (XAI base_url)
     from tasks import client as _tasks_client
-    import re as _re
-    import json as _json
 
     if not _tasks_client:
         return jsonify({"error": "AI client not configured (XAI_API_KEY missing)"}), 503
@@ -4555,7 +4552,7 @@ def ai_suggest_sms(contact_id):
     contracted_carriers = subscriber.get('contracted_carriers') or []
     if isinstance(contracted_carriers, str):
         try:
-            contracted_carriers = _json.loads(contracted_carriers)
+            contracted_carriers = json.loads(contracted_carriers)
         except Exception:
             contracted_carriers = []
 
@@ -4625,10 +4622,10 @@ def ai_suggest_sms(contact_id):
         return jsonify({"error": "AI returned empty reply"}), 500
 
     # Same post-processing as tasks.py (strip markdown, normalize punctuation)
-    reply = _re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)
-    reply = _re.sub(r'\*([^*]+)\*', r'\1', reply)
-    reply = _re.sub(r'__([^_]+)__', r'\1', reply)
-    reply = _re.sub(r'_([^_]+)_', r'\1', reply)
+    reply = re.sub(r'\*\*([^*]+)\*\*', r'\1', reply)
+    reply = re.sub(r'\*([^*]+)\*', r'\1', reply)
+    reply = re.sub(r'__([^_]+)__', r'\1', reply)
+    reply = re.sub(r'_([^_]+)_', r'\1', reply)
     reply = reply.replace("—", ",").replace("–", ",").replace("…", "...").strip()
 
     logger.info(f"InsuranceGrokBot draft generated for {contact_id} by {current_user.email} | '{reply[:60]}'")
@@ -4703,8 +4700,6 @@ def get_pipelines():
 @login_required
 def get_dialer_stats():
     """Return aggregated call statistics for the current user's dialer."""
-    from datetime import datetime, timedelta
-    import pytz
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "DB unavailable"}), 503
@@ -4959,7 +4954,6 @@ def get_contact_call_counts():
 @login_required
 def get_contact_call_counts_merged():
     """Batch merged (local DB + GHL) call counts for up to 50 contact IDs."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     ids_param = request.args.get('ids', '')
     if not ids_param:

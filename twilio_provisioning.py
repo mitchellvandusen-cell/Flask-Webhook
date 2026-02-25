@@ -18,6 +18,7 @@ import os
 import json
 import logging
 import time
+from urllib.parse import quote
 
 from twilio.rest import Client as TwilioClient
 from twilio.base.exceptions import TwilioRestException
@@ -417,7 +418,6 @@ def create_outbound_call(sub_account_sid: str, to: str, from_number: str,
 
         # Pass custom params as URL params so they arrive in the TwiML webhook
         if custom_params:
-            from urllib.parse import quote
             url_params = "&".join(f"{k}={quote(str(v))}" for k, v in custom_params.items())
             kwargs["url"] = f"{webhook_base_url}/voice/outbound-twiml?{url_params}"
 

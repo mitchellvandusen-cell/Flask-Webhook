@@ -29,7 +29,7 @@ Gunicorn (4 threads) ──► Flask app (main.py, ~6700 lines)
 
 ```
 Procfile:
-  web:           gunicorn main:app --threads 4
+  web:           gunicorn main:app --threads 40 --timeout 0
   worker-prod-1..4: python worker.py production   (4 parallel RQ workers)
   worker-demo:      python worker.py demo          (1 demo worker)
 ```
@@ -55,7 +55,19 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 | `reply_sanitizer.py` | Sanitize/clean LLM replies before sending | small |
 | `llm_caller.py` | Clean LLM invocation wrapper | small |
 | `twilio_provisioning.py` | Twilio sub-account provisioning, number management, Trust Hub, A2P 10DLC registration | medium |
-| `carrier_list.py` | 70+ insurance carriers list | small |
+| `carrier_list.py` | 63 insurance carriers for UI picker | small |
+| `insurance_companies.py` | 270+ carrier names/aliases for AI detection | small |
+| `insurance_knowledge.py` | Deep product knowledge (term, whole, IUL, FE) for AI context | medium |
+| `underwriting.py` | Live carrier underwriting rules from Google Sheets | medium |
+| `conversation_engine.py` | Conversation stage analysis, objection classification | medium |
+| `sales_director.py` | Strategic directive generator for AI pipeline | medium |
+| `age.py` | DOB-to-age calculator for contact profiles | small |
+| `ghl_api.py` | GHL OAuth token management + API helpers | small |
+| `ghl_calendar.py` | GHL calendar booking operations | medium |
+| `ghl_message.py` | GHL SMS delivery | small |
+| `webhook_delivery.py` | Outbound webhook delivery with HMAC signing + retries | small |
+| `send_email_api.py` | Mailgun API email sender | small |
+| `utils.py` | JSON serialization helpers + AI reply cleaning | small |
 | `sync_subscribers.py` | Syncs subscriber DB from external source at startup | small |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
@@ -105,6 +117,9 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 
 ### Subscription
 - `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 97)
+
+### Cron / Background
+- `CRON_SECRET` — Shared secret for authenticating cron endpoints (`/api/cron/send-reminders`, `/api/cron/refresh-tokens`)
 
 ---
 
@@ -251,6 +266,7 @@ All tables created in `db.py`'s `init_db()` function:
 
 ### Cron
 - `GET|POST /api/cron/send-reminders` — Send onboarding reminder emails
+- `GET|POST /api/cron/refresh-tokens` — Proactive OAuth token refresh (refreshes tokens expiring within 2 hours; designed for 15-minute cron interval)
 
 ### Website Bot
 - `POST /website-bot-webhook` — External website chatbot webhook
@@ -260,7 +276,8 @@ All tables created in `db.py`'s `init_db()` function:
 
 ### Voice (Blueprint, voice_bridge.py)
 - Voice WebSocket routes for Twilio ↔ xAI Realtime API bridging
-- `GET /voice/stats?period=<today|week|month|all>` — Aggregated call statistics (KPIs, duration buckets, daily/hourly breakdown, top contacts)
+- `POST /voice/transfer-complete` — Twilio action callback when transfer `<Dial>` ends; returns `<Hangup/>` to release parent call
+- `GET /voice/stats?period=<today|week|month|all>` — Aggregated call statistics (KPIs, duration buckets, daily/hourly breakdown, top contacts); uses subscriber's timezone
 - `GET /voice/contact-call-counts?ids=<csv>` — Batch local call counts for up to 300 contact IDs
 - `GET /voice/contact/<id>/ghl-call-count` — Merged call count: local dialer DB + GHL conversation calls (covers GHL-native + WAVV + dialer)
 
@@ -460,7 +477,7 @@ cp .env.example .env
 # Fill in required values
 
 # Start web server
-gunicorn main:app --threads 4
+gunicorn main:app --threads 40 --timeout 0
 
 # Start workers (in separate terminals)
 python worker.py production
@@ -495,7 +512,7 @@ python worker.py demo
 
 ## Carrier List
 
-`carrier_list.py` contains 70+ insurance carriers as `{"key": "...", "name": "..."}` dicts. The bot only references carriers the agent has selected in their dashboard. Used for both the chip picker UI and the AI system prompt context.
+`carrier_list.py` contains 63 insurance carriers as `{"key": "...", "name": "..."}` dicts for the dashboard chip picker UI. `insurance_companies.py` has 270+ carrier names including aliases for AI-powered carrier detection in conversations. The bot only references carriers the agent has selected.
 
 ---
 
