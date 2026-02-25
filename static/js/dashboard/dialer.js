@@ -1082,6 +1082,10 @@
         async function _startListenStream() {
             if (!dialerCallSid) { _dialerListening = false; _resetListenBtn(); return; }
 
+            // Capture call SID immediately — BEFORE any awaits — so the poll timer
+            // can't clear dialerCallSid underneath us during AudioContext.resume()
+            const listenCallSid = dialerCallSid;
+
             // Clean up any previous connection
             if (_listenWs) { try { _listenWs.close(); } catch(e) {} _listenWs = null; }
             if (_listenAudioCtx) { try { _listenAudioCtx.close(); } catch(e) {} _listenAudioCtx = null; }
@@ -1101,9 +1105,6 @@
                 return;
             }
             _listenNextTime = 0;
-
-            // Capture the call SID now — prevents race if dialerCallSid clears
-            const listenCallSid = dialerCallSid;
 
             try {
                 const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
