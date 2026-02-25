@@ -2,6 +2,7 @@
 # The decider: reads memory, profile, narrative → tells the texting agent the current situation
 # Updated Feb 2026: Message Context Awareness + Objection Handling Framework
 
+import re
 import logging
 from typing import Dict, Any, List
 
@@ -38,6 +39,14 @@ def generate_strategic_directive(
     """
     logger.info(f"Director | {contact_id} | msg='{message[:60]}'")
 
+    # ─── 0. PARSE AGE TO INT (used throughout the directive) ───
+    age_int = 0
+    if age and str(age) != "unknown":
+        try:
+            age_int = int(re.search(r'\d+', str(age)).group())
+        except (AttributeError, ValueError):
+            age_int = 0
+
     # ─── 1. INTELLIGENCE GATHERING (Single DB Fetch) ───
     all_msgs: List[Dict] = get_recent_messages(contact_id, limit=None)
     recent_exchanges = all_msgs[-14:] if all_msgs else []
@@ -48,7 +57,7 @@ def generate_strategic_directive(
     known_facts = get_known_facts(contact_id)
 
     # ─── 3. ANALYZE LOGIC FLOW (now includes message context + objection detection) ───
-    logic: LogicSignal = analyze_logic_flow(recent_exchanges, message=message)
+    logic: LogicSignal = analyze_logic_flow(recent_exchanges, message=message, age=age_int)
 
     logger.info(
         f"Director signals | {contact_id} | "
@@ -106,6 +115,12 @@ def generate_strategic_directive(
     # ─── 7. GENERATE TACTICAL DIRECTIVE ───
     tactical = _build_tactical_guidance(logic, stage_value, first_name, full_lower, bot_settings or {})
 
+    # ─── 7b. INJECT AGE-BASED PRODUCT DIRECTIVE ───
+    # Hardcoded — not a soft hint. This overrides any generic product assumptions.
+    age_directive = _build_age_directive(age_int)
+    if age_directive:
+        tactical = tactical + "\n" + age_directive
+
     # ─── 8. FINAL OUTPUT ───
     return {
         "profile_str": profile_str.strip(),
@@ -117,6 +132,67 @@ def generate_strategic_directive(
         "story_narrative": narrative.strip(),
         "recent_exchanges": recent_exchanges,
     }
+
+
+# ═══════════════════════════════════════════════════
+# AGE-BASED PRODUCT DIRECTIVE
+# ═══════════════════════════════════════════════════
+
+def _build_age_directive(age_int: int) -> str:
+    """
+    Returns a MANDATORY product focus directive based on age.
+    This is hardcoded logic — not a suggestion. The LLM must follow it.
+    Appended to every tactical narrative when age is known.
+    """
+    if age_int <= 0:
+        return ""
+
+    if age_int <= 54:
+        return (
+            "\n=== AGE-BASED PRODUCT RULE (MANDATORY) ===\n"
+            f"This lead is {age_int} years old — WORKING-AGE bracket.\n"
+            "Products to focus on: Term Life, IUL, Whole Life.\n"
+            "NEVER bring up final expense, burial insurance, or end-of-life coverage. "
+            "That framing is tone-deaf at this age and will kill the conversation.\n"
+            "Frame everything around: income replacement, protecting a spouse/kids, "
+            "mortgage payoff, living benefits (critical/chronic illness riders), "
+            "and the cost of waiting (rates increase with every birthday).\n"
+            "Employer coverage gaps are fair game — this person is likely still working."
+        )
+    elif age_int <= 64:
+        return (
+            "\n=== AGE-BASED PRODUCT RULE (MANDATORY) ===\n"
+            f"This lead is {age_int} years old — TRANSITION bracket (55-64).\n"
+            "Products to focus on: Final Expense, Whole Life, short-term Term (10-15yr).\n"
+            "IUL is only appropriate if they mention being in excellent health — "
+            "the cash value runway is too short otherwise.\n"
+            "This person may be semi-retired. Do NOT assume full-time employment. "
+            "Do not lead with employer/group coverage — they may no longer have it.\n"
+            "Frame coverage around: protecting a spouse, covering end-of-life costs, "
+            "leaving something for family, and not being a financial burden."
+        )
+    elif age_int <= 75:
+        return (
+            "\n=== AGE-BASED PRODUCT RULE (MANDATORY) ===\n"
+            f"This lead is {age_int} years old — SENIOR bracket (65-75).\n"
+            "Products to focus on: Final Expense, Whole Life.\n"
+            "NEVER suggest term insurance at this age — premiums are prohibitive and "
+            "most carriers have age cutoffs. Do not mention IUL — the math does not work.\n"
+            "CRITICAL: This person is RETIRED. Never mention work policies, employer plans, "
+            "group coverage, or anything job-related. That is irrelevant to their life.\n"
+            "Frame everything around: protecting a spouse, covering funeral/burial costs, "
+            "leaving something for children/grandchildren, and not burdening family financially."
+        )
+    else:
+        return (
+            "\n=== AGE-BASED PRODUCT RULE (MANDATORY) ===\n"
+            f"This lead is {age_int} years old — LATE SENIOR bracket (76+).\n"
+            "Realistic products: Guaranteed Issue Life, Final Expense (select carriers only).\n"
+            "NEVER suggest term, IUL, or standard whole life — these are not options at this age.\n"
+            "CRITICAL: This person is RETIRED. Never mention work, employer, or group coverage.\n"
+            "Be realistic and compassionate. The core emotional driver is leaving something "
+            "behind and not burdening family with funeral or final expenses."
+        )
 
 
 # ═══════════════════════════════════════════════════
