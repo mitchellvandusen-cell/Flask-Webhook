@@ -838,8 +838,6 @@ def dialer():
 def getting_started():
     return render_template('getting-started.html')
 
-import uuid # Make sure this is imported at top of file
-
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data

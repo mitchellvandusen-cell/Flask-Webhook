@@ -100,49 +100,6 @@ def search_contact_by_name(location_id: str, first_name: str) -> Optional[str]:
         return None
 
 
-def search_contact_by_address(location_id: str, address: str) -> Optional[str]:
-    """
-    Search for a contact by address in a specific location.
-    Returns contact_id if found (and only one match).
-    """
-    if not location_id or not address:
-        return None
-
-    access_token = get_location_access_token(location_id)
-    if not access_token:
-        return None
-
-    try:
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Version": "2021-07-28"
-        }
-
-        # Extract just city/state or zip for search
-        address_clean = address.strip()
-
-        response = requests.get(
-            f"{GHL_API_BASE}/contacts/",
-            headers=headers,
-            params={"locationId": location_id, "query": address_clean},
-            timeout=10
-        )
-
-        if response.status_code != 200:
-            return None
-
-        data = response.json()
-        contacts = data.get("contacts", [])
-
-        if len(contacts) == 1:
-            contact_id = contacts[0].get("id")
-            logger.info(f"✅ Found contact by address: {address} → {contact_id}")
-            return contact_id
-
-    except Exception as e:
-        logger.error(f"Error searching contact by address: {e}")
-        return None
-
 
 def search_contact_by_phone(location_id: str, phone: str, expected_first_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
