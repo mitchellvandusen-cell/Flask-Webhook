@@ -391,3 +391,4 @@
 
 **[19:34 UTC]** — Fix Numbers tab showing nothing: null-safety + row[0] KeyError — Fixed a `KeyError` crash and added null-safety checks in the Numbers tab backend route so the tab renders correctly even with incomplete data.
 
+
