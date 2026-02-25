@@ -5,6 +5,7 @@
 # GrokBot processes the message and POSTs the reply to the subscriber's
 # configured outbound_webhook_url.
 
+import os
 import time
 import logging
 import secrets
@@ -19,7 +20,7 @@ api_bp = Blueprint('api_v1', __name__, url_prefix='/api/v1')
 logger = logging.getLogger("api_v1")
 
 # Rate limit: requests per minute per API key
-RATE_LIMIT_RPM = int(__import__('os').getenv("API_RATE_LIMIT_RPM", "120"))
+RATE_LIMIT_RPM = int(os.getenv("API_RATE_LIMIT_RPM", "120"))
 
 
 # ═══════════════════════════════════════════════════════════════

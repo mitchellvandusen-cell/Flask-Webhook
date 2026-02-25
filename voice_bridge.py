@@ -230,19 +230,6 @@ for _i in range(256):
     _MULAW_DECODE.append(-_sample if _sign else _sample)
 
 
-def _mulaw_to_wav(mulaw_data, sample_rate=8000):
-    """Convert mu-law audio bytes to a PCM16 WAV file (universal browser support)."""
-    pcm_samples = [_MULAW_DECODE[b] for b in mulaw_data]
-    pcm_data = struct.pack(f'<{len(pcm_samples)}h', *pcm_samples)
-    data_size = len(pcm_data)
-    header = struct.pack('<4sI4s4sIHHIIHH4sI',
-        b'RIFF', 36 + data_size, b'WAVE',
-        b'fmt ', 16, 1, 1, sample_rate,
-        sample_rate * 2, 2, 16,
-        b'data', data_size
-    )
-    return header + pcm_data
-
 
 def _pcm16_to_wav(pcm_data, sample_rate=24000):
     """Wrap raw PCM16 bytes in a WAV container for browser playback."""

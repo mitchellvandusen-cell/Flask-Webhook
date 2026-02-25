@@ -13,7 +13,7 @@ from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response, abort
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
 from flask import jsonify as flask_jsonify
@@ -45,12 +45,10 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 save_discord_webhook_channel, get_discord_webhook_channels,
                 delete_discord_webhook_channel,
                 get_webhook_logs, get_subscribers_needing_token_refresh)
-from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
+from carrier_list import CARRIER_LIST, validate_carrier_keys
 from sync_subscribers import sync_subscribers
-from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
 from send_email_api import send_email_via_api
-from ghl_api import get_valid_token
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -67,7 +65,6 @@ from utils import make_json_serializable, clean_ai_reply
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS, build_system_prompt
 from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
                                   list_available_crms, CRM_REGISTRY, get_crm_adapter)
-from contact_validator import validate_and_resolve_contact
 load_dotenv()
 
 app = Flask(__name__)
@@ -907,7 +904,7 @@ def stripe_webhook():
                             vc = row['voice_config'] or {}
                             a2p = vc.get('a2p', {})
                             a2p['a2p_fee_paid'] = True
-                            a2p['fee_paid_at'] = __import__('datetime').datetime.utcnow().isoformat()
+                            a2p['fee_paid_at'] = datetime.utcnow().isoformat()
                             a2p['stripe_session_id'] = session.id
                             a2p['paid_brand_type'] = brand_type
                             a2p['paid_amount_cents'] = int(paid_cents)
@@ -2779,7 +2776,6 @@ def api_admin_send_email():
     if not message:
         return safe_jsonify({"error": "Missing 'message' parameter"}), 400
 
-    from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
     # Build a clean branded email with the custom message
@@ -2866,7 +2862,6 @@ def api_send_install_setup_email(install_id):
     if not email:
         return safe_jsonify({"error": "No email address for this install"}), 400
 
-    from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
     name = target.get("user_name") or "there"
 
@@ -2895,7 +2890,6 @@ def api_send_all_setup_emails():
     if not _is_admin_request():
         return safe_jsonify({"error": "Admin access required. Use ?key=YOUR_CRON_SECRET"}), 403
 
-    from send_email_api import send_email_via_api
     domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
     incomplete = get_incomplete_installs()
@@ -4290,21 +4284,6 @@ def a2p_checkout():
         logger.error(f"A2P checkout error: {e}")
         return flask_jsonify({"error": "Unable to create checkout session."}), 500
 
-
-@app.route("/a2p/fee-schedule")
-@login_required
-def a2p_fee_schedule():
-    """Return the A2P fee schedule so the frontend can display correct prices."""
-    schedule = {}
-    for key, info in A2P_FEE_SCHEDULE.items():
-        total = info["brand_fee"] + info["campaign_fee"]
-        schedule[key] = {
-            "label": info["label"],
-            "brand_fee": info["brand_fee"] / 100,
-            "campaign_fee": info["campaign_fee"] / 100,
-            "total": total / 100,
-        }
-    return flask_jsonify(schedule)
 
 
 @app.route("/ai-minutes/usage")

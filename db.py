@@ -2165,26 +2165,6 @@ def get_contracted_carriers(email: str) -> list:
         return_db_connection(conn)
 
 
-def get_contracted_carriers_by_location(location_id: str) -> list:
-    """Load carriers by location_id (used in webhook/task context where we don't have email)."""
-    conn = get_db_connection()
-    if not conn:
-        return []
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT contracted_carriers FROM subscribers WHERE location_id = %s LIMIT 1", (location_id,))
-        row = cur.fetchone()
-        cur.close()
-        if row and row.get('contracted_carriers'):
-            carriers = row['contracted_carriers']
-            return carriers if isinstance(carriers, list) else json.loads(carriers)
-        return []
-    except Exception as e:
-        logger.error(f"get_contracted_carriers_by_location failed: {e}")
-        return []
-    finally:
-        return_db_connection(conn)
-
 
 # ===================================================
 # BOT SETTINGS HELPERS
