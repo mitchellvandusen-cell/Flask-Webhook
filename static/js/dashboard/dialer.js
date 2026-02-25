@@ -955,7 +955,7 @@
                             _dialerQueueTimeout(dialerAdvance, 1200);
                         }
                     }
-                } catch(e) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } }
+                } catch(e) { console.error('[Dialer] Poll fetch error (errorCount=' + (errorCount+1) + '):', e.message || e); if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } }
             }, 1500);
         }
 
@@ -1498,6 +1498,9 @@
                     else dot.style.background = '#ef4444';
                 } catch(e) {}
             })();
+        }
+        function dialerStopPing() {
+            if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
         }
 
         // ── Call History / Recordings scope (contact-specific vs all) ──
@@ -2487,14 +2490,14 @@
                 const d = await r.json();
                 if (r.ok) loadNumbersTab();
                 else alert(d.error || 'Failed to update CNAM');
-            } catch(e) { alert('Network error'); }
+            } catch(e) { console.error('[Numbers] toggleCNAM network error:', e); alert('Network error'); }
         }
 
         async function setPrimaryNumber(phone) {
             try {
                 const r = await fetch('/voice/numbers/set-primary', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone }) });
                 if (r.ok) { loadNumbersTab(); alert('Primary number set to ' + phone); }
-            } catch(e) { alert('Network error'); }
+            } catch(e) { console.error('[Numbers] setPrimaryNumber network error:', e); alert('Network error'); }
         }
 
         function promptNickname(phone) {
@@ -2503,7 +2506,7 @@
             if (name === null) return;
             fetch('/voice/numbers/nickname', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone: phone, nickname: name }) })
                 .then(r => { if (r.ok) loadNumbersTab(); })
-                .catch(() => alert('Network error'));
+                .catch(e => { console.error('[Numbers] promptNickname network error:', e); alert('Network error'); });
         }
 
         // ── Call Count Badge ────────────────────────────────────────────────────

@@ -227,6 +227,8 @@
         document.querySelector('[data-bs-target="#voicedialer"]')?.addEventListener('shown.bs.tab', initDialerTab);
         // Also init on page load since Dialer is the default active tab
         document.addEventListener('DOMContentLoaded', initDialerTab);
+        // Clean up ping interval on page unload to avoid timer leaks
+        window.addEventListener('beforeunload', () => { if (typeof dialerStopPing === 'function') dialerStopPing(); });
 
         // Auto-load Numbers/Trust Hub when Voice tab is shown
         document.querySelector('[data-bs-target="#voice"]')?.addEventListener('shown.bs.tab', function() {
