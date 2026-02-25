@@ -6,8 +6,10 @@ import threading
 import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
+import time
+import math
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
 from psycopg2 import pool
@@ -228,14 +230,13 @@ def dismiss_persistent_alert(alert_id: int, email: str):
 
 def get_db_connection_with_retry(max_attempts: int = 3) -> Optional:
     """Get a DB connection with retry. For critical paths like OAuth."""
-    import time as _time
     for attempt in range(max_attempts):
         conn = get_db_connection()
         if conn:
             return conn
         logger.warning(f"DB connection attempt {attempt+1}/{max_attempts} failed")
         if attempt < max_attempts - 1:
-            _time.sleep(2 ** attempt)  # 1s, 2s backoff
+            time.sleep(2 ** attempt)  # 1s, 2s backoff
     logger.error(f"DB connection failed after {max_attempts} attempts")
     return None
 
@@ -1475,13 +1476,12 @@ def get_users_needing_reminders() -> list:
         results = []
         for row in list(individual_rows) + list(agency_rows):
             r = dict(row)
-            from datetime import datetime as _dt, timezone as _tz
             ref_time = r.get("ref_time")
             if not ref_time:
                 continue
             if hasattr(ref_time, 'tzinfo') and ref_time.tzinfo is None:
-                ref_time = ref_time.replace(tzinfo=_tz.utc)
-            hours_since = (_dt.now(_tz.utc) - ref_time).total_seconds() / 3600
+                ref_time = ref_time.replace(tzinfo=timezone.utc)
+            hours_since = (datetime.now(timezone.utc) - ref_time).total_seconds() / 3600
 
             if hours_since >= 72 and not r.get("reminder_72h_sent"):
                 r["reminder_type"] = "72h"
@@ -2174,7 +2174,6 @@ def deduct_ai_minutes(email: str, duration_seconds: int, call_sid: str = None,
                       phone: str = None, direction: str = 'outbound') -> dict:
     """Deduct AI minutes after a call. Returns deduction info."""
     # Round up to nearest minute
-    import math
     minutes_used = max(1, math.ceil(duration_seconds / 60))
 
     conn = get_db_connection()

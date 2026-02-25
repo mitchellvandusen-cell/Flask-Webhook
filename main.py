@@ -44,11 +44,14 @@ from db import (get_subscriber_info_hybrid, get_db_connection, return_db_connect
                 save_discord_connection, get_discord_connection, delete_discord_connection,
                 save_discord_servers, get_discord_servers,
                 save_discord_webhook_channel, get_discord_webhook_channels,
-                delete_discord_webhook_channel)
+                delete_discord_webhook_channel,
+                get_webhook_logs, get_subscribers_needing_token_refresh)
 from carrier_list import CARRIER_LIST, CARRIER_MAP, get_carrier_names, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from reply_sanitizer import sanitize_reply
 from llm_caller import generate_clean_reply
+from send_email_api import send_email_via_api
+from ghl_api import get_valid_token
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -62,7 +65,9 @@ from tasks import process_webhook_task
 from memory import get_known_facts, get_narrative, get_recent_messages 
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
-from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS
+from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS, build_system_prompt
+from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
+                                  list_available_crms, CRM_REGISTRY, get_crm_adapter)
 from contact_validator import validate_and_resolve_contact
 load_dotenv()
 
@@ -71,9 +76,8 @@ app = Flask(__name__)
 # --- PII Redaction Filter for Production Logs ---
 class PIIRedactionFilter(logging.Filter):
     """Redacts phone numbers and email addresses from log messages."""
-    import re as _re
-    _phone_re = _re.compile(r'\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
-    _email_re = _re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+    _phone_re = re.compile(r'\b(\+?1?[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
+    _email_re = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
 
     def filter(self, record):
         if isinstance(record.msg, str):
@@ -585,7 +589,7 @@ def app_installed_webhook():
         # If we have an email, send a welcome/setup email immediately
         if user_email:
             try:
-                from send_email_api import send_email_via_api
+
                 domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
                 display_name = user_name or "there"
 
@@ -1754,7 +1758,7 @@ def dashboard():
     # --- 8. BOT SETTINGS ---
     bot_settings = get_bot_settings(current_user.email)
 
-    from crm_adapters.factory import CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES
+
 
     # --- 9. VOICE CONFIG ---
     voice_config = current_user.voice_config or {}
@@ -2141,7 +2145,7 @@ def run_demo_janitor():
 @app.route("/integrations")
 def integrations_page():
     """Public-facing integrations page showing supported CRM platforms."""
-    from crm_adapters.factory import list_available_crms, CRM_DISPLAY_NAMES
+
     crms = list_available_crms()
     return render_template('integrations.html', crms=crms, crm_names=CRM_DISPLAY_NAMES)
 
@@ -2240,7 +2244,7 @@ def save_integration_config():
     crm_config = data.get("crm_config", {})
 
     # Validate crm_type
-    from crm_adapters.factory import CRM_REGISTRY
+
     if crm_type not in CRM_REGISTRY:
         return safe_jsonify({"error": f"Unsupported CRM type: {crm_type}"}), 400
 
@@ -2297,7 +2301,7 @@ def test_integration():
     }
 
     try:
-        from crm_adapters.factory import get_crm_adapter
+
         adapter = get_crm_adapter(crm_type, subscriber_data)
         result = adapter.validate_credentials()
         return safe_jsonify(result)
@@ -2310,7 +2314,7 @@ def test_integration():
 @login_required
 def get_webhook_logs_api():
     """Fetch webhook logs for the current user's location."""
-    from db import get_webhook_logs
+
     location_id = current_user.location_id
     if not location_id:
         return safe_jsonify({"logs": [], "total": 0})
@@ -2500,7 +2504,7 @@ def revert_impersonation():
 @super_admin_required
 def god_mode_logs(location_id):
     """God Mode: view webhook logs for any location."""
-    from db import get_webhook_logs
+
     limit = min(int(request.args.get("limit", 100)), 500)
     offset = int(request.args.get("offset", 0))
     event_type = request.args.get("event_type", "").strip() or None
@@ -2564,7 +2568,7 @@ def api_send_reminders():
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     try:
-        from send_email_api import send_email_via_api
+
         domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
 
         users = get_users_needing_reminders()
@@ -2658,9 +2662,6 @@ def api_cron_refresh_tokens():
         return safe_jsonify({"error": "Unauthorized"}), 401
 
     try:
-        from db import get_subscribers_needing_token_refresh
-        from ghl_api import get_valid_token
-
         expiring = get_subscribers_needing_token_refresh()
         refreshed = 0
         failed = 0
@@ -3555,7 +3556,6 @@ def demo_chat_api():
 
         # 3. Use your full brain
         from sales_director import generate_strategic_directive
-        from prompt import build_system_prompt
 
         director_output = generate_strategic_directive(
             contact_id=contact_id,
@@ -4988,7 +4988,7 @@ def oauth_callback():
 
             # ADMIN ALERT: email the admin so they can manually resolve
             try:
-                from send_email_api import send_email_via_api
+
                 admin_target = ADMIN_EMAILS[0] if ADMIN_EMAILS else "mitchell_vandusen@hotmail.com"
                 domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
                 alert_inner = f'''
@@ -5381,7 +5381,7 @@ def oauth_callback():
 
         # 8c. Welcome email on install (premium branded template)
         try:
-            from send_email_api import send_email_via_api
+
             domain_url = os.getenv("YOUR_DOMAIN", "https://insurancegrokbot.click")
             dashboard_link = f"{domain_url}/agency-dashboard" if use_agency_flow else f"{domain_url}/dashboard"
 
@@ -6082,7 +6082,7 @@ def get_agency_logs(location_id):
     """Get webhook logs for a specific sub-account location (agency owners only)."""
     if current_user.role != 'agency_owner':
         return flask_jsonify({"error": "Access denied"}), 403
-    from db import get_webhook_logs
+
     limit = min(int(request.args.get("limit", 50)), 200)
     offset = int(request.args.get("offset", 0))
     event_type = request.args.get("event_type", "").strip() or None

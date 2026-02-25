@@ -1,6 +1,6 @@
 # InsuranceGrokBot — Technical Owner's Manual
 
-**Last updated: 2026-02-24**
+**Last updated: 2026-02-25**
 
 This document explains how the system actually works, written in plain English based on a full review of the live codebase. Think of this as the car owner's manual: not "here's the philosophy," but "here's where the engine is, why each part exists, and what to do when it makes a weird noise."
 
@@ -44,7 +44,7 @@ The agency sees it as their own branded bot. The lead just sees an SMS from the 
 ### The Stack in Plain English
 
 - **Flask** — The web framework that answers HTTP requests. Runs inside Gunicorn, which is a production-grade server.
-- **Gunicorn** — Runs Flask with 4 threads so multiple requests can be handled simultaneously.
+- **Gunicorn** — Runs Flask with 40 threads and no timeout, supporting both HTTP and long-lived WebSocket connections (voice, live listen).
 - **PostgreSQL** — The main database. Stores subscriber configs, conversation history, facts about leads, billing, etc.
 - **Redis + RQ** — Redis is a fast in-memory database used as a job queue. RQ (Redis Queue) is a library that lets Flask hand off slow work to background workers so the web server can respond immediately.
 - **xAI Grok** — The LLM (large language model) that generates SMS replies and voice responses.
@@ -631,7 +631,11 @@ The Procfile runs 4 production workers and 1 demo worker simultaneously, for 5 p
 - `fetch_targeted_ghl_history(contact_id, location_id, token, limit)` — Fetches conversation history from GHL to sync into the local database.
 - `search_contact_by_phone()` / `search_contact_by_name()` — Used by the contact validator.
 
-GHL uses OAuth 2.0. Each subscriber has their own `access_token` and `refresh_token`. Access tokens expire; `get_valid_token()` checks the expiry and calls the refresh endpoint if needed, then updates the database.
+GHL uses OAuth 2.0. Each subscriber has their own `access_token` and `refresh_token`. Access tokens expire (typically every 24 hours); `get_valid_token()` checks the expiry (with a 5-minute safety buffer) and calls the refresh endpoint if needed, then updates the database.
+
+**Proactive Token Refresh:** An external cron job hits `/api/cron/refresh-tokens` every 15 minutes. This endpoint finds all subscribers whose tokens expire within the next 2 hours and refreshes them proactively — preventing expired-token failures during webhook processing.
+
+**Dual-App Support:** The system supports both GHL marketplace and private OAuth apps. If a refresh fails with auth credentials, it automatically tries the fallback credential set and updates the stored `oauth_app_type` if the fallback succeeds.
 
 ### CRM Adapters
 
@@ -781,7 +785,7 @@ The `PIIRedactionFilter` on all log handlers means phone numbers and email addre
 
 **Step 3: Check the xAI API key.** If `XAI_API_KEY` is invalid or expired, every LLM call will fail. The worker logs will show authentication errors from the xAI API.
 
-**Step 4: Check the GHL OAuth tokens.** If the GHL access token expired and cannot be refreshed (e.g., the refresh token was revoked), `get_valid_token()` will fail and the worker will abort with "token refresh failed". The subscriber needs to reconnect GHL OAuth from the dashboard.
+**Step 4: Check the GHL OAuth tokens.** The proactive cron job (`/api/cron/refresh-tokens`) should keep tokens fresh automatically. If tokens are still expiring, verify the cron job is hitting every 15 minutes with the correct `CRON_SECRET`. If the refresh token itself was revoked (e.g., user disconnected the app in GHL), no amount of refreshing will help — the subscriber needs to reconnect GHL OAuth from the dashboard.
 
 **Step 5: Check for TCPA opt-outs.** If the lead sent "stop" at any point, the bot will not respond to that contact. This is intentional and correct. To re-enable, the lead must opt back in through the proper channel.
 
