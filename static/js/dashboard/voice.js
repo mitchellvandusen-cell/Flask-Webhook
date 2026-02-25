@@ -121,6 +121,7 @@
             }, { retries: 2, timeout: 15000, label: 'save-config' }).then(r => r.json()).then(d => {
                 if (d.status === 'success') {
                     resultDiv.innerHTML = '<span style="color:var(--accent);"><i class="fa-solid fa-check-circle me-1"></i> Voice settings saved successfully!</span>';
+                    _showDashToast(true, 'Voice settings saved!');
                     // Live-update dialer max attempts so queue uses new value immediately
                     dialerMaxAttempts = config.dial_attempts || 2;
                     // Update badge
@@ -138,11 +139,13 @@
                     }
                 } else {
                     resultDiv.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i> ' + (d.error || 'Failed to save') + '</span>';
+                    _showDashToast(false, d.error || 'Failed to save voice settings');
                 }
                 setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);
             }).catch(e => {
                 console.error('[Settings] Save failed:', e);
                 resultDiv.innerHTML = '<span style="color:#ef4444;">Network error saving voice config — please try again</span>';
+                _showDashToast(false, 'Network error saving voice settings');
             });
         }
 

@@ -3194,6 +3194,104 @@ def get_call_history():
         return_db_connection(conn)
 
 
+# ──────────────────────────────────────────────────────────────
+# ROUTE: On-demand recording transcription
+# ──────────────────────────────────────────────────────────────
+
+@voice_bp.route('/voice/transcribe-recording', methods=['POST'])
+@login_required
+def transcribe_recording():
+    """
+    Trigger on-demand transcription for a call recording.
+    Body: { "call_sid": "CA...", "recording_url": "https://..." }
+    Downloads the audio and sends to xAI Whisper, saves result to call_history.
+    """
+    data = request.get_json(silent=True) or {}
+    call_sid = (data.get('call_sid') or '').strip()
+    recording_url = (data.get('recording_url') or '').strip()
+
+    if not call_sid or not recording_url:
+        return jsonify({"error": "call_sid and recording_url are required"}), 400
+
+    # Verify this call belongs to the logged-in user
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        sub_row = cur.fetchone()
+        if not sub_row or not sub_row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = sub_row['location_id']
+
+        cur.execute(
+            "SELECT call_sid, transcript FROM call_history WHERE call_sid = %s AND location_id = %s",
+            (call_sid, location_id)
+        )
+        call_row = cur.fetchone()
+        if not call_row:
+            return jsonify({"error": "Call not found"}), 404
+        if call_row['transcript']:
+            # Already transcribed — return existing
+            try:
+                existing = json.loads(call_row['transcript']) if isinstance(call_row['transcript'], str) else call_row['transcript']
+            except Exception:
+                existing = []
+            return jsonify({"transcript": existing, "cached": True})
+    except Exception as e:
+        logger.error(f"transcribe_recording DB check failed: {e}")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        return_db_connection(conn)
+
+    # Download audio from Twilio (mp3 format)
+    try:
+        mp3_url = recording_url if recording_url.endswith('.mp3') else recording_url.rstrip('/') + '.mp3'
+        audio_resp = httpx.get(
+            mp3_url,
+            auth=(TWILIO_MASTER_SID, TWILIO_AUTH_TOKEN),
+            timeout=30,
+            follow_redirects=True
+        )
+        if audio_resp.status_code != 200:
+            return jsonify({"error": f"Failed to download recording (HTTP {audio_resp.status_code})"}), 502
+        audio_bytes = audio_resp.content
+    except Exception as e:
+        logger.error(f"transcribe_recording download failed for {call_sid}: {e}")
+        return jsonify({"error": f"Download failed: {str(e)}"}), 502
+
+    # Send to xAI Whisper API for transcription
+    xai_key = os.getenv("XAI_API_KEY")
+    if not xai_key:
+        return jsonify({"error": "XAI_API_KEY not configured"}), 500
+
+    try:
+        import io
+        xai_client = OpenAI(api_key=xai_key, base_url="https://api.x.ai/v1")
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = "recording.mp3"
+        whisper_resp = xai_client.audio.transcriptions.create(
+            model="whisper-large-3",
+            file=audio_file,
+            response_format="verbose_json",
+            timestamp_granularities=["segment"]
+        )
+        raw_text = (whisper_resp.text or '').strip()
+        if not raw_text:
+            return jsonify({"error": "Empty transcription returned"}), 502
+
+        # Format as the same structure used by real-time call transcripts
+        transcript = [{"role": "call_recording", "text": raw_text}]
+        save_call_transcript(call_sid, transcript)
+        logger.info(f"On-demand transcription saved for {call_sid} ({len(raw_text)} chars)")
+        return jsonify({"transcript": transcript, "cached": False})
+
+    except Exception as e:
+        logger.error(f"transcribe_recording xAI failed for {call_sid}: {e}")
+        return jsonify({"error": f"Transcription failed: {str(e)}"}), 500
+
+
 def save_call_to_history(location_id, call_sid, phone, contact_id=None,
                          contact_name=None, direction='outbound', status='initiated'):
     """Save a new call record to the call_history table."""

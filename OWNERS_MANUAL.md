@@ -853,6 +853,53 @@ Stripe signs its webhooks. If `STRIPE_WEBHOOK_SECRET` is wrong or missing, every
 
 If legitimate integrations are hitting the 429 rate limit, increase `API_RATE_LIMIT_RPM` in the environment. The default is 120 requests per minute. Be aware this is per API key, so multiple keys from the same subscriber each get their own limit.
 
+### Recording Transcription Failing
+
+On-demand transcription (the "Transcribe" button in the Recordings tab) requires:
+1. `XAI_API_KEY` must be set and have access to the `whisper-large-3` model.
+2. `TWILIO_MASTER_ACCOUNT_SID` and `TWILIO_MASTER_AUTH_TOKEN` must be correct — these authenticate the recording download request.
+3. The recording must exist as an `.mp3` accessible from Twilio's CDN.
+
+If you see "Failed to download recording (HTTP 403)", check the Twilio credentials. If you see "Transcription failed", check that your xAI API key has Whisper access enabled.
+
+### Dashboard Save Buttons Not Responding
+
+All save buttons now show a bottom-right toast notification after saving. If the toast doesn't appear:
+- Check the browser console for JavaScript errors.
+- The `_showDashToast()` function is injected by `dashboard.html`. If it's missing, the page didn't reload after a template change.
+- For Bot Config and Voice Config, saves go to `/api/save-config` and `/api/voice-config` respectively — check that these routes return `{"status": "success"}`.
+
+### Side-Menu Navigation Not Switching Panels
+
+The Bot Config, Connect/Integrations, and Voice Config tabs use a two-column side-menu layout. Panel switching is handled by JavaScript functions (`switchConfigPanel()`, `switchConnectPanel()`, `switchVoicePanel()`). If panels aren't switching:
+- Verify the panel IDs match: `cfgtab-panel-identity`, `cfgtab-panel-calendar` for config; `cntab-panel-ghl`, `cntab-panel-other-crms`, `cntab-panel-api`, `cntab-panel-outbound` for connect.
+- Check the browser console for "Cannot read properties of null" — indicates a panel ID mismatch.
+
+---
+
+### Error Code Quick Reference
+
+The following log messages are emitted by the system. This table is a quick lookup for investigating production issues.
+
+| Log Message | Source File | Severity | Meaning |
+|---|---|---|---|
+| `Auth failure (HTTP 401)` | `ghl_message.py` | WARNING | GHL access token expired; auto-retry attempted |
+| `Auth failure (HTTP 403)` | `ghl_message.py` | ERROR | Insufficient permissions; manual reauth required |
+| `Token refresh failed` | `ghl_api.py` | ERROR | GHL refresh token expired; subscriber must reauthorize |
+| `DUPLICATE webhook ignored` | `tasks.py` | INFO | Normal deduplication; not an error |
+| `Invalid signature` | `main.py` | WARNING | Webhook received without valid HMAC signature |
+| `MESSAGE BLOCKED BY SAFETY NET` | `ghl_message.py` | ERROR | LLM reply contained reasoning artifacts; check prompt config |
+| `SKIP DUPLICATE SMS` | `ghl_message.py` | WARNING | Identical SMS sent in last 5 min; skipped |
+| `connection pool wait timed out` | `db.py` | ERROR | PostgreSQL pool exhausted; scale workers or increase pool |
+| `Narrative observer failed` | `memory.py` | ERROR | xAI API error in conversation summary; non-critical |
+| `WebSocket disconnected` | `voice_bridge.py` | WARNING | Real-time voice WS dropped; call ends gracefully |
+| `Voicemail detected — hanging up` | `voice_bridge.py` | INFO | Normal voicemail detection behavior |
+| `xAI Realtime API connection failed` | `voice_bridge.py` | ERROR | xAI Realtime unreachable; check API key and xAI status |
+| `ai_minutes balance: 0` | `voice_bridge.py` | WARNING | Voice AI minutes exhausted; purchase more |
+| `DB connection failed` | `db.py` | CRITICAL | PostgreSQL unreachable; check DATABASE_URL |
+| `Redis connection failed` | `main.py` | CRITICAL | Redis unreachable; workers can't queue jobs |
+| `Job queue full` | `main.py` | ERROR | RQ queue at capacity; check worker health |
+
 ---
 
 ## 20. A2P 10DLC Compliance

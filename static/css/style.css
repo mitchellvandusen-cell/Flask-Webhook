@@ -742,6 +742,78 @@ body.light-theme .dc-blockquote { border-left-color: #d0d5dc !important; color: 
 body.light-theme .dc-bot-hint { color: var(--lt-text-muted) !important; }
 body.light-theme .dc-bot-hint code { background: rgba(5,150,105,0.08) !important; color: var(--lt-accent) !important; }
 
+/* ── DTMF Keypad (light mode) ── */
+body.light-theme .dtmf-key {
+    background: var(--lt-surface-hover) !important;
+    border-color: var(--lt-border-strong) !important;
+    color: var(--lt-text-primary) !important;
+}
+body.light-theme .dtmf-key:hover {
+    background: var(--lt-accent-bg) !important;
+    border-color: var(--lt-accent-border) !important;
+    color: var(--lt-accent) !important;
+}
+
+/* ── Dialer stats panel (light mode) ── */
+body.light-theme #dialerStatsPanel,
+body.light-theme #dialerSettingsPanel {
+    background: var(--lt-surface) !important;
+    border-color: var(--lt-border) !important;
+}
+body.light-theme .dlr-kpi-card {
+    background: var(--lt-surface-hover) !important;
+    border-color: var(--lt-border) !important;
+}
+body.light-theme .dlr-kpi-val { color: var(--lt-text-primary) !important; }
+body.light-theme .dlr-kpi-label { color: var(--lt-text-muted) !important; }
+body.light-theme .dlr-kpi-sub { color: var(--lt-text-secondary) !important; }
+body.light-theme .dlr-stat-period { color: var(--lt-text-secondary) !important; }
+body.light-theme .dlr-stat-period.active { background: var(--lt-accent-bg) !important; color: var(--lt-accent) !important; }
+body.light-theme .dlr-bar-row { color: var(--lt-text-secondary) !important; }
+body.light-theme .dlr-daily-bar { background: rgba(5,150,105,0.3) !important; }
+body.light-theme .dlr-daily-bar:hover { background: rgba(5,150,105,0.55) !important; }
+body.light-theme .dlr-call-badge { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+body.light-theme #dialerStatsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-muted) !important; }
+body.light-theme #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+/* Call history and recording rows (dynamically rendered, override inline dark text) */
+body.light-theme #dialerHistoryList > div,
+body.light-theme #dialerRecordingsList > div { color: var(--lt-text-secondary) !important; border-bottom-color: var(--lt-border) !important; }
+body.light-theme #dialerHistoryList > div:hover,
+body.light-theme #dialerRecordingsList > div:hover { background: rgba(0,0,0,0.02) !important; }
+/* Transcript modal */
+body.light-theme #transcriptModal > div { background: var(--lt-surface) !important; border-color: var(--lt-border) !important; }
+body.light-theme .dlr-msg-bubble.dlr-msg-lead { background: #f0f2f5 !important; border-color: #e2e5ea !important; color: var(--lt-text-primary) !important; }
+body.light-theme .dlr-msg-bubble.dlr-msg-bot { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: #064e3b !important; }
+
+/* ── Voice config side-menu buttons in light mode ── */
+body.light-theme .voice-menu-item,
+body.light-theme .cfg-menu-item,
+body.light-theme .conn-menu-item {
+    color: var(--lt-text-secondary) !important;
+    border-color: transparent !important;
+    background: transparent !important;
+}
+body.light-theme .voice-menu-item:hover,
+body.light-theme .cfg-menu-item:hover,
+body.light-theme .conn-menu-item:hover {
+    background: rgba(0,0,0,0.03) !important;
+    color: var(--lt-text-primary) !important;
+}
+body.light-theme .voice-menu-item.active,
+body.light-theme .cfg-menu-item.active,
+body.light-theme .conn-menu-item.active {
+    background: var(--lt-accent-bg) !important;
+    border-color: var(--lt-accent-border) !important;
+    color: var(--lt-accent) !important;
+}
+/* Side menu container */
+body.light-theme #voiceSettingsMenu,
+body.light-theme #configSettingsMenu,
+body.light-theme #connectSettingsMenu {
+    background: var(--lt-surface-hover) !important;
+    border-color: var(--lt-border) !important;
+}
+
 /* ── Inline rgba(255,255,255) background overrides (invisible on white bg) ── */
 body.light-theme .tab-pane [style*="background:rgba(255,255,255"],
 body.light-theme .tab-pane [style*="background: rgba(255,255,255"] {

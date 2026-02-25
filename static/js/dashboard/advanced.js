@@ -86,17 +86,18 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Settings';
             if (data.status === 'success') {
+                _showDashToast(true, 'Settings saved!');
                 status.textContent = 'Settings saved!';
                 status.style.opacity = '1';
                 setTimeout(() => { status.style.opacity = '0'; }, 3000);
             } else {
-                alert('Failed to save: ' + (data.error || 'Unknown error'));
+                _showDashToast(false, 'Failed to save: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(() => {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> Save Settings';
-            alert('Network error saving settings.');
+            _showDashToast(false, 'Network error saving settings.');
         });
     }
 
