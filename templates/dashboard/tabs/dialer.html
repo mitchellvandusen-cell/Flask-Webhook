@@ -586,9 +586,14 @@
                     <div class="dlr-col" style="width:30%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
-                            <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
-                                <i class="fa-solid fa-download me-1"></i>Get Contacts
-                            </button>
+                            <div style="display:flex;align-items:center;gap:4px;">
+                                <button id="dialerSyncBtn" onclick="dialerSyncContacts()" title="Sync contacts from CRM" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 7px;cursor:pointer;color:#888;font-size:.72rem;">
+                                    <i class="fa-solid fa-rotate" id="dialerSyncIcon"></i>
+                                </button>
+                                <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                                    <i class="fa-solid fa-download me-1"></i>Get Contacts
+                                </button>
+                            </div>
                         </div>
                         <!-- Quick Dial moved to header -->
                         <!-- Search + Filters -->
@@ -615,6 +620,9 @@
                             <select id="dialerStageFilter" onchange="dialerFetchContacts()" style="width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#666;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;" disabled>
                                 <option value="">All Stages (select a pipeline first)</option>
                             </select>
+                            <!-- Cache status indicator -->
+                            <div id="dialerCacheStatus" style="display:none;font-size:.62rem;color:#555;padding:2px 0;display:flex;align-items:center;gap:4px;">
+                            </div>
                         </div>
                         <!-- Select Actions -->
                         <div id="dialerActionsBar" style="display:none;padding:6px 12px;border-bottom:1px solid rgba(255,255,255,0.04);flex-shrink:0;">
