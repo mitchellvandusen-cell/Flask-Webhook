@@ -4437,6 +4437,94 @@ def get_contact_detail(contact_id):
             ],
         }
 
+        # ── InsuranceGrokBot Engagement Data ──
+        igb_conn = get_db_connection()
+        if igb_conn:
+            try:
+                cur = igb_conn.cursor()
+
+                # SMS message counts from our contact_messages table
+                cur.execute("""
+                    SELECT message_type, COUNT(*) as cnt,
+                           MAX(created_at) as last_at
+                    FROM contact_messages
+                    WHERE contact_id = %s
+                    GROUP BY message_type
+                """, (contact_id,))
+                msg_stats = {"lead": 0, "assistant": 0, "last_message_at": None}
+                for r in cur.fetchall():
+                    msg_stats[r['message_type']] = r['cnt']
+                    ts = r['last_at']
+                    if ts:
+                        iso = ts.isoformat()
+                        if not msg_stats["last_message_at"] or iso > msg_stats["last_message_at"]:
+                            msg_stats["last_message_at"] = iso
+
+                # Call history stats from call_history table
+                cur.execute("""
+                    SELECT COUNT(*) as total_calls,
+                           COUNT(*) FILTER (WHERE status = 'completed') as connected,
+                           COALESCE(SUM(duration), 0) as total_duration,
+                           MAX(started_at) as last_call_at,
+                           COUNT(*) FILTER (WHERE recording_url IS NOT NULL) as recordings
+                    FROM call_history
+                    WHERE contact_id = %s AND location_id = %s
+                """, (contact_id, location_id))
+                call_row = cur.fetchone()
+                call_stats = {
+                    "total_calls": call_row['total_calls'] if call_row else 0,
+                    "connected": call_row['connected'] if call_row else 0,
+                    "total_duration": call_row['total_duration'] if call_row else 0,
+                    "last_call_at": call_row['last_call_at'].isoformat() if call_row and call_row['last_call_at'] else None,
+                    "recordings": call_row['recordings'] if call_row else 0,
+                }
+
+                # Disposition breakdown
+                cur.execute("""
+                    SELECT disposition, COUNT(*) as cnt
+                    FROM call_history
+                    WHERE contact_id = %s AND location_id = %s
+                          AND disposition IS NOT NULL
+                    GROUP BY disposition
+                """, (contact_id, location_id))
+                call_stats["dispositions"] = {r['disposition']: r['cnt'] for r in cur.fetchall()}
+
+                # AI narrative summary from contact_narratives
+                cur.execute("""
+                    SELECT story_narrative, updated_at
+                    FROM contact_narratives
+                    WHERE contact_id = %s
+                """, (contact_id,))
+                narr_row = cur.fetchone()
+                narrative = {
+                    "summary": narr_row['story_narrative'] if narr_row else None,
+                    "updated_at": narr_row['updated_at'].isoformat() if narr_row and narr_row['updated_at'] else None,
+                }
+
+                # Contact facts from contact_facts
+                cur.execute("""
+                    SELECT fact_text FROM contact_facts
+                    WHERE contact_id = %s
+                    ORDER BY created_at DESC LIMIT 10
+                """, (contact_id,))
+                facts = [r['fact_text'] for r in cur.fetchall()]
+
+                cur.close()
+
+                result["igb_engagement"] = {
+                    "messages": msg_stats,
+                    "calls": call_stats,
+                    "narrative": narrative,
+                    "facts": facts,
+                }
+            except Exception as e:
+                logger.warning(f"Non-critical: failed to load IGB engagement data for {contact_id}: {e}")
+                result["igb_engagement"] = None
+            finally:
+                return_db_connection(igb_conn)
+        else:
+            result["igb_engagement"] = None
+
         return jsonify(result)
 
     except Exception as e:
@@ -5074,6 +5162,82 @@ def get_contact_call_counts():
         return jsonify(result)
     except Exception as e:
         logger.error(f"get_contact_call_counts failed: {e}")
+        return jsonify({})
+    finally:
+        return_db_connection(conn)
+
+
+@voice_bp.route('/voice/contact-engagement')
+@login_required
+def get_contact_engagement_bulk():
+    """Batch InsuranceGrokBot engagement data for contact list Smart Filters.
+    Returns lightweight stats: message counts, call counts, last activity timestamps.
+    """
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        return jsonify({})
+    contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({})
+        location_id = row['location_id']
+
+        result = {}
+
+        # Message stats from contact_messages
+        cur.execute("""
+            SELECT contact_id, message_type, COUNT(*) as cnt, MAX(created_at) as last_at
+            FROM contact_messages
+            WHERE contact_id = ANY(%s)
+            GROUP BY contact_id, message_type
+        """, (contact_ids,))
+        for r in cur.fetchall():
+            cid = r['contact_id']
+            if cid not in result:
+                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None},
+                               "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
+            result[cid]["messages"][r['message_type']] = r['cnt']
+            ts = r['last_at'].isoformat() if r['last_at'] else None
+            if ts:
+                prev = result[cid]["messages"]["last_message_at"]
+                if not prev or ts > prev:
+                    result[cid]["messages"]["last_message_at"] = ts
+
+        # Call stats from call_history
+        cur.execute("""
+            SELECT contact_id,
+                   COUNT(*) as total_calls,
+                   COUNT(*) FILTER (WHERE status = 'completed') as connected,
+                   COALESCE(SUM(duration), 0) as total_duration,
+                   MAX(started_at) as last_call_at,
+                   COUNT(*) FILTER (WHERE recording_url IS NOT NULL) as recordings
+            FROM call_history
+            WHERE location_id = %s AND contact_id = ANY(%s)
+            GROUP BY contact_id
+        """, (location_id, contact_ids))
+        for r in cur.fetchall():
+            cid = r['contact_id']
+            if cid not in result:
+                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None},
+                               "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
+            result[cid]["calls"] = {
+                "total_calls": r['total_calls'],
+                "connected": r['connected'],
+                "total_duration": r['total_duration'],
+                "last_call_at": r['last_call_at'].isoformat() if r['last_call_at'] else None,
+                "recordings": r['recordings'],
+            }
+
+        cur.close()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"get_contact_engagement_bulk failed: {e}")
         return jsonify({})
     finally:
         return_db_connection(conn)

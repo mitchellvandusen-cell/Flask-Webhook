@@ -68,6 +68,92 @@
                     .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(0,217,255,0.15);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:1px 7px;font-size:0.88rem;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0;line-height:1.3;white-space:nowrap;gap:4px;}
 
                     /* ═══════════════════════════════════════════════
+                       InsuranceGrokBot Dialer Enhancements
+                       ═══════════════════════════════════════════════ */
+
+                    /* ── Radar Sweep Empty State ── */
+                    @keyframes igbRadarSweep {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    @keyframes igbRadarPulse {
+                        0% { transform: scale(0.3); opacity: 0.6; }
+                        100% { transform: scale(1); opacity: 0; }
+                    }
+                    .igb-radar-wrap { position:relative; width:120px; height:120px; margin:0 auto 16px; }
+                    .igb-radar-ring { position:absolute; inset:0; border-radius:50%; border:1px solid rgba(0,217,255,0.12); }
+                    .igb-radar-ring:nth-child(2) { inset:15px; border-color:rgba(0,217,255,0.18); }
+                    .igb-radar-ring:nth-child(3) { inset:30px; border-color:rgba(0,217,255,0.25); }
+                    .igb-radar-dot { position:absolute; top:50%; left:50%; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; background:#00d9ff; box-shadow:0 0 8px #00d9ff; }
+                    .igb-radar-beam { position:absolute; top:50%; left:50%; width:50%; height:2px; transform-origin:left center; background:linear-gradient(to right,#00d9ff,transparent); animation:igbRadarSweep 2.5s linear infinite; }
+                    .igb-radar-pulse { position:absolute; inset:0; border-radius:50%; border:1px solid rgba(0,217,255,0.3); animation:igbRadarPulse 2s ease-out infinite; }
+
+                    /* ── 3-Dot Engagement Indicator ── */
+                    .igb-engage-dots { display:inline-flex; gap:3px; flex-shrink:0; margin-left:4px; }
+                    .igb-engage-dots .igb-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); transition:all .3s; }
+                    .igb-engage-dots .igb-dot.lit { background:#00d9ff; border-color:#00d9ff; box-shadow:0 0 4px rgba(0,217,255,0.4); }
+                    .igb-engage-dots .igb-dot.lit-warm { background:#ffa500; border-color:#ffa500; box-shadow:0 0 4px rgba(255,165,0,0.4); }
+                    .igb-engage-dots .igb-dot.lit-hot { background:#00ff88; border-color:#00ff88; box-shadow:0 0 4px rgba(0,255,136,0.4); }
+
+                    /* ── Live Status Dot ── */
+                    .igb-live-dot { position:absolute; bottom:0; right:0; width:8px; height:8px; border-radius:50%; border:1.5px solid rgba(8,8,16,0.8); }
+                    .igb-live-dot.live-call { background:#00ff88; animation:dialerPulse 1.5s infinite; }
+                    .igb-live-dot.has-callback { background:#ffa500; }
+                    .igb-live-dot.idle { background:#444; }
+
+                    /* ── Smart Filter Group Headers ── */
+                    .igb-filter-hdr { display:flex; align-items:center; gap:6px; padding:6px 12px; background:rgba(0,217,255,0.03); border-bottom:1px solid rgba(0,217,255,0.08); cursor:pointer; user-select:none; }
+                    .igb-filter-hdr:hover { background:rgba(0,217,255,0.06); }
+                    .igb-filter-hdr .igb-filter-icon { color:#00d9ff; font-size:.68rem; transition:transform .2s; }
+                    .igb-filter-hdr .igb-filter-icon.collapsed { transform:rotate(-90deg); }
+                    .igb-filter-hdr .igb-filter-label { font-size:.72rem; font-weight:700; color:#00d9ff; text-transform:uppercase; letter-spacing:.5px; }
+                    .igb-filter-hdr .igb-filter-count { font-size:.65rem; color:#555; font-family:'JetBrains Mono',monospace; margin-left:auto; }
+                    .igb-filter-hdr .igb-filter-brand { font-size:.55rem; color:#333; letter-spacing:.3px; }
+
+                    /* ── Lead Score Ring (middle column) ── */
+                    .igb-score-ring { position:relative; width:80px; height:80px; flex-shrink:0; }
+                    .igb-score-ring svg { width:100%; height:100%; transform:rotate(-90deg); }
+                    .igb-score-ring .igb-ring-bg { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:6; }
+                    .igb-score-ring .igb-ring-fg { fill:none; stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset .8s ease, stroke .3s; }
+                    .igb-score-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+                    .igb-score-num { font-size:1.1rem; font-weight:800; font-family:'JetBrains Mono',monospace; line-height:1; }
+                    .igb-score-sub { font-size:.55rem; color:#666; text-transform:uppercase; letter-spacing:.3px; }
+
+                    /* ── Quick Intel Pills ── */
+                    .igb-intel-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+                    .igb-intel-pill { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:20px; padding:4px 10px; font-size:.72rem; color:#aaa; white-space:nowrap; }
+                    .igb-intel-pill i { font-size:.65rem; color:#00d9ff; }
+                    .igb-intel-pill .igb-pill-val { font-weight:700; color:#ddd; font-family:'JetBrains Mono',monospace; }
+
+                    /* ── Engagement Timeline ── */
+                    .igb-timeline { display:flex; align-items:center; gap:0; margin-bottom:14px; padding:8px 0; }
+                    .igb-tl-node { display:flex; flex-direction:column; align-items:center; flex-shrink:0; position:relative; z-index:1; }
+                    .igb-tl-dot { width:10px; height:10px; border-radius:50%; border:2px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); transition:all .3s; }
+                    .igb-tl-dot.active { background:#00d9ff; border-color:#00d9ff; box-shadow:0 0 6px rgba(0,217,255,0.4); }
+                    .igb-tl-dot.completed { background:#00ff88; border-color:#00ff88; box-shadow:0 0 6px rgba(0,255,136,0.3); }
+                    .igb-tl-label { font-size:.55rem; color:#555; margin-top:4px; white-space:nowrap; max-width:52px; overflow:hidden; text-overflow:ellipsis; text-align:center; }
+                    .igb-tl-line { flex:1; height:2px; background:rgba(255,255,255,0.06); min-width:8px; }
+                    .igb-tl-line.completed { background:linear-gradient(to right,#00ff88,#00d9ff); }
+
+                    /* ── AI Summary Card ── */
+                    .igb-summary-card { background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+                    .igb-summary-hdr { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+                    .igb-summary-hdr i { color:#00d9ff; font-size:.7rem; }
+                    .igb-summary-hdr span { font-size:.68rem; font-weight:700; color:#00d9ff; text-transform:uppercase; letter-spacing:.5px; }
+                    .igb-summary-body { font-size:.8rem; color:#bbb; line-height:1.45; }
+
+                    /* ── Facts chips ── */
+                    .igb-fact-chip { display:inline-block; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.1); color:#8fc; padding:2px 8px; border-radius:4px; font-size:.68rem; margin:0 4px 4px 0; }
+
+                    /* ── Action Strip ── */
+                    .igb-action-strip { display:flex; gap:6px; padding:10px 0; margin-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+                    .igb-action-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:7px 4px; border-radius:8px; border:none; font-weight:700; font-size:.75rem; cursor:pointer; transition:all .15s; }
+                    .igb-action-btn:hover { filter:brightness(1.2); }
+                    .igb-action-btn.act-call { background:linear-gradient(135deg,var(--accent),#00b36b); color:#000; }
+                    .igb-action-btn.act-sms { background:rgba(0,217,255,0.12); border:1px solid rgba(0,217,255,0.2); color:#00d9ff; }
+                    .igb-action-btn.act-queue { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); color:#aaa; }
+
+                    /* ═══════════════════════════════════════════════
                        iPhone 15 Pro — CSS
                        ═══════════════════════════════════════════════ */
                     .iphone-frame{width:100%;max-width:393px;aspect-ratio:393/852;position:relative;display:flex;align-items:center;justify-content:center;}
@@ -564,30 +650,39 @@
                         </div>
                         <!-- Contact List -->
                         <div id="dialerContactList" class="dlr-col-body">
-                            <div style="text-align:center;padding:40px 16px;color:#444;font-size:0.82rem;">
-                                <i class="fa-solid fa-address-book" style="font-size:2rem;color:#2a2a3e;margin-bottom:10px;display:block;"></i>
-                                Click <strong style="color:#00d9ff;">Get Contacts</strong> to load CRM contacts
+                            <div style="text-align:center;padding:30px 16px;color:#444;font-size:0.82rem;">
+                                <div class="igb-radar-wrap">
+                                    <div class="igb-radar-ring"></div>
+                                    <div class="igb-radar-ring"></div>
+                                    <div class="igb-radar-ring"></div>
+                                    <div class="igb-radar-dot"></div>
+                                    <div class="igb-radar-beam"></div>
+                                    <div class="igb-radar-pulse"></div>
+                                </div>
+                                <div style="font-weight:600;color:#888;margin-bottom:4px;">Scan Your CRM</div>
+                                <div>Click <strong style="color:#00d9ff;">Get Contacts</strong> to lock onto leads</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- ── MIDDLE: Contact Detail ── -->
+                    <!-- ── MIDDLE: Lead Intelligence ── -->
                     <div class="dlr-col" style="width:35%;border-radius:12px;">
                         <div class="dlr-col-hdr">
-                            <h6><i class="fa-solid fa-user me-1"></i>Contact Detail</h6>
-                            <div id="dlrDetailActions" style="display:none;display:flex;gap:4px;">
-                                <button id="dlrCallContactBtn" onclick="dialerCallActiveContact()" style="background:linear-gradient(135deg,var(--accent),#00b36b);border:none;color:#000;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
-                                    <i class="fa-solid fa-phone me-1"></i>Call
-                                </button>
-                                <button onclick="dialerAddActiveToQueue()" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:6px;padding:4px 10px;font-weight:600;font-size:0.85rem;cursor:pointer;">
-                                    <i class="fa-solid fa-plus me-1"></i>Queue
-                                </button>
+                            <h6><i class="fa-solid fa-crosshairs me-1"></i>Lead Intelligence</h6>
+                            <div id="dlrDetailActions" style="display:none;">
                             </div>
                         </div>
                         <div id="dlrDetailContent" class="dlr-col-body" style="padding:16px;">
-                            <div style="text-align:center;padding:60px 20px;color:#333;">
-                                <i class="fa-solid fa-user-large" style="font-size:2.5rem;color:#1a1a2e;margin-bottom:12px;display:block;"></i>
-                                <div style="color:#555;font-size:0.82rem;">Select a contact to view details</div>
+                            <div style="text-align:center;padding:40px 20px;color:#333;">
+                                <div class="igb-radar-wrap" style="width:80px;height:80px;">
+                                    <div class="igb-radar-ring"></div>
+                                    <div class="igb-radar-ring"></div>
+                                    <div class="igb-radar-ring"></div>
+                                    <div class="igb-radar-dot" style="width:6px;height:6px;margin:-3px 0 0 -3px;"></div>
+                                    <div class="igb-radar-beam" style="animation-duration:3s;"></div>
+                                </div>
+                                <div style="color:#555;font-size:0.82rem;">Select a contact to view intel</div>
+                                <div style="font-size:.65rem;color:#333;margin-top:6px;">Powered by InsuranceGrokBot</div>
                             </div>
                         </div>
                     </div>

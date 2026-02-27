@@ -773,6 +773,37 @@ body.light-theme .dlr-bar-row { color: var(--lt-text-secondary) !important; }
 body.light-theme .dlr-daily-bar { background: rgba(5,150,105,0.3) !important; }
 body.light-theme .dlr-daily-bar:hover { background: rgba(5,150,105,0.55) !important; }
 body.light-theme .dlr-call-badge { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+/* InsuranceGrokBot dialer enhancements — light theme */
+body.light-theme .igb-radar-ring { border-color: rgba(5,150,105,0.12) !important; }
+body.light-theme .igb-radar-dot { background: var(--lt-accent) !important; box-shadow: 0 0 8px var(--lt-accent) !important; }
+body.light-theme .igb-radar-beam { background: linear-gradient(to right, var(--lt-accent), transparent) !important; }
+body.light-theme .igb-radar-pulse { border-color: rgba(5,150,105,0.2) !important; }
+body.light-theme .igb-engage-dots .igb-dot { background: rgba(0,0,0,0.06) !important; border-color: rgba(0,0,0,0.1) !important; }
+body.light-theme .igb-engage-dots .igb-dot.lit { background: var(--lt-accent) !important; border-color: var(--lt-accent) !important; }
+body.light-theme .igb-engage-dots .igb-dot.lit-warm { background: #e67e00 !important; border-color: #e67e00 !important; }
+body.light-theme .igb-engage-dots .igb-dot.lit-hot { background: #059669 !important; border-color: #059669 !important; }
+body.light-theme .igb-filter-hdr { background: var(--lt-accent-bg) !important; border-bottom-color: var(--lt-border) !important; }
+body.light-theme .igb-filter-hdr:hover { background: rgba(5,150,105,0.08) !important; }
+body.light-theme .igb-filter-hdr .igb-filter-count { color: var(--lt-text-muted) !important; }
+body.light-theme .igb-score-ring .igb-ring-bg { stroke: rgba(0,0,0,0.06) !important; }
+body.light-theme .igb-intel-pill { background: var(--lt-surface-hover) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }
+body.light-theme .igb-intel-pill i { color: var(--lt-accent) !important; }
+body.light-theme .igb-intel-pill .igb-pill-val { color: var(--lt-text-primary) !important; }
+body.light-theme .igb-tl-dot { border-color: rgba(0,0,0,0.1) !important; background: rgba(0,0,0,0.03) !important; }
+body.light-theme .igb-tl-dot.completed { background: #059669 !important; border-color: #059669 !important; }
+body.light-theme .igb-tl-dot.active { background: var(--lt-accent) !important; border-color: var(--lt-accent) !important; }
+body.light-theme .igb-tl-line { background: rgba(0,0,0,0.06) !important; }
+body.light-theme .igb-tl-line.completed { background: linear-gradient(to right, #059669, var(--lt-accent)) !important; }
+body.light-theme .igb-tl-label { color: var(--lt-text-muted) !important; }
+body.light-theme .igb-summary-card { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; }
+body.light-theme .igb-summary-hdr i { color: var(--lt-accent) !important; }
+body.light-theme .igb-summary-hdr span { color: var(--lt-accent) !important; }
+body.light-theme .igb-summary-body { color: var(--lt-text-secondary) !important; }
+body.light-theme .igb-fact-chip { background: rgba(5,150,105,0.06) !important; border-color: rgba(5,150,105,0.15) !important; color: #047857 !important; }
+body.light-theme .igb-action-btn.act-call { background: linear-gradient(135deg, #059669, #047857) !important; color: #fff !important; }
+body.light-theme .igb-action-btn.act-sms { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
+body.light-theme .igb-action-btn.act-queue { background: var(--lt-surface-hover) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }
+body.light-theme .igb-live-dot { border-color: var(--lt-surface) !important; }
 body.light-theme #dialerStatsToggle { background: var(--lt-surface-hover) !important; border-color: var(--lt-border-strong) !important; color: var(--lt-text-muted) !important; }
 body.light-theme #dialerStatsToggle:hover { border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 /* Call history and recording rows (dynamically rendered, override inline dark text) */
