@@ -145,7 +145,7 @@
             if (name === 'numbers') loadNumbersTab();
             if (name === 'trusthub') loadTrustHubData();
             if (name === 'a2p') a2pLoadStatus();
-            if (name === 'training') trainingLoadStatus();
+            if (name === 'training') loadTrainingStatus();
         }
 
         function copyToClipboard(text) {

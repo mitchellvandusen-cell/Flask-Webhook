@@ -13,7 +13,8 @@ from functools import wraps
 from flask import Blueprint, request, jsonify, g
 from db import (
     get_subscriber_by_api_key, log_api_usage, get_api_request_count,
-    api_key_prefix,
+    api_key_prefix, get_subscriber_by_training_token,
+    get_db_connection, return_db_connection,
 )
 
 api_bp = Blueprint('api_v1', __name__, url_prefix='/api/v1')
@@ -354,3 +355,274 @@ def test_webhook():
     if success:
         return jsonify({"status": "success", "message": f"Test delivered to {webhook_url}", "response_code": status_code})
     return jsonify({"status": "failed", "message": f"Webhook delivery failed: {error}", "response_code": status_code}), 502
+
+
+# ═══════════════════════════════════════════════════════════════
+# TRAINING TOKEN AUTH — Bearer trn_ token validation
+# ═══════════════════════════════════════════════════════════════
+
+TRAINING_RATE_LIMIT_RPM = int(os.getenv("TRAINING_RATE_LIMIT_RPM", "60"))
+
+
+def require_training_token(f):
+    """
+    Authenticate requests via Bearer trn_ token.
+    Uses constant-time comparison. Attaches subscriber to g.training_subscriber.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return api_error(
+                "Missing or invalid Authorization header. Expected: Bearer trn_...",
+                error_type="authentication_error",
+                code="missing_training_token",
+                status=401,
+            )
+
+        provided_token = auth_header[7:].strip()
+        if not provided_token or not provided_token.startswith("trn_"):
+            return api_error(
+                "Invalid token format. Training tokens start with trn_",
+                error_type="authentication_error",
+                code="invalid_training_token",
+                status=401,
+            )
+
+        subscriber = get_subscriber_by_training_token(provided_token)
+        if not subscriber:
+            time.sleep(0.5)
+            return api_error(
+                "Invalid or revoked training token.",
+                error_type="authentication_error",
+                code="invalid_training_token",
+                status=403,
+            )
+
+        # Constant-time comparison against stored token
+        vc = subscriber.get("voice_config") or {}
+        stored_token = vc.get("training_token", "")
+        if not secrets.compare_digest(provided_token, stored_token):
+            time.sleep(0.5)
+            return api_error(
+                "Invalid training token.",
+                error_type="authentication_error",
+                code="invalid_training_token",
+                status=403,
+            )
+
+        # Simple per-location rate limiting via Redis
+        location_id = subscriber.get("location_id", "unknown")
+        rate_key = f"trn_rate:{location_id}"
+        try:
+            from main import redis_client
+            count = redis_client.incr(rate_key)
+            if count == 1:
+                redis_client.expire(rate_key, 60)
+            if count > TRAINING_RATE_LIMIT_RPM:
+                return api_error(
+                    f"Rate limit exceeded. Maximum {TRAINING_RATE_LIMIT_RPM} requests per minute.",
+                    error_type="rate_limit_error",
+                    code="rate_limit_exceeded",
+                    status=429,
+                )
+        except Exception:
+            pass  # If Redis unavailable, allow request through
+
+        g.training_subscriber = subscriber
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ═══════════════════════════════════════════════════════════════
+# GET /api/v1/training/validate — Verify training token
+# ═══════════════════════════════════════════════════════════════
+
+@api_bp.route("/training/validate", methods=["GET"])
+@require_training_token
+def training_validate():
+    """Verify a training token is valid and return basic account info."""
+    sub = g.training_subscriber
+    vc = sub.get("voice_config") or {}
+    return jsonify({
+        "status": "valid",
+        "account": {
+            "location_id": sub.get("location_id"),
+            "email": sub.get("email"),
+            "bot_name": vc.get("voice_bot_name", ""),
+            "token_created_at": vc.get("training_token_created_at"),
+        },
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# GET /api/v1/training/recordings — Paginated call recordings
+# ═══════════════════════════════════════════════════════════════
+
+@api_bp.route("/training/recordings", methods=["GET"])
+@require_training_token
+def training_recordings():
+    """
+    Return paginated call recordings with transcripts and metadata.
+
+    Query params:
+        limit   — max records (default 50, max 200)
+        offset  — pagination offset (default 0)
+        since   — ISO 8601 timestamp filter (only calls after this time)
+        direction — 'inbound' or 'outbound' filter
+    """
+    sub = g.training_subscriber
+    location_id = sub.get("location_id")
+
+    limit = min(int(request.args.get("limit", 50)), 200)
+    offset = max(int(request.args.get("offset", 0)), 0)
+    since = request.args.get("since")
+    direction = request.args.get("direction")
+
+    conn = get_db_connection()
+    if not conn:
+        return api_error("Database unavailable.", error_type="server_error", status=503)
+    try:
+        cur = conn.cursor()
+
+        # Build WHERE clause
+        where = ["location_id = %s"]
+        params = [location_id]
+
+        if since:
+            where.append("created_at >= %s")
+            params.append(since)
+        if direction in ("inbound", "outbound"):
+            where.append("direction = %s")
+            params.append(direction)
+
+        where_sql = " AND ".join(where)
+
+        # Total count for pagination
+        cur.execute(f"SELECT COUNT(*) AS cnt FROM call_history WHERE {where_sql}", params)
+        total = cur.fetchone()["cnt"]
+
+        # Fetch page
+        cur.execute(f"""
+            SELECT id, contact_id, contact_name, phone, direction, call_sid,
+                   status, duration, recording_url, recording_sid, transcript,
+                   started_at, ended_at, created_at, disposition
+            FROM call_history
+            WHERE {where_sql}
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, params + [limit, offset])
+        rows = cur.fetchall()
+        cur.close()
+
+        recordings = []
+        for row in rows:
+            r = dict(row)
+            # Convert timestamps to ISO strings
+            for ts_field in ("started_at", "ended_at", "created_at"):
+                if r.get(ts_field):
+                    r[ts_field] = r[ts_field].isoformat()
+            recordings.append(r)
+
+        return jsonify({
+            "object": "list",
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total,
+            "data": recordings,
+        })
+    except Exception as e:
+        logger.error(f"training_recordings failed: {e}")
+        return api_error("Failed to fetch recordings.", error_type="server_error", status=500)
+    finally:
+        return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════
+# GET /api/v1/training/recordings/<call_sid> — Single recording
+# ═══════════════════════════════════════════════════════════════
+
+@api_bp.route("/training/recordings/<call_sid>", methods=["GET"])
+@require_training_token
+def training_recording_detail(call_sid):
+    """Return a single call recording by call_sid."""
+    sub = g.training_subscriber
+    location_id = sub.get("location_id")
+
+    conn = get_db_connection()
+    if not conn:
+        return api_error("Database unavailable.", error_type="server_error", status=503)
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, contact_id, contact_name, phone, direction, call_sid,
+                   status, duration, recording_url, recording_sid, transcript,
+                   started_at, ended_at, created_at, disposition
+            FROM call_history
+            WHERE location_id = %s AND call_sid = %s
+            LIMIT 1
+        """, (location_id, call_sid))
+        row = cur.fetchone()
+        cur.close()
+
+        if not row:
+            return api_error("Recording not found.", code="not_found", status=404)
+
+        r = dict(row)
+        for ts_field in ("started_at", "ended_at", "created_at"):
+            if r.get(ts_field):
+                r[ts_field] = r[ts_field].isoformat()
+
+        return jsonify(r)
+    except Exception as e:
+        logger.error(f"training_recording_detail failed: {e}")
+        return api_error("Failed to fetch recording.", error_type="server_error", status=500)
+    finally:
+        return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════
+# GET /api/v1/training/stats — Summary statistics
+# ═══════════════════════════════════════════════════════════════
+
+@api_bp.route("/training/stats", methods=["GET"])
+@require_training_token
+def training_stats():
+    """Return summary statistics for the authenticated account's call data."""
+    sub = g.training_subscriber
+    location_id = sub.get("location_id")
+
+    conn = get_db_connection()
+    if not conn:
+        return api_error("Database unavailable.", error_type="server_error", status=503)
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                COUNT(*) AS total_calls,
+                COUNT(CASE WHEN recording_url IS NOT NULL AND recording_url != '' THEN 1 END) AS with_recording,
+                COUNT(CASE WHEN transcript IS NOT NULL AND transcript::text != '[]' AND transcript::text != 'null' THEN 1 END) AS with_transcript,
+                COUNT(CASE WHEN direction = 'inbound' THEN 1 END) AS inbound,
+                COUNT(CASE WHEN direction = 'outbound' THEN 1 END) AS outbound,
+                COALESCE(SUM(duration), 0) AS total_duration_seconds,
+                COALESCE(ROUND(AVG(duration)), 0) AS avg_duration_seconds,
+                MIN(created_at) AS earliest_call,
+                MAX(created_at) AS latest_call
+            FROM call_history
+            WHERE location_id = %s
+        """, (location_id,))
+        row = cur.fetchone()
+        cur.close()
+
+        stats = dict(row)
+        for ts_field in ("earliest_call", "latest_call"):
+            if stats.get(ts_field):
+                stats[ts_field] = stats[ts_field].isoformat()
+
+        return jsonify({"object": "training_stats", **stats})
+    except Exception as e:
+        logger.error(f"training_stats failed: {e}")
+        return api_error("Failed to fetch stats.", error_type="server_error", status=500)
+    finally:
+        return_db_connection(conn)
