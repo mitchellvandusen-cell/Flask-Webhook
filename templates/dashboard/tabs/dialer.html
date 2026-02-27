@@ -35,7 +35,7 @@
                     .dlr-msg-row.outbound .dlr-msg-meta{justify-content:flex-end;}
                     .dlr-type-badge{display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:2px 6px;font-size:0.68rem;color:#777;font-weight:700;letter-spacing:0.3px;}
                     .dlr-status-icon{font-size:0.78rem;}
-                    .dlr-status-icon.sent{color:#00ff88;}
+                    .dlr-status-icon.sent{color:#007AFF;}
                     .dlr-status-icon.pending{color:#888;}
                     .dlr-status-icon.error{color:#ef4444;}
                     /* Quick reply buttons */
@@ -497,7 +497,7 @@
                     <div class="dlr-col" style="width:30%;border-radius:12px;">
                         <div class="dlr-col-hdr">
                             <h6><i class="fa-solid fa-address-book me-1"></i>Contacts</h6>
-                            <button id="dialerGetContactsBtn" onclick="dialerFetchContacts()" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
+                            <button id="dialerGetContactsBtn" onclick="dialerFetchContacts(true)" style="background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;border:none;border-radius:6px;padding:4px 10px;font-weight:700;font-size:0.85rem;cursor:pointer;">
                                 <i class="fa-solid fa-download me-1"></i>Get Contacts
                             </button>
                         </div>
@@ -619,28 +619,28 @@
                                     <div class="ios-home" id="iosHome">
                                         <div class="ios-wallpaper"></div>
                                         <div class="ios-app-grid">
-                                            <!-- Messages App -->
+                                            <!-- Message History App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('messages')">
                                                 <div class="ios-icon ios-icon-messages">
                                                     <i class="fa-solid fa-message"></i>
                                                 </div>
-                                                <span class="ios-app-label">Messages</span>
+                                                <span class="ios-app-label">Message History</span>
                                                 <span class="ios-badge" id="iosBadgeMsgs" style="display:none;">0</span>
                                             </button>
-                                            <!-- Phone App -->
+                                            <!-- Call History App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('calls')">
                                                 <div class="ios-icon ios-icon-phone">
                                                     <i class="fa-solid fa-phone"></i>
                                                 </div>
-                                                <span class="ios-app-label">Phone</span>
+                                                <span class="ios-app-label">Call History</span>
                                                 <span class="ios-badge" id="iosBadgeCalls" style="display:none;">0</span>
                                             </button>
-                                            <!-- Voicemail App -->
+                                            <!-- Recording History App -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('recordings')">
                                                 <div class="ios-icon ios-icon-voicemail">
                                                     <i class="fa-solid fa-voicemail"></i>
                                                 </div>
-                                                <span class="ios-app-label">Voicemail</span>
+                                                <span class="ios-app-label">Recording History</span>
                                                 <span class="ios-badge" id="iosBadgeRecs" style="display:none;">0</span>
                                             </button>
                                         </div>

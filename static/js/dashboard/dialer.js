@@ -8,6 +8,7 @@
         let dialerPollTimer = null;
         let _dialerCallConnected = false;
         let dialerSearchTimer = null;
+        let _dialerAllContacts = [];  // Full unfiltered contact list for local search
         let dialerActiveContact = null; // currently selected contact in middle panel
         let dialerPipelines = [];
         let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
@@ -150,17 +151,37 @@
             dialerFetchContacts();
         }
 
-        // ── Search ──
+        // ── Search: filter locally when contacts are loaded, else fetch ──
         function dialerDebounceSearch() {
             clearTimeout(dialerSearchTimer);
-            dialerSearchTimer = setTimeout(() => dialerFetchContacts(), 400);
+            dialerSearchTimer = setTimeout(() => {
+                if (_dialerAllContacts.length > 0) {
+                    dialerFilterLocal();
+                } else {
+                    dialerFetchContacts();
+                }
+            }, 250);
         }
 
-        // ── Fetch ALL contacts (paginated on backend) ──
-        async function dialerFetchContacts() {
+        function dialerFilterLocal() {
+            const q = (document.getElementById('dialerSearch').value || '').trim().toLowerCase();
+            if (!q) {
+                dialerContacts = [..._dialerAllContacts];
+            } else {
+                dialerContacts = _dialerAllContacts.filter(c =>
+                    (c.name || '').toLowerCase().includes(q) ||
+                    (c.phone || '').includes(q) ||
+                    (c.email || '').toLowerCase().includes(q)
+                );
+            }
+            dialerRenderContacts();
+            dialerUpdateSelectionUI();
+        }
+
+        // ── Fetch ALL contacts (paginated + cached on backend) ──
+        async function dialerFetchContacts(forceRefresh) {
             const list = document.getElementById('dialerContactList');
             const btn = document.getElementById('dialerGetContactsBtn');
-            const q = (document.getElementById('dialerSearch').value || '').trim();
             const manualWrap = document.getElementById('dialerPipelineManual');
             const pipeline = (manualWrap && manualWrap.style.display !== 'none')
                 ? (document.getElementById('dialerPipelineManualInput').value || '').trim()
@@ -172,19 +193,22 @@
             list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Fetching all contacts...</p></div>';
             try {
                 let url = '/voice/contacts?';
-                if (q) url += 'q=' + encodeURIComponent(q) + '&';
                 if (pipeline) url += 'pipeline=' + encodeURIComponent(pipeline) + '&';
                 if (stage) url += 'stage=' + encodeURIComponent(stage);
+                if (forceRefresh) url += 'refresh=1&';
                 const r = await _fetchRetry(url, {}, { retries: 2, timeout: 30000, label: 'contacts' });
                 const d = await r.json();
                 if (!r.ok) {
                     list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to load contacts') + '</div>';
                     return;
                 }
-                dialerContacts = d.contacts || [];
+                _dialerAllContacts = d.contacts || [];
+                dialerContacts = [..._dialerAllContacts];
                 dialerSelected.clear();
-                dialerRenderContacts();
-                dialerUpdateSelectionUI();
+                // Apply any current search filter
+                const q = (document.getElementById('dialerSearch').value || '').trim();
+                if (q) dialerFilterLocal();
+                else { dialerRenderContacts(); dialerUpdateSelectionUI(); }
                 // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
                 dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
             } catch(e) {
@@ -736,7 +760,7 @@
                 const d = await r.json();
                 if (r.ok) {
                     _dlrMarkBubbleSent(pendingId);
-                    if (statusEl) { statusEl.textContent = '\u2713 Sent via ' + channelLabel; statusEl.style.color = '#00ff88'; }
+                    if (statusEl) { statusEl.textContent = '\u2713 Sent via ' + channelLabel; statusEl.style.color = '#007AFF'; }
                     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
                 } else {
                     _dlrMarkBubbleError(pendingId);

@@ -2367,16 +2367,35 @@ def call_panel():
         return_db_connection(conn)
 
 
+GHL_429_MAX_RETRIES = 3
+
+
+def _ghl_request_with_retry(url, headers, params, timeout=15):
+    """Make a GHL API GET request with automatic retry + backoff on 429."""
+    for attempt in range(GHL_429_MAX_RETRIES + 1):
+        resp = http_requests.get(url, headers=headers, params=params, timeout=timeout)
+        if resp.status_code != 429:
+            return resp
+        retry_after = int(resp.headers.get("Retry-After", 0))
+        wait = max(retry_after, 2 ** (attempt + 1))  # 2s, 4s, 8s
+        logger.warning(f"GHL 429 rate-limited on {url}, waiting {wait}s (attempt {attempt + 1}/{GHL_429_MAX_RETRIES + 1})")
+        time.sleep(wait)
+    return resp
+
+
 @voice_bp.route('/voice/contacts', methods=['GET'])
 @login_required
 def fetch_contacts():
     """
     Fetch ALL contacts from GHL (paginates automatically).
-    Query params: q (search query), pipeline, stage
+    Caches results in Redis (5 min TTL) to avoid repeated GHL API calls.
+    Search queries are filtered client-side from the full cached set.
+    Query params: q (search query), pipeline, stage, refresh (bust cache)
     """
     query = request.args.get('q', '').strip()
     pipeline_id = request.args.get('pipeline', '').strip()
     stage_id = request.args.get('stage', '').strip()
+    force_refresh = request.args.get('refresh', '').strip() == '1'
 
     conn = get_db_connection()
     if not conn:
@@ -2391,6 +2410,25 @@ def fetch_contacts():
         location_id = row['location_id']
     finally:
         return_db_connection(conn)
+
+    # ── Try Redis cache first ──
+    cache_key = f"contacts:{location_id}:{pipeline_id or '_'}:{stage_id or '_'}"
+    if not force_refresh:
+        try:
+            from main import redis_conn
+            if redis_conn:
+                cached = redis_conn.get(cache_key)
+                if cached:
+                    result = json.loads(cached)
+                    if query:
+                        q_lower = query.lower()
+                        result = [c for c in result if
+                                  q_lower in c.get("name", "").lower() or
+                                  q_lower in c.get("phone", "").lower() or
+                                  q_lower in c.get("email", "").lower()]
+                    return jsonify({"contacts": result, "total": len(result), "cached": True})
+        except Exception:
+            pass  # Cache miss or Redis unavailable — fetch from GHL
 
     access_token = get_valid_token(location_id)
     if not access_token:
@@ -2408,9 +2446,6 @@ def fetch_contacts():
         max_pages = 50    # Safety cap: 5000 contacts max
 
         if pipeline_id or stage_id:
-            # GHL contacts/search does NOT support pipeline/stage filters.
-            # Use the Opportunities API to find contacts in a pipeline/stage,
-            # then fetch full contact details for each.
             page = 1
             seen_contact_ids = set()
             while page <= max_pages:
@@ -2422,10 +2457,8 @@ def fetch_contacts():
                 }
                 if stage_id:
                     opp_params["pipeline_stage_id"] = stage_id
-                if query:
-                    opp_params["q"] = query
 
-                resp = http_requests.get(
+                resp = _ghl_request_with_retry(
                     f"{GHL_API_BASE}/opportunities/search",
                     headers=headers, params=opp_params, timeout=15,
                 )
@@ -2445,7 +2478,6 @@ def fetch_contacts():
                     contact_id = contact.get("id", "")
                     if contact_id and contact_id not in seen_contact_ids:
                         seen_contact_ids.add(contact_id)
-                        # Build a contact-like dict from the opportunity's contact data
                         all_contacts.append({
                             "id": contact_id,
                             "firstName": contact.get("name", "").split(" ")[0] if contact.get("name") else "",
@@ -2461,16 +2493,13 @@ def fetch_contacts():
                     break
                 page += 1
         else:
-            # GET /contacts/ with startAfterId pagination
             start_after = None
             for _ in range(max_pages):
                 params = {"locationId": location_id, "limit": page_limit}
-                if query:
-                    params["query"] = query
                 if start_after:
                     params["startAfterId"] = start_after
 
-                resp = http_requests.get(f"{GHL_API_BASE}/contacts/", headers=headers, params=params, timeout=15)
+                resp = _ghl_request_with_retry(f"{GHL_API_BASE}/contacts/", headers=headers, params=params, timeout=15)
                 if resp.status_code != 200:
                     if not all_contacts:
                         return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
@@ -2481,7 +2510,6 @@ def fetch_contacts():
                 if not contacts:
                     break
                 all_contacts.extend(contacts)
-                # GHL uses startAfterId for cursor pagination
                 meta = data.get("meta", {})
                 start_after = meta.get("startAfterId") or meta.get("nextPageUrl")
                 if not start_after or len(contacts) < page_limit:
@@ -2489,7 +2517,7 @@ def fetch_contacts():
 
         logger.info(f"Fetched {len(all_contacts)} total contacts for {location_id}")
 
-        # Return simplified contact list
+        # Build simplified contact list
         result = []
         for c in all_contacts:
             phone = c.get("phone", "")
@@ -2506,7 +2534,23 @@ def fetch_contacts():
                 "dateAdded": c.get("dateAdded", ""),
             })
 
-        return jsonify({"contacts": result, "total": len(result)})
+        # Cache in Redis (5 min TTL)
+        try:
+            from main import redis_conn
+            if redis_conn and result:
+                redis_conn.setex(cache_key, 300, json.dumps(result))
+        except Exception:
+            pass
+
+        # Apply search filter if provided
+        if query:
+            q_lower = query.lower()
+            result = [c for c in result if
+                      q_lower in c.get("name", "").lower() or
+                      q_lower in c.get("phone", "").lower() or
+                      q_lower in c.get("email", "").lower()]
+
+        return jsonify({"contacts": result, "total": len(result), "cached": False})
 
     except Exception as e:
         logger.error(f"Failed to fetch contacts: {e}")
