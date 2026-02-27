@@ -6,6 +6,9 @@
 #   GET|POST /dashboard                 — Main subscriber dashboard
 #   POST /save-profile                  — Update name/phone/bio
 #   GET|POST /api/voice-config          — Voice AI configuration
+#   POST /api/training/generate-code    — Generate training integration code
+#   POST /api/training/revoke-code      — Revoke training integration code
+#   GET  /api/training/status           — Training code status
 #   GET|POST /api/carriers              — Contracted carrier list
 #   GET|POST /api/bot-settings          — Bot behavior settings
 #   POST /api/generate-key              — Generate external API key
@@ -36,6 +39,7 @@ from db import (
     get_bot_settings, save_bot_settings, BOT_SETTINGS_DEFAULTS,
     get_webhook_logs, get_persistent_alerts, dismiss_persistent_alert,
     create_api_key_for_user, revoke_api_key, save_outbound_webhook_url,
+    create_training_token_for_user, revoke_training_token,
 )
 from forms import ConfigForm
 from carrier_list import CARRIER_LIST, validate_carrier_keys
@@ -416,6 +420,60 @@ def save_voice_config():
     except Exception as e:
         conn.rollback()
         logger.error(f"Failed to save voice config: {e}")
+        return flask_jsonify({"error": str(e)}), 500
+    finally:
+        return_db_connection(conn)
+
+
+# ── Training integration code ─────────────────────────────────────────────────
+
+@dashboard_bp.route("/api/training/generate-code", methods=["POST"])
+@login_required
+def generate_training_code():
+    """Generate a new training integration token stored in voice_config."""
+    result = create_training_token_for_user(current_user.email)
+    if "error" in result:
+        return flask_jsonify({"error": result["error"]}), 500
+    logger.info(f"Training code generated for {current_user.email}")
+    return flask_jsonify({
+        "status": "success",
+        "training_token": result["training_token"],
+    })
+
+
+@dashboard_bp.route("/api/training/revoke-code", methods=["POST"])
+@login_required
+def revoke_training_code():
+    """Revoke the current training integration token."""
+    ok = revoke_training_token(current_user.email)
+    if not ok:
+        return flask_jsonify({"error": "Failed to revoke training code"}), 500
+    logger.info(f"Training code revoked for {current_user.email}")
+    return flask_jsonify({"status": "success"})
+
+
+@dashboard_bp.route("/api/training/status", methods=["GET"])
+@login_required
+def training_code_status():
+    """Return the current training token status (masked) from voice_config."""
+    conn = get_db_connection()
+    if not conn:
+        return flask_jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        vc = (row['voice_config'] if row and row['voice_config'] else {}) if row else {}
+        token = vc.get("training_token")
+        if token:
+            return flask_jsonify({
+                "has_token": True,
+                "training_token": token,
+                "created_at": vc.get("training_token_created_at", ""),
+            })
+        return flask_jsonify({"has_token": False})
+    except Exception as e:
         return flask_jsonify({"error": str(e)}), 500
     finally:
         return_db_connection(conn)

@@ -2393,6 +2393,79 @@ def revoke_api_key(email: str) -> bool:
         return_db_connection(conn)
 
 
+# ===================================================
+# TRAINING TOKEN HELPERS
+# ===================================================
+
+def generate_training_token() -> str:
+    """Generate a secure training integration token with trn_ prefix."""
+    return f"trn_{secrets.token_urlsafe(32)}"
+
+
+def create_training_token_for_user(email: str) -> dict:
+    """Generate and store a training token in the user's voice_config JSONB."""
+    token = generate_training_token()
+    conn = get_db_connection()
+    if not conn:
+        return {"error": "Database unavailable"}
+    try:
+        cur = conn.cursor()
+        # Read existing voice_config, merge in training_token fields
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
+        row = cur.fetchone()
+        vc = (row['voice_config'] if row and row['voice_config'] else {}) if row else {}
+        if not isinstance(vc, dict):
+            vc = {}
+        vc["training_token"] = token
+        vc["training_token_created_at"] = datetime.utcnow().isoformat() + "Z"
+        cur.execute(
+            "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
+            (json.dumps(vc), email),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            return {"error": "Account not found"}
+        conn.commit()
+        cur.close()
+        return {"training_token": token}
+    except Exception as e:
+        logger.error(f"create_training_token_for_user failed for {email}: {e}")
+        conn.rollback()
+        return {"error": str(e)}
+    finally:
+        return_db_connection(conn)
+
+
+def revoke_training_token(email: str) -> bool:
+    """Remove the training token from a user's voice_config."""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT voice_config FROM subscribers WHERE email = %s", (email,))
+        row = cur.fetchone()
+        vc = (row['voice_config'] if row and row['voice_config'] else {}) if row else {}
+        if not isinstance(vc, dict):
+            vc = {}
+        vc.pop("training_token", None)
+        vc.pop("training_token_created_at", None)
+        cur.execute(
+            "UPDATE subscribers SET voice_config = %s::jsonb, updated_at = NOW() WHERE email = %s",
+            (json.dumps(vc), email),
+        )
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.error(f"revoke_training_token failed for {email}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        return_db_connection(conn)
+
+
 def save_outbound_webhook_url(email: str, url: str) -> bool:
     """Save a subscriber's outbound webhook URL for API reply delivery."""
     conn = get_db_connection()
