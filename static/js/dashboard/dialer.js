@@ -183,6 +183,8 @@
         }
 
         // ── Fetch ALL contacts (paginated + cached on backend) ──
+        let _dialerCacheLoaded = false; // Track if we've loaded from cache on first open
+
         async function dialerFetchContacts(forceRefresh) {
             const list = document.getElementById('dialerContactList');
             const btn = document.getElementById('dialerGetContactsBtn');
@@ -194,7 +196,12 @@
 
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Loading...';
             btn.disabled = true;
-            list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Fetching all contacts...</p></div>';
+
+            // Only show full loading spinner if no contacts loaded yet
+            if (!_dialerAllContacts.length) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i><p style="margin-top:8px;font-size:.78rem;">Loading contacts...</p></div>';
+            }
+
             try {
                 let url = '/voice/contacts?';
                 if (pipeline) url += 'pipeline=' + encodeURIComponent(pipeline) + '&';
@@ -203,7 +210,9 @@
                 const r = await _fetchRetry(url, {}, { retries: 2, timeout: 30000, label: 'contacts' });
                 const d = await r.json();
                 if (!r.ok) {
-                    list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to load contacts') + '</div>';
+                    if (!_dialerAllContacts.length) {
+                        list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to load contacts') + '</div>';
+                    }
                     return;
                 }
                 _dialerAllContacts = d.contacts || [];
@@ -215,12 +224,95 @@
                 else { dialerRenderContacts(); dialerUpdateSelectionUI(); }
                 // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
                 dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+
+                // Update cache status indicator
+                _dialerUpdateCacheStatus(d);
+
+                // If background refresh is happening, poll for completion
+                if (d.refreshing) {
+                    _dialerPollRefresh(pipeline, stage);
+                }
             } catch(e) {
                 console.error('[Dialer] Contact fetch failed:', e);
-                list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
+                if (!_dialerAllContacts.length) {
+                    list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
+                }
             } finally {
                 btn.innerHTML = '<i class="fa-solid fa-download me-1"></i>Get Contacts';
                 btn.disabled = false;
+            }
+        }
+
+        // ── Cache status display ──
+        function _dialerUpdateCacheStatus(data) {
+            const el = document.getElementById('dialerCacheStatus');
+            if (!el) return;
+            if (data.cached && data.cached_at) {
+                const ago = _igbTimeAgo(data.cached_at);
+                el.style.display = 'flex';
+                let html = '<i class="fa-solid fa-database" style="color:#444;"></i>';
+                html += '<span>' + (data.contacts || []).length + ' contacts</span>';
+                html += '<span style="color:#333;">|</span>';
+                html += '<span>synced ' + ago + '</span>';
+                if (data.refreshing) {
+                    html += '<span style="color:#00d9ff;"><i class="fa-solid fa-rotate fa-spin me-1"></i>refreshing...</span>';
+                }
+                el.innerHTML = html;
+            } else if (!data.cached) {
+                el.style.display = 'flex';
+                el.innerHTML = '<i class="fa-solid fa-cloud-arrow-down" style="color:#4ade80;"></i><span style="color:#4ade80;">Fresh from CRM</span>';
+                setTimeout(() => { el.style.display = 'none'; }, 5000);
+            } else {
+                el.style.display = 'none';
+            }
+        }
+
+        // ── Poll for background refresh completion ──
+        function _dialerPollRefresh(pipeline, stage) {
+            const syncIcon = document.getElementById('dialerSyncIcon');
+            if (syncIcon) syncIcon.classList.add('fa-spin');
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                if (attempts > 20) { // 60 seconds max
+                    clearInterval(poll);
+                    if (syncIcon) syncIcon.classList.remove('fa-spin');
+                    return;
+                }
+                try {
+                    let url = '/voice/contacts?';
+                    if (pipeline) url += 'pipeline=' + encodeURIComponent(pipeline) + '&';
+                    if (stage) url += 'stage=' + encodeURIComponent(stage);
+                    const r = await fetch(url);
+                    const d = await r.json();
+                    if (r.ok && !d.refreshing) {
+                        clearInterval(poll);
+                        if (syncIcon) syncIcon.classList.remove('fa-spin');
+                        // Update contacts with fresh data
+                        _dialerAllContacts = d.contacts || [];
+                        dialerContacts = [..._dialerAllContacts];
+                        const q = (document.getElementById('dialerSearch').value || '').trim();
+                        if (q) dialerFilterLocal();
+                        else dialerRenderContacts();
+                        _dialerUpdateCacheStatus(d);
+                    }
+                } catch(e) { /* ignore poll errors */ }
+            }, 3000);
+        }
+
+        // ── Manual sync button ──
+        async function dialerSyncContacts() {
+            const syncIcon = document.getElementById('dialerSyncIcon');
+            if (syncIcon) syncIcon.classList.add('fa-spin');
+            try {
+                await fetch('/voice/contacts/sync', { method: 'POST' });
+                // Poll for completion
+                _dialerPollRefresh(
+                    document.getElementById('dialerPipelineFilter').value,
+                    document.getElementById('dialerStageFilter').value
+                );
+            } catch(e) {
+                if (syncIcon) syncIcon.classList.remove('fa-spin');
             }
         }
 
@@ -549,47 +641,6 @@
                     html += '</div>';
                 }
 
-                // ── AI Narrative Summary (with name cross-validation) ──
-                if (eng && eng.narrative && eng.narrative.summary) {
-                    const contactFirstName = (c.firstName || '').toLowerCase().trim();
-                    const narrText = eng.narrative.summary || '';
-                    // Cross-validate: suppress narrative if it mentions a different person by name
-                    // and doesn't reference the actual contact's name at all
-                    let narrativeValid = true;
-                    if (contactFirstName && contactFirstName.length > 1) {
-                        const narrLower = narrText.toLowerCase();
-                        if (!narrLower.includes(contactFirstName)) {
-                            // Narrative doesn't mention this contact's name — may be cross-contaminated
-                            // Check if it starts with a different person's name pattern
-                            const namePattern = /^([A-Z][a-z]+)\s+(is|was|has|had|called|messaged|replied|expressed|mentioned|asked|wants|needs|said)/;
-                            const match = narrText.match(namePattern);
-                            if (match && match[1].toLowerCase() !== contactFirstName) {
-                                narrativeValid = false;
-                            }
-                        }
-                    }
-                    if (narrativeValid) {
-                        html += '<div class="igb-summary-card">';
-                        html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
-                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
-                        html += '</div>';
-                        html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
-                        html += '</div>';
-                    }
-                }
-
-                // ── Known Facts (list view) ──
-                if (eng && eng.facts && eng.facts.length) {
-                    html += '<div style="margin-bottom:10px;">';
-                    html += '<div style="font-size:.68rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
-                    html += '<ul class="igb-facts-list">';
-                    eng.facts.forEach(function(f) {
-                        html += '<li>' + dialerEsc(f) + '</li>';
-                    });
-                    html += '</ul>';
-                    html += '</div>';
-                }
-
                 // ── CRM Contact Info (compact) ──
                 const fields = [
                     { label: 'Phone', value: formatPhone(c.phone), icon: 'fa-phone' },
@@ -629,6 +680,52 @@
                         });
                         html += '</div>';
                     }
+                }
+
+                // ── AI Summary (below CRM fields, toggle-controlled, 30-word max) ──
+                const _showSummary = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showAiSummary !== false;
+                if (_showSummary && eng && eng.narrative && eng.narrative.summary) {
+                    const contactFirstName = (c.firstName || '').toLowerCase().trim();
+                    let narrText = eng.narrative.summary || '';
+                    // Cross-validate: suppress if it names a different person
+                    let narrativeValid = true;
+                    if (contactFirstName && contactFirstName.length > 1) {
+                        const narrLower = narrText.toLowerCase();
+                        if (!narrLower.includes(contactFirstName)) {
+                            const namePattern = /^([A-Z][a-z]+)\s+(is|was|has|had|called|messaged|replied|expressed|mentioned|asked|wants|needs|said)/;
+                            const match = narrText.match(namePattern);
+                            if (match && match[1].toLowerCase() !== contactFirstName) {
+                                narrativeValid = false;
+                            }
+                        }
+                    }
+                    // Frontend 30-word hard cap
+                    if (narrativeValid && narrText) {
+                        const words = narrText.split(/\s+/);
+                        if (words.length > 30) narrText = words.slice(0, 30).join(' ') + '...';
+                        html += '<div class="igb-summary-card" style="margin-top:8px;">';
+                        html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
+                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
+                        html += '</div>';
+                        html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
+                        html += '</div>';
+                    }
+                }
+
+                // ── Known Facts (below AI Summary, toggle-controlled, 10-word max per line) ──
+                const _showFacts = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showKnownFacts !== false;
+                if (_showFacts && eng && eng.facts && eng.facts.length) {
+                    html += '<div style="margin-top:8px;margin-bottom:10px;">';
+                    html += '<div style="font-size:.68rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
+                    html += '<ul class="igb-facts-list">';
+                    eng.facts.forEach(function(f) {
+                        // Frontend 10-word hard cap
+                        var words = f.split(/\s+/);
+                        if (words.length > 10) f = words.slice(0, 10).join(' ');
+                        html += '<li>' + dialerEsc(f) + '</li>';
+                    });
+                    html += '</ul>';
+                    html += '</div>';
                 }
 
                 // Notes

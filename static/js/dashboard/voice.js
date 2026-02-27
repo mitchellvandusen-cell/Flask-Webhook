@@ -112,6 +112,9 @@
                 local_presence: document.getElementById('voiceLocalPresence')?.checked ?? false,
                 transfer_number: document.getElementById('voiceTransferNumber')?.value?.trim() || '',
                 voicemail_drop: document.getElementById('voiceVoicemailDrop')?.checked ?? false,
+                // Dossier display settings
+                show_ai_summary: document.getElementById('voiceShowAiSummary')?.checked ?? true,
+                show_known_facts: document.getElementById('voiceShowKnownFacts')?.checked ?? true,
             };
 
             _fetchRetry('/api/voice-config', {
@@ -124,6 +127,11 @@
                     _showDashToast(true, 'Voice settings saved!');
                     // Live-update dialer max attempts so queue uses new value immediately
                     dialerMaxAttempts = config.dial_attempts || 2;
+                    // Live-update dossier toggles
+                    if (window.DASHBOARD_BOOT) {
+                        window.DASHBOARD_BOOT.showAiSummary = config.show_ai_summary;
+                        window.DASHBOARD_BOOT.showKnownFacts = config.show_known_facts;
+                    }
                     // Update badge
                     const badge = document.getElementById('voiceStatusBadge');
                     if (config.enabled) {

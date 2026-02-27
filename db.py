@@ -1272,6 +1272,33 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"super_admin migration note: {e}")
 
+        # ── Contact cache table for fast dialer loading ─────────────────────
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS contact_cache (
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT NOT NULL,
+                    name TEXT,
+                    first_name TEXT,
+                    last_name TEXT,
+                    phone TEXT,
+                    email TEXT,
+                    tags JSONB DEFAULT '[]',
+                    date_added TEXT,
+                    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (location_id, contact_id)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_cache_loc ON contact_cache (location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_cache_search ON contact_cache (location_id, lower(name) text_pattern_ops)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_cache_phone ON contact_cache (location_id, phone)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_contact_cache_synced ON contact_cache (location_id, synced_at DESC)")
+            conn.commit()
+            logger.info("✅ Migration: contact_cache table ready")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"contact_cache migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -3083,5 +3110,171 @@ def delete_discord_webhook_channel(email: str, channel_id: str) -> bool:
     except Exception as e:
         logger.error(f"delete_discord_webhook_channel failed: {e}")
         return False
+    finally:
+        return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  CONTACT CACHE — persistent per-subscriber cache for fast dialer
+# ═══════════════════════════════════════════════════════════════
+
+def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) -> list:
+    """Fetch contacts from the local cache. Optional search filter.
+    Returns list of contact dicts or empty list if no cache."""
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        if query and query.strip():
+            q = f"%{query.strip().lower()}%"
+            cur.execute("""
+                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added
+                FROM contact_cache
+                WHERE location_id = %s
+                  AND (lower(name) LIKE %s OR phone LIKE %s OR lower(email) LIKE %s)
+                ORDER BY name
+                LIMIT %s
+            """, (location_id, q, q, q, limit))
+        else:
+            cur.execute("""
+                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added
+                FROM contact_cache
+                WHERE location_id = %s
+                ORDER BY name
+                LIMIT %s
+            """, (location_id, limit))
+        rows = cur.fetchall()
+        cur.close()
+        return [{
+            "id": r["contact_id"],
+            "name": r["name"] or "Unknown",
+            "firstName": r["first_name"] or "",
+            "lastName": r["last_name"] or "",
+            "phone": r["phone"] or "",
+            "email": r["email"] or "",
+            "tags": r["tags"] if r["tags"] else [],
+            "dateAdded": r["date_added"] or "",
+        } for r in rows]
+    except Exception as e:
+        logger.error(f"get_cached_contacts failed for {location_id}: {e}")
+        return []
+    finally:
+        return_db_connection(conn)
+
+
+def get_contact_cache_age(location_id: str):
+    """Return the max synced_at timestamp for a location's cache, or None if empty."""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT MAX(synced_at) as latest FROM contact_cache WHERE location_id = %s",
+            (location_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row["latest"] if row and row["latest"] else None
+    except Exception as e:
+        logger.error(f"get_contact_cache_age failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
+def get_contact_cache_count(location_id: str) -> int:
+    """Return the number of cached contacts for a location."""
+    conn = get_db_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) as cnt FROM contact_cache WHERE location_id = %s", (location_id,))
+        row = cur.fetchone()
+        cur.close()
+        return row["cnt"] if row else 0
+    except Exception as e:
+        logger.error(f"get_contact_cache_count failed: {e}")
+        return 0
+    finally:
+        return_db_connection(conn)
+
+
+def upsert_contact_cache(location_id: str, contacts: list) -> int:
+    """Bulk upsert contacts into cache. Returns number of rows affected.
+    Also removes contacts that no longer exist in the source (full sync)."""
+    if not location_id or not contacts:
+        return 0
+    conn = get_db_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+
+        # Build values for bulk upsert
+        from psycopg2.extras import execute_values
+        import json as _json
+
+        values = []
+        incoming_ids = set()
+        for c in contacts:
+            cid = c.get("id", "")
+            if not cid:
+                continue
+            incoming_ids.add(cid)
+            values.append((
+                location_id,
+                cid,
+                c.get("name") or f"{c.get('firstName', '')} {c.get('lastName', '')}".strip() or "Unknown",
+                c.get("firstName", ""),
+                c.get("lastName", ""),
+                c.get("phone", ""),
+                c.get("email", ""),
+                _json.dumps(c.get("tags", [])),
+                c.get("dateAdded", ""),
+            ))
+
+        if not values:
+            return 0
+
+        # Bulk upsert
+        execute_values(cur, """
+            INSERT INTO contact_cache (location_id, contact_id, name, first_name, last_name, phone, email, tags, date_added, synced_at)
+            VALUES %s
+            ON CONFLICT (location_id, contact_id)
+            DO UPDATE SET
+                name = EXCLUDED.name,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                phone = EXCLUDED.phone,
+                email = EXCLUDED.email,
+                tags = EXCLUDED.tags,
+                date_added = EXCLUDED.date_added,
+                synced_at = CURRENT_TIMESTAMP
+        """, values, template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, CURRENT_TIMESTAMP)")
+
+        affected = cur.rowcount
+
+        # Remove stale contacts that are no longer in GHL
+        if incoming_ids:
+            cur.execute(
+                "DELETE FROM contact_cache WHERE location_id = %s AND contact_id != ALL(%s)",
+                (location_id, list(incoming_ids))
+            )
+            stale_removed = cur.rowcount
+            if stale_removed > 0:
+                logger.info(f"Removed {stale_removed} stale cached contacts for {location_id}")
+
+        conn.commit()
+        cur.close()
+        logger.info(f"Contact cache upserted: {affected} contacts for {location_id}")
+        return affected
+    except Exception as e:
+        logger.error(f"upsert_contact_cache failed for {location_id}: {e}")
+        if conn:
+            conn.rollback()
+        return 0
     finally:
         return_db_connection(conn)

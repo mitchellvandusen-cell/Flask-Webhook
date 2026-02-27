@@ -9,16 +9,17 @@
         // Page title map
         const _pageTitles = {
             voicedialer: 'Dialer', config: 'SMS Config', voice: 'Voice Config',
-            workflows: 'Workflows', connect: 'Connect CRM', carriers: 'Carriers',
-            advanced: 'Advanced Settings', aiminutes: 'AI Minutes',
+            workflows: 'Workflows', training: 'Training', connect: 'Connect CRM',
+            carriers: 'Carriers', advanced: 'Advanced Settings', aiminutes: 'AI Minutes',
             billing: 'Billing', logs: 'Activity Logs',
         };
 
         // Map of tab IDs to sidebar nav button IDs
         const _tabToBtn = {
             voicedialer: 'sbnDialer', config: 'sbnSmsConfig', voice: 'sbnVoiceConfig',
-            workflows: 'sbnWorkflows', connect: 'sbnConnect', carriers: 'sbnCarriers',
-            advanced: 'sbnAdvanced', aiminutes: 'sbnAiMinutes', billing: 'sbnBilling', logs: 'sbnLogs',
+            workflows: 'sbnWorkflows', training: 'sbnTraining', connect: 'sbnConnect',
+            carriers: 'sbnCarriers', advanced: 'sbnAdvanced', aiminutes: 'sbnAiMinutes',
+            billing: 'sbnBilling', logs: 'sbnLogs',
         };
 
         function sidebarNavigate(tabId, btnEl) {

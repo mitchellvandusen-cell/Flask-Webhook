@@ -2383,14 +2383,166 @@ def _ghl_request_with_retry(url, headers, params, timeout=15):
     return resp
 
 
+# ── Helper: fetch all contacts from GHL API (paginated) ──
+def _fetch_all_ghl_contacts(location_id, access_token):
+    """Paginate through GHL contacts API. Returns list of simplified contact dicts."""
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": GHL_API_VERSION,
+        "Content-Type": "application/json"
+    }
+    all_contacts = []
+    page_limit = 100
+    max_pages = 50  # 5,000 contacts max
+    start_after = None
+
+    for _ in range(max_pages):
+        params = {"locationId": location_id, "limit": page_limit}
+        if start_after:
+            params["startAfterId"] = start_after
+
+        resp = _ghl_request_with_retry(f"{GHL_API_BASE}/contacts/", headers=headers, params=params, timeout=15)
+        if resp.status_code != 200:
+            break
+
+        data = resp.json()
+        contacts = data.get("contacts", [])
+        if not contacts:
+            break
+        all_contacts.extend(contacts)
+        meta = data.get("meta", {})
+        start_after = meta.get("startAfterId") or meta.get("nextPageUrl")
+        if not start_after or len(contacts) < page_limit:
+            break
+
+    # Build simplified list (phone required)
+    result = []
+    for c in all_contacts:
+        phone = c.get("phone", "")
+        if not phone:
+            continue
+        result.append({
+            "id": c.get("id", ""),
+            "name": f"{c.get('firstName', '')} {c.get('lastName', '')}".strip() or "Unknown",
+            "firstName": c.get("firstName", ""),
+            "lastName": c.get("lastName", ""),
+            "phone": phone,
+            "email": c.get("email", ""),
+            "tags": c.get("tags", []),
+            "dateAdded": c.get("dateAdded", ""),
+        })
+    return result
+
+
+# ── Helper: fetch pipeline/stage contacts from GHL opportunities API ──
+def _fetch_pipeline_ghl_contacts(location_id, access_token, pipeline_id, stage_id):
+    """Fetch contacts filtered by pipeline/stage via opportunities API."""
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": GHL_API_VERSION,
+        "Content-Type": "application/json"
+    }
+    all_contacts = []
+    page_limit = 100
+    max_pages = 50
+    page = 1
+    seen_contact_ids = set()
+
+    while page <= max_pages:
+        opp_params = {
+            "location_id": location_id,
+            "pipeline_id": pipeline_id,
+            "limit": page_limit,
+            "page": page,
+        }
+        if stage_id:
+            opp_params["pipeline_stage_id"] = stage_id
+
+        resp = _ghl_request_with_retry(
+            f"{GHL_API_BASE}/opportunities/search",
+            headers=headers, params=opp_params, timeout=15,
+        )
+        if resp.status_code != 200:
+            break
+
+        data = resp.json()
+        opportunities = data.get("opportunities", [])
+        if not opportunities:
+            break
+
+        for opp in opportunities:
+            contact = opp.get("contact", {})
+            contact_id = contact.get("id", "")
+            if contact_id and contact_id not in seen_contact_ids:
+                seen_contact_ids.add(contact_id)
+                all_contacts.append({
+                    "id": contact_id,
+                    "name": contact.get("name", "") or "Unknown",
+                    "firstName": contact.get("name", "").split(" ")[0] if contact.get("name") else "",
+                    "lastName": " ".join(contact.get("name", "").split(" ")[1:]) if contact.get("name") else "",
+                    "phone": contact.get("phone", ""),
+                    "email": contact.get("email", ""),
+                    "tags": contact.get("tags", []),
+                    "dateAdded": contact.get("dateAdded", ""),
+                })
+
+        meta = data.get("meta", {})
+        if len(opportunities) < page_limit or not meta.get("nextPage"):
+            break
+        page += 1
+
+    return [c for c in all_contacts if c.get("phone")]
+
+
+# ── Background contact cache sync (runs in thread) ──
+_contact_sync_locks = {}
+
+def _background_contact_sync(location_id):
+    """Sync contacts from GHL to DB cache in background thread."""
+    import threading
+    lock_key = f"contact_sync:{location_id}"
+
+    # Prevent concurrent syncs for the same location
+    if lock_key in _contact_sync_locks:
+        return
+    _contact_sync_locks[lock_key] = True
+
+    def _do_sync():
+        try:
+            access_token = get_valid_token(location_id)
+            if not access_token:
+                logger.warning(f"Background contact sync: no token for {location_id}")
+                return
+            contacts = _fetch_all_ghl_contacts(location_id, access_token)
+            if contacts:
+                from db import upsert_contact_cache
+                upsert_contact_cache(location_id, contacts)
+                logger.info(f"Background contact sync complete: {len(contacts)} contacts for {location_id}")
+        except Exception as e:
+            logger.error(f"Background contact sync failed for {location_id}: {e}")
+        finally:
+            _contact_sync_locks.pop(lock_key, None)
+
+    t = threading.Thread(target=_do_sync, daemon=True)
+    t.start()
+
+
+_CACHE_FRESH_SECS = 900     # 15 minutes — serve without background refresh
+_CACHE_STALE_SECS = 21600   # 6 hours — serve + trigger background refresh
+                              # Beyond 6 hours — synchronous GHL fetch
+
+
 @voice_bp.route('/voice/contacts', methods=['GET'])
 @login_required
 def fetch_contacts():
     """
-    Fetch ALL contacts from GHL (paginates automatically).
-    Caches results in Redis (5 min TTL) to avoid repeated GHL API calls.
-    Search queries are filtered client-side from the full cached set.
-    Query params: q (search query), pipeline, stage, refresh (bust cache)
+    Fetch contacts with persistent DB cache for fast loading.
+    Cache strategy:
+    - DB cache < 15 min → serve instantly
+    - DB cache 15min–6hr → serve instantly + background refresh
+    - DB cache empty or > 6hr → synchronous GHL fetch + cache
+    - force_refresh=1 → synchronous GHL fetch + cache
+    Pipeline/stage filtering uses Redis cache (5 min) + GHL opportunities API.
     """
     query = request.args.get('q', '').strip()
     pipeline_id = request.args.get('pipeline', '').strip()
@@ -2411,138 +2563,101 @@ def fetch_contacts():
     finally:
         return_db_connection(conn)
 
-    # ── Try Redis cache first ──
-    cache_key = f"contacts:{location_id}:{pipeline_id or '_'}:{stage_id or '_'}"
-    if not force_refresh:
-        try:
-            from main import redis_conn
-            if redis_conn:
-                cached = redis_conn.get(cache_key)
-                if cached:
-                    result = json.loads(cached)
-                    if query:
-                        q_lower = query.lower()
-                        result = [c for c in result if
-                                  q_lower in c.get("name", "").lower() or
-                                  q_lower in c.get("phone", "").lower() or
-                                  q_lower in c.get("email", "").lower()]
-                    return jsonify({"contacts": result, "total": len(result), "cached": True})
-        except Exception:
-            pass  # Cache miss or Redis unavailable — fetch from GHL
+    # ── Pipeline/stage filter: use Redis cache + GHL opportunities API ──
+    if pipeline_id or stage_id:
+        cache_key = f"contacts:{location_id}:{pipeline_id or '_'}:{stage_id or '_'}"
+        if not force_refresh:
+            try:
+                from main import redis_conn
+                if redis_conn:
+                    cached = redis_conn.get(cache_key)
+                    if cached:
+                        result = json.loads(cached)
+                        if query:
+                            q_lower = query.lower()
+                            result = [c for c in result if
+                                      q_lower in c.get("name", "").lower() or
+                                      q_lower in c.get("phone", "").lower() or
+                                      q_lower in c.get("email", "").lower()]
+                        return jsonify({"contacts": result, "total": len(result), "cached": True})
+            except Exception:
+                pass
 
+        access_token = get_valid_token(location_id)
+        if not access_token:
+            return jsonify({"error": "No valid auth token. Reconnect your CRM."}), 401
+        try:
+            result = _fetch_pipeline_ghl_contacts(location_id, access_token, pipeline_id, stage_id)
+            # Cache pipeline results in Redis (5 min)
+            try:
+                from main import redis_conn
+                if redis_conn and result:
+                    redis_conn.setex(cache_key, 300, json.dumps(result))
+            except Exception:
+                pass
+            if query:
+                q_lower = query.lower()
+                result = [c for c in result if
+                          q_lower in c.get("name", "").lower() or
+                          q_lower in c.get("phone", "").lower() or
+                          q_lower in c.get("email", "").lower()]
+            return jsonify({"contacts": result, "total": len(result), "cached": False})
+        except Exception as e:
+            logger.error(f"Failed to fetch pipeline contacts: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    # ── All contacts: persistent DB cache first ──
+    import datetime
+    from db import get_cached_contacts, get_contact_cache_age, upsert_contact_cache
+
+    if not force_refresh:
+        cache_age = get_contact_cache_age(location_id)
+        if cache_age:
+            age_secs = (datetime.datetime.utcnow() - cache_age).total_seconds()
+
+            if age_secs < _CACHE_STALE_SECS:
+                # Serve from DB cache (fast — < 50ms for thousands of contacts)
+                result = get_cached_contacts(location_id, query)
+                resp_data = {
+                    "contacts": result,
+                    "total": len(result),
+                    "cached": True,
+                    "cached_at": cache_age.isoformat(),
+                }
+
+                # If stale, trigger background refresh
+                if age_secs > _CACHE_FRESH_SECS:
+                    resp_data["refreshing"] = True
+                    _background_contact_sync(location_id)
+
+                return jsonify(resp_data)
+
+    # ── Cache miss, expired, or force refresh: synchronous GHL fetch ──
     access_token = get_valid_token(location_id)
     if not access_token:
+        # No token but cache exists — serve stale cache rather than error
+        stale_result = get_cached_contacts(location_id, query)
+        if stale_result:
+            return jsonify({"contacts": stale_result, "total": len(stale_result), "cached": True, "stale": True})
         return jsonify({"error": "No valid auth token. Reconnect your CRM."}), 401
 
     try:
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Version": GHL_API_VERSION,
-            "Content-Type": "application/json"
-        }
+        result = _fetch_all_ghl_contacts(location_id, access_token)
+        logger.info(f"Fetched {len(result)} contacts from GHL for {location_id}")
 
-        all_contacts = []
-        page_limit = 100  # GHL max per page
-        max_pages = 50    # Safety cap: 5000 contacts max
+        # Persist to DB cache
+        if result:
+            upsert_contact_cache(location_id, result)
 
-        if pipeline_id or stage_id:
-            page = 1
-            seen_contact_ids = set()
-            while page <= max_pages:
-                opp_params = {
-                    "location_id": location_id,
-                    "pipeline_id": pipeline_id,
-                    "limit": page_limit,
-                    "page": page,
-                }
-                if stage_id:
-                    opp_params["pipeline_stage_id"] = stage_id
-
-                resp = _ghl_request_with_retry(
-                    f"{GHL_API_BASE}/opportunities/search",
-                    headers=headers, params=opp_params, timeout=15,
-                )
-                if resp.status_code != 200:
-                    logger.warning(f"Opportunities search returned {resp.status_code}: {resp.text[:300]}")
-                    if not all_contacts:
-                        return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
-                    break
-
-                data = resp.json()
-                opportunities = data.get("opportunities", [])
-                if not opportunities:
-                    break
-
-                for opp in opportunities:
-                    contact = opp.get("contact", {})
-                    contact_id = contact.get("id", "")
-                    if contact_id and contact_id not in seen_contact_ids:
-                        seen_contact_ids.add(contact_id)
-                        all_contacts.append({
-                            "id": contact_id,
-                            "firstName": contact.get("name", "").split(" ")[0] if contact.get("name") else "",
-                            "lastName": " ".join(contact.get("name", "").split(" ")[1:]) if contact.get("name") else "",
-                            "phone": contact.get("phone", ""),
-                            "email": contact.get("email", ""),
-                            "tags": contact.get("tags", []),
-                            "dateAdded": contact.get("dateAdded", ""),
-                        })
-
-                meta = data.get("meta", {})
-                if len(opportunities) < page_limit or not meta.get("nextPage"):
-                    break
-                page += 1
-        else:
-            start_after = None
-            for _ in range(max_pages):
-                params = {"locationId": location_id, "limit": page_limit}
-                if start_after:
-                    params["startAfterId"] = start_after
-
-                resp = _ghl_request_with_retry(f"{GHL_API_BASE}/contacts/", headers=headers, params=params, timeout=15)
-                if resp.status_code != 200:
-                    if not all_contacts:
-                        return jsonify({"error": f"CRM returned {resp.status_code}"}), resp.status_code
-                    break
-
-                data = resp.json()
-                contacts = data.get("contacts", [])
-                if not contacts:
-                    break
-                all_contacts.extend(contacts)
-                meta = data.get("meta", {})
-                start_after = meta.get("startAfterId") or meta.get("nextPageUrl")
-                if not start_after or len(contacts) < page_limit:
-                    break
-
-        logger.info(f"Fetched {len(all_contacts)} total contacts for {location_id}")
-
-        # Build simplified contact list
-        result = []
-        for c in all_contacts:
-            phone = c.get("phone", "")
-            if not phone:
-                continue
-            result.append({
-                "id": c.get("id", ""),
-                "name": f"{c.get('firstName', '')} {c.get('lastName', '')}".strip() or "Unknown",
-                "firstName": c.get("firstName", ""),
-                "lastName": c.get("lastName", ""),
-                "phone": phone,
-                "email": c.get("email", ""),
-                "tags": c.get("tags", []),
-                "dateAdded": c.get("dateAdded", ""),
-            })
-
-        # Cache in Redis (5 min TTL)
+        # Also cache in Redis for pipeline sub-queries
         try:
             from main import redis_conn
             if redis_conn and result:
-                redis_conn.setex(cache_key, 300, json.dumps(result))
+                redis_conn.setex(f"contacts:{location_id}:_:_", 300, json.dumps(result))
         except Exception:
             pass
 
-        # Apply search filter if provided
+        # Apply search filter
         if query:
             q_lower = query.lower()
             result = [c for c in result if
@@ -2553,8 +2668,35 @@ def fetch_contacts():
         return jsonify({"contacts": result, "total": len(result), "cached": False})
 
     except Exception as e:
+        # On GHL error, fall back to stale cache if available
+        stale_result = get_cached_contacts(location_id, query)
+        if stale_result:
+            logger.warning(f"GHL fetch failed, serving stale cache for {location_id}: {e}")
+            return jsonify({"contacts": stale_result, "total": len(stale_result), "cached": True, "stale": True})
         logger.error(f"Failed to fetch contacts: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@voice_bp.route('/voice/contacts/sync', methods=['POST'])
+@login_required
+def sync_contacts_cache():
+    """Manually trigger a full contact cache sync from GHL."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Database error"}), 500
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row or not row['location_id']:
+            return jsonify({"error": "No location configured"}), 400
+        location_id = row['location_id']
+    finally:
+        return_db_connection(conn)
+
+    _background_contact_sync(location_id)
+    return jsonify({"status": "sync_started"})
 
 
 @voice_bp.route('/voice/dial', methods=['POST'])
@@ -4511,12 +4653,14 @@ def get_contact_detail(contact_id):
                 """, (contact_id,))
                 raw_facts = [r['fact_text'] for r in cur.fetchall()]
 
-                # ── Clean facts: filter out prompt artifacts and instruction text ──
+                # ── Clean facts: filter prompt artifacts + enforce 10-word max ──
                 _prompt_patterns = [
                     'recap:', 'update previous', 'recent messages', 'already known',
                     'new facts', 'one fact per line', 'do not repeat', 'write none',
                     'conversation note', 'output exactly', 'no reasoning',
-                    'facts:', 'previous recap', 'no commentary',
+                    'facts:', 'previous recap', 'no commentary', 'output format',
+                    'keep chronological', 'concise but complete', 'updated recap',
+                    'should build on', 'maximum', 'per line', 'short fragments',
                 ]
                 clean_facts = []
                 for f in raw_facts:
@@ -4525,15 +4669,31 @@ def get_contact_detail(contact_id):
                         continue
                     if any(pat in fl for pat in _prompt_patterns):
                         continue
+                    # Enforce 10-word max per fact
+                    words = f.strip().split()
+                    if len(words) > 10:
+                        f = " ".join(words[:10])
                     clean_facts.append(f)
 
-                # ── Clean narrative: strip prompt artifacts ──
+                # ── Clean narrative: strip prompt artifacts + enforce 30-word max ──
                 narr_text = narrative.get("summary")
                 if narr_text:
                     import re as _re
                     narr_text = _re.sub(r'^RECAP:\s*', '', narr_text, flags=_re.IGNORECASE).strip()
                     narr_text = _re.sub(r'FACTS:.*$', '', narr_text, flags=_re.DOTALL | _re.IGNORECASE).strip()
                     narr_text = _re.sub(r'^Update(?:\s+the)?\s+previous\s+recap\s+with.*?\.?\s*', '', narr_text, flags=_re.IGNORECASE).strip()
+                    narr_text = _re.sub(r'^(?:Output format|Updated RECAP|Keep chronological|Note what was).*$', '', narr_text, flags=_re.MULTILINE | _re.IGNORECASE).strip()
+                    # Enforce 30-word max
+                    if narr_text:
+                        words = narr_text.split()
+                        if len(words) > 30:
+                            narr_text = " ".join(words[:30])
+                            # End at last sentence boundary if possible
+                            for end in ['. ', '? ', '! ']:
+                                idx = narr_text.rfind(end)
+                                if idx > len(narr_text) // 2:
+                                    narr_text = narr_text[:idx + 1]
+                                    break
                     narrative["summary"] = narr_text if narr_text else None
 
                 # ── Opt-out detection: check last lead message for stop keywords ──

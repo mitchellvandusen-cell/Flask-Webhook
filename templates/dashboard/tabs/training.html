@@ -1,0 +1,172 @@
+            <!-- Training Tab -->
+            <div class="tab-pane fade" id="training" role="tabpanel">
+
+                <style>
+                    .trn-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px; margin-bottom:24px; }
+                    .trn-card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; transition:border-color .2s, background .2s; cursor:pointer; }
+                    .trn-card:hover { border-color:rgba(0,217,255,0.2); background:rgba(0,217,255,0.03); }
+                    .trn-card-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; margin-bottom:12px; }
+                    .trn-card h4 { font-size:.92rem; font-weight:700; margin:0 0 6px; }
+                    .trn-card p { font-size:.78rem; color:#888; line-height:1.45; margin:0; }
+                    .trn-card .trn-tag { display:inline-block; font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 8px; border-radius:4px; margin-top:10px; }
+
+                    .trn-section-hdr { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#555; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04); }
+
+                    .trn-video-card { position:relative; overflow:hidden; border-radius:10px; aspect-ratio:16/9; background:#0a0a0a; border:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s; }
+                    .trn-video-card:hover { border-color:rgba(0,217,255,0.25); }
+                    .trn-video-card .trn-play { width:48px; height:48px; border-radius:50%; background:rgba(0,217,255,0.15); border:2px solid rgba(0,217,255,0.3); display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#00d9ff; transition:transform .2s; }
+                    .trn-video-card:hover .trn-play { transform:scale(1.1); }
+                    .trn-video-label { position:absolute; bottom:0; left:0; right:0; padding:10px 14px; background:linear-gradient(transparent,rgba(0,0,0,0.8)); font-size:.78rem; font-weight:600; }
+
+                    .trn-checklist { list-style:none; margin:0; padding:0; }
+                    .trn-checklist li { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:.82rem; color:#bbb; display:flex; align-items:center; gap:10px; transition:background .15s; }
+                    .trn-checklist li:hover { background:rgba(255,255,255,0.02); }
+                    .trn-checklist li:last-child { border-bottom:none; }
+                    .trn-checklist .trn-step-num { width:24px; height:24px; border-radius:50%; background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:800; color:#00d9ff; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
+
+                    /* Light theme */
+                    body.light-theme .trn-card { background:var(--lt-surface) !important; border-color:var(--lt-border) !important; }
+                    body.light-theme .trn-card:hover { border-color:var(--lt-accent-border) !important; background:var(--lt-accent-bg) !important; }
+                    body.light-theme .trn-card h4 { color:var(--lt-text-primary) !important; }
+                    body.light-theme .trn-card p { color:var(--lt-text-muted) !important; }
+                    body.light-theme .trn-section-hdr { color:var(--lt-text-muted) !important; border-color:var(--lt-border) !important; }
+                    body.light-theme .trn-checklist li { color:var(--lt-text-secondary) !important; border-color:var(--lt-border) !important; }
+                    body.light-theme .trn-video-card { background:var(--lt-surface) !important; border-color:var(--lt-border) !important; }
+                </style>
+
+                <div class="glass-panel" style="background:var(--card-glass); border:1px solid var(--glass-border); border-radius:20px; padding:32px;">
+
+                    <!-- Header -->
+                    <div class="d-flex align-items-center mb-4 gap-3">
+                        <div style="width:50px; height:50px; background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid fa-graduation-cap" style="font-size:1.3rem; color:#00d9ff;"></i>
+                        </div>
+                        <div>
+                            <h3 class="m-0" style="font-weight:700;">Training Center</h3>
+                            <p class="m-0" style="color:#888; font-size:0.85rem;">Learn how to get the most out of InsuranceGrokBot</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Start Checklist -->
+                    <div class="trn-section-hdr"><i class="fa-solid fa-rocket me-2"></i>Quick Start Checklist</div>
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; margin-bottom:24px; overflow:hidden;">
+                        <ol class="trn-checklist">
+                            <li><span class="trn-step-num">1</span> Connect your GoHighLevel CRM via OAuth</li>
+                            <li><span class="trn-step-num">2</span> Select your contracted insurance carriers</li>
+                            <li><span class="trn-step-num">3</span> Configure your SMS bot personality and tone</li>
+                            <li><span class="trn-step-num">4</span> Set up your voice AI settings and phone number</li>
+                            <li><span class="trn-step-num">5</span> Create your GHL webhook workflow to send leads to the bot</li>
+                            <li><span class="trn-step-num">6</span> Test with a demo lead before going live</li>
+                        </ol>
+                    </div>
+
+                    <!-- Video Tutorials -->
+                    <div class="trn-section-hdr"><i class="fa-solid fa-play me-2"></i>Video Tutorials</div>
+                    <div class="trn-grid" style="margin-bottom:24px;">
+                        <div class="trn-video-card" onclick="window.open('https://www.youtube.com/@InsuranceGrokBot','_blank')">
+                            <div class="trn-play"><i class="fa-solid fa-play" style="margin-left:2px;"></i></div>
+                            <div class="trn-video-label">Getting Started — Full Walkthrough</div>
+                        </div>
+                        <div class="trn-video-card" onclick="window.open('https://www.youtube.com/@InsuranceGrokBot','_blank')">
+                            <div class="trn-play"><i class="fa-solid fa-play" style="margin-left:2px;"></i></div>
+                            <div class="trn-video-label">Setting Up GHL Workflows</div>
+                        </div>
+                        <div class="trn-video-card" onclick="window.open('https://www.youtube.com/@InsuranceGrokBot','_blank')">
+                            <div class="trn-play"><i class="fa-solid fa-play" style="margin-left:2px;"></i></div>
+                            <div class="trn-video-label">Voice AI Dialer — Power User Guide</div>
+                        </div>
+                    </div>
+
+                    <!-- Feature Guides -->
+                    <div class="trn-section-hdr"><i class="fa-solid fa-book-open me-2"></i>Feature Guides</div>
+                    <div class="trn-grid">
+
+                        <div class="trn-card" onclick="sidebarNavigate('config', document.getElementById('sbnSmsConfig'))">
+                            <div class="trn-card-icon" style="background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); color:#00d9ff;">
+                                <i class="fa-solid fa-comment-sms"></i>
+                            </div>
+                            <h4>SMS Bot Configuration</h4>
+                            <p>Customize your AI bot's personality, response style, and behavior rules. Set greeting messages, objection handling, and appointment booking prompts.</p>
+                            <span class="trn-tag" style="background:rgba(0,217,255,0.08); color:#00d9ff;">Go to SMS Config</span>
+                        </div>
+
+                        <div class="trn-card" onclick="sidebarNavigate('voice', document.getElementById('sbnVoiceConfig'))">
+                            <div class="trn-card-icon" style="background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.15); color:#a78bfa;">
+                                <i class="fa-solid fa-phone"></i>
+                            </div>
+                            <h4>Voice AI Setup</h4>
+                            <p>Configure your AI voice agent, select phone numbers, set up call transfer rules, and manage A2P 10DLC registration for compliant messaging.</p>
+                            <span class="trn-tag" style="background:rgba(167,139,250,0.08); color:#a78bfa;">Go to Voice Config</span>
+                        </div>
+
+                        <div class="trn-card" onclick="sidebarNavigate('voicedialer', document.getElementById('sbnDialer'))">
+                            <div class="trn-card-icon" style="background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.15); color:#4ade80;">
+                                <i class="fa-solid fa-phone-volume"></i>
+                            </div>
+                            <h4>Power Dialer</h4>
+                            <p>Use the built-in dialer to call leads directly from your dashboard. View lead intelligence, call history, and AI-generated contact summaries.</p>
+                            <span class="trn-tag" style="background:rgba(74,222,128,0.08); color:#4ade80;">Go to Dialer</span>
+                        </div>
+
+                        <div class="trn-card" onclick="sidebarNavigate('workflows', document.getElementById('sbnWorkflows'))">
+                            <div class="trn-card-icon" style="background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.15); color:#fbbf24;">
+                                <i class="fa-solid fa-diagram-project"></i>
+                            </div>
+                            <h4>GHL Workflows</h4>
+                            <p>Set up webhook workflows in GoHighLevel to automatically send new leads and inbound messages to InsuranceGrokBot for AI processing.</p>
+                            <span class="trn-tag" style="background:rgba(251,191,36,0.08); color:#fbbf24;">Go to Workflows</span>
+                        </div>
+
+                        <div class="trn-card" onclick="sidebarNavigate('carriers', document.getElementById('sbnCarriers'))">
+                            <div class="trn-card-icon" style="background:rgba(244,114,182,0.08); border:1px solid rgba(244,114,182,0.15); color:#f472b6;">
+                                <i class="fa-solid fa-building-columns"></i>
+                            </div>
+                            <h4>Carrier Selection</h4>
+                            <p>Select the insurance carriers you're contracted with. The AI will only reference these carriers when speaking with leads, ensuring accuracy.</p>
+                            <span class="trn-tag" style="background:rgba(244,114,182,0.08); color:#f472b6;">Go to Carriers</span>
+                        </div>
+
+                        <div class="trn-card" onclick="sidebarNavigate('connect', document.getElementById('sbnConnect'))">
+                            <div class="trn-card-icon" style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.15); color:#38bdf8;">
+                                <i class="fa-solid fa-plug"></i>
+                            </div>
+                            <h4>CRM Integration</h4>
+                            <p>Connect your GoHighLevel account via OAuth. The bot reads your contacts and conversations to provide context-aware AI responses.</p>
+                            <span class="trn-tag" style="background:rgba(56,189,248,0.08); color:#38bdf8;">Go to Connect</span>
+                        </div>
+
+                    </div>
+
+                    <!-- Tips & Best Practices -->
+                    <div style="margin-top:24px;">
+                        <div class="trn-section-hdr"><i class="fa-solid fa-lightbulb me-2"></i>Tips & Best Practices</div>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px;">
+                            <div style="background:rgba(74,222,128,0.04); border:1px solid rgba(74,222,128,0.1); border-radius:10px; padding:14px 16px;">
+                                <div style="font-size:.8rem; font-weight:700; color:#4ade80; margin-bottom:6px;"><i class="fa-solid fa-bolt me-1"></i>Speed to Lead</div>
+                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Responding within the first 5 minutes increases contact rates by 10x. Make sure your webhook workflow is active so the bot responds instantly.</div>
+                            </div>
+                            <div style="background:rgba(0,217,255,0.04); border:1px solid rgba(0,217,255,0.1); border-radius:10px; padding:14px 16px;">
+                                <div style="font-size:.8rem; font-weight:700; color:#00d9ff; margin-bottom:6px;"><i class="fa-solid fa-user-check me-1"></i>Personalize Your Bot</div>
+                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Set your operator name and bio in the sidebar. The AI uses this to introduce itself naturally and build rapport with your leads.</div>
+                            </div>
+                            <div style="background:rgba(167,139,250,0.04); border:1px solid rgba(167,139,250,0.1); border-radius:10px; padding:14px 16px;">
+                                <div style="font-size:.8rem; font-weight:700; color:#a78bfa; margin-bottom:6px;"><i class="fa-solid fa-phone-volume me-1"></i>Warm Call After SMS</div>
+                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Let the SMS bot qualify the lead first, then use the dialer to call. The AI summary gives you context before you even pick up the phone.</div>
+                            </div>
+                            <div style="background:rgba(251,191,36,0.04); border:1px solid rgba(251,191,36,0.1); border-radius:10px; padding:14px 16px;">
+                                <div style="font-size:.8rem; font-weight:700; color:#fbbf24; margin-bottom:6px;"><i class="fa-solid fa-shield-halved me-1"></i>A2P Compliance</div>
+                                <div style="font-size:.78rem; color:#999; line-height:1.45;">Register for A2P 10DLC in Voice Config to prevent carrier filtering. Unregistered numbers may have messages blocked or delayed.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Help Footer -->
+                    <div style="margin-top:28px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.04); text-align:center;">
+                        <p style="font-size:.8rem; color:#555; margin-bottom:10px;">Need help? Our team is here for you.</p>
+                        <a href="/support" style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,217,255,0.08); border:1px solid rgba(0,217,255,0.15); color:#00d9ff; padding:8px 20px; border-radius:8px; text-decoration:none; font-size:.82rem; font-weight:600;">
+                            <i class="fa-solid fa-headset"></i> Contact Support
+                        </a>
+                    </div>
+
+                </div>
+            </div>
