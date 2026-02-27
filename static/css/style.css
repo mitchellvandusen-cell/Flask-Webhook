@@ -799,7 +799,8 @@ body.light-theme .igb-summary-card { background: var(--lt-accent-bg) !important;
 body.light-theme .igb-summary-hdr i { color: var(--lt-accent) !important; }
 body.light-theme .igb-summary-hdr span { color: var(--lt-accent) !important; }
 body.light-theme .igb-summary-body { color: var(--lt-text-secondary) !important; }
-body.light-theme .igb-fact-chip { background: rgba(5,150,105,0.06) !important; border-color: rgba(5,150,105,0.15) !important; color: #047857 !important; }
+body.light-theme .igb-facts-list li { color: var(--lt-text-secondary) !important; border-color: var(--lt-border) !important; }
+body.light-theme .igb-facts-list li::before { color: #059669 !important; }
 body.light-theme .igb-action-btn.act-call { background: linear-gradient(135deg, #059669, #047857) !important; color: #fff !important; }
 body.light-theme .igb-action-btn.act-sms { background: var(--lt-accent-bg) !important; border-color: var(--lt-accent-border) !important; color: var(--lt-accent) !important; }
 body.light-theme .igb-action-btn.act-queue { background: var(--lt-surface-hover) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }

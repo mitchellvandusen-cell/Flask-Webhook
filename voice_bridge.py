@@ -4421,6 +4421,8 @@ def get_contact_detail(contact_id):
             "phone": contact.get("phone", ""),
             "email": contact.get("email", ""),
             "tags": contact.get("tags", []),
+            "dnd": contact.get("dnd", False),
+            "dndSettings": contact.get("dndSettings", {}),
             "address": contact.get("address1", ""),
             "city": contact.get("city", ""),
             "state": contact.get("state", ""),
@@ -4505,9 +4507,48 @@ def get_contact_detail(contact_id):
                 cur.execute("""
                     SELECT fact_text FROM contact_facts
                     WHERE contact_id = %s
-                    ORDER BY created_at DESC LIMIT 10
+                    ORDER BY created_at DESC LIMIT 20
                 """, (contact_id,))
-                facts = [r['fact_text'] for r in cur.fetchall()]
+                raw_facts = [r['fact_text'] for r in cur.fetchall()]
+
+                # ── Clean facts: filter out prompt artifacts and instruction text ──
+                _prompt_patterns = [
+                    'recap:', 'update previous', 'recent messages', 'already known',
+                    'new facts', 'one fact per line', 'do not repeat', 'write none',
+                    'conversation note', 'output exactly', 'no reasoning',
+                    'facts:', 'previous recap', 'no commentary',
+                ]
+                clean_facts = []
+                for f in raw_facts:
+                    fl = f.lower().strip()
+                    if len(fl) < 4 or fl.upper() == 'NONE':
+                        continue
+                    if any(pat in fl for pat in _prompt_patterns):
+                        continue
+                    clean_facts.append(f)
+
+                # ── Clean narrative: strip prompt artifacts ──
+                narr_text = narrative.get("summary")
+                if narr_text:
+                    import re as _re
+                    narr_text = _re.sub(r'^RECAP:\s*', '', narr_text, flags=_re.IGNORECASE).strip()
+                    narr_text = _re.sub(r'FACTS:.*$', '', narr_text, flags=_re.DOTALL | _re.IGNORECASE).strip()
+                    narr_text = _re.sub(r'^Update(?:\s+the)?\s+previous\s+recap\s+with.*?\.?\s*', '', narr_text, flags=_re.IGNORECASE).strip()
+                    narrative["summary"] = narr_text if narr_text else None
+
+                # ── Opt-out detection: check last lead message for stop keywords ──
+                opted_out = False
+                cur.execute("""
+                    SELECT message_text FROM contact_messages
+                    WHERE contact_id = %s AND message_type = 'lead'
+                    ORDER BY created_at DESC LIMIT 1
+                """, (contact_id,))
+                last_lead_msg = cur.fetchone()
+                if last_lead_msg and last_lead_msg['message_text']:
+                    _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'cancel', 'quit'}
+                    msg_lower = last_lead_msg['message_text'].strip().lower()
+                    if msg_lower in _stop_words or any(msg_lower.startswith(w) for w in _stop_words):
+                        opted_out = True
 
                 cur.close()
 
@@ -4515,7 +4556,8 @@ def get_contact_detail(contact_id):
                     "messages": msg_stats,
                     "calls": call_stats,
                     "narrative": narrative,
-                    "facts": facts,
+                    "facts": clean_facts,
+                    "opted_out": opted_out,
                 }
             except Exception as e:
                 logger.warning(f"Non-critical: failed to load IGB engagement data for {contact_id}: {e}")
@@ -5233,6 +5275,21 @@ def get_contact_engagement_bulk():
                 "last_call_at": r['last_call_at'].isoformat() if r['last_call_at'] else None,
                 "recordings": r['recordings'],
             }
+
+        # ── Opt-out detection: check last message from each lead for stop keywords ──
+        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'cancel', 'quit'}
+        cur.execute("""
+            SELECT DISTINCT ON (contact_id) contact_id, message_text
+            FROM contact_messages
+            WHERE contact_id = ANY(%s) AND message_type = 'lead'
+            ORDER BY contact_id, created_at DESC
+        """, (contact_ids,))
+        for r in cur.fetchall():
+            cid = r['contact_id']
+            if cid in result and r['message_text']:
+                msg_lower = r['message_text'].strip().lower()
+                if msg_lower in _stop_words or any(msg_lower.startswith(w) for w in _stop_words):
+                    result[cid]["opted_out"] = True
 
         cur.close()
         return jsonify(result)
