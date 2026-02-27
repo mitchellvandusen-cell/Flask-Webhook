@@ -4538,7 +4538,8 @@ def refresh_subscribers():
 def oauth_initiate():
     """
     Initiates OAuth flow with Lead Connector.
-    Works BEFORE marketplace approval (using private app credentials).
+    Uses the public marketplace app by default (all scopes now approved).
+    Falls back to private app if USE_PRIVATE_APP=true.
 
     User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
 
@@ -4560,8 +4561,8 @@ def oauth_initiate():
         else:
             return redirect(url_for('dashboard'))
 
-    # Toggle: set USE_PRIVATE_APP=true in .env to route all installs through
-    # the private app while waiting for public marketplace scope approval.
+    # Toggle: set USE_PRIVATE_APP=true in .env to use private app credentials.
+    # Default is false — the public marketplace app has all scopes approved.
     use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
     if use_private:
@@ -4578,27 +4579,28 @@ def oauth_initiate():
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # Required scopes — must match the app configuration in GHL developer portal.
+    # All scopes approved on the public marketplace app as of 2026-02-27.
+    # No longer gated behind USE_PRIVATE_APP — both public and private apps
+    # request the full scope set.
     scopes = [
-        "calendars.readonly",           # List calendars, free slots
-        "calendars/events.readonly",    # Read calendar events
-        "calendars/events.write",       # Book appointments
-        "calendars/groups.readonly",    # Calendar group listing
-        "conversations/message.write",  # Send SMS
-        "conversations/message.readonly",  # Read inbound messages
-        "conversations.write",          # Conversation management
-        "conversations.readonly",       # Search conversations (ghl_api.py)
-        "contacts.readonly",            # Contact lookup & validation
-        "oauth.readonly",              # Token info check (ghl_calendar.py)
+        "calendars.readonly",               # List calendars, free slots
+        "calendars/events.readonly",        # Read calendar events
+        "calendars/events.write",           # Book appointments
+        "calendars/groups.readonly",        # Calendar group listing
+        "contacts.readonly",                # Contact lookup & validation
+        "conversations.readonly",           # Search conversations (ghl_api.py)
+        "conversations.write",              # Conversation management
+        "conversations/message.readonly",   # Read inbound messages
+        "conversations/message.write",      # Send SMS
+        "locations.readonly",               # Sub-account discovery
+        "locations/customFields.readonly",  # Read custom field definitions
+        "locations/customValues.readonly",  # Read custom field values
+        "locations/tags.readonly",          # Read location tags
+        "locations/tasks.readonly",         # Read tasks
+        "oauth.readonly",                   # Token info check (ghl_calendar.py)
+        "opportunities.readonly",           # Pipeline & stage listing for dialer filters
+        "users.readonly",                   # User info lookup
     ]
-    # Private app already has all scopes approved — include them now.
-    # For the public app these are still pending marketplace review.
-    if use_private:
-        scopes += [
-            "locations.readonly",       # Sub-account discovery
-            "users.readonly",           # User info lookup
-            "opportunities.readonly",   # Pipeline & stage listing for dialer filters
-        ]
     scope_string = " ".join(scopes)
 
     # State: "private_app" when using private app, "website_user" otherwise.
@@ -4773,14 +4775,13 @@ def oauth_callback():
 
         # --- VALIDATE ENV VARS ---
         # Pick credentials based on how the OAuth flow was initiated:
-        #   state="private_app" → use private app credentials
-        #   state="website_user" → use credentials based on USE_PRIVATE_APP env
+        #   state="private_app"  → use private app credentials (legacy)
+        #   state="website_user" → use public marketplace app credentials (default)
         #   state=None           → GHL marketplace/app install link — auto-detect
         #
         # DUAL-APP SUPPORT: When both public (marketplace) and private apps exist,
-        # GHL install links never include state. We try the primary credential set
-        # first, then fall back to the other if the exchange fails. This correctly
-        # handles customers who installed either app.
+        # GHL install links never include state. We try the public marketplace
+        # credentials first, then fall back to private if the exchange fails.
         use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
         # Build both credential sets for auto-detection when state=None
@@ -5114,8 +5115,8 @@ def oauth_callback():
         using_location_fallback = False
         if num_subs == 0 and primary_location_id:
             using_location_fallback = True
-            logger.warning(f"locations.readonly scope likely missing — /locations/ returned 0 results "
-                          f"but token has locationId={primary_location_id}. Using fallback location entry.")
+            logger.warning(f"/locations/ returned 0 results but token has locationId={primary_location_id}. "
+                          f"Possible API issue or permissions problem. Using fallback location entry.")
             sub_accounts = [{
                 'id': primary_location_id,
                 'name': user_name or 'Primary Location',
@@ -5381,27 +5382,28 @@ def oauth_callback():
         except Exception as e:
             logger.debug(f"mark_install_oauth_complete note: {e}")
 
-        # 8b. Persistent alerts for scope/location issues
+        # 8b. Persistent alert if location fetch returned 0 results
         if using_location_fallback:
             try:
                 alert_msg = (
                     "Your Lead Connector account connected successfully, but the "
-                    "locations.readonly scope is not yet approved in the Lead Connector marketplace. "
+                    "locations API returned no results. This may indicate a temporary "
+                    "API issue or insufficient permissions. "
                     "Your primary location is active and the bot is operational. "
                 )
                 if use_agency_flow:
                     alert_msg += (
                         f"However, your sub-account locations could not be discovered. "
-                        f"They will be auto-provisioned once the scope is approved. "
-                        f"Contact support if this persists beyond 10 days."
+                        f"Try reconnecting via the Connect tab. "
+                        f"Contact support if this persists."
                     )
                 else:
-                    alert_msg += "No action needed. This will resolve automatically."
+                    alert_msg += "Try reconnecting via the Connect tab if issues persist."
 
                 save_persistent_alert(
                     email=user_email,
                     alert_type="scope_locations_readonly",
-                    title="Scope Pending: locations.readonly",
+                    title="Location Discovery Issue",
                     message=alert_msg,
                     severity="warning" if use_agency_flow else "info",
                     location_id=primary_location_id
@@ -5410,7 +5412,7 @@ def oauth_callback():
                     location_id=primary_location_id,
                     event_type="scope_issue",
                     status="warning",
-                    summary="locations.readonly scope unavailable — using fallback",
+                    summary="locations API returned 0 results — using fallback",
                     details={"fallback": True, "agency_flow": use_agency_flow}
                 )
             except Exception as e:

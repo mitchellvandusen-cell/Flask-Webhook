@@ -134,7 +134,8 @@ def refresh_subscribers():
 def oauth_initiate():
     """
     Initiates OAuth flow with Lead Connector.
-    Works BEFORE marketplace approval (using private app credentials).
+    Uses the public marketplace app by default (all scopes now approved).
+    Falls back to private app if USE_PRIVATE_APP=true.
 
     User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
 
@@ -170,24 +171,28 @@ def oauth_initiate():
 
     redirect_uri = f"{domain}/oauth/callback"
 
+    # All scopes approved on the public marketplace app as of 2026-02-27.
+    # No longer gated behind USE_PRIVATE_APP — both public and private apps
+    # request the full scope set.
     scopes = [
         "calendars.readonly",
         "calendars/events.readonly",
         "calendars/events.write",
         "calendars/groups.readonly",
-        "conversations/message.write",
-        "conversations/message.readonly",
-        "conversations.write",
-        "conversations.readonly",
         "contacts.readonly",
+        "conversations.readonly",
+        "conversations.write",
+        "conversations/message.readonly",
+        "conversations/message.write",
+        "locations.readonly",
+        "locations/customFields.readonly",
+        "locations/customValues.readonly",
+        "locations/tags.readonly",
+        "locations/tasks.readonly",
         "oauth.readonly",
+        "opportunities.readonly",
+        "users.readonly",
     ]
-    if use_private:
-        scopes += [
-            "locations.readonly",
-            "users.readonly",
-            "opportunities.readonly",
-        ]
     scope_string = " ".join(scopes)
 
     state = "private_app" if use_private else "website_user"
@@ -618,8 +623,8 @@ def oauth_callback():
         if num_subs == 0 and primary_location_id:
             using_location_fallback = True
             logger.warning(
-                f"locations.readonly scope likely missing — /locations/ returned 0 results "
-                f"but token has locationId={primary_location_id}. Using fallback."
+                f"/locations/ returned 0 results but token has locationId={primary_location_id}. "
+                f"Possible API issue or permissions problem. Using fallback."
             )
             sub_accounts = [{'id': primary_location_id,
                              'name': user_name or 'Primary Location',
@@ -869,27 +874,28 @@ def oauth_callback():
         except Exception as e:
             logger.debug(f"mark_install_oauth_complete note: {e}")
 
-        # 8b. Persistent alert if scope is missing
+        # 8b. Persistent alert if location fetch returned 0 results
         if using_location_fallback:
             try:
                 alert_msg = (
                     "Your Lead Connector account connected successfully, but the "
-                    "locations.readonly scope is not yet approved in the Lead Connector marketplace. "
+                    "locations API returned no results. This may indicate a temporary "
+                    "API issue or insufficient permissions. "
                     "Your primary location is active and the bot is operational. "
                 )
                 if use_agency_flow:
                     alert_msg += (
                         f"However, your sub-account locations could not be discovered. "
-                        f"They will be auto-provisioned once the scope is approved. "
-                        f"Contact support if this persists beyond 10 days."
+                        f"Try reconnecting via the Connect tab. "
+                        f"Contact support if this persists."
                     )
                 else:
-                    alert_msg += "No action needed. This will resolve automatically."
+                    alert_msg += "Try reconnecting via the Connect tab if issues persist."
 
                 save_persistent_alert(
                     email=user_email,
                     alert_type="scope_locations_readonly",
-                    title="Scope Pending: locations.readonly",
+                    title="Location Discovery Issue",
                     message=alert_msg,
                     severity="warning" if use_agency_flow else "info",
                     location_id=primary_location_id,
@@ -898,7 +904,7 @@ def oauth_callback():
                     location_id=primary_location_id,
                     event_type="scope_issue",
                     status="warning",
-                    summary="locations.readonly scope unavailable — using fallback",
+                    summary="locations API returned 0 results — using fallback",
                     details={"fallback": True, "agency_flow": use_agency_flow},
                 )
             except Exception as e:
