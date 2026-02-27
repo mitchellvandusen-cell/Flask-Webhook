@@ -16,6 +16,7 @@ flask-wtf
 flask-mail
 wtforms
 email-validator
+cryptography      # Fernet AES token encryption at rest
 
 # AI & NLP
 openai

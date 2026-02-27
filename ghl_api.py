@@ -5,6 +5,7 @@ import os
 import time as _time
 from datetime import datetime, timedelta
 from db import get_subscriber_info_hybrid, update_subscriber_token
+from token_encryption import encrypt_token, decrypt_token
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +144,14 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
         logger.error(f"No subscriber config for {location_id}")
         return None
 
-    access_token = sub.get('access_token') or sub.get('crm_api_key')
-    refresh_token = sub.get('refresh_token')
+    raw_access = sub.get('access_token') or sub.get('crm_api_key')
+    raw_refresh = sub.get('refresh_token')
     expires_at = sub.get('token_expires_at')
     oauth_app_type = sub.get('oauth_app_type', 'marketplace')
+
+    # Decrypt tokens (handles both encrypted and legacy plaintext transparently)
+    access_token = decrypt_token(raw_access) if raw_access else None
+    refresh_token = decrypt_token(raw_refresh) if raw_refresh else None
 
     # Persistent token (no refresh_token — e.g. API key users)
     if not refresh_token:
@@ -203,14 +208,19 @@ def get_valid_token(location_id: str, subscriber: dict = None) -> str | None:
                 location_id, refresh_token, cred, oauth_app_type)
 
             if new_access:
-                # Success — persist new tokens to DB
+                # Success — persist new tokens to DB (encrypted at rest)
                 # CRITICAL: DB write must succeed or the single-use refresh_token is lost
                 fix_type = result_type if result_type != oauth_app_type else None
                 if fix_type:
                     logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
                                   f"{oauth_app_type} → {fix_type}")
-                db_saved = update_subscriber_token(location_id, new_access, new_refresh,
-                                                   expires_in, oauth_app_type=fix_type)
+                db_saved = update_subscriber_token(
+                    location_id,
+                    encrypt_token(new_access),
+                    encrypt_token(new_refresh) if new_refresh else None,
+                    expires_in,
+                    oauth_app_type=fix_type,
+                )
                 if not db_saved:
                     logger.error(f"🚨 CRITICAL: Token refreshed but DB write failed for "
                                 f"{location_id} — returning new token but refresh_token "
@@ -337,8 +347,13 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
                 if fix_type:
                     logger.warning(f"🔧 Auto-correcting oauth_app_type for {location_id}: "
                                   f"{oauth_app_type} → {fix_type}")
-                db_saved = update_subscriber_token(location_id, new_access, new_refresh,
-                                                   expires_in, oauth_app_type=fix_type)
+                db_saved = update_subscriber_token(
+                    location_id,
+                    encrypt_token(new_access),
+                    encrypt_token(new_refresh) if new_refresh else None,
+                    expires_in,
+                    oauth_app_type=fix_type,
+                )
                 if not db_saved:
                     logger.error(f"🚨 CRITICAL: Token refreshed but DB write failed for "
                                 f"{location_id} — refresh_token may be lost on next cycle")
@@ -411,7 +426,7 @@ def refresh_tokens_proactively(buffer_minutes: int = 30):
     for row in expiring:
         loc_id = row['location_id']
         oauth_type = row.get('oauth_app_type', 'marketplace')
-        refresh_tok = row['refresh_token']
+        refresh_tok = decrypt_token(row['refresh_token']) if row['refresh_token'] else None
 
         cred_sets = _build_cred_sets(oauth_type, marketplace_id, marketplace_secret,
                                      private_id, private_secret)
@@ -425,8 +440,13 @@ def refresh_tokens_proactively(buffer_minutes: int = 30):
                 loc_id, refresh_tok, cred, oauth_type)
             if new_access:
                 fix_type = result_type if result_type != oauth_type else None
-                db_saved = update_subscriber_token(loc_id, new_access, new_refresh,
-                                                   expires_in, oauth_app_type=fix_type)
+                db_saved = update_subscriber_token(
+                    loc_id,
+                    encrypt_token(new_access),
+                    encrypt_token(new_refresh) if new_refresh else None,
+                    expires_in,
+                    oauth_app_type=fix_type,
+                )
                 if db_saved:
                     stats["refreshed"] += 1
                     refreshed = True

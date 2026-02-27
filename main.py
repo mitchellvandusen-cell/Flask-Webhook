@@ -2,6 +2,8 @@
 import logging
 import re
 import uuid
+import base64
+import hashlib
 import stripe
 import os
 import gspread
@@ -49,6 +51,7 @@ from carrier_list import CARRIER_LIST, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from llm_caller import generate_clean_reply
 from send_email_api import send_email_via_api
+from token_encryption import encrypt_token, decrypt_token
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -4603,23 +4606,31 @@ def oauth_initiate():
     ]
     scope_string = " ".join(scopes)
 
-    # State: "private_app" when using private app, "website_user" otherwise.
-    # The callback uses this to pick the right credentials for token exchange.
-    state = "private_app" if use_private else "website_user"
+    # CSRF protection: cryptographic state nonce
+    flow_type = "private_app" if use_private else "website_user"
+    nonce = secrets.token_urlsafe(32)
+    state = f"{flow_type}:{nonce}"
+    session["ghl_oauth_state"] = state
 
-    # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
-    # and cause GHL scope validation failures + state parameter loss
+    # PKCE: Proof Key for Code Exchange (RFC 7636)
+    code_verifier = secrets.token_urlsafe(43)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).decode().rstrip("=")
+    session["ghl_pkce_verifier"] = code_verifier
 
     oauth_params = urlencode({
         'response_type': 'code',
         'redirect_uri': redirect_uri,
         'client_id': client_id,
         'scope': scope_string,
-        'state': state
+        'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
     })
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
-    logger.info(f"Initiating OAuth flow for {current_user.email} (private={use_private}). Redirecting to: {oauth_url}")
+    logger.info(f"Initiating OAuth flow for {current_user.email} (private={use_private}). Redirecting to consent page.")
     return redirect(oauth_url)
 
 def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
@@ -4716,37 +4727,50 @@ def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL A
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
-    state = request.args.get("state")
+    raw_state = request.args.get("state")
 
-    # LOG EVERYTHING from the very start — this is the #1 debugging tool
-    logger.info(f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
-                f"args={dict(request.args)}")
+    logger.info(f"=== OAUTH CALLBACK START === state={'present' if raw_state else 'MISSING'}, "
+                f"code={'present' if code else 'MISSING'}")
 
-    # Always log to webhook_logs so it's visible in dashboard even if everything else fails
     try:
         log_webhook_event("oauth_global", "oauth_callback_hit", "info",
-                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
-                          details={"args": dict(request.args)})
+                          f"OAuth callback received: state={'yes' if raw_state else 'NO'}, "
+                          f"code={'yes' if code else 'NO'}",
+                          details={"has_state": bool(raw_state), "has_code": bool(code)})
     except Exception:
-        pass
+        logger.debug("Failed to log oauth_callback_hit event")
 
     if not code:
         logger.warning("OAuth callback: No authorization code in request params")
         try:
             log_webhook_event("oauth_global", "oauth_callback_error", "error",
-                              "No authorization code in callback params",
-                              details={"args": dict(request.args)})
+                              "No authorization code in callback params")
         except Exception:
-            pass
+            logger.debug("Failed to log oauth_callback_error event")
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
     try:
-        # Determine flow based on state parameter
-        # state="website_user" → Stripe/website subscriber connecting Lead Connector
-        # state="private_app"  → Logged-in user reconnecting via /oauth/initiate
-        # No state             → Marketplace / private app install link from GHL
-        is_website_user = (state == "website_user") or (state == "private_app")
+        # ── Validate state parameter (CSRF protection) ────────────────────────
+        flow_type = None
+        code_verifier = None
+
+        if raw_state and ":" in raw_state:
+            stored_state = session.pop("ghl_oauth_state", None)
+            if not stored_state or not secrets.compare_digest(raw_state, stored_state):
+                logger.warning("OAuth CSRF validation failed: state mismatch")
+                flash("OAuth session expired or invalid. Please try connecting again.", "danger")
+                return redirect(url_for('dashboard'))
+            flow_type = raw_state.split(":", 1)[0]
+            code_verifier = session.pop("ghl_pkce_verifier", None)
+            logger.info(f"OAuth state validated (flow_type={flow_type})")
+        elif raw_state in ("website_user", "private_app"):
+            flow_type = raw_state
+            logger.info(f"OAuth callback: Legacy static state ({raw_state})")
+        else:
+            logger.info("OAuth callback: Marketplace installation flow (no state)")
+
+        is_website_user = flow_type in ("website_user", "private_app")
 
         if is_website_user:
             # --- SUBSCRIPTION VERIFICATION FOR WEBSITE USERS ---
@@ -4793,21 +4817,17 @@ def oauth_callback():
         has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
         has_private_creds = bool(private_client_id and private_client_secret)
 
-        if state == "private_app":
-            # Explicit private app OAuth initiate flow
+        if flow_type == "private_app":
             is_private_app = True
             client_id = private_client_id
             client_secret = private_client_secret
             cred_label = "PRIVATE_APP"
-        elif state is None and has_marketplace_creds and has_private_creds:
-            # DUAL-APP MODE: Both apps configured — we'll auto-detect during token exchange
-            # Start with marketplace (public) credentials as primary attempt
+        elif flow_type is None and has_marketplace_creds and has_private_creds:
             is_private_app = False
             client_id = marketplace_client_id
             client_secret = marketplace_client_secret
             cred_label = "AUTO-DETECT (trying marketplace first)"
-        elif state is None and use_private_env:
-            # Only private app configured
+        elif flow_type is None and use_private_env:
             is_private_app = True
             client_id = private_client_id
             client_secret = private_client_secret
@@ -4840,8 +4860,7 @@ def oauth_callback():
         # Build list of credential sets to try (primary first, fallback second)
         cred_sets = [{"client_id": client_id, "client_secret": client_secret,
                       "label": cred_label, "is_private": is_private_app}]
-        if state is None and has_marketplace_creds and has_private_creds:
-            # Add fallback credential set (the one we didn't try first)
+        if flow_type is None and has_marketplace_creds and has_private_creds:
             cred_sets.append({"client_id": private_client_id, "client_secret": private_client_secret,
                               "label": "PRIVATE_APP (fallback)", "is_private": True})
 
@@ -4855,6 +4874,8 @@ def oauth_callback():
                 "code": code,
                 "redirect_uri": f"{domain}/oauth/callback"
             }
+            if code_verifier:
+                base_payload["code_verifier"] = code_verifier
 
             for user_type in ["Location", "Company"]:
                 payload = {**base_payload, "user_type": user_type}
@@ -4893,7 +4914,7 @@ def oauth_callback():
             logger.error(err_msg)
             try:
                 log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
-                                  err_msg, details={"state": state, "code_present": bool(code)})
+                                  err_msg, details={"flow_type": flow_type, "code_present": bool(code)})
             except Exception:
                 pass
             flash("Failed to connect to Lead Connector. Please try again.", "danger")

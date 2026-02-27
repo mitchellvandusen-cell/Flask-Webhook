@@ -8,7 +8,10 @@
 
 import os
 import json
+import base64
+import hashlib
 import logging
+import secrets
 import requests
 from urllib.parse import urlencode
 
@@ -27,10 +30,33 @@ from extensions import ADMIN_EMAILS, YOUR_DOMAIN
 from email_templates import _email_wrapper, _build_welcome_email
 from send_email_api import send_email_via_api
 from sync_subscribers import sync_subscribers
+from token_encryption import encrypt_token, decrypt_token
 
 logger = logging.getLogger(__name__)
 
 oauth_bp = Blueprint('oauth', __name__)
+
+# ── OAuth scopes ─────────────────────────────────────────────────────────────
+# All scopes approved on the public marketplace app as of 2026-02-27.
+GHL_OAUTH_SCOPES = [
+    "calendars.readonly",
+    "calendars/events.readonly",
+    "calendars/events.write",
+    "calendars/groups.readonly",
+    "contacts.readonly",
+    "conversations.readonly",
+    "conversations.write",
+    "conversations/message.readonly",
+    "conversations/message.write",
+    "locations.readonly",
+    "locations/customFields.readonly",
+    "locations/customValues.readonly",
+    "locations/tags.readonly",
+    "locations/tasks.readonly",
+    "oauth.readonly",
+    "opportunities.readonly",
+    "users.readonly",
+]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -171,31 +197,23 @@ def oauth_initiate():
 
     redirect_uri = f"{domain}/oauth/callback"
 
-    # All scopes approved on the public marketplace app as of 2026-02-27.
-    # No longer gated behind USE_PRIVATE_APP — both public and private apps
-    # request the full scope set.
-    scopes = [
-        "calendars.readonly",
-        "calendars/events.readonly",
-        "calendars/events.write",
-        "calendars/groups.readonly",
-        "contacts.readonly",
-        "conversations.readonly",
-        "conversations.write",
-        "conversations/message.readonly",
-        "conversations/message.write",
-        "locations.readonly",
-        "locations/customFields.readonly",
-        "locations/customValues.readonly",
-        "locations/tags.readonly",
-        "locations/tasks.readonly",
-        "oauth.readonly",
-        "opportunities.readonly",
-        "users.readonly",
-    ]
-    scope_string = " ".join(scopes)
+    scope_string = " ".join(GHL_OAUTH_SCOPES)
 
-    state = "private_app" if use_private else "website_user"
+    # ── CSRF protection: cryptographic state nonce ────────────────────────
+    # Encode the flow type ("private_app" or "website_user") alongside a
+    # random nonce so the callback can both (a) validate the request origin
+    # and (b) determine which credential set to use.
+    flow_type = "private_app" if use_private else "website_user"
+    nonce = secrets.token_urlsafe(32)
+    state = f"{flow_type}:{nonce}"
+    session["ghl_oauth_state"] = state
+
+    # ── PKCE: Proof Key for Code Exchange (RFC 7636) ─────────────────────
+    code_verifier = secrets.token_urlsafe(43)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).decode().rstrip("=")
+    session["ghl_pkce_verifier"] = code_verifier
 
     oauth_params = urlencode({
         'response_type': 'code',
@@ -203,6 +221,8 @@ def oauth_initiate():
         'client_id': client_id,
         'scope': scope_string,
         'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
     })
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
@@ -229,34 +249,62 @@ def oauth_callback():
     - Agency sub-account provisioning with paginated location fetch
     """
     code = request.args.get("code")
-    state = request.args.get("state")
+    raw_state = request.args.get("state")
 
     logger.info(
-        f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
-        f"args={dict(request.args)}"
+        f"=== OAUTH CALLBACK START === state={'present' if raw_state else 'MISSING'}, "
+        f"code={'present' if code else 'MISSING'}"
     )
 
     try:
         log_webhook_event("oauth_global", "oauth_callback_hit", "info",
-                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
-                          details={"args": dict(request.args)})
+                          f"OAuth callback received: state={'yes' if raw_state else 'NO'}, "
+                          f"code={'yes' if code else 'NO'}",
+                          details={"has_state": bool(raw_state), "has_code": bool(code)})
     except Exception:
-        pass
+        logger.debug("Failed to log oauth_callback_hit event")
 
     if not code:
         logger.warning("OAuth callback: No authorization code in request params")
         try:
             log_webhook_event("oauth_global", "oauth_callback_error", "error",
-                              "No authorization code in callback params",
-                              details={"args": dict(request.args)})
+                              "No authorization code in callback params")
         except Exception:
-            pass
+            logger.debug("Failed to log oauth_callback_error event")
         flash("No authorization code received.", "danger")
         return redirect(url_for('public.home'))
 
     try:
-        # ── Determine flow ────────────────────────────────────────────────────
-        is_website_user = (state == "website_user") or (state == "private_app")
+        # ── Validate state parameter (CSRF protection) ────────────────────────
+        # Website users (state contains "website_user:" or "private_app:" prefix
+        # followed by a nonce) MUST have a matching session state. Marketplace
+        # installs arrive with state=None from GHL directly and bypass validation.
+        flow_type = None
+        code_verifier = None
+
+        if raw_state and ":" in raw_state:
+            # New-format state: "flow_type:nonce"
+            stored_state = session.pop("ghl_oauth_state", None)
+            if not stored_state or not secrets.compare_digest(raw_state, stored_state):
+                logger.warning(
+                    f"OAuth CSRF validation failed: state mismatch "
+                    f"(received={'present' if raw_state else 'NONE'}, "
+                    f"stored={'present' if stored_state else 'NONE'})"
+                )
+                flash("OAuth session expired or invalid. Please try connecting again.", "danger")
+                return redirect(url_for('dashboard.dashboard'))
+            flow_type = raw_state.split(":", 1)[0]
+            code_verifier = session.pop("ghl_pkce_verifier", None)
+            logger.info(f"OAuth state validated (flow_type={flow_type})")
+        elif raw_state in ("website_user", "private_app"):
+            # Legacy static state (from sessions started before this update)
+            flow_type = raw_state
+            logger.info(f"OAuth callback: Legacy static state ({raw_state})")
+        else:
+            # state=None — marketplace install
+            logger.info("OAuth callback: Marketplace installation flow (no state)")
+
+        is_website_user = flow_type in ("website_user", "private_app")
 
         if is_website_user:
             if not current_user.is_authenticated:
@@ -288,18 +336,18 @@ def oauth_callback():
         has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
         has_private_creds = bool(private_client_id and private_client_secret)
 
-        if state == "private_app":
+        if flow_type == "private_app":
             is_private_app = True
             client_id = private_client_id
             client_secret = private_client_secret
             cred_label = "PRIVATE_APP"
-        elif state is None and has_marketplace_creds and has_private_creds:
+        elif flow_type is None and has_marketplace_creds and has_private_creds:
             # DUAL-APP MODE: try marketplace first, fallback to private
             is_private_app = False
             client_id = marketplace_client_id
             client_secret = marketplace_client_secret
             cred_label = "AUTO-DETECT (trying marketplace first)"
-        elif state is None and use_private_env:
+        elif flow_type is None and use_private_env:
             is_private_app = True
             client_id = private_client_id
             client_secret = private_client_secret
@@ -321,7 +369,7 @@ def oauth_callback():
             flash("OAuth is not configured. Please contact support.", "danger")
             return redirect(url_for('public.home'))
 
-        logger.info(f"OAuth callback using {cred_label} credentials (state={state})")
+        logger.info(f"OAuth callback using {cred_label} credentials (flow_type={flow_type})")
 
         # ── Step 1: Token exchange ─────────────────────────────────────────────
         # Try Location user_type first, then Company (for agency-level installs).
@@ -330,7 +378,7 @@ def oauth_callback():
 
         cred_sets = [{"client_id": client_id, "client_secret": client_secret,
                       "label": cred_label, "is_private": is_private_app}]
-        if state is None and has_marketplace_creds and has_private_creds:
+        if flow_type is None and has_marketplace_creds and has_private_creds:
             cred_sets.append({
                 "client_id": private_client_id, "client_secret": private_client_secret,
                 "label": "PRIVATE_APP (fallback)", "is_private": True
@@ -346,6 +394,9 @@ def oauth_callback():
                 "code": code,
                 "redirect_uri": f"{domain}/oauth/callback",
             }
+            # Include PKCE verifier if available (website_user / private_app flows)
+            if code_verifier:
+                base_payload["code_verifier"] = code_verifier
 
             for user_type in ["Location", "Company"]:
                 payload = {**base_payload, "user_type": user_type}
@@ -395,21 +446,20 @@ def oauth_callback():
             logger.error(err_msg)
             try:
                 log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
-                                  err_msg, details={"state": state, "code_present": bool(code)})
+                                  err_msg, details={"flow_type": flow_type, "code_present": bool(code)})
             except Exception:
-                pass
+                logger.debug("Failed to log token exchange failure event")
             flash("Failed to connect to Lead Connector. Please try again.", "danger")
             return redirect(url_for('public.home'))
 
         access_token = token_data.get('access_token')
         if not access_token:
-            err_msg = f"Token exchange missing access_token: {json.dumps(token_data)[:500]}"
-            logger.error(err_msg)
+            logger.error("Token exchange returned no access_token")
             try:
                 log_webhook_event("oauth_global", "oauth_no_access_token", "error",
-                                  err_msg, details=token_data)
+                                  "Token exchange missing access_token")
             except Exception:
-                pass
+                logger.debug("Failed to log missing access_token event")
             flash("Authorization failed — no access token received. Please try again.", "danger")
             return redirect(url_for('public.home'))
 
@@ -417,6 +467,38 @@ def oauth_callback():
         company_id = token_data.get('companyId')
         refresh_token = token_data.get('refresh_token')
         expires_in = token_data.get('expires_in', 86400)
+
+        # ── Scope validation ─────────────────────────────────────────────────
+        # Verify that the granted scopes include the critical ones we need.
+        granted_scope_str = token_data.get('scope', '')
+        if granted_scope_str:
+            granted_scopes = set(granted_scope_str.split())
+            critical_scopes = {
+                "contacts.readonly", "conversations/message.write",
+                "conversations/message.readonly", "oauth.readonly",
+            }
+            missing_critical = critical_scopes - granted_scopes
+            if missing_critical:
+                logger.error(f"Critical scopes MISSING from grant: {missing_critical}")
+                try:
+                    log_webhook_event(
+                        primary_location_id or "unknown", "oauth_scope_mismatch", "error",
+                        f"Critical scopes missing: {missing_critical}",
+                        details={"granted": list(granted_scopes), "missing": list(missing_critical)})
+                except Exception:
+                    logger.debug("Failed to log scope mismatch event")
+                flash("Some required permissions were not granted. Please reconnect and accept all permissions.", "danger")
+                return redirect(url_for('dashboard.dashboard'))
+
+            # Log non-critical scope differences as warnings
+            requested_scopes = set(GHL_OAUTH_SCOPES)
+            missing_optional = requested_scopes - granted_scopes
+            if missing_optional:
+                logger.warning(f"Optional scopes not granted: {missing_optional}")
+
+        # Encrypt tokens before any DB storage
+        enc_access_token = encrypt_token(access_token)
+        enc_refresh_token = encrypt_token(refresh_token) if refresh_token else None
 
         logger.info(
             f"Step 1 complete: Token exchange OK via user_type={token_user_type_used}. "
@@ -433,11 +515,11 @@ def oauth_callback():
                     "user_type_used": token_user_type_used,
                     "locationId": primary_location_id,
                     "companyId": company_id,
-                    "scopes": token_data.get('scope', 'unknown'),
+                    "scopes_granted": len(granted_scope_str.split()) if granted_scope_str else 0,
                 }
             )
         except Exception:
-            pass
+            logger.debug("Failed to log token success event")
 
         headers_ghl = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
@@ -695,7 +777,7 @@ def oauth_callback():
                         updated_at = NOW()
                 """, (
                     user_email, primary_location_id, primary_name, plan_tier,
-                    max_seats, active_seats, access_token, refresh_token,
+                    max_seats, active_seats, enc_access_token, enc_refresh_token,
                     expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
                 ))
 
@@ -727,7 +809,7 @@ def oauth_callback():
                         updated_at = NOW()
                     WHERE email = %s
                 """, (
-                    primary_location_id, access_token, refresh_token,
+                    primary_location_id, enc_access_token, enc_refresh_token,
                     expires_in, me_data.get('id'), app_type,
                     sync_role, user_email if use_agency_flow else None,
                     user_email
@@ -793,7 +875,7 @@ def oauth_callback():
                         updated_at = NOW()
                 """, (
                     sub_id, user_email, sub_name, role, plan_tier,
-                    parent_agency_email, access_token, refresh_token,
+                    parent_agency_email, enc_access_token, enc_refresh_token,
                     expires_in,
                     sub_timezone or 'America/Chicago', me_data.get('id'),
                     'pending', app_type
@@ -940,6 +1022,10 @@ def oauth_callback():
             logger.warning(f"Welcome email error for {user_email}: {e}")
 
         # ── Step 9: Login and redirect ─────────────────────────────────────────
+        # Session regeneration: clear session data before login to prevent
+        # session fixation attacks (OAuth state/PKCE already consumed above).
+        session.clear()
+
         user = User.get(user_email)
         if user:
             login_user(user)
