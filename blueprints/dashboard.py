@@ -29,6 +29,7 @@ from flask import jsonify as flask_jsonify
 from flask_login import login_required, current_user
 
 from extensions import ADMIN_EMAILS, safe_jsonify
+from token_encryption import decrypt_token
 from db import (
     get_db_connection, return_db_connection, User,
     get_contracted_carriers, save_contracted_carriers,
@@ -216,7 +217,7 @@ def dashboard():
         form.initial_message.data = current_user.initial_message
         form.personal_website.data= current_user.personal_website
 
-    # Token display
+    # Token display — decrypt first so we mask real values, not ciphertext
     access_token_display = ''
     refresh_token_display= ''
     expires_in_str       = ''
@@ -224,7 +225,7 @@ def dashboard():
 
     if current_user.access_token:
         token_field_state = 'readonly'
-        at = current_user.access_token
+        at = decrypt_token(current_user.access_token) or current_user.access_token
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
         if current_user.token_expires_at:
             expires_at = current_user.token_expires_at
@@ -242,6 +243,10 @@ def dashboard():
                 expires_in_str = "Token Expired"
         else:
             expires_in_str = "Persistent"
+
+    if current_user.refresh_token:
+        rt = decrypt_token(current_user.refresh_token) or current_user.refresh_token
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
 
     profile = {
         'full_name': current_user.full_name or '',

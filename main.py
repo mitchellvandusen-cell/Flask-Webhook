@@ -1391,23 +1391,23 @@ def agency_dashboard():
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
         form.personal_website.data = current_user.personal_website
-    # --- 3. TOKEN LOGIC ---
+    # --- 3. TOKEN LOGIC — decrypt first so we mask real values, not ciphertext ---
     access_token_display = ''
     refresh_token_display = ''
     expires_in_str = ''
     token_field_state = ''
     if current_user.access_token:
         token_field_state = 'readonly'
-        at = current_user.access_token
+        at = decrypt_token(current_user.access_token) or current_user.access_token
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-       
+
         # Calculate Expiry
         if current_user.token_expires_at:
             expires_at = current_user.token_expires_at
             if isinstance(expires_at, str):
                 try: expires_at = datetime.fromisoformat(expires_at)
                 except: expires_at = datetime.now()
-               
+
             delta = expires_at - datetime.now()
             if delta.total_seconds() > 0:
                 expires_in_str = f"Expires in {int(delta.total_seconds() // 3600)}h {int((delta.total_seconds() % 3600) // 60)}m"
@@ -1415,6 +1415,10 @@ def agency_dashboard():
                 expires_in_str = "Token Expired"
         else:
             expires_in_str = "Persistent"
+
+    if current_user.refresh_token:
+        rt = decrypt_token(current_user.refresh_token) or current_user.refresh_token
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
     # --- 4. PROFILE DATA ---
     profile = {
         'full_name': current_user.full_name or '',
@@ -1711,25 +1715,23 @@ def dashboard():
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
         form.personal_website.data = current_user.personal_website
-    # --- 3. TOKEN LOGIC ---
-    # We can read this directly from current_user now too!
+    # --- 3. TOKEN LOGIC — decrypt first so we mask real values, not ciphertext ---
     access_token_display = ''
     refresh_token_display = ''
     expires_in_str = ''
     token_field_state = ''
     if current_user.access_token:
         token_field_state = 'readonly'
-        at = current_user.access_token
+        at = decrypt_token(current_user.access_token) or current_user.access_token
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-       
+
         # Calculate Expiry
         if current_user.token_expires_at:
             expires_at = current_user.token_expires_at
-            # Handle string vs datetime object just in case
             if isinstance(expires_at, str):
                 try: expires_at = datetime.fromisoformat(expires_at)
                 except: expires_at = datetime.now()
-               
+
             delta = expires_at - datetime.now()
             if delta.total_seconds() > 0:
                 expires_in_str = f"Expires in {int(delta.total_seconds() // 3600)}h {int((delta.total_seconds() % 3600) // 60)}m"
@@ -1737,6 +1739,10 @@ def dashboard():
                 expires_in_str = "Token Expired"
         else:
             expires_in_str = "Persistent"
+
+    if current_user.refresh_token:
+        rt = decrypt_token(current_user.refresh_token) or current_user.refresh_token
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
     # --- 4. PROFILE DATA ---
     profile = {
         'full_name': current_user.full_name or '',
