@@ -2466,6 +2466,29 @@ def revoke_training_token(email: str) -> bool:
         return_db_connection(conn)
 
 
+def get_subscriber_by_training_token(token: str) -> dict:
+    """Look up a subscriber by their training integration token. Returns subscriber dict or None."""
+    if not token or not token.startswith("trn_"):
+        return None
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM subscribers WHERE voice_config->>'training_token' = %s LIMIT 1",
+            (token,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"get_subscriber_by_training_token failed: {e}")
+        return None
+    finally:
+        return_db_connection(conn)
+
+
 def save_outbound_webhook_url(email: str, url: str) -> bool:
     """Save a subscriber's outbound webhook URL for API reply delivery."""
     conn = get_db_connection()
