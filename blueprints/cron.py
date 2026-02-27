@@ -114,8 +114,8 @@ def api_send_reminders():
 @cron_bp.route("/api/cron/refresh-tokens", methods=["GET", "POST"])
 def api_cron_refresh_tokens():
     """
-    Proactively refresh GHL OAuth tokens expiring within buffer_minutes.
-    Prevents token expiry from blocking webhook processing.
+    Proactively refresh GHL OAuth tokens expiring within buffer_minutes (default 60).
+    Tokens are refreshed a full hour before expiry so they never lapse.
     Schedule every 15 minutes — matches cron at https://insurancegrokbot.click/api/cron/refresh-tokens
     """
     if not _cron_authorized():
@@ -123,7 +123,7 @@ def api_cron_refresh_tokens():
 
     try:
         from ghl_api import refresh_tokens_proactively
-        buffer_minutes = int(request.args.get("buffer", 30))
+        buffer_minutes = int(request.args.get("buffer", 60))
         stats = refresh_tokens_proactively(buffer_minutes=buffer_minutes)
         return safe_jsonify({"success": True, **stats})
     except Exception as e:

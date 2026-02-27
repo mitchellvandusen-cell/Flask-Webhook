@@ -2670,7 +2670,7 @@ def api_send_reminders():
 def api_cron_refresh_tokens():
     """
     Cron-triggered endpoint: proactively refresh GHL OAuth tokens that will
-    expire within 30 minutes. Prevents token expiry from blocking webhook processing.
+    expire within 60 minutes. Prevents token expiry from blocking webhook processing.
     Schedule this every 15 minutes via cron-job.org or Railway cron.
     Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
     """
@@ -2685,7 +2685,7 @@ def api_cron_refresh_tokens():
 
     try:
         from ghl_api import refresh_tokens_proactively
-        buffer_minutes = int(request.args.get("buffer", 30))
+        buffer_minutes = int(request.args.get("buffer", 60))
         stats = refresh_tokens_proactively(buffer_minutes=buffer_minutes)
         return safe_jsonify({"success": True, **stats})
     except Exception as e:
