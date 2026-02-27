@@ -250,13 +250,15 @@
 
         // ── InsuranceGrokBot Smart Filter: group contacts by engagement ──
         function _igbGroupContacts(contacts) {
-            const hot = [], warm = [], cold = [];
+            const hot = [], warm = [], cold = [], dnc = [];
             const now = Date.now();
             const hrs24 = 24 * 60 * 60 * 1000;
             const days7 = 7 * 24 * 60 * 60 * 1000;
             contacts.forEach(c => {
                 const eng = _igbEngagementCache[c.id];
                 const callCount = _dialerCallCounts[c.id] || 0;
+                // DnD / opt-out contacts always go to DnC group
+                if (eng && eng.opted_out) { dnc.push(c); return; }
                 if (eng) {
                     const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
                     const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
@@ -271,9 +273,10 @@
                 cold.push(c);
             });
             return [
-                { key: 'hot', label: 'Hot Leads', icon: 'fa-fire', color: '#00ff88', contacts: hot },
+                { key: 'hot', label: 'Hot Leads', icon: 'fa-fire', color: '#4ade80', contacts: hot },
                 { key: 'warm', label: 'Warm Leads', icon: 'fa-temperature-half', color: '#ffa500', contacts: warm },
                 { key: 'cold', label: 'New / Cold', icon: 'fa-snowflake', color: '#00d9ff', contacts: cold },
+                { key: 'dnc', label: 'Do Not Contact', icon: 'fa-ban', color: '#ef4444', contacts: dnc },
             ];
         }
 
@@ -379,8 +382,11 @@
         }
 
         // ── InsuranceGrokBot: compute lead score (0-100) from engagement data ──
-        function _igbLeadScore(eng) {
+        // contactObj is optional - pass the full contact for DnD/opt-out detection
+        function _igbLeadScore(eng, contactObj) {
             if (!eng) return 0;
+            // DnD / opt-out override: score is 0
+            if (_igbIsOptedOut(eng, contactObj)) return 0;
             let score = 0;
             // SMS engagement (up to 30 pts)
             score += Math.min(eng.messages.lead * 5, 15);        // lead replies (up to 15)
@@ -409,14 +415,23 @@
             return Math.min(score, 100);
         }
 
-        function _igbScoreColor(score) {
-            if (score >= 70) return '#00ff88';
+        // ── Check if contact has opted out (DnD or "stop" message) ──
+        function _igbIsOptedOut(eng, contactObj) {
+            if (contactObj && contactObj.dnd) return true;
+            if (eng && eng.opted_out) return true;
+            return false;
+        }
+
+        function _igbScoreColor(score, optedOut) {
+            if (optedOut) return '#ef4444';
+            if (score >= 70) return '#4ade80';
             if (score >= 40) return '#ffa500';
             if (score >= 15) return '#00d9ff';
             return '#444';
         }
 
-        function _igbScoreLabel(score) {
+        function _igbScoreLabel(score, optedOut) {
+            if (optedOut) return 'DnD';
             if (score >= 70) return 'Hot';
             if (score >= 40) return 'Warm';
             if (score >= 15) return 'Cool';
@@ -450,8 +465,9 @@
                     dialerRenderContacts(); // Re-render to update dots + filters
                 }
 
-                const score = _igbLeadScore(eng);
-                const scoreColor = _igbScoreColor(score);
+                const optedOut = _igbIsOptedOut(eng, c);
+                const score = _igbLeadScore(eng, c);
+                const scoreColor = _igbScoreColor(score, optedOut);
                 const circumference = 2 * Math.PI * 35; // r=35
                 const dashOffset = circumference * (1 - score / 100);
 
@@ -470,7 +486,7 @@
                 html += '<div class="igb-score-ring">';
                 html += '<svg viewBox="0 0 80 80"><circle class="igb-ring-bg" cx="40" cy="40" r="35"/>';
                 html += '<circle class="igb-ring-fg" cx="40" cy="40" r="35" stroke="' + scoreColor + '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + dashOffset + '"/></svg>';
-                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + score + '</span><span class="igb-score-sub">' + _igbScoreLabel(score) + '</span></div>';
+                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + score + '</span><span class="igb-score-sub">' + _igbScoreLabel(score, optedOut) + '</span></div>';
                 html += '</div>';
                 // Name + phone
                 html += '<div style="flex:1;min-width:0;">';
@@ -478,6 +494,15 @@
                 html += '<div style="font-size:.78rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div>';
                 if (c.email) html += '<div style="font-size:.72rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.email) + '</div>';
                 html += '</div></div>';
+
+                // ── DnD / Opted Out Warning ──
+                if (optedOut) {
+                    html += '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">';
+                    html += '<i class="fa-solid fa-ban" style="color:#ef4444;font-size:.85rem;"></i>';
+                    html += '<span style="color:#ef4444;font-size:.78rem;font-weight:600;">Do Not Contact</span>';
+                    html += '<span style="color:#888;font-size:.7rem;margin-left:auto;">' + (c.dnd ? 'CRM DnD enabled' : 'Lead sent "Stop"') + '</span>';
+                    html += '</div>';
+                }
 
                 // ── Quick Intel Pills ──
                 if (eng) {
@@ -524,21 +549,44 @@
                     html += '</div>';
                 }
 
-                // ── AI Narrative Summary ──
+                // ── AI Narrative Summary (with name cross-validation) ──
                 if (eng && eng.narrative && eng.narrative.summary) {
-                    html += '<div class="igb-summary-card">';
-                    html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
-                    if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
-                    html += '</div>';
-                    html += '<div class="igb-summary-body">' + dialerEsc(eng.narrative.summary) + '</div>';
-                    html += '</div>';
+                    const contactFirstName = (c.firstName || '').toLowerCase().trim();
+                    const narrText = eng.narrative.summary || '';
+                    // Cross-validate: suppress narrative if it mentions a different person by name
+                    // and doesn't reference the actual contact's name at all
+                    let narrativeValid = true;
+                    if (contactFirstName && contactFirstName.length > 1) {
+                        const narrLower = narrText.toLowerCase();
+                        if (!narrLower.includes(contactFirstName)) {
+                            // Narrative doesn't mention this contact's name — may be cross-contaminated
+                            // Check if it starts with a different person's name pattern
+                            const namePattern = /^([A-Z][a-z]+)\s+(is|was|has|had|called|messaged|replied|expressed|mentioned|asked|wants|needs|said)/;
+                            const match = narrText.match(namePattern);
+                            if (match && match[1].toLowerCase() !== contactFirstName) {
+                                narrativeValid = false;
+                            }
+                        }
+                    }
+                    if (narrativeValid) {
+                        html += '<div class="igb-summary-card">';
+                        html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
+                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
+                        html += '</div>';
+                        html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
+                        html += '</div>';
+                    }
                 }
 
-                // ── Known Facts ──
+                // ── Known Facts (list view) ──
                 if (eng && eng.facts && eng.facts.length) {
                     html += '<div style="margin-bottom:10px;">';
-                    html += '<div style="font-size:.68rem;font-weight:700;color:#00ff88;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
-                    html += eng.facts.map(f => '<span class="igb-fact-chip">' + dialerEsc(f) + '</span>').join('');
+                    html += '<div style="font-size:.68rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
+                    html += '<ul class="igb-facts-list">';
+                    eng.facts.forEach(function(f) {
+                        html += '<li>' + dialerEsc(f) + '</li>';
+                    });
+                    html += '</ul>';
                     html += '</div>';
                 }
 
@@ -673,9 +721,9 @@
                     badge.style.color = '#00d9ff';
                 } else {
                     badge.textContent = 'via GHL';
-                    badge.style.background = 'rgba(0,255,136,0.07)';
-                    badge.style.borderColor = 'rgba(0,255,136,0.15)';
-                    badge.style.color = '#00ff88';
+                    badge.style.background = 'rgba(74,222,128,0.07)';
+                    badge.style.borderColor = 'rgba(74,222,128,0.15)';
+                    badge.style.color = '#4ade80';
                 }
             }
             if (note) {
@@ -815,7 +863,7 @@
                             '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + (c.status || '').replace('-',' ') + '</div>' +
                             '<div style="color:#888;font-size:.7rem;">' + durMin + '</div>' +
                             (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         '</div>';
                     }).join('');
                 }
@@ -1212,9 +1260,9 @@
             if (!banner || !dot) return;
             const colors = {
                 ringing:   { bg: 'rgba(0,217,255,0.06)', border: 'rgba(0,217,255,0.2)',   dot: '#00d9ff', anim: 'dialerPulse 1.5s infinite' },
-                connected: { bg: 'rgba(0,255,136,0.06)', border: 'rgba(0,255,136,0.2)',   dot: 'var(--accent)', anim: 'dialerPulse 1.5s infinite' },
+                connected: { bg: 'rgba(74,222,128,0.06)', border: 'rgba(74,222,128,0.2)',   dot: 'var(--accent)', anim: 'dialerPulse 1.5s infinite' },
                 error:     { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)',   dot: '#ef4444', anim: 'none' },
-                ended:     { bg: 'rgba(0,255,136,0.04)', border: 'rgba(255,255,255,0.06)', dot: '#555',  anim: 'none' },
+                ended:     { bg: 'rgba(74,222,128,0.04)', border: 'rgba(255,255,255,0.06)', dot: '#555',  anim: 'none' },
             };
             const c = colors[state] || colors.ringing;
             banner.style.background = c.bg;
@@ -1702,8 +1750,8 @@
                         ? '<i class="fa-solid fa-stop"></i><span>AI Stopped</span>'
                         : '<i class="fa-solid fa-check"></i><span>Intercepted</span>';
                     btn.style.color = isStopped ? '#ffa500' : 'var(--accent)';
-                    btn.style.borderColor = isStopped ? 'rgba(255,165,0,0.3)' : 'rgba(0,255,136,0.3)';
-                    btn.style.background = isStopped ? 'rgba(255,165,0,0.08)' : 'rgba(0,255,136,0.08)';
+                    btn.style.borderColor = isStopped ? 'rgba(255,165,0,0.3)' : 'rgba(74,222,128,0.3)';
+                    btn.style.background = isStopped ? 'rgba(255,165,0,0.08)' : 'rgba(74,222,128,0.08)';
                     if (statusEl) {
                         if (isStopped) {
                             statusEl.textContent = 'AI stopped — call ended';
@@ -1766,7 +1814,7 @@
                 if (r.ok) {
                     btn.innerHTML = '<i class="fa-solid fa-check"></i><span>Transferred</span>';
                     btn.style.color = 'var(--accent)';
-                    btn.style.borderColor = 'rgba(0,255,136,0.3)';
+                    btn.style.borderColor = 'rgba(74,222,128,0.3)';
                     document.getElementById('dialerCallStatus').textContent = 'Transferred';
                     document.getElementById('dialerCallStatus').style.color = '#ffa500';
                 } else {
@@ -1796,7 +1844,7 @@
             btns.forEach(b => { b.style.background = 'rgba(255,255,255,0.04)'; b.style.color = '#ccc'; });
             const clicked = event && event.target ? event.target.closest('.disp-btn') : null;
             if (clicked) {
-                clicked.style.background = 'rgba(0,255,136,0.15)';
+                clicked.style.background = 'rgba(74,222,128,0.15)';
                 clicked.style.color = 'var(--accent)';
             }
             setTimeout(dialerDismissDisposition, 1200);
@@ -1908,8 +1956,8 @@
                         '<div style="color:' + sc + ';font-size:.78rem;font-weight:600;white-space:nowrap;">' + (c.status||'').replace(/-/g,' ') + '</div>' +
                         '<div style="color:#888;font-size:.82rem;font-family:monospace;">' + dur + '</div>' +
                         (hasRec ? '<button onclick="event.stopPropagation();playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                        (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
-                        (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                        (hasRec ? '<a href="' + dialerEsc(c.recording_url) + '?dl=1" download style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;text-decoration:none;cursor:pointer;" title="Download" onclick="event.stopPropagation();"><i class="fa-solid fa-download"></i></a>' : '') +
+                        (hasTx ? '<button onclick=\'event.stopPropagation();showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         (!hasTx && hasRec && c.call_sid ? '<button onclick="event.stopPropagation();transcribeNow(\'' + dialerEsc(c.call_sid) + '\',\'' + dialerEsc(c.recording_url) + '\',this)" style="background:rgba(255,180,0,0.07);border:1px solid rgba(255,180,0,0.14);color:#ffb400;border-radius:4px;padding:2px 6px;font-size:.72rem;cursor:pointer;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles"></i></button>' : '') +
                     '</div>';
                 }).join('');
@@ -1962,7 +2010,7 @@
                             '<div style="font-size:.78rem;color:#555;">' + dt + ' &middot; ' + dur + '</div>' +
                         '</div>' +
                         '<button onclick="playRecording(\'' + recUrl + '\')" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Play"><i class="fa-solid fa-play me-1"></i>Play</button>' +
-                        '<a href="' + recUrl + '?dl=1" download style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:var(--accent);border-radius:4px;padding:3px 8px;font-size:.82rem;text-decoration:none;cursor:pointer;white-space:nowrap;" title="Download"><i class="fa-solid fa-download me-1"></i>DL</a>' +
+                        '<a href="' + recUrl + '?dl=1" download style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.15);color:var(--accent);border-radius:4px;padding:3px 8px;font-size:.82rem;text-decoration:none;cursor:pointer;white-space:nowrap;" title="Download"><i class="fa-solid fa-download me-1"></i>DL</a>' +
                         (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#ccc;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="View Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         (!hasTx && sid ? '<button onclick="transcribeNow(\'' + sid + '\',\'' + recUrl + '\',this)" style="background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.15);color:#ffb400;border-radius:4px;padding:3px 8px;font-size:.82rem;cursor:pointer;white-space:nowrap;" title="Generate Transcript"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Transcribe</button>' : '') +
                     '</div>';
@@ -2075,7 +2123,7 @@
             const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
-                return '<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(0,255,136,0.05);' : '') + '">' +
+                return '<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
                     '<span style="color:' + (active ? 'var(--accent)' : '#555') + ';font-weight:700;width:16px;text-align:center;">' + (i+1) + '</span>' +
                     '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(q.name) + '</span>' +
                     ((q.attempts && q.attempts > 1) ? '<span style="color:#888;font-size:.6rem;">' + q.attempts + '/' + dialerMaxAttempts + '</span>' : '') +
@@ -2188,8 +2236,8 @@
                 if (r.ok && d.transcript && d.transcript.length) {
                     // Swap button to "View Transcript"
                     btnEl.innerHTML = '<i class="fa-solid fa-file-lines"></i>';
-                    btnEl.style.background = 'rgba(0,255,136,0.08)';
-                    btnEl.style.border = '1px solid rgba(0,255,136,0.12)';
+                    btnEl.style.background = 'rgba(74,222,128,0.08)';
+                    btnEl.style.border = '1px solid rgba(74,222,128,0.12)';
                     btnEl.style.color = 'var(--accent)';
                     btnEl.disabled = false;
                     btnEl.title = 'View Transcript';
@@ -2265,7 +2313,7 @@
             const map = {
                 idle:      { bg: 'linear-gradient(135deg,#00d9ff,#0099cc)', icon: 'fa-headset',          label: 'Setup Browser VoIP', disabled: false },
                 loading:   { bg: 'linear-gradient(135deg,#ffa500,#cc8400)', icon: 'fa-spinner fa-spin',  label: 'Connecting…',        disabled: true  },
-                connected: { bg: 'linear-gradient(135deg,#00ff88,#00cc66)', icon: 'fa-circle-check',     label: 'VoIP Connected',     disabled: false },
+                connected: { bg: 'linear-gradient(135deg,#4ade80,#22c55e)', icon: 'fa-circle-check',     label: 'VoIP Connected',     disabled: false },
                 error:     { bg: 'linear-gradient(135deg,#ef4444,#cc2222)', icon: 'fa-rotate-right',     label: 'Retry VoIP Setup',   disabled: false },
             };
             const s = map[state] || map.idle;
@@ -2847,13 +2895,13 @@
             html += '</div>';
             // Rows
             numbers.forEach(n => {
-                const statusColor = n.status === 'active' ? '#00ff88' : (n.status === 'pending' ? '#ffa500' : '#888');
-                const statusBg = n.status === 'active' ? 'rgba(0,255,136,0.1)' : (n.status === 'pending' ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.04)');
+                const statusColor = n.status === 'active' ? '#4ade80' : (n.status === 'pending' ? '#ffa500' : '#888');
+                const statusBg = n.status === 'active' ? 'rgba(74,222,128,0.1)' : (n.status === 'pending' ? 'rgba(255,165,0,0.1)' : 'rgba(255,255,255,0.04)');
                 const primaryBadge = n.is_primary ? '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 6px;border-radius:3px;font-size:.6rem;font-weight:700;margin-left:6px;">PRIMARY</span>' : '';
                 const nickname = n.nickname ? '<span style="color:#888;font-size:.7rem;margin-left:4px;">(' + _esc(n.nickname) + ')</span>' : '';
-                const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
-                const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
-                const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#00ff88;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
+                const voiceIcon = n.capabilities?.voice ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                const smsIcon = n.capabilities?.sms ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#444;"></i>';
+                const cnamIcon = n.cnam_listed ? '<i class="fa-solid fa-circle-check" style="color:#4ade80;cursor:pointer;" title="CNAM enabled — click to disable" onclick="toggleCNAM(\'' + n.sid + '\',false)"></i>' : '<i class="fa-regular fa-circle" style="color:#444;cursor:pointer;" title="CNAM disabled — click to enable" onclick="toggleCNAM(\'' + n.sid + '\',true)"></i>';
                 html += '<div class="numbers-grid-row" style="display:grid;grid-template-columns:1fr 100px 60px 60px 60px 50px;gap:0;align-items:center;">';
                 html += '<div style="' + cellStyle + 'color:#fff;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + primaryBadge + nickname + '<br><span style="color:#555;font-size:.65rem;">' + _esc(n.number_type || 'local') + '</span></div>';
                 html += '<div style="' + cellStyle + 'text-align:center;"><span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:600;">' + (n.status || 'active') + '</span></div>';
@@ -3081,14 +3129,14 @@
             function _delta(val, isPP) {
                 if (val === null || val === undefined) return '';
                 const sign  = val > 0 ? '+' : '';
-                const color = val > 0 ? '#00ff88' : val < 0 ? '#ef4444' : '#888';
+                const color = val > 0 ? '#4ade80' : val < 0 ? '#ef4444' : '#888';
                 const arrow = val > 0 ? '▲' : val < 0 ? '▼' : '';
                 const suffix = isPP ? 'pp' : '%';
                 return '<div style="font-size:0.78rem;margin-top:3px;color:' + color + ';font-weight:600;">' + arrow + ' ' + sign + val + suffix + '</div>';
             }
 
             // ── KPI CARDS ──
-            const connectColor = s.connect_rate >= 20 ? '#00ff88' : s.connect_rate >= 10 ? '#ffa500' : '#ef4444';
+            const connectColor = s.connect_rate >= 20 ? '#4ade80' : s.connect_rate >= 10 ? '#ffa500' : '#ef4444';
             let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:20px;">';
             html += _kpiCard(s.total_calls,                   'Total Dials',    '',          _delta(p.delta_calls));
             html += _kpiCard(s.outbound_calls,                'Outbound',       '',          '');
@@ -3110,7 +3158,7 @@
             html += _durBar('6s+',    s.over_6s,    maxDur, '#00d9ff');
             html += _durBar('1 min',  s.over_1min,  maxDur, '#00b8d4');
             html += _durBar('2 min',  s.over_2min,  maxDur, '#00916a');
-            html += _durBar('5 min',  s.over_5min,  maxDur, '#00ff88');
+            html += _durBar('5 min',  s.over_5min,  maxDur, '#4ade80');
             html += _durBar('10 min', s.over_10min, maxDur, '#ffa500');
             html += '</div>';
 
@@ -3155,9 +3203,9 @@
                                      '12pm','1pm','2pm','3pm','4pm','5pm','6pm','7pm','8pm','9pm','10pm','11pm'];
                 const top3 = [...s.hourly].filter(h => h.calls > 0).sort((a,b) => b.calls - a.calls).slice(0, 3);
                 if (top3.length) {
-                    const rankColors = ['#00ff88','#00d9ff','#a78bfa'];
-                    html += '<div style="margin-bottom:20px;padding:14px 18px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.08);border-radius:10px;display:flex;align-items:center;gap:16px;">';
-                    html += '<i class="fa-solid fa-clock" style="color:#00ff88;font-size:1.2rem;flex-shrink:0;"></i>';
+                    const rankColors = ['#4ade80','#00d9ff','#a78bfa'];
+                    html += '<div style="margin-bottom:20px;padding:14px 18px;background:rgba(74,222,128,0.03);border:1px solid rgba(74,222,128,0.08);border-radius:10px;display:flex;align-items:center;gap:16px;">';
+                    html += '<i class="fa-solid fa-clock" style="color:#4ade80;font-size:1.2rem;flex-shrink:0;"></i>';
                     html += '<div style="flex:1;">';
                     html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Best Hours to Call</div>';
                     html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
@@ -3178,7 +3226,7 @@
                 html += '<div style="font-size:0.92rem;font-weight:700;color:#ccc;text-transform:uppercase;letter-spacing:0.5px;">Daily Volume</div>';
                 html += '<div style="display:flex;gap:14px;">' +
                     '<span style="font-size:0.82rem;color:#aaa;"><span style="color:rgba(0,217,255,0.6);">■</span> Dials</span>' +
-                    '<span style="font-size:0.82rem;color:#aaa;"><span style="color:#00ff88;">■</span> Connected</span>' +
+                    '<span style="font-size:0.82rem;color:#aaa;"><span style="color:#4ade80;">■</span> Connected</span>' +
                 '</div>';
                 html += '</div>';
                 const maxDay = Math.max(...s.daily.map(d => d.calls), 1);
@@ -3193,7 +3241,7 @@
                         '<div style="font-size:0.72rem;color:#aaa;font-weight:600;">' + (d.calls > 0 ? d.calls : '') + '</div>' +
                         '<div style="width:100%;position:relative;height:' + hTotal + 'px;">' +
                             '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hTotal + 'px;background:rgba(0,217,255,0.25);border-radius:3px 3px 0 0;"></div>' +
-                            (hConn > 0 ? '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hConn + 'px;background:rgba(0,255,136,0.65);border-radius:2px 2px 0 0;"></div>' : '') +
+                            (hConn > 0 ? '<div style="position:absolute;bottom:0;left:0;right:0;height:' + hConn + 'px;background:rgba(74,222,128,0.65);border-radius:2px 2px 0 0;"></div>' : '') +
                         '</div>' +
                         '<div style="font-size:0.72rem;color:#aaa;white-space:nowrap;">' + label + '</div>' +
                     '</div>';
