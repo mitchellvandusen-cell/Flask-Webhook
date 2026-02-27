@@ -1716,14 +1716,39 @@ def update_subscriber_token(
                         updated_at = NOW()
                     WHERE location_id = %s
                 """, (access_token, refresh_token, expires_in, location_id))
-            conn.commit()
+
             updated = cur.rowcount > 0
+
+            # Fallback: agency owners have tokens in agency_billing, not subscribers
+            if not updated:
+                if oauth_app_type:
+                    cur.execute("""
+                        UPDATE agency_billing
+                        SET access_token = %s,
+                            refresh_token = COALESCE(%s, refresh_token),
+                            token_expires_at = NOW() + interval '%s seconds',
+                            oauth_app_type = %s,
+                            updated_at = NOW()
+                        WHERE location_id = %s
+                    """, (access_token, refresh_token, expires_in, oauth_app_type, location_id))
+                else:
+                    cur.execute("""
+                        UPDATE agency_billing
+                        SET access_token = %s,
+                            refresh_token = COALESCE(%s, refresh_token),
+                            token_expires_at = NOW() + interval '%s seconds',
+                            updated_at = NOW()
+                        WHERE location_id = %s
+                    """, (access_token, refresh_token, expires_in, location_id))
+                updated = cur.rowcount > 0
+
+            conn.commit()
             if updated:
                 logger.info(f"✅ DB token persisted for {location_id} "
                            f"(refresh_token={'new' if refresh_token else 'kept'})")
             else:
                 logger.warning(f"⚠️ DB token update matched 0 rows for {location_id} "
-                              f"— location_id may not exist in subscribers table")
+                              f"— location_id not found in subscribers or agency_billing")
             return updated
         except psycopg2.Error as e:
             logger.error(f"update_subscriber_token FAILED for {location_id} "

@@ -281,10 +281,14 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
         logger.error(f"No subscriber config for {location_id}")
         return None, False, 'no_subscriber'
 
-    access_token = sub.get('access_token') or sub.get('crm_api_key')
-    refresh_token = sub.get('refresh_token')
+    raw_access = sub.get('access_token') or sub.get('crm_api_key')
+    raw_refresh = sub.get('refresh_token')
     expires_at = sub.get('token_expires_at')
     oauth_app_type = sub.get('oauth_app_type', 'marketplace')
+
+    # Decrypt tokens (handles both encrypted and legacy plaintext transparently)
+    access_token = decrypt_token(raw_access) if raw_access else None
+    refresh_token = decrypt_token(raw_refresh) if raw_refresh else None
 
     # Persistent token (no refresh_token)
     if not refresh_token:
@@ -378,11 +382,14 @@ def get_valid_token_with_status(location_id: str, subscriber: dict = None,
     return None, False, last_error or 'all_creds_exhausted'
 
 
-def refresh_tokens_proactively(buffer_minutes: int = 30):
+def refresh_tokens_proactively(buffer_minutes: int = 60):
     """
     Proactively refresh tokens that will expire within buffer_minutes.
     Call this from a cron job (e.g. every 15 minutes) to prevent token expiry
     from blocking webhook processing.
+
+    Default buffer is 60 minutes — tokens are refreshed a full hour before
+    expiry so they never lapse, even if a cron cycle is delayed.
 
     Returns dict with counts: {refreshed, failed, skipped, errors}
     """
@@ -396,7 +403,9 @@ def refresh_tokens_proactively(buffer_minutes: int = 30):
 
     try:
         cur = conn.cursor()
-        # Find subscribers with tokens expiring soon that have refresh_tokens
+        # Find tokens expiring soon from BOTH subscribers and agency_billing tables.
+        # Agency owners have tokens in agency_billing — without this UNION their
+        # tokens would never be proactively refreshed.
         cur.execute("""
             SELECT location_id, email, oauth_app_type, access_token, refresh_token,
                    token_expires_at
@@ -405,7 +414,15 @@ def refresh_tokens_proactively(buffer_minutes: int = 30):
               AND token_expires_at IS NOT NULL
               AND token_expires_at < NOW() + interval '%s minutes'
               AND token_expires_at > NOW() - interval '7 days'
-        """, (buffer_minutes,))
+            UNION ALL
+            SELECT location_id, agency_email AS email, oauth_app_type, access_token,
+                   refresh_token, token_expires_at
+            FROM agency_billing
+            WHERE refresh_token IS NOT NULL
+              AND token_expires_at IS NOT NULL
+              AND token_expires_at < NOW() + interval '%s minutes'
+              AND token_expires_at > NOW() - interval '7 days'
+        """, (buffer_minutes, buffer_minutes))
         expiring = cur.fetchall()
         cur.close()
     except Exception as e:
