@@ -177,5 +177,129 @@
             });
         }
 
+        // ── Training integration code ──
+
+        function loadTrainingStatus() {
+            fetch('/api/training/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.has_token) {
+                        document.getElementById('trainingNoToken').style.display = 'none';
+                        document.getElementById('trainingHasToken').style.display = 'block';
+                        document.getElementById('trainingTokenDisplay').value = data.training_token;
+                        if (data.created_at) {
+                            const d = new Date(data.created_at);
+                            document.getElementById('trainingTokenCreated').textContent = 'Created ' + d.toLocaleDateString() + ' at ' + d.toLocaleTimeString();
+                        }
+                    } else {
+                        document.getElementById('trainingNoToken').style.display = 'block';
+                        document.getElementById('trainingHasToken').style.display = 'none';
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function generateTrainingCode() {
+            const btn = document.getElementById('btnGenerateTraining');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Generating...';
+            const statusMsg = document.getElementById('trainingStatusMsg');
+
+            fetch('/api/training/generate-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.training_token) {
+                    document.getElementById('trainingNoToken').style.display = 'none';
+                    document.getElementById('trainingHasToken').style.display = 'block';
+                    document.getElementById('trainingTokenDisplay').value = data.training_token;
+                    const now = new Date();
+                    document.getElementById('trainingTokenCreated').textContent = 'Created ' + now.toLocaleDateString() + ' at ' + now.toLocaleTimeString();
+                    statusMsg.style.display = 'block';
+                    statusMsg.style.background = 'rgba(0,255,136,0.06)';
+                    statusMsg.style.border = '1px solid rgba(0,255,136,0.15)';
+                    statusMsg.style.color = '#00ff88';
+                    statusMsg.innerHTML = '<i class="fa-solid fa-check-circle me-1"></i> Training code generated! Copy it and paste into InsuranceGrokBot Training.';
+                    _showDashToast(true, 'Training code generated!');
+                    setTimeout(() => { statusMsg.style.display = 'none'; }, 6000);
+                } else {
+                    statusMsg.style.display = 'block';
+                    statusMsg.style.background = 'rgba(239,68,68,0.06)';
+                    statusMsg.style.border = '1px solid rgba(239,68,68,0.15)';
+                    statusMsg.style.color = '#ef4444';
+                    statusMsg.innerHTML = '<i class="fa-solid fa-times-circle me-1"></i> ' + (data.error || 'Failed to generate code');
+                    _showDashToast(false, data.error || 'Failed to generate training code');
+                }
+            })
+            .catch(() => {
+                statusMsg.style.display = 'block';
+                statusMsg.style.background = 'rgba(239,68,68,0.06)';
+                statusMsg.style.border = '1px solid rgba(239,68,68,0.15)';
+                statusMsg.style.color = '#ef4444';
+                statusMsg.innerHTML = '<i class="fa-solid fa-times-circle me-1"></i> Network error — please try again';
+                _showDashToast(false, 'Network error generating training code');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Generate Training Code';
+            });
+        }
+
+        function regenerateTrainingCode() {
+            if (!confirm('Regenerate your training code? The old code will stop working in InsuranceGrokBot Training.')) return;
+            generateTrainingCode();
+        }
+
+        function revokeTrainingCode() {
+            if (!confirm('Revoke your training code? InsuranceGrokBot Training will no longer be able to access your call recordings.')) return;
+            const statusMsg = document.getElementById('trainingStatusMsg');
+
+            fetch('/api/training/revoke-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('trainingNoToken').style.display = 'block';
+                    document.getElementById('trainingHasToken').style.display = 'none';
+                    statusMsg.style.display = 'block';
+                    statusMsg.style.background = 'rgba(239,68,68,0.06)';
+                    statusMsg.style.border = '1px solid rgba(239,68,68,0.15)';
+                    statusMsg.style.color = '#ef4444';
+                    statusMsg.innerHTML = '<i class="fa-solid fa-check-circle me-1"></i> Training code revoked.';
+                    _showDashToast(true, 'Training code revoked');
+                    setTimeout(() => { statusMsg.style.display = 'none'; }, 5000);
+                } else {
+                    _showDashToast(false, data.error || 'Failed to revoke training code');
+                }
+            })
+            .catch(() => {
+                _showDashToast(false, 'Network error revoking training code');
+            });
+        }
+
+        function copyTrainingCode() {
+            const input = document.getElementById('trainingTokenDisplay');
+            const btn = document.getElementById('btnCopyTraining');
+            navigator.clipboard.writeText(input.value).then(() => {
+                btn.innerHTML = '<i class="fa-solid fa-check" style="color:#00ff88;"></i>';
+                _showDashToast(true, 'Training code copied to clipboard!');
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                }, 2000);
+            }).catch(() => {
+                // Fallback: select the input
+                input.select();
+                document.execCommand('copy');
+                btn.innerHTML = '<i class="fa-solid fa-check" style="color:#00ff88;"></i>';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                }, 2000);
+            });
+        }
+
         // configureVoiceNumber() removed — routing is auto-provisioned.
 
