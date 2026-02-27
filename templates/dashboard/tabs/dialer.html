@@ -120,32 +120,32 @@
                     .igb-score-sub { font-size:.55rem; color:#666; text-transform:uppercase; letter-spacing:.3px; }
 
                     /* ── Quick Intel Pills ── */
-                    .igb-intel-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-                    .igb-intel-pill { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:20px; padding:4px 10px; font-size:.72rem; color:#aaa; white-space:nowrap; }
-                    .igb-intel-pill i { font-size:.65rem; color:#00d9ff; }
-                    .igb-intel-pill .igb-pill-val { font-weight:700; color:#ddd; font-family:'JetBrains Mono',monospace; }
+                    .igb-intel-row { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }
+                    .igb-intel-pill { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:5px 12px; font-size:.78rem; color:#bbb; white-space:nowrap; }
+                    .igb-intel-pill i { font-size:.7rem; color:#00d9ff; }
+                    .igb-intel-pill .igb-pill-val { font-weight:700; color:#e5e5e5; font-family:'JetBrains Mono',monospace; }
 
                     /* ── Engagement Timeline ── */
-                    .igb-timeline { display:flex; align-items:center; gap:0; margin-bottom:14px; padding:8px 0; }
+                    .igb-timeline { display:flex; align-items:center; gap:0; margin-bottom:14px; padding:10px 4px; background:rgba(255,255,255,0.015); border:1px solid rgba(255,255,255,0.04); border-radius:10px; }
                     .igb-tl-node { display:flex; flex-direction:column; align-items:center; flex-shrink:0; position:relative; z-index:1; }
-                    .igb-tl-dot { width:10px; height:10px; border-radius:50%; border:2px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); transition:all .3s; }
-                    .igb-tl-dot.active { background:#00d9ff; border-color:#00d9ff; box-shadow:0 0 6px rgba(0,217,255,0.4); }
-                    .igb-tl-dot.completed { background:#4ade80; border-color:#4ade80; box-shadow:0 0 6px rgba(74,222,128,0.3); }
-                    .igb-tl-label { font-size:.55rem; color:#555; margin-top:4px; white-space:nowrap; max-width:52px; overflow:hidden; text-overflow:ellipsis; text-align:center; }
-                    .igb-tl-line { flex:1; height:2px; background:rgba(255,255,255,0.06); min-width:8px; }
+                    .igb-tl-dot { width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); transition:all .3s; }
+                    .igb-tl-dot.active { background:#00d9ff; border-color:#00d9ff; box-shadow:0 0 8px rgba(0,217,255,0.35); }
+                    .igb-tl-dot.completed { background:#4ade80; border-color:#4ade80; box-shadow:0 0 8px rgba(74,222,128,0.25); }
+                    .igb-tl-label { font-size:.65rem; color:#777; margin-top:5px; white-space:nowrap; max-width:60px; overflow:hidden; text-overflow:ellipsis; text-align:center; font-weight:500; }
+                    .igb-tl-line { flex:1; height:2px; background:rgba(255,255,255,0.08); min-width:12px; }
                     .igb-tl-line.completed { background:linear-gradient(to right,#4ade80,#00d9ff); }
 
                     /* ── AI Summary Card ── */
-                    .igb-summary-card { background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+                    .igb-summary-card { background:rgba(0,217,255,0.03); border:1px solid rgba(0,217,255,0.08); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
                     .igb-summary-hdr { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
-                    .igb-summary-hdr i { color:#00d9ff; font-size:.7rem; }
-                    .igb-summary-hdr span { font-size:.68rem; font-weight:700; color:#00d9ff; text-transform:uppercase; letter-spacing:.5px; }
-                    .igb-summary-body { font-size:.8rem; color:#bbb; line-height:1.45; }
+                    .igb-summary-hdr i { color:#00d9ff; font-size:.72rem; }
+                    .igb-summary-hdr span { font-size:.7rem; font-weight:700; color:#00d9ff; text-transform:uppercase; letter-spacing:.5px; }
+                    .igb-summary-body { font-size:.82rem; color:#ccc; line-height:1.5; }
 
                     /* ── Facts list ── */
                     .igb-facts-list { list-style:none; margin:0; padding:0; }
-                    .igb-facts-list li { padding:4px 0; font-size:.78rem; color:#bbb; line-height:1.35; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; align-items:baseline; gap:6px; }
-                    .igb-facts-list li::before { content:'\2022'; color:#4ade80; font-size:.6rem; flex-shrink:0; }
+                    .igb-facts-list li { padding:5px 0; font-size:.8rem; color:#ccc; line-height:1.4; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; align-items:baseline; gap:8px; }
+                    .igb-facts-list li::before { content:'\2022'; color:#4ade80; font-size:.65rem; flex-shrink:0; }
                     .igb-facts-list li:last-child { border-bottom:none; }
 
                     /* ── Action Strip ── */
@@ -532,6 +532,30 @@
                                 placeholder="+1XXXXXXXXXX"
                                 style="background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; font-size:0.85rem;">
                             <small style="color:#666; font-size:0.75rem;">Agent number for AI warm transfers. E.164 format.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Show AI Summary</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceShowAiSummary"
+                                        {% if voice_config.get('show_ai_summary', True) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Display AI narrative in dossier</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">30-word conversation snapshot</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Show Known Facts</label>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="voiceShowKnownFacts"
+                                        {% if voice_config.get('show_known_facts', True) %}checked{% endif %}
+                                        style="width:2.5em; height:1.3em; cursor:pointer;">
+                                </div>
+                                <span style="color:#888; font-size:0.8rem;">Display extracted facts in dossier</span>
+                            </div>
+                            <small style="color:#666; font-size:0.75rem;">AI-extracted lead details</small>
                         </div>
                         <div class="col-md-4">
                             <label style="color:#aaa; font-size:0.8rem; font-weight:600; margin-bottom:4px; display:block;">Browser VoIP Setup</label>

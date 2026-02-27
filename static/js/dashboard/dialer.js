@@ -641,47 +641,6 @@
                     html += '</div>';
                 }
 
-                // ── AI Narrative Summary (with name cross-validation) ──
-                if (eng && eng.narrative && eng.narrative.summary) {
-                    const contactFirstName = (c.firstName || '').toLowerCase().trim();
-                    const narrText = eng.narrative.summary || '';
-                    // Cross-validate: suppress narrative if it mentions a different person by name
-                    // and doesn't reference the actual contact's name at all
-                    let narrativeValid = true;
-                    if (contactFirstName && contactFirstName.length > 1) {
-                        const narrLower = narrText.toLowerCase();
-                        if (!narrLower.includes(contactFirstName)) {
-                            // Narrative doesn't mention this contact's name — may be cross-contaminated
-                            // Check if it starts with a different person's name pattern
-                            const namePattern = /^([A-Z][a-z]+)\s+(is|was|has|had|called|messaged|replied|expressed|mentioned|asked|wants|needs|said)/;
-                            const match = narrText.match(namePattern);
-                            if (match && match[1].toLowerCase() !== contactFirstName) {
-                                narrativeValid = false;
-                            }
-                        }
-                    }
-                    if (narrativeValid) {
-                        html += '<div class="igb-summary-card">';
-                        html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
-                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
-                        html += '</div>';
-                        html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
-                        html += '</div>';
-                    }
-                }
-
-                // ── Known Facts (list view) ──
-                if (eng && eng.facts && eng.facts.length) {
-                    html += '<div style="margin-bottom:10px;">';
-                    html += '<div style="font-size:.68rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
-                    html += '<ul class="igb-facts-list">';
-                    eng.facts.forEach(function(f) {
-                        html += '<li>' + dialerEsc(f) + '</li>';
-                    });
-                    html += '</ul>';
-                    html += '</div>';
-                }
-
                 // ── CRM Contact Info (compact) ──
                 const fields = [
                     { label: 'Phone', value: formatPhone(c.phone), icon: 'fa-phone' },
@@ -721,6 +680,52 @@
                         });
                         html += '</div>';
                     }
+                }
+
+                // ── AI Summary (below CRM fields, toggle-controlled, 30-word max) ──
+                const _showSummary = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showAiSummary !== false;
+                if (_showSummary && eng && eng.narrative && eng.narrative.summary) {
+                    const contactFirstName = (c.firstName || '').toLowerCase().trim();
+                    let narrText = eng.narrative.summary || '';
+                    // Cross-validate: suppress if it names a different person
+                    let narrativeValid = true;
+                    if (contactFirstName && contactFirstName.length > 1) {
+                        const narrLower = narrText.toLowerCase();
+                        if (!narrLower.includes(contactFirstName)) {
+                            const namePattern = /^([A-Z][a-z]+)\s+(is|was|has|had|called|messaged|replied|expressed|mentioned|asked|wants|needs|said)/;
+                            const match = narrText.match(namePattern);
+                            if (match && match[1].toLowerCase() !== contactFirstName) {
+                                narrativeValid = false;
+                            }
+                        }
+                    }
+                    // Frontend 30-word hard cap
+                    if (narrativeValid && narrText) {
+                        const words = narrText.split(/\s+/);
+                        if (words.length > 30) narrText = words.slice(0, 30).join(' ') + '...';
+                        html += '<div class="igb-summary-card" style="margin-top:8px;">';
+                        html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
+                        if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
+                        html += '</div>';
+                        html += '<div class="igb-summary-body">' + dialerEsc(narrText) + '</div>';
+                        html += '</div>';
+                    }
+                }
+
+                // ── Known Facts (below AI Summary, toggle-controlled, 10-word max per line) ──
+                const _showFacts = window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.showKnownFacts !== false;
+                if (_showFacts && eng && eng.facts && eng.facts.length) {
+                    html += '<div style="margin-top:8px;margin-bottom:10px;">';
+                    html += '<div style="font-size:.68rem;font-weight:700;color:#4ade80;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
+                    html += '<ul class="igb-facts-list">';
+                    eng.facts.forEach(function(f) {
+                        // Frontend 10-word hard cap
+                        var words = f.split(/\s+/);
+                        if (words.length > 10) f = words.slice(0, 10).join(' ');
+                        html += '<li>' + dialerEsc(f) + '</li>';
+                    });
+                    html += '</ul>';
+                    html += '</div>';
                 }
 
                 // Notes

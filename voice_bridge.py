@@ -4653,12 +4653,14 @@ def get_contact_detail(contact_id):
                 """, (contact_id,))
                 raw_facts = [r['fact_text'] for r in cur.fetchall()]
 
-                # ── Clean facts: filter out prompt artifacts and instruction text ──
+                # ── Clean facts: filter prompt artifacts + enforce 10-word max ──
                 _prompt_patterns = [
                     'recap:', 'update previous', 'recent messages', 'already known',
                     'new facts', 'one fact per line', 'do not repeat', 'write none',
                     'conversation note', 'output exactly', 'no reasoning',
-                    'facts:', 'previous recap', 'no commentary',
+                    'facts:', 'previous recap', 'no commentary', 'output format',
+                    'keep chronological', 'concise but complete', 'updated recap',
+                    'should build on', 'maximum', 'per line', 'short fragments',
                 ]
                 clean_facts = []
                 for f in raw_facts:
@@ -4667,15 +4669,31 @@ def get_contact_detail(contact_id):
                         continue
                     if any(pat in fl for pat in _prompt_patterns):
                         continue
+                    # Enforce 10-word max per fact
+                    words = f.strip().split()
+                    if len(words) > 10:
+                        f = " ".join(words[:10])
                     clean_facts.append(f)
 
-                # ── Clean narrative: strip prompt artifacts ──
+                # ── Clean narrative: strip prompt artifacts + enforce 30-word max ──
                 narr_text = narrative.get("summary")
                 if narr_text:
                     import re as _re
                     narr_text = _re.sub(r'^RECAP:\s*', '', narr_text, flags=_re.IGNORECASE).strip()
                     narr_text = _re.sub(r'FACTS:.*$', '', narr_text, flags=_re.DOTALL | _re.IGNORECASE).strip()
                     narr_text = _re.sub(r'^Update(?:\s+the)?\s+previous\s+recap\s+with.*?\.?\s*', '', narr_text, flags=_re.IGNORECASE).strip()
+                    narr_text = _re.sub(r'^(?:Output format|Updated RECAP|Keep chronological|Note what was).*$', '', narr_text, flags=_re.MULTILINE | _re.IGNORECASE).strip()
+                    # Enforce 30-word max
+                    if narr_text:
+                        words = narr_text.split()
+                        if len(words) > 30:
+                            narr_text = " ".join(words[:30])
+                            # End at last sentence boundary if possible
+                            for end in ['. ', '? ', '! ']:
+                                idx = narr_text.rfind(end)
+                                if idx > len(narr_text) // 2:
+                                    narr_text = narr_text[:idx + 1]
+                                    break
                     narrative["summary"] = narr_text if narr_text else None
 
                 # ── Opt-out detection: check last lead message for stop keywords ──

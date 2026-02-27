@@ -295,7 +295,7 @@ def run_narrative_observer(contact_id: str, lead_message: str, recent_messages: 
 
     existing_str = "\n".join(f"- {f}" for f in existing_facts) if existing_facts else "None yet."
 
-    observer_prompt = f"""You are a conversation note-taker. Read the previous recap and the recent messages, then write an updated recap and extract any new facts.
+    observer_prompt = f"""You are a conversation note-taker. Read the previous recap and the recent messages, then write an updated summary and extract any new facts.
 
 PREVIOUS RECAP:
 {current_story}
@@ -306,13 +306,13 @@ ALREADY KNOWN FACTS:
 RECENT MESSAGES:
 {conversation_context}
 
-Output EXACTLY two sections, nothing else. No reasoning, no thinking, no commentary. Just the two sections:
+Output EXACTLY two sections, nothing else. No reasoning, no thinking, no commentary. No labels. No instructions. Just the raw content for each section.
 
 RECAP:
-Update the previous recap with what happened in the recent messages. Keep it chronological. Include key points from the previous recap and add the new exchanges. Note what was asked, what was answered, what objections came up, and where the conversation stands now. Be concise but complete.
+Write a 1-2 sentence summary of where this conversation stands right now. Maximum 30 words total. Focus on: what the lead wants, any objections, and current status. Do NOT retell the conversation chronologically. Just the current snapshot.
 
 FACTS:
-List any NEW facts the lead revealed in the recent messages. One fact per line. Only concrete information about the lead, their life, coverage, or situation. Do not repeat facts already in ALREADY KNOWN FACTS. If no new facts, write NONE."""
+List any NEW facts about the lead. One fact per line. Maximum 10 words per fact. Short fragments only (e.g. "Has 2 kids", "Works at FedEx", "Wants term life"). Do not repeat facts from ALREADY KNOWN FACTS. If no new facts, write NONE."""
 
     try:
         if not client:
@@ -323,7 +323,7 @@ List any NEW facts the lead revealed in the recent messages. One fact per line. 
             model="grok-4-1-fast-reasoning",
             messages=[{"role": "system", "content": observer_prompt}],
             temperature=0.3,
-            max_tokens=800,
+            max_tokens=300,
             timeout=15.0
         )
         raw_output = response.choices[0].message.content.strip()

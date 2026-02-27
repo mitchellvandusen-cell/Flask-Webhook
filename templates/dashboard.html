@@ -72,6 +72,8 @@
         locationId:      {{ (sub.location_id or '')|tojson if sub is defined else '""' }},
         userEmail:       {{ current_user.email|tojson }},
         crmConfigFields: {{ crm_config_fields|tojson|safe if crm_config_fields is defined and crm_config_fields else '{}' }},
+        showAiSummary:   {{ 'false' if voice_config is defined and voice_config.get('show_ai_summary') == False else 'true' }},
+        showKnownFacts:  {{ 'false' if voice_config is defined and voice_config.get('show_known_facts') == False else 'true' }},
     };
     </script>
 

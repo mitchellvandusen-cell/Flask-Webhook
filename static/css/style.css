@@ -789,6 +789,7 @@ body.light-theme .igb-score-ring .igb-ring-bg { stroke: rgba(0,0,0,0.06) !import
 body.light-theme .igb-intel-pill { background: var(--lt-surface-hover) !important; border-color: var(--lt-border) !important; color: var(--lt-text-secondary) !important; }
 body.light-theme .igb-intel-pill i { color: var(--lt-accent) !important; }
 body.light-theme .igb-intel-pill .igb-pill-val { color: var(--lt-text-primary) !important; }
+body.light-theme .igb-timeline { background: rgba(0,0,0,0.02) !important; border-color: var(--lt-border) !important; }
 body.light-theme .igb-tl-dot { border-color: rgba(0,0,0,0.1) !important; background: rgba(0,0,0,0.03) !important; }
 body.light-theme .igb-tl-dot.completed { background: #059669 !important; border-color: #059669 !important; }
 body.light-theme .igb-tl-dot.active { background: var(--lt-accent) !important; border-color: var(--lt-accent) !important; }
