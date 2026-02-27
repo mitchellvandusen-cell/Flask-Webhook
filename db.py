@@ -1238,6 +1238,20 @@ def init_db() -> bool:
         except Exception as e:
             logger.debug(f"failed_webhook_payloads migration note: {e}")
 
+        # ── App settings table (encryption keys, etc.) ────────────────────────
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.commit()
+            logger.info("✅ Migration: app_settings table ready")
+        except Exception as e:
+            logger.debug(f"app_settings migration note: {e}")
+
         # ── Super Admin role migration ──────────────────────────────────────
         # Ensures the platform owner always has super_admin role on every deploy.
         try:

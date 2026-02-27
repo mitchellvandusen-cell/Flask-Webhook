@@ -78,7 +78,7 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
     # 1️⃣ DETECT TOKEN TYPE FIRST
     # ═══════════════════════════════════════════════════════════════════════
     logger.info("\n1️⃣ DETECTING TOKEN TYPE...")
-    logger.debug(f"Token first 20 chars: {access_token[:20]}...")
+    logger.debug(f"Token type detection: starts_with_pit={access_token.startswith('pit-')}")
 
     is_private_key = access_token.startswith("pit-")
 
@@ -98,7 +98,8 @@ def ghl_debug_check(access_token: str, location_id: str, calendar_id: str, conta
 
             if me_resp.status_code == 200:
                 me_data = me_resp.json()
-                logger.debug(f"   Full token response: {me_data}")
+                logger.debug(f"   Token type: {me_data.get('type', 'UNKNOWN')}, "
+                             f"locationId: {me_data.get('locationId', 'N/A')}")
                 logger.info(f"✅ Token Info Retrieved:")
                 logger.info(f"   Type: {me_data.get('type', 'UNKNOWN')}")
                 logger.info(f"   Location ID from token: {me_data.get('locationId', 'N/A')}")

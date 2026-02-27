@@ -2,6 +2,8 @@
 import logging
 import re
 import uuid
+import base64
+import hashlib
 import stripe
 import os
 import gspread
@@ -49,6 +51,7 @@ from carrier_list import CARRIER_LIST, validate_carrier_keys
 from sync_subscribers import sync_subscribers
 from llm_caller import generate_clean_reply
 from send_email_api import send_email_via_api
+from token_encryption import encrypt_token, decrypt_token
 
 # === ADMIN WHITELIST (Free Access - No Subscription Required) ===
 ADMIN_EMAILS = [
@@ -143,6 +146,10 @@ ensure_redis()
 # === INITIALIZATION ===
 sync_subscribers()
 init_db()
+
+# === TOKEN ENCRYPTION ===
+from token_encryption import initialize_encryption
+initialize_encryption()
 
 # === REGISTER API BLUEPRINT ===
 from api_v1 import api_bp
@@ -1384,23 +1391,23 @@ def agency_dashboard():
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
         form.personal_website.data = current_user.personal_website
-    # --- 3. TOKEN LOGIC ---
+    # --- 3. TOKEN LOGIC — decrypt first so we mask real values, not ciphertext ---
     access_token_display = ''
     refresh_token_display = ''
     expires_in_str = ''
     token_field_state = ''
     if current_user.access_token:
         token_field_state = 'readonly'
-        at = current_user.access_token
+        at = decrypt_token(current_user.access_token) or current_user.access_token
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-       
+
         # Calculate Expiry
         if current_user.token_expires_at:
             expires_at = current_user.token_expires_at
             if isinstance(expires_at, str):
                 try: expires_at = datetime.fromisoformat(expires_at)
                 except: expires_at = datetime.now()
-               
+
             delta = expires_at - datetime.now()
             if delta.total_seconds() > 0:
                 expires_in_str = f"Expires in {int(delta.total_seconds() // 3600)}h {int((delta.total_seconds() % 3600) // 60)}m"
@@ -1408,6 +1415,10 @@ def agency_dashboard():
                 expires_in_str = "Token Expired"
         else:
             expires_in_str = "Persistent"
+
+    if current_user.refresh_token:
+        rt = decrypt_token(current_user.refresh_token) or current_user.refresh_token
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
     # --- 4. PROFILE DATA ---
     profile = {
         'full_name': current_user.full_name or '',
@@ -1704,25 +1715,23 @@ def dashboard():
         form.timezone.data = current_user.timezone
         form.initial_message.data = current_user.initial_message
         form.personal_website.data = current_user.personal_website
-    # --- 3. TOKEN LOGIC ---
-    # We can read this directly from current_user now too!
+    # --- 3. TOKEN LOGIC — decrypt first so we mask real values, not ciphertext ---
     access_token_display = ''
     refresh_token_display = ''
     expires_in_str = ''
     token_field_state = ''
     if current_user.access_token:
         token_field_state = 'readonly'
-        at = current_user.access_token
+        at = decrypt_token(current_user.access_token) or current_user.access_token
         access_token_display = at[:8] + '...' + at[-4:] if len(at) > 12 else at
-       
+
         # Calculate Expiry
         if current_user.token_expires_at:
             expires_at = current_user.token_expires_at
-            # Handle string vs datetime object just in case
             if isinstance(expires_at, str):
                 try: expires_at = datetime.fromisoformat(expires_at)
                 except: expires_at = datetime.now()
-               
+
             delta = expires_at - datetime.now()
             if delta.total_seconds() > 0:
                 expires_in_str = f"Expires in {int(delta.total_seconds() // 3600)}h {int((delta.total_seconds() % 3600) // 60)}m"
@@ -1730,6 +1739,10 @@ def dashboard():
                 expires_in_str = "Token Expired"
         else:
             expires_in_str = "Persistent"
+
+    if current_user.refresh_token:
+        rt = decrypt_token(current_user.refresh_token) or current_user.refresh_token
+        refresh_token_display = rt[:8] + '...' + rt[-4:] if len(rt) > 12 else rt
     # --- 4. PROFILE DATA ---
     profile = {
         'full_name': current_user.full_name or '',
@@ -4538,7 +4551,8 @@ def refresh_subscribers():
 def oauth_initiate():
     """
     Initiates OAuth flow with Lead Connector.
-    Works BEFORE marketplace approval (using private app credentials).
+    Uses the public marketplace app by default (all scopes now approved).
+    Falls back to private app if USE_PRIVATE_APP=true.
 
     User clicks "Connect with Lead Connector" → Redirected to consent page → Back to /oauth/callback
 
@@ -4560,8 +4574,8 @@ def oauth_initiate():
         else:
             return redirect(url_for('dashboard'))
 
-    # Toggle: set USE_PRIVATE_APP=true in .env to route all installs through
-    # the private app while waiting for public marketplace scope approval.
+    # Toggle: set USE_PRIVATE_APP=true in .env to use private app credentials.
+    # Default is false — the public marketplace app has all scopes approved.
     use_private = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
     if use_private:
@@ -4578,46 +4592,55 @@ def oauth_initiate():
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # Required scopes — must match the app configuration in GHL developer portal.
+    # All scopes approved on the public marketplace app as of 2026-02-27.
+    # No longer gated behind USE_PRIVATE_APP — both public and private apps
+    # request the full scope set.
     scopes = [
-        "calendars.readonly",           # List calendars, free slots
-        "calendars/events.readonly",    # Read calendar events
-        "calendars/events.write",       # Book appointments
-        "calendars/groups.readonly",    # Calendar group listing
-        "conversations/message.write",  # Send SMS
-        "conversations/message.readonly",  # Read inbound messages
-        "conversations.write",          # Conversation management
-        "conversations.readonly",       # Search conversations (ghl_api.py)
-        "contacts.readonly",            # Contact lookup & validation
-        "oauth.readonly",              # Token info check (ghl_calendar.py)
+        "calendars.readonly",               # List calendars, free slots
+        "calendars/events.readonly",        # Read calendar events
+        "calendars/events.write",           # Book appointments
+        "calendars/groups.readonly",        # Calendar group listing
+        "contacts.readonly",                # Contact lookup & validation
+        "conversations.readonly",           # Search conversations (ghl_api.py)
+        "conversations.write",              # Conversation management
+        "conversations/message.readonly",   # Read inbound messages
+        "conversations/message.write",      # Send SMS
+        "locations.readonly",               # Sub-account discovery
+        "locations/customFields.readonly",  # Read custom field definitions
+        "locations/customValues.readonly",  # Read custom field values
+        "locations/tags.readonly",          # Read location tags
+        "locations/tasks.readonly",         # Read tasks
+        "oauth.readonly",                   # Token info check (ghl_calendar.py)
+        "opportunities.readonly",           # Pipeline & stage listing for dialer filters
+        "users.readonly",                   # User info lookup
     ]
-    # Private app already has all scopes approved — include them now.
-    # For the public app these are still pending marketplace review.
-    if use_private:
-        scopes += [
-            "locations.readonly",       # Sub-account discovery
-            "users.readonly",           # User info lookup
-            "opportunities.readonly",   # Pipeline & stage listing for dialer filters
-        ]
     scope_string = " ".join(scopes)
 
-    # State: "private_app" when using private app, "website_user" otherwise.
-    # The callback uses this to pick the right credentials for token exchange.
-    state = "private_app" if use_private else "website_user"
+    # CSRF protection: cryptographic state nonce
+    flow_type = "private_app" if use_private else "website_user"
+    nonce = secrets.token_urlsafe(32)
+    state = f"{flow_type}:{nonce}"
+    session["ghl_oauth_state"] = state
 
-    # CRITICAL: URL-encode scope string — raw spaces break parameter parsing
-    # and cause GHL scope validation failures + state parameter loss
+    # PKCE: Proof Key for Code Exchange (RFC 7636)
+    code_verifier = secrets.token_urlsafe(43)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).decode().rstrip("=")
+    session["ghl_pkce_verifier"] = code_verifier
 
     oauth_params = urlencode({
         'response_type': 'code',
         'redirect_uri': redirect_uri,
         'client_id': client_id,
         'scope': scope_string,
-        'state': state
+        'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
     })
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
-    logger.info(f"Initiating OAuth flow for {current_user.email} (private={use_private}). Redirecting to: {oauth_url}")
+    logger.info(f"Initiating OAuth flow for {current_user.email} (private={use_private}). Redirecting to consent page.")
     return redirect(oauth_url)
 
 def fetch_all_ghl_items(base_url, headers, item_key='locations', max_pages=50):
@@ -4714,37 +4737,50 @@ def _ghl_api_call(method, url, headers=None, data=None, timeout=15, label="GHL A
 @app.route("/oauth/callback")
 def oauth_callback():
     code = request.args.get("code")
-    state = request.args.get("state")
+    raw_state = request.args.get("state")
 
-    # LOG EVERYTHING from the very start — this is the #1 debugging tool
-    logger.info(f"=== OAUTH CALLBACK START === state={state}, code={'present' if code else 'MISSING'}, "
-                f"args={dict(request.args)}")
+    logger.info(f"=== OAUTH CALLBACK START === state={'present' if raw_state else 'MISSING'}, "
+                f"code={'present' if code else 'MISSING'}")
 
-    # Always log to webhook_logs so it's visible in dashboard even if everything else fails
     try:
         log_webhook_event("oauth_global", "oauth_callback_hit", "info",
-                          f"OAuth callback received: state={state}, code={'yes' if code else 'NO'}",
-                          details={"args": dict(request.args)})
+                          f"OAuth callback received: state={'yes' if raw_state else 'NO'}, "
+                          f"code={'yes' if code else 'NO'}",
+                          details={"has_state": bool(raw_state), "has_code": bool(code)})
     except Exception:
-        pass
+        logger.debug("Failed to log oauth_callback_hit event")
 
     if not code:
         logger.warning("OAuth callback: No authorization code in request params")
         try:
             log_webhook_event("oauth_global", "oauth_callback_error", "error",
-                              "No authorization code in callback params",
-                              details={"args": dict(request.args)})
+                              "No authorization code in callback params")
         except Exception:
-            pass
+            logger.debug("Failed to log oauth_callback_error event")
         flash("No authorization code received.", "danger")
         return redirect(url_for('home'))
 
     try:
-        # Determine flow based on state parameter
-        # state="website_user" → Stripe/website subscriber connecting Lead Connector
-        # state="private_app"  → Logged-in user reconnecting via /oauth/initiate
-        # No state             → Marketplace / private app install link from GHL
-        is_website_user = (state == "website_user") or (state == "private_app")
+        # ── Validate state parameter (CSRF protection) ────────────────────────
+        flow_type = None
+        code_verifier = None
+
+        if raw_state and ":" in raw_state:
+            stored_state = session.pop("ghl_oauth_state", None)
+            if not stored_state or not secrets.compare_digest(raw_state, stored_state):
+                logger.warning("OAuth CSRF validation failed: state mismatch")
+                flash("OAuth session expired or invalid. Please try connecting again.", "danger")
+                return redirect(url_for('dashboard'))
+            flow_type = raw_state.split(":", 1)[0]
+            code_verifier = session.pop("ghl_pkce_verifier", None)
+            logger.info(f"OAuth state validated (flow_type={flow_type})")
+        elif raw_state in ("website_user", "private_app"):
+            flow_type = raw_state
+            logger.info(f"OAuth callback: Legacy static state ({raw_state})")
+        else:
+            logger.info("OAuth callback: Marketplace installation flow (no state)")
+
+        is_website_user = flow_type in ("website_user", "private_app")
 
         if is_website_user:
             # --- SUBSCRIPTION VERIFICATION FOR WEBSITE USERS ---
@@ -4773,14 +4809,13 @@ def oauth_callback():
 
         # --- VALIDATE ENV VARS ---
         # Pick credentials based on how the OAuth flow was initiated:
-        #   state="private_app" → use private app credentials
-        #   state="website_user" → use credentials based on USE_PRIVATE_APP env
+        #   state="private_app"  → use private app credentials (legacy)
+        #   state="website_user" → use public marketplace app credentials (default)
         #   state=None           → GHL marketplace/app install link — auto-detect
         #
         # DUAL-APP SUPPORT: When both public (marketplace) and private apps exist,
-        # GHL install links never include state. We try the primary credential set
-        # first, then fall back to the other if the exchange fails. This correctly
-        # handles customers who installed either app.
+        # GHL install links never include state. We try the public marketplace
+        # credentials first, then fall back to private if the exchange fails.
         use_private_env = os.getenv("USE_PRIVATE_APP", "").lower() in ("true", "1", "yes")
 
         # Build both credential sets for auto-detection when state=None
@@ -4792,21 +4827,17 @@ def oauth_callback():
         has_marketplace_creds = bool(marketplace_client_id and marketplace_client_secret)
         has_private_creds = bool(private_client_id and private_client_secret)
 
-        if state == "private_app":
-            # Explicit private app OAuth initiate flow
+        if flow_type == "private_app":
             is_private_app = True
             client_id = private_client_id
             client_secret = private_client_secret
             cred_label = "PRIVATE_APP"
-        elif state is None and has_marketplace_creds and has_private_creds:
-            # DUAL-APP MODE: Both apps configured — we'll auto-detect during token exchange
-            # Start with marketplace (public) credentials as primary attempt
+        elif flow_type is None and has_marketplace_creds and has_private_creds:
             is_private_app = False
             client_id = marketplace_client_id
             client_secret = marketplace_client_secret
             cred_label = "AUTO-DETECT (trying marketplace first)"
-        elif state is None and use_private_env:
-            # Only private app configured
+        elif flow_type is None and use_private_env:
             is_private_app = True
             client_id = private_client_id
             client_secret = private_client_secret
@@ -4839,8 +4870,7 @@ def oauth_callback():
         # Build list of credential sets to try (primary first, fallback second)
         cred_sets = [{"client_id": client_id, "client_secret": client_secret,
                       "label": cred_label, "is_private": is_private_app}]
-        if state is None and has_marketplace_creds and has_private_creds:
-            # Add fallback credential set (the one we didn't try first)
+        if flow_type is None and has_marketplace_creds and has_private_creds:
             cred_sets.append({"client_id": private_client_id, "client_secret": private_client_secret,
                               "label": "PRIVATE_APP (fallback)", "is_private": True})
 
@@ -4854,6 +4884,8 @@ def oauth_callback():
                 "code": code,
                 "redirect_uri": f"{domain}/oauth/callback"
             }
+            if code_verifier:
+                base_payload["code_verifier"] = code_verifier
 
             for user_type in ["Location", "Company"]:
                 payload = {**base_payload, "user_type": user_type}
@@ -4892,7 +4924,7 @@ def oauth_callback():
             logger.error(err_msg)
             try:
                 log_webhook_event("oauth_global", "oauth_token_exchange_failed", "error",
-                                  err_msg, details={"state": state, "code_present": bool(code)})
+                                  err_msg, details={"flow_type": flow_type, "code_present": bool(code)})
             except Exception:
                 pass
             flash("Failed to connect to Lead Connector. Please try again.", "danger")
@@ -5114,8 +5146,8 @@ def oauth_callback():
         using_location_fallback = False
         if num_subs == 0 and primary_location_id:
             using_location_fallback = True
-            logger.warning(f"locations.readonly scope likely missing — /locations/ returned 0 results "
-                          f"but token has locationId={primary_location_id}. Using fallback location entry.")
+            logger.warning(f"/locations/ returned 0 results but token has locationId={primary_location_id}. "
+                          f"Possible API issue or permissions problem. Using fallback location entry.")
             sub_accounts = [{
                 'id': primary_location_id,
                 'name': user_name or 'Primary Location',
@@ -5381,27 +5413,28 @@ def oauth_callback():
         except Exception as e:
             logger.debug(f"mark_install_oauth_complete note: {e}")
 
-        # 8b. Persistent alerts for scope/location issues
+        # 8b. Persistent alert if location fetch returned 0 results
         if using_location_fallback:
             try:
                 alert_msg = (
                     "Your Lead Connector account connected successfully, but the "
-                    "locations.readonly scope is not yet approved in the Lead Connector marketplace. "
+                    "locations API returned no results. This may indicate a temporary "
+                    "API issue or insufficient permissions. "
                     "Your primary location is active and the bot is operational. "
                 )
                 if use_agency_flow:
                     alert_msg += (
                         f"However, your sub-account locations could not be discovered. "
-                        f"They will be auto-provisioned once the scope is approved. "
-                        f"Contact support if this persists beyond 10 days."
+                        f"Try reconnecting via the Connect tab. "
+                        f"Contact support if this persists."
                     )
                 else:
-                    alert_msg += "No action needed. This will resolve automatically."
+                    alert_msg += "Try reconnecting via the Connect tab if issues persist."
 
                 save_persistent_alert(
                     email=user_email,
                     alert_type="scope_locations_readonly",
-                    title="Scope Pending: locations.readonly",
+                    title="Location Discovery Issue",
                     message=alert_msg,
                     severity="warning" if use_agency_flow else "info",
                     location_id=primary_location_id
@@ -5410,7 +5443,7 @@ def oauth_callback():
                     location_id=primary_location_id,
                     event_type="scope_issue",
                     status="warning",
-                    summary="locations.readonly scope unavailable — using fallback",
+                    summary="locations API returned 0 results — using fallback",
                     details={"fallback": True, "agency_flow": use_agency_flow}
                 )
             except Exception as e:
