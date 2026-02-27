@@ -4,7 +4,10 @@ import redis
 import logging
 import uuid
 import sys
+from dotenv import load_dotenv
 from rq import Worker, Queue
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(name)s | %(levelname)s | %(message)s')
 logger = logging.getLogger(__name__)
@@ -20,6 +23,12 @@ def main():
         listen_queues = ['production'] # Default to production if unspecified
 
     logger.info(f"Starting Worker for queues: {listen_queues}")
+
+    # Initialize DB + token encryption so workers can decrypt OAuth tokens
+    from db import init_db
+    init_db()
+    from token_encryption import initialize_encryption
+    initialize_encryption()
 
     try:
         redis_conn = redis.from_url(REDIS_URL)
