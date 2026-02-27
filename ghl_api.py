@@ -500,11 +500,24 @@ def fetch_targeted_ghl_history(contact_id: str, location_id: str, access_token: 
         return []
 
     headers = {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
+    _token_refreshed = False
 
     try:
         # Step 1: Find conversation ID
         search_url = f"https://services.leadconnectorhq.com/conversations/search?locationId={location_id}&contactId={contact_id}"
         search_res = requests.get(search_url, headers=headers, timeout=10)
+
+        # Auto-retry on 401/403 with a fresh token (same pattern as ghl_message.py)
+        if search_res.status_code in (401, 403) and not _token_refreshed:
+            logger.warning(f"GHL history fetch auth failure (HTTP {search_res.status_code}) — refreshing token for {location_id}")
+            fresh_token = get_valid_token(location_id)
+            if fresh_token and fresh_token != access_token:
+                access_token = fresh_token
+                headers["Authorization"] = f"Bearer {fresh_token}"
+                _token_refreshed = True
+                logger.info(f"Token refreshed for {location_id} — retrying history fetch")
+                search_res = requests.get(search_url, headers=headers, timeout=10)
+
         search_res.raise_for_status()
         convos = search_res.json().get("conversations", [])
 
