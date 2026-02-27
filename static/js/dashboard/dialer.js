@@ -760,7 +760,7 @@
                 const d = await r.json();
                 if (r.ok) {
                     _dlrMarkBubbleSent(pendingId);
-                    if (statusEl) { statusEl.textContent = '\u2713 Sent via ' + channelLabel; statusEl.style.color = '#00ff88'; }
+                    if (statusEl) { statusEl.textContent = '\u2713 Sent via ' + channelLabel; statusEl.style.color = '#007AFF'; }
                     setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
                 } else {
                     _dlrMarkBubbleError(pendingId);
