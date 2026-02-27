@@ -147,6 +147,10 @@ ensure_redis()
 sync_subscribers()
 init_db()
 
+# === TOKEN ENCRYPTION ===
+from token_encryption import initialize_encryption
+initialize_encryption()
+
 # === REGISTER API BLUEPRINT ===
 from api_v1 import api_bp
 app.register_blueprint(api_bp)
