@@ -3,6 +3,10 @@
         let dialerSelected = new Set();
         let dialerQueue = [];
         let dialerQueueRunning = false;
+        // InsuranceGrokBot engagement data cache: contactId → { messages, calls }
+        let _igbEngagementCache = {};
+        // InsuranceGrokBot Smart Filter collapsed state
+        let _igbFilterCollapsed = {};
         let dialerCallSid = null;
         let dialerCallIdx = -1;
         let dialerPollTimer = null;
@@ -220,7 +224,106 @@
             }
         }
 
-        // ── Render contact list (left panel) ──
+        // ── InsuranceGrokBot: compute engagement level (0-3 dots) from our data ──
+        function _igbEngageLevel(contactId) {
+            const callCount = _dialerCallCounts[contactId] || 0;
+            const eng = _igbEngagementCache[contactId];
+            let level = 0;
+            // Dot 1: any interaction exists (called or messaged)
+            if (callCount > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) level = 1;
+            // Dot 2: two-way engagement (we contacted AND they replied, or connected call)
+            if (eng && eng.messages.lead > 0 && eng.messages.assistant > 0) level = 2;
+            if (eng && eng.calls.connected > 0) level = 2;
+            // Dot 3: hot — recent activity within 48h OR multiple connected calls
+            if (eng) {
+                const now = Date.now();
+                const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
+                const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
+                const latest = Math.max(lastMsg, lastCall);
+                const hrs48 = 48 * 60 * 60 * 1000;
+                if (latest > 0 && (now - latest) < hrs48) level = Math.max(level, 2);
+                if (eng.calls.connected >= 2 || (eng.calls.connected >= 1 && eng.messages.lead >= 3)) level = 3;
+                if (latest > 0 && (now - latest) < hrs48 && level >= 2) level = 3;
+            }
+            return level;
+        }
+
+        // ── InsuranceGrokBot Smart Filter: group contacts by engagement ──
+        function _igbGroupContacts(contacts) {
+            const hot = [], warm = [], cold = [];
+            const now = Date.now();
+            const hrs24 = 24 * 60 * 60 * 1000;
+            const days7 = 7 * 24 * 60 * 60 * 1000;
+            contacts.forEach(c => {
+                const eng = _igbEngagementCache[c.id];
+                const callCount = _dialerCallCounts[c.id] || 0;
+                if (eng) {
+                    const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
+                    const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
+                    const latest = Math.max(lastMsg, lastCall);
+                    if (latest > 0 && (now - latest) < hrs24 && (eng.calls.connected > 0 || eng.messages.lead > 0)) {
+                        hot.push(c); return;
+                    }
+                    if (latest > 0 && (now - latest) < days7 && (callCount > 0 || eng.messages.lead > 0 || eng.messages.assistant > 0)) {
+                        warm.push(c); return;
+                    }
+                }
+                cold.push(c);
+            });
+            return [
+                { key: 'hot', label: 'Hot Leads', icon: 'fa-fire', color: '#00ff88', contacts: hot },
+                { key: 'warm', label: 'Warm Leads', icon: 'fa-temperature-half', color: '#ffa500', contacts: warm },
+                { key: 'cold', label: 'New / Cold', icon: 'fa-snowflake', color: '#00d9ff', contacts: cold },
+            ];
+        }
+
+        function igbToggleFilter(key) {
+            _igbFilterCollapsed[key] = !_igbFilterCollapsed[key];
+            dialerRenderContacts();
+        }
+
+        // ── Render single contact row (shared by grouped + ungrouped) ──
+        function _igbRenderContactRow(c) {
+            const init = (c.firstName || c.name || '?')[0].toUpperCase();
+            const sel = dialerSelected.has(c.id);
+            const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
+            const inQ = dialerQueue.some(q => q.id === c.id);
+            const callCount = _dialerCallCounts[c.id] || 0;
+            const level = _igbEngageLevel(c.id);
+
+            // Live status dot
+            const isLive = typeof _active_calls !== 'undefined' && _active_calls && _active_calls[c.id];
+            let liveDotCls = 'igb-live-dot idle';
+            if (isLive) liveDotCls = 'igb-live-dot live-call';
+
+            // Engagement dots HTML
+            const dotClass = level >= 3 ? 'lit-hot' : (level >= 2 ? 'lit-warm' : (level >= 1 ? 'lit' : ''));
+            const dots = '<span class="igb-engage-dots">' +
+                '<span class="igb-dot' + (level >= 1 ? ' ' + dotClass : '') + '"></span>' +
+                '<span class="igb-dot' + (level >= 2 ? ' ' + dotClass : '') + '"></span>' +
+                '<span class="igb-dot' + (level >= 3 ? ' ' + dotClass : '') + '"></span>' +
+            '</span>';
+
+            return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
+                '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
+                '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;position:relative;">' + init +
+                    '<span class="' + liveDotCls + '"></span>' +
+                '</div>' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
+                        '<span style="font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + dialerEsc(c.name) + '</span>' +
+                        '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' +
+                            dots +
+                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:.78rem;padding:1px 6px;">Dials: ' + callCount + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="font-size:.78rem;color:#555;">' + dialerEsc(c.phone) + '</div>' +
+                '</div>' +
+                (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
+            '</div>';
+        }
+
+        // ── Render contact list (left panel) with InsuranceGrokBot Smart Filters ──
         function dialerRenderContacts() {
             const list = document.getElementById('dialerContactList');
             const actionsBar = document.getElementById('dialerActionsBar');
@@ -232,25 +335,30 @@
             }
 
             actionsBar.style.display = 'block';
-            list.innerHTML = dialerContacts.map(c => {
-                const init = (c.firstName || c.name || '?')[0].toUpperCase();
-                const sel = dialerSelected.has(c.id);
-                const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
-                const inQ = dialerQueue.some(q => q.id === c.id);
-                const callCount = _dialerCallCounts[c.id] || 0;
-                return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
-                    '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation()" onchange="dialerToggleSelect(\'' + c.id + '\')" style="accent-color:#00d9ff;width:14px;height:14px;cursor:pointer;flex-shrink:0;">' +
-                    '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? 'rgba(0,217,255,0.15)' : 'rgba(0,217,255,0.06)') + ';border:1px solid ' + (isActive ? '#00d9ff' : 'rgba(0,217,255,0.1)') + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;color:#00d9ff;flex-shrink:0;">' + init + '</div>' +
-                    '<div style="flex:1;min-width:0;">' +
-                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
-                            '<span style="font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + dialerEsc(c.name) + '</span>' +
-                            '<span class="dlr-call-badge" data-call-badge="' + c.id + '" style="font-size:.88rem;padding:1px 7px;">Dials: ' + callCount + '</span>' +
-                        '</div>' +
-                        '<div style="font-size:.82rem;color:#555;">' + dialerEsc(c.phone) + '</div>' +
-                    '</div>' +
-                    (inQ ? '<i class="fa-solid fa-list-ol" style="color:#00d9ff;font-size:.72rem;" title="In queue"></i>' : '') +
-                '</div>';
-            }).join('');
+
+            // If we have engagement data, show grouped view with Smart Filters
+            const hasEngData = Object.keys(_igbEngagementCache).length > 0;
+            if (hasEngData) {
+                const groups = _igbGroupContacts(dialerContacts);
+                let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-robot" style="color:#00d9ff;font-size:.6rem;"></i><span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">InsuranceGrokBot Smart Filters</span></div>';
+                groups.forEach(g => {
+                    if (!g.contacts.length) return;
+                    const collapsed = _igbFilterCollapsed[g.key] || false;
+                    html += '<div class="igb-filter-hdr" onclick="igbToggleFilter(\'' + g.key + '\')">' +
+                        '<i class="fa-solid fa-chevron-down igb-filter-icon' + (collapsed ? ' collapsed' : '') + '" style="color:' + g.color + ';"></i>' +
+                        '<i class="fa-solid ' + g.icon + '" style="color:' + g.color + ';font-size:.7rem;"></i>' +
+                        '<span class="igb-filter-label" style="color:' + g.color + ';">' + g.label + '</span>' +
+                        '<span class="igb-filter-count">' + g.contacts.length + '</span>' +
+                    '</div>';
+                    if (!collapsed) {
+                        html += g.contacts.map(c => _igbRenderContactRow(c)).join('');
+                    }
+                });
+                list.innerHTML = html;
+            } else {
+                // No engagement data yet — render flat list
+                list.innerHTML = dialerContacts.map(c => _igbRenderContactRow(c)).join('');
+            }
         }
 
         // ── Select contact → load detail + messages + contact-specific calls/recordings ──
@@ -266,12 +374,67 @@
             // Reload calls/recordings filtered to this contact
             dialerLoadAllCallHistory();
             dialerLoadRecordings();
-            document.getElementById('dlrDetailActions').style.display = 'flex';
             // Fetch merged GHL + local call count and update badge
             dialerFetchMergedCallCount(c.id);
         }
 
-        // ── Middle panel: full contact detail ──
+        // ── InsuranceGrokBot: compute lead score (0-100) from engagement data ──
+        function _igbLeadScore(eng) {
+            if (!eng) return 0;
+            let score = 0;
+            // SMS engagement (up to 30 pts)
+            score += Math.min(eng.messages.lead * 5, 15);        // lead replies (up to 15)
+            score += Math.min(eng.messages.assistant * 2, 10);   // our messages (up to 10)
+            if (eng.messages.lead > 0 && eng.messages.assistant > 0) score += 5; // two-way bonus
+            // Call engagement (up to 40 pts)
+            score += Math.min(eng.calls.connected * 10, 20);     // connected calls
+            score += Math.min(eng.calls.total_calls * 2, 10);    // attempts
+            if (eng.calls.total_duration > 120) score += 5;      // talked > 2 min
+            if (eng.calls.total_duration > 300) score += 5;      // talked > 5 min
+            // Recency (up to 20 pts)
+            const now = Date.now();
+            const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
+            const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
+            const latest = Math.max(lastMsg, lastCall);
+            if (latest > 0) {
+                const hoursAgo = (now - latest) / (1000 * 60 * 60);
+                if (hoursAgo < 24) score += 20;
+                else if (hoursAgo < 72) score += 14;
+                else if (hoursAgo < 168) score += 8;
+                else score += 3;
+            }
+            // Depth (up to 10 pts)
+            if (eng.narrative && eng.narrative.summary) score += 5;
+            score += Math.min((eng.facts || []).length * 2, 5);
+            return Math.min(score, 100);
+        }
+
+        function _igbScoreColor(score) {
+            if (score >= 70) return '#00ff88';
+            if (score >= 40) return '#ffa500';
+            if (score >= 15) return '#00d9ff';
+            return '#444';
+        }
+
+        function _igbScoreLabel(score) {
+            if (score >= 70) return 'Hot';
+            if (score >= 40) return 'Warm';
+            if (score >= 15) return 'Cool';
+            return 'New';
+        }
+
+        function _igbTimeAgo(isoStr) {
+            if (!isoStr) return '';
+            const diff = Date.now() - new Date(isoStr).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 60) return mins + 'm ago';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + 'h ago';
+            const days = Math.floor(hrs / 24);
+            return days + 'd ago';
+        }
+
+        // ── Middle panel: Lead Intelligence Dossier ──
         async function dialerLoadContactDetail(contactId) {
             const panel = document.getElementById('dlrDetailContent');
             panel.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;font-size:1.2rem;"></i></div>';
@@ -279,45 +442,142 @@
                 const r = await _fetchRetry('/voice/contact/' + contactId, {}, { retries: 1, timeout: 15000, label: 'contact-detail' });
                 if (!r.ok) { panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Could not load contact</div>'; return; }
                 const c = await r.json();
+                const eng = c.igb_engagement;
+
+                // Cache engagement data for Smart Filters + dots
+                if (eng) {
+                    _igbEngagementCache[contactId] = eng;
+                    dialerRenderContacts(); // Re-render to update dots + filters
+                }
+
+                const score = _igbLeadScore(eng);
+                const scoreColor = _igbScoreColor(score);
+                const circumference = 2 * Math.PI * 35; // r=35
+                const dashOffset = circumference * (1 - score / 100);
 
                 let html = '';
-                // Name header
-                html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06);">';
-                html += '<div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(0,217,255,0.15),rgba(0,255,136,0.1));border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;color:#00d9ff;">' + (c.firstName || c.name || '?')[0].toUpperCase() + '</div>';
-                html += '<div><div style="font-weight:700;font-size:1.05rem;">' + dialerEsc(c.name || 'Unknown') + '</div>';
-                html += '<div style="font-size:.78rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div></div></div>';
 
-                // Info grid
+                // ── Action Strip (moved to top for immediate access) ──
+                html += '<div class="igb-action-strip">';
+                html += '<button class="igb-action-btn act-call" onclick="dialerCallActiveContact()"><i class="fa-solid fa-phone"></i> Call</button>';
+                html += '<button class="igb-action-btn act-sms" onclick="if(_iosCurrentApp!==\'messages\')iosOpenApp(\'messages\');"><i class="fa-solid fa-message"></i> SMS</button>';
+                html += '<button class="igb-action-btn act-queue" onclick="dialerAddActiveToQueue()"><i class="fa-solid fa-plus"></i> Queue</button>';
+                html += '</div>';
+
+                // ── Name Header with Lead Score Ring ──
+                html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);">';
+                // Lead Score Ring
+                html += '<div class="igb-score-ring">';
+                html += '<svg viewBox="0 0 80 80"><circle class="igb-ring-bg" cx="40" cy="40" r="35"/>';
+                html += '<circle class="igb-ring-fg" cx="40" cy="40" r="35" stroke="' + scoreColor + '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + dashOffset + '"/></svg>';
+                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + score + '</span><span class="igb-score-sub">' + _igbScoreLabel(score) + '</span></div>';
+                html += '</div>';
+                // Name + phone
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-weight:700;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.name || 'Unknown') + '</div>';
+                html += '<div style="font-size:.78rem;color:#888;">' + dialerEsc(formatPhone(c.phone)) + '</div>';
+                if (c.email) html += '<div style="font-size:.72rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + dialerEsc(c.email) + '</div>';
+                html += '</div></div>';
+
+                // ── Quick Intel Pills ──
+                if (eng) {
+                    html += '<div class="igb-intel-row">';
+                    const totalMsgs = (eng.messages.lead || 0) + (eng.messages.assistant || 0);
+                    if (totalMsgs > 0) html += '<span class="igb-intel-pill"><i class="fa-solid fa-message"></i><span class="igb-pill-val">' + totalMsgs + '</span> SMS</span>';
+                    if (eng.calls.total_calls > 0) {
+                        html += '<span class="igb-intel-pill"><i class="fa-solid fa-phone"></i><span class="igb-pill-val">' + eng.calls.total_calls + '</span> calls (' + eng.calls.connected + ' connected)</span>';
+                    }
+                    if (eng.calls.total_duration > 0) {
+                        const mins = Math.floor(eng.calls.total_duration / 60);
+                        const secs = eng.calls.total_duration % 60;
+                        html += '<span class="igb-intel-pill"><i class="fa-solid fa-clock"></i><span class="igb-pill-val">' + mins + ':' + String(secs).padStart(2, '0') + '</span> talk time</span>';
+                    }
+                    if (eng.calls.recordings > 0) html += '<span class="igb-intel-pill"><i class="fa-solid fa-microphone"></i><span class="igb-pill-val">' + eng.calls.recordings + '</span> recordings</span>';
+                    // Last active
+                    const lastMsg = eng.messages.last_message_at;
+                    const lastCall = eng.calls.last_call_at;
+                    const latest = (lastMsg && lastCall) ? (lastMsg > lastCall ? lastMsg : lastCall) : (lastMsg || lastCall);
+                    if (latest) html += '<span class="igb-intel-pill"><i class="fa-solid fa-signal"></i>Active <span class="igb-pill-val">' + _igbTimeAgo(latest) + '</span></span>';
+                    // Dispositions
+                    if (eng.calls.dispositions) {
+                        const disps = eng.calls.dispositions;
+                        if (disps.left_voicemail) html += '<span class="igb-intel-pill"><i class="fa-solid fa-voicemail"></i><span class="igb-pill-val">' + disps.left_voicemail + '</span> VM left</span>';
+                    }
+                    html += '</div>';
+                }
+
+                // ── Engagement Timeline ──
+                if (eng) {
+                    const totalMsgs = (eng.messages.lead || 0) + (eng.messages.assistant || 0);
+                    const steps = [
+                        { label: 'Added', done: true },
+                        { label: 'Contacted', done: eng.messages.assistant > 0 || eng.calls.total_calls > 0 },
+                        { label: 'Replied', done: eng.messages.lead > 0 },
+                        { label: 'Called', done: eng.calls.total_calls > 0 },
+                        { label: 'Connected', done: eng.calls.connected > 0 },
+                    ];
+                    html += '<div class="igb-timeline">';
+                    steps.forEach((s, i) => {
+                        if (i > 0) html += '<div class="igb-tl-line' + (s.done ? ' completed' : '') + '"></div>';
+                        html += '<div class="igb-tl-node"><div class="igb-tl-dot' + (s.done ? ' completed' : '') + '"></div><div class="igb-tl-label">' + s.label + '</div></div>';
+                    });
+                    html += '</div>';
+                }
+
+                // ── AI Narrative Summary ──
+                if (eng && eng.narrative && eng.narrative.summary) {
+                    html += '<div class="igb-summary-card">';
+                    html += '<div class="igb-summary-hdr"><i class="fa-solid fa-robot"></i><span>AI Summary</span>';
+                    if (eng.narrative.updated_at) html += '<span style="margin-left:auto;font-size:.6rem;color:#444;">' + _igbTimeAgo(eng.narrative.updated_at) + '</span>';
+                    html += '</div>';
+                    html += '<div class="igb-summary-body">' + dialerEsc(eng.narrative.summary) + '</div>';
+                    html += '</div>';
+                }
+
+                // ── Known Facts ──
+                if (eng && eng.facts && eng.facts.length) {
+                    html += '<div style="margin-bottom:10px;">';
+                    html += '<div style="font-size:.68rem;font-weight:700;color:#00ff88;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-brain me-1"></i>Known Facts</div>';
+                    html += eng.facts.map(f => '<span class="igb-fact-chip">' + dialerEsc(f) + '</span>').join('');
+                    html += '</div>';
+                }
+
+                // ── CRM Contact Info (compact) ──
                 const fields = [
-                    { label: 'Email', value: c.email, icon: 'fa-envelope' },
                     { label: 'Phone', value: formatPhone(c.phone), icon: 'fa-phone' },
                     { label: 'Address', value: [c.address, c.city, c.state].filter(Boolean).join(', '), icon: 'fa-location-dot' },
                     { label: 'Source', value: c.source, icon: 'fa-link' },
                     { label: 'Date Added', value: c.dateAdded ? new Date(c.dateAdded).toLocaleDateString() : '', icon: 'fa-calendar' },
                 ];
-                fields.forEach(f => {
-                    if (f.value) {
-                        html += '<div class="dlr-field-label"><i class="fa-solid ' + f.icon + ' me-1" style="width:12px;"></i>' + f.label + '</div>';
-                        html += '<div class="dlr-field-value">' + dialerEsc(f.value) + '</div>';
-                    }
-                });
+                const hasFields = fields.some(f => f.value);
+                if (hasFields) {
+                    html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
+                    html += '<div style="font-size:.68rem;font-weight:700;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Contact Info</div>';
+                    fields.forEach(f => {
+                        if (f.value) {
+                            html += '<div class="dlr-field-label"><i class="fa-solid ' + f.icon + ' me-1" style="width:12px;"></i>' + f.label + '</div>';
+                            html += '<div class="dlr-field-value" style="font-size:.85rem;">' + dialerEsc(f.value) + '</div>';
+                        }
+                    });
+                    html += '</div>';
+                }
 
                 // Tags
                 if (c.tags && c.tags.length) {
-                    html += '<div class="dlr-field-label">Tags</div>';
-                    html += '<div style="margin-bottom:10px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:.72rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div>';
+                    html += '<div style="margin-top:6px;"><div class="dlr-field-label">Tags</div>';
+                    html += '<div style="margin-bottom:8px;">' + c.tags.map(t => '<span style="display:inline-block;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;padding:2px 8px;border-radius:4px;font-size:.72rem;margin:0 4px 4px 0;">' + dialerEsc(t) + '</span>').join('') + '</div></div>';
                 }
 
                 // Custom Fields
                 if (c.customFields && c.customFields.length) {
                     const filled = c.customFields.filter(cf => cf.value);
                     if (filled.length) {
-                        html += '<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
-                        html += '<div style="font-size:.72rem;font-weight:700;color:#00d9ff;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
+                        html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
+                        html += '<div style="font-size:.68rem;font-weight:700;color:#00d9ff;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">CRM Custom Fields</div>';
                         filled.forEach(cf => {
                             const name = cf.name || cf.fieldKey || 'Field';
                             html += '<div class="dlr-field-label">' + dialerEsc(name) + '</div>';
-                            html += '<div class="dlr-field-value">' + dialerEsc(String(cf.value)) + '</div>';
+                            html += '<div class="dlr-field-value" style="font-size:.85rem;">' + dialerEsc(String(cf.value)) + '</div>';
                         });
                         html += '</div>';
                     }
@@ -325,15 +585,19 @@
 
                 // Notes
                 if (c.notes && c.notes.length) {
-                    html += '<div style="margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04);">';
-                    html += '<div style="font-size:.72rem;font-weight:700;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
+                    html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
+                    html += '<div style="font-size:.68rem;font-weight:700;color:#aaa;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">Notes</div>';
                     c.notes.forEach(n => {
                         html += '<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:.78rem;color:#bbb;">' + dialerEsc(n.body) + '<div style="font-size:.65rem;color:#555;margin-top:3px;">' + (n.dateAdded ? new Date(n.dateAdded).toLocaleDateString() : '') + '</div></div>';
                     });
                     html += '</div>';
                 }
 
+                // Powered by footer
+                html += '<div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.03);"><span style="font-size:.58rem;color:#333;letter-spacing:.3px;">Powered by InsuranceGrokBot</span></div>';
+
                 panel.innerHTML = html;
+                document.getElementById('dlrDetailActions').style.display = 'none';
             } catch(e) {
                 panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Failed to load contact</div>';
             }
@@ -2677,6 +2941,28 @@
             } catch(e) {
                 // Non-critical; badges just stay empty
             }
+            // InsuranceGrokBot: fetch bulk engagement data for Smart Filters
+            igbFetchBulkEngagement();
+        }
+
+        // ── InsuranceGrokBot: Bulk Engagement Fetch ──
+        async function igbFetchBulkEngagement() {
+            if (!dialerContacts.length) return;
+            const CHUNK = 100;
+            for (let i = 0; i < dialerContacts.length; i += CHUNK) {
+                const chunk = dialerContacts.slice(i, i + CHUNK);
+                const ids = chunk.map(c => c.id).join(',');
+                try {
+                    const r = await fetch('/voice/contact-engagement?ids=' + encodeURIComponent(ids));
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    Object.assign(_igbEngagementCache, data);
+                } catch(e) {
+                    console.error('[IGB] Engagement fetch failed:', e);
+                }
+            }
+            // Re-render contact list with Smart Filters now that we have data
+            dialerRenderContacts();
         }
 
         // After local counts show, upgrade badges with GHL+WAVV counts in background
