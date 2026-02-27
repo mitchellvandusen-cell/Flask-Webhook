@@ -12,6 +12,44 @@
         let dialerPipelines = [];
         let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
 
+        // ── iPhone 15 Pro UI bridge ──
+        let _iosCurrentApp = null;
+
+        function iosOpenApp(app) {
+            _iosCurrentApp = app;
+            const home = document.getElementById('iosHome');
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings' };
+            if (home) home.style.display = 'none';
+            Object.keys(apps).forEach(k => {
+                const el = document.getElementById(apps[k]);
+                if (el) { el.style.display = k === app ? 'flex' : 'none'; el.style.animation = k === app ? 'iosAppOpen 0.3s cubic-bezier(0.2,0.9,0.3,1)' : ''; }
+            });
+            // Trigger data load
+            if (app === 'messages') dlrRefreshMessages();
+            if (app === 'calls') dialerLoadAllCallHistory();
+            if (app === 'recordings') dialerLoadRecordings();
+        }
+
+        function iosGoHome() {
+            const home = document.getElementById('iosHome');
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings'];
+            apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+            if (home) home.style.display = 'flex';
+            _iosCurrentApp = null;
+        }
+
+        // Live clock in status bar
+        (function _iosClock() {
+            function _upd() {
+                const el = document.getElementById('iosTime');
+                if (!el) return;
+                const d = new Date();
+                let h = d.getHours(), m = d.getMinutes();
+                el.textContent = (h > 12 ? h - 12 : h || 12) + ':' + (m < 10 ? '0' : '') + m;
+            }
+            _upd(); setInterval(_upd, 30000);
+        })();
+
         // ── Production-grade fetch wrapper with retry + timeout ──
         async function _fetchRetry(url, opts = {}, { retries = 2, timeout = 15000, label = '' } = {}) {
             for (let attempt = 0; attempt <= retries; attempt++) {
@@ -438,15 +476,15 @@
             _dlrSmsContactName = (c && (c.name || c.firstName)) || '';
             _dlrSmsContactPhone = (c && c.phone) || '';
 
-            // Update thread header
-            const header = document.getElementById('dlrMsgHeader');
-            const avatar = document.getElementById('dlrMsgAvatar');
-            const nameEl = document.getElementById('dlrMsgContactName');
-            const phoneEl = document.getElementById('dlrMsgContactPhone');
-            if (header) header.style.display = 'flex';
+            // Update iOS Messages nav header
+            const avatar = document.getElementById('iosMsgAvatar');
+            const nameEl = document.getElementById('iosMsgContactName');
+            const phoneEl = document.getElementById('iosMsgContactPhone');
             if (avatar) avatar.textContent = (_dlrSmsContactName || '?')[0].toUpperCase();
             if (nameEl) nameEl.textContent = _dlrSmsContactName || 'Contact';
             if (phoneEl) phoneEl.textContent = formatPhone(_dlrSmsContactPhone);
+            // Auto-open Messages app when contact selected
+            if (_iosCurrentApp !== 'messages') iosOpenApp('messages');
 
             const msgPanel = document.getElementById('dlrMessagesList');
             const composer = document.getElementById('dlrSmsComposer');
@@ -498,19 +536,9 @@
             }
         }
 
-        // ── History tab switching ──
+        // ── History tab switching (now opens iPhone apps) ──
         function dialerSwitchHistoryTab(tab) {
-            // Messages tab uses flex, others use block
-            const displays = { messages: 'flex', calls: 'block', recordings: 'block' };
-            const tabs = {messages:'Messages', calls:'Calls', recordings:'Recordings'};
-            Object.keys(tabs).forEach(t => {
-                const el = document.getElementById('dlrHistory' + tabs[t]);
-                if (el) el.style.display = t === tab ? (displays[t] || 'block') : 'none';
-                const btn = document.getElementById('dlrTab' + tabs[t]);
-                if (btn) btn.className = 'dlr-tab-btn' + (t === tab ? ' active' : '');
-            });
-            if (tab === 'calls') dialerLoadAllCallHistory();
-            if (tab === 'recordings') dialerLoadRecordings();
+            iosOpenApp(tab);
         }
 
         // ── SMS: textarea auto-grow ──
