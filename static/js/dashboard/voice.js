@@ -179,3 +179,103 @@
 
         // configureVoiceNumber() removed — routing is auto-provisioned.
 
+        // ── Training Transfer Code ──
+
+        function trainingLoadStatus() {
+            fetch('/voice/training/status')
+                .then(r => r.json())
+                .then(d => {
+                    const noCode = document.getElementById('trainingNoCode');
+                    const hasCode = document.getElementById('trainingHasCode');
+                    const countEl = document.getElementById('trainingRecordingCount');
+                    if (countEl) countEl.textContent = (d.total_recordings || 0).toLocaleString();
+                    if (d.has_code && d.transfer_code) {
+                        noCode.style.display = 'none';
+                        hasCode.style.display = 'block';
+                        document.getElementById('trainingCodeInput').value = d.transfer_code;
+                        if (d.generated_at) {
+                            const dt = new Date(d.generated_at + 'Z');
+                            document.getElementById('trainingCodeDate').textContent = 'Generated ' + dt.toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'}) + ' at ' + dt.toLocaleTimeString(undefined, {hour:'numeric',minute:'2-digit'});
+                        }
+                    } else {
+                        noCode.style.display = 'block';
+                        hasCode.style.display = 'none';
+                    }
+                })
+                .catch(e => console.error('[Training] status load failed:', e));
+        }
+
+        function trainingGenerateCode() {
+            const btn = document.getElementById('trainingGenerateBtn');
+            const result = document.getElementById('trainingResult');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Generating...';
+            result.style.display = 'none';
+
+            fetch('/voice/training/generate-code', {method:'POST', headers:{'Content-Type':'application/json'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.ok) {
+                        _showDashToast(true, 'Transfer code generated!');
+                        trainingLoadStatus();
+                    } else {
+                        result.style.display = 'block';
+                        result.innerHTML = '<span style="color:#ef4444;"><i class="fa-solid fa-times-circle me-1"></i>' + (d.error || 'Failed to generate code') + '</span>';
+                        _showDashToast(false, d.error || 'Failed to generate code');
+                    }
+                })
+                .catch(e => {
+                    result.style.display = 'block';
+                    result.innerHTML = '<span style="color:#ef4444;">Network error — try again</span>';
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-key me-2"></i>Generate Transfer Code';
+                });
+        }
+
+        function trainingRegenerateCode() {
+            if (!confirm('This will revoke your current code and generate a new one. Any active import in InsuranceGrokBot Training will need the new code. Continue?')) return;
+            trainingGenerateCode();
+        }
+
+        function trainingRevokeCode() {
+            if (!confirm('Revoke your transfer code? InsuranceGrokBot Training will no longer be able to import your recordings until you generate a new code.')) return;
+            const result = document.getElementById('trainingResult');
+
+            fetch('/voice/training/revoke-code', {method:'POST', headers:{'Content-Type':'application/json'}})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.ok) {
+                        _showDashToast(true, 'Transfer code revoked');
+                        trainingLoadStatus();
+                    } else {
+                        result.style.display = 'block';
+                        result.innerHTML = '<span style="color:#ef4444;">' + (d.error || 'Failed to revoke') + '</span>';
+                    }
+                })
+                .catch(() => {
+                    result.style.display = 'block';
+                    result.innerHTML = '<span style="color:#ef4444;">Network error</span>';
+                });
+        }
+
+        function trainingCopyCode() {
+            const input = document.getElementById('trainingCodeInput');
+            const icon = document.getElementById('trainingCopyIcon');
+            navigator.clipboard.writeText(input.value).then(() => {
+                icon.className = 'fa-solid fa-check';
+                icon.style.color = '#00ff88';
+                _showDashToast(true, 'Transfer code copied!');
+                setTimeout(() => {
+                    icon.className = 'fa-regular fa-copy';
+                    icon.style.color = '';
+                }, 2000);
+            }).catch(() => {
+                // Fallback for older browsers
+                input.select();
+                document.execCommand('copy');
+                _showDashToast(true, 'Transfer code copied!');
+            });
+        }
+

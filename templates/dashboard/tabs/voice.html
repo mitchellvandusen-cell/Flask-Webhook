@@ -46,6 +46,10 @@
                             <button class="voice-menu-item" onclick="switchVoicePanel('a2p')" id="vmenu-a2p" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
                                 <i class="fa-solid fa-certificate" style="width:16px;text-align:center;"></i> 10DLC
                             </button>
+                            <div style="height:1px;background:rgba(255,255,255,0.06);margin:8px 6px;"></div>
+                            <button class="voice-menu-item" onclick="switchVoicePanel('training')" id="vmenu-training" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:transparent;border:1px solid transparent;border-radius:8px;color:#888;font-size:0.82rem;font-weight:600;cursor:pointer;text-align:left;margin-bottom:4px;transition:all .15s;">
+                                <i class="fa-solid fa-graduation-cap" style="width:16px;text-align:center;"></i> Training
+                            </button>
                         </div>
 
                         <!-- Right column: settings content -->
@@ -603,6 +607,119 @@ Thanks for your interest! I have a few options that might work for you. When is 
                         </div>
 
                     </div><!-- /vstab-panel-a2p -->
+
+                    <!-- ── Training Transfer Code panel ── -->
+                    <div id="vstab-panel-training" style="display:none;">
+                        <div class="p-4" style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.12);border-radius:14px;">
+
+                            <!-- Header -->
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fa-solid fa-graduation-cap" style="color:#a78bfa;"></i>
+                                </div>
+                                <div>
+                                    <h6 style="margin:0;font-weight:700;color:#fff;">InsuranceGrokBot Training</h6>
+                                    <p style="margin:0;color:#888;font-size:0.8rem;">Import your call recordings into the Training engine for analysis, review &amp; grading</p>
+                                </div>
+                            </div>
+
+                            <!-- Info card -->
+                            <div class="mb-4 p-3" style="background:rgba(167,139,250,0.05);border:1px solid rgba(167,139,250,0.1);border-radius:10px;">
+                                <div style="font-size:0.8rem;color:#aaa;line-height:1.6;">
+                                    <i class="fa-solid fa-circle-info me-1" style="color:#a78bfa;"></i>
+                                    Generate a <strong style="color:#ccc;">Transfer Code</strong> below and paste it into
+                                    <strong style="color:#a78bfa;">InsuranceGrokBot Training</strong> to securely import all your call recordings.
+                                    The Training platform will use this code to pull recordings, transcripts, and call metadata
+                                    for AI-powered analysis, performance grading, and coaching insights.
+                                </div>
+                            </div>
+
+                            <!-- Recording count -->
+                            <div class="d-flex align-items-center gap-3 mb-4 p-3" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+                                <div style="width:36px;height:36px;border-radius:8px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fa-solid fa-record-vinyl" style="color:#00ff88;font-size:0.85rem;"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.72rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Available Recordings</div>
+                                    <div id="trainingRecordingCount" style="font-size:1.1rem;font-weight:700;color:#fff;">—</div>
+                                </div>
+                            </div>
+
+                            <!-- Transfer code display / generation -->
+                            <div id="trainingCodeSection">
+                                <!-- No code yet -->
+                                <div id="trainingNoCode">
+                                    <p style="color:#888;font-size:0.82rem;margin-bottom:12px;">No transfer code generated yet. Click below to create one.</p>
+                                    <button id="trainingGenerateBtn" onclick="trainingGenerateCode()"
+                                        style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;border-radius:10px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;transition:opacity .2s;">
+                                        <i class="fa-solid fa-key me-2"></i>Generate Transfer Code
+                                    </button>
+                                </div>
+
+                                <!-- Code exists -->
+                                <div id="trainingHasCode" style="display:none;">
+                                    <label style="color:#aaa;font-size:0.72rem;font-weight:600;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Your Transfer Code</label>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <div style="flex:1;position:relative;">
+                                            <input type="text" id="trainingCodeInput" readonly
+                                                style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(167,139,250,0.25);color:#a78bfa;padding:12px 46px 12px 14px;border-radius:10px;font-size:0.88rem;font-family:monospace;font-weight:600;letter-spacing:0.3px;outline:none;">
+                                            <button onclick="trainingCopyCode()" title="Copy to clipboard"
+                                                style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);color:#a78bfa;border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;"
+                                                onmouseover="this.style.background='rgba(167,139,250,0.2)'" onmouseout="this.style.background='rgba(167,139,250,0.12)'">
+                                                <i class="fa-regular fa-copy" id="trainingCopyIcon"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <span id="trainingCodeDate" style="font-size:0.72rem;color:#555;"></span>
+                                        <div class="d-flex gap-2">
+                                            <button onclick="trainingRegenerateCode()" title="Generate a new code (revokes old one)"
+                                                style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#aaa;border-radius:8px;padding:6px 14px;font-size:0.75rem;cursor:pointer;transition:all .15s;"
+                                                onmouseover="this.style.borderColor='rgba(167,139,250,0.3)';this.style.color='#a78bfa'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.color='#aaa'">
+                                                <i class="fa-solid fa-arrows-rotate me-1"></i>Regenerate
+                                            </button>
+                                            <button onclick="trainingRevokeCode()" title="Revoke access"
+                                                style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);color:#ef4444;border-radius:8px;padding:6px 14px;font-size:0.75rem;cursor:pointer;transition:all .15s;"
+                                                onmouseover="this.style.background='rgba(239,68,68,0.12)'" onmouseout="this.style.background='rgba(239,68,68,0.06)'">
+                                                <i class="fa-solid fa-ban me-1"></i>Revoke
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="trainingResult" style="margin-top:10px;font-size:0.78rem;text-align:center;display:none;"></div>
+
+                            <!-- How it works -->
+                            <div class="mt-4 p-3" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+                                <div style="font-size:0.78rem;font-weight:700;color:#ccc;margin-bottom:10px;"><i class="fa-solid fa-list-check me-2" style="color:#a78bfa;"></i>How It Works</div>
+                                <div style="font-size:0.78rem;color:#888;line-height:1.8;">
+                                    <div class="d-flex align-items-start gap-2 mb-1">
+                                        <span style="color:#a78bfa;font-weight:700;min-width:18px;">1.</span>
+                                        <span>Click <strong style="color:#ccc;">Generate Transfer Code</strong> above</span>
+                                    </div>
+                                    <div class="d-flex align-items-start gap-2 mb-1">
+                                        <span style="color:#a78bfa;font-weight:700;min-width:18px;">2.</span>
+                                        <span>Copy the code and open <strong style="color:#a78bfa;">InsuranceGrokBot Training</strong></span>
+                                    </div>
+                                    <div class="d-flex align-items-start gap-2 mb-1">
+                                        <span style="color:#a78bfa;font-weight:700;min-width:18px;">3.</span>
+                                        <span>Paste the code into the <strong style="color:#ccc;">Import Recordings</strong> section</span>
+                                    </div>
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="color:#a78bfa;font-weight:700;min-width:18px;">4.</span>
+                                        <span>Your calls are imported for AI analysis, review &amp; grading</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Security note -->
+                            <div class="mt-3" style="font-size:0.72rem;color:#555;text-align:center;">
+                                <i class="fa-solid fa-lock me-1"></i>
+                                Your transfer code only grants read access to call recordings. You can revoke it at any time.
+                            </div>
+                        </div>
+                    </div><!-- /vstab-panel-training -->
 
                         </div><!-- /right column -->
                     </div><!-- /two-column settings menu -->
