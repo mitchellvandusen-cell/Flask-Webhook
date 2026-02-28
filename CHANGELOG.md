@@ -21,6 +21,107 @@
 | 2026-02-24 | Enterprise OAuth token refresh, proactive token cron, webhook scourer + backfill recovery |
 | 2026-02-24 | A2P 10DLC compliance system: brand/campaign registration + external import from GHL |
 | 2026-02-25 | Enterprise OAuth proactive refresh, import consolidation, website honesty audit, transfer hangup fix, timezone-aware stats |
+| 2026-02-26 | iPhone 15 Pro UI for dialer, OAuth security hardening (CSRF/PKCE/encryption), GHL iframe embedding fixes |
+| 2026-02-27 | Lead Intelligence + Smart Filters, Training integration, persistent contact cache, CRM 429 elimination |
+| 2026-02-28 | GHL Data Sync Engine, SMS channel selection (GHL vs Twilio), unified Inbox app, AI-powered intelligence via xAI Grok |
+
+---
+
+## 2026-02-28
+
+### GHL Data Sync Engine (`ghl_sync.py` — new file)
+- **Incremental GHL data sync**: New `ghl_sync.py` module (~900 lines) that pulls conversations, opportunities, phone numbers, and location data from GoHighLevel into local Postgres tables. Supports paginated fetching with cursor tracking.
+- **3 new database tables**: `ghl_conversations` (synced message history), `ghl_opportunities` (pipeline/deal data), `ghl_sync_state` (sync progress tracking with cursor and status).
+- **Enterprise retry pattern**: `_api_get()` helper with exponential backoff, rate limit respect (429 handling), and automatic token refresh on 401.
+- **Cron endpoint**: `POST /api/cron/sync-ghl-data` queues incremental sync jobs via RQ.
+- **Query functions**: `get_merged_call_count()`, `get_merged_call_history()`, `get_contact_pipeline_stage()`, `get_sync_stats_for_dashboard()`, `get_conversation_stats()`.
+
+### SMS Channel Selection
+- **GHL vs Twilio SMS routing**: Users can now choose how outbound SMS is delivered — via GoHighLevel (default) or via a specific Twilio phone number.
+- **New `twilio_sms.py` module**: Direct Twilio SMS sender bypassing GHL API entirely. Returns 3-tuple matching `ghl_message.py` pattern for drop-in compatibility. Includes deduplication, safety filtering, auth error handling, and rate limiting.
+- **`sms_send_via` column**: Added to both `subscribers` and `agency_billing` tables. Values: `'ghl'` (default) or a phone number like `'+15551234567'`.
+- **Config UI**: New "Send SMS Via" radio picker in Bot Config tab. GHL numbers show LeadConnector logo + "DEFAULT" badge; IGB/Twilio numbers show robot icon + green "IGB" badge.
+- **Pipeline routing**: `tasks.py` now checks `sms_send_via` before sending and routes through `send_sms_via_twilio()` when a Twilio number is selected. Falls back to GHL if credentials are missing.
+
+### Unified Inbox App
+- **4th iPhone app**: Added "Inbox" app to the dialer home screen (blue gradient, inbox icon). Pulls unified conversation list from synced GHL data.
+- **Conversation list**: Fetches from `GET /api/inbox/conversations` — shows contact name, phone, last message preview, timestamp, and unread indicator.
+- **Thread view**: `GET /api/inbox/thread/<contact_id>` returns full message thread rendered as iMessage-style bubbles with pipeline stage badge.
+
+### AI-Powered Lead Intelligence (complete rewrite)
+- **Replaced rule-based with AI**: Rewrote `lead_intelligence.py` from scratch. Previously used hardcoded rules for scoring and next-best-actions. Now fires a single micro-prompt to xAI Grok that analyzes all contact context and generates a JSON intelligence report.
+- **Context builder**: `_gather_contact_context()` pulls last 30 messages, known facts, pipeline/opportunity, call history stats, tags, and existing narrative into a single context block.
+- **AI micro-prompt**: Single call to `grok-4-1-fast-non-reasoning` (~200 tokens out, ~$0.001-0.003 per analysis) returns: 2-sentence summary, temperature (hot/warm/cool/cold) with reasoning, score (0-100), and 2-4 specific next actions with priorities and icons.
+- **Smart caching**: New `contact_intelligence` table caches AI results. Cache invalidated when new messages arrive after the analysis, or after 6 hours. Repeat views are instant (zero AI cost).
+- **Frontend**: Loading shimmer ("AI is analyzing this lead..."), temperature pill badge with color-coded icon (fire/thermometer/snowflake), score display, AI summary with brain icon, and temperature reasoning.
+
+### Dashboard & API Updates
+- **7 new API endpoints**: `/api/cron/sync-ghl-data`, `/api/ghl-phone-numbers`, `/api/inbox/conversations`, `/api/inbox/thread/<contact_id>`, `/api/stream/notifications` (SSE), `/api/contact/<contact_id>/intelligence`, `/api/sync-status`.
+- **Voice call count rewrite**: `voice_bridge.py` replaced live GHL API pagination with local DB query on `ghl_conversations` table. Added `source_breakdown` (dialer/ghl_native/wavv/unknown) to `/voice/stats`.
+- **Pipeline stage injection**: `tasks.py` now injects pipeline stage into AI system prompt context so the bot knows the deal status during conversations.
+- **SSE notifications**: `GET /api/stream/notifications` endpoint for real-time dashboard events with iOS-style notification banner.
+
+### Tutorial Module Fixes
+- **Fixed broken element references**: Replaced dead `#dlrTabMessages`, `#dlrTabCalls`, `#dlrTabRecordings` tab IDs (removed during iPhone UI migration) with iOS app selectors (`[onclick="iosOpenApp('messages')"]`, etc.).
+- **Removed dead `#dlrCallContactBtn`** reference — element no longer exists.
+- **Added AI Intelligence steps**: New tutorial steps for `#igb-ai-summary` (temperature + score + AI summary), `#igb-nba-section` (recommended actions), `#igb-pipeline-badge` (pipeline stage).
+- **Added iPhone home screen step**: Tutorial now explains the iOS-style app grid (`#iosHome`) and walks through all 4 apps.
+- **Added Inbox app step**: Tutorial covers the new unified Inbox app.
+- **Added SMS Channel Selection step**: Tutorial explains the GHL vs Twilio SMS routing picker.
+- **Added 10DLC registration step**: Tutorial covers the A2P 10DLC compliance registration via `#vmenu-a2p`.
+- **Added Training link step**: Tutorial mentions the external Training app link in the sidebar.
+
+---
+
+## 2026-02-27
+
+### Lead Intelligence & Smart Filters
+- **InsuranceGrokBot Lead Intelligence**: AI-powered lead scoring and profile enrichment displayed in the contact detail panel. Shows known facts, conversation narrative, and NLP-extracted information.
+- **Smart Filters**: Pipeline filter dropdown in the dialer contact list for filtering contacts by CRM pipeline and stage.
+- **iPhone app label rename**: Renamed dialer app labels from "Phone/Contacts/Call History" to "Messages/Calls/Voicemail" for clarity.
+- **Blue iMessage checkmarks**: Sent messages now show blue double-check delivery indicators.
+- **Training button in topbar**: Added quick-access Training link to the dialer top bar.
+
+### Training Integration
+- **Training data API**: `GET /api/training/carriers`, `/api/training/knowledge`, `/api/training/underwriting` endpoints serve carrier lists, insurance knowledge, and underwriting rules for the external Training app.
+- **Voice Settings code generation**: New panel in Voice Config generates integration code snippets for embedding the Training app.
+- **Sidebar Training link**: Added "Training" as a direct external link in the sidebar under Workflows.
+
+### Performance & Reliability
+- **Persistent contact cache**: Contacts loaded from CRM are cached locally, enabling instant loading on tab switch without re-fetching from the API.
+- **CRM 429 elimination**: Replaced aggressive CRM API calls with local search + cache + exponential retry. Eliminates rate limit errors during high-volume dialing sessions.
+- **Voice settings toggles**: Added toggles for concise AI content and improved readability in the voice configuration panel.
+
+### Infrastructure
+- **Docker CMD format fix**: Changed Dockerfile CMD from shell form to JSON array form for proper signal handling during container shutdown.
+- **Worker token encryption**: Workers now initialize the token encryption module at startup so they can decrypt OAuth tokens stored in the database.
+- **GHL API 401 retry**: `ghl_api.py` history fetch now retries with a refreshed token on HTTP 401, with error table rebranded for consistency.
+
+---
+
+## 2026-02-26
+
+### iPhone 15 Pro Dialer UI
+- **iPhone-style interface**: Complete redesign of the dialer right column as an iPhone 15 Pro with home screen app grid, app views with nav bars, and iMessage-style conversation bubbles.
+- **3 built-in apps**: Messages (SMS thread), Calls (call history), Voicemail (recordings) — each accessible from the iOS home screen.
+
+### OAuth Security Hardening
+- **CSRF protection**: OAuth flow now includes state parameter with CSRF token validation.
+- **PKCE (Proof Key for Code Exchange)**: Added code_verifier/code_challenge to OAuth authorization flow.
+- **Token encryption**: OAuth tokens encrypted at rest in the database using Fernet symmetric encryption. Auto-bootstraps encryption key on Railway deploy.
+- **Scope validation**: Verifies returned OAuth scopes match the requested set.
+- **Updated OAuth scopes**: Aligned with marketplace-approved scope set, defaulting to public app credentials.
+- **Proactive token refresh hardening**: Prevents tokens from ever reaching expiry by refreshing well in advance.
+
+### GHL Iframe Embedding Fixes
+- **Cross-origin localStorage safety**: Wrapped localStorage calls in try/catch for cross-origin iframe environments.
+- **External redirect targeting**: Added `target=_top` to all external redirects for proper navigation when embedded in GHL iframes.
+
+### Other Fixes
+- **AI Minutes env var convention**: Renamed price ID environment variables to `AI_MINUTES_PRICE_ID_*` convention.
+- **Demo import fix**: Corrected imports of `get_known_facts` and `get_narrative` from `memory` module instead of `db`.
+- **Age-based product focus**: Hardcoded age-based insurance product recommendations into the AI decision pipeline.
+- **Dark mode on public pages**: Force Bootstrap dark mode on all public-facing pages (support, FAQ, etc.).
 
 ---
 

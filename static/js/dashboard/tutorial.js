@@ -398,6 +398,9 @@
         steps.push({ element: '#sbnWorkflows',
             popover: { title: 'Workflows', description: 'Step-by-step guides for setting up <strong>automation workflows</strong> in your CRM — re-engagement loops and SMS auto-reply triggers.', side: 'right' }
         });
+        steps.push({ element: 'a[href*="training"]',
+            popover: { title: 'Training', description: 'Opens the <strong>InsuranceGrokBot Training app</strong> in a new tab. Interactive courses on selling insurance, using the dialer effectively, and getting the most from your AI agent.', side: 'right' }
+        });
         steps.push({ element: '#sbnConnect',
             popover: { title: 'Connect CRM', description: 'Connect your <strong>CRM system</strong> (GoHighLevel, HubSpot, Salesforce, Pipedrive, Zoho, Zapier, or Insureio). Also manage API keys and webhook URLs.', side: 'right' },
             onHighlightStarted: function() { ensureOpen('sbSectionCRM'); }
@@ -634,36 +637,44 @@
         });
 
         // ============================================================
-        // CHAPTER 5 — Power Dialer: History & Messaging
+        // CHAPTER 5 — Power Dialer: Contact Detail, iPhone Apps & AI Intelligence
         // ============================================================
         chapterStarts.push(steps.length);
-        steps.push(chapterStep(5, 'Power Dialer — History &amp; Messaging', 'The right column gives you full conversation context — SMS history, call records, recordings, and an integrated message composer.'));
+        steps.push(chapterStep(5, 'Contact Detail, Apps &amp; AI Intelligence', 'When you select a contact, you get a full CRM profile with <strong>AI-powered intelligence</strong>, plus an iPhone-style app screen for messages, calls, recordings, and a unified inbox.'));
 
-        // Center column
+        // Center column — Contact Detail
         steps.push({ element: '#dlrDetailContent',
-            popover: { title: 'Contact Detail Panel', description: 'When you select a contact, their full <strong>CRM profile</strong> appears here — name, phone, email, address, tags, custom fields, and notes. All pulled from your CRM.', side: 'left' },
+            popover: { title: 'Contact Detail Panel', description: 'When you select a contact, their full <strong>CRM profile</strong> appears here — name, phone, email, address, tags, custom fields, notes, and <strong>AI intelligence</strong> powered by Grok.', side: 'left' },
             onHighlightStarted: function() { goTab('voicedialer'); }
         });
-        steps.push({ element: '#dlrCallContactBtn',
-            popover: { title: 'Call This Contact', description: 'One-click call button for the <strong>currently selected contact</strong>. No need to queue — just click and dial.', side: 'left' }
+
+        // AI Intelligence
+        steps.push({ element: '#igb-ai-summary',
+            popover: { title: 'AI Intelligence Summary', description: 'Powered by xAI Grok. Shows a <strong>temperature badge</strong> (hot/warm/cool/cold), a <strong>lead score</strong> (0–100), and a <strong>2-sentence AI summary</strong> of where this lead stands right now. Updates automatically when new messages arrive — cached to keep costs near zero.', side: 'left' },
+            onHighlightStarted: function() { goTab('voicedialer'); }
+        });
+        steps.push({ element: '#igb-nba-section',
+            popover: { title: 'AI Recommended Actions', description: 'The AI analyzes conversation history, call records, pipeline stage, and tags to suggest <strong>2–4 specific next actions</strong> — e.g., "Call back about the term quote" or "Send follow-up SMS." Priorities are color-coded: <strong style="color:#ff3b30;">red = urgent</strong>, <strong style="color:#ff9500;">orange = soon</strong>.', side: 'left' }
+        });
+        steps.push({ element: '#igb-pipeline-badge',
+            popover: { title: 'Pipeline Stage', description: 'Shows the contact\'s current <strong>CRM pipeline and stage</strong> — synced from GoHighLevel. Includes deal value if set. This data is also fed to the AI for smarter recommendations.', side: 'left' }
         });
 
-        // Right column tabs
-        steps.push({ element: '#dlrTabMessages',
-            popover: { title: 'Messages Tab', description: 'View the full <strong>SMS conversation history</strong> with the selected contact — both inbound (their messages) and outbound (your bot or manual replies). Messages come from your CRM.', side: 'bottom' }
+        // iPhone home screen
+        steps.push({ element: '#iosHome',
+            popover: { title: 'iPhone App Screen', description: 'The right column uses an <strong>iPhone-style interface</strong> with four apps. Tap any app icon to open it; tap the back arrow to return home. Each app gives you a different view of the contact\'s history.', side: 'left' }
+        });
+
+        // Messages app
+        steps.push({ element: '[onclick="iosOpenApp(\'messages\')"]',
+            popover: { title: 'Messages App', description: 'View the full <strong>SMS conversation</strong> with the selected contact. Messages appear as iMessage-style bubbles — blue for outbound, grey for inbound. Includes an AI draft button and quick-reply templates.', side: 'left' }
         });
         steps.push({ element: '#dlrAiDraftBtn',
             popover: { title: 'AI Draft Reply', description: 'Click to have the AI <strong>generate a contextual reply</strong> based on the full conversation. It drafts the message — you review, edit if needed, and send. Click again for a fresh draft if the first isn\'t right.', side: 'bottom' },
             onHighlightStarted: function() {
+                if (typeof iosOpenApp === 'function') iosOpenApp('messages');
                 var c = document.getElementById('dlrSmsComposer');
                 if (c) { c.style.display = 'block'; c.dataset.tutorialShown = '1'; }
-            }
-        });
-        steps.push({ element: '.dlr-qr-btn',
-            popover: { title: 'Quick Reply Templates', description: 'One-tap pre-written responses: <strong>Follow-up, Check-in, Coverage, Schedule,</strong> and <strong>On it</strong>. Click any chip to instantly fill the compose box — edit the text before sending if needed. Great for high-volume dialing sessions.', side: 'top' },
-            onHighlightStarted: function() {
-                var c = document.getElementById('dlrSmsComposer');
-                if (c) c.style.display = 'block';
             }
         });
         steps.push({ element: '#dlrSmsText',
@@ -673,15 +684,8 @@
                 if (c) c.style.display = 'block';
             }
         });
-        steps.push({ element: '#dlrSmsSendBtn',
-            popover: { title: 'Send Message', description: 'Send your composed message through the CRM SMS channel. The message appears in the thread immediately with a status icon: <em>green checkmark = delivered, orange = pending, red = failed.</em>', side: 'left' },
-            onHighlightStarted: function() {
-                var c = document.getElementById('dlrSmsComposer');
-                if (c) c.style.display = 'block';
-            }
-        });
         steps.push({ element: '#dlrCharCount',
-            popover: { title: 'Character Counter', description: 'Live SMS character count. Turns <strong>orange at 140 chars</strong> (approaching limit) and <strong>red at 160+</strong> (splits into multi-part SMS, which costs extra). Keeping messages under 160 chars maximizes deliverability.', side: 'top' },
+            popover: { title: 'Character Counter', description: 'Live SMS character count. Turns <strong>orange at 140 chars</strong> (approaching limit) and <strong>red at 160+</strong> (splits into multi-part SMS, which costs extra).', side: 'top' },
             onHighlightStarted: function() {
                 var c = document.getElementById('dlrSmsComposer');
                 if (c) c.style.display = 'block';
@@ -689,17 +693,23 @@
             onDeselected: function() {
                 var c = document.getElementById('dlrSmsComposer');
                 if (c && c.dataset.tutorialShown) { c.style.display = 'none'; delete c.dataset.tutorialShown; }
+                if (typeof iosGoHome === 'function') iosGoHome();
             }
         });
-        steps.push({ element: '#dlrTabCalls',
-            popover: { title: 'Calls Tab', description: 'View <strong>call history</strong> for the selected contact (or all contacts). Each entry shows status, duration, direction, and disposition. Switch between contact-specific and "View All" mode.', side: 'bottom' }
+
+        // Calls app
+        steps.push({ element: '[onclick="iosOpenApp(\'calls\')"]',
+            popover: { title: 'Calls App', description: 'View <strong>call history</strong> for the selected contact. Each entry shows status, duration, direction, and disposition. Includes both dialer calls and CRM-native calls.', side: 'left' }
         });
-        steps.push({ element: '#dlrTabRecordings',
-            popover: { title: 'Recordings Tab', description: 'Browse <strong>call recordings</strong>. Each recording shows the contact, date, and duration. Three actions available per recording:', side: 'bottom' }
+
+        // Recordings app
+        steps.push({ element: '[onclick="iosOpenApp(\'recordings\')"]',
+            popover: { title: 'Voicemail / Recordings App', description: 'Browse <strong>call recordings</strong>. Play recordings in-browser, download audio files, or view AI-generated transcripts. Use the <strong>"Transcribe"</strong> button to generate a word-for-word transcript on demand.', side: 'left' }
         });
-        // Explain play/download/transcript
-        steps.push({
-            popover: { title: 'Play, Download & Transcripts', description: '<strong>Play</strong> — Listen to the recording directly in your browser.<br><strong>Download</strong> — Save the audio file to your computer.<br><strong>Transcript</strong> — View the full AI-generated conversation transcript with lead and agent turns labeled.<br><br>All accessible via icons on each recording row.', popoverClass: 'igb-tut-chapter' }
+
+        // Inbox app
+        steps.push({ element: '[onclick="iosOpenApp(\'inbox\')"]',
+            popover: { title: 'Inbox App', description: 'A <strong>unified conversation inbox</strong> pulling all messages from your synced CRM data. See every contact conversation in one scrollable list — tap any conversation to open the full thread with iMessage-style bubbles and pipeline badges.', side: 'left' }
         });
 
         // ============================================================
@@ -709,7 +719,7 @@
         steps.push(chapterStep(6, 'SMS Bot Configuration', 'Configure how your AI-powered SMS bot talks to leads. These settings control the bot\'s identity and booking behavior.'));
 
         steps.push({ element: '#config',
-            popover: { title: 'SMS Config Panel', description: 'This is where you configure the <strong>core parameters</strong> for your SMS bot — the identity it uses, the calendar it books into, and the initial outreach message.', side: 'top' },
+            popover: { title: 'SMS Config Panel', description: 'This is where you configure the <strong>core parameters</strong> for your SMS bot — the identity it uses, the calendar it books into, the initial outreach message, and how SMS is delivered.', side: 'top' },
             onHighlightStarted: function() { goTab('config'); }
         });
         steps.push({ element: '#calendar_select',
@@ -720,6 +730,9 @@
         });
         steps.push({ element: '#initial_message',
             popover: { title: 'Initial Outreach Message', description: 'The <strong>first SMS</strong> the bot sends to new leads. Make it warm, personal, and action-oriented. The bot sends this when a new lead webhook fires.', side: 'left', align: 'start' }
+        });
+        steps.push({ element: '#sms-channel-picker',
+            popover: { title: 'SMS Channel Selection', description: 'Choose <strong>how outbound SMS is delivered</strong>. Two options:<br><strong>Via GoHighLevel</strong> — Default. Sends through your CRM\'s built-in messaging (LeadConnector logo).<br><strong>Via a Twilio number</strong> — Send directly through one of your IGB phone numbers (robot icon). Useful for higher deliverability or when using numbers you bought through InsuranceGrokBot.', side: 'left', align: 'start' }
         });
         steps.push({ element: '#save-config-btn',
             popover: { title: 'Save Configuration', description: 'Always click <strong>Save</strong> after making changes. Your config is stored securely and takes effect immediately for all new conversations.', side: 'top' }
@@ -763,6 +776,9 @@
         });
         steps.push({ element: '#vmenu-trusthub',
             popover: { title: 'Spam Protection', description: 'Register your business with the Trust Hub to <strong>reduce spam flagging</strong>. Enter your business name, EIN, and address. Protected numbers show your real business name on caller ID.', side: 'bottom' }
+        });
+        steps.push({ element: '#vmenu-a2p',
+            popover: { title: '10DLC Registration', description: 'Register for <strong>A2P 10DLC compliance</strong> — required by carriers for business SMS over standard phone numbers. Two paths available: <strong>Register New</strong> (brand + campaign from scratch) or <strong>Import Existing</strong> (bring your approved brand/campaign from GHL or another provider). Without registration, your messages may be filtered or blocked by carriers.', side: 'bottom' }
         });
 
         // ============================================================

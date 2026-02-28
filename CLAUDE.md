@@ -69,6 +69,9 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 | `send_email_api.py` | Mailgun API email sender | small |
 | `utils.py` | JSON serialization helpers + AI reply cleaning | small |
 | `sync_subscribers.py` | Syncs subscriber DB from external source at startup | small |
+| `ghl_sync.py` | GHL data sync engine — pulls conversations, opportunities, phone numbers into local DB | ~900 lines |
+| `twilio_sms.py` | Direct Twilio SMS sender — bypasses GHL API, drop-in replacement for ghl_message.py | small |
+| `lead_intelligence.py` | AI-powered lead intelligence via xAI Grok micro-prompts with caching | medium |
 | `crm_adapters/` | CRM adapter factory + GHL/HubSpot/Salesforce/Pipedrive/Zoho/Insureio/Zapier | directory |
 
 ---
@@ -126,14 +129,14 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 
 ---
 
-## Database Schema (17 tables)
+## Database Schema (21 tables)
 
 All tables created in `db.py`'s `init_db()` function:
 
 | Table | Purpose |
 |-------|---------|
-| `subscribers` | Master user table: `location_id` PK, email, OAuth tokens, config JSON, Stripe customer/subscription IDs |
-| `agency_billing` | Agency owner billing records |
+| `subscribers` | Master user table: `location_id` PK, email, OAuth tokens, config JSON, Stripe customer/subscription IDs, `sms_send_via` |
+| `agency_billing` | Agency owner billing records (includes `sms_send_via`) |
 | `contact_messages` | Chat history per GHL contact |
 | `contact_facts` | NLP-extracted facts about contacts (spaCy) |
 | `processed_webhooks` | Webhook deduplication (idempotency) |
@@ -149,6 +152,10 @@ All tables created in `db.py`'s `init_db()` function:
 | `discord_connections` | Discord OAuth tokens per user |
 | `discord_servers` | Saved Discord servers per user (max 3) |
 | `discord_webhook_channels` | Webhook-connected Discord channels |
+| `ghl_conversations` | Synced GHL message history (contact_id, message_type, direction, body, source, ghl_message_id UNIQUE) |
+| `ghl_opportunities` | Synced GHL pipeline/deal data (pipeline_name, stage_name, status, monetary_value, ghl_opportunity_id UNIQUE) |
+| `ghl_sync_state` | Sync progress tracking (resource_type, last_sync_at, last_cursor, sync_status, total_synced) |
+| `contact_intelligence` | AI intelligence cache (contact_id PK, analysis JSONB, analyzed_at — invalidated on new messages) |
 
 ### Database Connection Pool
 - `ThreadedConnectionPool` with semaphore queuing
@@ -267,12 +274,20 @@ All tables created in `db.py`'s `init_db()` function:
 - `POST /api/agency/invite-all` — Invite all pending sub-users
 - `GET /api/agency/logs/<location_id>` — Agency member logs
 
+### GHL Data Sync & Inbox
+- `POST /api/cron/sync-ghl-data` — Trigger incremental GHL data sync (queued via RQ; auth via `CRON_SECRET`)
+- `GET /api/ghl-phone-numbers` — Fetch GHL phone numbers (cached or live from API)
+- `GET /api/inbox/conversations` — Unified conversation list from synced GHL data (paginated)
+- `GET /api/inbox/thread/<contact_id>` — Full conversation thread for a contact with pipeline stage
+- `GET /api/stream/notifications` — Server-Sent Events (SSE) endpoint for real-time dashboard events
+- `GET /api/contact/<contact_id>/intelligence` — AI-powered intelligence dossier (summary, temperature, score, actions, facts, pipeline)
+- `GET /api/sync-status` — GHL sync status for dashboard display
+
 ### Cron
 - `GET|POST /api/cron/send-reminders` — Send onboarding reminder emails
-- `GET|POST /api/cron/refresh-tokens` — Proactively refresh GHL OAuth tokens expiring within 30 min (schedule every 15 min; auth via `CRON_SECRET`)
+- `GET|POST /api/cron/refresh-tokens` — Proactive OAuth token refresh (refreshes tokens expiring within 2 hours; designed for 15-minute cron interval)
 - `GET|POST /api/cron/recover-failed-webhooks` — Find webhook tasks that failed due to token errors in the last N hours, get fresh token, re-queue them (schedule every 15 min; auth via `CRON_SECRET`)
 - `GET|POST /api/cron/backfill-failed-webhooks` — One-shot backfill: recover webhooks that failed before `failed_webhook_payloads` table existed, reconstruct payloads from `webhook_logs`, re-queue (safe to run multiple times; auth via `CRON_SECRET`)
-- `GET|POST /api/cron/refresh-tokens` — Proactive OAuth token refresh (refreshes tokens expiring within 2 hours; designed for 15-minute cron interval)
 
 ### Website Bot
 - `POST /website-bot-webhook` — External website chatbot webhook
@@ -359,6 +374,37 @@ A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated reg
 
 ---
 
+## GHL Data Sync Engine (ghl_sync.py)
+
+- **Incremental sync**: Pulls conversations, opportunities, phone numbers, and location data from GoHighLevel into local Postgres tables via paginated API calls.
+- **Enterprise retry**: `_api_get()` with exponential backoff, 429 rate limit handling, and automatic 401 token refresh.
+- **3 sync targets**: `ghl_conversations` (messages), `ghl_opportunities` (pipeline/deals), phone numbers.
+- **Cursor tracking**: `ghl_sync_state` table stores last sync timestamp, cursor position, and status per resource type per location.
+- **Query functions**: `get_merged_call_count()`, `get_merged_call_history()`, `get_contact_pipeline_stage()`, `get_sync_stats_for_dashboard()`, `get_conversation_stats()`.
+- **Cron trigger**: `POST /api/cron/sync-ghl-data` queues `sync_all_for_location()` jobs via RQ.
+
+---
+
+## SMS Routing (twilio_sms.py + tasks.py)
+
+- **Dual-channel SMS**: Users choose between GHL (default) and direct Twilio for outbound SMS via `sms_send_via` column.
+- **`twilio_sms.py`**: Drop-in replacement for `ghl_message.py`. Returns same 3-tuple `(success, fail_reason, http_detail)`. Includes deduplication, safety filtering, max-retry with backoff.
+- **Pipeline routing**: `tasks.py` checks `subscriber.sms_send_via` — if it starts with `+`, routes through `send_sms_via_twilio()`; otherwise uses GHL. Falls back to GHL if Twilio creds missing.
+- **Config UI**: Radio picker in Bot Config with LeadConnector logo for GHL numbers and robot icon for IGB/Twilio numbers.
+
+---
+
+## AI-Powered Lead Intelligence (lead_intelligence.py)
+
+- **Single micro-prompt**: Gathers all contact context (messages, facts, pipeline, calls, tags, narrative) and sends one prompt to `grok-4-1-fast-non-reasoning`.
+- **AI returns JSON**: summary (2-sentence snapshot), temperature (hot/warm/cool/cold + reason), score (0-100), and 2-4 next-best-actions with priority and FontAwesome icon.
+- **Smart caching**: Results cached in `contact_intelligence` table (JSONB). Cache invalidated when new messages arrive after the analysis, or after 6 hours. Repeat views cost zero.
+- **Cost**: ~$0.001-0.003 per analysis (~200 output tokens).
+- **Frontend**: Loading shimmer → temperature pill badge (fire/thermometer/snowflake icons) + score + AI summary + recommended actions panel.
+- **Pipeline injection**: `tasks.py` injects pipeline stage into AI system prompt via `get_contact_pipeline_stage()`.
+
+---
+
 ## External API (api_v1.py)
 
 - Mounted at `/api/v1/`
@@ -401,18 +447,20 @@ templates/
 ```
 static/js/dashboard/
   sidebar.js        Sidebar nav, collapse, theme toggle
-  save_config.js    Config form save
+  save_config.js    Config form save + SMS channel picker (GHL/Twilio number loading)
   alerts.js         Persistent alert loading/dismiss
   logs.js           Activity log loading
   connect_crm.js    CRM connection UI
   voice.js          Voice config
-  dialer.js         Voice dialer, call count badges, statistics panel
+  dialer.js         Voice dialer, iPhone app UI, call count badges, statistics panel,
+                    AI intelligence loader, Inbox app, SSE notifications
   numbers.js        Phone number management + A2P 10DLC registration UI
   ai_minutes.js     AI Minutes UI
   carriers.js       Carrier chip selection
   advanced.js       Advanced settings
   api_keys.js       External API key management
   discord.js        Discord integration (all Discord UI logic)
+  tutorial.js       Interactive dashboard tutorial (driver.js, 11 chapters, glassmorphism UI)
 ```
 
 ### CSS
@@ -522,6 +570,11 @@ python worker.py demo
 - Dashboard tabs (Bot Config, Voice Config, Connect/Integrations) use two-column side-menu layout with `switchConfigPanel()`, `switchVoicePanel()`, `switchConnectPanel()` JS functions
 - `_showDashToast(ok, msg)` global utility injected by `dashboard.html` before all JS modules — used by all save functions for consistent bottom-right toast feedback
 - On-demand recording transcription via `POST /voice/transcribe-recording` — downloads MP3 from Twilio, transcribes via xAI Whisper, saves to `call_history.transcript`
+- `ghl_sync.py` uses `_api_get()` with exponential backoff + 429/401 handling for all GHL API calls
+- `lead_intelligence.py` fires one AI micro-prompt per contact view, caches results in `contact_intelligence` table; cache invalidated by new messages or 6-hour TTL
+- SMS routing: `tasks.py` checks `sms_send_via` column — `'ghl'` routes through GHL API, `'+1...'` routes through `twilio_sms.py` direct sender
+- Dialer uses iPhone-style app paradigm: `iosOpenApp()` / `iosGoHome()` for Messages, Calls, Voicemail, and Inbox apps
+- `_loadContactIntelligence(contactId)` async-loads AI intelligence into `#igb-ai-summary`, `#igb-nba-section`, `#igb-pipeline-badge` placeholders in contact detail panel
 
 ---
 
