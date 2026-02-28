@@ -187,7 +187,7 @@ def _run_ai_analysis(location_id, contact_id, ctx):
 
     narrative_str = ctx.get("narrative") or "No prior narrative."
 
-    prompt = f"""You are an AI sales coach analyzing an insurance lead for an agent. Read all the data below and produce a JSON intelligence report.
+    prompt = f"""You are an AI sales coach analyzing an insurance lead for an agent. Read ALL the data below carefully and produce a JSON intelligence report. Your classification MUST be based on what the lead ACTUALLY SAID, not just whether they responded.
 
 CONVERSATION HISTORY:
 {convo}
@@ -201,10 +201,13 @@ CURRENT DATE: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}
 
 Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use this exact structure:
 {{
-  "summary": "2-sentence situational snapshot. What does the agent need to know RIGHT NOW about this lead? Be specific — reference actual conversation details.",
+  "summary": "2-sentence situational snapshot. What does the agent need to know RIGHT NOW about this lead? Be specific — reference actual conversation details, names, products, objections.",
   "temperature": "hot | warm | cool | cold",
-  "temperature_reason": "One sentence explaining why this temperature rating.",
+  "temperature_reason": "One sentence explaining why this temperature rating based on what the lead said.",
   "score": 0-100,
+  "should_respond": true or false,
+  "should_respond_reason": "Why the agent should or should not respond right now.",
+  "engagement_level": 0-3,
   "actions": [
     {{
       "action": "Short imperative action (e.g. 'Call back about the term quote')",
@@ -215,12 +218,34 @@ Respond with ONLY valid JSON (no markdown, no code fences, no explanation). Use 
   ]
 }}
 
-Rules:
-- "summary" must be specific to THIS lead. Reference names, products, objections from the conversation. No generic advice.
-- "temperature": hot = actively buying/quoting, warm = engaged and responding, cool = went quiet or slow replies, cold = no engagement or ghosting.
-- "score": 0-100 based on likelihood to convert. Consider engagement, pipeline stage, recency, call history.
-- "actions": 2-4 specific next steps. Use icons: fa-phone for calls, fa-paper-plane for SMS, fa-file-invoice-dollar for quotes, fa-calendar for appointments, fa-fire for urgency, fa-clock for timing, fa-reply for responding, fa-bolt for quick action.
-- If no conversation exists, focus actions on initial outreach.
+CRITICAL CLASSIFICATION RULES — READ THESE CAREFULLY:
+
+"temperature" — Based on the CONTENT of what the lead said, NOT just whether they replied:
+- hot = Lead is actively buying: asking for quotes, requesting coverage, comparing products, ready to book, saying "let's do it." They are IN the buying process.
+- warm = Lead is engaged and positive: responding to questions, sharing information about their situation, showing genuine interest. The conversation is progressing forward.
+- cool = Lead went quiet (no response to last 2+ messages), giving slow/short replies, showing declining interest, OR gave a soft objection like "let me think about it."
+- cold = Lead explicitly said no: "not interested", "stop", "already covered", "don't contact me", OR has completely ghosted (no response to 3+ outreach attempts). A lead who REPLIED with "no thanks" or "I'm good" is COLD, not hot.
+
+"score" — 0-100 likelihood to convert to a paying client. Consider:
+- What the lead actually said (buying signals vs objections vs silence)
+- Pipeline stage and deal value if present
+- Call history (long connected calls = strong signal)
+- Recency of engagement
+- A lead who said "not interested" gets 5-15, NOT 50+
+
+"should_respond" — true if the agent needs to take action NOW:
+- true: Lead asked a question that hasn't been answered, expressed interest that wasn't followed up, or sent a message that deserves a reply.
+- false: Bot already replied to the lead's last message, lead said stop/not interested, lead hasn't sent any messages, or there is genuinely nothing to respond to.
+- This is about whether the lead is WAITING for a response, not just whether they're a good lead.
+
+"engagement_level" — How deep the interaction has gone (0-3):
+- 0 = No meaningful interaction yet (new lead, only outbound attempts)
+- 1 = Surface contact (lead acknowledged but no real conversation — one-word replies, "who is this", etc.)
+- 2 = Real conversation (lead is sharing information, asking questions, back-and-forth dialogue)
+- 3 = Deep engagement (multiple exchanges, discussing specifics, connected calls, approaching a decision)
+
+"actions" — 2-4 specific next steps. Use icons: fa-phone (calls), fa-paper-plane (SMS), fa-file-invoice-dollar (quotes), fa-calendar (appointments), fa-fire (urgency), fa-clock (timing), fa-reply (responding), fa-bolt (quick action).
+- If no conversation exists, focus on initial outreach.
 - Be direct and actionable. No fluff."""
 
     try:
@@ -247,6 +272,14 @@ Rules:
         if not isinstance(result.get('score'), (int, float)):
             result['score'] = 50
         result['score'] = max(0, min(100, int(result['score'])))
+        # Validate new fields (graceful defaults for backward compat)
+        if not isinstance(result.get('should_respond'), bool):
+            result['should_respond'] = False
+        if not isinstance(result.get('should_respond_reason'), str):
+            result['should_respond_reason'] = ''
+        if not isinstance(result.get('engagement_level'), (int, float)):
+            result['engagement_level'] = 0
+        result['engagement_level'] = max(0, min(3, int(result['engagement_level'])))
 
         return result
 
@@ -440,6 +473,8 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
                 "score": analysis.get("score", 50),
                 "summary": analysis.get("summary", ""),
                 "temperature_reason": analysis.get("temperature_reason", ""),
+                "should_respond": analysis.get("should_respond", False),
+                "engagement_level": analysis.get("engagement_level", 0),
             }
 
         cur.close()
@@ -537,6 +572,9 @@ def get_contact_intelligence(location_id, contact_id):
             "temperature": ai_result.get("temperature", "warm"),
             "temperature_reason": ai_result.get("temperature_reason", ""),
             "actions": ai_result.get("actions", []),
+            "should_respond": ai_result.get("should_respond", False),
+            "should_respond_reason": ai_result.get("should_respond_reason", ""),
+            "engagement_level": ai_result.get("engagement_level", 0),
         })
 
         # Build full response
