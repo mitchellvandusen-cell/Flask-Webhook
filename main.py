@@ -4935,16 +4935,16 @@ def oauth_initiate():
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # All scopes approved on the public marketplace app as of 2026-02-27.
-    # No longer gated behind USE_PRIVATE_APP — both public and private apps
-    # request the full scope set.
+    # All scopes approved on the public marketplace app as of 2026-02-28.
+    # Must match EXACTLY what's approved — requesting unapproved scopes
+    # causes the OAuth flow to fail silently.
     scopes = [
         "calendars.readonly",               # List calendars, free slots
         "calendars/events.readonly",        # Read calendar events
         "calendars/events.write",           # Book appointments
         "calendars/groups.readonly",        # Calendar group listing
         "contacts.readonly",                # Contact lookup & validation
-        "conversations.readonly",           # Search conversations (ghl_api.py)
+        "conversations.readonly",           # Search conversations (ghl_sync.py)
         "conversations.write",              # Conversation management
         "conversations/message.readonly",   # Read inbound messages
         "conversations/message.write",      # Send SMS
@@ -4952,10 +4952,11 @@ def oauth_initiate():
         "locations/customFields.readonly",  # Read custom field definitions
         "locations/customValues.readonly",  # Read custom field values
         "locations/tags.readonly",          # Read location tags
-        "locations/tasks.readonly",         # Read tasks
         "oauth.readonly",                   # Token info check (ghl_calendar.py)
         "opportunities.readonly",           # Pipeline & stage listing for dialer filters
         "users.readonly",                   # User info lookup
+        "workflows.readonly",              # Workflow listing
+        "twilioaccount.read",              # GHL phone numbers for sync
     ]
     scope_string = " ".join(scopes)
 
