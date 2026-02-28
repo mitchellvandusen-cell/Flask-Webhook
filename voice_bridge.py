@@ -18,7 +18,6 @@ import asyncio
 import struct
 import base64
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import pytz
 import httpx
 import audioop   # mulaw<->PCM transcoding
@@ -5508,18 +5507,18 @@ def get_contact_engagement_bulk():
 @voice_bp.route('/voice/contact-call-counts/merged')
 @login_required
 def get_contact_call_counts_merged():
-    """Batch merged (local DB + GHL) call counts for up to 50 contact IDs."""
+    """Batch merged (local DB + synced GHL) call counts for up to 300 contact IDs.
+    Uses local ghl_conversations table instead of live API — instant, no rate limits."""
 
     ids_param = request.args.get('ids', '')
     if not ids_param:
         return jsonify({})
-    contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:50]
+    contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
 
     conn = get_db_connection()
     if not conn:
         return jsonify({cid: 0 for cid in contact_ids})
-    location_id = None
-    local_counts = {}
+
     try:
         cur = conn.cursor()
         cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
@@ -5527,6 +5526,8 @@ def get_contact_call_counts_merged():
         if not row:
             return jsonify({})
         location_id = row['location_id']
+
+        # Local dialer calls (call_history table)
         cur.execute("""
             SELECT contact_id, COUNT(*) AS cnt
             FROM call_history
@@ -5534,94 +5535,37 @@ def get_contact_call_counts_merged():
             GROUP BY contact_id
         """, (location_id, contact_ids))
         local_counts = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
+
+        # Synced GHL/WAVV calls (ghl_conversations table, exclude dialer to avoid dupes)
+        ghl_counts = {}
+        try:
+            cur.execute("""
+                SELECT contact_id, COUNT(*) AS cnt
+                FROM ghl_conversations
+                WHERE location_id = %s AND contact_id = ANY(%s)
+                  AND message_type IN ('call', 'voicemail')
+                  AND source != 'dialer'
+                GROUP BY contact_id
+            """, (location_id, contact_ids))
+            ghl_counts = {r['contact_id']: r['cnt'] for r in cur.fetchall()}
+        except Exception:
+            # Table may not exist yet — graceful fallback
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         cur.close()
+
+        result = {cid: (local_counts.get(cid, 0) or 0) + (ghl_counts.get(cid, 0) or 0)
+                  for cid in contact_ids}
+        return jsonify(result)
+
     except Exception as e:
-        logger.error(f"merged call counts local query failed: {e}")
+        logger.error(f"merged call counts failed: {e}")
+        return jsonify({cid: 0 for cid in contact_ids})
     finally:
         return_db_connection(conn)
-
-    # GHL counts in parallel threads
-    _CALL_TYPES = {3, 4, 3.0, 4.0, "3", "4", "TYPE_CALL", "TYPE_VOICEMAIL", "Call", "call"}
-    ghl_counts = {cid: 0 for cid in contact_ids}
-    if location_id:
-        try:
-            access_token = get_valid_token(location_id)
-            if access_token and access_token != 'DEMO':
-                headers = {
-                    "Authorization": f"Bearer {access_token}",
-                    "Version": GHL_API_VERSION,
-                    "Content-Type": "application/json",
-                }
-
-                def _fetch_ghl(cid):
-                    try:
-                        sr = http_requests.get(
-                            f"{GHL_API_BASE}/conversations/search",
-                            headers=headers,
-                            params={"locationId": location_id, "contactId": cid},
-                            timeout=8,
-                        )
-                        if sr.status_code != 200:
-                            logger.debug(f"[merged] convo search {sr.status_code} for {cid}")
-                            return cid, 0
-                        convos = sr.json().get("conversations", [])
-                        if not convos:
-                            return cid, 0
-                        convo_id = convos[0]["id"]
-
-                        # Paginate through ALL messages to count every call
-                        count = 0
-                        last_message_id = None
-                        max_pages = 10  # safety cap: 10 pages × 100 = 1000 msgs
-                        for _ in range(max_pages):
-                            params = {"limit": 100}
-                            if last_message_id:
-                                params["lastMessageId"] = last_message_id
-                            mr = http_requests.get(
-                                f"{GHL_API_BASE}/conversations/{convo_id}/messages",
-                                headers=headers,
-                                params=params,
-                                timeout=8,
-                            )
-                            if mr.status_code != 200:
-                                logger.debug(f"[merged] msgs {mr.status_code} for {cid} page")
-                                break
-                            data = mr.json()
-                            raw_msgs = data.get("messages", [])
-                            if isinstance(raw_msgs, dict):
-                                raw_msgs = raw_msgs.get("messages", [])
-                            for m in raw_msgs:
-                                if not isinstance(m, dict):
-                                    continue
-                                mtype = m.get("type", m.get("messageType", ""))
-                                if mtype in _CALL_TYPES:
-                                    count += 1
-                            # Check for next page
-                            next_page = data.get("nextPage", False)
-                            new_last_id = data.get("lastMessageId")
-                            if not next_page or not new_last_id or new_last_id == last_message_id:
-                                break
-                            last_message_id = new_last_id
-
-                        return cid, count
-                    except Exception as exc:
-                        logger.debug(f"[merged] _fetch_ghl error for {cid}: {exc}")
-                        return cid, 0
-
-                with ThreadPoolExecutor(max_workers=8) as pool:
-                    futures = {pool.submit(_fetch_ghl, cid): cid for cid in contact_ids}
-                    for future in as_completed(futures, timeout=30):
-                        try:
-                            cid, count = future.result()
-                            ghl_counts[cid] = count
-                        except Exception:
-                            pass
-        except Exception as e:
-            logger.warning(f"GHL batch call count failed: {e}")
-
-    result = {cid: (local_counts.get(cid, 0) or 0) + (ghl_counts.get(cid, 0) or 0)
-              for cid in contact_ids}
-    return jsonify(result)
 
 
 @voice_bp.route('/voice/contact/<contact_id>/ghl-call-count')

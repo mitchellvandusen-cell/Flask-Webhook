@@ -3228,11 +3228,10 @@
             dialerRenderContacts();
         }
 
-        // After local counts show, upgrade badges with GHL+WAVV counts in background
-        // Processes all contacts in chunks of 50 (backend limit per request)
+        // After local counts show, upgrade badges with GHL+WAVV counts from synced DB
         async function dialerFetchMergedCounts() {
             if (!dialerContacts.length) return;
-            const CHUNK_SIZE = 50;
+            const CHUNK_SIZE = 300;
             for (let i = 0; i < dialerContacts.length; i += CHUNK_SIZE) {
                 const chunk = dialerContacts.slice(i, i + CHUNK_SIZE);
                 const ids = chunk.map(c => c.id).join(',');
