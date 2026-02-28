@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}InsuranceGrokBot vs. Dialers — Why This Isn't a Fair Comparison{% endblock %}
+
+{% block content %}
+<style>
+    .vs-hero { padding: 140px 0 60px; position: relative; overflow: hidden; }
+    .vs-hero::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 20%, rgba(0,217,255,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.05) 0%, transparent 50%); pointer-events: none; }
+    .vs-column { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 32px; height: 100%; }
+    .vs-column.igb { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
+    .vs-column.dialer { border-color: rgba(255,255,255,0.08); }
+    .vs-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .vs-row:last-child { border-bottom: none; }
+    .vs-check { color: var(--accent); font-size: 0.9rem; flex-shrink: 0; width: 20px; text-align: center; }
+    .vs-x { color: #555; font-size: 0.9rem; flex-shrink: 0; width: 20px; text-align: center; }
+    .vs-label { color: #ccc; font-size: 0.88rem; }
+    .analogy-card { background: linear-gradient(135deg, rgba(0,217,255,0.04), rgba(0,255,136,0.03)); border: 1px solid rgba(0,217,255,0.15); border-radius: 16px; padding: 32px; text-align: center; }
+    .competitor-logo { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 8px 18px; font-size: 0.82rem; color: #888; font-weight: 600; }
+    .bottom-line-card { background: rgba(0,255,136,0.04); border: 1px solid rgba(0,255,136,0.2); border-radius: 16px; padding: 28px; }
+    .bottom-line-card h4 { color: var(--accent); font-weight: 700; margin-bottom: 8px; font-size: 0.95rem; }
+    .bottom-line-card p { color: #aaa; font-size: 0.88rem; margin: 0; line-height: 1.65; }
+</style>
+
+<section class="vs-hero">
+    <div class="container" style="position: relative; z-index: 2;">
+        <div class="text-center" data-aos="fade-up">
+            <span style="color: #00d9ff; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem;">The Honest Comparison</span>
+            <h1 style="font-size: 2.8rem; font-weight: 900; line-height: 1.15; margin: 16px 0 20px;">
+                "Why Not Just Use<br><span style="color: #00d9ff;">Another Dialer?</span>"
+            </h1>
+            <p style="color: #aaa; font-size: 1.1rem; max-width: 640px; margin: 0 auto;">
+                We hear this question a lot. Here's the honest answer: you're not comparing the same thing.
+                A dialer helps you call faster. InsuranceGrokBot replaces the need to call at all.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- The Core Difference -->
+<section class="section" style="padding-top: 20px;">
+    <div class="container">
+        <div class="row justify-content-center mb-5" data-aos="fade-up">
+            <div class="col-lg-8">
+                <div class="analogy-card">
+                    <h2 style="font-weight: 800; font-size: 1.5rem; margin-bottom: 12px; color: #fff;">The Difference in One Sentence</h2>
+                    <p style="color: #aaa; font-size: 1.1rem; line-height: 1.7; margin-bottom: 20px;">
+                        <strong style="color: #fff;">WAVV, Mojo, and PhoneBurner</strong> are gas pedals — they make your foot go faster.<br>
+                        <strong style="color: var(--accent);">InsuranceGrokBot</strong> is a self-driving car — it knows where to go without your foot.
+                    </p>
+                    <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <span class="competitor-logo"><i class="fa-solid fa-phone"></i> WAVV</span>
+                        <span class="competitor-logo"><i class="fa-solid fa-phone"></i> Mojo</span>
+                        <span class="competitor-logo"><i class="fa-solid fa-phone"></i> PhoneBurner</span>
+                        <span class="competitor-logo"><i class="fa-solid fa-robot"></i> CloseBot</span>
+                        <span class="competitor-logo"><i class="fa-solid fa-microphone"></i> Sonant AI</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- What a Dialer Actually Is -->
+        <div class="row g-4 mb-5" data-aos="fade-up">
+            <div class="col-lg-6">
+                <div class="vs-column dialer">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <i class="fa-solid fa-phone-volume" style="font-size: 2rem; color: #555; margin-bottom: 12px;"></i>
+                        <h3 style="font-weight: 800; color: #888; font-size: 1.3rem;">What a Dialer Does</h3>
+                        <p style="color: #666; font-size: 0.85rem;">WAVV, Mojo, PhoneBurner, etc.</p>
+                    </div>
+
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Dials phone numbers faster (multi-line)</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Voicemail drop</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Call disposition logging</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Local presence / number rotation</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label">Basic call analytics</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No AI text replies</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No conversation memory</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No lead scoring or intelligence</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No insurance knowledge</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No AI voice conversations</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No automatic calendar booking</span></div>
+                    <div class="vs-row"><span class="vs-x"><i class="fa-solid fa-xmark"></i></span> <span class="vs-label" style="color: #666;">No unified dashboard</span></div>
+
+                    <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 10px; text-align: center;">
+                        <p style="color: #666; font-size: 0.85rem; margin: 0;">
+                            <strong style="color: #888;">Bottom line:</strong> A dialer connects a human to a human faster.
+                            When nobody picks up, the dialer can't do anything else.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="vs-column igb">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <i class="fa-solid fa-brain" style="font-size: 2rem; color: var(--accent); margin-bottom: 12px;"></i>
+                        <h3 style="font-weight: 800; color: #fff; font-size: 1.3rem;">What InsuranceGrokBot Does</h3>
+                        <p style="color: var(--accent); font-size: 0.85rem; font-weight: 600;">All-in-one autonomous platform</p>
+                    </div>
+
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">Smart dialer</strong> with auto-retry &amp; voicemail detection</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">AI SMS handler</strong> — reads, replies, and books 24/7</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">AI voice agent</strong> — speech-to-speech calls, no transcription delay</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">Lead intelligence</strong> — AI scores hot/warm/cool/cold from conversation</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">Persistent memory</strong> — never asks the same question twice</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">270+ carrier database</strong> with live underwriting rules</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">5 sales frameworks</strong> — NEPQ, Gap Selling, Voss, Ziglar, Straight Line</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">Live calendar booking</strong> — mid-call and mid-text</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">7 CRM integrations</strong> — GHL, HubSpot, Salesforce, Pipedrive, Zoho, Insureio, Zapier</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">AI &harr; human handoff</strong> — intercept any call with one click</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">Unified dashboard</strong> — CRM, dialer, inbox, calendar, team chat</span></div>
+                    <div class="vs-row"><span class="vs-check"><i class="fa-solid fa-check"></i></span> <span class="vs-label"><strong style="color: #fff;">Agent training platform</strong> — scripts, tonality, objection handling</span></div>
+
+                    <div style="margin-top: 20px; padding: 16px; background: rgba(0,255,136,0.05); border: 1px solid rgba(0,255,136,0.15); border-radius: 10px; text-align: center;">
+                        <p style="color: #ccc; font-size: 0.85rem; margin: 0;">
+                            <strong style="color: var(--accent);">Bottom line:</strong> The AI reads the lead's message, understands the insurance context,
+                            crafts a reply, sends it, scores the lead, and tells you which ones need human attention.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- The Questions That Matter -->
+        <div class="row justify-content-center" data-aos="fade-up">
+            <div class="col-lg-10">
+                <h2 style="text-align: center; font-weight: 800; font-size: 1.8rem; margin-bottom: 30px;">
+                    Ask Yourself <span style="color: #00d9ff;">These Questions</span>
+                </h2>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="bottom-line-card">
+                            <h4><i class="fa-solid fa-comment-sms me-2"></i>What happens after the call?</h4>
+                            <p>Your dialer helps you call 100 leads. 85 don't pick up. Now what? With a dialer — nothing.
+                            They sit in your CRM until you manually text or call again.
+                            With InsuranceGrokBot, the AI texts them automatically, handles their replies, and books the ones who are interested.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bottom-line-card">
+                            <h4><i class="fa-solid fa-clock me-2"></i>What happens at 9pm on a Tuesday?</h4>
+                            <p>Your lead replies "yeah I'm interested what times work?" at 9:17pm. With a dialer — they wait until morning.
+                            With InsuranceGrokBot, the AI checks your calendar, finds tomorrow's open slots, and books the appointment
+                            before you even see the notification.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bottom-line-card">
+                            <h4><i class="fa-solid fa-brain me-2"></i>Who's actually hot?</h4>
+                            <p>Your dialer shows you a contact list. You don't know who's ready to buy, who's cold, or who said
+                            "stop texting me" three weeks ago. InsuranceGrokBot reads every conversation and tells you exactly
+                            which leads need attention right now — and why.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bottom-line-card">
+                            <h4><i class="fa-solid fa-building-columns me-2"></i>Does it know insurance?</h4>
+                            <p>Your dialer doesn't know what term life is. It doesn't know which carriers accept diabetics.
+                            It can't explain the difference between IUL and whole life. InsuranceGrokBot has 270+ carriers,
+                            live underwriting rules, and deep product knowledge baked in. It sells like a licensed agent.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- What You're Actually Paying For -->
+        <div class="row justify-content-center mt-5" data-aos="fade-up">
+            <div class="col-lg-10">
+                <div class="glass-card p-5">
+                    <h2 style="text-align: center; font-weight: 800; font-size: 1.6rem; margin-bottom: 24px;">
+                        What You're Actually <span style="color: var(--accent);">Paying For</span>
+                    </h2>
+                    <p style="text-align: center; color: #888; font-size: 0.95rem; max-width: 600px; margin: 0 auto 30px;">
+                        Most agents stack 3-5 tools to do what InsuranceGrokBot does in one subscription.
+                    </p>
+
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid rgba(0,217,255,0.2);">
+                                    <th style="padding: 14px; text-align: left; color: #888; font-size: 0.82rem; font-weight: 600;">Tool</th>
+                                    <th style="padding: 14px; text-align: center; color: #888; font-size: 0.82rem; font-weight: 600;">Typical Monthly Cost</th>
+                                    <th style="padding: 14px; text-align: center; color: var(--accent); font-size: 0.82rem; font-weight: 600;">Included in IGB?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">Power Dialer (WAVV, Mojo, PhoneBurner)</td>
+                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$59 – $149/mo</td>
+                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">AI Text Bot (CloseBot, Setter AI)</td>
+                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$49 – $199/mo</td>
+                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">AI Voice Agent (Sonant, Retell AI)</td>
+                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$99 – $299/mo</td>
+                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">Lead Scoring / Intelligence Tool</td>
+                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$49 – $99/mo</td>
+                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 14px; color: #ccc; font-size: 0.9rem;">Team Chat (Slack, Discord)</td>
+                                    <td style="padding: 14px; text-align: center; color: #aaa; font-size: 0.9rem;">$0 – $25/mo</td>
+                                    <td style="padding: 14px; text-align: center;"><i class="fa-solid fa-check" style="color: var(--accent); font-size: 1.1rem;"></i></td>
+                                </tr>
+                                <tr style="border-bottom: 2px solid rgba(0,255,136,0.2);">
+                                    <td style="padding: 16px; color: #fff; font-size: 0.95rem; font-weight: 700;">Total (stacking tools)</td>
+                                    <td style="padding: 16px; text-align: center; color: #ff3366; font-size: 1.1rem; font-weight: 900;">$256 – $771/mo</td>
+                                    <td style="padding: 16px; text-align: center;"></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 16px; color: var(--accent); font-size: 0.95rem; font-weight: 700;">InsuranceGrokBot (everything included)</td>
+                                    <td style="padding: 16px; text-align: center; color: var(--accent); font-size: 1.3rem; font-weight: 900;">$149.99/mo</td>
+                                    <td style="padding: 16px; text-align: center;"><i class="fa-solid fa-check-double" style="color: var(--accent); font-size: 1.3rem;"></i></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="text-center mt-5 pt-4" data-aos="fade-up">
+            <div class="glass-card p-5 mx-auto" style="max-width: 650px; border-color: rgba(0,255,136,0.2);">
+                <h3 style="font-weight: 800; margin-bottom: 12px; color: #fff;">Stop Stacking Tools. Start Closing.</h3>
+                <p style="color: #888; margin-bottom: 24px; font-size: 0.95rem;">
+                    One subscription. AI texting, smart dialer, AI calling, lead intelligence, calendar booking,
+                    270+ carrier knowledge, and agent training. All included.
+                </p>
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="/checkout" class="btn btn-primary btn-lg" style="padding: 14px 40px; font-weight: 700;">Get Started — $149.99/mo</a>
+                    <a href="/demo-chat" class="btn btn-outline-accent btn-lg" style="padding: 14px 40px;">Try the Demo</a>
+                </div>
+                <div class="mt-3">
+                    <a href="/comparison" style="color: #00d9ff; font-size: 0.85rem; text-decoration: none;">
+                        See the full feature-by-feature breakdown <i class="fa-solid fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
