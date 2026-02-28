@@ -727,14 +727,23 @@ def process_webhook_task(payload: dict):
             save_message(contact_id, message, "lead")
 
         # === TCPA STOP WORD CHECK ===
-        # If the lead says stop/unsubscribe/blocked, we MUST stop messaging.
+        # If the lead says stop/unsubscribe/blocked/leave me alone/etc, we MUST stop messaging.
         # Check BEFORE booking or response generation.
-        TCPA_STOP_WORDS = ["stop", "unsubscribe", "blocked"]
+        TCPA_STOP_WORDS = [
+            # Single-word opt-outs
+            "stop", "unsubscribe", "blocked", "cancel", "quit", "end",
+            # Phrase-based opt-outs
+            "leave me alone", "do not call", "don't call", "do not text",
+            "don't text", "do not contact", "don't contact", "do not message",
+            "don't message", "remove me", "take me off", "opt out",
+            "not interested", "lose my number", "delete my number",
+            "put me on your do not call list", "do not call list",
+        ]
         if message:
             msg_lower = message.lower()
             for stop_word in TCPA_STOP_WORDS:
-                # Check for exact word match (not substring)
-                if re.search(rf'\b{stop_word}\b', msg_lower):
+                # Check for exact word/phrase match (not substring)
+                if re.search(rf'\b{re.escape(stop_word)}\b', msg_lower):
                     logger.info(f"🛑 TCPA OPT-OUT: '{stop_word}' detected from contact {contact_id} | msg='{message}'")
                     # Do NOT book, do NOT respond - just acknowledge internally
                     return {"status": "opt_out", "reason": f"TCPA stop word: {stop_word}", "contact_id": contact_id}
