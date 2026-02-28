@@ -2393,14 +2393,11 @@ def _fetch_all_ghl_contacts(location_id, access_token):
     all_contacts = []
     page_limit = 100
     max_pages = 50  # 5,000 contacts max
-    start_after = None
+    url = f"{GHL_API_BASE}/contacts/"
+    params = {"locationId": location_id, "limit": page_limit}
 
     for _ in range(max_pages):
-        params = {"locationId": location_id, "limit": page_limit}
-        if start_after:
-            params["startAfterId"] = start_after
-
-        resp = _ghl_request_with_retry(f"{GHL_API_BASE}/contacts/", headers=headers, params=params, timeout=15)
+        resp = _ghl_request_with_retry(url, headers=headers, params=params, timeout=15)
         if resp.status_code != 200:
             break
 
@@ -2409,9 +2406,21 @@ def _fetch_all_ghl_contacts(location_id, access_token):
         if not contacts:
             break
         all_contacts.extend(contacts)
+
+        if len(contacts) < page_limit:
+            break
+
+        # GHL pagination: prefer startAfterId, fall back to nextPageUrl
         meta = data.get("meta", {})
-        start_after = meta.get("startAfterId") or meta.get("nextPageUrl")
-        if not start_after or len(contacts) < page_limit:
+        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
+
+        if start_after:
+            params["startAfterId"] = start_after
+        elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
+            url = next_page_url
+            params = {}
+        else:
             break
 
     # Build simplified list (phone required)
@@ -2609,35 +2618,42 @@ def fetch_contacts():
     import datetime
     from db import get_cached_contacts, get_contact_cache_age, upsert_contact_cache
 
-    if not force_refresh:
-        cache_age = get_contact_cache_age(location_id)
-        if cache_age:
-            age_secs = (datetime.datetime.utcnow() - cache_age).total_seconds()
+    cache_age = get_contact_cache_age(location_id)
+    has_cache = cache_age is not None
 
-            if age_secs < _CACHE_STALE_SECS:
-                # Serve from DB cache (fast — < 50ms for thousands of contacts)
-                result = get_cached_contacts(location_id, query)
-                resp_data = {
-                    "contacts": result,
-                    "total": len(result),
-                    "cached": True,
-                    "cached_at": cache_age.isoformat(),
-                }
+    # If cache exists and not force-refresh → serve instantly, refresh in bg if stale
+    if has_cache and not force_refresh:
+        age_secs = (datetime.datetime.utcnow() - cache_age).total_seconds()
+        result = get_cached_contacts(location_id, query)
+        resp_data = {
+            "contacts": result,
+            "total": len(result),
+            "cached": True,
+            "cached_at": cache_age.isoformat(),
+        }
 
-                # If stale, trigger background refresh
-                if age_secs > _CACHE_FRESH_SECS:
-                    resp_data["refreshing"] = True
-                    _background_contact_sync(location_id)
+        # Trigger background refresh if stale (>15 min)
+        if age_secs > _CACHE_FRESH_SECS:
+            resp_data["refreshing"] = True
+            _background_contact_sync(location_id)
 
-                return jsonify(resp_data)
+        return jsonify(resp_data)
 
-    # ── Cache miss, expired, or force refresh: synchronous GHL fetch ──
+    # If cache exists but force_refresh → serve stale cache NOW, refresh in bg
+    if has_cache and force_refresh:
+        result = get_cached_contacts(location_id, query)
+        _background_contact_sync(location_id)
+        return jsonify({
+            "contacts": result,
+            "total": len(result),
+            "cached": True,
+            "cached_at": cache_age.isoformat(),
+            "refreshing": True,
+        })
+
+    # ── No cache at all (first time): synchronous GHL fetch ──
     access_token = get_valid_token(location_id)
     if not access_token:
-        # No token but cache exists — serve stale cache rather than error
-        stale_result = get_cached_contacts(location_id, query)
-        if stale_result:
-            return jsonify({"contacts": stale_result, "total": len(stale_result), "cached": True, "stale": True})
         return jsonify({"error": "No valid auth token. Reconnect your CRM."}), 401
 
     try:
@@ -2667,11 +2683,6 @@ def fetch_contacts():
         return jsonify({"contacts": result, "total": len(result), "cached": False})
 
     except Exception as e:
-        # On GHL error, fall back to stale cache if available
-        stale_result = get_cached_contacts(location_id, query)
-        if stale_result:
-            logger.warning(f"GHL fetch failed, serving stale cache for {location_id}: {e}")
-            return jsonify({"contacts": stale_result, "total": len(stale_result), "cached": True, "stale": True})
         logger.error(f"Failed to fetch contacts: {e}")
         return jsonify({"error": str(e)}), 500
 
