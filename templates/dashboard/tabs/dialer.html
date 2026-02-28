@@ -633,12 +633,12 @@
                             </select>
                             <!-- Fallback: shown when opportunities.readonly scope is pending approval -->
                             <div id="dialerPipelineManual" style="display:none;margin-bottom:4px;">
-                                <input type="text" id="dialerPipelineManualInput" placeholder="Paste Pipeline ID from GHL URL..."
+                                <input type="text" id="dialerPipelineManualInput" placeholder="Paste Pipeline ID from LeadConnector URL..."
                                     oninput="dialerOnManualPipelineInput()"
                                     style="width:100%;background:#0d0d1a;border:1px solid rgba(255,165,0,0.35);color:#aaa;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;">
                                 <div style="color:#f59e0b;font-size:0.65rem;margin-top:3px;line-height:1.3;">
                                     <i class="fa-solid fa-clock me-1"></i>Pipeline scope pending approval (~10 days).
-                                    Find your Pipeline ID in GHL &rarr; Opportunities &rarr; copy the <code style="background:rgba(255,255,255,0.08);padding:0 3px;border-radius:3px;">pipelineId=</code> value from the URL.
+                                    Find your Pipeline ID in LeadConnector &rarr; Opportunities &rarr; copy the <code style="background:rgba(255,255,255,0.08);padding:0 3px;border-radius:3px;">pipelineId=</code> value from the URL.
                                 </div>
                             </div>
                             <select id="dialerStageFilter" onchange="dialerFetchContacts()" style="width:100%;background:#0d0d1a;border:1px solid rgba(255,255,255,0.06);color:#666;padding:5px 8px;border-radius:6px;font-size:0.72rem;outline:none;" disabled>
@@ -687,7 +687,7 @@
                         <div id="deepSyncBanner" style="display:none;padding:8px 12px;background:linear-gradient(135deg,#0a1628,#0d1f3c);border:1px solid rgba(0,217,255,.15);border-radius:8px;margin:0 8px 6px;font-size:.72rem;">
                             <div style="display:flex;align-items:center;gap:6px;color:#8899aa;margin-bottom:5px;">
                                 <i class="fa-solid fa-database" style="color:#00d9ff;"></i>
-                                <span id="deepSyncLabel">Importing call history from GHL...</span>
+                                <span id="deepSyncLabel">Scanning LeadConnector for call history...</span>
                             </div>
                             <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;">
                                 <div id="deepSyncBar" style="height:100%;width:0%;background:linear-gradient(90deg,#00d9ff,#00ff88);border-radius:2px;transition:width .5s ease;"></div>
@@ -847,7 +847,7 @@
                                             <div id="dlrChannelRow" style="display:none;" class="ios-channel-row">
                                                 <span class="ios-channel-label">Send from:</span>
                                                 <select id="dlrChannelSelect" onchange="dlrOnChannelChange()" class="ios-channel-select">
-                                                    <option value="ghl">GHL / Lead Connector</option>
+                                                    <option value="ghl">LeadConnector</option>
                                                 </select>
                                                 <span id="dlrChannelNote" class="ios-channel-note"></span>
                                             </div>
