@@ -519,7 +519,7 @@ INTENT FIELDS (true/false):
 - mentioned_goal: protecting family, kids, spouse, mortgage, business, future, etc.
 - mentioned_obstacle: barrier like busy, expensive, health issue, not sure, complicated
 - ready_to_book: agreed to call/meet/talk/book/time works/yes/lets do it/sure/next step
-- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact
+- resistance: strong opt-out: stop, unsubscribe, remove, leave me alone, do not contact, not interested, opt out, lose my number, take me off
 - articulated_impact: the lead has expressed WHY coverage matters to them personally, what would happen to their family without it, the consequences of the gap, or emotional weight behind their need. Not just mentioning a goal but explaining why it is important to them or what would happen if they did not address it
 
 OBJECTION FIELDS (based on the MOST RECENT lead message only):
@@ -581,7 +581,13 @@ Context clues:
             "yes", "sure", "ok", "sounds good", "let's do", "book", "schedule",
             "appointment", "call", "talk", "meet", "time work", "works for me"
         ]
-        stop_keywords = ["stop", "unsubscribe", "remove", "leave me alone", "do not contact"]
+        stop_keywords = [
+            "stop", "unsubscribe", "remove", "blocked", "cancel", "quit", "end",
+            "leave me alone", "do not contact", "don't contact",
+            "do not call", "don't call", "do not text", "don't text",
+            "do not message", "don't message", "remove me", "take me off",
+            "opt out", "not interested", "lose my number", "delete my number",
+        ]
 
         obj_type, obj_nature = detect_objection_keywords(recent_lead_text)
 

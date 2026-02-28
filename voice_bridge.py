@@ -4705,7 +4705,7 @@ def get_contact_detail(contact_id):
                 """, (contact_id,))
                 last_lead_msg = cur.fetchone()
                 if last_lead_msg and last_lead_msg['message_text']:
-                    _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'cancel', 'quit'}
+                    _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
                     msg_lower = last_lead_msg['message_text'].strip().lower()
                     if msg_lower in _stop_words or any(msg_lower.startswith(w) for w in _stop_words):
                         opted_out = True
@@ -5460,7 +5460,7 @@ def get_contact_engagement_bulk():
             }
 
         # ── Opt-out detection: check last message from each lead for stop keywords ──
-        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'cancel', 'quit'}
+        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
         cur.execute("""
             SELECT DISTINCT ON (contact_id) contact_id, message_text
             FROM contact_messages
