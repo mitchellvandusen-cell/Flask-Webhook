@@ -3346,21 +3346,20 @@
             const pct = document.getElementById('deepSyncPct');
             if (!label) return;
 
-            const contacts = status.contacts_processed || 0;
+            const convos = status.contacts_processed || 0;
             const msgs = status.messages_synced || 0;
 
             if (status.status === 'completed') {
                 bar.style.width = '100%';
                 if (msgs === 0) {
-                    // No GHL call data found — likely WAVV/external dialer
-                    label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no LeadConnector call history found';
+                    label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no LeadConnector history found';
                     bar.style.background = 'linear-gradient(90deg,#334,#445)';
-                    detail.textContent = contacts + ' contacts checked · calls were likely made via external dialer (WAVV, etc.)';
+                    detail.textContent = convos + ' conversations checked · no messages in CRM';
                     pct.textContent = '';
                 } else {
                     label.innerHTML = '<span style="color:#00ff88;">Import complete</span> — ' + msgs.toLocaleString() + ' records saved locally';
                     bar.style.background = 'linear-gradient(90deg,#00ff88,#00d9ff)';
-                    detail.textContent = contacts + ' contacts · ' + msgs.toLocaleString() + ' records';
+                    detail.textContent = convos + ' conversations · ' + msgs.toLocaleString() + ' records';
                     pct.textContent = '100%';
                     // Refresh badges with new data
                     dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
@@ -3375,14 +3374,14 @@
 
             if (status.status === 'failed') {
                 label.innerHTML = '<span style="color:#ef4444;">Import paused</span> — will retry automatically';
-                detail.textContent = contacts + ' contacts done so far';
+                detail.textContent = convos + ' conversations done so far';
                 pct.textContent = '';
                 return;
             }
 
             // Running
-            label.textContent = 'Scanning LeadConnector for call history...';
-            detail.textContent = contacts + ' contacts scanned · ' + msgs.toLocaleString() + ' records found';
+            label.textContent = 'Pulling all history from LeadConnector...';
+            detail.textContent = convos + ' conversations · ' + msgs.toLocaleString() + ' records';
 
             // Estimate progress: typical agency is 500-3000 contacts
             // Use a log curve so progress feels natural even if we're wrong about total
