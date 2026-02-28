@@ -5443,7 +5443,8 @@ def get_contact_engagement_bulk():
         for r in cur.fetchall():
             cid = r['contact_id']
             if cid not in result:
-                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None},
+                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None,
+                                            "last_lead_at": None, "last_assistant_at": None},
                                "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
             result[cid]["messages"][r['message_type']] = r['cnt']
             ts = r['last_at'].isoformat() if r['last_at'] else None
@@ -5451,6 +5452,11 @@ def get_contact_engagement_bulk():
                 prev = result[cid]["messages"]["last_message_at"]
                 if not prev or ts > prev:
                     result[cid]["messages"]["last_message_at"] = ts
+                # Store per-type timestamps for Should Respond detection
+                if r['message_type'] == 'lead':
+                    result[cid]["messages"]["last_lead_at"] = ts
+                elif r['message_type'] == 'assistant':
+                    result[cid]["messages"]["last_assistant_at"] = ts
 
         # Call stats from call_history
         cur.execute("""
@@ -5467,7 +5473,8 @@ def get_contact_engagement_bulk():
         for r in cur.fetchall():
             cid = r['contact_id']
             if cid not in result:
-                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None},
+                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None,
+                                            "last_lead_at": None, "last_assistant_at": None},
                                "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
             result[cid]["calls"] = {
                 "total_calls": r['total_calls'],
@@ -5485,7 +5492,8 @@ def get_contact_engagement_bulk():
         for r in cur.fetchall():
             cid = r['contact_id']
             if cid not in result:
-                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None},
+                result[cid] = {"messages": {"lead": 0, "assistant": 0, "last_message_at": None,
+                                            "last_lead_at": None, "last_assistant_at": None},
                                "calls": {"total_calls": 0, "connected": 0, "total_duration": 0, "last_call_at": None, "recordings": 0}}
             result[cid]["opted_out"] = True
 
@@ -5513,6 +5521,74 @@ def get_contact_engagement_bulk():
         return jsonify({})
     finally:
         return_db_connection(conn)
+
+
+@voice_bp.route('/voice/contact-intelligence-bulk')
+@login_required
+def get_contact_intelligence_bulk():
+    """Bulk fetch cached AI intelligence for Smart Filters.
+    Returns cached AI temperature/score for contacts that have fresh analysis.
+    Zero AI cost — reads from contact_intelligence cache table only.
+    """
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        return jsonify({"cached": {}, "uncached": []})
+    contact_ids = [x.strip() for x in ids_param.split(',') if x.strip()][:300]
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"cached": {}, "uncached": contact_ids})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"cached": {}, "uncached": contact_ids})
+        location_id = row['location_id']
+    except Exception:
+        return jsonify({"cached": {}, "uncached": contact_ids})
+    finally:
+        return_db_connection(conn)
+
+    from lead_intelligence import get_bulk_cached_intelligence
+    cached = get_bulk_cached_intelligence(location_id, contact_ids)
+    uncached = [cid for cid in contact_ids if cid not in cached]
+    return jsonify({"cached": cached, "uncached": uncached})
+
+
+@voice_bp.route('/voice/contact-intelligence-analyze', methods=['POST'])
+@login_required
+def post_contact_intelligence_analyze():
+    """Batch-analyze contacts that don't have cached AI intelligence.
+    Processes up to 5 contacts per request (~2-3s each).
+    Returns the newly analyzed results so the frontend can update immediately.
+    """
+    data = request.get_json(silent=True) or {}
+    contact_ids = data.get('contact_ids', [])
+    if not contact_ids or not isinstance(contact_ids, list):
+        return jsonify({"results": [], "error": "contact_ids required"})
+    contact_ids = contact_ids[:5]  # Hard cap at 5 per request
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"results": []})
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return jsonify({"results": []})
+        location_id = row['location_id']
+    except Exception:
+        return jsonify({"results": []})
+    finally:
+        return_db_connection(conn)
+
+    from lead_intelligence import batch_analyze_contacts
+    results = batch_analyze_contacts(location_id, contact_ids, limit=5)
+    return jsonify({"results": results})
 
 
 @voice_bp.route('/voice/contact-call-counts/merged')

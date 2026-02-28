@@ -379,6 +379,114 @@ def _save_analysis_cache(contact_id, location_id, analysis):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# ═══ BULK API — Fetch cached AI classifications for Smart Filters ════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_bulk_cached_intelligence(location_id, contact_ids):
+    """
+    Fetch cached AI intelligence for multiple contacts in one DB query.
+    Returns only contacts with fresh cache (< 6 hours old AND no new messages
+    since analysis). This is the zero-cost path used by Smart Filters on every
+    dialer load — no AI calls, just a single SQL query.
+
+    Returns: {contact_id: {temperature, score, summary, temperature_reason}}
+    """
+    if not contact_ids:
+        return {}
+
+    conn = get_db_connection()
+    if not conn:
+        return {}
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT ci.contact_id, ci.analysis, ci.analyzed_at,
+                   (SELECT MAX(cm.created_at) FROM contact_messages cm
+                    WHERE cm.contact_id = ci.contact_id) AS last_msg_at
+            FROM contact_intelligence ci
+            WHERE ci.location_id = %s
+              AND ci.contact_id = ANY(%s)
+              AND ci.analyzed_at > NOW() - INTERVAL '6 hours'
+        """, (location_id, contact_ids))
+
+        results = {}
+        for row in cur.fetchall():
+            cid = row['contact_id']
+            analyzed_at = row['analyzed_at']
+            last_msg_at = row.get('last_msg_at')
+
+            # Skip stale cache — new messages arrived after analysis
+            if last_msg_at and analyzed_at:
+                a = analyzed_at
+                m = last_msg_at
+                if hasattr(a, 'tzinfo') and a.tzinfo:
+                    a = a.replace(tzinfo=None)
+                if hasattr(m, 'tzinfo') and m.tzinfo:
+                    m = m.replace(tzinfo=None)
+                if m > a:
+                    continue
+
+            analysis = row['analysis']
+            if isinstance(analysis, str):
+                analysis = json.loads(analysis)
+
+            results[cid] = {
+                "temperature": analysis.get("temperature", "warm"),
+                "score": analysis.get("score", 50),
+                "summary": analysis.get("summary", ""),
+                "temperature_reason": analysis.get("temperature_reason", ""),
+            }
+
+        cur.close()
+        return results
+
+    except Exception as e:
+        logger.error(f"Bulk intelligence fetch failed: {e}")
+        return {}
+    finally:
+        return_db_connection(conn)
+
+
+def batch_analyze_contacts(location_id, contact_ids, limit=5):
+    """
+    Run AI analysis for a batch of contacts that don't have fresh cache.
+    Processes up to `limit` contacts synchronously (each takes ~2-3s).
+    Returns list of {contact_id, temperature, score} for successfully analyzed contacts.
+    """
+    if not contact_ids or not _client:
+        return []
+
+    # Filter to only contacts that actually need analysis
+    already_cached = get_bulk_cached_intelligence(location_id, contact_ids)
+    need_analysis = [cid for cid in contact_ids if cid not in already_cached][:limit]
+
+    if not need_analysis:
+        return []
+
+    results = []
+    for cid in need_analysis:
+        try:
+            intel = get_contact_intelligence(location_id, cid)
+            if intel and intel.get("temperature") != "unknown":
+                score = intel.get("score", 50)
+                if isinstance(score, dict):
+                    score = score.get("score", 50)
+                results.append({
+                    "contact_id": cid,
+                    "temperature": intel.get("temperature", "warm"),
+                    "score": score,
+                    "summary": intel.get("summary", ""),
+                    "temperature_reason": intel.get("temperature_reason", ""),
+                })
+        except Exception as e:
+            logger.error(f"Batch analysis failed for {cid}: {e}")
+
+    logger.info(f"Batch analyzed {len(results)}/{len(need_analysis)} contacts for {location_id}")
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # ═══ PUBLIC API — Called by /api/contact/<id>/intelligence ═══════════════════
 # ═══════════════════════════════════════════════════════════════════════════════
 

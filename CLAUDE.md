@@ -303,6 +303,8 @@ All tables created in `db.py`'s `init_db()` function:
 - `GET /voice/contact/<id>/ghl-call-count` — Merged call count: local dialer DB + GHL conversation calls (covers GHL-native + WAVV + dialer)
 - `GET /voice/call-history` — Paginated call history for current user (limit/offset params, max 200)
 - `POST /voice/transcribe-recording` — On-demand recording transcription: downloads MP3 from Twilio, sends to xAI Whisper, saves transcript to call_history.transcript. Body: `{call_sid, recording_url}`
+- `GET /voice/contact-intelligence-bulk?ids=<csv>` — Bulk cached AI intelligence for Smart Filters (zero AI cost, reads from cache only). Returns `{cached: {id: {temperature, score, summary}}, uncached: [ids]}`
+- `POST /voice/contact-intelligence-analyze` — Batch-analyze uncached contacts via AI (up to 5 per request). Body: `{contact_ids: [...]}`
 
 ### A2P 10DLC (Blueprint, voice_bridge.py)
 - `GET /voice/a2p/status` — Current A2P registration state from voice_config JSONB
@@ -402,6 +404,29 @@ A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated reg
 - **Cost**: ~$0.001-0.003 per analysis (~200 output tokens).
 - **Frontend**: Loading shimmer → temperature pill badge (fire/thermometer/snowflake icons) + score + AI summary + recommended actions panel.
 - **Pipeline injection**: `tasks.py` injects pipeline stage into AI system prompt via `get_contact_pipeline_stage()`.
+- **Bulk API**: `get_bulk_cached_intelligence(location_id, contact_ids)` returns cached AI data for many contacts in one DB query (zero AI cost). Used by Smart Filters on every dialer load.
+- **Batch analysis**: `batch_analyze_contacts(location_id, contact_ids, limit=5)` processes uncached contacts via AI in small batches. Auto-triggered by the dialer when contacts lack cached intelligence.
+
+### AI-Powered Smart Filters (Dialer)
+
+The dialer's Smart Filters use AI intelligence to classify contacts — NOT simple rules like "customer responded = hot." The AI reads full conversation history before classifying.
+
+**Groups** (priority order):
+1. **Should Respond** (red) — AI says hot/warm AND lead's last message is unanswered (lead sent a message after the bot's last message)
+2. **Hot Leads** (green) — AI temperature = "hot" (actively buying, quoting, strong buying signals)
+3. **Warm Leads** (orange) — AI temperature = "warm" (engaged, responding positively)
+4. **Cool** (blue) — AI temperature = "cool" (went quiet, slow replies)
+5. **Cold** (gray) — AI temperature = "cold" (no engagement, ghosting, not interested)
+6. **Do Not Contact** (red) — Opted out via DnD flag or stop keywords
+7. **Analyzing...** (spinner) — Contacts pending AI analysis (auto-triggered in background)
+
+**Data flow**:
+1. Dialer loads → bulk engagement data fetched (`/voice/contact-engagement`)
+2. Bulk AI intelligence fetched from cache (`/voice/contact-intelligence-bulk`) — zero AI cost
+3. Contacts grouped by AI temperature into Smart Filter categories
+4. Uncached contacts queued for background batch analysis (`/voice/contact-intelligence-analyze`, 5 per request)
+5. As each batch completes, contacts move from "Analyzing..." into their correct AI group
+6. Subsequent dialer loads are instant from cache
 
 ---
 
@@ -453,7 +478,7 @@ static/js/dashboard/
   connect_crm.js    CRM connection UI
   voice.js          Voice config
   dialer.js         Voice dialer, iPhone app UI, call count badges, statistics panel,
-                    AI intelligence loader, Inbox app, SSE notifications
+                    AI-powered Smart Filters, bulk intelligence, Inbox app, SSE notifications
   numbers.js        Phone number management + A2P 10DLC registration UI
   ai_minutes.js     AI Minutes UI
   carriers.js       Carrier chip selection
@@ -571,10 +596,10 @@ python worker.py demo
 - `_showDashToast(ok, msg)` global utility injected by `dashboard.html` before all JS modules — used by all save functions for consistent bottom-right toast feedback
 - On-demand recording transcription via `POST /voice/transcribe-recording` — downloads MP3 from Twilio, transcribes via xAI Whisper, saves to `call_history.transcript`
 - `ghl_sync.py` uses `_api_get()` with exponential backoff + 429/401 handling for all GHL API calls
-- `lead_intelligence.py` fires one AI micro-prompt per contact view, caches results in `contact_intelligence` table; cache invalidated by new messages or 6-hour TTL
+- `lead_intelligence.py` fires one AI micro-prompt per contact, caches results in `contact_intelligence` table; cache invalidated by new messages or 6-hour TTL. Bulk cache reads power Smart Filters; batch analysis auto-runs for uncached contacts
 - SMS routing: `tasks.py` checks `sms_send_via` column — `'ghl'` routes through GHL API, `'+1...'` routes through `twilio_sms.py` direct sender
 - Dialer uses iPhone-style app paradigm: `iosOpenApp()` / `iosGoHome()` for Messages, Calls, Voicemail, and Inbox apps
-- `_loadContactIntelligence(contactId)` async-loads AI intelligence into `#igb-ai-summary`, `#igb-nba-section`, `#igb-pipeline-badge` placeholders in contact detail panel
+- `_loadContactIntelligence(contactId)` async-loads AI intelligence into `#igb-ai-summary`, `#igb-nba-section`, `#igb-pipeline-badge` placeholders in contact detail panel; also updates `_igbIntelCache` so Smart Filter groups re-render in real time
 
 ---
 
