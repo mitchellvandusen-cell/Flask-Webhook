@@ -729,10 +729,9 @@
                     html += '</div>';
                 }
 
-                // ── Next-Best-Actions (loaded async from intelligence API) ──
+                // ── AI Intelligence (loaded async) ──
+                html += '<div id="igb-ai-summary" style="margin-top:8px;"></div>';
                 html += '<div id="igb-nba-section" style="margin-top:8px;"></div>';
-
-                // ── Pipeline Stage Badge ──
                 html += '<div id="igb-pipeline-badge" style="margin-top:6px;"></div>';
 
                 // Notes
@@ -760,12 +759,67 @@
 
         // ── Contact Intelligence Loader (async, non-blocking) ──
         async function _loadContactIntelligence(contactId) {
+            // Show loading shimmer while AI thinks
+            const summaryEl = document.getElementById('igb-ai-summary');
+            if (summaryEl) {
+                summaryEl.innerHTML = '<div style="padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;">'
+                    + '<div style="display:flex;align-items:center;gap:8px;">'
+                    + '<i class="fa-solid fa-brain" style="color:#5B7FFF;font-size:.75rem;"></i>'
+                    + '<span style="font-size:.72rem;color:#666;">AI is analyzing this lead...</span>'
+                    + '<i class="fa-solid fa-spinner fa-spin" style="color:#444;font-size:.6rem;margin-left:auto;"></i>'
+                    + '</div></div>';
+            }
+
             try {
                 const r = await fetch('/api/contact/' + contactId + '/intelligence');
-                if (!r.ok) return;
+                if (!r.ok) { if (summaryEl) summaryEl.innerHTML = ''; return; }
                 const intel = await r.json();
 
-                // Render Next-Best-Actions
+                // ── AI Summary + Temperature Badge ──
+                if (summaryEl && (intel.summary || intel.temperature)) {
+                    const tempColors = {hot: '#ff3b30', warm: '#ff9500', cool: '#5B7FFF', cold: '#888'};
+                    const tempBgs = {hot: 'rgba(255,59,48,0.08)', warm: 'rgba(255,149,0,0.08)', cool: 'rgba(91,127,255,0.08)', cold: 'rgba(255,255,255,0.03)'};
+                    const tempIcons = {hot: 'fa-fire', warm: 'fa-temperature-half', cool: 'fa-snowflake', cold: 'fa-icicles'};
+                    const temp = intel.temperature || 'warm';
+                    const tColor = tempColors[temp] || '#888';
+                    const tBg = tempBgs[temp] || 'rgba(255,255,255,0.03)';
+                    const tIcon = tempIcons[temp] || 'fa-temperature-half';
+                    const score = intel.score ? (typeof intel.score === 'object' ? intel.score.score : intel.score) : '?';
+
+                    let sHtml = '<div style="padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;">';
+
+                    // Temperature + Score row
+                    sHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">';
+                    sHtml += '<div style="display:flex;align-items:center;gap:5px;padding:3px 10px;background:' + tBg + ';border:1px solid ' + tColor + '33;border-radius:20px;">';
+                    sHtml += '<i class="fa-solid ' + tIcon + '" style="color:' + tColor + ';font-size:.65rem;"></i>';
+                    sHtml += '<span style="font-size:.7rem;font-weight:700;color:' + tColor + ';text-transform:uppercase;">' + temp + '</span>';
+                    sHtml += '</div>';
+                    sHtml += '<div style="display:flex;align-items:center;gap:4px;margin-left:auto;">';
+                    sHtml += '<span style="font-size:.6rem;color:#666;">Score</span>';
+                    sHtml += '<span style="font-size:.8rem;font-weight:800;color:' + tColor + ';">' + score + '</span>';
+                    sHtml += '</div>';
+                    sHtml += '</div>';
+
+                    // AI Summary text
+                    if (intel.summary) {
+                        sHtml += '<div style="font-size:.76rem;color:#ccc;line-height:1.4;">';
+                        sHtml += '<i class="fa-solid fa-brain" style="color:#5B7FFF;font-size:.6rem;margin-right:4px;"></i>';
+                        sHtml += dialerEsc(intel.summary);
+                        sHtml += '</div>';
+                    }
+
+                    // Temperature reason
+                    if (intel.temperature_reason) {
+                        sHtml += '<div style="font-size:.65rem;color:#777;margin-top:4px;font-style:italic;">' + dialerEsc(intel.temperature_reason) + '</div>';
+                    }
+
+                    sHtml += '</div>';
+                    summaryEl.innerHTML = sHtml;
+                } else if (summaryEl) {
+                    summaryEl.innerHTML = '';
+                }
+
+                // ── AI-Powered Next-Best-Actions ──
                 const nbaSection = document.getElementById('igb-nba-section');
                 if (nbaSection && intel.actions && intel.actions.length) {
                     let nbaHtml = '<div style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.04);">';
@@ -776,15 +830,15 @@
                         nbaHtml += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;margin-bottom:4px;background:' + priBg + ';border:1px solid ' + priColor + '22;border-radius:6px;">';
                         nbaHtml += '<i class="' + (a.icon || 'fa-solid fa-circle') + '" style="color:' + priColor + ';font-size:.7rem;margin-top:2px;flex-shrink:0;"></i>';
                         nbaHtml += '<div style="flex:1;min-width:0;">';
-                        nbaHtml += '<div style="font-size:.75rem;font-weight:600;color:#ddd;">' + a.action + '</div>';
-                        if (a.reason) nbaHtml += '<div style="font-size:.65rem;color:#888;margin-top:1px;">' + a.reason + '</div>';
+                        nbaHtml += '<div style="font-size:.75rem;font-weight:600;color:#ddd;">' + dialerEsc(a.action) + '</div>';
+                        if (a.reason) nbaHtml += '<div style="font-size:.65rem;color:#888;margin-top:1px;">' + dialerEsc(a.reason) + '</div>';
                         nbaHtml += '</div></div>';
                     });
                     nbaHtml += '</div>';
                     nbaSection.innerHTML = nbaHtml;
                 }
 
-                // Render Pipeline Badge
+                // ── Pipeline Badge ──
                 const pipelineBadge = document.getElementById('igb-pipeline-badge');
                 if (pipelineBadge && intel.pipeline) {
                     const p = intel.pipeline;
@@ -792,14 +846,15 @@
                     const statusBg = p.status === 'won' ? 'rgba(52,199,89,0.08)' : p.status === 'lost' ? 'rgba(255,59,48,0.08)' : 'rgba(91,127,255,0.08)';
                     let pHtml = '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:' + statusBg + ';border:1px solid ' + statusColor + '22;border-radius:6px;margin-bottom:4px;">';
                     pHtml += '<i class="fa-solid fa-chart-line" style="color:' + statusColor + ';font-size:.7rem;"></i>';
-                    pHtml += '<span style="font-size:.72rem;color:#ccc;">' + (p.pipeline_name || 'Pipeline') + '</span>';
-                    pHtml += '<span style="font-size:.72rem;font-weight:700;color:' + statusColor + ';margin-left:auto;">' + (p.stage_name || 'Unknown') + '</span>';
+                    pHtml += '<span style="font-size:.72rem;color:#ccc;">' + dialerEsc(p.pipeline_name || 'Pipeline') + '</span>';
+                    pHtml += '<span style="font-size:.72rem;font-weight:700;color:' + statusColor + ';margin-left:auto;">' + dialerEsc(p.stage_name || 'Unknown') + '</span>';
                     if (p.monetary_value) pHtml += '<span style="font-size:.65rem;color:#888;margin-left:4px;">$' + Number(p.monetary_value).toLocaleString() + '</span>';
                     pHtml += '</div>';
                     pipelineBadge.innerHTML = pHtml;
                 }
             } catch(e) {
                 // Intelligence is supplementary — silent fail
+                if (summaryEl) summaryEl.innerHTML = '';
             }
         }
 

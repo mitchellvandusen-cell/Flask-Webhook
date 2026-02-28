@@ -3029,9 +3029,9 @@ def api_stream_notifications():
 @login_required
 def api_contact_intelligence(contact_id):
     """
-    Get full intelligence dossier for a contact.
-    Returns: score, next-best-actions, narrative, facts, pipeline stage.
-    All rule-based or cached — instant, zero AI cost.
+    Get AI-powered intelligence dossier for a contact.
+    Returns: summary, temperature, score, next-best-actions, facts, pipeline stage.
+    AI analysis is cached and only regenerated when new messages arrive.
     """
     location_id = current_user.location_id
     if not location_id:
