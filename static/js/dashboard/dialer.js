@@ -5,6 +5,12 @@
         let dialerQueueRunning = false;
         // InsuranceGrokBot engagement data cache: contactId → { messages, calls }
         let _igbEngagementCache = {};
+        // InsuranceGrokBot AI intelligence cache: contactId → { temperature, score, summary }
+        let _igbIntelCache = {};
+        // Contacts that need AI analysis (no cached intelligence)
+        let _igbUncachedIds = [];
+        // Whether batch AI analysis is currently running
+        let _igbAnalyzing = false;
         // InsuranceGrokBot Smart Filter collapsed state
         let _igbFilterCollapsed = {};
         let dialerCallSid = null;
@@ -319,68 +325,91 @@
             }
         }
 
-        // ── InsuranceGrokBot: compute engagement level (0-3 dots) from our data ──
-        // Dots align with Smart Filter groups: 1=cold/touched, 2=warm, 3=hot
+        // ── InsuranceGrokBot: compute engagement level (0-3 dots) from AI intelligence ──
+        // Dots now reflect AI temperature: 3=hot, 2=warm, 1=cool/cold, 0=DnD
         function _igbEngageLevel(contactId, contactObj) {
-            const callCount = _dialerCallCounts[contactId] || 0;
             const eng = _igbEngagementCache[contactId];
             // Opted-out / DnD contacts always show 0 engagement
             if (_igbIsOptedOut(eng, contactObj)) return 0;
-            let level = 0;
-            const totalCalls = (eng && eng.calls.total_calls) || 0;
-            // Dot 1: any interaction exists (called or messaged)
-            if (callCount > 0 || totalCalls > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) level = 1;
-            if (!eng) return level;
-            // Dot 2: warm — two-way engagement (we messaged AND they replied, or connected call)
-            if (eng.messages.lead > 0 && eng.messages.assistant > 0) level = 2;
-            if (eng.calls.connected > 0) level = 2;
-            // Dot 3: hot — recent two-way activity within 48h with real engagement
-            const now = Date.now();
-            const lastMsg = eng.messages.last_message_at ? (new Date(eng.messages.last_message_at).getTime() || 0) : 0;
-            const lastCall = eng.calls.last_call_at ? (new Date(eng.calls.last_call_at).getTime() || 0) : 0;
-            const latest = Math.max(lastMsg, lastCall);
-            const hrs48 = 48 * 60 * 60 * 1000;
-            if (latest > 0 && (now - latest) < hrs48 && eng.messages.lead > 0 &&
-                (eng.calls.connected > 0 || (eng.messages.lead >= 2 && eng.messages.assistant >= 1))) {
-                level = 3;
+
+            // Use AI temperature if available
+            const intel = _igbIntelCache[contactId];
+            if (intel && intel.temperature) {
+                switch (intel.temperature) {
+                    case 'hot': return 3;
+                    case 'warm': return 2;
+                    case 'cool': return 1;
+                    case 'cold': return 1;
+                }
             }
-            return level;
+
+            // Fallback: any interaction = 1 dot
+            const callCount = _dialerCallCounts[contactId] || 0;
+            const totalCalls = (eng && eng.calls.total_calls) || 0;
+            if (callCount > 0 || totalCalls > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) return 1;
+            return 0;
         }
 
-        // ── InsuranceGrokBot Smart Filter: group contacts by engagement ──
+        // ── InsuranceGrokBot Smart Filter: group contacts by AI intelligence ──
+        // Uses AI-powered temperature from xAI Grok that reads full conversation history.
+        // Falls back to "Unanalyzed" group for contacts pending AI analysis.
         function _igbGroupContacts(contacts) {
-            const hot = [], warm = [], cold = [], dnc = [];
-            const now = Date.now();
-            const hrs48 = 48 * 60 * 60 * 1000;
-            const days7 = 7 * 24 * 60 * 60 * 1000;
+            const respond = [], hot = [], warm = [], cool = [], cold = [], dnc = [], unanalyzed = [];
+            const hasAI = Object.keys(_igbIntelCache).length > 0;
+
             contacts.forEach(c => {
                 const eng = _igbEngagementCache[c.id];
-                const callCount = _dialerCallCounts[c.id] || 0;
                 // DnD / opt-out contacts always go to DnC group
                 if (_igbIsOptedOut(eng, c)) { dnc.push(c); return; }
-                if (eng) {
-                    const lastMsg = eng.messages.last_message_at ? (new Date(eng.messages.last_message_at).getTime() || 0) : 0;
-                    const lastCall = eng.calls.last_call_at ? (new Date(eng.calls.last_call_at).getTime() || 0) : 0;
-                    const latest = Math.max(lastMsg, lastCall);
-                    const totalCalls = eng.calls.total_calls || 0;
-                    // Hot: two-way engagement within 48h — lead replied AND (connected call OR multi-message thread)
-                    if (latest > 0 && (now - latest) < hrs48 && eng.messages.lead > 0 &&
-                        (eng.calls.connected > 0 || (eng.messages.lead >= 2 && eng.messages.assistant >= 1))) {
-                        hot.push(c); return;
+
+                const intel = _igbIntelCache[c.id];
+
+                if (intel && intel.temperature) {
+                    // ── AI-powered classification ──
+                    // "Should Respond" = AI says hot/warm AND lead's last message is unanswered
+                    const shouldRespond = _igbShouldRespond(c.id, intel);
+                    if (shouldRespond) { respond.push(c); return; }
+
+                    switch (intel.temperature) {
+                        case 'hot':  hot.push(c); break;
+                        case 'warm': warm.push(c); break;
+                        case 'cool': cool.push(c); break;
+                        case 'cold': cold.push(c); break;
+                        default:     cool.push(c); break;
                     }
-                    // Warm: any activity within 7d — lead replied, call attempted, or we messaged
-                    if (latest > 0 && (now - latest) < days7 && (totalCalls > 0 || callCount > 0 || eng.messages.lead > 0 || eng.messages.assistant > 0)) {
-                        warm.push(c); return;
-                    }
+                } else if (hasAI) {
+                    // AI data loaded but this contact wasn't analyzed yet
+                    unanalyzed.push(c);
+                } else {
+                    // No AI data at all — still loading
+                    unanalyzed.push(c);
                 }
-                cold.push(c);
             });
-            return [
+
+            const groups = [
+                { key: 'respond', label: 'Should Respond', icon: 'fa-reply', color: '#ff3b30', contacts: respond },
                 { key: 'hot', label: 'Hot Leads', icon: 'fa-fire', color: '#4ade80', contacts: hot },
                 { key: 'warm', label: 'Warm Leads', icon: 'fa-temperature-half', color: '#ffa500', contacts: warm },
-                { key: 'cold', label: 'New / Cold', icon: 'fa-snowflake', color: '#00d9ff', contacts: cold },
+                { key: 'cool', label: 'Cool', icon: 'fa-snowflake', color: '#5B7FFF', contacts: cool },
+                { key: 'cold', label: 'Cold', icon: 'fa-icicles', color: '#888', contacts: cold },
                 { key: 'dnc', label: 'Do Not Contact', icon: 'fa-ban', color: '#ef4444', contacts: dnc },
             ];
+            if (unanalyzed.length > 0) {
+                groups.push({ key: 'unanalyzed', label: 'Analyzing...', icon: 'fa-spinner fa-spin', color: '#555', contacts: unanalyzed });
+            }
+            return groups;
+        }
+
+        // ── Should Respond: lead's last message is unanswered AND AI says hot/warm ──
+        function _igbShouldRespond(contactId, intel) {
+            if (!intel || (intel.temperature !== 'hot' && intel.temperature !== 'warm')) return false;
+            const eng = _igbEngagementCache[contactId];
+            if (!eng) return false;
+            const lastLead = eng.messages.last_lead_at;
+            const lastBot = eng.messages.last_assistant_at;
+            // Lead sent a message and bot hasn't replied since
+            if (lastLead && (!lastBot || lastLead > lastBot)) return true;
+            return false;
         }
 
         function igbToggleFilter(key) {
@@ -442,11 +471,13 @@
 
             actionsBar.style.display = 'block';
 
-            // If we have engagement data, show grouped view with Smart Filters
-            const hasEngData = Object.keys(_igbEngagementCache).length > 0;
+            // If we have engagement or AI data, show grouped view with Smart Filters
+            const hasEngData = Object.keys(_igbEngagementCache).length > 0 || Object.keys(_igbIntelCache).length > 0;
             if (hasEngData) {
                 const groups = _igbGroupContacts(dialerContacts);
-                let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid fa-robot" style="color:#00d9ff;font-size:.6rem;"></i><span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">InsuranceGrokBot Smart Filters</span></div>';
+                const aiReady = Object.keys(_igbIntelCache).length > 0;
+                const filterLabel = aiReady ? 'AI-Powered Smart Filters' : 'Smart Filters (loading AI...)';
+                let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;"><i class="fa-solid ' + (aiReady ? 'fa-brain' : 'fa-robot') + '" style="color:' + (aiReady ? '#5B7FFF' : '#00d9ff') + ';font-size:.6rem;"></i><span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">' + filterLabel + '</span></div>';
                 groups.forEach(g => {
                     if (!g.contacts.length) return;
                     const collapsed = _igbFilterCollapsed[g.key] || false;
@@ -484,23 +515,30 @@
             dialerFetchMergedCallCount(c.id);
         }
 
-        // ── InsuranceGrokBot: compute lead score (0-100) from engagement data ──
-        // contactObj is optional - pass the full contact for DnD/opt-out detection
+        // ── InsuranceGrokBot: compute lead score (0-100) ──
+        // Uses AI score when available (read from conversation history by xAI Grok),
+        // falls back to engagement-based heuristic for unanalyzed contacts.
         function _igbLeadScore(eng, contactObj) {
             if (!eng) return 0;
             // DnD / opt-out override: score is 0
             if (_igbIsOptedOut(eng, contactObj)) return 0;
+
+            // Use AI score if available (from conversation analysis)
+            const contactId = contactObj && contactObj.id;
+            if (contactId) {
+                const intel = _igbIntelCache[contactId];
+                if (intel && typeof intel.score === 'number') return intel.score;
+            }
+
+            // Fallback: engagement-based heuristic
             let score = 0;
-            // SMS engagement (up to 30 pts)
-            score += Math.min(eng.messages.lead * 5, 15);        // lead replies (up to 15)
-            score += Math.min(eng.messages.assistant * 2, 10);   // our messages (up to 10)
-            if (eng.messages.lead > 0 && eng.messages.assistant > 0) score += 5; // two-way bonus
-            // Call engagement (up to 40 pts)
-            score += Math.min(eng.calls.connected * 10, 20);     // connected calls
-            score += Math.min(eng.calls.total_calls * 2, 10);    // attempts
-            if (eng.calls.total_duration > 120) score += 5;      // talked > 2 min
-            if (eng.calls.total_duration > 300) score += 5;      // talked > 5 min
-            // Recency (up to 20 pts)
+            score += Math.min(eng.messages.lead * 5, 15);
+            score += Math.min(eng.messages.assistant * 2, 10);
+            if (eng.messages.lead > 0 && eng.messages.assistant > 0) score += 5;
+            score += Math.min(eng.calls.connected * 10, 20);
+            score += Math.min(eng.calls.total_calls * 2, 10);
+            if (eng.calls.total_duration > 120) score += 5;
+            if (eng.calls.total_duration > 300) score += 5;
             const now = Date.now();
             const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
             const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
@@ -512,7 +550,6 @@
                 else if (hoursAgo < 168) score += 8;
                 else score += 3;
             }
-            // Depth (up to 10 pts)
             if (eng.narrative && eng.narrative.summary) score += 5;
             score += Math.min((eng.facts || []).length * 2, 5);
             return Math.min(score, 100);
@@ -525,16 +562,31 @@
             return false;
         }
 
-        function _igbScoreColor(score, optedOut) {
+        function _igbScoreColor(score, optedOut, contactId) {
             if (optedOut) return '#ef4444';
+            // Use AI temperature color if available
+            const intel = contactId ? _igbIntelCache[contactId] : null;
+            if (intel && intel.temperature) {
+                switch (intel.temperature) {
+                    case 'hot': return '#4ade80';
+                    case 'warm': return '#ffa500';
+                    case 'cool': return '#5B7FFF';
+                    case 'cold': return '#888';
+                }
+            }
             if (score >= 70) return '#4ade80';
             if (score >= 40) return '#ffa500';
-            if (score >= 15) return '#00d9ff';
+            if (score >= 15) return '#5B7FFF';
             return '#444';
         }
 
-        function _igbScoreLabel(score, optedOut) {
+        function _igbScoreLabel(score, optedOut, contactId) {
             if (optedOut) return 'DnD';
+            // Use AI temperature label if available
+            const intel = contactId ? _igbIntelCache[contactId] : null;
+            if (intel && intel.temperature) {
+                return intel.temperature.charAt(0).toUpperCase() + intel.temperature.slice(1);
+            }
             if (score >= 70) return 'Hot';
             if (score >= 40) return 'Warm';
             if (score >= 15) return 'Cool';
@@ -570,7 +622,7 @@
 
                 const optedOut = _igbIsOptedOut(eng, c);
                 const score = _igbLeadScore(eng, c);
-                const scoreColor = _igbScoreColor(score, optedOut);
+                const scoreColor = _igbScoreColor(score, optedOut, contactId);
                 const circumference = 2 * Math.PI * 35; // r=35
                 const dashOffset = circumference * (1 - score / 100);
 
@@ -589,7 +641,7 @@
                 html += '<div class="igb-score-ring">';
                 html += '<svg viewBox="0 0 80 80"><circle class="igb-ring-bg" cx="40" cy="40" r="35"/>';
                 html += '<circle class="igb-ring-fg" cx="40" cy="40" r="35" stroke="' + scoreColor + '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + dashOffset + '"/></svg>';
-                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + score + '</span><span class="igb-score-sub">' + _igbScoreLabel(score, optedOut) + '</span></div>';
+                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + score + '</span><span class="igb-score-sub">' + _igbScoreLabel(score, optedOut, contactId) + '</span></div>';
                 html += '</div>';
                 // Name + phone
                 html += '<div style="flex:1;min-width:0;">';
@@ -784,6 +836,18 @@
                 const r = await fetch('/api/contact/' + contactId + '/intelligence');
                 if (!r.ok) { if (summaryEl) summaryEl.innerHTML = ''; return; }
                 const intel = await r.json();
+
+                // Update Smart Filter cache so contact moves to correct group
+                if (intel.temperature && intel.temperature !== 'unknown') {
+                    const aiScore = typeof intel.score === 'object' ? intel.score.score : intel.score;
+                    _igbIntelCache[contactId] = {
+                        temperature: intel.temperature,
+                        score: typeof aiScore === 'number' ? aiScore : 50,
+                        summary: intel.summary || '',
+                        temperature_reason: intel.temperature_reason || '',
+                    };
+                    dialerRenderContacts();
+                }
 
                 // ── AI Summary + Temperature Badge ──
                 if (summaryEl && (intel.summary || intel.temperature)) {
@@ -3226,7 +3290,81 @@
                     console.error('[IGB] Engagement fetch failed:', e);
                 }
             }
-            // Re-render contact list with Smart Filters now that we have data
+            // Re-render with engagement data, then fetch AI intelligence
+            dialerRenderContacts();
+            igbFetchBulkIntelligence();
+        }
+
+        // ── InsuranceGrokBot: Bulk AI Intelligence Fetch ──
+        // Fetches cached AI classifications (zero cost), then triggers batch
+        // analysis for contacts without cache.
+        async function igbFetchBulkIntelligence() {
+            if (!dialerContacts.length) return;
+            const CHUNK = 300;
+            _igbUncachedIds = [];
+
+            for (let i = 0; i < dialerContacts.length; i += CHUNK) {
+                const chunk = dialerContacts.slice(i, i + CHUNK);
+                const ids = chunk.map(c => c.id).join(',');
+                try {
+                    const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(ids));
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    // Merge cached AI data
+                    if (data.cached) Object.assign(_igbIntelCache, data.cached);
+                    // Track uncached contacts for batch analysis
+                    if (data.uncached) _igbUncachedIds.push(...data.uncached);
+                } catch(e) {
+                    console.error('[IGB] Intelligence bulk fetch failed:', e);
+                }
+            }
+
+            // Re-render with AI-powered Smart Filters
+            dialerRenderContacts();
+
+            // Auto-trigger batch analysis for uncached contacts
+            if (_igbUncachedIds.length > 0 && !_igbAnalyzing) {
+                igbRunBatchAnalysis();
+            }
+        }
+
+        // ── InsuranceGrokBot: Background Batch Analysis ──
+        // Processes uncached contacts in batches of 5, updating filters as results arrive.
+        async function igbRunBatchAnalysis() {
+            if (_igbAnalyzing || !_igbUncachedIds.length) return;
+            _igbAnalyzing = true;
+            console.log('[IGB] Starting batch AI analysis for', _igbUncachedIds.length, 'contacts');
+
+            const BATCH = 5;
+            while (_igbUncachedIds.length > 0) {
+                const batch = _igbUncachedIds.splice(0, BATCH);
+                try {
+                    const r = await fetch('/voice/contact-intelligence-analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contact_ids: batch })
+                    });
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    if (data.results && data.results.length) {
+                        data.results.forEach(function(res) {
+                            _igbIntelCache[res.contact_id] = {
+                                temperature: res.temperature,
+                                score: res.score,
+                                summary: res.summary || '',
+                                temperature_reason: res.temperature_reason || '',
+                            };
+                        });
+                        // Re-render to move analyzed contacts into correct groups
+                        dialerRenderContacts();
+                    }
+                } catch(e) {
+                    console.error('[IGB] Batch analysis failed:', e);
+                }
+            }
+
+            _igbAnalyzing = false;
+            console.log('[IGB] Batch AI analysis complete. Total cached:', Object.keys(_igbIntelCache).length);
             dialerRenderContacts();
         }
 
