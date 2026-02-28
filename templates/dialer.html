@@ -1,140 +1,505 @@
 {% extends "base.html" %}
 
-{% block title %}InsuranceGrokBot Dialer — Power Dialing for Insurance Agents{% endblock %}
+{% block title %}InsuranceGrokBot Dialer — AI-Powered Command Center for Insurance Agents{% endblock %}
 
 {% block content %}
 <style>
-    .dialer-hero { padding: 160px 0 80px; position: relative; overflow: hidden; }
-    .dialer-hero::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 20%, rgba(0,217,255,0.08) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.05) 0%, transparent 50%); pointer-events: none; }
-    .dialer-badge { background: linear-gradient(135deg, #00d9ff, #0066ff); padding: 8px 24px; border-radius: 24px; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; display: inline-block; margin-bottom: 20px; }
-    .dialer-feature-card { background: rgba(0,217,255,0.03); border: 1px solid rgba(0,217,255,0.1); border-radius: 16px; padding: 28px; height: 100%; transition: all 0.3s ease; }
-    .dialer-feature-card:hover { transform: translateY(-4px); border-color: rgba(0,217,255,0.25); }
-    .dialer-feature-card .icon { font-size: 1.5rem; color: #00d9ff; margin-bottom: 14px; }
-    .dialer-feature-card h5 { font-weight: 700; color: #fff; margin-bottom: 8px; }
-    .dialer-feature-card p { color: #888; font-size: 0.88rem; margin: 0; }
-    .step-row { padding: 20px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .step-row:last-child { border-bottom: none; }
-    .step-num { width: 36px; height: 36px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.9rem; flex-shrink: 0; }
+    /* ── Hero ── */
+    .dlr-hero { padding: 150px 0 80px; position: relative; overflow: hidden; }
+    .dlr-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, rgba(0,217,255,0.07) 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, rgba(0,255,136,0.04) 0%, transparent 50%); pointer-events: none; }
+    .dlr-tag { display: inline-block; background: linear-gradient(135deg, #00d9ff, #0066ff); padding: 6px 22px; border-radius: 24px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; color: #fff; margin-bottom: 20px; }
+    .dlr-h1 { font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 20px; }
+    .dlr-h1 span { color: #00d9ff; }
+    .dlr-sub { color: #999; font-size: 1.1rem; max-width: 680px; margin: 0 auto 32px; line-height: 1.6; }
+
+    /* ── Section headings ── */
+    .dlr-section { padding: 80px 0; }
+    .dlr-section + .dlr-section { padding-top: 0; }
+    .dlr-section-label { color: #00d9ff; font-weight: 700; font-size: 0.78rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+    .dlr-section-title { font-weight: 900; font-size: 2rem; margin-bottom: 12px; }
+
+    /* ── Interface mockup ── */
+    .interface-frame { background: #0a0a0a; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; overflow: hidden; }
+    .if-bar { background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 20px; display: flex; align-items: center; gap: 8px; }
+    .if-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .if-body { display: grid; grid-template-columns: 240px 1fr 280px; min-height: 380px; }
+    .if-panel { border-right: 1px solid rgba(255,255,255,0.06); padding: 16px; }
+    .if-panel:last-child { border-right: none; }
+    .if-panel-label { font-size: 0.68rem; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+    /* Mockup contact rows */
+    .mock-contact { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; margin-bottom: 4px; cursor: default; transition: background 0.2s; }
+    .mock-contact:hover { background: rgba(255,255,255,0.04); }
+    .mock-contact.active { background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15); }
+    .mc-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; flex-shrink: 0; position: relative; }
+    .mc-avatar .live-dot { position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; border: 2px solid #0a0a0a; }
+    .mc-name { font-size: 0.82rem; font-weight: 600; color: #ddd; }
+    .mc-phone { font-size: 0.68rem; color: #555; }
+    .mc-dots { display: flex; gap: 3px; margin-left: auto; }
+    .mc-dots span { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* Mockup intelligence panel */
+    .mock-score { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.3rem; margin: 0 auto 12px; }
+    .mock-temp { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+    .mock-timeline { display: flex; align-items: center; gap: 0; margin: 16px 0; }
+    .mt-node { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; flex-shrink: 0; }
+    .mt-line { flex: 1; height: 2px; }
+    .mock-action { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 6px; }
+    .mock-action i { font-size: 0.7rem; width: 20px; text-align: center; }
+    .mock-action span { font-size: 0.72rem; color: #aaa; }
+
+    /* Mockup messages panel */
+    .mock-msg { padding: 8px 12px; border-radius: 12px; font-size: 0.75rem; margin-bottom: 8px; max-width: 85%; line-height: 1.5; }
+    .mock-msg.in { background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.12); color: #bbb; }
+    .mock-msg.out { background: rgba(0,255,136,0.06); border: 1px solid rgba(0,255,136,0.1); color: #bbb; margin-left: auto; }
+
+    @media (max-width: 991px) {
+        .if-body { grid-template-columns: 1fr; min-height: auto; }
+        .if-panel { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .if-panel:last-child { border-bottom: none; }
+    }
+
+    /* ── Smart Filter chips ── */
+    .sf-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .sf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; border: 1px solid; }
+
+    /* ── Feature columns ── */
+    .feat-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+    .feat-item { background: #0a0a0a; padding: 32px 28px; transition: background 0.3s; }
+    .feat-item:hover { background: rgba(255,255,255,0.03); }
+    .feat-item i { font-size: 1.2rem; margin-bottom: 12px; display: block; }
+    .feat-item h6 { font-weight: 700; font-size: 0.92rem; color: #fff; margin-bottom: 6px; }
+    .feat-item p { color: #666; font-size: 0.82rem; margin: 0; line-height: 1.55; }
+    @media (max-width: 767px) { .feat-col { grid-template-columns: 1fr; } }
+
+    /* ── Voice strip ── */
+    .voice-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .vs-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px; }
+    .vs-card h5 { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+    .vs-card p { color: #888; font-size: 0.88rem; line-height: 1.6; margin: 0; }
+    .voice-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .voice-tag { font-size: 0.72rem; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+    @media (max-width: 767px) { .voice-strip { grid-template-columns: 1fr; } }
+
+    /* ── In-call controls mockup ── */
+    .call-controls { display: flex; justify-content: center; gap: 16px; padding: 20px 0; }
+    .cc-btn { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #aaa; transition: all 0.3s; }
+    .cc-btn:hover { background: rgba(0,217,255,0.1); border-color: rgba(0,217,255,0.3); color: #00d9ff; }
+    .cc-btn.active { background: rgba(0,217,255,0.15); border-color: #00d9ff; color: #00d9ff; }
+    .cc-btn.danger { border-color: rgba(239,68,68,0.3); }
+    .cc-btn.danger:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: #ef4444; }
+
+    /* ── Stats mockup ── */
+    .stats-mock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .sm-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; text-align: center; }
+    .sm-card .val { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+    .sm-card .lbl { font-size: 0.72rem; color: #666; margin-top: 4px; }
+    .sm-card .delta { font-size: 0.68rem; font-weight: 600; margin-top: 4px; }
+    @media (max-width: 767px) { .stats-mock { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ── iPhone apps bar ── */
+    .apps-bar { display: flex; justify-content: center; gap: 24px; padding: 20px 0; }
+    .app-icon { text-align: center; cursor: default; }
+    .app-icon .icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin: 0 auto 6px; position: relative; }
+    .app-icon .badge-dot { position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; border-radius: 50%; font-size: 0.55rem; font-weight: 800; display: flex; align-items: center; justify-content: center; color: #fff; }
+    .app-icon .label { font-size: 0.68rem; color: #888; font-weight: 500; }
 </style>
 
-<!-- Hero -->
-<section class="dialer-hero">
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="dlr-hero">
     <div class="container text-center" style="position: relative; z-index: 2;">
         <div data-aos="fade-up">
-            <span class="dialer-badge">INCLUDED WITH EVERY PLAN</span>
-            <h1 style="font-size: 3.2rem; font-weight: 900; line-height: 1.1; margin-bottom: 20px;">
-                A Dialer Built to<br><span style="color: #00d9ff;">Connect.</span>
-            </h1>
-            <p style="color: #aaa; font-size: 1.15rem; max-width: 650px; margin: 0 auto 30px;">
-                Load your leads. Hit dial. The dialer works through your list, auto-retries no-answers, detects voicemail, and keeps you talking to live prospects.
+            <span class="dlr-tag">INCLUDED WITH EVERY PLAN</span>
+            <h1 class="dlr-h1">Not a Dialer.<br><span>A Command Center.</span></h1>
+            <p class="dlr-sub">
+                AI lead intelligence, Smart Filters, queue dialing, live eavesdrop, voice AI agent,
+                unified inbox, call recording, and statistics — all in one screen. This is what your dialer should have been.
             </p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="/#pricing" class="btn btn-primary btn-lg">Get Started — $149.99/mo</a>
-                <a href="/demo-chat" class="btn btn-outline-accent btn-lg">Try the Demo</a>
+                <a href="/demo-chat" class="btn btn-outline-accent btn-lg" style="border-color: rgba(0,217,255,0.4); color: #00d9ff;">Try the Demo</a>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Features Grid -->
-<section class="section" style="padding-top: 0;">
+
+<!-- ═══════════════ INTERFACE MOCKUP ═══════════════ -->
+<section class="dlr-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <h2 class="section-title">What You Get</h2>
+            <div class="dlr-section-label">The Interface</div>
+            <h2 class="dlr-section-title">Everything on <span style="color: #00d9ff;">One Screen</span></h2>
+            <p style="color: #777; max-width: 600px; margin: 0 auto;">Contacts on the left. AI intelligence in the center. Messages and calls on the right. No tab-switching. No context loss.</p>
         </div>
-        <div class="row g-4" data-aos="fade-up">
-            <div class="col-md-4">
-                <div class="dialer-feature-card">
-                    <div class="icon"><i class="fa-solid fa-rotate-right"></i></div>
-                    <h5>Auto-Retry</h5>
-                    <p>Each lead gets called multiple times based on your dial attempts setting. No answer? The dialer redials automatically. If they still don't pick up, it moves to the next lead.</p>
-                </div>
+
+        <div class="interface-frame" data-aos="fade-up">
+            <!-- Window bar -->
+            <div class="if-bar">
+                <div class="if-dot" style="background: #ff5f57;"></div>
+                <div class="if-dot" style="background: #ffbd2e;"></div>
+                <div class="if-dot" style="background: #28c840;"></div>
+                <span style="margin-left: 12px; font-size: 0.72rem; color: #555; font-weight: 600;">InsuranceGrokBot Dialer</span>
             </div>
-            <div class="col-md-4">
-                <div class="dialer-feature-card">
-                    <div class="icon"><i class="fa-solid fa-voicemail"></i></div>
-                    <h5>Voicemail Detection</h5>
-                    <p>The dialer detects voicemail boxes automatically so you're not wasting time listening to recordings. It skips and retries.</p>
+
+            <div class="if-body">
+                <!-- Left: Contacts -->
+                <div class="if-panel">
+                    <div class="if-panel-label">Contacts</div>
+
+                    <!-- Smart Filter chips -->
+                    <div class="sf-row">
+                        <span class="sf-chip" style="background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #ef4444;"><i class="fa-solid fa-flag" style="font-size: 0.6rem;"></i> Respond <span style="opacity: 0.7;">3</span></span>
+                        <span class="sf-chip" style="background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.2); color: var(--accent);"><i class="fa-solid fa-fire" style="font-size: 0.6rem;"></i> Hot <span style="opacity: 0.7;">5</span></span>
+                        <span class="sf-chip" style="background: rgba(255,165,0,0.08); border-color: rgba(255,165,0,0.2); color: orange;"><i class="fa-solid fa-temperature-half" style="font-size: 0.6rem;"></i> Warm <span style="opacity: 0.7;">12</span></span>
+                    </div>
+
+                    <div class="mock-contact active">
+                        <div class="mc-avatar" style="background: rgba(0,255,136,0.12); color: var(--accent);">ST
+                            <div class="live-dot" style="background: var(--accent);"></div>
+                        </div>
+                        <div><div class="mc-name">Sarah Torres</div><div class="mc-phone">(817) 555-0142</div></div>
+                        <div class="mc-dots"><span style="background: var(--accent);"></span><span style="background: var(--accent);"></span><span style="background: var(--accent);"></span></div>
+                    </div>
+                    <div class="mock-contact">
+                        <div class="mc-avatar" style="background: rgba(255,165,0,0.12); color: orange;">MJ</div>
+                        <div><div class="mc-name">Mike Johnson</div><div class="mc-phone">(404) 555-0198</div></div>
+                        <div class="mc-dots"><span style="background: orange;"></span><span style="background: orange;"></span><span style="background: #333;"></span></div>
+                    </div>
+                    <div class="mock-contact">
+                        <div class="mc-avatar" style="background: rgba(0,217,255,0.12); color: #00d9ff;">LW</div>
+                        <div><div class="mc-name">Linda Wu</div><div class="mc-phone">(312) 555-0067</div></div>
+                        <div class="mc-dots"><span style="background: #00d9ff;"></span><span style="background: #333;"></span><span style="background: #333;"></span></div>
+                    </div>
+                    <div class="mock-contact">
+                        <div class="mc-avatar" style="background: rgba(100,100,100,0.15); color: #666;">RD</div>
+                        <div><div class="mc-name">Ray Davis</div><div class="mc-phone">(214) 555-0301</div></div>
+                        <div class="mc-dots"><span style="background: #444;"></span><span style="background: #444;"></span><span style="background: #444;"></span></div>
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="dialer-feature-card">
-                    <div class="icon"><i class="fa-solid fa-right-left"></i></div>
-                    <h5>AI or Human Mode</h5>
-                    <p>Let the AI answer and qualify leads on the call, or dial in human mode and take every pickup yourself. Switch anytime.</p>
+
+                <!-- Center: Intelligence -->
+                <div class="if-panel" style="padding: 20px 24px;">
+                    <div class="text-center">
+                        <div class="mock-score" style="border: 3px solid var(--accent); color: var(--accent);">87</div>
+                        <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">Sarah Torres</div>
+                        <div style="color: #666; font-size: 0.75rem; margin-bottom: 8px;">(817) 555-0142</div>
+                        <div class="mock-temp" style="background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2); color: var(--accent);">
+                            <i class="fa-solid fa-fire" style="font-size: 0.65rem;"></i> HOT — Actively asking about term quotes
+                        </div>
+                    </div>
+
+                    <!-- Engagement timeline -->
+                    <div class="mock-timeline">
+                        <div class="mt-node" style="background: var(--accent); color: #000;"><i class="fa-solid fa-check"></i></div>
+                        <div class="mt-line" style="background: var(--accent);"></div>
+                        <div class="mt-node" style="background: var(--accent); color: #000;"><i class="fa-solid fa-check"></i></div>
+                        <div class="mt-line" style="background: var(--accent);"></div>
+                        <div class="mt-node" style="background: var(--accent); color: #000;"><i class="fa-solid fa-check"></i></div>
+                        <div class="mt-line" style="background: rgba(0,217,255,0.3);"></div>
+                        <div class="mt-node" style="background: rgba(0,217,255,0.15); border: 1px solid #00d9ff; color: #00d9ff;"><i class="fa-solid fa-phone"></i></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: #555; margin-top: -4px; margin-bottom: 16px;">
+                        <span>Initial</span><span>Contacted</span><span>Engaged</span><span>Call</span>
+                    </div>
+
+                    <!-- AI Summary -->
+                    <div style="background: rgba(0,217,255,0.04); border: 1px solid rgba(0,217,255,0.1); border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #00d9ff; margin-bottom: 4px;">AI SUMMARY</div>
+                        <p style="font-size: 0.78rem; color: #aaa; margin: 0; line-height: 1.5;">Sarah is comparing 20-year term policies and asked about rates for a $500K policy. She has employer coverage through MetLife but wants personal supplemental coverage.</p>
+                    </div>
+
+                    <!-- Next Best Actions -->
+                    <div style="font-size: 0.68rem; font-weight: 700; color: #555; margin-bottom: 8px;">NEXT BEST ACTIONS</div>
+                    <div class="mock-action"><i class="fa-solid fa-phone" style="color: var(--accent);"></i><span>Call now — she's actively comparing quotes</span></div>
+                    <div class="mock-action"><i class="fa-solid fa-file-lines" style="color: #00d9ff;"></i><span>Prepare $500K term comparison from 3 carriers</span></div>
+                    <div class="mock-action"><i class="fa-solid fa-triangle-exclamation" style="color: orange;"></i><span>Address MetLife portability limitations</span></div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="dialer-feature-card">
-                    <div class="icon"><i class="fa-solid fa-hand"></i></div>
-                    <h5>Live Handoff</h5>
-                    <p>When the AI is on a call, listen in real time. Hit intercept to take over. The lead never knows the difference.</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="dialer-feature-card">
-                    <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
-                    <h5>Spam Protection</h5>
-                    <p>Built-in spam score monitoring and number reputation tracking. Know when your numbers are at risk before your connect rate drops.</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="dialer-feature-card">
-                    <div class="icon"><i class="fa-solid fa-calendar-check"></i></div>
-                    <h5>Calendar Booking</h5>
-                    <p>The AI can book appointments directly to your calendar mid-call. Leads get confirmed while they're still on the phone.</p>
+
+                <!-- Right: Messages -->
+                <div class="if-panel">
+                    <!-- iPhone apps bar -->
+                    <div class="apps-bar" style="padding: 8px 0 12px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px;">
+                        <div class="app-icon">
+                            <div class="icon-wrap" style="background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.15);">
+                                <i class="fa-solid fa-comment" style="color: var(--accent); font-size: 0.9rem;"></i>
+                                <div class="badge-dot" style="background: #ef4444;">2</div>
+                            </div>
+                            <div class="label">Messages</div>
+                        </div>
+                        <div class="app-icon">
+                            <div class="icon-wrap" style="background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.15);">
+                                <i class="fa-solid fa-phone" style="color: #00d9ff; font-size: 0.9rem;"></i>
+                            </div>
+                            <div class="label">Calls</div>
+                        </div>
+                        <div class="app-icon">
+                            <div class="icon-wrap" style="background: rgba(233,30,99,0.1); border: 1px solid rgba(233,30,99,0.15);">
+                                <i class="fa-solid fa-microphone" style="color: #e91e63; font-size: 0.9rem;"></i>
+                            </div>
+                            <div class="label">Recordings</div>
+                        </div>
+                        <div class="app-icon">
+                            <div class="icon-wrap" style="background: rgba(255,165,0,0.1); border: 1px solid rgba(255,165,0,0.15);">
+                                <i class="fa-solid fa-inbox" style="color: orange; font-size: 0.9rem;"></i>
+                            </div>
+                            <div class="label">Inbox</div>
+                        </div>
+                    </div>
+
+                    <div class="mock-msg in">Hi, I got your text about life insurance. What kind of rates can I get for a $500K term policy?</div>
+                    <div class="mock-msg out">Great question! For a 20-year $500K term, rates depend on your age and health. Most of our carriers start around $25-45/mo. What's your DOB?</div>
+                    <div class="mock-msg in">I'm 34, non-smoker, good health. I have MetLife through my job but want something personal too.</div>
+                    <div class="mock-msg out">Smart move — employer plans don't follow you if you leave. At 34, preferred non-tobacco, you're looking at some great rates. Want to hop on a quick call so I can pull exact quotes?</div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <div style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 8px 14px; font-size: 0.75rem; color: #555;">Type a message...</div>
+                        <div style="width: 32px; height: 32px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-paper-plane" style="font-size: 0.65rem; color: #000;"></i></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- How It Works -->
-<section class="section" style="padding-top: 0;">
+
+<!-- ═══════════════ SMART FILTERS ═══════════════ -->
+<section class="dlr-section">
+    <div class="container">
+        <div class="row align-items-center g-5" data-aos="fade-up">
+            <div class="col-lg-5">
+                <div class="dlr-section-label">AI-Powered</div>
+                <h2 class="dlr-section-title">Smart Filters That <span style="color: #00d9ff;">Actually Think</span></h2>
+                <p style="color: #888; font-size: 0.95rem; line-height: 1.7; margin-bottom: 20px;">
+                    Most dialers sort contacts by "last replied." Ours reads every conversation, scores engagement, and groups leads by AI temperature. A lead who said "not interested" gets classified as <strong style="color: #888;">cold</strong> — not hot because they responded recently.
+                </p>
+                <p style="color: #666; font-size: 0.88rem; line-height: 1.7;">
+                    Zero rule-based fallbacks. If the AI hasn't analyzed a contact yet, it shows "pending" — not a fake score. Classification updates automatically after every new message.
+                </p>
+            </div>
+            <div class="col-lg-7">
+                <div style="background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div style="padding: 16px; border-radius: 12px; border-left: 3px solid #ef4444; background: rgba(239,68,68,0.04);">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: #ef4444; margin-bottom: 4px;"><i class="fa-solid fa-flag me-1"></i>SHOULD RESPOND</div>
+                            <p style="color: #777; font-size: 0.75rem; margin: 0;">Lead is waiting for a reply, asked a question, or expressed interest. You need to act now.</p>
+                        </div>
+                        <div style="padding: 16px; border-radius: 12px; border-left: 3px solid var(--accent); background: rgba(0,255,136,0.04);">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--accent); margin-bottom: 4px;"><i class="fa-solid fa-fire me-1"></i>HOT LEADS</div>
+                            <p style="color: #777; font-size: 0.75rem; margin: 0;">Actively buying, asking for quotes, comparing coverage, ready to book an appointment.</p>
+                        </div>
+                        <div style="padding: 16px; border-radius: 12px; border-left: 3px solid orange; background: rgba(255,165,0,0.04);">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: orange; margin-bottom: 4px;"><i class="fa-solid fa-temperature-half me-1"></i>WARM LEADS</div>
+                            <p style="color: #777; font-size: 0.75rem; margin: 0;">Engaged, sharing info, genuine interest — but not quite ready to commit yet.</p>
+                        </div>
+                        <div style="padding: 16px; border-radius: 12px; border-left: 3px solid #00d9ff; background: rgba(0,217,255,0.04);">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: #00d9ff; margin-bottom: 4px;"><i class="fa-solid fa-snowflake me-1"></i>COOL</div>
+                            <p style="color: #777; font-size: 0.75rem; margin: 0;">Went quiet, slow or short replies, soft objections. Still worth a follow-up.</p>
+                        </div>
+                        <div style="padding: 16px; border-radius: 12px; border-left: 3px solid #666; background: rgba(100,100,100,0.04);">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: #888; margin-bottom: 4px;"><i class="fa-solid fa-icicles me-1"></i>COLD</div>
+                            <p style="color: #777; font-size: 0.75rem; margin: 0;">Said no, stopped responding, or explicitly declined. "No thanks" = cold, not hot.</p>
+                        </div>
+                        <div style="padding: 16px; border-radius: 12px; border-left: 3px solid #e91e63; background: rgba(233,30,99,0.04);">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: #e91e63; margin-bottom: 4px;"><i class="fa-solid fa-ban me-1"></i>DO NOT CONTACT</div>
+                            <p style="color: #777; font-size: 0.75rem; margin: 0;">Opted out via DnD flag or stop keywords. Automatically excluded from dialing.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ VOICE AI ═══════════════ -->
+<section class="dlr-section">
     <div class="container">
         <div class="text-center mb-5" data-aos="fade-up">
-            <span style="background: rgba(0,217,255,0.1); color: #00d9ff; padding: 6px 18px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid rgba(0,217,255,0.2);">HOW IT WORKS</span>
-            <h2 class="section-title" style="margin-top: 16px;">Simple. <span style="color: #00d9ff;">Fast.</span></h2>
+            <div class="dlr-section-label">Voice AI Agent</div>
+            <h2 class="dlr-section-title">The AI Picks Up. <span style="color: #e91e63;">You Decide When to Jump In.</span></h2>
+            <p style="color: #777; max-width: 640px; margin: 0 auto;">Powered by xAI's Grok speech-to-speech. Zero transcription delay. The AI qualifies leads, handles objections, and books appointments on the call. You listen live and intercept whenever you're ready.</p>
         </div>
-        <div class="glass-card p-5" data-aos="fade-up">
-            <div class="step-row d-flex align-items-start gap-4">
-                <div class="step-num">1</div>
-                <div>
-                    <h5 style="color: #fff; font-weight: 700;">Upload Your List</h5>
-                    <p style="color: #aaa; margin: 0;">Import leads from your CRM or upload a CSV. The dialer queues them in order.</p>
+
+        <!-- Call controls mockup -->
+        <div data-aos="fade-up" style="max-width: 600px; margin: 0 auto 40px;">
+            <div style="background: #0a0a0a; border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px; text-align: center;">
+                <div style="font-size: 0.72rem; color: var(--accent); font-weight: 700; margin-bottom: 4px;">LIVE CALL</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: #fff;">Sarah Torres</div>
+                <div style="font-size: 0.78rem; color: #666; margin-bottom: 4px;">(817) 555-0142</div>
+                <div style="font-size: 1.6rem; font-weight: 300; color: #00d9ff; font-variant-numeric: tabular-nums;">02:34</div>
+
+                <div class="call-controls">
+                    <div class="cc-btn active" title="Listen"><i class="fa-solid fa-headphones"></i></div>
+                    <div class="cc-btn" title="Mute AI"><i class="fa-solid fa-microphone-slash"></i></div>
+                    <div class="cc-btn" title="Intercept"><i class="fa-solid fa-hand"></i></div>
+                    <div class="cc-btn" title="Transfer"><i class="fa-solid fa-right-left"></i></div>
+                    <div class="cc-btn" title="Keypad"><i class="fa-solid fa-grip"></i></div>
+                    <div class="cc-btn danger" title="End Call"><i class="fa-solid fa-phone-slash"></i></div>
+                </div>
+
+                <div style="display: flex; justify-content: center; gap: 24px; margin-top: 8px; font-size: 0.68rem; color: #555;">
+                    <span>Listen</span><span>Mute AI</span><span>Intercept</span><span>Transfer</span><span>Keypad</span><span>End</span>
                 </div>
             </div>
-            <div class="step-row d-flex align-items-start gap-4">
-                <div class="step-num">2</div>
-                <div>
-                    <h5 style="color: #fff; font-weight: 700;">Hit Dial</h5>
-                    <p style="color: #aaa; margin: 0;">The dialer calls each lead. If there's no answer or it hits voicemail, it automatically retries up to 3 times before moving on.</p>
+        </div>
+
+        <div class="voice-strip" data-aos="fade-up">
+            <div class="vs-card">
+                <h5 style="color: #e91e63;"><i class="fa-solid fa-robot me-2"></i>AI Mode</h5>
+                <p>The AI answers the call, qualifies the lead, handles objections, and books — all autonomously. You listen in real time and intercept with one click when you're ready to close.</p>
+                <div class="voice-tags">
+                    <span class="voice-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Speech-to-Speech</span>
+                    <span class="voice-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Live Eavesdrop</span>
+                    <span class="voice-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">One-Click Takeover</span>
+                    <span class="voice-tag" style="background: rgba(233,30,99,0.08); color: #e91e63;">Voicemail Detection</span>
                 </div>
             </div>
-            <div class="step-row d-flex align-items-start gap-4">
-                <div class="step-num">3</div>
-                <div>
-                    <h5 style="color: #fff; font-weight: 700;">Talk or Let the AI Talk</h5>
-                    <p style="color: #aaa; margin: 0;">When someone picks up, either you're on the line or the AI handles it. In AI mode, listen live and intercept whenever you're ready to close.</p>
+            <div class="vs-card">
+                <h5 style="color: #00d9ff;"><i class="fa-solid fa-user me-2"></i>Human Mode</h5>
+                <p>You take every call yourself via browser VoIP or phone transfer. The AI stays out of the way — but the dialer still auto-retries, queues leads, and tracks everything.</p>
+                <div class="voice-tags">
+                    <span class="voice-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Browser VoIP</span>
+                    <span class="voice-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Phone Transfer</span>
+                    <span class="voice-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">DTMF Keypad</span>
+                    <span class="voice-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Call Recording</span>
                 </div>
             </div>
-            <div class="step-row d-flex align-items-start gap-4">
-                <div class="step-num">4</div>
-                <div>
-                    <h5 style="color: #fff; font-weight: 700;">Close or Move On</h5>
-                    <p style="color: #aaa; margin: 0;">Book the appointment, close the deal, or let the AI handle it. The dialer keeps working through your list while you focus on selling.</p>
+        </div>
+
+        <div class="text-center mt-4" data-aos="fade-up">
+            <p style="color: #666; font-size: 0.85rem;"><strong>7 voice personalities</strong>: Ara, Eve, Leo, Rex, Sal, Mika, Vale &bull; Inbound + Outbound &bull; Unlimited minutes included</p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ DIALING ENGINE ═══════════════ -->
+<section class="dlr-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <div class="dlr-section-label">Dialing Engine</div>
+            <h2 class="dlr-section-title">Load. Dial. <span style="color: #00d9ff;">Never Miss a Lead.</span></h2>
+        </div>
+
+        <div class="feat-col" data-aos="fade-up">
+            <div class="feat-item">
+                <i class="fa-solid fa-layer-group" style="color: #00d9ff;"></i>
+                <h6>Queue Dialing</h6>
+                <p>Add one contact, a batch, or your entire filtered list. The dialer auto-advances through calls with configurable retry attempts.</p>
+            </div>
+            <div class="feat-item">
+                <i class="fa-solid fa-rotate-right" style="color: var(--accent);"></i>
+                <h6>Auto-Retry</h6>
+                <p>No answer? The dialer redials up to 3 times per lead automatically. Configurable attempts, voicemail detection, and skip logic.</p>
+            </div>
+            <div class="feat-item">
+                <i class="fa-solid fa-voicemail" style="color: #e91e63;"></i>
+                <h6>Voicemail Detection</h6>
+                <p>AI-based detection — not slow AMD. Catches voicemail phrases instantly on first word. Skips and moves to the next lead.</p>
+            </div>
+            <div class="feat-item">
+                <i class="fa-solid fa-microphone-lines" style="color: #00d9ff;"></i>
+                <h6>Recording + Transcription</h6>
+                <p>Every call recorded automatically. On-demand AI transcription via Whisper. Review, search, and train from your call library.</p>
+            </div>
+            <div class="feat-item">
+                <i class="fa-solid fa-shield-halved" style="color: var(--accent);"></i>
+                <h6>Spam Protection</h6>
+                <p>Number reputation monitoring, spam score tracking, and CNAM caller ID. Know when your numbers are at risk before connect rates drop.</p>
+            </div>
+            <div class="feat-item">
+                <i class="fa-solid fa-calendar-check" style="color: #e91e63;"></i>
+                <h6>Live Calendar Booking</h6>
+                <p>The AI books directly to your calendar mid-call. The lead gets confirmed while they're still on the phone. No follow-up needed.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ═══════════════ STATISTICS ═══════════════ -->
+<section class="dlr-section">
+    <div class="container">
+        <div class="row align-items-center g-5" data-aos="fade-up">
+            <div class="col-lg-5">
+                <div class="dlr-section-label">Built-In Analytics</div>
+                <h2 class="dlr-section-title">Know Your <span style="color: #00d9ff;">Numbers</span></h2>
+                <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">
+                    Real-time KPIs, duration breakdown, disposition tracking, daily volume charts, and best-hours analysis. Toggle between today, this week, this month, or all time. No third-party analytics needed.
+                </p>
+            </div>
+            <div class="col-lg-7">
+                <div class="stats-mock">
+                    <div class="sm-card">
+                        <div class="val" style="color: #00d9ff;">247</div>
+                        <div class="lbl">Total Dials</div>
+                        <div class="delta" style="color: var(--accent);"><i class="fa-solid fa-arrow-up" style="font-size: 0.55rem;"></i> 12%</div>
+                    </div>
+                    <div class="sm-card">
+                        <div class="val" style="color: var(--accent);">68</div>
+                        <div class="lbl">Connected</div>
+                        <div class="delta" style="color: var(--accent);"><i class="fa-solid fa-arrow-up" style="font-size: 0.55rem;"></i> 8%</div>
+                    </div>
+                    <div class="sm-card">
+                        <div class="val" style="color: #e91e63;">27.5%</div>
+                        <div class="lbl">Connect Rate</div>
+                        <div class="delta" style="color: var(--accent);"><i class="fa-solid fa-arrow-up" style="font-size: 0.55rem;"></i> 3%</div>
+                    </div>
+                    <div class="sm-card">
+                        <div class="val" style="color: orange;">4:32</div>
+                        <div class="lbl">Avg Duration</div>
+                        <div class="delta" style="color: #888;">— 0%</div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px;">
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #555; margin-bottom: 10px;">DISPOSITIONS</div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <div style="flex: 1; height: 6px; border-radius: 3px; background: rgba(0,217,255,0.2);"><div style="width: 40%; height: 100%; border-radius: 3px; background: #00d9ff;"></div></div>
+                            <span style="font-size: 0.68rem; color: #888; width: 60px;">No Answer</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <div style="flex: 1; height: 6px; border-radius: 3px; background: rgba(0,255,136,0.2);"><div style="width: 28%; height: 100%; border-radius: 3px; background: var(--accent);"></div></div>
+                            <span style="font-size: 0.68rem; color: #888; width: 60px;">Voicemail</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="flex: 1; height: 6px; border-radius: 3px; background: rgba(233,30,99,0.2);"><div style="width: 15%; height: 100%; border-radius: 3px; background: #e91e63;"></div></div>
+                            <span style="font-size: 0.68rem; color: #888; width: 60px;">Hung Up</span>
+                        </div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 16px;">
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #555; margin-bottom: 10px;">BEST HOURS</div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent);">1.</span>
+                            <span style="font-size: 0.78rem; color: #aaa;">10:00 AM</span>
+                            <span style="font-size: 0.68rem; color: #555; margin-left: auto;">34 calls</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #00d9ff;">2.</span>
+                            <span style="font-size: 0.78rem; color: #aaa;">2:00 PM</span>
+                            <span style="font-size: 0.68rem; color: #555; margin-left: auto;">28 calls</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #e91e63;">3.</span>
+                            <span style="font-size: 0.78rem; color: #aaa;">11:00 AM</span>
+                            <span style="font-size: 0.68rem; color: #555; margin-left: auto;">22 calls</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- CTA -->
-<section class="section" style="padding-top: 0;">
+
+<!-- ═══════════════ CTA ═══════════════ -->
+<section class="dlr-section">
     <div class="container">
-        <div class="glass-card p-5 text-center" data-aos="zoom-in" style="border-color: rgba(0,255,136,0.15); background: linear-gradient(135deg, rgba(0,255,136,0.04), rgba(0,217,255,0.03));">
+        <div style="background: linear-gradient(135deg, rgba(0,217,255,0.06), rgba(0,255,136,0.04)); border: 1px solid rgba(0,217,255,0.12); border-radius: 20px; padding: 60px 40px; text-align: center;" data-aos="zoom-in">
             <h2 style="font-size: 2.4rem; font-weight: 900; color: #fff; margin-bottom: 12px;">Start Dialing.</h2>
-            <p style="color: #aaa; font-size: 1.1rem; max-width: 550px; margin: 0 auto 24px;">The dialer is included with every InsuranceGrokBot plan. No extra fees. No per-minute charges.</p>
+            <p style="color: #888; font-size: 1.05rem; max-width: 550px; margin: 0 auto 28px;">The dialer is included with every InsuranceGrokBot plan. No extra fees. No per-minute charges. No separate subscription.</p>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <a href="/#pricing" class="btn btn-primary btn-lg px-5">Get Started — $149.99/mo</a>
                 <a href="https://api.leadconnectorhq.com/widget/booking/S4knucFaXO769HDFlRtv" target="_blank" rel="noopener noreferrer" class="btn btn-lg" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; font-weight: 700; border: none;">
