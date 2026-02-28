@@ -485,6 +485,13 @@ def training_recordings():
     try:
         cur = conn.cursor()
 
+        # Ensure disposition column exists (added dynamically, may not be in schema)
+        try:
+            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
         # Build WHERE clause
         where = ["location_id = %s"]
         params = [location_id]
@@ -506,7 +513,8 @@ def training_recordings():
         cur.execute(f"""
             SELECT id, contact_id, contact_name, phone, direction, call_sid,
                    status, duration, recording_url, recording_sid, transcript,
-                   started_at, ended_at, created_at, disposition
+                   started_at, ended_at, created_at,
+                   COALESCE(disposition, '') as disposition
             FROM call_history
             WHERE {where_sql}
             ORDER BY created_at DESC
@@ -515,6 +523,10 @@ def training_recordings():
         rows = cur.fetchall()
         cur.close()
 
+        # Build absolute audio URL so training platform can download recordings
+        base_url = request.url_root.rstrip('/')
+        token = request.headers.get("Authorization", "")[7:].strip()
+
         recordings = []
         for row in rows:
             r = dict(row)
@@ -522,6 +534,11 @@ def training_recordings():
             for ts_field in ("started_at", "ended_at", "created_at"):
                 if r.get(ts_field):
                     r[ts_field] = r[ts_field].isoformat()
+            # Replace relative proxy path with absolute training-authenticated URL
+            if r.get("recording_sid"):
+                r["audio_url"] = f"{base_url}/api/v1/training/recordings/{r['call_sid']}/audio"
+            else:
+                r["audio_url"] = None
             recordings.append(r)
 
         return jsonify({
@@ -555,10 +572,19 @@ def training_recording_detail(call_sid):
         return api_error("Database unavailable.", error_type="server_error", status=503)
     try:
         cur = conn.cursor()
+
+        # Ensure disposition column exists
+        try:
+            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
         cur.execute("""
             SELECT id, contact_id, contact_name, phone, direction, call_sid,
                    status, duration, recording_url, recording_sid, transcript,
-                   started_at, ended_at, created_at, disposition
+                   started_at, ended_at, created_at,
+                   COALESCE(disposition, '') as disposition
             FROM call_history
             WHERE location_id = %s AND call_sid = %s
             LIMIT 1
@@ -573,6 +599,13 @@ def training_recording_detail(call_sid):
         for ts_field in ("started_at", "ended_at", "created_at"):
             if r.get(ts_field):
                 r[ts_field] = r[ts_field].isoformat()
+
+        # Add absolute audio download URL
+        base_url = request.url_root.rstrip('/')
+        if r.get("recording_sid"):
+            r["audio_url"] = f"{base_url}/api/v1/training/recordings/{r['call_sid']}/audio"
+        else:
+            r["audio_url"] = None
 
         return jsonify(r)
     except Exception as e:
@@ -626,3 +659,74 @@ def training_stats():
         return api_error("Failed to fetch stats.", error_type="server_error", status=500)
     finally:
         return_db_connection(conn)
+
+
+# ═══════════════════════════════════════════════════════════════
+# GET /api/v1/training/recordings/<call_sid>/audio — Stream MP3
+# ═══════════════════════════════════════════════════════════════
+
+@api_bp.route("/training/recordings/<call_sid>/audio", methods=["GET"])
+@require_training_token
+def training_recording_audio(call_sid):
+    """
+    Stream the MP3 recording for a call, authenticated via training token.
+    This replaces the @login_required proxy at /voice/recording/<recording_sid>.
+    """
+    from flask import Response
+    sub = g.training_subscriber
+    location_id = sub.get("location_id")
+    vc = sub.get("voice_config") or {}
+    sub_sid = vc.get("twilio_sub_account_sid", "")
+
+    if not sub_sid:
+        return api_error("No Twilio account configured.", code="not_configured", status=400)
+
+    # Look up recording_sid from call_history
+    conn = get_db_connection()
+    if not conn:
+        return api_error("Database unavailable.", error_type="server_error", status=503)
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT recording_sid FROM call_history
+            WHERE location_id = %s AND call_sid = %s AND recording_sid IS NOT NULL
+            LIMIT 1
+        """, (location_id, call_sid))
+        row = cur.fetchone()
+        cur.close()
+    except Exception as e:
+        logger.error(f"training_recording_audio DB failed: {e}")
+        return api_error("Database error.", error_type="server_error", status=500)
+    finally:
+        return_db_connection(conn)
+
+    if not row or not row.get("recording_sid"):
+        return api_error("Recording not found or not yet available.", code="not_found", status=404)
+
+    recording_sid = row["recording_sid"]
+
+    # Fetch MP3 from Twilio using sub-account credentials
+    try:
+        import twilio_provisioning
+        mp3_url = twilio_provisioning.get_recording_url(sub_sid, recording_sid)
+
+        import httpx as http_requests
+        tw_resp = http_requests.get(
+            mp3_url,
+            auth=(twilio_provisioning.TWILIO_ACCOUNT_SID,
+                  twilio_provisioning.TWILIO_AUTH_TOKEN),
+            timeout=30,
+            follow_redirects=True,
+        )
+        if tw_resp.status_code != 200:
+            logger.error(f"Twilio recording fetch failed: {tw_resp.status_code} for {recording_sid}")
+            return api_error("Recording not available from Twilio.", code="upstream_error", status=502)
+
+        return Response(
+            tw_resp.content,
+            content_type=tw_resp.headers.get("Content-Type", "audio/mpeg"),
+            headers={"Content-Disposition": f'attachment; filename="recording-{call_sid}.mp3"'},
+        )
+    except Exception as e:
+        logger.error(f"training_recording_audio proxy failed: {e}")
+        return api_error("Failed to fetch recording.", error_type="server_error", status=500)

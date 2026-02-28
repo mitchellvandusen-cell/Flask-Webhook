@@ -24,6 +24,32 @@
 | 2026-02-26 | iPhone 15 Pro UI for dialer, OAuth security hardening (CSRF/PKCE/encryption), GHL iframe embedding fixes |
 | 2026-02-27 | Lead Intelligence + Smart Filters, Training integration, persistent contact cache, CRM 429 elimination |
 | 2026-02-28 | GHL Data Sync Engine, SMS channel selection (GHL vs Twilio), unified Inbox app, AI-powered intelligence via xAI Grok |
+| 2026-02-28 | AI-powered Smart Filters (replaced rule-based), training platform recording fix, human-mode recording fix |
+
+---
+
+## 2026-02-28 (continued)
+
+### AI-Powered Smart Filters — Complete Rewrite
+- **Replaced rule-based classification with AI**: Smart Filters in the dialer no longer use heuristics like "responded within 48h = hot." Every contact is now classified by xAI Grok reading the full conversation history. A lead who texted "not interested" is correctly classified as **cold**, not hot.
+- **New AI fields**: Enhanced the AI micro-prompt in `lead_intelligence.py` to return `should_respond` (bool — does the agent need to act NOW?), `should_respond_reason` (why), and `engagement_level` (0-3 depth of interaction). All fields validated and cached.
+- **Critical classification rules**: Explicit instructions to AI: hot = actively buying/quoting, cold = said no/stop/not interested, should_respond = lead is waiting for a reply, engagement_level = depth of actual conversation (not just message count).
+- **Removed ALL rule-based fallbacks**: `_igbLeadScore()` no longer has a 20-line heuristic with hardcoded point values. `_igbEngageLevel()` no longer counts calls/messages. `_igbShouldRespond()` no longer compares timestamps. All return -1 (pending) until AI has analyzed.
+- **Pending state UI**: Score ring shows "?" with empty ring, engagement dots show neutral/dimmed with "AI analyzing..." tooltip, score label shows "..." — all instead of fake numbers from rules.
+- **7 Smart Filter groups** (priority order): Should Respond (red), Hot (green), Warm (orange), Cool (blue), Cold (gray), Do Not Contact (red), Analyzing... (spinner).
+
+### RQ Worker Offload for Smart Filters
+- **Background AI processing**: All contact intelligence analysis runs on RQ workers (not gunicorn web threads). New tasks: `analyze_contact_intelligence_task()` (single) and `analyze_contacts_batch_task()` (batch of 10, 60s timeout).
+- **Auto re-analysis**: After `process_webhook_task` processes an SMS, it auto-queues `analyze_contact_intelligence_task` to RQ so the contact's classification stays fresh without user action.
+- **Persistent cache**: Results stored in `contact_intelligence` table with message-based invalidation (no time-based expiry). Once analyzed, classification persists until new messages arrive.
+- **Poll-based frontend**: Frontend queues RQ jobs via `POST /voice/contact-intelligence-analyze`, then polls `GET /voice/contact-intelligence-bulk` every 4 seconds. As workers complete, contacts move from "Analyzing..." into correct groups.
+- **Bulk zero-cost reads**: `get_bulk_cached_intelligence()` uses LEFT JOIN LATERAL for efficient bulk cache reads (zero AI cost on repeat loads).
+
+### Training Platform Recording Fix (4 bugs)
+- **BUG FIX: Human mode calls never recorded**: `outbound_twiml()` returned TwiML for human mode BEFORE the `start_recording()` call, so human-mode dialer calls had no recordings. Moved recording initiation above the human-mode early return — now ALL dial modes (AI + human) get recorded when `auto_record` is enabled.
+- **BUG FIX: Training API `disposition` column crash**: `GET /api/v1/training/recordings` queried `disposition` column directly, but it's added dynamically via `ALTER TABLE IF NOT EXISTS` in other endpoints. If never called, the column didn't exist → 500 error. Added the same `ALTER TABLE IF NOT EXISTS` guard + `COALESCE(disposition, '')` safe fallback.
+- **BUG FIX: Recording proxy requires `@login_required`**: Training platform authenticates via Bearer `trn_` token, but recording downloads at `/voice/recording/<sid>` required a Flask-Login session. Added new `GET /api/v1/training/recordings/<call_sid>/audio` endpoint authenticated via `@require_training_token` that proxies MP3 from Twilio.
+- **BUG FIX: Relative recording URLs**: Training API returned relative paths like `/voice/recording/RE...` which the external training platform couldn't use. Now returns absolute `audio_url` field pointing to the new training-authenticated audio endpoint.
 
 ---
 
