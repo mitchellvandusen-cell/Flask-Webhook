@@ -1203,6 +1203,21 @@ def outbound_twiml():
         _active_calls[call_sid]['status'] = 'in-progress'
         _active_calls[call_sid]['_host'] = request.host
 
+    # Start recording in background (applies to ALL dial modes including human)
+    host = request.host
+    subscriber = _get_subscriber_by_location(location_id) if location_id else None
+    if subscriber:
+        vc = subscriber.get('voice_config') or {}
+        sub_sid = vc.get('twilio_sub_account_sid', '')
+        if vc.get('auto_record', True) and sub_sid and call_sid:
+            def _start_rec():
+                time.sleep(0.5)
+                try:
+                    twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
+                except Exception as e:
+                    logger.warning(f"Auto-record failed: {e}")
+            threading.Thread(target=_start_rec, daemon=True).start()
+
     # For human VoIP mode, bridge the PSTN callee to the browser agent
     if dial_mode == 'human':
         identity = f"agent_{location_id}" if location_id else ""
@@ -1219,7 +1234,7 @@ def outbound_twiml():
             twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
         return Response(twiml, content_type='text/xml')
 
-    host = request.host
+    # (host already set above for recording)
     stream_url = f'wss://{host}/voice/stream'
 
     client_state = _encode_client_state({
@@ -1231,20 +1246,6 @@ def outbound_twiml():
         'contact_name': contact_name,
         'dial_mode':    dial_mode,
     })
-
-    # Start recording in background
-    subscriber = _get_subscriber_by_location(location_id) if location_id else None
-    if subscriber:
-        vc = subscriber.get('voice_config') or {}
-        sub_sid = vc.get('twilio_sub_account_sid', '')
-        if vc.get('auto_record', True) and sub_sid and call_sid:
-            def _start_rec():
-                time.sleep(0.5)
-                try:
-                    twilio_provisioning.start_recording(sub_sid, call_sid, f'https://{host}')
-                except Exception as e:
-                    logger.warning(f"Auto-record failed: {e}")
-            threading.Thread(target=_start_rec, daemon=True).start()
 
     params = {'client_state': client_state, 'callSid': call_sid}
     twiml = _build_twiml_stream(stream_url, params)

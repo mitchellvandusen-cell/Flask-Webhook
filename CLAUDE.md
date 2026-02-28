@@ -295,6 +295,13 @@ All tables created in `db.py`'s `init_db()` function:
 ### External API (Blueprint, api_v1.py)
 - `POST /api/v1/chat/completions` — OpenAI-compatible chat completions endpoint (Bearer token auth, 120 req/min rate limit)
 
+### Training API (Blueprint, api_v1.py — `trn_` token auth)
+- `GET /api/v1/training/validate` — Verify training token is valid, return account info
+- `GET /api/v1/training/recordings` — Paginated call recordings with transcripts (limit, offset, since, direction params)
+- `GET /api/v1/training/recordings/<call_sid>` — Single recording detail by call SID
+- `GET /api/v1/training/recordings/<call_sid>/audio` — Stream MP3 recording (training-token authenticated, proxies from Twilio)
+- `GET /api/v1/training/stats` — Summary statistics (total calls, with_recording, with_transcript, durations)
+
 ### Voice (Blueprint, voice_bridge.py)
 - Voice WebSocket routes for Twilio ↔ xAI Realtime API bridging
 - `POST /voice/transfer-complete` — Twilio action callback when transfer `<Dial>` ends; returns `<Hangup/>` to release parent call
@@ -410,14 +417,24 @@ A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated reg
 
 ### AI-Powered Smart Filters (Dialer)
 
-The dialer's Smart Filters use AI intelligence to classify contacts — NOT simple rules like "customer responded = hot." The AI reads full conversation history before classifying.
+The dialer's Smart Filters use AI intelligence to classify contacts — NOT simple rules like "customer responded = hot." The AI reads full conversation history before classifying. There are ZERO rule-based fallbacks — if AI hasn't analyzed a contact, it shows "pending" (score "?", neutral dots) instead of fake scores.
+
+**AI output fields** (per contact):
+- `temperature`: hot/warm/cool/cold — based on what the lead ACTUALLY SAID, not response timing
+- `temperature_reason`: One sentence explaining the rating
+- `score`: 0-100 likelihood to convert (a "not interested" lead gets 5-15, not 50+)
+- `should_respond`: true/false — AI determines if the agent needs to act NOW (reads conversation)
+- `should_respond_reason`: Why the agent should or should not respond
+- `engagement_level`: 0-3 depth of interaction (0=no contact, 1=surface, 2=real conversation, 3=deep engagement)
+- `summary`: 2-sentence situational snapshot with specific details
+- `actions`: 2-4 specific next steps with FontAwesome icons
 
 **Groups** (priority order):
-1. **Should Respond** (red) — AI says hot/warm AND lead's last message is unanswered (lead sent a message after the bot's last message)
-2. **Hot Leads** (green) — AI temperature = "hot" (actively buying, quoting, strong buying signals)
-3. **Warm Leads** (orange) — AI temperature = "warm" (engaged, responding positively)
-4. **Cool** (blue) — AI temperature = "cool" (went quiet, slow replies)
-5. **Cold** (gray) — AI temperature = "cold" (no engagement, ghosting, not interested)
+1. **Should Respond** (red) — AI `should_respond=true` (lead is waiting for a reply, asked a question, expressed interest)
+2. **Hot Leads** (green) — AI temperature = "hot" (actively buying, quoting, asking for coverage, ready to book)
+3. **Warm Leads** (orange) — AI temperature = "warm" (engaged, sharing info, genuine interest)
+4. **Cool** (blue) — AI temperature = "cool" (went quiet, slow/short replies, soft objections)
+5. **Cold** (gray) — AI temperature = "cold" (said no/stop/not interested, ghosting — "no thanks" = COLD not hot)
 6. **Do Not Contact** (red) — Opted out via DnD flag or stop keywords
 7. **Analyzing...** (spinner) — Contacts pending AI analysis (auto-triggered in background)
 
@@ -439,6 +456,15 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 - Bearer token authentication with constant-time comparison (`hmac.compare_digest`)
 - Rate limit: `API_RATE_LIMIT_RPM` env var (default 120 req/min) using Redis sliding window
 - Per-key usage logged to `api_usage_logs` table
+
+### Training Integration API
+- `trn_` token authentication via `@require_training_token` decorator (constant-time comparison, 60 req/min rate limit)
+- Training tokens stored in `subscribers.voice_config` JSONB (`training_token`, `training_token_created_at`)
+- Generated/revoked via dashboard: `POST /api/training/generate-code`, `POST /api/training/revoke-code`
+- `GET /api/v1/training/recordings` — Paginated call records with absolute `audio_url` for MP3 download
+- `GET /api/v1/training/recordings/<call_sid>/audio` — Streams MP3 from Twilio via training token auth (bypasses `@login_required` proxy)
+- `GET /api/v1/training/stats` — Aggregate call statistics for the authenticated account
+- Recording URLs: Stored as `/voice/recording/{recording_sid}` internally (proxy); training API returns absolute `audio_url` pointing to `/api/v1/training/recordings/{call_sid}/audio`
 
 ---
 
@@ -598,7 +624,7 @@ python worker.py demo
 - `_showDashToast(ok, msg)` global utility injected by `dashboard.html` before all JS modules — used by all save functions for consistent bottom-right toast feedback
 - On-demand recording transcription via `POST /voice/transcribe-recording` — downloads MP3 from Twilio, transcribes via xAI Whisper, saves to `call_history.transcript`
 - `ghl_sync.py` uses `_api_get()` with exponential backoff + 429/401 handling for all GHL API calls
-- `lead_intelligence.py` fires one AI micro-prompt per contact, caches results in `contact_intelligence` table; cache invalidated by new messages or 6-hour TTL. Bulk cache reads power Smart Filters; batch analysis auto-runs for uncached contacts
+- `lead_intelligence.py` fires one AI micro-prompt per contact returning temperature, score, should_respond, engagement_level, summary, and actions; caches in `contact_intelligence` table; cache invalidated ONLY when new messages arrive (no time-based expiry). Bulk cache reads power Smart Filters; batch analysis auto-runs for uncached contacts
 - SMS routing: `tasks.py` checks `sms_send_via` column — `'ghl'` routes through GHL API, `'+1...'` routes through `twilio_sms.py` direct sender
 - Dialer uses iPhone-style app paradigm: `iosOpenApp()` / `iosGoHome()` for Messages, Calls, Voicemail, and Inbox apps
 - `_loadContactIntelligence(contactId)` async-loads AI intelligence into `#igb-ai-summary`, `#igb-nba-section`, `#igb-pipeline-badge` placeholders in contact detail panel; also updates `_igbIntelCache` so Smart Filter groups re-render in real time
