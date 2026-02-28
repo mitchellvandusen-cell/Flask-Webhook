@@ -475,6 +475,31 @@
 
             actionsBar.style.display = 'block';
 
+            // Check if a pipeline or stage filter is active
+            const manualWrap = document.getElementById('dialerPipelineManual');
+            const pipelineVal = (manualWrap && manualWrap.style.display !== 'none')
+                ? (document.getElementById('dialerPipelineManualInput').value || '').trim()
+                : (document.getElementById('dialerPipelineFilter').value || '');
+            const stageVal = (document.getElementById('dialerStageFilter').value || '');
+            const pipelineActive = !!(pipelineVal || stageVal);
+
+            // If pipeline filter is active, skip Smart Filters and show flat list with pipeline header
+            if (pipelineActive) {
+                const pipelineName = document.getElementById('dialerPipelineFilter');
+                const stageName = document.getElementById('dialerStageFilter');
+                const pLabel = pipelineName ? (pipelineName.options[pipelineName.selectedIndex] || {}).text || '' : '';
+                const sLabel = stageName ? (stageName.options[stageName.selectedIndex] || {}).text || '' : '';
+                const filterDesc = sLabel && sLabel !== 'All Stages' ? pLabel + ' — ' + sLabel : pLabel;
+                let html = '<div style="padding:4px 10px 2px;display:flex;align-items:center;gap:5px;">' +
+                    '<i class="fa-solid fa-filter" style="color:#00d9ff;font-size:.6rem;"></i>' +
+                    '<span style="font-size:.6rem;color:#444;letter-spacing:.3px;text-transform:uppercase;font-weight:700;">Pipeline: ' + filterDesc + '</span>' +
+                    '<span style="font-size:.6rem;color:#555;margin-left:auto;">' + dialerContacts.length + ' contacts</span>' +
+                '</div>';
+                html += dialerContacts.map(c => _igbRenderContactRow(c)).join('');
+                list.innerHTML = html;
+                return;
+            }
+
             // If we have engagement or AI data, show grouped view with Smart Filters
             const hasEngData = Object.keys(_igbEngagementCache).length > 0 || Object.keys(_igbIntelCache).length > 0;
             if (hasEngData) {
