@@ -113,7 +113,7 @@
                 } else if (dialerPipelines.length === 0) {
                     sel.style.display = 'block';
                     manualWrap.style.display = 'none';
-                    sel.innerHTML = '<option value="">All Contacts</option><option value="" disabled style="color:#555;">No pipelines found in GHL</option>';
+                    sel.innerHTML = '<option value="">All Contacts</option><option value="" disabled style="color:#555;">No pipelines found in LeadConnector</option>';
                     stageSel.disabled = true;
                     stageSel.innerHTML = '<option value="">All Stages (no pipelines)</option>';
                 } else {
@@ -906,7 +906,7 @@
             if (_dlrAvailableChannels.includes('ghl')) {
                 var opt = document.createElement('option');
                 opt.value = 'ghl';
-                opt.textContent = 'GHL / Lead Connector';
+                opt.textContent = 'LeadConnector';
                 sel.appendChild(opt);
             }
             if (_dlrAvailableChannels.includes('twilio')) {
@@ -937,7 +937,7 @@
                     badge.style.borderColor = 'rgba(0,217,255,0.15)';
                     badge.style.color = '#00d9ff';
                 } else {
-                    badge.textContent = 'via GHL';
+                    badge.textContent = 'via LeadConnector';
                     badge.style.background = 'rgba(74,222,128,0.07)';
                     badge.style.borderColor = 'rgba(74,222,128,0.15)';
                     badge.style.color = '#4ade80';
@@ -1260,7 +1260,7 @@
             }
 
             const channel = dlrGetChannel();
-            const channelLabel = channel === 'twilio' ? 'InsuranceGrokBot' : 'GHL';
+            const channelLabel = channel === 'twilio' ? 'InsuranceGrokBot' : 'LeadConnector';
 
             // Optimistic UI — append pending bubble immediately
             const pendingId = 'sms_' + Date.now();
@@ -3353,7 +3353,7 @@
                 bar.style.width = '100%';
                 if (msgs === 0) {
                     // No GHL call data found — likely WAVV/external dialer
-                    label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no GHL call history found';
+                    label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no LeadConnector call history found';
                     bar.style.background = 'linear-gradient(90deg,#334,#445)';
                     detail.textContent = contacts + ' contacts checked · calls were likely made via external dialer (WAVV, etc.)';
                     pct.textContent = '';
@@ -3381,7 +3381,7 @@
             }
 
             // Running
-            label.textContent = 'Scanning GHL for call history...';
+            label.textContent = 'Scanning LeadConnector for call history...';
             detail.textContent = contacts + ' contacts scanned · ' + msgs.toLocaleString() + ' records found';
 
             // Estimate progress: typical agency is 500-3000 contacts
@@ -3649,7 +3649,7 @@
                     }
                 })
                 .catch(() => {
-                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:0.85rem;color:#888;">Sync in progress...</div><div style="font-size:0.75rem;color:#555;margin-top:8px;">Conversations will appear once GHL data is synced</div></div>';
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:0.85rem;color:#888;">Sync in progress...</div><div style="font-size:0.75rem;color:#555;margin-top:8px;">Conversations will appear once LeadConnector data is synced</div></div>';
                 });
         }
 
