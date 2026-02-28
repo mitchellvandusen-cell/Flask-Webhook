@@ -176,10 +176,18 @@
             currentRequest = new AbortController();
             const timeoutId = setTimeout(() => currentRequest.abort(), 15000);
 
+            // Collect conversation history from the DOM for AI context
+            const history = [];
+            chatBody.querySelectorAll('.msg').forEach(m => {
+                const role = m.classList.contains('user') ? 'user' : 'assistant';
+                const content = m.querySelector('.msg-content');
+                if (content) history.push({ role: role, content: content.textContent.trim() });
+            });
+
             fetch('/website-bot-webhook', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text }),
+                body: JSON.stringify({ message: text, history: history }),
                 signal: currentRequest.signal
             })
             .then(res => res.json())

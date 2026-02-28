@@ -6678,289 +6678,175 @@ def reviews():
 @app.route("/website-bot-webhook", methods=["POST"])
 def website_bot_webhook():
     """
-    Smart routing chat - qualifies visitors, answers questions, routes to action.
-    No AI needed, instant responses, actually sells.
+    AI-powered website chat agent using Grok.
+    Handles product questions, qualification, and routing to action.
     """
     payload = request.get_json(silent=True) or {}
     user_message = payload.get('message', '').strip()
+    chat_history = payload.get('history', [])
 
     if not user_message:
         return flask_jsonify({"status": "error"}), 400
 
-    msg_lower = user_message.lower()
-
-    # =====================================================
-    # INIT & QUALIFICATION
-    # =====================================================
+    # ── Scripted fast-paths (no API cost) ──
 
     if user_message == "INIT_CHAT":
         return flask_jsonify({
-            "text": "Hey! I'm actually the product you're looking at right now. Quick question - are you a solo agent or do you run an agency?",
+            "text": "Hey! I'm the AI behind InsuranceGrokBot. I can answer any question about the platform, show you a demo, or help you get started. What brings you here?",
             "options": [
-                {"label": "Solo Agent", "value": "individual"},
-                {"label": "Agency Owner", "value": "agency"}
+                {"label": "What is this?", "value": "what_is_this"},
+                {"label": "Show me pricing", "value": "show_pricing"},
+                {"label": "Try the demo", "value": "go_demo"}
             ]
         })
 
-    # =====================================================
-    # INDIVIDUAL PATH
-    # =====================================================
-
-    if user_message == "individual":
+    # Quick-action button routes (instant, no AI call)
+    if user_message == "go_demo":
         return flask_jsonify({
-            "text": "Nice. So right now you're manually following up with leads, right? Or maybe you've got some basic automation that sounds like a robot?",
-            "options": [
-                {"label": "Yeah, manual follow-up", "value": "individual_manual"},
-                {"label": "I have automation but it sucks", "value": "individual_bad_auto"},
-                {"label": "Just curious what this is", "value": "individual_curious"}
-            ]
-        })
-
-    if user_message == "individual_manual":
-        return flask_jsonify({
-            "text": "That's where most leads die. You get busy, forget to follow up, and that lead who was warm 3 days ago is now cold. I fix that. I respond instantly - even at 2am - and I actually sound human. Want to see how I handle a cold lead?",
-            "options": [
-                {"label": "Show me", "value": "demo"},
-                {"label": "What does it cost?", "value": "pricing_individual"}
-            ]
-        })
-
-    if user_message == "individual_bad_auto":
-        return flask_jsonify({
-            "text": "Let me guess - keyword triggers, canned responses, and leads can tell it's a bot within 2 messages? I'm different. I use 5 actual sales methodologies - NEPQ, Gap Selling, Chris Voss tactics. I handle objections, remember everything about the lead, and book appointments on your calendar. Want to see?",
-            "options": [
-                {"label": "Try the demo", "value": "demo"},
-                {"label": "What's it cost?", "value": "pricing_individual"}
-            ]
-        })
-
-    if user_message == "individual_curious":
-        return flask_jsonify({
-            "text": "Short version: I'm an AI that responds to your insurance leads via SMS. But I'm not a dumb chatbot - I use real sales frameworks, remember the entire conversation history, handle objections like a human setter, and book appointments directly on your calendar. All while you sleep.",
-            "options": [
-                {"label": "See it in action", "value": "demo"},
-                {"label": "How is this different?", "value": "comparison"},
-                {"label": "Pricing", "value": "pricing_individual"}
-            ]
-        })
-
-    # =====================================================
-    # AGENCY PATH
-    # =====================================================
-
-    if user_message == "agency":
-        return flask_jsonify({
-            "text": "Nice. How many agents do you have under you right now?",
-            "options": [
-                {"label": "Under 10", "value": "agency_small"},
-                {"label": "10-50", "value": "agency_medium"},
-                {"label": "50+", "value": "agency_large"}
-            ]
-        })
-
-    if user_message == "agency_small":
-        return flask_jsonify({
-            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $797.99/month covers up to 14 agents.",
-            "options": [
-                {"label": "How does that work exactly?", "value": "agency_how"},
-                {"label": "Show me the demo", "value": "demo"},
-                {"label": "What's included?", "value": "agency_features"}
-            ]
-        })
-
-    if user_message in ["agency_medium", "agency_large"]:
-        return flask_jsonify({
-            "text": "At your scale, lead leakage is probably costing you six figures a year. Here's what I do: every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Unlimited sub-accounts for $1,597.99/month flat.",
-            "options": [
-                {"label": "How does multi-tenant work?", "value": "agency_how"},
-                {"label": "Show me the demo", "value": "demo"},
-                {"label": "What makes this different?", "value": "comparison"}
-            ]
-        })
-
-    if user_message == "agency_how":
-        return flask_jsonify({
-            "text": "Simple: You connect your Lead Connector agency account. I automatically see all your sub-accounts. Each one gets their own instance of me - same sales brain, but configured for their calendar and timezone. When a lead texts into Location A, I respond as Location A's setter and book on their calendar. You see all conversations from one dashboard. Your agents don't need to do anything.",
-            "options": [
-                {"label": "What do my agents see?", "value": "agency_agent_view"},
-                {"label": "Try the demo", "value": "demo"},
-                {"label": "Pricing", "value": "pricing_agency"}
-            ]
-        })
-
-    if user_message == "agency_agent_view":
-        return flask_jsonify({
-            "text": "Your agents see conversations happening in their Lead Connector inbox like normal. They can jump in anytime if needed. But mostly they just see appointments showing up on their calendar with qualified leads. The AI does the grunt work, they do the closing.",
-            "options": [
-                {"label": "That sounds good", "value": "demo"},
-                {"label": "What's pricing?", "value": "pricing_agency"}
-            ]
-        })
-
-    if user_message == "agency_features":
-        return flask_jsonify({
-            "text": "Agency Starter ($797.99/mo) includes: Up to 14 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
-            "options": [
-                {"label": "Start free trial", "value": "signup_agency_starter"},
-                {"label": "See it work first", "value": "demo"},
-                {"label": "What if I have more than 10?", "value": "agency_pro_info"}
-            ]
-        })
-
-    if user_message == "agency_pro_info":
-        return flask_jsonify({
-            "text": "Agency Pro is $1,597.99/month for unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents - scale as big as you want, price stays the same.",
-            "options": [
-                {"label": "Get started", "value": "signup_agency_pro"},
-                {"label": "Try demo first", "value": "demo"}
-            ]
-        })
-
-    # =====================================================
-    # FEATURES & COMPARISON
-    # =====================================================
-
-    if user_message == "comparison" or "different" in msg_lower or "vs" in msg_lower or "compare" in msg_lower:
-        return flask_jsonify({
-            "text": "Most bots use keyword matching - they're dumb. I use 5 real sales frameworks: NEPQ for emotional gaps, Chris Voss tactics for objections, Gap Selling to create urgency, plus Straight Line and Zig Ziglar methods. I also have persistent memory - I remember everything about every lead forever. And I understand underwriting, so I pre-qualify before the call.",
-            "redirect": "/comparison"
-        })
-
-    if "memory" in msg_lower or "remember" in msg_lower:
-        return flask_jsonify({
-            "text": "I remember everything. If a lead mentioned their wife's name 3 months ago, I still know it. If they said they had diabetes, I factor that into underwriting. No awkward 'what was your name again?' moments. This is why I can re-engage cold leads that other bots can't.",
-            "options": [
-                {"label": "See it in action", "value": "demo"},
-                {"label": "What else is different?", "value": "comparison"}
-            ]
-        })
-
-    if "underwriting" in msg_lower or "pre-qualify" in msg_lower or "health" in msg_lower:
-        return flask_jsonify({
-            "text": "I ask the right health questions before they ever get on your calendar. Diabetes? Heart issues? Smoker? I know what carriers need and I gather that info naturally in conversation. You get on calls with qualified leads, not people who can't get approved.",
-            "options": [
-                {"label": "Show me how", "value": "demo"},
-                {"label": "Pricing", "value": "pricing_individual"}
-            ]
-        })
-
-    if "methodology" in msg_lower or "framework" in msg_lower or "nepq" in msg_lower or "sales" in msg_lower:
-        return flask_jsonify({
-            "text": "I blend 5 proven frameworks: NEPQ (emotional gap questions), Gap Selling (current state vs future state), Chris Voss (labeling, no-oriented questions), Straight Line (always advancing), and Zig Ziglar (help first, objections = requests for clarity). This isn't scripted - I adapt to each conversation.",
-            "options": [
-                {"label": "See it handle objections", "value": "demo"},
-                {"label": "Pricing", "value": "pricing_individual"}
-            ]
-        })
-
-    if "book" in msg_lower or "calendar" in msg_lower or "appointment" in msg_lower:
-        return flask_jsonify({
-            "text": "I connect directly to your Lead Connector calendar. When a lead is ready, I show them available slots and book it - no links to click, no friction. The appointment shows up on your calendar with all the context: what they said, their health info, what objections came up. You walk into the call prepared.",
-            "options": [
-                {"label": "Try the demo", "value": "demo"},
-                {"label": "Pricing", "value": "pricing_individual"}
-            ]
-        })
-
-    # =====================================================
-    # PRICING
-    # =====================================================
-
-    if user_message == "pricing_individual" or (("price" in msg_lower or "cost" in msg_lower or "how much" in msg_lower) and "agency" not in msg_lower):
-        return flask_jsonify({
-            "text": "$98.99/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic. 7-day free trial to make sure it works for you.",
-            "options": [
-                {"label": "Start free trial", "value": "signup_individual"},
-                {"label": "See it first", "value": "demo"}
-            ]
-        })
-
-    if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
-        return flask_jsonify({
-            "text": "Two options: Agency Starter is $797.99/month for up to 14 sub-accounts. Agency Pro is $1,597.99/month for 15+ sub-accounts (unlimited). Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
-            "options": [
-                {"label": "Agency Starter ($797.99)", "value": "signup_agency_starter"},
-                {"label": "Agency Pro ($1,597.99)", "value": "signup_agency_pro"},
-                {"label": "See demo first", "value": "demo"}
-            ]
-        })
-
-    # =====================================================
-    # SIGNUP ROUTES
-    # =====================================================
-
-    if user_message == "demo":
-        return flask_jsonify({
-            "text": "Let's do it. I'll show you exactly how I talk to a cold insurance lead.",
+            "text": "Let's do it. I'll show you exactly how I handle a cold insurance lead.",
             "redirect": "/demo-chat"
         })
-
-    if user_message == "signup_individual":
+    if user_message == "go_checkout":
         return flask_jsonify({
-            "text": "Let's get you set up. 7-day free trial, cancel anytime.",
+            "text": "Let's get you set up. Cancel anytime, no contracts.",
             "redirect": "/checkout"
         })
-
-    if user_message == "signup_agency_starter":
+    if user_message == "go_comparison":
         return flask_jsonify({
-            "text": "Good choice. 7-day free trial for up to 14 sub-accounts.",
-            "redirect": "/checkout/agency-starter"
+            "text": "Here's the full breakdown — feature by feature against 12 competitors.",
+            "redirect": "/comparison"
         })
-
-    if user_message == "signup_agency_pro":
+    if user_message == "go_about":
         return flask_jsonify({
-            "text": "Let's scale. Unlimited sub-accounts, one flat price.",
-            "redirect": "/checkout/agency-pro"
+            "text": "Here's the full story of why InsuranceGrokBot was built.",
+            "redirect": "/about"
         })
-
-    # =====================================================
-    # FAQ / OBJECTION HANDLING
-    # =====================================================
-
-    if "trial" in msg_lower or "free" in msg_lower:
+    if user_message == "go_contact":
         return flask_jsonify({
-            "text": "7-day free trial on Individual and Agency Starter plans. Full access, no card required to try the demo. Cancel anytime during trial.",
-            "options": [
-                {"label": "Start trial", "value": "signup_individual"},
-                {"label": "Try demo first", "value": "demo"}
-            ]
-        })
-
-    if "ghl" in msg_lower or "gohighlevel" in msg_lower or "highlevel" in msg_lower or "crm" in msg_lower or "lead connector" in msg_lower:
-        return flask_jsonify({
-            "text": "I integrate directly with Lead Connector. You connect via OAuth (one click), and I automatically see your contacts, calendars, and conversations. Works with any plan - agency or location level.",
-            "options": [
-                {"label": "See integration", "value": "demo"},
-                {"label": "Get started", "value": "signup_individual"}
-            ]
-        })
-
-    if "support" in msg_lower or "help" in msg_lower or "setup" in msg_lower:
-        return flask_jsonify({
-            "text": "Setup takes about 5 minutes - connect Lead Connector, configure your calendar, done. All plans include support. Agency Pro includes white-glove onboarding where we set everything up for you.",
-            "options": [
-                {"label": "Start setup", "value": "signup_individual"},
-                {"label": "Questions first", "value": "contact"}
-            ]
-        })
-
-    if user_message == "contact" or "contact" in msg_lower or "talk to" in msg_lower or "human" in msg_lower:
-        return flask_jsonify({
-            "text": "Want to talk to the team?",
+            "text": "Here's how to reach the team.",
             "redirect": "/contact"
         })
+    if user_message == "show_pricing":
+        return flask_jsonify({
+            "text": "Individual plan is $149.99/month — that includes AI texting, smart dialer, AI calling, lead intelligence, unlimited minutes, and all 5 sales frameworks. No contracts, cancel anytime. Agency plans are custom pricing — book a call for that.",
+            "options": [
+                {"label": "Get started", "value": "go_checkout"},
+                {"label": "Try demo first", "value": "go_demo"}
+            ]
+        })
+    if user_message == "what_is_this":
+        return flask_jsonify({
+            "text": "InsuranceGrokBot is an all-in-one AI platform built for life insurance agents. It handles your SMS follow-up automatically — reads the conversation, handles objections, and books appointments on your calendar. It also has a smart dialer with AI lead scoring and an AI voice agent that can take calls for you. One subscription replaces your dialer, text bot, and lead scoring tools.",
+            "options": [
+                {"label": "See it in action", "value": "go_demo"},
+                {"label": "How is it different?", "value": "go_comparison"},
+                {"label": "Pricing", "value": "show_pricing"}
+            ]
+        })
 
-    # =====================================================
-    # FALLBACK
-    # =====================================================
+    # ── AI-powered responses via Grok ──
 
-    return flask_jsonify({
-        "text": "Best way to understand what I do is to see it. I'll show you how I handle a real cold insurance lead.",
-        "options": [
-            {"label": "Show me", "value": "demo"},
-            {"label": "Just tell me pricing", "value": "pricing_individual"}
-        ]
-    })
+    if not client:
+        return flask_jsonify({
+            "text": "I'm having trouble connecting right now. Try the demo at /demo-chat or check out pricing at the bottom of the page.",
+            "options": [
+                {"label": "Try demo", "value": "go_demo"},
+                {"label": "See pricing", "value": "show_pricing"}
+            ]
+        })
+
+    system_prompt = """You are the AI sales assistant on the InsuranceGrokBot website. You're talking to insurance agents visiting the site.
+
+PRODUCT KNOWLEDGE:
+- InsuranceGrokBot is an all-in-one AI platform built specifically for life insurance agents
+- Three products in one: AI SMS texting, Smart Dialer, and AI Voice Calling
+- Individual plan: $149.99/month. Cancel anytime. No contracts. No free trial.
+- Agency plan: Custom pricing — visitors should book a call
+- AI SMS Handler: reads lead messages, understands insurance context, crafts intelligent replies, handles objections, books appointments on the agent's real calendar — all automatically, 24/7
+- Smart Dialer: auto-retry up to 3x per lead, voicemail detection, AI-powered lead scoring (hot/warm/cool/cold from actual conversation analysis), Smart Filters that sort leads by temperature, AI-to-human live handoff
+- AI Voice Agent: speech-to-speech via Grok (zero transcription delay), qualifies leads mid-call, handles objections, books appointments on the call, 7 voice personalities
+- 270+ insurance carrier recognition database with live underwriting rules
+- 5 sales frameworks built in: NEPQ, Gap Selling, Chris Voss, Straight Line, Zig Ziglar
+- Persistent memory: remembers everything about every lead across all conversations — never asks duplicate questions
+- 7 CRM integrations: LeadConnector/GHL, HubSpot, Salesforce, Pipedrive, Zoho, Insureio, Zapier
+- Unified dashboard: CRM data, inbox, dialer, calendar, team chat (Discord) — replaces 5+ separate tools
+- InsuranceGrokBot Training: separate platform where agents learn sales skills — tonality, scripts, objection handling, pre-framing
+- Built by an active insurance agent who was frustrated with the existing tools
+- This is NOT just a dialer (like WAVV or Mojo) — those only help you call faster. IGB has an AI brain that reads conversations, scores leads, texts automatically, and books appointments without human intervention
+
+RESPONSE RULES:
+- Keep responses under 3 sentences. Be direct, conversational, confident.
+- Talk like a top-producing insurance agent, not a marketer. No fluff.
+- When relevant, suggest a next action with one of these exact JSON option values: go_demo, go_checkout, go_comparison, go_about, go_contact, show_pricing
+- When the user asks about pricing, give the $149.99/mo individual price directly. For agency, say it's custom and suggest booking a call.
+- Never mention a free trial — there isn't one.
+- Never make up features that don't exist.
+- If asked about competitors (WAVV, Mojo, PhoneBurner, CloseBot), be factual: they're dialers or basic bots. IGB is an autonomous AI platform. Don't trash them, just state what they lack.
+
+RESPONSE FORMAT:
+Return valid JSON with these fields:
+- "text": your response (string, required)
+- "options": array of {label, value} for quick-action buttons (optional, max 3)
+  Use these values: go_demo, go_checkout, go_comparison, go_about, go_contact, show_pricing, or a natural short question the user might ask next
+- "redirect": a URL path to navigate to (optional, only if the user explicitly wants to go somewhere)
+
+Example: {"text": "That's $149.99/month. Unlimited AI texting, smart dialer, AI calling, lead intelligence — everything included.", "options": [{"label": "Get started", "value": "go_checkout"}, {"label": "Try the demo", "value": "go_demo"}]}"""
+
+    # Build messages array with conversation history
+    messages = [{"role": "system", "content": system_prompt}]
+
+    # Add conversation history (limit to last 10 exchanges)
+    for msg in chat_history[-20:]:
+        role = msg.get('role', 'user')
+        content = msg.get('content', '')
+        if role in ('user', 'assistant') and content:
+            messages.append({"role": role, "content": content})
+
+    # Add the current user message
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        response = client.chat.completions.create(
+            model="grok-3-mini-fast",
+            messages=messages,
+            max_tokens=300,
+            temperature=0.7,
+        )
+        raw = response.choices[0].message.content.strip()
+
+        # Try to parse as JSON
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+        try:
+            result = json.loads(raw)
+            # Validate structure
+            if isinstance(result, dict) and 'text' in result:
+                return flask_jsonify(result)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # If JSON parse failed, return the raw text as a plain response
+        return flask_jsonify({
+            "text": raw[:500],
+            "options": [
+                {"label": "Try the demo", "value": "go_demo"},
+                {"label": "See pricing", "value": "show_pricing"}
+            ]
+        })
+
+    except Exception as e:
+        logger.error(f"Website chat AI error: {e}")
+        return flask_jsonify({
+            "text": "Let me point you in the right direction — what are you most interested in?",
+            "options": [
+                {"label": "See it in action", "value": "go_demo"},
+                {"label": "Pricing", "value": "show_pricing"},
+                {"label": "How it compares", "value": "go_comparison"}
+            ]
+        })
+
 
 
 # ════════════════════════════════════════════════════════════════════════════
