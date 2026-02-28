@@ -917,6 +917,346 @@ def run_incremental_sync_all():
     return stats
 
 
+# ─── Deep Initial Sync (One-Time Historical Pull) ────────────────────────────
+
+# GHL API rate limit: ~100 requests/minute for most endpoints.
+# We pace ourselves just below that and wait when hit.
+_DEEP_SYNC_PACE = 0.7  # seconds between API calls (~85 req/min, safely under 100)
+_DEEP_SYNC_RATE_LIMIT_WAIT = 65  # seconds to wait after a 429
+
+
+def _api_get_paced(url, headers, params=None, timeout=15):
+    """GHL API GET with unlimited retry on rate limits.
+    Unlike _api_get which retries 3 times and gives up, this function waits
+    as long as needed for rate limits to clear. For deep pulls that must
+    finish eventually."""
+    max_retries = 100  # effectively unlimited — 100 rate limit waits = ~100 min
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=timeout)
+
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", _DEEP_SYNC_RATE_LIMIT_WAIT))
+                logger.info(f"[DEEP_SYNC] Rate limited, waiting {retry_after}s (attempt {attempt+1})")
+                _time.sleep(retry_after)
+                continue
+
+            if resp.status_code in (401, 403):
+                return None, "auth_error"
+
+            resp.raise_for_status()
+            return resp.json(), None
+
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response else 0
+            logger.warning(f"[DEEP_SYNC] HTTP {status} attempt {attempt+1}: {url}")
+            _time.sleep(4)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning(f"[DEEP_SYNC] Network error attempt {attempt+1}: {e}")
+            _time.sleep(4)
+        except Exception as e:
+            logger.error(f"[DEEP_SYNC] Unexpected error: {e}", exc_info=True)
+            return None, "unexpected"
+
+    return None, "max_retries"
+
+
+def deep_sync_conversations(location_id, access_token=None):
+    """One-time deep historical pull of ALL conversation data from GHL.
+
+    Differences from sync_ghl_conversations:
+    - No page cap — pulls every message for every contact
+    - Paced to stay just under GHL rate limit (85 req/min)
+    - Unlimited retry on 429s — waits and continues, never gives up
+    - Tracks progress in ghl_sync_state as 'conversations_deep'
+    - Only runs once — checks for prior completion before starting
+    - Can resume from where it left off if interrupted (uses cursor)
+
+    After this completes, all new calls go through our dialer (call_history)
+    and the regular incremental sync handles any GHL-side activity.
+    """
+    if not access_token:
+        access_token = get_valid_token(location_id)
+    if not access_token or access_token == 'DEMO':
+        return {"synced": 0, "error": "no_token"}
+
+    conn = get_db_connection()
+    if not conn:
+        return {"synced": 0, "error": "no_db"}
+
+    headers = _get_headers(access_token)
+    total_synced = 0
+    contacts_processed = 0
+
+    try:
+        # Check if deep sync already completed
+        state = _get_sync_state(conn, location_id, 'conversations_deep')
+        if state and state.get('sync_status') == 'completed':
+            logger.info(f"[DEEP_SYNC] {location_id} | Already completed, skipping")
+            return {"synced": state.get('total_synced', 0), "status": "already_completed"}
+
+        # Check if already running (prevent overlap)
+        if state and state.get('sync_status') == 'running':
+            last = state.get('last_sync_at')
+            if last:
+                if isinstance(last, str):
+                    last = datetime.fromisoformat(last.replace('Z', '+00:00'))
+                age = datetime.utcnow() - (last.replace(tzinfo=None) if hasattr(last, 'tzinfo') and last.tzinfo else last)
+                if age < timedelta(hours=2):
+                    return {"synced": 0, "status": "already_running"}
+
+        _update_sync_state(conn, location_id, 'conversations_deep', 'running')
+
+        # Get resume cursor (contact index) if resuming from interruption
+        resume_index = 0
+        if state and state.get('last_cursor'):
+            try:
+                resume_index = int(state['last_cursor'])
+                total_synced = state.get('total_synced', 0) or 0
+            except (ValueError, TypeError):
+                pass
+
+        # Step 1: Get ALL contacts (no cap)
+        contact_ids = _deep_get_all_contacts(location_id, headers)
+        total_contacts = len(contact_ids)
+
+        if not contact_ids:
+            _update_sync_state(conn, location_id, 'conversations_deep', 'completed', total=0)
+            return {"synced": 0, "contacts": 0}
+
+        logger.info(f"[DEEP_SYNC] {location_id} | Starting deep pull for {total_contacts} contacts"
+                     f" (resuming from #{resume_index})" if resume_index else "")
+
+        # Step 2: For each contact, pull ALL messages (no page cap)
+        for i, contact_id in enumerate(contact_ids):
+            if i < resume_index:
+                continue  # Skip already-processed contacts on resume
+
+            try:
+                count = _deep_sync_contact(conn, location_id, contact_id, headers)
+                total_synced += count
+                contacts_processed += 1
+
+                # Pace ourselves: ~85 requests/min
+                _time.sleep(_DEEP_SYNC_PACE)
+
+                # Update progress every 5 contacts
+                if contacts_processed % 5 == 0:
+                    _update_sync_state(conn, location_id, 'conversations_deep', 'running',
+                                       cursor=str(i + 1), total=total_synced)
+                    logger.info(f"[DEEP_SYNC] {location_id} | Progress: {i+1}/{total_contacts} contacts, "
+                                f"{total_synced} messages synced")
+
+            except Exception as e:
+                logger.warning(f"[DEEP_SYNC] {location_id} | Error on contact {contact_id}: {e}")
+                # Save progress so we can resume
+                _update_sync_state(conn, location_id, 'conversations_deep', 'running',
+                                   cursor=str(i), total=total_synced)
+                continue
+
+        # Mark as completed — this sync never needs to run again
+        _update_sync_state(conn, location_id, 'conversations_deep', 'completed',
+                           cursor=str(total_contacts), total=total_synced)
+        logger.info(f"[DEEP_SYNC] {location_id} | COMPLETE: {total_contacts} contacts, "
+                    f"{total_synced} messages synced")
+
+        return {
+            "synced": total_synced,
+            "contacts": total_contacts,
+            "status": "completed",
+        }
+
+    except Exception as e:
+        logger.error(f"[DEEP_SYNC] {location_id} | FAILED: {e}", exc_info=True)
+        _update_sync_state(conn, location_id, 'conversations_deep', 'failed',
+                           cursor=str(resume_index + contacts_processed),
+                           total=total_synced, error=str(e)[:500])
+        return {"synced": total_synced, "error": str(e), "status": "failed"}
+    finally:
+        return_db_connection(conn)
+
+
+def _deep_get_all_contacts(location_id, headers):
+    """Fetch ALL contact IDs from GHL with no cap. Paced for rate limits."""
+    contact_ids = []
+    url = f"{GHL_BASE}/contacts/"
+    params = {"locationId": location_id, "limit": 100}
+    max_pages = 200  # 200 pages × 100 = 20,000 contacts (safety)
+
+    for page in range(max_pages):
+        data, err = _api_get_paced(url, headers, params=params)
+        if err or not data:
+            break
+
+        contacts = data.get("contacts", [])
+        for c in contacts:
+            cid = c.get("id")
+            if cid:
+                contact_ids.append(cid)
+
+        if not contacts:
+            break
+
+        # Check for next page
+        meta = data.get("meta", {})
+        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
+
+        if start_after:
+            params["startAfterId"] = start_after
+        elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
+            url = next_page_url
+            params = {}
+        else:
+            break
+
+        _time.sleep(_DEEP_SYNC_PACE)
+
+    logger.info(f"[DEEP_SYNC] {location_id} | Found {len(contact_ids)} contacts")
+    return contact_ids
+
+
+def _deep_sync_contact(conn, location_id, contact_id, headers):
+    """Pull ALL messages for a single contact. No page cap. Returns count."""
+    # Find conversation
+    search_url = f"{GHL_BASE}/conversations/search"
+    data, err = _api_get_paced(search_url, headers,
+                                params={"locationId": location_id, "contactId": contact_id})
+    if err or not data:
+        return 0
+
+    convos = data.get("conversations", [])
+    if not convos:
+        return 0
+
+    convo_id = convos[0].get("id")
+    if not convo_id:
+        return 0
+
+    contact_name = convos[0].get("contactName") or convos[0].get("fullName") or ""
+    contact_phone = convos[0].get("phone") or ""
+
+    # Fetch ALL messages — no page cap
+    msg_url = f"{GHL_BASE}/conversations/{convo_id}/messages"
+    messages_to_insert = []
+    max_pages = 100  # 100 pages × 100 msgs = 10,000 per contact (safety)
+
+    for page in range(max_pages):
+        params = {"limit": 100}
+        data, err = _api_get_paced(msg_url, headers, params=params)
+        if err or not data:
+            break
+
+        messages_payload = data.get("messages", [])
+        if isinstance(messages_payload, dict):
+            raw_messages = messages_payload.get("messages", [])
+            next_page = messages_payload.get("nextPage")
+            last_msg_id = messages_payload.get("lastMessageId")
+        elif isinstance(messages_payload, list):
+            raw_messages = messages_payload
+            next_page = None
+            last_msg_id = None
+        else:
+            break
+
+        if not raw_messages:
+            break
+
+        for m in raw_messages:
+            if not isinstance(m, dict):
+                continue
+
+            ghl_msg_id = m.get("id") or m.get("messageId")
+            if not ghl_msg_id:
+                continue
+
+            date_added = m.get("dateAdded") or m.get("createdAt") or m.get("created_at")
+            direction = m.get("direction", "inbound")
+            body = m.get("body") or m.get("text") or ""
+            msg_type, source = _classify_message_type(m)
+
+            messages_to_insert.append((
+                location_id, contact_id, contact_name, contact_phone,
+                convo_id, msg_type, direction, body[:5000], source,
+                ghl_msg_id, date_added
+            ))
+
+        # Pagination
+        if not next_page and not last_msg_id:
+            break
+        if last_msg_id:
+            msg_url = f"{GHL_BASE}/conversations/{convo_id}/messages?lastMessageId={last_msg_id}"
+
+        _time.sleep(_DEEP_SYNC_PACE)
+
+    # Bulk upsert
+    if messages_to_insert:
+        try:
+            cur = conn.cursor()
+            from psycopg2.extras import execute_values
+            execute_values(cur, """
+                INSERT INTO ghl_conversations
+                    (location_id, contact_id, contact_name, contact_phone,
+                     conversation_id, message_type, direction, body, source,
+                     ghl_message_id, date_added, synced_at)
+                VALUES %s
+                ON CONFLICT (ghl_message_id) DO UPDATE SET
+                    body = EXCLUDED.body,
+                    synced_at = NOW()
+            """, [(
+                *row, datetime.utcnow()
+            ) for row in messages_to_insert],
+            template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"[DEEP_SYNC] Bulk insert failed for {contact_id}: {e}")
+            return 0
+
+    return len(messages_to_insert)
+
+
+def get_deep_sync_status(location_id):
+    """Get deep sync status for frontend progress display.
+    Returns dict with status, progress %, contacts done/total, messages synced."""
+    conn = get_db_connection()
+    if not conn:
+        return {"status": "unknown"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT sync_status, last_cursor, total_synced, error_message, last_sync_at
+            FROM ghl_sync_state
+            WHERE location_id = %s AND resource_type = 'conversations_deep'
+        """, (location_id,))
+        row = cur.fetchone()
+        cur.close()
+
+        if not row:
+            return {"status": "not_started"}
+
+        status = row['sync_status']
+        cursor = int(row['last_cursor'] or 0)
+        total_synced = row['total_synced'] or 0
+
+        result = {
+            "status": status,
+            "contacts_processed": cursor,
+            "messages_synced": total_synced,
+            "last_update": row['last_sync_at'].isoformat() if row['last_sync_at'] else None,
+        }
+
+        if status == 'failed':
+            result["error"] = row['error_message']
+
+        return result
+    except Exception:
+        return {"status": "unknown"}
+    finally:
+        return_db_connection(conn)
+
+
 # ─── Query Functions (used by other modules) ─────────────────────────────────
 
 def get_merged_call_count(location_id, contact_id):
