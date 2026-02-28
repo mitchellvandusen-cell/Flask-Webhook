@@ -635,6 +635,8 @@ def api_save_config():
         cur = conn.cursor()
         calendar_name = data.get('calendar_name', '')
 
+        sms_send_via = data.get('sms_send_via', 'ghl')
+
         if current_user.role == 'agency_owner':
             cur.execute("""
                 UPDATE agency_billing
@@ -646,6 +648,7 @@ def api_save_config():
                     timezone         = %s,
                     initial_message  = %s,
                     personal_website = %s,
+                    sms_send_via     = %s,
                     updated_at       = NOW()
                 WHERE agency_email = %s
             """, (
@@ -657,6 +660,7 @@ def api_save_config():
                 data.get('timezone', ''),
                 data.get('initial_message', ''),
                 data.get('personal_website') or None,
+                sms_send_via,
                 current_user.email,
             ))
         else:
@@ -670,6 +674,7 @@ def api_save_config():
                     timezone         = %s,
                     initial_message  = %s,
                     personal_website = %s,
+                    sms_send_via     = %s,
                     updated_at       = NOW()
                 WHERE email = %s
             """, (
@@ -681,6 +686,7 @@ def api_save_config():
                 data.get('timezone', ''),
                 data.get('initial_message', ''),
                 data.get('personal_website') or None,
+                sms_send_via,
                 current_user.email,
             ))
 

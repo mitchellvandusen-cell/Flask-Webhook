@@ -1299,6 +1299,108 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"contact_cache migration note: {e}")
 
+        # ── GHL Sync Engine tables ─────────────────────────────────────────
+        # Phase 1: ghl_conversations — stores ALL GHL conversation messages locally
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_conversations (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT NOT NULL,
+                    contact_name TEXT,
+                    contact_phone TEXT,
+                    conversation_id TEXT,
+                    message_type TEXT DEFAULT 'sms',
+                    direction TEXT DEFAULT 'inbound',
+                    body TEXT,
+                    source TEXT DEFAULT 'ghl_native',
+                    ghl_message_id TEXT UNIQUE NOT NULL,
+                    date_added TEXT,
+                    synced_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_location ON ghl_conversations(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_contact ON ghl_conversations(location_id, contact_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_type ON ghl_conversations(location_id, message_type)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_source ON ghl_conversations(location_id, source)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_conv_date ON ghl_conversations(location_id, date_added DESC)")
+            conn.commit()
+            logger.info("✅ Migration: Created ghl_conversations table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_conversations migration note: {e}")
+
+        # Phase 1: ghl_opportunities — synced pipeline deals from GHL
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_opportunities (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    contact_id TEXT,
+                    pipeline_id TEXT,
+                    pipeline_name TEXT,
+                    stage_id TEXT,
+                    stage_name TEXT,
+                    status TEXT DEFAULT 'open',
+                    monetary_value NUMERIC DEFAULT 0,
+                    source TEXT,
+                    assigned_to TEXT,
+                    ghl_opportunity_id TEXT UNIQUE NOT NULL,
+                    created_at_ghl TEXT,
+                    updated_at_ghl TEXT,
+                    synced_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_location ON ghl_opportunities(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_contact ON ghl_opportunities(location_id, contact_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_pipeline ON ghl_opportunities(location_id, pipeline_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_opp_status ON ghl_opportunities(location_id, status)")
+            conn.commit()
+            logger.info("✅ Migration: Created ghl_opportunities table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_opportunities migration note: {e}")
+
+        # Phase 1: ghl_sync_state — tracks incremental sync progress
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ghl_sync_state (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    last_sync_at TIMESTAMP,
+                    last_cursor TEXT,
+                    sync_status TEXT DEFAULT 'idle',
+                    error_message TEXT,
+                    total_synced INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (location_id, resource_type)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_sync_location ON ghl_sync_state(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_ghl_sync_status ON ghl_sync_state(sync_status)")
+            conn.commit()
+            logger.info("✅ Migration: Created ghl_sync_state table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"ghl_sync_state migration note: {e}")
+
+        # Phase 3: SMS channel selection — sms_send_via column
+        try:
+            cur.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS sms_send_via TEXT DEFAULT 'ghl'
+            """)
+            cur.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS sms_send_via TEXT DEFAULT 'ghl'
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added sms_send_via column")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"sms_send_via migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1375,6 +1477,9 @@ class User(UserMixin):
 
         # Voice AI configuration
         self.voice_config = data.get('voice_config') or {}
+
+        # SMS channel selection: 'ghl' (default) or '+1234567890' (Twilio number)
+        self.sms_send_via = data.get('sms_send_via', 'ghl')
 
         # Timestamps
         self.created_at = data.get('created_at')

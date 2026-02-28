@@ -23,7 +23,7 @@
         function iosOpenApp(app) {
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', inbox: 'iosAppInbox' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -33,11 +33,12 @@
             if (app === 'messages') dlrRefreshMessages();
             if (app === 'calls') dialerLoadAllCallHistory();
             if (app === 'recordings') dialerLoadRecordings();
+            if (app === 'inbox') inboxRefresh();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppInbox'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -728,6 +729,12 @@
                     html += '</div>';
                 }
 
+                // ── Next-Best-Actions (loaded async from intelligence API) ──
+                html += '<div id="igb-nba-section" style="margin-top:8px;"></div>';
+
+                // ── Pipeline Stage Badge ──
+                html += '<div id="igb-pipeline-badge" style="margin-top:6px;"></div>';
+
                 // Notes
                 if (c.notes && c.notes.length) {
                     html += '<div style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);">';
@@ -743,8 +750,56 @@
 
                 panel.innerHTML = html;
                 document.getElementById('dlrDetailActions').style.display = 'none';
+
+                // Async load: Next-Best-Actions + Pipeline from intelligence API
+                _loadContactIntelligence(contactId);
             } catch(e) {
                 panel.innerHTML = '<div style="color:#888;padding:20px;text-align:center;">Failed to load contact</div>';
+            }
+        }
+
+        // ── Contact Intelligence Loader (async, non-blocking) ──
+        async function _loadContactIntelligence(contactId) {
+            try {
+                const r = await fetch('/api/contact/' + contactId + '/intelligence');
+                if (!r.ok) return;
+                const intel = await r.json();
+
+                // Render Next-Best-Actions
+                const nbaSection = document.getElementById('igb-nba-section');
+                if (nbaSection && intel.actions && intel.actions.length) {
+                    let nbaHtml = '<div style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.04);">';
+                    nbaHtml += '<div style="font-size:.68rem;font-weight:700;color:#ff9500;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;"><i class="fa-solid fa-lightbulb me-1"></i>Recommended Actions</div>';
+                    intel.actions.forEach(function(a) {
+                        const priColor = a.priority === 'high' ? '#ff3b30' : a.priority === 'medium' ? '#ff9500' : '#888';
+                        const priBg = a.priority === 'high' ? 'rgba(255,59,48,0.08)' : a.priority === 'medium' ? 'rgba(255,149,0,0.08)' : 'rgba(255,255,255,0.02)';
+                        nbaHtml += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;margin-bottom:4px;background:' + priBg + ';border:1px solid ' + priColor + '22;border-radius:6px;">';
+                        nbaHtml += '<i class="' + (a.icon || 'fa-solid fa-circle') + '" style="color:' + priColor + ';font-size:.7rem;margin-top:2px;flex-shrink:0;"></i>';
+                        nbaHtml += '<div style="flex:1;min-width:0;">';
+                        nbaHtml += '<div style="font-size:.75rem;font-weight:600;color:#ddd;">' + a.action + '</div>';
+                        if (a.reason) nbaHtml += '<div style="font-size:.65rem;color:#888;margin-top:1px;">' + a.reason + '</div>';
+                        nbaHtml += '</div></div>';
+                    });
+                    nbaHtml += '</div>';
+                    nbaSection.innerHTML = nbaHtml;
+                }
+
+                // Render Pipeline Badge
+                const pipelineBadge = document.getElementById('igb-pipeline-badge');
+                if (pipelineBadge && intel.pipeline) {
+                    const p = intel.pipeline;
+                    const statusColor = p.status === 'won' ? '#34C759' : p.status === 'lost' ? '#ff3b30' : '#5B7FFF';
+                    const statusBg = p.status === 'won' ? 'rgba(52,199,89,0.08)' : p.status === 'lost' ? 'rgba(255,59,48,0.08)' : 'rgba(91,127,255,0.08)';
+                    let pHtml = '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:' + statusBg + ';border:1px solid ' + statusColor + '22;border-radius:6px;margin-bottom:4px;">';
+                    pHtml += '<i class="fa-solid fa-chart-line" style="color:' + statusColor + ';font-size:.7rem;"></i>';
+                    pHtml += '<span style="font-size:.72rem;color:#ccc;">' + (p.pipeline_name || 'Pipeline') + '</span>';
+                    pHtml += '<span style="font-size:.72rem;font-weight:700;color:' + statusColor + ';margin-left:auto;">' + (p.stage_name || 'Unknown') + '</span>';
+                    if (p.monetary_value) pHtml += '<span style="font-size:.65rem;color:#888;margin-left:4px;">$' + Number(p.monetary_value).toLocaleString() + '</span>';
+                    pHtml += '</div>';
+                    pipelineBadge.innerHTML = pHtml;
+                }
+            } catch(e) {
+                // Intelligence is supplementary — silent fail
             }
         }
 
@@ -3376,4 +3431,255 @@
                 '<div class="dlr-bar-count" style="font-size:0.88rem;color:#ddd;">' + count + '</div>' +
             '</div>';
         }
+
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ═══ INBOX APP — Unified Conversations ═══════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let _inboxData = [];
+
+        function inboxRefresh() {
+            const list = document.getElementById('inboxConversationList');
+            if (!list) return;
+
+            list.innerHTML = '<div style="padding:20px;text-align:center;color:#666;"><i class="fa-solid fa-spinner fa-spin me-2"></i>Loading conversations...</div>';
+
+            fetch('/api/inbox/conversations?limit=50')
+                .then(r => r.json())
+                .then(data => {
+                    _inboxData = data.conversations || [];
+                    _renderInboxList();
+                    // Update badge
+                    const badge = document.getElementById('iosBadgeInbox');
+                    if (badge && _inboxData.length > 0) {
+                        badge.textContent = _inboxData.length;
+                        badge.style.display = '';
+                    }
+                })
+                .catch(() => {
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:0.85rem;color:#888;">Sync in progress...</div><div style="font-size:0.75rem;color:#555;margin-top:8px;">Conversations will appear once GHL data is synced</div></div>';
+                });
+        }
+
+        function _renderInboxList() {
+            const list = document.getElementById('inboxConversationList');
+            if (!list || !_inboxData.length) {
+                if (list) list.innerHTML = '<div class="ios-empty-state" style="padding-top:60px;"><div class="ios-empty-icon" style="background:rgba(91,127,255,0.08);border-color:rgba(91,127,255,0.15);"><i class="fa-solid fa-inbox" style="color:#5B7FFF;"></i></div><div class="ios-empty-title">No Conversations</div><div class="ios-empty-sub">Synced conversations will appear here</div></div>';
+                return;
+            }
+
+            let html = '';
+            _inboxData.forEach(c => {
+                const initials = (c.contact_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                const isInbound = c.last_direction === 'inbound';
+                const dirIcon = isInbound ? '<i class="fa-solid fa-arrow-down" style="color:#34C759;font-size:0.55rem;"></i>' : '<i class="fa-solid fa-arrow-up" style="color:#007AFF;font-size:0.55rem;"></i>';
+                const timeStr = _inboxFormatTime(c.date);
+
+                html += `
+                <div onclick="inboxOpenThread('${c.contact_id}', '${(c.contact_name || '').replace(/'/g, "\\'")}', '${c.contact_phone || ''}')"
+                     style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;"
+                     onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+                    <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(91,127,255,0.2),rgba(91,127,255,0.1));display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#5B7FFF;flex-shrink:0;">${initials}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-size:0.82rem;font-weight:600;color:#fff;">${c.contact_name || 'Unknown'}</span>
+                            <span style="font-size:0.6rem;color:#666;">${timeStr}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+                            ${dirIcon}
+                            <span style="font-size:0.72rem;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.last_message || 'No message'}</span>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color:#333;font-size:0.6rem;flex-shrink:0;"></i>
+                </div>`;
+            });
+            list.innerHTML = html;
+        }
+
+        function inboxOpenThread(contactId, contactName, contactPhone) {
+            const threadView = document.getElementById('inboxThreadView');
+            const threadName = document.getElementById('inboxThreadName');
+            const threadPhone = document.getElementById('inboxThreadPhone');
+            const threadAvatar = document.getElementById('inboxThreadAvatar');
+            const msgContainer = document.getElementById('inboxThreadMessages');
+
+            if (threadName) threadName.textContent = contactName || 'Contact';
+            if (threadPhone) threadPhone.textContent = contactPhone || '';
+            if (threadAvatar) threadAvatar.textContent = (contactName || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+            if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+            if (threadView) threadView.style.display = 'flex';
+            threadView.style.flexDirection = 'column';
+
+            fetch(`/api/inbox/thread/${contactId}?limit=100`)
+                .then(r => r.json())
+                .then(data => {
+                    const msgs = data.messages || [];
+                    const pipeline = data.pipeline;
+                    let html = '';
+
+                    // Pipeline badge
+                    if (pipeline) {
+                        const badgeEl = document.getElementById('inboxThreadBadge');
+                        if (badgeEl) {
+                            badgeEl.textContent = pipeline.stage_name;
+                            badgeEl.style.display = '';
+                            badgeEl.style.background = pipeline.status === 'won' ? 'rgba(52,199,89,0.15)' : pipeline.status === 'lost' ? 'rgba(255,59,48,0.15)' : 'rgba(91,127,255,0.15)';
+                            badgeEl.style.color = pipeline.status === 'won' ? '#34C759' : pipeline.status === 'lost' ? '#FF3B30' : '#5B7FFF';
+                        }
+                    }
+
+                    msgs.forEach(m => {
+                        const isOutbound = m.direction === 'outbound';
+                        const isCall = m.type === 'call' || m.type === 'voicemail';
+
+                        if (isCall) {
+                            html += `<div style="text-align:center;padding:4px 0;">
+                                <span style="font-size:0.65rem;color:#666;background:rgba(255,255,255,0.03);padding:3px 10px;border-radius:8px;">
+                                    <i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:4px;"></i>${m.type === 'voicemail' ? 'Voicemail' : 'Call'} — ${_inboxFormatTime(m.date)}
+                                </span>
+                            </div>`;
+                        } else {
+                            const align = isOutbound ? 'flex-end' : 'flex-start';
+                            const bg = isOutbound ? 'linear-gradient(135deg,#007AFF,#0056CC)' : 'rgba(255,255,255,0.08)';
+                            const color = isOutbound ? '#fff' : '#ddd';
+                            html += `<div style="display:flex;justify-content:${align};">
+                                <div style="max-width:80%;padding:8px 12px;border-radius:16px;background:${bg};color:${color};font-size:0.78rem;line-height:1.4;">
+                                    ${(m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                                    <div style="font-size:0.55rem;color:${isOutbound ? 'rgba(255,255,255,0.5)' : '#555'};margin-top:3px;text-align:right;">${_inboxFormatTime(m.date)}</div>
+                                </div>
+                            </div>`;
+                        }
+                    });
+
+                    if (!msgs.length) {
+                        html = '<div style="text-align:center;padding:40px;color:#666;">No messages synced yet</div>';
+                    }
+
+                    if (msgContainer) {
+                        msgContainer.innerHTML = html;
+                        msgContainer.scrollTop = msgContainer.scrollHeight;
+                    }
+                })
+                .catch(() => {
+                    if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#888;">Failed to load thread</div>';
+                });
+        }
+
+        function inboxBackToList() {
+            const threadView = document.getElementById('inboxThreadView');
+            if (threadView) threadView.style.display = 'none';
+            const badge = document.getElementById('inboxThreadBadge');
+            if (badge) badge.style.display = 'none';
+        }
+
+        function _inboxFormatTime(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const d = new Date(dateStr);
+                const now = new Date();
+                const diffMs = now - d;
+                const diffMin = Math.floor(diffMs / 60000);
+                if (diffMin < 1) return 'now';
+                if (diffMin < 60) return diffMin + 'm';
+                const diffHr = Math.floor(diffMin / 60);
+                if (diffHr < 24) return diffHr + 'h';
+                const diffDay = Math.floor(diffHr / 24);
+                if (diffDay < 7) return diffDay + 'd';
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } catch (e) { return ''; }
+        }
+
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // ═══ SSE NOTIFICATIONS — Real-time Dashboard Events ══════════════════
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let _sseSource = null;
+        let _sseRetries = 0;
+
+        function _initSSENotifications() {
+            if (_sseSource) return; // Already connected
+            if (typeof EventSource === 'undefined') return;
+
+            try {
+                _sseSource = new EventSource('/api/stream/notifications');
+                _sseRetries = 0;
+
+                _sseSource.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'heartbeat' || data.type === 'connected') return;
+                        if (data.type === 'webhook_received') {
+                            _showIosNotification(data);
+                        }
+                    } catch (e) {}
+                };
+
+                _sseSource.onerror = function() {
+                    _sseSource.close();
+                    _sseSource = null;
+                    _sseRetries++;
+                    if (_sseRetries < 5) {
+                        setTimeout(_initSSENotifications, Math.min(5000 * _sseRetries, 30000));
+                    }
+                };
+            } catch (e) {}
+        }
+
+        function _showIosNotification(data) {
+            const banner = document.getElementById('iosNotificationBanner');
+            if (!banner) return;
+
+            const title = document.getElementById('iosNotifTitle');
+            const body = document.getElementById('iosNotifBody');
+            const time = document.getElementById('iosNotifTime');
+
+            if (title) title.textContent = 'Messages';
+            if (body) body.textContent = data.details || 'New activity on your account';
+            if (time) time.textContent = 'now';
+
+            // Slide in
+            banner.style.display = 'block';
+            requestAnimationFrame(() => {
+                banner.style.opacity = '1';
+                banner.style.transform = 'translateY(0)';
+            });
+
+            // Click to open inbox
+            banner.onclick = function() {
+                banner.style.opacity = '0';
+                banner.style.transform = 'translateY(-20px)';
+                setTimeout(() => { banner.style.display = 'none'; }, 300);
+                iosOpenApp('inbox');
+            };
+
+            // Auto-dismiss after 5s
+            setTimeout(() => {
+                banner.style.opacity = '0';
+                banner.style.transform = 'translateY(-20px)';
+                setTimeout(() => { banner.style.display = 'none'; }, 300);
+            }, 5000);
+
+            // Update inbox badge
+            const badge = document.getElementById('iosBadgeInbox');
+            if (badge) {
+                const current = parseInt(badge.textContent) || 0;
+                badge.textContent = current + 1;
+                badge.style.display = '';
+            }
+        }
+
+        // Start SSE when dialer tab is active
+        document.addEventListener('DOMContentLoaded', function() {
+            const dialerTab = document.querySelector('[data-bs-target="#dialer"]') || document.querySelector('[href="#dialer"]');
+            if (dialerTab) {
+                dialerTab.addEventListener('shown.bs.tab', _initSSENotifications);
+                dialerTab.addEventListener('click', function() { setTimeout(_initSSENotifications, 500); });
+            }
+            const dialerPane = document.getElementById('dialer');
+            if (dialerPane && dialerPane.classList.contains('active')) {
+                setTimeout(_initSSENotifications, 1000);
+            }
+        });
 

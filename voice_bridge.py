@@ -5304,6 +5304,28 @@ def get_dialer_stats():
             for row in cur.fetchall()
         ]
 
+        # Source breakdown from synced GHL conversations
+        source_breakdown = {"dialer": total, "ghl_native": 0, "wavv": 0, "unknown": 0}
+        try:
+            cur.execute("""
+                SELECT source, COUNT(*) AS cnt
+                FROM ghl_conversations
+                WHERE location_id = %s AND message_type IN ('call', 'voicemail')
+                  AND date_added >= %s::text
+                GROUP BY source
+            """, (location_id, start_date_utc.isoformat()))
+            for row in cur.fetchall():
+                src = row['source'] or 'unknown'
+                if src in source_breakdown:
+                    source_breakdown[src] += row['cnt']
+                else:
+                    source_breakdown[src] = row['cnt']
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         cur.close()
         return jsonify({
             "period":          period,
@@ -5327,6 +5349,7 @@ def get_dialer_stats():
             "top_contacts":    top_contacts,
             "prior":           prior,
             "dispositions":    dispositions,
+            "source_breakdown": source_breakdown,
         })
     except Exception as e:
         logger.error(f"get_dialer_stats failed: {e}")
@@ -5582,88 +5605,54 @@ def get_contact_call_counts_merged():
 @voice_bp.route('/voice/contact/<contact_id>/ghl-call-count')
 @login_required
 def get_contact_ghl_call_count(contact_id):
-    """Return merged call count: local dialer DB + GHL conversation calls."""
+    """Return merged call count: local dialer DB + synced GHL conversations.
+    Phase 2: Uses local Postgres instead of live GHL API calls — instant, no rate limits."""
+    location_id = current_user.location_id
+    if not location_id:
+        return jsonify({"local": 0, "ghl": 0, "total": 0})
+
     conn = get_db_connection()
     if not conn:
         return jsonify({"local": 0, "ghl": 0, "total": 0})
+
     try:
         cur = conn.cursor()
-        cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
-        row = cur.fetchone()
-        if not row:
-            return jsonify({"local": 0, "ghl": 0, "total": 0})
-        location_id = row['location_id']
 
+        # Local dialer calls (our call_history table)
         cur.execute(
             "SELECT COUNT(*) AS cnt FROM call_history WHERE location_id = %s AND contact_id = %s",
             (location_id, contact_id)
         )
         local_count = cur.fetchone()['cnt'] or 0
+
+        # Synced GHL calls (from ghl_conversations, excluding our dialer to avoid dupes)
+        ghl_count = 0
+        try:
+            cur.execute("""
+                SELECT COUNT(*) AS cnt FROM ghl_conversations
+                WHERE location_id = %s AND contact_id = %s
+                  AND message_type IN ('call', 'voicemail')
+                  AND source != 'dialer'
+            """, (location_id, contact_id))
+            ghl_count = cur.fetchone()['cnt'] or 0
+        except Exception:
+            # Table may not exist yet if migration hasn't run — graceful fallback
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
         cur.close()
+
+        return jsonify({
+            "local": local_count,
+            "ghl": ghl_count,
+            "total": local_count + ghl_count,
+            "source": "synced_db",
+        })
+
     except Exception as e:
-        logger.error(f"local count failed for {contact_id}: {e}")
-        local_count = 0
+        logger.error(f"Merged call count failed for {contact_id}: {e}")
+        return jsonify({"local": 0, "ghl": 0, "total": 0})
     finally:
         return_db_connection(conn)
-
-    # Fetch GHL conversation call messages (paginate through all)
-    _CALL_TYPES = {3, 4, 3.0, 4.0, "3", "4", "TYPE_CALL", "TYPE_VOICEMAIL", "Call", "call"}
-    ghl_count = 0
-    try:
-        access_token = get_valid_token(location_id)
-        if access_token and access_token != 'DEMO':
-            headers = {
-                "Authorization": f"Bearer {access_token}",
-                "Version": GHL_API_VERSION,
-                "Content-Type": "application/json"
-            }
-            search_resp = http_requests.get(
-                f"{GHL_API_BASE}/conversations/search",
-                headers=headers,
-                params={"locationId": location_id, "contactId": contact_id},
-                timeout=10
-            )
-            if search_resp.status_code == 200:
-                convos = search_resp.json().get("conversations", [])
-                if convos:
-                    convo_id = convos[0]["id"]
-                    last_message_id = None
-                    max_pages = 10  # safety cap: 10 pages × 100 = 1000 msgs
-                    for _ in range(max_pages):
-                        params = {"limit": 100}
-                        if last_message_id:
-                            params["lastMessageId"] = last_message_id
-                        msg_resp = http_requests.get(
-                            f"{GHL_API_BASE}/conversations/{convo_id}/messages",
-                            headers=headers,
-                            params=params,
-                            timeout=10
-                        )
-                        if msg_resp.status_code != 200:
-                            break
-                        data = msg_resp.json()
-                        raw_msgs = data.get("messages", [])
-                        if isinstance(raw_msgs, dict):
-                            raw_msgs = raw_msgs.get("messages", [])
-                        for m in raw_msgs:
-                            if not isinstance(m, dict):
-                                continue
-                            mtype = m.get("type", m.get("messageType", ""))
-                            if mtype in _CALL_TYPES:
-                                ghl_count += 1
-                        # Check for next page
-                        next_page = data.get("nextPage", False)
-                        new_last_id = data.get("lastMessageId")
-                        if not next_page or not new_last_id or new_last_id == last_message_id:
-                            break
-                        last_message_id = new_last_id
-            else:
-                logger.debug(f"GHL convo search returned {search_resp.status_code} for contact {contact_id}")
-    except Exception as e:
-        logger.warning(f"GHL call count fetch failed for {contact_id}: {e}")
-
-    return jsonify({
-        "local": local_count,
-        "ghl": ghl_count,
-        "total": local_count + ghl_count,
-    })
