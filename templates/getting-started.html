@@ -1,86 +1,154 @@
 {% extends "base.html" %}
 
-{% block title %}Launch Sequence | InsuranceGrokBot{% endblock %}
+{% block title %}Get Started | InsuranceGrokBot{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="launch-header-section">
-        <h1 class="launch-main-title">Initialize Protocol</h1>
-        <p class="subtitle">Select your deployment method below to get started.</p>
+<div class="container" style="padding-top: 120px; padding-bottom: 80px;">
+    <div class="text-center mb-5" data-aos="fade-down">
+        <h1 style="font-weight: 900; font-size: 2.8rem; margin-bottom: 10px;">
+            Get Up and <span class="text-accent">Running</span>
+        </h1>
+        <p style="color: #aaa; font-size: 1.1rem; max-width: 580px; margin: 0 auto;">
+            Pick how you want to connect. Most agents are live and engaging leads within 10 minutes.
+        </p>
     </div>
 
     <div class="row g-4 justify-content-center pb-5">
-        
-        <div class="col-lg-5 col-md-6">
-            <div class="path-card">
-                <div class="card-icon">
-                    <i class="fa-solid fa-cloud-arrow-down"></i>
-                </div>
-                <h3 class="card-title">Marketplace Sync</h3>
-                <p class="card-desc">For agencies wanting deep integration. Install directly into your Lead Connector sub-account.</p>
 
-                <div class="steps-container">
-                    <div class="step-item">
-                        <div class="step-num">1</div>
-                        <div class="step-text">Log into your <strong>Lead Connector</strong> account.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">2</div>
-                        <div class="step-text">Navigate to <strong>Marketplace</strong> tab in sidebar.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">3</div>
-                        <div class="step-text">Search for <strong>"Insurance Grok Bot"</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">4</div>
-                        <div class="step-text">Click <strong>Install</strong> & approve permissions.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">5</div>
-                        <div class="step-text">System will auto-redirect after install.</div>
-                    </div>
+        <!-- Path 1: Subscribe & Connect -->
+        <div class="col-lg-5 col-md-6" data-aos="fade-up" data-aos-delay="100">
+            <div class="glass-card p-4 h-100" style="border: 2px solid rgba(0,255,136,0.3); position: relative;">
+                <span style="background: rgba(0,255,136,0.3); border: 1px solid #00ff88; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 4px 16px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; color: #fff; white-space: nowrap; z-index: 1;">Recommended</span>
+                <div style="width: 56px; height: 56px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 8px auto 20px;">
+                    <i class="fa-solid fa-bolt" style="font-size: 1.5rem; color: #000;"></i>
                 </div>
-            </div>
-        </div>
+                <h3 style="font-weight: 800; text-align: center; color: #fff; margin-bottom: 8px;">Subscribe & Connect</h3>
+                <p style="color: #888; text-align: center; font-size: 0.9rem; margin-bottom: 24px;">
+                    The fastest way to get started. Subscribe, set your password, and connect your CRM from the dashboard.
+                </p>
 
-        <div class="col-lg-5 col-md-6">
-            <div class="path-card" style="border-color: rgba(0,255,136,0.3);">
-                <div class="card-icon" style="background:var(--accent); color:#000;">
-                    <i class="fa-solid fa-bolt"></i>
-                </div>
-                <h3 class="card-title">Direct Activation</h3>
-                <p class="card-desc">Fast-track setup for independent agents. Secure your license and start immediately.</p>
-                
-                <div class="steps-container">
-                    <div class="step-item">
-                        <div class="step-num">1</div>
-                        <div class="step-text">Click <strong>Subscribe Now</strong> below.</div>
+                <div style="margin-bottom: 24px;">
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">1</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Subscribe</div>
+                            <div style="color: #777; font-size: 0.82rem;">Click "Get Started" and complete checkout. Your account is created instantly.</div>
+                        </div>
                     </div>
-                    <div class="step-item">
-                        <div class="step-num">2</div>
-                        <div class="step-text">Complete secure checkout via <strong>Stripe</strong>.</div>
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">2</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Set your password</div>
+                            <div style="color: #777; font-size: 0.82rem;">After checkout you'll set a password and land directly on your dashboard.</div>
+                        </div>
                     </div>
-                    <div class="step-item">
-                        <div class="step-num">3</div>
-                        <div class="step-text">Create your <strong>Secure Password</strong>.</div>
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">3</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Connect your CRM</div>
+                            <div style="color: #777; font-size: 0.82rem;">Go to the Connect tab on the dashboard, pick your CRM, and follow the setup guide. Works with LeadConnector, HubSpot, Salesforce, Pipedrive, Zoho, Insureio, and Zapier.</div>
+                        </div>
                     </div>
-                    <div class="step-item">
-                        <div class="step-num">4</div>
-                        <div class="step-text">Access the <strong>Intelligence Dashboard</strong>.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">5</div>
-                        <div class="step-text">Input CRM Keys to sync logic.</div>
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;">
+                        <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; flex-shrink: 0;">4</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">You're live</div>
+                            <div style="color: #777; font-size: 0.82rem;">The bot starts handling leads automatically. Configure your carriers, tone, and calendar from the dashboard anytime.</div>
+                        </div>
                     </div>
                 </div>
 
-                <a href="/checkout" class="btn-launch btn-primary-glow">
-                    Start Subscription <i class="fa-solid fa-arrow-right ms-2"></i>
+                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700; font-size: 1rem;">
+                    Get Started — $149.99/mo <i class="fa-solid fa-arrow-right ms-2"></i>
                 </a>
             </div>
         </div>
 
+        <!-- Path 2: LeadConnector Marketplace -->
+        <div class="col-lg-5 col-md-6" data-aos="fade-up" data-aos-delay="200">
+            <div class="glass-card p-4 h-100" style="border: 2px solid rgba(0,217,255,0.2);">
+                <div style="width: 56px; height: 56px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.25); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 8px auto 20px;">
+                    <i class="fa-solid fa-cloud-arrow-down" style="font-size: 1.5rem; color: #00d9ff;"></i>
+                </div>
+                <h3 style="font-weight: 800; text-align: center; color: #fff; margin-bottom: 8px;">LeadConnector Marketplace</h3>
+                <p style="color: #888; text-align: center; font-size: 0.9rem; margin-bottom: 24px;">
+                    Already on LeadConnector? Install directly from the marketplace for one-click CRM sync.
+                </p>
+
+                <div style="margin-bottom: 24px;">
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">1</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Open your CRM</div>
+                            <div style="color: #777; font-size: 0.82rem;">Log into your Lead Connector account and go to the Marketplace tab in the sidebar.</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">2</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Find InsuranceGrokBot</div>
+                            <div style="color: #777; font-size: 0.82rem;">Search for "Insurance Grok Bot" and click Install. Approve the permissions when prompted.</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">3</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">Complete checkout</div>
+                            <div style="color: #777; font-size: 0.82rem;">You'll be redirected to subscribe. Your CRM is automatically connected — no API keys or manual setup needed.</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;">
+                        <div style="width: 32px; height: 32px; background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #00d9ff; font-size: 0.85rem; flex-shrink: 0;">4</div>
+                        <div>
+                            <div style="color: #fff; font-weight: 600; font-size: 0.92rem;">You're live</div>
+                            <div style="color: #777; font-size: 0.82rem;">Your location, calendar, and contacts sync automatically. Start handling leads right away.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" class="btn w-100 py-3" style="background: linear-gradient(135deg, #00d9ff, #0066ff); color: #fff; font-weight: 700; border: none; font-size: 1rem;">
+                    Open Marketplace <i class="fa-solid fa-external-link ms-2"></i>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- After Setup -->
+    <div class="row justify-content-center" data-aos="fade-up">
+        <div class="col-lg-10">
+            <div class="glass-card p-4" style="border-color: rgba(255,255,255,0.08);">
+                <h3 style="font-weight: 700; color: #fff; margin-bottom: 20px; text-align: center;">
+                    <i class="fa-solid fa-circle-check me-2" style="color: var(--accent);"></i>Once You're In
+                </h3>
+                <div class="row g-4">
+                    <div class="col-md-4 text-center">
+                        <i class="fa-solid fa-sliders" style="font-size: 1.5rem; color: var(--accent); margin-bottom: 12px;"></i>
+                        <h5 style="font-weight: 700; color: #fff; font-size: 0.95rem;">Configure Your Bot</h5>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Set your tone, select your contracted carriers, and customize how the AI handles conversations.</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fa-solid fa-phone-volume" style="font-size: 1.5rem; color: #00d9ff; margin-bottom: 12px;"></i>
+                        <h5 style="font-weight: 700; color: #fff; font-size: 0.95rem;">Set Up Voice &amp; Dialer</h5>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Provision a phone number, choose a voice personality, and start using the smart dialer to call leads.</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fa-solid fa-calendar-check" style="font-size: 1.5rem; color: #e91e63; margin-bottom: 12px;"></i>
+                        <h5 style="font-weight: 700; color: #fff; font-size: 0.95rem;">Connect Your Calendar</h5>
+                        <p style="color: #888; font-size: 0.85rem; margin: 0;">Link your calendar so the AI can check your real-time availability and book appointments for you.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help CTA -->
+    <div class="text-center mt-5" data-aos="fade-up">
+        <p style="color: #666; font-size: 0.9rem;">Need help getting set up?</p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a href="/support" class="btn btn-outline-accent btn-sm">Support Center</a>
+            <a href="/demo-chat" class="btn btn-outline-accent btn-sm" style="border-color: rgba(0,217,255,0.4); color: #00d9ff;">Try the Demo First</a>
+        </div>
     </div>
 </div>
 {% endblock %}

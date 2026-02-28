@@ -843,6 +843,10 @@ def dialer():
 def getting_started():
     return render_template('getting-started.html')
 
+@app.route("/about")
+def about():
+    return render_template('about.html')
+
 @app.route("/stripe-webhook", methods=["POST"])
 def stripe_webhook():
     payload = request.data
