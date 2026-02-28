@@ -4696,20 +4696,27 @@ def get_contact_detail(contact_id):
                                     break
                     narrative["summary"] = narr_text if narr_text else None
 
-                # ── Opt-out detection: check last lead message for stop keywords ──
+                # ── Opt-out detection: CRM DnD flag + stop keywords ──
                 opted_out = False
-                cur.execute("""
-                    SELECT message_text FROM contact_messages
-                    WHERE contact_id = %s AND message_type = 'lead'
-                    ORDER BY created_at DESC LIMIT 1
-                """, (contact_id,))
-                last_lead_msg = cur.fetchone()
-                if last_lead_msg and last_lead_msg['message_text']:
-                    import re as _re
-                    _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
-                    msg_lower = last_lead_msg['message_text'].strip().lower()
-                    if msg_lower in _stop_words or any(_re.search(r'\b' + _re.escape(w) + r'\b', msg_lower) for w in _stop_words):
-                        opted_out = True
+
+                # Check GHL DnD flag (already in result from API)
+                if contact.get("dnd", False):
+                    opted_out = True
+
+                # Check last lead message for stop keywords
+                if not opted_out:
+                    cur.execute("""
+                        SELECT message_text FROM contact_messages
+                        WHERE contact_id = %s AND message_type = 'lead'
+                        ORDER BY created_at DESC LIMIT 1
+                    """, (contact_id,))
+                    last_lead_msg = cur.fetchone()
+                    if last_lead_msg and last_lead_msg['message_text']:
+                        import re as _re
+                        _stop_words = {'stop', 'unsubscribe', 'opt out', 'optout', 'remove me', 'do not contact', 'do not call', 'do not text', 'do not message', 'cancel', 'quit', 'leave me alone', 'not interested', 'lose my number', 'delete my number', 'take me off', 'blocked'}
+                        msg_lower = last_lead_msg['message_text'].strip().lower()
+                        if msg_lower in _stop_words or any(_re.search(r'\b' + _re.escape(w) + r'\b', msg_lower) for w in _stop_words):
+                            opted_out = True
 
                 cur.close()
 
