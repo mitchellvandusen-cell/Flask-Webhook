@@ -485,13 +485,6 @@ def training_recordings():
     try:
         cur = conn.cursor()
 
-        # Ensure disposition column exists (added dynamically, may not be in schema)
-        try:
-            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
-            conn.commit()
-        except Exception:
-            conn.rollback()
-
         # Build WHERE clause
         where = ["location_id = %s"]
         params = [location_id]
@@ -572,13 +565,6 @@ def training_recording_detail(call_sid):
         return api_error("Database unavailable.", error_type="server_error", status=503)
     try:
         cur = conn.cursor()
-
-        # Ensure disposition column exists
-        try:
-            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
-            conn.commit()
-        except Exception:
-            conn.rollback()
 
         cur.execute("""
             SELECT id, contact_id, contact_name, phone, direction, call_sid,

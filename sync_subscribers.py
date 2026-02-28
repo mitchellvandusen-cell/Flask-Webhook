@@ -77,26 +77,7 @@ def sync_subscribers() -> bool:
         conn.autocommit = False
         cur = conn.cursor()
 
-        # Fix legacy columns (safe, idempotent)
-        legacy_fixes = [
-            ("ghl_location_id", "location_id"),
-            ("ghl_user_id", "crm_user_id"),
-            ("ghl_api_key", "access_token"),  # Map old API key → access_token if present
-        ]
-        for old, new in legacy_fixes:
-            cur.execute("""
-                SELECT 1 FROM information_schema.columns 
-                WHERE table_name = 'subscribers' AND column_name = %s
-            """, (old,))
-            if cur.fetchone():
-                cur.execute(f"ALTER TABLE subscribers RENAME COLUMN {old} TO {new};")
-                logger.info(f"Renamed legacy column: {old} → {new}")
-
-        # Drop/re-add PK if needed
-        cur.execute("ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_pkey;")
-        cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (location_id);")
-
-        # Create table with OAuth fields
+        # Create table with OAuth fields (MUST run before ALTER TABLE operations)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
                 location_id TEXT PRIMARY KEY,
@@ -110,6 +91,25 @@ def sync_subscribers() -> bool:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        # Fix legacy columns (safe, idempotent — runs AFTER CREATE TABLE)
+        legacy_fixes = [
+            ("ghl_location_id", "location_id"),
+            ("ghl_user_id", "crm_user_id"),
+            ("ghl_api_key", "access_token"),  # Map old API key → access_token if present
+        ]
+        for old, new in legacy_fixes:
+            cur.execute("""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'subscribers' AND column_name = %s
+            """, (old,))
+            if cur.fetchone():
+                cur.execute(f"ALTER TABLE subscribers RENAME COLUMN {old} TO {new};")
+                logger.info(f"Renamed legacy column: {old} → {new}")
+
+        # Drop/re-add PK if needed
+        cur.execute("ALTER TABLE subscribers DROP CONSTRAINT IF EXISTS subscribers_pkey;")
+        cur.execute("ALTER TABLE subscribers ADD CONSTRAINT subscribers_pkey PRIMARY KEY (location_id);")
 
         # Add optional columns if missing
         cur.execute("""
@@ -125,6 +125,8 @@ def sync_subscribers() -> bool:
         logger.info("Schema migrations complete")
 
         # ─── UPSERT Subscribers ───
+        # COALESCE preserves existing live OAuth tokens from the DB;
+        # only uses spreadsheet values for new rows or when DB has NULL tokens.
         upsert_query = """
             INSERT INTO subscribers (
                 location_id, bot_first_name, access_token, refresh_token,
@@ -132,8 +134,8 @@ def sync_subscribers() -> bool:
             ) VALUES %s
             ON CONFLICT (location_id) DO UPDATE SET
                 bot_first_name = EXCLUDED.bot_first_name,
-                access_token = EXCLUDED.access_token,
-                refresh_token = EXCLUDED.refresh_token,
+                access_token = COALESCE(NULLIF(subscribers.access_token, ''), EXCLUDED.access_token),
+                refresh_token = COALESCE(NULLIF(subscribers.refresh_token, ''), EXCLUDED.refresh_token),
                 timezone = EXCLUDED.timezone,
                 crm_user_id = EXCLUDED.crm_user_id,
                 calendar_id = EXCLUDED.calendar_id,

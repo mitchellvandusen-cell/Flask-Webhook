@@ -108,6 +108,9 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
                 conn = None
                 conn = psycopg2.connect(
                     DATABASE_URL, connect_timeout=10, cursor_factory=RealDictCursor)
+                # Tag so return_db_connection knows to release the semaphore
+                # even though putconn will fail for this non-pooled connection
+                conn._pool_semaphore_acquired = True
             conn.autocommit = False
             return conn
         except Exception as e:
@@ -140,6 +143,8 @@ def return_db_connection(conn):
     """Return a connection to the pool (or close if not pooled)."""
     if conn is None:
         return
+    # Check if this connection owns a semaphore slot (set on stale-replacement path)
+    owns_semaphore = getattr(conn, '_pool_semaphore_acquired', False)
     # Always rollback any uncommitted transaction before returning to pool
     try:
         conn.rollback()
@@ -154,7 +159,15 @@ def return_db_connection(conn):
                 _pool_semaphore.release()
             return
         except Exception:
-            pass
+            # putconn failed — connection wasn't from pool (stale replacement)
+            try:
+                conn.close()
+            except Exception:
+                pass
+            # Still release the semaphore if this conn acquired a slot
+            if owns_semaphore and _pool_semaphore:
+                _pool_semaphore.release()
+            return
     try:
         conn.close()
     except Exception:
@@ -1101,6 +1114,8 @@ def init_db() -> bool:
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location ON call_history(location_id)")
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_call_sid ON call_history(call_sid)")
             cur_calls.execute("CREATE INDEX IF NOT EXISTS idx_call_history_location_contact ON call_history(location_id, contact_id)")
+            # Add disposition column (migration for existing tables)
+            cur_calls.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
             conn.commit()
             cur_calls.close()
             logger.info("✅ Migration: Created call_history table")
@@ -1914,14 +1929,16 @@ def update_subscriber_token(
 def update_crm_config_token(location_id: str, access_token: str) -> bool:
     """
     Persist a refreshed CRM adapter access_token into crm_config JSONB.
-    Used by HubSpot/Salesforce/Zoho adapters after a successful token refresh.
+    Used by HubSpot/Salesforce/Zoho/Pipedrive adapters after a successful token refresh.
     Updates only the access_token key — leaves all other crm_config keys intact.
+    Uses advisory lock to prevent race conditions across parallel workers.
     """
     conn = get_db_connection()
     if not conn:
         return False
     try:
         cur = conn.cursor()
+        cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (location_id,))
         cur.execute("""
             UPDATE subscribers
             SET crm_config = crm_config || jsonb_build_object('access_token', %s::text),
@@ -2937,19 +2954,19 @@ def audit_ai_minutes(email: str) -> dict:
 
         # Sum every completed purchase receipt
         cur.execute(
-            "SELECT COALESCE(SUM(package_minutes), 0) "
+            "SELECT COALESCE(SUM(package_minutes), 0) AS total "
             "FROM ai_minute_purchases WHERE email = %s AND status = 'completed'",
             (email,)
         )
-        total_purchased = int(cur.fetchone()[0] or 0)
+        total_purchased = int(cur.fetchone()['total'] or 0)
 
         # Sum every usage entry
         cur.execute(
-            "SELECT COALESCE(SUM(minutes_deducted), 0) "
+            "SELECT COALESCE(SUM(minutes_deducted), 0) AS total "
             "FROM ai_minute_usage_logs WHERE email = %s",
             (email,)
         )
-        total_used = int(cur.fetchone()[0] or 0)
+        total_used = int(cur.fetchone()['total'] or 0)
 
         expected_balance = max(0, total_purchased - total_used)
 
@@ -2959,7 +2976,7 @@ def audit_ai_minutes(email: str) -> dict:
             (email,)
         )
         row = cur.fetchone()
-        actual_balance = int(row[0] if row else 0)
+        actual_balance = int(row['balance_minutes'] if row else 0)
 
         drift = actual_balance - expected_balance  # +ve = over-credited, -ve = under-credited
         corrected = False

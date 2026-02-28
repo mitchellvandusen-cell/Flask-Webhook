@@ -4,6 +4,7 @@ import re
 import uuid
 import base64
 import hashlib
+import hmac
 import stripe
 import os
 import gspread
@@ -1031,6 +1032,7 @@ def register():
             flash("Database unavailable. Please try again later.", "error")
             return redirect("/register")
 
+        cur = None
         try:
             cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -1080,7 +1082,8 @@ def register():
             flash("Account creation failed. Please try again or contact support.", "error")
             return redirect("/register")
         finally:
-            cur.close()
+            if cur:
+                cur.close()
             return_db_connection(conn)
 
     return render_template('register.html', form=form)
@@ -1257,6 +1260,7 @@ def reset_password(token):
         flash("Database unavailable. Please try again.", "error")
         return redirect(f"/reset-password/{token}")
 
+    cur = None
     try:
         cur = conn.cursor()
         # Update subscribers table
@@ -1281,7 +1285,8 @@ def reset_password(token):
         flash("Something went wrong. Please try again.", "error")
         return redirect(f"/reset-password/{token}")
     finally:
-        cur.close()
+        if cur:
+            cur.close()
         return_db_connection(conn)
 
 
@@ -1345,6 +1350,7 @@ def agency_dashboard():
         if not conn:
             flash("Database connection failed", "error")
         else:
+            cur = None
             try:
                 cur = conn.cursor()
                 # Get calendar_name from hidden field
@@ -1381,7 +1387,10 @@ def agency_dashboard():
                 conn.rollback()
                 flash(f"Error saving settings: {str(e)}", "error")
             finally:
-                cur.close()
+                if cur:
+                    cur.close()
+                return_db_connection(conn)
+                conn = None  # prevent double-return in outer finally
     # --- 2. PRE-FILL FORM (GET) ---
     if request.method == 'GET':
         form.location_id.data = current_user.location_id
@@ -1432,6 +1441,7 @@ def agency_dashboard():
         'active_seats': 0,
         'tier': 'Agency Starter'
     }
+    cur = None
     try:
         cur = conn.cursor(cursor_factory=RealDictCursor)
         # 2. Fetch Agency Billing Specs (The Limits)
@@ -1509,8 +1519,10 @@ def agency_dashboard():
         logger.error(f"Agency Dashboard Error: {e}")
         flash("Error loading agency data.", "error")
     finally:
-        cur.close()
-        return_db_connection(conn)
+        if cur:
+            cur.close()
+        if conn:
+            return_db_connection(conn)
     agency_carriers = get_contracted_carriers(current_user.email)
     agency_bot_settings = get_bot_settings(current_user.email)
     return render_template('agency-dashboard.html',
@@ -1655,8 +1667,7 @@ def dashboard():
         )
 
     form = ConfigForm()
-    conn = get_db_connection()
-   
+
     # --- 1. HANDLE SAVING CONFIG (POST) ---
     if request.method == 'POST' and not form.validate_on_submit():
         # Log validation failures so they're never silent again
@@ -1664,9 +1675,11 @@ def dashboard():
         flash("Please fill in all required fields.", "error")
 
     if form.validate_on_submit():
+        conn = get_db_connection()
         if not conn:
             flash("Database connection failed", "error")
         else:
+            cur = None
             try:
                 cur = conn.cursor()
                 # Get calendar_name from hidden field
@@ -1703,7 +1716,8 @@ def dashboard():
                 conn.rollback()
                 flash(f"Error saving settings: {str(e)}", "error")
             finally:
-                cur.close()
+                if cur:
+                    cur.close()
                 return_db_connection(conn)
     # --- 2. PRE-FILL FORM (GET) ---
     # Since current_user is now loaded from 'subscribers', we can use it directly
@@ -2405,7 +2419,8 @@ def _is_admin_request():
     if cron_secret:
         auth_header = request.headers.get("Authorization", "")
         query_key = request.args.get("key", "")
-        if auth_header == f"Bearer {cron_secret}" or query_key == cron_secret:
+        if (hmac.compare_digest(auth_header, f"Bearer {cron_secret}") or
+                hmac.compare_digest(query_key, cron_secret)):
             return True
 
     return False
@@ -4129,6 +4144,7 @@ def demo_init_api():
     if not conn:
         return flask_jsonify({"error": "Database unavailable"}), 503
 
+    cur = None
     try:
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) as cnt FROM contact_messages WHERE contact_id = %s", (contact_id,))
@@ -4141,26 +4157,26 @@ def demo_init_api():
                 VALUES (%s, 'assistant', %s)
             """, (contact_id, opener))
             conn.commit()
-            cur.close()
-            return_db_connection(conn)
             return flask_jsonify({"contact_id": contact_id, "opener": opener, "status": "new"})
 
         cur.execute("""
-            SELECT message_type, message_text 
-            FROM contact_messages 
-            WHERE contact_id = %s 
+            SELECT message_type, message_text
+            FROM contact_messages
+            WHERE contact_id = %s
             ORDER BY created_at ASC
         """, (contact_id,))
 
         history = [{"role": "bot" if r['message_type'] == 'assistant' else "user", "content": r['message_text']} for r in cur.fetchall()]
-        cur.close()
-        return_db_connection(conn)
 
         return flask_jsonify({"contact_id": contact_id, "history": history, "status": "existing"})
 
     except Exception as e:
         logger.error(f"Demo init error: {e}")
         return flask_jsonify({"error": str(e)}), 500
+    finally:
+        if cur:
+            cur.close()
+        return_db_connection(conn)
 
 @app.route("/demo/reset", methods=["POST"])
 def demo_reset_api():
@@ -4190,14 +4206,21 @@ def demo_reset_api():
 
     conn = get_db_connection()
     if conn:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO contact_messages (contact_id, message_type, message_text)
-            VALUES (%s, 'assistant', %s)
-        """, (new_id, opener))
-        conn.commit()
-        cur.close()
-        return_db_connection(conn)
+        cur = None
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO contact_messages (contact_id, message_type, message_text)
+                VALUES (%s, 'assistant', %s)
+            """, (new_id, opener))
+            conn.commit()
+        except Exception as e:
+            logger.error(f"Demo reset INSERT failed for {new_id}: {e}")
+            conn.rollback()
+        finally:
+            if cur:
+                cur.close()
+            return_db_connection(conn)
 
     return flask_jsonify({"contact_id": new_id, "opener": opener})
 
@@ -4832,6 +4855,7 @@ def success():
     # Ensure user record exists in DB (handles race condition with Stripe webhook)
     conn = get_db_connection()
     if conn:
+        cur = None
         try:
             cur = conn.cursor()
             temp_id = f"temp_{uuid.uuid4().hex[:8]}"
@@ -4852,7 +4876,8 @@ def success():
             conn.rollback()
             logger.error(f"Success page user provision error: {e}")
         finally:
-            cur.close()
+            if cur:
+                cur.close()
             return_db_connection(conn)
 
     user = User.get(email)
@@ -4906,6 +4931,7 @@ def set_password():
         flash("Database unavailable. Please try again.", "error")
         return redirect(f"/set-password?type={user_type}")
 
+    cur = None
     try:
         cur = conn.cursor()
 
@@ -4940,15 +4966,17 @@ def set_password():
         flash("Error setting password. Please try again.", "error")
         return redirect(f"/set-password?type={user_type}")
     finally:
-        cur.close()
+        if cur:
+            cur.close()
         return_db_connection(conn)
 
 @app.route("/refresh")
+@login_required
 def refresh_subscribers():
     try:
         sync_subscribers()
         return "Synced", 200
-    except:
+    except Exception:
         return "Failed", 500
 
 @app.route("/oauth/initiate")
@@ -5261,7 +5289,7 @@ def oauth_callback():
                         f"YOUR_DOMAIN={'set' if domain else 'MISSING'}")
             flash("OAuth is not configured. Please contact support.", "danger")
             return redirect(url_for('home'))
-        logger.info(f"OAuth callback using {cred_label} credentials (state={state})")
+        logger.info(f"OAuth callback using {cred_label} credentials (state={raw_state})")
 
         # 1. Exchange Code for Token (with retry on transient failures)
         # TRY BOTH user_types: "Location" first, then "Company" for agency-level installs.
@@ -5427,6 +5455,8 @@ def oauth_callback():
         if not user_email:
             ghl_user_id = token_data.get('userId')
             if ghl_user_id:
+                conn_lookup = None
+                cur_lookup = None
                 try:
                     conn_lookup = get_db_connection()
                     if conn_lookup:
@@ -5436,10 +5466,13 @@ def oauth_callback():
                         if found:
                             user_email = found['email']
                             logger.info(f"Fallback 4: Found email via userId lookup: {user_email}")
-                        cur_lookup.close()
-                        return_db_connection(conn_lookup)
                 except Exception:
                     pass
+                finally:
+                    if cur_lookup:
+                        cur_lookup.close()
+                    if conn_lookup:
+                        return_db_connection(conn_lookup)
 
         # Fallback 5: PLACEHOLDER — create a temporary identity so onboarding completes
         if not user_email:
@@ -6600,7 +6633,7 @@ def agency_login():
             logger.info(f"Non-agency user attempted agency login: {email} (role: {user.role})")
             return redirect(url_for('login'))
         # Success: log in
-        login_user(user, remember=form.remember.data)  # respect "Remember Me"
+        login_user(user, remember=True)
         logger.info(f"Agency owner logged in successfully: {email}")
         # Optional: next URL support (redirect where they came from)
         next_url = request.args.get('next')

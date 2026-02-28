@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 from crm_adapters.base import CRMAdapter
+from db import update_crm_config_token
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,11 @@ class PipedriveAdapter(CRMAdapter):
     @property
     def _base_url(self):
         if self.company_domain:
+            # Validate company_domain to prevent hostname injection
+            import re
+            if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]*$', self.company_domain):
+                logger.error(f"Pipedrive: Invalid company_domain '{self.company_domain}' — contains disallowed characters")
+                return "https://api.pipedrive.com/api/v1"
             return f"https://{self.company_domain}.pipedrive.com/api/v1"
         return "https://api.pipedrive.com/api/v1"
 
@@ -76,14 +82,45 @@ class PipedriveAdapter(CRMAdapter):
             headers["Authorization"] = f"Bearer {self.pd_oauth_token}"
         return headers
 
+    def _refresh_token(self) -> bool:
+        """Refresh Pipedrive OAuth token using refresh_token grant."""
+        if not all([self.refresh_token_pd, self.client_id, self.client_secret]):
+            return False
+        try:
+            resp = requests.post("https://oauth.pipedrive.com/oauth/token", data={
+                "grant_type": "refresh_token",
+                "refresh_token": self.refresh_token_pd,
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+            }, timeout=PIPEDRIVE_TIMEOUT)
+            if resp.status_code == 200:
+                data = resp.json()
+                self.pd_oauth_token = data["access_token"]
+                # Pipedrive rotates refresh tokens on each use
+                if data.get("refresh_token"):
+                    self.refresh_token_pd = data["refresh_token"]
+                logger.info("Pipedrive token refreshed successfully")
+                if self.location_id:
+                    update_crm_config_token(self.location_id, self.pd_oauth_token)
+                return True
+            logger.error(f"Pipedrive token refresh failed: {resp.status_code}")
+        except Exception as e:
+            logger.error(f"Pipedrive token refresh error: {e}")
+        return False
+
     def _api_request(self, method: str, url: str, **kwargs) -> Optional[requests.Response]:
-        """Make an API request with auth params."""
+        """Make an API request with auth params and automatic token refresh on 401."""
         params = kwargs.pop("params", {})
         params.update(self._auth_params)
         try:
             resp = getattr(requests, method)(
                 url, headers=self._headers, params=params, timeout=PIPEDRIVE_TIMEOUT, **kwargs
             )
+            if resp.status_code == 401 and self._refresh_token():
+                params.update(self._auth_params)
+                resp = getattr(requests, method)(
+                    url, headers=self._headers, params=params, timeout=PIPEDRIVE_TIMEOUT, **kwargs
+                )
             return resp
         except Exception as e:
             logger.error(f"Pipedrive API error: {e}")

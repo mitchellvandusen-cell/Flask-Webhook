@@ -412,7 +412,7 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
             FROM subscribers
             WHERE refresh_token IS NOT NULL
               AND token_expires_at IS NOT NULL
-              AND token_expires_at < NOW() + interval '%s minutes'
+              AND token_expires_at < NOW() + make_interval(mins => %s)
               AND token_expires_at > NOW() - interval '7 days'
             UNION ALL
             SELECT location_id, agency_email AS email, oauth_app_type, access_token,
@@ -420,14 +420,13 @@ def refresh_tokens_proactively(buffer_minutes: int = 60):
             FROM agency_billing
             WHERE refresh_token IS NOT NULL
               AND token_expires_at IS NOT NULL
-              AND token_expires_at < NOW() + interval '%s minutes'
+              AND token_expires_at < NOW() + make_interval(mins => %s)
               AND token_expires_at > NOW() - interval '7 days'
         """, (buffer_minutes, buffer_minutes))
         expiring = cur.fetchall()
         cur.close()
     except Exception as e:
         logger.error(f"Proactive refresh query failed: {e}")
-        return_db_connection(conn)
         return stats
     finally:
         return_db_connection(conn)

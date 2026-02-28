@@ -227,10 +227,10 @@ class SalesforceAdapter(CRMAdapter):
 
         conditions = []
         if email:
-            safe_email = email.replace("'", "\\'")
+            safe_email = email.replace("'", "''")
             conditions.append(f"Email = '{safe_email}'")
         if phone:
-            safe_phone = phone.replace("'", "\\'")
+            safe_phone = phone.replace("'", "''")
             conditions.append(f"Phone = '{safe_phone}'")
 
         if not conditions:

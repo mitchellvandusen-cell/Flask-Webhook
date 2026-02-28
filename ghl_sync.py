@@ -880,7 +880,6 @@ def run_incremental_sync_all():
         cur.close()
     except Exception as e:
         logger.error(f"[GHL_SYNC] Failed to query subscribers: {e}")
-        return_db_connection(conn)
         return {"error": str(e)}
     finally:
         return_db_connection(conn)

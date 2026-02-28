@@ -18,6 +18,7 @@ import asyncio
 import struct
 import base64
 from datetime import datetime, timedelta
+from xml.sax.saxutils import escape as xml_escape, quoteattr as xml_quoteattr
 import pytz
 import httpx
 import audioop   # mulaw<->PCM transcoding
@@ -34,6 +35,7 @@ from db import get_db_connection, return_db_connection, log_webhook_event, deduc
 from ghl_api import get_valid_token, fetch_targeted_ghl_history, fetch_contact_data_from_ghl
 from ghl_message import send_sms_via_ghl
 from prompt import build_system_prompt
+from openai import OpenAI
 from llm_caller import generate_clean_reply
 
 # In-memory call status tracking for the dialer queue
@@ -52,8 +54,37 @@ _call_listeners: dict = {}  # { call_sid: set(queue.Queue, ...) }
 # Simple in-memory cache for GHL custom field definitions: { location_id: {field_id: field_name} }
 # Populated on first contact detail fetch per location; GHL field definitions rarely change.
 _custom_field_defs: dict = {}
+
+# ── Periodic reaper for stale _active_calls / _transfer_requests / _call_listeners ──
+_REAPER_INTERVAL = 300   # seconds (5 minutes)
+_TERMINAL_STATUSES = frozenset({"completed", "busy", "no-answer", "failed", "canceled", "transferred"})
+
+def _reap_stale_calls():
+    """Remove entries stuck in a terminal state for more than 5 minutes."""
+    while True:
+        time.sleep(_REAPER_INTERVAL)
+        try:
+            now = time.monotonic()
+            stale = []
+            for sid, info in list(_active_calls.items()):
+                if info.get("status") in _TERMINAL_STATUSES:
+                    # Tag first-seen monotonic time so we know how long it's been terminal
+                    if "_terminal_since" not in info:
+                        info["_terminal_since"] = now
+                    elif now - info["_terminal_since"] > _REAPER_INTERVAL:
+                        stale.append(sid)
+            for sid in stale:
+                _active_calls.pop(sid, None)
+                _transfer_requests.pop(sid, None)
+                _call_listeners.pop(sid, None)
+            if stale:
+                logger.debug(f"Reaped {len(stale)} stale call entries from _active_calls")
+        except Exception:
+            pass  # reaper must never crash
+
+_reaper_thread = threading.Thread(target=_reap_stale_calls, daemon=True)
+_reaper_thread.start()
 from ghl_calendar import consolidated_calendar_op
-from memory import get_recent_messages, get_known_facts, get_narrative
 from sales_director import generate_strategic_directive
 from insurance_knowledge import POLICY_KNOWLEDGE
 
@@ -160,15 +191,16 @@ def _decode_client_state(s: str) -> dict:
 def _build_twiml_stream(stream_url: str, params: dict) -> str:
     """
     Build a TwiML Response that opens a bidirectional mulaw 8kHz media stream.
+    All values are XML-escaped to prevent injection.
     """
     param_xml = ''.join(
-        f'<Parameter name="{k}" value="{v}"/>' for k, v in params.items()
+        f'<Parameter name={xml_quoteattr(str(k))} value={xml_quoteattr(str(v))}/>' for k, v in params.items()
     )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
           '<Connect>'
-            f'<Stream url="{stream_url}">'
+            f'<Stream url={xml_quoteattr(stream_url)}>'
               f'{param_xml}'
             '</Stream>'
           '</Connect>'
@@ -183,7 +215,7 @@ def _mulaw_to_pcm16(mulaw_bytes: bytes) -> bytes:
     # 2. Anti-aliased resample 8kHz -> 16kHz via soxr (high-quality sinc interpolation)
     samples_8k = np.frombuffer(pcm_8k, dtype=np.int16).astype(np.float32)
     samples_16k = soxr.resample(samples_8k, TWILIO_SAMPLE_RATE, XAI_SAMPLE_RATE)
-    return np.int16(samples_16k).tobytes()
+    return np.int16(np.clip(samples_16k, -32768, 32767)).tobytes()
 
 
 # Pre-compute Butterworth low-pass filter coefficients (phone-line warmth EQ).
@@ -218,19 +250,8 @@ LOG_EVENT_TYPES = [
     'session.created', 'session.updated'
 ]
 
-# Pre-compute mu-law decode lookup table (256 entries) for voice preview WAV generation
-_MULAW_DECODE = []
-for _i in range(256):
-    _b = ~_i & 0xFF
-    _sign = (_b & 0x80)
-    _exp = (_b >> 4) & 0x07
-    _man = _b & 0x0F
-    _sample = (_man << (_exp + 3)) + (1 << (_exp + 3)) - 132
-    _MULAW_DECODE.append(-_sample if _sign else _sample)
 
-
-
-def _pcm16_to_wav(pcm_data, sample_rate=24000):
+def _pcm16_to_wav(pcm_data, sample_rate=16000):
     """Wrap raw PCM16 bytes in a WAV container for browser playback."""
     data_size = len(pcm_data)
     header = struct.pack('<4sI4s4sIHHIIHH4sI',
@@ -455,6 +476,7 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
         call_context = "FRESH OUTBOUND CALL — you called them. You initiated this call."
     previous_call_count = 0
     if contact_id:
+        conn = None
         try:
             conn = get_db_connection()
             if conn:
@@ -465,9 +487,11 @@ def build_voice_system_prompt(subscriber, contact_name="there", contact_id=None,
                 )
                 previous_call_count = cur.fetchone()['cnt']
                 cur.close()
-                return_db_connection(conn)
         except Exception as e:
             logger.debug(f"Voice: Could not check call history: {e}")
+        finally:
+            if conn:
+                return_db_connection(conn)
 
     has_sms_history = bool(recent_exchanges)
     if direction != "inbound" and (previous_call_count > 0 or has_sms_history):
@@ -1093,8 +1117,8 @@ def voice_inbound():
         twiml = (
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<Response>'
-            f'<Dial callerId="{from_number}" action="https://{host}/voice/dial-status" method="POST">'
-            f'<Number>{called}</Number>'
+            f'<Dial callerId={xml_quoteattr(from_number)} action={xml_quoteattr(f"https://{host}/voice/dial-status")} method="POST">'
+            f'<Number>{xml_escape(called)}</Number>'
             '</Dial>'
             '</Response>'
         )
@@ -1272,7 +1296,7 @@ def intercept_twiml():
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<Response>'
-        f'<Dial action="{action_url}" method="POST"><Client>{identity}</Client></Dial>'
+        f'<Dial action={xml_quoteattr(action_url)} method="POST"><Client>{xml_escape(identity)}</Client></Dial>'
         '</Response>'
     )
     return Response(twiml, content_type='text/xml')
@@ -1362,6 +1386,8 @@ def amd_status_callback():
             _twilio_hangup(call_sid, sub_sid_amd)
         except Exception as e:
             logger.warning(f"AMD hangup failed for {call_sid}: {e}")
+        # Clean up any pending transfer request for this call
+        _transfer_requests.pop(call_sid, None)
 
     # human or not_sure — call continues with existing media stream
     return '', 204
@@ -1381,7 +1407,27 @@ def trigger_outbound_call():
     """
     API endpoint to initiate an outbound AI voice call via Twilio.
     Called by CRM automations (webhook) or the dashboard.
+
+    Authentication: requires either a valid session (@login_required) OR
+    a Bearer token matching the subscriber's API key.
     """
+    # Auth gate: accept logged-in session OR Bearer API key
+    import secrets as _secrets
+    authenticated = False
+    if current_user and getattr(current_user, 'is_authenticated', False):
+        authenticated = True
+    else:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            provided_key = auth_header[7:].strip()
+            if provided_key:
+                # Will validate against subscriber's api_key below after we resolve location_id
+                pass  # deferred validation
+            else:
+                return jsonify({"error": "Missing API key"}), 401
+        else:
+            return jsonify({"error": "Authentication required. Provide a valid session or Bearer token."}), 401
+
     data = request.json or {}
     # Accept both GHL camelCase (locationId) and our snake_case (location_id)
     location_id = data.get('location_id') or data.get('locationId', '')
@@ -1395,6 +1441,14 @@ def trigger_outbound_call():
     subscriber = _get_subscriber_by_location(location_id)
     if not subscriber:
         return jsonify({"error": "Subscriber not found"}), 404
+
+    # Deferred Bearer token validation (now that we have the subscriber)
+    if not authenticated:
+        auth_header = request.headers.get('Authorization', '')
+        provided_key = auth_header[7:].strip() if auth_header.startswith('Bearer ') else ''
+        stored_key = subscriber.get("api_key", "")
+        if not stored_key or not _secrets.compare_digest(provided_key, stored_key):
+            return jsonify({"error": "Invalid API key"}), 403
 
     voice_config = subscriber.get("voice_config") or {}
     if not voice_config.get("enabled"):
@@ -1529,6 +1583,7 @@ def voice_status():
     # Deduct AI minutes for completed calls with duration > 0
     dur_s = int(duration or 0)
     if dur_s > 0 and call_status == 'completed' and call_sid:
+        conn_m = None
         try:
             conn_m = get_db_connection()
             if conn_m:
@@ -1541,17 +1596,23 @@ def voice_status():
                 """, (call_sid,))
                 row_m = cur_m.fetchone()
                 cur_m.close()
+        except Exception as e:
+            logger.warning(f"AI minute deduction DB lookup failed for {call_sid}: {e}")
+            row_m = None
+        finally:
+            if conn_m:
                 return_db_connection(conn_m)
-                if row_m and row_m['email']:
-                    result = deduct_ai_minutes(
-                        email=row_m['email'],
-                        duration_seconds=dur_s,
-                        call_sid=call_sid,
-                        phone=row_m.get('phone', ''),
-                        direction=row_m.get('direction', 'outbound'),
-                    )
-                    if result.get('success'):
-                        logger.info(f"AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
+        try:
+            if row_m and row_m['email']:
+                result = deduct_ai_minutes(
+                    email=row_m['email'],
+                    duration_seconds=dur_s,
+                    call_sid=call_sid,
+                    phone=row_m.get('phone', ''),
+                    direction=row_m.get('direction', 'outbound'),
+                )
+                if result.get('success'):
+                    logger.info(f"AI Minutes: Deducted {result['minutes_deducted']}min from {row_m['email']}, balance={result['balance_after']}")
         except Exception as e:
             logger.warning(f"AI minute deduction failed for {call_sid}: {e}")
 
@@ -2264,12 +2325,13 @@ def run_listen_stream(ws):
 # ──────────────────────────────────────────────────────────────
 
 @voice_bp.route('/voice/test', methods=['POST'])
+@login_required
 def test_voice_connection():
     """Test that XAI and Voice credentials are valid."""
     data = request.json or {}
     location_id = data.get('location_id', '')
 
-    results = {"xai": False, "twilio": False, "errors": []}
+    results = {"xai": False, "voice_service": False, "errors": []}
 
     # Test XAI API key
     if XAI_API_KEY:
@@ -2298,7 +2360,7 @@ def test_voice_connection():
                 try:
                     client = twilio_provisioning.get_sub_account_client(sub_sid)
                     account = client.api.accounts(sub_sid).fetch()
-                    results["twilio"] = account.status == "active"
+                    results["voice_service"] = account.status == "active"
                     if account.status != "active":
                         results["errors"].append(f"Voice sub-account status: {account.status}")
                 except Exception as e:
@@ -2869,6 +2931,8 @@ def dial_contact():
 def get_call_status(call_sid):
     """Poll call status for the dialer queue."""
     if call_sid in _active_calls:
+        if not _verify_call_ownership(call_sid):
+            return jsonify({"status": "unknown"}), 404
         info = _active_calls[call_sid]
         # For terminal states, mark for cleanup but don't delete yet (allow re-polls)
         if info["status"] in ("completed", "busy", "no-answer", "failed", "canceled", "transferred"):
@@ -3133,11 +3197,15 @@ def voice_takeover():
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
-    # Verify the call is actually active
+    # Verify the call is actually active and belongs to this user
     if call_sid not in _active_calls:
         return jsonify({"error": "Call not found or already ended"}), 404
 
     call_info = _active_calls[call_sid]
+    call_location = call_info.get('_location_id', '')
+    if call_location and call_location != location_id:
+        return jsonify({"error": "Call not found or already ended"}), 404
+
     if call_info.get('status') in ('completed', 'failed', 'transferred', 'no-answer'):
         return jsonify({"error": f"Call already in terminal state: {call_info.get('status')}"}), 400
 
@@ -3236,8 +3304,11 @@ def voice_transfer():
     if not transfer_to.startswith('+'):
         transfer_to = '+1' + transfer_to.lstrip('1') if len(transfer_to.replace('-','').replace(' ','')) <= 10 else '+' + transfer_to
 
-    # Verify the call is active
+    # Verify the call is active and belongs to this user
     if call_sid not in _active_calls:
+        return jsonify({"error": "Call not found or already ended"}), 404
+
+    if not _verify_call_ownership(call_sid):
         return jsonify({"error": "Call not found or already ended"}), 404
 
     call_info = _active_calls[call_sid]
@@ -3294,14 +3365,6 @@ def set_call_disposition():
         return jsonify({"error": "Database error"}), 500
     try:
         cur = conn.cursor()
-        # Try to add disposition column if it doesn't exist
-        try:
-            cur.execute("""
-                ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL
-            """)
-            conn.commit()
-        except Exception:
-            conn.rollback()
         cur.execute("""
             UPDATE call_history SET disposition = %s WHERE call_sid = %s
         """, (disposition, call_sid))
@@ -3340,13 +3403,6 @@ def get_call_history():
         if not row or not row['location_id']:
             return jsonify({"error": "No location configured"}), 400
         location_id = row['location_id']
-
-        # Ensure disposition column exists
-        try:
-            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
-            conn.commit()
-        except Exception:
-            conn.rollback()
 
         cur.execute("""
             SELECT id, contact_id, contact_name, phone, direction, call_sid,
@@ -3434,7 +3490,7 @@ def transcribe_recording():
         mp3_url = recording_url if recording_url.endswith('.mp3') else recording_url.rstrip('/') + '.mp3'
         audio_resp = httpx.get(
             mp3_url,
-            auth=(TWILIO_MASTER_SID, TWILIO_AUTH_TOKEN),
+            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
             timeout=30,
             follow_redirects=True
         )
@@ -3574,6 +3630,21 @@ def _get_current_subscriber_voice():
         return None, None, None
     finally:
         return_db_connection(conn)
+
+
+def _verify_call_ownership(call_sid: str) -> bool:
+    """Check that the call_sid belongs to the current user's location.
+    Returns True if the call is owned by the current user, False otherwise."""
+    info = _active_calls.get(call_sid)
+    if not info:
+        return False
+    call_location = info.get('_location_id', '')
+    if not call_location:
+        return True  # legacy entries without location_id — allow for backward compat
+    subscriber, _, _ = _get_current_subscriber_voice()
+    if not subscriber:
+        return False
+    return subscriber.get('location_id', '') == call_location
 
 
 def _save_voice_config(email, voice_config):
@@ -3759,11 +3830,6 @@ def generate_voice_token():
         logger.error(f"[voice/token] Token generation failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-
-@voice_bp.route('/voice/voip-answer', methods=['POST'])
-def voip_answer():
-    """Legacy endpoint — browser calls now go through /voice/inbound via TwiML app."""
-    return jsonify({'result': 'ok'}), 200
 
 
 # ──────────────────────────────────────────────────────────────
@@ -4453,14 +4519,42 @@ def a2p_campaign_status():
 @login_required
 def a2p_mark_fee_paid():
     """
-    Called after successful Stripe payment for A2P registration fee.
-    Marks the subscriber's a2p.a2p_fee_paid = True so they can proceed.
+    Called after successful Stripe payment redirect for A2P registration fee.
+    Verifies Stripe checkout session before marking paid (primary path is
+    the Stripe webhook; this is a fallback for webhook race conditions).
     """
     subscriber, vc, sub_sid = _get_current_subscriber_voice()
     if not sub_sid:
         return jsonify({"error": "Voice service not provisioned"}), 400
 
     a2p = (vc or {}).get('a2p', {})
+
+    # If already marked paid (e.g., by Stripe webhook), just return ok
+    if a2p.get('a2p_fee_paid'):
+        return jsonify({"ok": True, "message": "A2P fee already marked as paid."})
+
+    # Verify via Stripe: check if there's a completed a2p checkout session for this user
+    try:
+        import stripe
+        sessions = stripe.checkout.Session.list(
+            customer_email=current_user.email,
+            limit=5,
+        )
+        verified = False
+        for sess in sessions.data:
+            if (sess.payment_status == 'paid' and
+                    sess.metadata.get('purchase_type') == 'a2p_registration' and
+                    sess.metadata.get('user_email') == current_user.email):
+                verified = True
+                break
+
+        if not verified:
+            return jsonify({"error": "No verified A2P payment found. Please complete payment first."}), 403
+    except Exception as e:
+        logger.warning(f"A2P fee verification via Stripe failed: {e}")
+        # If Stripe check fails, don't allow bypass — the webhook path is the primary handler
+        return jsonify({"error": "Payment verification temporarily unavailable. The Stripe webhook will process your payment shortly."}), 503
+
     a2p['a2p_fee_paid'] = True
     a2p['fee_paid_at'] = datetime.utcnow().isoformat()
     vc['a2p'] = a2p
@@ -5156,12 +5250,7 @@ def get_dialer_stats():
         except Exception:
             user_tz = pytz.timezone('America/Chicago')
 
-        # Ensure disposition column exists
-        try:
-            cur.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS disposition TEXT DEFAULT NULL")
-            conn.commit()
-        except Exception:
-            conn.rollback()
+
 
         period = request.args.get('period', 'month')
         now = datetime.now(user_tz)

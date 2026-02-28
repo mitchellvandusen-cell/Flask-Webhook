@@ -25,13 +25,14 @@ def get_location_access_token(location_id: str) -> Optional[str]:
         logger.error("DB connection failed in get_location_access_token")
         return None
 
+    cur = None
     try:
         cur = conn.cursor()
         cur.execute("""
             SELECT access_token
-            FROM oauth_tokens
+            FROM subscribers
             WHERE location_id = %s
-            ORDER BY created_at DESC
+              AND access_token IS NOT NULL
             LIMIT 1
         """, (location_id,))
         row = cur.fetchone()
@@ -44,8 +45,9 @@ def get_location_access_token(location_id: str) -> Optional[str]:
         logger.error(f"Failed to get access token for location {location_id}: {e}")
         return None
     finally:
-        if conn:
+        if cur:
             cur.close()
+        if conn:
             return_db_connection(conn)
 
 

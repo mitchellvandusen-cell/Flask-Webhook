@@ -57,6 +57,7 @@ def send_sms_via_ghl(
     # Duplicate prevention: check if same message sent in last 5 min
     conn = get_db_connection()
     if conn:
+        cur = None
         try:
             cur = conn.cursor()
             cur.execute("""
@@ -73,7 +74,8 @@ def send_sms_via_ghl(
         except Exception as e:
             logger.error(f"Duplicate check failed: {e}")
         finally:
-            cur.close()
+            if cur:
+                cur.close()
             return_db_connection(conn)
 
     headers = {
