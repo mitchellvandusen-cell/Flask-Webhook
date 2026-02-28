@@ -318,25 +318,29 @@
         }
 
         // ── InsuranceGrokBot: compute engagement level (0-3 dots) from our data ──
-        function _igbEngageLevel(contactId) {
+        // Dots align with Smart Filter groups: 1=cold/touched, 2=warm, 3=hot
+        function _igbEngageLevel(contactId, contactObj) {
             const callCount = _dialerCallCounts[contactId] || 0;
             const eng = _igbEngagementCache[contactId];
+            // Opted-out / DnD contacts always show 0 engagement
+            if (_igbIsOptedOut(eng, contactObj)) return 0;
             let level = 0;
+            const totalCalls = (eng && eng.calls.total_calls) || 0;
             // Dot 1: any interaction exists (called or messaged)
-            if (callCount > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) level = 1;
-            // Dot 2: two-way engagement (we contacted AND they replied, or connected call)
-            if (eng && eng.messages.lead > 0 && eng.messages.assistant > 0) level = 2;
-            if (eng && eng.calls.connected > 0) level = 2;
-            // Dot 3: hot — recent activity within 48h OR multiple connected calls
-            if (eng) {
-                const now = Date.now();
-                const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
-                const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
-                const latest = Math.max(lastMsg, lastCall);
-                const hrs48 = 48 * 60 * 60 * 1000;
-                if (latest > 0 && (now - latest) < hrs48) level = Math.max(level, 2);
-                if (eng.calls.connected >= 2 || (eng.calls.connected >= 1 && eng.messages.lead >= 3)) level = 3;
-                if (latest > 0 && (now - latest) < hrs48 && level >= 2) level = 3;
+            if (callCount > 0 || totalCalls > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) level = 1;
+            if (!eng) return level;
+            // Dot 2: warm — two-way engagement (we messaged AND they replied, or connected call)
+            if (eng.messages.lead > 0 && eng.messages.assistant > 0) level = 2;
+            if (eng.calls.connected > 0) level = 2;
+            // Dot 3: hot — recent two-way activity within 48h with real engagement
+            const now = Date.now();
+            const lastMsg = eng.messages.last_message_at ? (new Date(eng.messages.last_message_at).getTime() || 0) : 0;
+            const lastCall = eng.calls.last_call_at ? (new Date(eng.calls.last_call_at).getTime() || 0) : 0;
+            const latest = Math.max(lastMsg, lastCall);
+            const hrs48 = 48 * 60 * 60 * 1000;
+            if (latest > 0 && (now - latest) < hrs48 && eng.messages.lead > 0 &&
+                (eng.calls.connected > 0 || (eng.messages.lead >= 2 && eng.messages.assistant >= 1))) {
+                level = 3;
             }
             return level;
         }
@@ -345,21 +349,25 @@
         function _igbGroupContacts(contacts) {
             const hot = [], warm = [], cold = [], dnc = [];
             const now = Date.now();
-            const hrs24 = 24 * 60 * 60 * 1000;
+            const hrs48 = 48 * 60 * 60 * 1000;
             const days7 = 7 * 24 * 60 * 60 * 1000;
             contacts.forEach(c => {
                 const eng = _igbEngagementCache[c.id];
                 const callCount = _dialerCallCounts[c.id] || 0;
                 // DnD / opt-out contacts always go to DnC group
-                if (eng && eng.opted_out) { dnc.push(c); return; }
+                if (_igbIsOptedOut(eng, c)) { dnc.push(c); return; }
                 if (eng) {
-                    const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
-                    const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
+                    const lastMsg = eng.messages.last_message_at ? (new Date(eng.messages.last_message_at).getTime() || 0) : 0;
+                    const lastCall = eng.calls.last_call_at ? (new Date(eng.calls.last_call_at).getTime() || 0) : 0;
                     const latest = Math.max(lastMsg, lastCall);
-                    if (latest > 0 && (now - latest) < hrs24 && (eng.calls.connected > 0 || eng.messages.lead > 0)) {
+                    const totalCalls = eng.calls.total_calls || 0;
+                    // Hot: two-way engagement within 48h — lead replied AND (connected call OR multi-message thread)
+                    if (latest > 0 && (now - latest) < hrs48 && eng.messages.lead > 0 &&
+                        (eng.calls.connected > 0 || (eng.messages.lead >= 2 && eng.messages.assistant >= 1))) {
                         hot.push(c); return;
                     }
-                    if (latest > 0 && (now - latest) < days7 && (callCount > 0 || eng.messages.lead > 0 || eng.messages.assistant > 0)) {
+                    // Warm: any activity within 7d — lead replied, call attempted, or we messaged
+                    if (latest > 0 && (now - latest) < days7 && (totalCalls > 0 || callCount > 0 || eng.messages.lead > 0 || eng.messages.assistant > 0)) {
                         warm.push(c); return;
                     }
                 }
@@ -385,7 +393,7 @@
             const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
             const inQ = dialerQueue.some(q => q.id === c.id);
             const callCount = _dialerCallCounts[c.id] || 0;
-            const level = _igbEngageLevel(c.id);
+            const level = _igbEngageLevel(c.id, c);
 
             // Live status dot
             const isLive = typeof _active_calls !== 'undefined' && _active_calls && _active_calls[c.id];
