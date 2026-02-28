@@ -1299,6 +1299,14 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"contact_cache migration note: {e}")
 
+        # MIGRATION: Add dnd column to contact_cache
+        try:
+            cur.execute("ALTER TABLE contact_cache ADD COLUMN IF NOT EXISTS dnd BOOLEAN DEFAULT FALSE")
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"contact_cache dnd migration note: {e}")
+
         # ── GHL Sync Engine tables ─────────────────────────────────────────
         # Phase 1: ghl_conversations — stores ALL GHL conversation messages locally
         try:
@@ -3234,7 +3242,7 @@ def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) 
         if query and query.strip():
             q = f"%{query.strip().lower()}%"
             cur.execute("""
-                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added
+                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd
                 FROM contact_cache
                 WHERE location_id = %s
                   AND (lower(name) LIKE %s OR phone LIKE %s OR lower(email) LIKE %s)
@@ -3243,7 +3251,7 @@ def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) 
             """, (location_id, q, q, q, limit))
         else:
             cur.execute("""
-                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added
+                SELECT contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd
                 FROM contact_cache
                 WHERE location_id = %s
                 ORDER BY name
@@ -3260,6 +3268,7 @@ def get_cached_contacts(location_id: str, query: str = None, limit: int = 5000) 
             "email": r["email"] or "",
             "tags": r["tags"] if r["tags"] else [],
             "dateAdded": r["date_added"] or "",
+            "dnd": bool(r.get("dnd", False)),
         } for r in rows]
     except Exception as e:
         logger.error(f"get_cached_contacts failed for {location_id}: {e}")
@@ -3339,6 +3348,7 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
                 c.get("email", ""),
                 _json.dumps(c.get("tags", [])),
                 c.get("dateAdded", ""),
+                bool(c.get("dnd", False)),
             ))
 
         if not values:
@@ -3346,7 +3356,7 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
 
         # Bulk upsert
         execute_values(cur, """
-            INSERT INTO contact_cache (location_id, contact_id, name, first_name, last_name, phone, email, tags, date_added, synced_at)
+            INSERT INTO contact_cache (location_id, contact_id, name, first_name, last_name, phone, email, tags, date_added, dnd, synced_at)
             VALUES %s
             ON CONFLICT (location_id, contact_id)
             DO UPDATE SET
@@ -3357,8 +3367,9 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
                 email = EXCLUDED.email,
                 tags = EXCLUDED.tags,
                 date_added = EXCLUDED.date_added,
+                dnd = EXCLUDED.dnd,
                 synced_at = CURRENT_TIMESTAMP
-        """, values, template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, CURRENT_TIMESTAMP)")
+        """, values, template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, CURRENT_TIMESTAMP)")
 
         affected = cur.rowcount
 

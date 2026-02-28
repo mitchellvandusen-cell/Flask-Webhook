@@ -318,9 +318,11 @@
         }
 
         // ── InsuranceGrokBot: compute engagement level (0-3 dots) from our data ──
-        function _igbEngageLevel(contactId) {
+        function _igbEngageLevel(contactId, contactObj) {
             const callCount = _dialerCallCounts[contactId] || 0;
             const eng = _igbEngagementCache[contactId];
+            // Opted-out / DnD contacts always show 0 engagement
+            if (_igbIsOptedOut(eng, contactObj)) return 0;
             let level = 0;
             // Dot 1: any interaction exists (called or messaged)
             if (callCount > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) level = 1;
@@ -351,7 +353,7 @@
                 const eng = _igbEngagementCache[c.id];
                 const callCount = _dialerCallCounts[c.id] || 0;
                 // DnD / opt-out contacts always go to DnC group
-                if (eng && eng.opted_out) { dnc.push(c); return; }
+                if (_igbIsOptedOut(eng, c)) { dnc.push(c); return; }
                 if (eng) {
                     const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
                     const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
@@ -385,7 +387,7 @@
             const isActive = dialerActiveContact && dialerActiveContact.id === c.id;
             const inQ = dialerQueue.some(q => q.id === c.id);
             const callCount = _dialerCallCounts[c.id] || 0;
-            const level = _igbEngageLevel(c.id);
+            const level = _igbEngageLevel(c.id, c);
 
             // Live status dot
             const isLive = typeof _active_calls !== 'undefined' && _active_calls && _active_calls[c.id];
