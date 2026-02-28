@@ -929,7 +929,8 @@ def _api_get_paced(url, headers, params=None, timeout=15):
     """GHL API GET with unlimited retry on rate limits.
     Unlike _api_get which retries 3 times and gives up, this function waits
     as long as needed for rate limits to clear. For deep pulls that must
-    finish eventually."""
+    finish eventually.
+    Returns (json, None) on success or (None, error_reason) on failure."""
     max_retries = 100  # effectively unlimited — 100 rate limit waits = ~100 min
     for attempt in range(max_retries):
         try:
@@ -942,6 +943,7 @@ def _api_get_paced(url, headers, params=None, timeout=15):
                 continue
 
             if resp.status_code in (401, 403):
+                logger.warning(f"[DEEP_SYNC] Auth error {resp.status_code}: {url}")
                 return None, "auth_error"
 
             resp.raise_for_status()
@@ -961,19 +963,29 @@ def _api_get_paced(url, headers, params=None, timeout=15):
     return None, "max_retries"
 
 
+def _deep_refresh_token(location_id, headers):
+    """Refresh token mid-sync and update headers in-place. Returns True on success."""
+    try:
+        fresh = get_valid_token(location_id)
+        if fresh and fresh != 'DEMO':
+            headers["Authorization"] = f"Bearer {fresh}"
+            logger.info(f"[DEEP_SYNC] {location_id} | Token refreshed mid-sync")
+            return True
+    except Exception as e:
+        logger.error(f"[DEEP_SYNC] {location_id} | Token refresh failed: {e}")
+    return False
+
+
 def deep_sync_conversations(location_id, access_token=None):
     """One-time deep historical pull of ALL conversation data from GHL.
 
-    Differences from sync_ghl_conversations:
-    - No page cap — pulls every message for every contact
-    - Paced to stay just under GHL rate limit (85 req/min)
-    - Unlimited retry on 429s — waits and continues, never gives up
-    - Tracks progress in ghl_sync_state as 'conversations_deep'
-    - Only runs once — checks for prior completion before starting
-    - Can resume from where it left off if interrupted (uses cursor)
-
-    After this completes, all new calls go through our dialer (call_history)
-    and the regular incremental sync handles any GHL-side activity.
+    Approach: conversation-first (not contact-first).
+    1. List ALL conversations for the location via /conversations/search
+    2. For each conversation, pull ALL messages (paginated, no cap)
+    3. Auto-refresh token on auth errors
+    4. Tracks progress in ghl_sync_state as 'conversations_deep'
+    5. Only runs once — checks for prior completion before starting
+    6. Can resume from where it left off if interrupted (uses cursor)
     """
     if not access_token:
         access_token = get_valid_token(location_id)
@@ -986,7 +998,7 @@ def deep_sync_conversations(location_id, access_token=None):
 
     headers = _get_headers(access_token)
     total_synced = 0
-    contacts_processed = 0
+    convos_processed = 0
 
     try:
         # Check if deep sync already completed
@@ -1007,7 +1019,7 @@ def deep_sync_conversations(location_id, access_token=None):
 
         _update_sync_state(conn, location_id, 'conversations_deep', 'running')
 
-        # Get resume cursor (contact index) if resuming from interruption
+        # Get resume cursor if resuming from interruption
         resume_index = 0
         if state and state.get('last_cursor'):
             try:
@@ -1016,147 +1028,170 @@ def deep_sync_conversations(location_id, access_token=None):
             except (ValueError, TypeError):
                 pass
 
-        # Step 1: Get ALL contacts (no cap)
-        contact_ids = _deep_get_all_contacts(location_id, headers)
-        total_contacts = len(contact_ids)
+        # Step 1: List ALL conversations for this location (conversation-first)
+        # This catches everything: SMS threads, call logs, emails, etc.
+        conversations = _deep_list_all_conversations(location_id, headers)
+        total_convos = len(conversations)
 
-        if not contact_ids:
+        if not conversations:
+            logger.warning(f"[DEEP_SYNC] {location_id} | 0 conversations found — "
+                           f"checking if auth issue...")
+            # Try one direct API call to diagnose
+            test_url = f"{GHL_BASE}/conversations/search"
+            test_data, test_err = _api_get_paced(
+                test_url, headers, params={"locationId": location_id, "limit": 1})
+            if test_err == "auth_error":
+                logger.error(f"[DEEP_SYNC] {location_id} | Auth error — refreshing token")
+                if _deep_refresh_token(location_id, headers):
+                    conversations = _deep_list_all_conversations(location_id, headers)
+                    total_convos = len(conversations)
+
+        if not conversations:
             _update_sync_state(conn, location_id, 'conversations_deep', 'completed', total=0)
-            return {"synced": 0, "contacts": 0}
+            logger.info(f"[DEEP_SYNC] {location_id} | No conversations found after auth retry")
+            return {"synced": 0, "conversations": 0, "status": "completed"}
 
-        logger.info(f"[DEEP_SYNC] {location_id} | Starting deep pull for {total_contacts} contacts"
-                     f" (resuming from #{resume_index})" if resume_index else "")
+        logger.info(f"[DEEP_SYNC] {location_id} | Found {total_convos} conversations"
+                    f"{f', resuming from #{resume_index}' if resume_index else ''}")
 
-        # Step 2: For each contact, pull ALL messages (no page cap)
-        # Early termination: if first 20 contacts yield 0 records, call data
-        # is likely in an external dialer (WAVV, etc.) — stop wasting API calls.
-        _EARLY_CHECK_THRESHOLD = 20
-
-        for i, contact_id in enumerate(contact_ids):
+        # Step 2: For each conversation, pull ALL messages
+        auth_failures = 0
+        for i, convo in enumerate(conversations):
             if i < resume_index:
-                continue  # Skip already-processed contacts on resume
+                continue
+
+            convo_id = convo.get("id")
+            contact_id = convo.get("contactId", "")
+            contact_name = convo.get("contactName") or convo.get("fullName") or ""
+            contact_phone = convo.get("phone") or ""
+
+            if not convo_id:
+                continue
 
             try:
-                count = _deep_sync_contact(conn, location_id, contact_id, headers)
-                total_synced += count
-                contacts_processed += 1
+                count = _deep_pull_conversation_messages(
+                    conn, location_id, convo_id, contact_id,
+                    contact_name, contact_phone, headers
+                )
+                if count == -1:
+                    # Auth error — refresh token and retry this conversation
+                    auth_failures += 1
+                    if auth_failures <= 3 and _deep_refresh_token(location_id, headers):
+                        count = _deep_pull_conversation_messages(
+                            conn, location_id, convo_id, contact_id,
+                            contact_name, contact_phone, headers
+                        )
+                        if count >= 0:
+                            auth_failures = 0  # Reset on success
+                    if count < 0:
+                        count = 0
 
-                # Pace ourselves: ~85 requests/min
+                total_synced += count
+                convos_processed += 1
+
+                # Pace ourselves
                 _time.sleep(_DEEP_SYNC_PACE)
 
-                # Early termination check: if 20 contacts scanned with 0 records,
-                # GHL has no conversation data — calls were via external dialer
-                if (contacts_processed == _EARLY_CHECK_THRESHOLD
-                        and total_synced == 0 and resume_index == 0):
-                    logger.info(f"[DEEP_SYNC] {location_id} | 0 records after "
-                                f"{_EARLY_CHECK_THRESHOLD} contacts — "
-                                f"call data likely in external dialer, stopping early")
-                    break
-
-                # Update progress every 5 contacts
-                if contacts_processed % 5 == 0:
+                # Update progress every 5 conversations
+                if convos_processed % 5 == 0:
                     _update_sync_state(conn, location_id, 'conversations_deep', 'running',
                                        cursor=str(i + 1), total=total_synced)
-                    logger.info(f"[DEEP_SYNC] {location_id} | Progress: {i+1}/{total_contacts} contacts, "
+                    logger.info(f"[DEEP_SYNC] {location_id} | Progress: {i+1}/{total_convos} conversations, "
                                 f"{total_synced} messages synced")
 
+                # If we hit too many consecutive auth failures, stop
+                if auth_failures > 5:
+                    logger.error(f"[DEEP_SYNC] {location_id} | Too many auth failures, stopping")
+                    break
+
             except Exception as e:
-                logger.warning(f"[DEEP_SYNC] {location_id} | Error on contact {contact_id}: {e}")
-                # Save progress so we can resume
+                logger.warning(f"[DEEP_SYNC] {location_id} | Error on conversation {convo_id}: {e}")
                 _update_sync_state(conn, location_id, 'conversations_deep', 'running',
                                    cursor=str(i), total=total_synced)
                 continue
 
-        # Mark as completed — this sync never needs to run again
+        # Mark as completed
         _update_sync_state(conn, location_id, 'conversations_deep', 'completed',
-                           cursor=str(total_contacts), total=total_synced)
-        logger.info(f"[DEEP_SYNC] {location_id} | COMPLETE: {total_contacts} contacts, "
+                           cursor=str(total_convos), total=total_synced)
+        logger.info(f"[DEEP_SYNC] {location_id} | COMPLETE: {total_convos} conversations, "
                     f"{total_synced} messages synced")
 
         return {
             "synced": total_synced,
-            "contacts": total_contacts,
+            "conversations": total_convos,
             "status": "completed",
         }
 
     except Exception as e:
         logger.error(f"[DEEP_SYNC] {location_id} | FAILED: {e}", exc_info=True)
         _update_sync_state(conn, location_id, 'conversations_deep', 'failed',
-                           cursor=str(resume_index + contacts_processed),
+                           cursor=str(resume_index + convos_processed),
                            total=total_synced, error=str(e)[:500])
         return {"synced": total_synced, "error": str(e), "status": "failed"}
     finally:
         return_db_connection(conn)
 
 
-def _deep_get_all_contacts(location_id, headers):
-    """Fetch ALL contact IDs from GHL with no cap. Paced for rate limits."""
-    contact_ids = []
-    url = f"{GHL_BASE}/contacts/"
+def _deep_list_all_conversations(location_id, headers):
+    """List ALL conversations for a location via GHL conversations/search.
+    Conversation-first approach: catches every thread (SMS, calls, email, etc.)
+    without needing to know contact IDs first."""
+    all_convos = []
+    url = f"{GHL_BASE}/conversations/search"
     params = {"locationId": location_id, "limit": 100}
-    max_pages = 200  # 200 pages × 100 = 20,000 contacts (safety)
+    max_pages = 200  # 200 pages × 100 = 20,000 conversations (safety)
 
     for page in range(max_pages):
         data, err = _api_get_paced(url, headers, params=params)
-        if err or not data:
+        if err:
+            logger.warning(f"[DEEP_SYNC] {location_id} | Conversation list error: {err} "
+                           f"(page {page}, {len(all_convos)} so far)")
+            break
+        if not data:
             break
 
-        contacts = data.get("contacts", [])
-        for c in contacts:
-            cid = c.get("id")
-            if cid:
-                contact_ids.append(cid)
-
-        if not contacts:
+        convos = data.get("conversations", [])
+        if not convos:
             break
 
-        # Check for next page
+        all_convos.extend(convos)
+        logger.info(f"[DEEP_SYNC] {location_id} | Listed {len(all_convos)} conversations (page {page+1})")
+
+        # Pagination: GHL uses startAfterDate or nextPage for conversation listing
         meta = data.get("meta", {})
-        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        start_after = meta.get("startAfterDate") or meta.get("startAfterId") or meta.get("nextPageStartAfterId")
         next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
 
         if start_after:
-            params["startAfterId"] = start_after
+            params["startAfterDate"] = start_after
         elif isinstance(next_page_url, str) and next_page_url.startswith("http"):
             url = next_page_url
             params = {}
+        elif len(convos) < 100:
+            break  # Last page
         else:
             break
 
         _time.sleep(_DEEP_SYNC_PACE)
 
-    logger.info(f"[DEEP_SYNC] {location_id} | Found {len(contact_ids)} contacts")
-    return contact_ids
+    logger.info(f"[DEEP_SYNC] {location_id} | Total conversations listed: {len(all_convos)}")
+    return all_convos
 
 
-def _deep_sync_contact(conn, location_id, contact_id, headers):
-    """Pull ALL messages for a single contact. No page cap. Returns count."""
-    # Find conversation
-    search_url = f"{GHL_BASE}/conversations/search"
-    data, err = _api_get_paced(search_url, headers,
-                                params={"locationId": location_id, "contactId": contact_id})
-    if err or not data:
-        return 0
-
-    convos = data.get("conversations", [])
-    if not convos:
-        return 0
-
-    convo_id = convos[0].get("id")
-    if not convo_id:
-        return 0
-
-    contact_name = convos[0].get("contactName") or convos[0].get("fullName") or ""
-    contact_phone = convos[0].get("phone") or ""
-
-    # Fetch ALL messages — no page cap
+def _deep_pull_conversation_messages(conn, location_id, convo_id, contact_id,
+                                      contact_name, contact_phone, headers):
+    """Pull ALL messages for a single conversation. No page cap.
+    Returns count of messages synced, or -1 on auth error."""
     msg_url = f"{GHL_BASE}/conversations/{convo_id}/messages"
     messages_to_insert = []
-    max_pages = 100  # 100 pages × 100 msgs = 10,000 per contact (safety)
+    max_pages = 100  # safety cap
 
     for page in range(max_pages):
         params = {"limit": 100}
         data, err = _api_get_paced(msg_url, headers, params=params)
+
+        if err == "auth_error":
+            return -1  # Signal caller to refresh token
         if err or not data:
             break
 
@@ -1194,11 +1229,13 @@ def _deep_sync_contact(conn, location_id, contact_id, headers):
                 ghl_msg_id, date_added
             ))
 
-        # Pagination
+        # Pagination — "load more messages"
         if not next_page and not last_msg_id:
             break
         if last_msg_id:
             msg_url = f"{GHL_BASE}/conversations/{convo_id}/messages?lastMessageId={last_msg_id}"
+        elif next_page and isinstance(next_page, str) and next_page.startswith("http"):
+            msg_url = next_page
 
         _time.sleep(_DEEP_SYNC_PACE)
 
@@ -1224,7 +1261,7 @@ def _deep_sync_contact(conn, location_id, contact_id, headers):
             cur.close()
         except Exception as e:
             conn.rollback()
-            logger.error(f"[DEEP_SYNC] Bulk insert failed for {contact_id}: {e}")
+            logger.error(f"[DEEP_SYNC] Bulk insert failed for convo {convo_id}: {e}")
             return 0
 
     return len(messages_to_insert)

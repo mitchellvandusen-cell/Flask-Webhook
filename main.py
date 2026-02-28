@@ -3128,10 +3128,21 @@ def api_sync_deep_pull():
 
         # Check current status — don't re-trigger if already done or running
         status = get_deep_sync_status(location_id)
-        if status.get("status") == "completed":
+        if status.get("status") == "completed" and status.get("messages_synced", 0) > 0:
             return safe_jsonify({"status": "already_completed", **status})
         if status.get("status") == "running":
             return safe_jsonify({"status": "already_running", **status})
+
+        # If previous run completed with 0 records (bug), reset so it runs again
+        if status.get("status") == "completed" and status.get("messages_synced", 0) == 0:
+            from ghl_sync import _update_sync_state
+            from db import get_db_connection, return_db_connection
+            rc = get_db_connection()
+            if rc:
+                try:
+                    _update_sync_state(rc, location_id, 'conversations_deep', 'pending')
+                finally:
+                    return_db_connection(rc)
 
         # Queue background job (long-running, up to 2 hours)
         ensure_redis()
