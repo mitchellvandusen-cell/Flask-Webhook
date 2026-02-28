@@ -835,6 +835,10 @@ def comparison():
 def comparison_text_drip():
     return render_template('comparison-text-drip.html')
 
+@app.route("/comparison/dialers")
+def comparison_dialers():
+    return render_template('comparison-dialers.html')
+
 @app.route("/dialer")
 def dialer():
     return render_template('dialer.html')
