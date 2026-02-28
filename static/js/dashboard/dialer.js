@@ -3328,44 +3328,87 @@
             }
         }
 
-        // ── InsuranceGrokBot: Background Batch Analysis ──
-        // Processes uncached contacts in batches of 5, updating filters as results arrive.
+        // ── InsuranceGrokBot: Background Batch Analysis (RQ-backed) ──
+        // Queues all uncached contacts to RQ workers via one POST,
+        // then polls the bulk endpoint for results as workers complete.
+        let _igbPollTimer = null;
         async function igbRunBatchAnalysis() {
             if (_igbAnalyzing || !_igbUncachedIds.length) return;
             _igbAnalyzing = true;
-            console.log('[IGB] Starting batch AI analysis for', _igbUncachedIds.length, 'contacts');
+            const totalPending = _igbUncachedIds.length;
+            console.log('[IGB] Queuing', totalPending, 'contacts for RQ AI analysis');
 
-            const BATCH = 5;
-            while (_igbUncachedIds.length > 0) {
-                const batch = _igbUncachedIds.splice(0, BATCH);
+            // Send all uncached IDs to the server — it splits into RQ batches of 10
+            try {
+                const r = await fetch('/voice/contact-intelligence-analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_ids: _igbUncachedIds })
+                });
+                if (!r.ok) { _igbAnalyzing = false; return; }
+                const data = await r.json();
+                console.log('[IGB] Queued', data.queued, 'contacts to RQ workers');
+            } catch(e) {
+                console.error('[IGB] Queue request failed:', e);
+                _igbAnalyzing = false;
+                return;
+            }
+
+            // Poll for results every 4 seconds until all contacts are analyzed
+            _igbPollForResults(_igbUncachedIds.slice()); // copy the array
+        }
+
+        function _igbPollForResults(pendingIds) {
+            if (_igbPollTimer) clearInterval(_igbPollTimer);
+            let pollCount = 0;
+            const maxPolls = 90; // 4s * 90 = 6 minutes max polling
+
+            _igbPollTimer = setInterval(async function() {
+                pollCount++;
+                if (!pendingIds.length || pollCount > maxPolls) {
+                    clearInterval(_igbPollTimer);
+                    _igbPollTimer = null;
+                    _igbAnalyzing = false;
+                    if (pollCount > maxPolls) console.warn('[IGB] Poll timeout — some contacts may not be analyzed');
+                    dialerRenderContacts();
+                    return;
+                }
+
                 try {
-                    const r = await fetch('/voice/contact-intelligence-analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contact_ids: batch })
-                    });
-                    if (!r.ok) continue;
+                    const ids = pendingIds.join(',');
+                    const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(ids));
+                    if (!r.ok) return;
                     const data = await r.json();
-                    if (data.results && data.results.length) {
-                        data.results.forEach(function(res) {
-                            _igbIntelCache[res.contact_id] = {
-                                temperature: res.temperature,
-                                score: res.score,
-                                summary: res.summary || '',
-                                temperature_reason: res.temperature_reason || '',
-                            };
+
+                    if (data.cached) {
+                        let newResults = 0;
+                        Object.entries(data.cached).forEach(function([cid, intel]) {
+                            if (!_igbIntelCache[cid]) newResults++;
+                            _igbIntelCache[cid] = intel;
                         });
-                        // Re-render to move analyzed contacts into correct groups
+                        // Remove newly cached from pending
+                        pendingIds = pendingIds.filter(function(id) { return !data.cached[id]; });
+                        // Also remove from global uncached list
+                        _igbUncachedIds = _igbUncachedIds.filter(function(id) { return !data.cached[id]; });
+
+                        if (newResults > 0) {
+                            console.log('[IGB] Poll: +' + newResults + ' analyzed, ' + pendingIds.length + ' remaining');
+                            dialerRenderContacts();
+                        }
+                    }
+
+                    // All done
+                    if (pendingIds.length === 0) {
+                        clearInterval(_igbPollTimer);
+                        _igbPollTimer = null;
+                        _igbAnalyzing = false;
+                        console.log('[IGB] All contacts analyzed. Total cached:', Object.keys(_igbIntelCache).length);
                         dialerRenderContacts();
                     }
                 } catch(e) {
-                    console.error('[IGB] Batch analysis failed:', e);
+                    console.error('[IGB] Poll failed:', e);
                 }
-            }
-
-            _igbAnalyzing = false;
-            console.log('[IGB] Batch AI analysis complete. Total cached:', Object.keys(_igbIntelCache).length);
-            dialerRenderContacts();
+            }, 4000);
         }
 
         // After local counts show, upgrade badges with GHL+WAVV counts from synced DB

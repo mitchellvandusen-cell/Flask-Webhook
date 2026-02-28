@@ -333,9 +333,9 @@ def _get_cached_analysis(contact_id, last_message_at):
             if lm > analyzed_at:
                 return None
 
-        # Also expire after 6 hours regardless
+        # Also expire after 24 hours regardless (safety net)
         if isinstance(analyzed_at, datetime):
-            if datetime.utcnow() - analyzed_at > timedelta(hours=6):
+            if datetime.utcnow() - analyzed_at > timedelta(hours=24):
                 return None
 
         analysis = row.get('analysis')
@@ -400,14 +400,18 @@ def get_bulk_cached_intelligence(location_id, contact_ids):
 
     try:
         cur = conn.cursor()
+        # LEFT JOIN is faster than correlated subquery at scale (300+ contacts).
+        # No time-based expiry — cache persists until new messages invalidate it.
         cur.execute("""
-            SELECT ci.contact_id, ci.analysis, ci.analyzed_at,
-                   (SELECT MAX(cm.created_at) FROM contact_messages cm
-                    WHERE cm.contact_id = ci.contact_id) AS last_msg_at
+            SELECT ci.contact_id, ci.analysis, ci.analyzed_at, lm.last_msg_at
             FROM contact_intelligence ci
+            LEFT JOIN LATERAL (
+                SELECT MAX(cm.created_at) AS last_msg_at
+                FROM contact_messages cm
+                WHERE cm.contact_id = ci.contact_id
+            ) lm ON TRUE
             WHERE ci.location_id = %s
               AND ci.contact_id = ANY(%s)
-              AND ci.analyzed_at > NOW() - INTERVAL '6 hours'
         """, (location_id, contact_ids))
 
         results = {}
