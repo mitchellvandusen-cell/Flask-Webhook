@@ -32,8 +32,6 @@
         .chat-window { display: none; z-index: 10002; transform: scale(0.9); transition: all 0.3s ease; }
         .chat-window.active { display: flex; transform: scale(1); opacity: 1; }
 
-        .popup-overlay { z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.5s; display: none; }
-        .popup-overlay.active { pointer-events: auto; opacity: 1; display: flex; }
 
         #typingIndicator { display: none; align-items: center; padding: 10px 20px; gap: 5px; }
     </style>
@@ -54,8 +52,8 @@
                     <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
                     <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/integrations">Integrations</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/setup-guide">Setup Guide</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/reviews">Reviews</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
                     <li class="nav-item"><a class="nav-link" href="/support">Support</a></li>
                     {% if current_user.is_authenticated and current_user.is_super_admin %}
                     <li class="nav-item">
@@ -104,7 +102,7 @@
         <div class="container">
             <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
             <div class="mb-4">
-                <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/disclaimers">Disclaimers</a><a href="/integrations">Integrations</a><a href="/setup-guide">Setup Guide</a><a href="/support">Support</a><a href="/contact">Contact</a>
+                <a href="/about">About</a><a href="/reviews">Reviews</a><a href="/integrations">Integrations</a><a href="/comparison">Comparison</a><a href="/support">Support</a><a href="/contact">Contact</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a>
             </div>
             <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
         </div>
@@ -129,19 +127,6 @@
         <button class="chat-toggle-btn" id="chatToggleBtn" aria-label="Open chat assistant"><div class="pulse-ring"></div><i class="fa-solid fa-robot"></i></button>
     </div>
 
-    <div id="elite-popup-overlay" class="popup-overlay" role="dialog" aria-modal="true" aria-labelledby="popup-title">
-        <div class="popup-card">
-            <button class="close-btn" id="popupCloseBtn" aria-label="Close popup">&times;</button>
-            <div class="popup-content">
-                <div class="glow-effect"></div><span class="badge">LIMITED OFFER</span>
-                <h2 id="popup-title">Experience True Intelligence</h2>
-                <p>Unlock the full potential of InsuranceGrokBot. Zero limits. Zero cost for the first week.</p>
-                <div class="offer-box"><span class="big-text">7 DAYS</span><span class="sub-text">FREE TRIAL</span></div>
-                <a href="/register" class="elite-btn">Start My Free Trial</a>
-                <p class="no-commitment">No commitment. Cancel anytime.</p>
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
@@ -155,7 +140,6 @@
         const chatToggleBtn = document.getElementById('chatToggleBtn');
         const chatCloseBtn = document.getElementById('chatCloseBtn');
         const chatSendBtn = document.getElementById('chatSendBtn');
-        const popupCloseBtn = document.getElementById('popupCloseBtn');
         let currentRequest = null;
 
         // Toggle chat open/close
@@ -295,26 +279,6 @@
                 }
             }
 
-            // Popup logic
-            const popup = document.getElementById("elite-popup-overlay");
-            if (popup && !localStorage.getItem("grok_popup_last_closed")) {
-                setTimeout(() => { popup.classList.add("active"); }, 2000);
-            }
-            if (popupCloseBtn) {
-                popupCloseBtn.addEventListener('click', () => {
-                    popup.classList.remove("active");
-                    localStorage.setItem("grok_popup_last_closed", Date.now());
-                });
-            }
-            // Close popup on backdrop click
-            if (popup) {
-                popup.addEventListener('click', (e) => {
-                    if (e.target === popup) {
-                        popup.classList.remove("active");
-                        localStorage.setItem("grok_popup_last_closed", Date.now());
-                    }
-                });
-            }
         });
     })();
     </script>

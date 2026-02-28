@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Register | InsuranceGrokBot{% endblock %}
+{% block title %}Get Started | InsuranceGrokBot{% endblock %}
 
 {% block content %}
 <div class="auth-wrapper">
@@ -8,8 +8,6 @@
         <div class="auth-logo">
             Insurance<span class="text-accent">Grok</span>Bot
         </div>
-        <p class="auth-subtitle">Set up your account</p>
-        <p style="color:#888; font-size:0.82rem; margin-top:-5px;">You must install the app from the <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" style="color:var(--text-accent, #00c853); text-decoration:none; font-weight:600;">Lead Connector Marketplace</a> before registering.</p>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -23,9 +21,14 @@
             {% endif %}
         {% endwith %}
 
+        {% if request.args.get('location_id') %}
+        <!-- Marketplace install flow: user already installed from LC, just needs to set a password -->
+        <p class="auth-subtitle">Set up your account</p>
+        <p style="color:#888; font-size:0.82rem; margin-top:-5px;">Complete your registration below to finish connecting your CRM.</p>
+
         <form method="post" action="{{ url_for('register') }}">
             {{ form.hidden_tag() }}
-            
+
             <div class="mb-3">
                 <label class="form-label">Email Address</label>
                 <div class="input-group">
@@ -38,12 +41,14 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Lead Connector Location ID</label>
+                <label class="form-label">Location ID</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fa-solid fa-location-dot"></i></span>
-                    {{ form.location_id(class="form-control", placeholder="Location ID") }}
+                    {{ form.location_id(class="form-control", placeholder="Location ID", readonly=true) }}
                 </div>
-                <div class="form-text small" style="color: #888;">This is auto-filled when you install from the Marketplace.</div>
+                <div class="form-text small" style="color: var(--accent);">
+                    <i class="fa-solid fa-check-circle me-1"></i>Auto-filled from your marketplace install.
+                </div>
                 {% for error in form.location_id.errors %}
                     <span class="text-danger small">{{ error }}</span>
                 {% endfor %}
@@ -74,9 +79,39 @@
             <button type="submit" class="btn btn-primary w-100 py-3">Create Account</button>
         </form>
 
+        {% else %}
+        <!-- Default: direct visitors to subscribe or log in -->
+        <p class="auth-subtitle">Create your account</p>
+
+        <div style="margin: 20px 0 24px;">
+            <div class="glass-card p-4 text-center" style="border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.03);">
+                <i class="fa-solid fa-bolt" style="font-size: 1.5rem; color: var(--accent); margin-bottom: 12px;"></i>
+                <h5 style="font-weight: 700; color: #fff; margin-bottom: 8px;">Subscribe to Get Started</h5>
+                <p style="color: #888; font-size: 0.88rem; margin-bottom: 16px;">
+                    Your account is created automatically when you subscribe. Choose a plan and you'll be up and running in minutes.
+                </p>
+                <a href="/checkout" class="btn btn-primary w-100 py-3" style="font-weight: 700;">
+                    Subscribe Now — $149.99/mo <i class="fa-solid fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <span style="color: #555; font-size: 0.82rem;">or</span>
+        </div>
+
+        <div class="glass-card p-4 text-center" style="border-color: rgba(0,217,255,0.15); background: rgba(0,217,255,0.02);">
+            <i class="fa-solid fa-cloud-arrow-down" style="font-size: 1.3rem; color: #00d9ff; margin-bottom: 10px;"></i>
+            <h6 style="font-weight: 700; color: #fff; margin-bottom: 6px;">Using LeadConnector?</h6>
+            <p style="color: #888; font-size: 0.82rem; margin-bottom: 12px;">
+                Install from the <a href="https://marketplace.leadconnectorhq.com" target="_blank" rel="noopener noreferrer" style="color: #00d9ff; text-decoration: none; font-weight: 600;">Marketplace</a> for one-click CRM sync, then complete registration.
+            </p>
+        </div>
+        {% endif %}
+
         <div class="text-center mt-4">
             <p style="color:#aaa; font-size:0.9rem;">
-                Already registered? <a href="/login" class="text-accent" style="text-decoration:none; font-weight:600;">Log In</a>
+                Already have an account? <a href="/login" class="text-accent" style="text-decoration:none; font-weight:600;">Log In</a>
             </p>
             <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 25px 0;"></div>
             <a href="/" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">
@@ -85,27 +120,4 @@
         </div>
     </div>
 </div>
-
-<style>
-.btn-lc {
-    background: linear-gradient(135deg, #00c853 0%, #00a843 100%);
-    border: none;
-    color: white;
-    font-weight: 600;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);
-}
-
-.btn-lc:hover {
-    background: linear-gradient(135deg, #00a843 0%, #008833 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 200, 83, 0.4);
-    color: white;
-}
-
-.btn-lc:active {
-    transform: translateY(0);
-}
-</style>
 {% endblock %}
