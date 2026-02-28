@@ -2844,8 +2844,9 @@ def api_ghl_phone_numbers():
 @login_required
 def api_inbox_conversations():
     """
-    Get unified conversation list from synced GHL data.
-    Returns latest message per contact, ordered by most recent.
+    Get unified conversation list.
+    Primary: synced GHL data (ghl_conversations).
+    Fallback: local webhook messages (contact_messages via contact_cache).
     """
     location_id = current_user.location_id
     if not location_id:
@@ -2860,6 +2861,8 @@ def api_inbox_conversations():
 
     try:
         cur = conn.cursor()
+
+        # Primary: GHL synced conversations
         cur.execute("""
             SELECT DISTINCT ON (contact_id)
                 contact_id, contact_name, contact_phone,
@@ -2870,6 +2873,28 @@ def api_inbox_conversations():
             ORDER BY contact_id, date_added DESC
         """, (location_id,))
         all_convos = cur.fetchall()
+
+        source_label = "ghl_sync"
+
+        # Fallback: local contact_messages if GHL sync hasn't populated yet
+        if not all_convos:
+            cur.execute("""
+                SELECT DISTINCT ON (cm.contact_id)
+                    cm.contact_id,
+                    COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
+                    COALESCE(cc.phone, '') as contact_phone,
+                    cm.message_text as last_message,
+                    CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
+                    'sms' as message_type,
+                    cm.created_at::text as date_added,
+                    'local' as source
+                FROM contact_messages cm
+                JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
+                ORDER BY cm.contact_id, cm.created_at DESC
+            """, (location_id,))
+            all_convos = cur.fetchall()
+            source_label = "local"
+
         cur.close()
 
         # Sort by most recent message and apply pagination
@@ -2893,6 +2918,7 @@ def api_inbox_conversations():
             "conversations": conversations,
             "total": len(all_convos),
             "has_more": offset + limit < len(all_convos),
+            "data_source": source_label,
         })
 
     except Exception as e:
@@ -2906,7 +2932,7 @@ def api_inbox_conversations():
 @app.route("/api/inbox/thread/<contact_id>", methods=["GET"])
 @login_required
 def api_inbox_thread(contact_id):
-    """Get full conversation thread for a contact from synced data."""
+    """Get full conversation thread for a contact from synced or local data."""
     location_id = current_user.location_id
     if not location_id:
         return safe_jsonify({"messages": []})
@@ -2919,6 +2945,8 @@ def api_inbox_thread(contact_id):
 
     try:
         cur = conn.cursor()
+
+        # Primary: GHL synced messages
         cur.execute("""
             SELECT body, direction, message_type, source, date_added
             FROM ghl_conversations
@@ -2935,6 +2963,29 @@ def api_inbox_thread(contact_id):
                 "source": row['source'],
                 "date": row['date_added'],
             })
+
+        # Fallback: local contact_messages if GHL sync has no data for this contact
+        if not messages:
+            cur.execute("""
+                SELECT message_text as body,
+                       CASE WHEN message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as direction,
+                       'sms' as message_type,
+                       'local' as source,
+                       created_at::text as date_added
+                FROM contact_messages
+                WHERE contact_id = %s
+                ORDER BY created_at ASC
+                LIMIT %s
+            """, (contact_id, limit))
+            for row in cur.fetchall():
+                messages.append({
+                    "body": row['body'] or "",
+                    "direction": row['direction'],
+                    "type": row['message_type'],
+                    "source": row['source'],
+                    "date": row['date_added'],
+                })
+
         cur.close()
 
         # Also get pipeline stage for this contact
