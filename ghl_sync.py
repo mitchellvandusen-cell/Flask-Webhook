@@ -1028,6 +1028,10 @@ def deep_sync_conversations(location_id, access_token=None):
                      f" (resuming from #{resume_index})" if resume_index else "")
 
         # Step 2: For each contact, pull ALL messages (no page cap)
+        # Early termination: if first 20 contacts yield 0 records, call data
+        # is likely in an external dialer (WAVV, etc.) — stop wasting API calls.
+        _EARLY_CHECK_THRESHOLD = 20
+
         for i, contact_id in enumerate(contact_ids):
             if i < resume_index:
                 continue  # Skip already-processed contacts on resume
@@ -1039,6 +1043,15 @@ def deep_sync_conversations(location_id, access_token=None):
 
                 # Pace ourselves: ~85 requests/min
                 _time.sleep(_DEEP_SYNC_PACE)
+
+                # Early termination check: if 20 contacts scanned with 0 records,
+                # GHL has no conversation data — calls were via external dialer
+                if (contacts_processed == _EARLY_CHECK_THRESHOLD
+                        and total_synced == 0 and resume_index == 0):
+                    logger.info(f"[DEEP_SYNC] {location_id} | 0 records after "
+                                f"{_EARLY_CHECK_THRESHOLD} contacts — "
+                                f"call data likely in external dialer, stopping early")
+                    break
 
                 # Update progress every 5 contacts
                 if contacts_processed % 5 == 0:

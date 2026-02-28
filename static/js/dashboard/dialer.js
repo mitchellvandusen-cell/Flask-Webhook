@@ -3350,18 +3350,26 @@
             const msgs = status.messages_synced || 0;
 
             if (status.status === 'completed') {
-                label.innerHTML = '<span style="color:#00ff88;">Import complete</span> — all call history saved locally';
                 bar.style.width = '100%';
-                bar.style.background = 'linear-gradient(90deg,#00ff88,#00d9ff)';
-                detail.textContent = contacts + ' contacts · ' + msgs.toLocaleString() + ' records';
-                pct.textContent = '100%';
-                // Hide after 10 seconds
+                if (msgs === 0) {
+                    // No GHL call data found — likely WAVV/external dialer
+                    label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no GHL call history found';
+                    bar.style.background = 'linear-gradient(90deg,#334,#445)';
+                    detail.textContent = contacts + ' contacts checked · calls were likely made via external dialer (WAVV, etc.)';
+                    pct.textContent = '';
+                } else {
+                    label.innerHTML = '<span style="color:#00ff88;">Import complete</span> — ' + msgs.toLocaleString() + ' records saved locally';
+                    bar.style.background = 'linear-gradient(90deg,#00ff88,#00d9ff)';
+                    detail.textContent = contacts + ' contacts · ' + msgs.toLocaleString() + ' records';
+                    pct.textContent = '100%';
+                    // Refresh badges with new data
+                    dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                }
+                // Hide after 8 seconds
                 setTimeout(() => {
                     const banner = document.getElementById('deepSyncBanner');
                     if (banner) banner.style.display = 'none';
-                }, 10000);
-                // Refresh badges with new data
-                dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                }, 8000);
                 return;
             }
 
@@ -3372,10 +3380,9 @@
                 return;
             }
 
-            // Running — estimate progress (we don't know total contacts upfront,
-            // but we can show what we know)
-            label.textContent = 'Importing call history from GHL...';
-            detail.textContent = contacts + ' contacts · ' + msgs.toLocaleString() + ' records';
+            // Running
+            label.textContent = 'Scanning GHL for call history...';
+            detail.textContent = contacts + ' contacts scanned · ' + msgs.toLocaleString() + ' records found';
 
             // Estimate progress: typical agency is 500-3000 contacts
             // Use a log curve so progress feels natural even if we're wrong about total
