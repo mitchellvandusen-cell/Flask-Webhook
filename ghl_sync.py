@@ -66,6 +66,21 @@ def _get_headers(access_token):
     return {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
 
 
+# Deep sync uses the current API version (2021-07-28) for conversations.
+# GHL_HEADERS has 2021-04-15 which may return empty/different results
+# for newer conversation types (calls, voicemail, etc.).
+_DEEP_SYNC_API_VERSION = "2021-07-28"
+
+
+def _get_deep_headers(access_token):
+    """Build headers for deep sync with correct API version."""
+    return {
+        "Authorization": f"Bearer {access_token}",
+        "Version": _DEEP_SYNC_API_VERSION,
+        "Content-Type": "application/json",
+    }
+
+
 # ─── Sync State Management ───────────────────────────────────────────────────
 
 def _get_sync_state(conn, location_id, resource_type):
@@ -996,7 +1011,7 @@ def deep_sync_conversations(location_id, access_token=None):
     if not conn:
         return {"synced": 0, "error": "no_db"}
 
-    headers = _get_headers(access_token)
+    headers = _get_deep_headers(access_token)
     total_synced = 0
     convos_processed = 0
 
