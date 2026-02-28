@@ -885,10 +885,26 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
         # by sales_director's tactical_narrative via _build_followup_guidance().
         # No duplicate re-engagement block needed here.
 
-        # Combine all context: nudge + underwriting + company intel
+        # === PIPELINE STAGE INJECTION (from synced GHL data) ===
+        pipeline_context = ""
+        try:
+            from ghl_sync import get_contact_pipeline_stage
+            opp = get_contact_pipeline_stage(location_id, contact_id)
+            if opp:
+                pipeline_context = (f"\n[PIPELINE] Lead is in pipeline '{opp['pipeline_name']}' "
+                                    f"at stage '{opp['stage_name']}' (status: {opp['status']})")
+                if opp.get('monetary_value'):
+                    pipeline_context += f" — deal value: ${opp['monetary_value']:,.0f}"
+                logger.info(f"Pipeline context injected for {contact_id}: {opp['stage_name']}")
+        except Exception as e:
+            logger.debug(f"Pipeline stage lookup skipped: {e}")
+
+        # Combine all context: nudge + underwriting + company intel + pipeline
         extra_context = director_output['underwriting_context']
         if director_output.get('company_context'):
             extra_context = f"{extra_context}\n[COMPANY INTEL] {director_output['company_context']}".strip()
+        if pipeline_context:
+            extra_context = f"{extra_context}{pipeline_context}".strip()
         final_nudge = f"{context_nudge}\n{extra_context}".strip()
 
         # === LEAD RE-ENGAGEMENT CHECK ===
@@ -1029,7 +1045,36 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 fail_reason = None
                 http_detail = None
 
-                if use_crm_adapter:
+                # Determine SMS channel: GHL (default) or direct Twilio number
+                sms_send_via = subscriber.get('sms_send_via', 'ghl')
+                use_twilio_direct = (sms_send_via and sms_send_via.startswith('+'))
+
+                if use_twilio_direct:
+                    # Direct Twilio SMS: bypass GHL entirely, send from subscriber's Twilio number
+                    try:
+                        from twilio_sms import send_sms_via_twilio, get_twilio_credentials
+                        sub_sid, sub_auth, from_number = get_twilio_credentials(location_id)
+                        contact_phone = payload.get('phone') or payload.get('contact_phone', '')
+                        if sub_sid and sub_auth and contact_phone:
+                            sent, fail_reason, http_detail = send_sms_via_twilio(
+                                phone_to=contact_phone,
+                                message=reply,
+                                from_number=sms_send_via,  # The specific number they chose
+                                twilio_sub_account_sid=sub_sid,
+                                twilio_auth_token=sub_auth,
+                                contact_id=contact_id,
+                            )
+                            if sent:
+                                logger.info(f"✅ Twilio direct SMS sent to {contact_id} from {sms_send_via}")
+                        else:
+                            # Fallback to GHL if Twilio creds missing
+                            logger.warning(f"Twilio direct SMS fallback: missing creds for {location_id}, using GHL")
+                            sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+                    except Exception as twilio_err:
+                        logger.error(f"Twilio direct SMS error: {twilio_err}, falling back to GHL")
+                        sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
+
+                elif use_crm_adapter:
                     # Non-GHL CRM: Use adapter for messaging
                     try:
                         from crm_adapters.factory import get_adapter_for_subscriber
@@ -1046,7 +1091,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                         sent = False
                         fail_reason = 'adapter'
                 else:
-                    # GHL: Use existing direct code path
+                    # GHL (default): Use existing direct code path
                     sent, fail_reason, http_detail = send_sms_via_ghl(contact_id, reply, auth_token, location_id)
 
                 # === TOKEN RECOVERY ===

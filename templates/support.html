@@ -1440,12 +1440,12 @@
                 </div>
             </div>
 
-            <!-- SMS / Twilio Errors -->
+            <!-- SMS / Dialer Errors -->
             <div class="accordion-item glass-card mb-3" style="border-radius: 12px; overflow: hidden;">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#err-sms"
                         style="background: transparent; color: #fff; font-weight: 600; border-radius: 10px;">
-                        <i class="fa-solid fa-comment-sms me-2" style="color: var(--accent);"></i>SMS / Twilio Errors
+                        <i class="fa-solid fa-comment-sms me-2" style="color: var(--accent);"></i>SMS / Dialer Errors
                     </button>
                 </h2>
                 <div id="err-sms" class="accordion-collapse collapse" data-bs-parent="#errorCodesAccordion">
@@ -1455,8 +1455,8 @@
                             <tbody>
                                 <tr><td><code>MESSAGE BLOCKED BY SAFETY NET</code></td><td>The LLM reply contained system prompt artifacts or reasoning tags (&lt;thinking&gt;)</td><td>This is a protective filter. Check your prompt configuration for syntax errors. The next message attempt will be clean.</td></tr>
                                 <tr><td><code>SKIP DUPLICATE SMS</code></td><td>Identical message was already sent to this contact in the last 5 minutes</td><td>No action needed — this prevents double-sending if a webhook fires twice.</td></tr>
-                                <tr><td><code>SMS failed: rate_limit (HTTP 429)</code></td><td>Twilio or GHL rate limit hit</td><td>The system retries automatically with backoff. If persistent, check if you're using a shared short code vs. a dedicated long code. Upgrade to A2P 10DLC for higher throughput.</td></tr>
-                                <tr><td><code>SMS failed: network</code></td><td>Network timeout reaching GHL/Twilio API</td><td>Transient issue — the system retries 3 times. If persistent, check your server's outbound connectivity.</td></tr>
+                                <tr><td><code>SMS failed: rate_limit (HTTP 429)</code></td><td>SMS provider or GHL rate limit hit</td><td>The system retries automatically with backoff. If persistent, check if you're using a shared short code vs. a dedicated long code. Upgrade to A2P 10DLC for higher throughput.</td></tr>
+                                <tr><td><code>SMS failed: network</code></td><td>Network timeout reaching SMS delivery API</td><td>Transient issue — the system retries 3 times. If persistent, check your server's outbound connectivity.</td></tr>
                                 <tr><td><code>Cannot send SMS: invalid contact_id</code></td><td>Contact ID was "unknown" or empty</td><td>Ensure GHL contact is properly created before the bot fires. Check your GHL workflow trigger to confirm it includes contactId.</td></tr>
                             </tbody>
                         </table>

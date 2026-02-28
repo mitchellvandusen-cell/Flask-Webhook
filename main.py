@@ -14,7 +14,7 @@ import secrets
 from openai import OpenAI
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
-from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response, abort
+from flask import Flask, render_template, render_template_string, request, redirect, url_for, flash, session, make_response, abort, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -2189,6 +2189,8 @@ def api_save_config():
         cur = conn.cursor()
         calendar_name = data.get('calendar_name', '')
 
+        sms_send_via = data.get('sms_send_via', 'ghl')
+
         if current_user.role == 'agency_owner':
             cur.execute("""
                 UPDATE agency_billing
@@ -2200,6 +2202,7 @@ def api_save_config():
                     timezone = %s,
                     initial_message = %s,
                     personal_website = %s,
+                    sms_send_via = %s,
                     updated_at = NOW()
                 WHERE agency_email = %s
             """, (
@@ -2211,6 +2214,7 @@ def api_save_config():
                 data.get('timezone', ''),
                 data.get('initial_message', ''),
                 data.get('personal_website') or None,
+                sms_send_via,
                 current_user.email
             ))
         else:
@@ -2224,6 +2228,7 @@ def api_save_config():
                     timezone = %s,
                     initial_message = %s,
                     personal_website = %s,
+                    sms_send_via = %s,
                     updated_at = NOW()
                 WHERE email = %s
             """, (
@@ -2235,6 +2240,7 @@ def api_save_config():
                 data.get('timezone', ''),
                 data.get('initial_message', ''),
                 data.get('personal_website') or None,
+                sms_send_via,
                 current_user.email
             ))
 
@@ -2769,6 +2775,292 @@ def api_cron_backfill_failed_webhooks():
     except Exception as e:
         logger.error(f"Cron backfill-failed-webhooks crashed: {e}", exc_info=True)
         return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@app.route("/api/cron/sync-ghl-data", methods=["GET", "POST"])
+def api_cron_sync_ghl_data():
+    """
+    Cron-triggered endpoint: run incremental GHL data sync for all active subscribers.
+    Syncs conversations, opportunities, phone numbers, and location data.
+    Schedule this every 5-10 minutes via cron.
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        # Run sync in background via RQ to avoid timeout
+        if not ensure_redis():
+            return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
+
+        from ghl_sync import run_incremental_sync_all
+        job = q_production.enqueue(
+            run_incremental_sync_all,
+            job_timeout=1800,  # 30 min max
+            result_ttl=86400,
+        )
+        return safe_jsonify({"success": True, "queued": True, "job_id": job.id})
+    except Exception as e:
+        logger.error(f"Cron sync-ghl-data crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@app.route("/api/ghl-phone-numbers", methods=["GET"])
+@login_required
+def api_ghl_phone_numbers():
+    """Fetch GHL phone numbers for the current user's location.
+    Returns both cached ghl_numbers from voice_config and can trigger a fresh sync."""
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"numbers": [], "error": "No location connected"})
+
+    # Return cached numbers from voice_config if available
+    cached = (current_user.voice_config or {}).get("ghl_numbers", [])
+    refresh = request.args.get("refresh", "false").lower() == "true"
+
+    if cached and not refresh:
+        return safe_jsonify({"numbers": cached, "source": "cache"})
+
+    # Fresh fetch from GHL
+    try:
+        from ghl_sync import sync_ghl_phone_numbers
+        result = sync_ghl_phone_numbers(location_id)
+        return safe_jsonify({
+            "numbers": result.get("numbers", []),
+            "source": "live"
+        })
+    except Exception as e:
+        logger.error(f"GHL phone number fetch failed: {e}")
+        return safe_jsonify({"numbers": cached, "source": "cache_fallback"})
+
+
+@app.route("/api/inbox/conversations", methods=["GET"])
+@login_required
+def api_inbox_conversations():
+    """
+    Get unified conversation list from synced GHL data.
+    Returns latest message per contact, ordered by most recent.
+    """
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"conversations": []})
+
+    limit = min(int(request.args.get("limit", 50)), 200)
+    offset = int(request.args.get("offset", 0))
+
+    conn = get_db_connection()
+    if not conn:
+        return safe_jsonify({"conversations": [], "error": "DB unavailable"})
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT ON (contact_id)
+                contact_id, contact_name, contact_phone,
+                body as last_message, direction as last_direction,
+                message_type, date_added, source
+            FROM ghl_conversations
+            WHERE location_id = %s AND message_type = 'sms'
+            ORDER BY contact_id, date_added DESC
+        """, (location_id,))
+        all_convos = cur.fetchall()
+        cur.close()
+
+        # Sort by most recent message and apply pagination
+        all_convos.sort(key=lambda r: r.get('date_added') or '', reverse=True)
+        page = all_convos[offset:offset + limit]
+
+        conversations = []
+        for row in page:
+            conversations.append({
+                "contact_id": row['contact_id'],
+                "contact_name": row['contact_name'] or "Unknown",
+                "contact_phone": row['contact_phone'] or "",
+                "last_message": (row['last_message'] or "")[:120],
+                "last_direction": row['last_direction'],
+                "message_type": row['message_type'],
+                "date": row['date_added'],
+                "source": row['source'],
+            })
+
+        return safe_jsonify({
+            "conversations": conversations,
+            "total": len(all_convos),
+            "has_more": offset + limit < len(all_convos),
+        })
+
+    except Exception as e:
+        logger.error(f"Inbox conversations failed: {e}")
+        # Table may not exist yet
+        return safe_jsonify({"conversations": [], "error": "sync_pending"})
+    finally:
+        return_db_connection(conn)
+
+
+@app.route("/api/inbox/thread/<contact_id>", methods=["GET"])
+@login_required
+def api_inbox_thread(contact_id):
+    """Get full conversation thread for a contact from synced data."""
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"messages": []})
+
+    limit = min(int(request.args.get("limit", 100)), 500)
+
+    conn = get_db_connection()
+    if not conn:
+        return safe_jsonify({"messages": []})
+
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT body, direction, message_type, source, date_added
+            FROM ghl_conversations
+            WHERE location_id = %s AND contact_id = %s
+            ORDER BY date_added ASC
+            LIMIT %s
+        """, (location_id, contact_id, limit))
+        messages = []
+        for row in cur.fetchall():
+            messages.append({
+                "body": row['body'] or "",
+                "direction": row['direction'],
+                "type": row['message_type'],
+                "source": row['source'],
+                "date": row['date_added'],
+            })
+        cur.close()
+
+        # Also get pipeline stage for this contact
+        pipeline = None
+        try:
+            from ghl_sync import get_contact_pipeline_stage
+            pipeline = get_contact_pipeline_stage(location_id, contact_id)
+        except Exception:
+            pass
+
+        return safe_jsonify({
+            "messages": messages,
+            "pipeline": pipeline,
+        })
+    except Exception as e:
+        logger.error(f"Inbox thread failed for {contact_id}: {e}")
+        return safe_jsonify({"messages": []})
+    finally:
+        return_db_connection(conn)
+
+
+@app.route("/api/stream/notifications")
+@login_required
+def api_stream_notifications():
+    """
+    Server-Sent Events stream for real-time dashboard notifications.
+    Pushes new webhook events to the connected client.
+    """
+    location_id = current_user.location_id
+    if not location_id:
+        return Response("data: {}\n\n", mimetype='text/event-stream')
+
+    def event_stream():
+        import time as _t
+        last_check = datetime.utcnow()
+        yield f"data: {json.dumps({'type': 'connected', 'location_id': location_id})}\n\n"
+
+        while True:
+            _t.sleep(5)  # Check every 5 seconds
+            try:
+                conn = get_db_connection()
+                if not conn:
+                    continue
+                try:
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT id, event_type, details, contact_id, created_at
+                        FROM webhook_logs
+                        WHERE location_id = %s
+                          AND created_at > %s
+                          AND event_type IN ('message_sent', 'webhook_received', 'ghl_sync_complete')
+                        ORDER BY created_at ASC
+                        LIMIT 10
+                    """, (location_id, last_check))
+                    rows = cur.fetchall()
+                    cur.close()
+
+                    for row in rows:
+                        event = {
+                            "type": row['event_type'],
+                            "details": row['details'],
+                            "contact_id": row.get('contact_id'),
+                            "time": row['created_at'].isoformat() if row.get('created_at') else None,
+                        }
+                        yield f"data: {json.dumps(event)}\n\n"
+                        last_check = row['created_at']
+
+                    if not rows:
+                        yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+
+                finally:
+                    return_db_connection(conn)
+
+            except GeneratorExit:
+                break
+            except Exception as e:
+                logger.debug(f"SSE stream error: {e}")
+                yield f"data: {json.dumps({'type': 'error'})}\n\n"
+
+    return Response(
+        event_stream(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+        }
+    )
+
+
+@app.route("/api/contact/<contact_id>/intelligence", methods=["GET"])
+@login_required
+def api_contact_intelligence(contact_id):
+    """
+    Get AI-powered intelligence dossier for a contact.
+    Returns: summary, temperature, score, next-best-actions, facts, pipeline stage.
+    AI analysis is cached and only regenerated when new messages arrive.
+    """
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"error": "No location connected"})
+
+    try:
+        from lead_intelligence import get_contact_intelligence
+        intel = get_contact_intelligence(location_id, contact_id)
+        return safe_jsonify(intel)
+    except Exception as e:
+        logger.error(f"Contact intelligence failed: {e}")
+        return safe_jsonify({"score": {"score": 50, "label": "unknown"}, "actions": []})
+
+
+@app.route("/api/sync-status", methods=["GET"])
+@login_required
+def api_sync_status():
+    """Get GHL sync status for dashboard display."""
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({})
+
+    try:
+        from ghl_sync import get_sync_stats_for_dashboard
+        stats = get_sync_stats_for_dashboard(location_id)
+        return safe_jsonify(stats)
+    except Exception as e:
+        logger.error(f"Sync status fetch failed: {e}")
+        return safe_jsonify({})
 
 
 @app.route("/api/admin/send-email", methods=["GET", "POST"])
