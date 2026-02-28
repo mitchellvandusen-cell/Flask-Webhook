@@ -225,6 +225,8 @@
                 else { dialerRenderContacts(); dialerUpdateSelectionUI(); }
                 // Show local (dialer) counts immediately, then upgrade with GHL+WAVV in background
                 dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                // One-time deep historical pull (auto-triggers on first use, then done forever)
+                _deepSyncCheck();
 
                 // Update cache status indicator
                 _dialerUpdateCacheStatus(d);
@@ -3287,6 +3289,126 @@
                 // Silently fail; local count badge is already shown
             }
         }
+
+        // ── Deep Sync (One-Time Historical GHL Pull) ─────────────────────────────
+
+        let _deepSyncTriggered = false;
+        let _deepSyncPollTimer = null;
+
+        // Auto-trigger deep sync on first dialer load
+        async function _deepSyncCheck() {
+            if (_deepSyncTriggered) return;
+            _deepSyncTriggered = true;
+
+            try {
+                // Check status first — maybe already done
+                const sr = await fetch('/api/sync/deep-pull/status');
+                if (!sr.ok) return;
+                const status = await sr.json();
+
+                if (status.status === 'completed') {
+                    // Already done — nothing to show
+                    return;
+                }
+
+                if (status.status === 'running') {
+                    // Already in progress — show banner and poll
+                    _deepSyncShowBanner(status);
+                    _deepSyncPoll();
+                    return;
+                }
+
+                // Not started or failed — trigger it
+                const tr = await fetch('/api/sync/deep-pull', { method: 'POST' });
+                if (!tr.ok) return;
+                const result = await tr.json();
+
+                if (result.status === 'started' || result.status === 'already_running') {
+                    _deepSyncShowBanner({ contacts_processed: 0, messages_synced: 0 });
+                    _deepSyncPoll();
+                }
+            } catch(e) {
+                console.error('[DeepSync] Check failed:', e);
+            }
+        }
+
+        function _deepSyncShowBanner(status) {
+            const banner = document.getElementById('deepSyncBanner');
+            if (!banner) return;
+            banner.style.display = 'block';
+            _deepSyncUpdateBanner(status);
+        }
+
+        function _deepSyncUpdateBanner(status) {
+            const label = document.getElementById('deepSyncLabel');
+            const bar = document.getElementById('deepSyncBar');
+            const detail = document.getElementById('deepSyncDetail');
+            const pct = document.getElementById('deepSyncPct');
+            if (!label) return;
+
+            const contacts = status.contacts_processed || 0;
+            const msgs = status.messages_synced || 0;
+
+            if (status.status === 'completed') {
+                label.innerHTML = '<span style="color:#00ff88;">Import complete</span> — all call history saved locally';
+                bar.style.width = '100%';
+                bar.style.background = 'linear-gradient(90deg,#00ff88,#00d9ff)';
+                detail.textContent = contacts + ' contacts · ' + msgs.toLocaleString() + ' records';
+                pct.textContent = '100%';
+                // Hide after 10 seconds
+                setTimeout(() => {
+                    const banner = document.getElementById('deepSyncBanner');
+                    if (banner) banner.style.display = 'none';
+                }, 10000);
+                // Refresh badges with new data
+                dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
+                return;
+            }
+
+            if (status.status === 'failed') {
+                label.innerHTML = '<span style="color:#ef4444;">Import paused</span> — will retry automatically';
+                detail.textContent = contacts + ' contacts done so far';
+                pct.textContent = '';
+                return;
+            }
+
+            // Running — estimate progress (we don't know total contacts upfront,
+            // but we can show what we know)
+            label.textContent = 'Importing call history from GHL...';
+            detail.textContent = contacts + ' contacts · ' + msgs.toLocaleString() + ' records';
+
+            // Estimate progress: typical agency is 500-3000 contacts
+            // Use a log curve so progress feels natural even if we're wrong about total
+            if (contacts > 0) {
+                // Asymptotic progress: never shows 100% until actually done
+                const estimated = Math.min(95, Math.round((contacts / (contacts + 50)) * 100));
+                bar.style.width = estimated + '%';
+                pct.textContent = estimated + '%';
+            } else {
+                bar.style.width = '2%';
+                pct.textContent = 'Starting...';
+            }
+        }
+
+        function _deepSyncPoll() {
+            if (_deepSyncPollTimer) clearInterval(_deepSyncPollTimer);
+            _deepSyncPollTimer = setInterval(async () => {
+                try {
+                    const r = await fetch('/api/sync/deep-pull/status');
+                    if (!r.ok) return;
+                    const status = await r.json();
+                    _deepSyncUpdateBanner(status);
+
+                    if (status.status === 'completed' || status.status === 'not_started') {
+                        clearInterval(_deepSyncPollTimer);
+                        _deepSyncPollTimer = null;
+                    }
+                } catch(e) {
+                    // Keep polling — transient error
+                }
+            }, 5000); // Poll every 5 seconds
+        }
+
 
         // ── Statistics Panel ────────────────────────────────────────────────────
 

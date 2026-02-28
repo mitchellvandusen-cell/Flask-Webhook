@@ -3114,6 +3114,57 @@ def api_sync_status():
         return safe_jsonify({})
 
 
+@app.route("/api/sync/deep-pull", methods=["POST"])
+@login_required
+def api_sync_deep_pull():
+    """Trigger a one-time deep historical pull of all GHL conversation data.
+    Runs as background RQ job. Only fires once — subsequent calls return current status."""
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"error": "No location connected"}), 400
+
+    try:
+        from ghl_sync import get_deep_sync_status, deep_sync_conversations
+
+        # Check current status — don't re-trigger if already done or running
+        status = get_deep_sync_status(location_id)
+        if status.get("status") == "completed":
+            return safe_jsonify({"status": "already_completed", **status})
+        if status.get("status") == "running":
+            return safe_jsonify({"status": "already_running", **status})
+
+        # Queue background job (long-running, up to 2 hours)
+        ensure_redis()
+        job = q_production.enqueue(
+            deep_sync_conversations,
+            location_id,
+            job_timeout=7200,  # 2 hour max
+            result_ttl=86400,
+            job_id=f"deep-sync-{location_id}",
+        )
+        return safe_jsonify({"status": "started", "job_id": job.id})
+
+    except Exception as e:
+        logger.error(f"Deep sync trigger failed: {e}", exc_info=True)
+        return safe_jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/sync/deep-pull/status", methods=["GET"])
+@login_required
+def api_sync_deep_pull_status():
+    """Poll deep sync progress for frontend progress bar."""
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"status": "not_started"})
+
+    try:
+        from ghl_sync import get_deep_sync_status
+        return safe_jsonify(get_deep_sync_status(location_id))
+    except Exception as e:
+        logger.error(f"Deep sync status failed: {e}")
+        return safe_jsonify({"status": "unknown"})
+
+
 @app.route("/api/admin/send-email", methods=["GET", "POST"])
 def api_admin_send_email():
     """
