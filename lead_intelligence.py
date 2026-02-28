@@ -557,6 +557,10 @@ def get_contact_intelligence(location_id, contact_id):
         cached["facts"] = ctx["facts"]
         cached["pipeline"] = ctx["pipeline"]
         cached["narrative"] = ctx.get("narrative")
+        # Normalize score format: cache stores int, API returns {"score": int, "label": str}
+        raw_score = cached.get("score", 50)
+        if isinstance(raw_score, (int, float)):
+            cached["score"] = {"score": int(raw_score), "label": cached.get("temperature", "warm")}
         return cached
 
     logger.info(f"Intelligence cache MISS for {contact_id} — running AI analysis")

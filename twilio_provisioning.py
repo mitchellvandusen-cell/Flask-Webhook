@@ -455,7 +455,7 @@ def transfer_call(sub_account_sid: str, call_sid: str,
     client = get_sub_account_client(sub_account_sid)
     try:
         client.calls(call_sid).update(
-            url=f"{webhook_base_url}/voice/transfer-twiml?transfer_to={transfer_to}",
+            url=f"{webhook_base_url}/voice/transfer-twiml?transfer_to={quote(transfer_to, safe='')}",
             method="POST",
         )
         logger.info(f"Transfer initiated: {call_sid} -> {transfer_to}")

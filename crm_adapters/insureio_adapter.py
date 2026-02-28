@@ -51,6 +51,11 @@ class InsureioAdapter(CRMAdapter):
     @property
     def _base_url(self):
         if self.subdomain:
+            # Validate subdomain to prevent hostname injection
+            import re
+            if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]*$', self.subdomain):
+                logger.error(f"Insureio: Invalid subdomain '{self.subdomain}' — contains disallowed characters")
+                return "https://app.insureio.com"
             return f"https://{self.subdomain}.insureio.com"
         return "https://app.insureio.com"
 

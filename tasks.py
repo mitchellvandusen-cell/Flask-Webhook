@@ -703,16 +703,17 @@ def process_webhook_task(payload: dict):
         if not is_demo and message_id:
             conn = get_db_connection()
             if conn:
+                cur = None
                 try:
                     cur = conn.cursor()
                     # Use INSERT ... ON CONFLICT DO NOTHING and check rowcount
                     cur.execute("""
-                        INSERT INTO processed_webhooks (webhook_id) 
-                        VALUES (%s) 
+                        INSERT INTO processed_webhooks (webhook_id)
+                        VALUES (%s)
                         ON CONFLICT (webhook_id) DO NOTHING
                     """, (message_id,))
                     conn.commit()
-                    
+
                     if cur.rowcount == 0:
                         # Row already existed - duplicate webhook
                         logger.warning(f"⚠ SKIP: Already processed webhook {message_id}")
@@ -720,7 +721,8 @@ def process_webhook_task(payload: dict):
                 except Exception as e:
                     logger.error(f"Idempotency check failed: {e}")
                 finally:
-                    cur.close()
+                    if cur:
+                        cur.close()
                     return_db_connection(conn)
 
         if message:

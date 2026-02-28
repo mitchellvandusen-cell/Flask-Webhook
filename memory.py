@@ -38,9 +38,10 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
         logger.error("DB connection failed in save_message")
         return False
 
+    cur = None
     try:
         cur = conn.cursor()
-        
+
         # CRASH FIX: Added ON CONFLICT DO NOTHING
         # This allows the lead to repeat themselves without crashing the worker
         cur.execute("""
@@ -48,7 +49,7 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
             VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT DO NOTHING
         """, (contact_id, message_type, message_text.strip()))
-        
+
         conn.commit()
         return True
     except Exception as e:
@@ -56,9 +57,9 @@ def save_message(contact_id: str, message_text: str, message_type: str = "lead")
         conn.rollback()
         return False
     finally:
-        if conn:
+        if cur:
             cur.close()
-            return_db_connection(conn)
+        return_db_connection(conn)
 
 def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, str]]:
     """
@@ -75,6 +76,7 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
         logger.error("DB connection failed in get_recent_messages")
         return []
 
+    cur = None
     try:
         cur = conn.cursor()
         if limit is None:
@@ -107,9 +109,9 @@ def get_recent_messages(contact_id: str, limit: int = None) -> List[Dict[str, st
         logger.error(f"get_recent_messages failed for {contact_id}: {e}")
         return []
     finally:
-        if conn:
+        if cur:
             cur.close()
-            return_db_connection(conn)
+        return_db_connection(conn)
 
 # ===================================
 # FACT STORAGE (Structured Redundancy)
@@ -133,14 +135,15 @@ def save_new_facts(contact_id: str, facts: List[str]) -> int:
         return 0
 
     inserted = 0
+    cur = None
     try:
         cur = conn.cursor()
         execute_values(cur, """
             INSERT INTO contact_facts (contact_id, fact_text)
-            VALUES %s 
+            VALUES %s
             ON CONFLICT (contact_id, fact_text) DO NOTHING
         """, [(contact_id, f) for f in clean_facts])
-        
+
         inserted = cur.rowcount
         conn.commit()
         if inserted > 0:
@@ -151,9 +154,9 @@ def save_new_facts(contact_id: str, facts: List[str]) -> int:
         conn.rollback()
         return 0
     finally:
-        if conn:
+        if cur:
             cur.close()
-            return_db_connection(conn)
+        return_db_connection(conn)
 
 def get_known_facts(contact_id: str) -> List[str]:
     """Return all known facts as a clean list of strings."""
@@ -165,12 +168,13 @@ def get_known_facts(contact_id: str) -> List[str]:
         logger.error("DB connection failed in get_known_facts")
         return []
 
+    cur = None
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT fact_text 
-            FROM contact_facts 
-            WHERE contact_id = %s 
+            SELECT fact_text
+            FROM contact_facts
+            WHERE contact_id = %s
             ORDER BY created_at
         """, (contact_id,))
         rows = cur.fetchall()
@@ -179,9 +183,9 @@ def get_known_facts(contact_id: str) -> List[str]:
         logger.error(f"get_known_facts failed for {contact_id}: {e}")
         return []
     finally:
-        if conn:
+        if cur:
             cur.close()
-            return_db_connection(conn)
+        return_db_connection(conn)
 
 # ===================================
 # NARRATIVE OBSERVER (Evolving Story)
@@ -197,6 +201,7 @@ def get_narrative(contact_id: str) -> str:
         logger.error("DB connection failed in get_narrative")
         return ""
 
+    cur = None
     try:
         cur = conn.cursor()
         logger.debug(f"🔍 QUERY NARRATIVE | contact_id={contact_id}")
@@ -210,9 +215,9 @@ def get_narrative(contact_id: str) -> str:
         logger.error(f"get_narrative failed for {contact_id}: {e}")
         return ""
     finally:
-        if conn:
+        if cur:
             cur.close()
-            return_db_connection(conn)
+        return_db_connection(conn)
 
 def update_narrative(contact_id: str, new_story: str) -> bool:
     """Update or insert the narrative story with timestamp."""
@@ -225,12 +230,13 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
         logger.error("DB connection failed in update_narrative")
         return False
 
+    cur = None
     try:
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO contact_narratives (contact_id, story_narrative, updated_at)
             VALUES (%s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (contact_id) 
+            ON CONFLICT (contact_id)
             DO UPDATE SET story_narrative = EXCLUDED.story_narrative, updated_at = CURRENT_TIMESTAMP
         """, (contact_id, new_story.strip()))
         conn.commit()
@@ -240,9 +246,9 @@ def update_narrative(contact_id: str, new_story: str) -> bool:
         conn.rollback()
         return False
     finally:
-        if conn:
+        if cur:
             cur.close()
-            return_db_connection(conn)
+        return_db_connection(conn)
 
 def _clean_llm_output(raw: str) -> str:
     """Strip thinking tags and other LLM reasoning artifacts from output."""
