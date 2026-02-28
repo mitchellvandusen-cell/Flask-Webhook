@@ -1172,6 +1172,26 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 save_message(contact_id, reply, "assistant")
                 logger.info("⚠ DEMO MODE: Message saved internally")
 
+        # ── Auto-refresh AI intelligence after conversation changes ──
+        # Queue a background job to re-analyze this contact since new messages
+        # were processed. This keeps Smart Filter classifications accurate
+        # without blocking the webhook pipeline.
+        try:
+            import redis as _redis
+            from rq import Queue as _Queue
+            _r = _redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'),
+                                 socket_timeout=5, socket_connect_timeout=5)
+            _q = _Queue('production', connection=_r)
+            _q.enqueue(
+                analyze_contact_intelligence_task,
+                location_id, contact_id,
+                job_timeout=30,
+                result_ttl=300,
+            )
+            logger.debug(f"🧠 Queued intelligence re-analysis for {contact_id}")
+        except Exception as intel_err:
+            logger.debug(f"Intelligence re-queue skipped: {intel_err}")
+
         return {"status": "success", "reply_sent": bool(reply), "booking_made": booking_made}
 
     except Exception as e:
@@ -1270,6 +1290,63 @@ def _audit_and_retry_failed_tasks(location_id: str, working_token: str):
 
     except Exception as e:
         logger.error(f"Token recovery audit failed for {location_id}: {e}", exc_info=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ═══ RQ TASKS: AI Intelligence Analysis (background) ═════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def analyze_contact_intelligence_task(location_id: str, contact_id: str) -> dict:
+    """RQ task: Run AI intelligence analysis for a single contact.
+    Called automatically after webhook processing to keep cache fresh.
+    Also called on-demand for individual contact analysis.
+    """
+    try:
+        from lead_intelligence import get_contact_intelligence
+        result = get_contact_intelligence(location_id, contact_id)
+        if result and result.get("temperature") != "unknown":
+            score = result.get("score", 50)
+            if isinstance(score, dict):
+                score = score.get("score", 50)
+            logger.info(f"🧠 Intelligence analyzed: {contact_id} → {result.get('temperature')} (score={score})")
+            return {
+                "status": "success",
+                "contact_id": contact_id,
+                "temperature": result.get("temperature"),
+                "score": score,
+            }
+        return {"status": "no_result", "contact_id": contact_id}
+    except Exception as e:
+        logger.error(f"Intelligence analysis failed for {contact_id}: {e}")
+        return {"status": "error", "contact_id": contact_id, "error": str(e)}
+
+
+def analyze_contacts_batch_task(location_id: str, contact_ids: list) -> dict:
+    """RQ task: Analyze a batch of contacts that don't have cached intelligence.
+    Called by the dialer when it discovers uncached contacts.
+    Processes contacts serially (~2-3s each for AI call).
+    """
+    if not contact_ids:
+        return {"status": "empty", "analyzed": 0}
+
+    from lead_intelligence import get_contact_intelligence, get_bulk_cached_intelligence
+
+    # Filter to only contacts that actually need analysis
+    already_cached = get_bulk_cached_intelligence(location_id, contact_ids)
+    need_analysis = [cid for cid in contact_ids if cid not in already_cached]
+
+    analyzed = 0
+    for cid in need_analysis:
+        try:
+            result = get_contact_intelligence(location_id, cid)
+            if result and result.get("temperature") != "unknown":
+                analyzed += 1
+                logger.debug(f"🧠 Batch: {cid} → {result.get('temperature')}")
+        except Exception as e:
+            logger.error(f"Batch analysis failed for {cid}: {e}")
+
+    logger.info(f"🧠 Batch analysis complete: {analyzed}/{len(need_analysis)} contacts for {location_id}")
+    return {"status": "success", "analyzed": analyzed, "total": len(need_analysis)}
 
 
 def recover_failed_webhooks(max_age_hours: int = 24) -> dict:

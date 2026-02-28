@@ -5560,35 +5560,55 @@ def get_contact_intelligence_bulk():
 @voice_bp.route('/voice/contact-intelligence-analyze', methods=['POST'])
 @login_required
 def post_contact_intelligence_analyze():
-    """Batch-analyze contacts that don't have cached AI intelligence.
-    Processes up to 5 contacts per request (~2-3s each).
-    Returns the newly analyzed results so the frontend can update immediately.
+    """Queue batch AI analysis for contacts without cached intelligence.
+    Enqueues RQ jobs (batches of 10) so workers handle the AI calls
+    instead of blocking the web server. Frontend polls the bulk endpoint
+    for results as they become available.
     """
     data = request.get_json(silent=True) or {}
     contact_ids = data.get('contact_ids', [])
     if not contact_ids or not isinstance(contact_ids, list):
-        return jsonify({"results": [], "error": "contact_ids required"})
-    contact_ids = contact_ids[:5]  # Hard cap at 5 per request
+        return jsonify({"queued": 0, "error": "contact_ids required"})
 
     conn = get_db_connection()
     if not conn:
-        return jsonify({"results": []})
+        return jsonify({"queued": 0})
     try:
         cur = conn.cursor()
         cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (current_user.email,))
         row = cur.fetchone()
         cur.close()
         if not row:
-            return jsonify({"results": []})
+            return jsonify({"queued": 0})
         location_id = row['location_id']
     except Exception:
-        return jsonify({"results": []})
+        return jsonify({"queued": 0})
     finally:
         return_db_connection(conn)
 
-    from lead_intelligence import batch_analyze_contacts
-    results = batch_analyze_contacts(location_id, contact_ids, limit=5)
-    return jsonify({"results": results})
+    # Enqueue batch analysis jobs to RQ workers
+    from extensions import ensure_redis, q_production
+    if not ensure_redis() or not q_production:
+        return jsonify({"queued": 0, "error": "queue_unavailable"}), 503
+
+    from tasks import analyze_contacts_batch_task
+    BATCH = 10
+    queued = 0
+    for i in range(0, len(contact_ids), BATCH):
+        batch = contact_ids[i:i + BATCH]
+        try:
+            q_production.enqueue(
+                analyze_contacts_batch_task,
+                location_id,
+                batch,
+                job_timeout=60,
+                result_ttl=300,
+            )
+            queued += len(batch)
+        except Exception as e:
+            logger.error(f"Failed to queue intelligence batch: {e}")
+
+    return jsonify({"queued": queued})
 
 
 @voice_bp.route('/voice/contact-call-counts/merged')

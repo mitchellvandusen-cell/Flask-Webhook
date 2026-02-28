@@ -34,7 +34,7 @@ Procfile:
   worker-demo:      python worker.py demo          (1 demo worker)
 ```
 
-Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the core AI processing pipeline.
+Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the core AI processing pipeline. Workers also process `analyze_contact_intelligence_task()` and `analyze_contacts_batch_task()` for Smart Filter AI classification.
 
 ---
 
@@ -400,12 +400,13 @@ A2P 10DLC (Application-to-Person 10-Digit Long Code) is the carrier-mandated reg
 
 - **Single micro-prompt**: Gathers all contact context (messages, facts, pipeline, calls, tags, narrative) and sends one prompt to `grok-4-1-fast-non-reasoning`.
 - **AI returns JSON**: summary (2-sentence snapshot), temperature (hot/warm/cool/cold + reason), score (0-100), and 2-4 next-best-actions with priority and FontAwesome icon.
-- **Smart caching**: Results cached in `contact_intelligence` table (JSONB). Cache invalidated when new messages arrive after the analysis, or after 6 hours. Repeat views cost zero.
+- **Persistent caching**: Results cached in `contact_intelligence` table (JSONB). Cache invalidated ONLY when new messages arrive after the analysis (no time-based expiry). Once analyzed, classification persists until conversation changes. Repeat views cost zero.
 - **Cost**: ~$0.001-0.003 per analysis (~200 output tokens).
 - **Frontend**: Loading shimmer → temperature pill badge (fire/thermometer/snowflake icons) + score + AI summary + recommended actions panel.
 - **Pipeline injection**: `tasks.py` injects pipeline stage into AI system prompt via `get_contact_pipeline_stage()`.
-- **Bulk API**: `get_bulk_cached_intelligence(location_id, contact_ids)` returns cached AI data for many contacts in one DB query (zero AI cost). Used by Smart Filters on every dialer load.
-- **Batch analysis**: `batch_analyze_contacts(location_id, contact_ids, limit=5)` processes uncached contacts via AI in small batches. Auto-triggered by the dialer when contacts lack cached intelligence.
+- **Bulk API**: `get_bulk_cached_intelligence(location_id, contact_ids)` returns cached AI data for many contacts in one DB query (zero AI cost, LEFT JOIN optimized). Used by Smart Filters on every dialer load.
+- **RQ batch analysis**: `analyze_contacts_batch_task(location_id, contact_ids)` is an RQ task that processes uncached contacts on workers (not web threads). Enqueued in batches of 10 with 60s timeout.
+- **Auto re-analysis**: After `process_webhook_task` processes a message, it auto-queues `analyze_contact_intelligence_task` to RQ so the contact's Smart Filter classification stays fresh without any user action.
 
 ### AI-Powered Smart Filters (Dialer)
 
@@ -424,9 +425,10 @@ The dialer's Smart Filters use AI intelligence to classify contacts — NOT simp
 1. Dialer loads → bulk engagement data fetched (`/voice/contact-engagement`)
 2. Bulk AI intelligence fetched from cache (`/voice/contact-intelligence-bulk`) — zero AI cost
 3. Contacts grouped by AI temperature into Smart Filter categories
-4. Uncached contacts queued for background batch analysis (`/voice/contact-intelligence-analyze`, 5 per request)
-5. As each batch completes, contacts move from "Analyzing..." into their correct AI group
-6. Subsequent dialer loads are instant from cache
+4. Uncached contacts queued to RQ workers via `POST /voice/contact-intelligence-analyze` (batches of 10)
+5. Frontend polls bulk endpoint every 4s — as workers complete analysis, contacts move from "Analyzing..." into correct group
+6. Subsequent dialer loads are instant from cache (no time-based expiry)
+7. When webhook processes a new message, `analyze_contact_intelligence_task` auto-queues to RQ — classification stays fresh
 
 ---
 

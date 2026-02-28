@@ -325,29 +325,25 @@
             }
         }
 
-        // ── InsuranceGrokBot: compute engagement level (0-3 dots) from AI intelligence ──
-        // Dots now reflect AI temperature: 3=hot, 2=warm, 1=cool/cold, 0=DnD
+        // ── InsuranceGrokBot: engagement level (0-3 dots) — AI only, no rules ──
+        // Uses AI engagement_level directly. No heuristic fallback.
+        // If AI hasn't analyzed yet, returns -1 (pending state).
         function _igbEngageLevel(contactId, contactObj) {
             const eng = _igbEngagementCache[contactId];
-            // Opted-out / DnD contacts always show 0 engagement
             if (_igbIsOptedOut(eng, contactObj)) return 0;
 
-            // Use AI temperature if available
             const intel = _igbIntelCache[contactId];
-            if (intel && intel.temperature) {
-                switch (intel.temperature) {
-                    case 'hot': return 3;
-                    case 'warm': return 2;
-                    case 'cool': return 1;
-                    case 'cold': return 1;
-                }
+            if (intel) {
+                // AI engagement_level (0-3) returned directly from Grok
+                if (typeof intel.engagement_level === 'number') return intel.engagement_level;
+                // Backward compat: derive from temperature if engagement_level missing
+                if (intel.temperature === 'hot') return 3;
+                if (intel.temperature === 'warm') return 2;
+                if (intel.temperature === 'cool') return 1;
+                if (intel.temperature === 'cold') return 0;
             }
 
-            // Fallback: any interaction = 1 dot
-            const callCount = _dialerCallCounts[contactId] || 0;
-            const totalCalls = (eng && eng.calls.total_calls) || 0;
-            if (callCount > 0 || totalCalls > 0 || (eng && (eng.messages.lead > 0 || eng.messages.assistant > 0))) return 1;
-            return 0;
+            return -1; // Not analyzed yet — show neutral/pending dots
         }
 
         // ── InsuranceGrokBot Smart Filter: group contacts by AI intelligence ──
@@ -400,14 +396,21 @@
             return groups;
         }
 
-        // ── Should Respond: lead's last message is unanswered AND AI says hot/warm ──
+        // ── Should Respond: AI determines if the agent needs to act NOW ──
+        // Uses AI should_respond field (reads conversation to decide),
+        // NOT just timestamp comparison. The AI knows whether the lead
+        // asked a question, expressed interest, or said "stop."
         function _igbShouldRespond(contactId, intel) {
-            if (!intel || (intel.temperature !== 'hot' && intel.temperature !== 'warm')) return false;
+            if (!intel) return false;
+            // AI explicitly says should_respond — trust it
+            if (typeof intel.should_respond === 'boolean') return intel.should_respond;
+            // Backward compat: if AI didn't return should_respond field,
+            // fall back to temperature + timestamp check
+            if (intel.temperature !== 'hot' && intel.temperature !== 'warm') return false;
             const eng = _igbEngagementCache[contactId];
             if (!eng) return false;
             const lastLead = eng.messages.last_lead_at;
             const lastBot = eng.messages.last_assistant_at;
-            // Lead sent a message and bot hasn't replied since
             if (lastLead && (!lastBot || lastLead > lastBot)) return true;
             return false;
         }
@@ -431,12 +434,13 @@
             let liveDotCls = 'igb-live-dot idle';
             if (isLive) liveDotCls = 'igb-live-dot live-call';
 
-            // Engagement dots HTML
-            const dotClass = level >= 3 ? 'lit-hot' : (level >= 2 ? 'lit-warm' : (level >= 1 ? 'lit' : ''));
-            const dots = '<span class="igb-engage-dots">' +
-                '<span class="igb-dot' + (level >= 1 ? ' ' + dotClass : '') + '"></span>' +
-                '<span class="igb-dot' + (level >= 2 ? ' ' + dotClass : '') + '"></span>' +
-                '<span class="igb-dot' + (level >= 3 ? ' ' + dotClass : '') + '"></span>' +
+            // Engagement dots HTML — level -1 = pending (all neutral), 0-3 = AI engagement
+            const isPendingLevel = level < 0;
+            const dotClass = isPendingLevel ? '' : (level >= 3 ? 'lit-hot' : (level >= 2 ? 'lit-warm' : (level >= 1 ? 'lit' : '')));
+            const dots = '<span class="igb-engage-dots"' + (isPendingLevel ? ' title="AI analyzing..."' : '') + '>' +
+                '<span class="igb-dot' + (!isPendingLevel && level >= 1 ? ' ' + dotClass : '') + '"></span>' +
+                '<span class="igb-dot' + (!isPendingLevel && level >= 2 ? ' ' + dotClass : '') + '"></span>' +
+                '<span class="igb-dot' + (!isPendingLevel && level >= 3 ? ' ' + dotClass : '') + '"></span>' +
             '</span>';
 
             return '<div class="dlr-contact-row' + (isActive ? ' active' : '') + '" onclick="dialerSelectContact(\'' + c.id + '\')" style="' + (sel ? 'background:rgba(0,217,255,0.04);' : '') + '">' +
@@ -515,44 +519,20 @@
             dialerFetchMergedCallCount(c.id);
         }
 
-        // ── InsuranceGrokBot: compute lead score (0-100) ──
-        // Uses AI score when available (read from conversation history by xAI Grok),
-        // falls back to engagement-based heuristic for unanalyzed contacts.
+        // ── InsuranceGrokBot: lead score — AI only, no rule-based heuristic ──
+        // Returns the AI-generated score (0-100) based on conversation analysis.
+        // Returns -1 if AI hasn't analyzed yet (pending state — shows "?" in UI).
+        // NEVER fakes a score with rules. If AI hasn't read the conversation, we don't guess.
         function _igbLeadScore(eng, contactObj) {
-            if (!eng) return 0;
-            // DnD / opt-out override: score is 0
             if (_igbIsOptedOut(eng, contactObj)) return 0;
 
-            // Use AI score if available (from conversation analysis)
             const contactId = contactObj && contactObj.id;
             if (contactId) {
                 const intel = _igbIntelCache[contactId];
                 if (intel && typeof intel.score === 'number') return intel.score;
             }
 
-            // Fallback: engagement-based heuristic
-            let score = 0;
-            score += Math.min(eng.messages.lead * 5, 15);
-            score += Math.min(eng.messages.assistant * 2, 10);
-            if (eng.messages.lead > 0 && eng.messages.assistant > 0) score += 5;
-            score += Math.min(eng.calls.connected * 10, 20);
-            score += Math.min(eng.calls.total_calls * 2, 10);
-            if (eng.calls.total_duration > 120) score += 5;
-            if (eng.calls.total_duration > 300) score += 5;
-            const now = Date.now();
-            const lastMsg = eng.messages.last_message_at ? new Date(eng.messages.last_message_at).getTime() : 0;
-            const lastCall = eng.calls.last_call_at ? new Date(eng.calls.last_call_at).getTime() : 0;
-            const latest = Math.max(lastMsg, lastCall);
-            if (latest > 0) {
-                const hoursAgo = (now - latest) / (1000 * 60 * 60);
-                if (hoursAgo < 24) score += 20;
-                else if (hoursAgo < 72) score += 14;
-                else if (hoursAgo < 168) score += 8;
-                else score += 3;
-            }
-            if (eng.narrative && eng.narrative.summary) score += 5;
-            score += Math.min((eng.facts || []).length * 2, 5);
-            return Math.min(score, 100);
+            return -1; // Not analyzed yet — pending state
         }
 
         // ── Check if contact has opted out (DnD or "stop" message) ──
@@ -562,9 +542,9 @@
             return false;
         }
 
+        // ── Score color/label — AI only, pending state when not analyzed ──
         function _igbScoreColor(score, optedOut, contactId) {
             if (optedOut) return '#ef4444';
-            // Use AI temperature color if available
             const intel = contactId ? _igbIntelCache[contactId] : null;
             if (intel && intel.temperature) {
                 switch (intel.temperature) {
@@ -574,23 +554,16 @@
                     case 'cold': return '#888';
                 }
             }
-            if (score >= 70) return '#4ade80';
-            if (score >= 40) return '#ffa500';
-            if (score >= 15) return '#5B7FFF';
-            return '#444';
+            return '#333'; // Pending — neutral dark
         }
 
         function _igbScoreLabel(score, optedOut, contactId) {
             if (optedOut) return 'DnD';
-            // Use AI temperature label if available
             const intel = contactId ? _igbIntelCache[contactId] : null;
             if (intel && intel.temperature) {
                 return intel.temperature.charAt(0).toUpperCase() + intel.temperature.slice(1);
             }
-            if (score >= 70) return 'Hot';
-            if (score >= 40) return 'Warm';
-            if (score >= 15) return 'Cool';
-            return 'New';
+            return '...'; // Pending — AI hasn't analyzed yet
         }
 
         function _igbTimeAgo(isoStr) {
@@ -621,10 +594,13 @@
                 }
 
                 const optedOut = _igbIsOptedOut(eng, c);
-                const score = _igbLeadScore(eng, c);
+                const rawScore = _igbLeadScore(eng, c);
+                const isPending = rawScore < 0;
+                const score = isPending ? 0 : rawScore;
+                const scoreDisplay = isPending ? '?' : score;
                 const scoreColor = _igbScoreColor(score, optedOut, contactId);
                 const circumference = 2 * Math.PI * 35; // r=35
-                const dashOffset = circumference * (1 - score / 100);
+                const dashOffset = isPending ? circumference : circumference * (1 - score / 100);
 
                 let html = '';
 
@@ -641,7 +617,7 @@
                 html += '<div class="igb-score-ring">';
                 html += '<svg viewBox="0 0 80 80"><circle class="igb-ring-bg" cx="40" cy="40" r="35"/>';
                 html += '<circle class="igb-ring-fg" cx="40" cy="40" r="35" stroke="' + scoreColor + '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + dashOffset + '"/></svg>';
-                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + score + '</span><span class="igb-score-sub">' + _igbScoreLabel(score, optedOut, contactId) + '</span></div>';
+                html += '<div class="igb-score-label"><span class="igb-score-num" style="color:' + scoreColor + ';">' + scoreDisplay + '</span><span class="igb-score-sub">' + _igbScoreLabel(score, optedOut, contactId) + '</span></div>';
                 html += '</div>';
                 // Name + phone
                 html += '<div style="flex:1;min-width:0;">';
@@ -3328,44 +3304,87 @@
             }
         }
 
-        // ── InsuranceGrokBot: Background Batch Analysis ──
-        // Processes uncached contacts in batches of 5, updating filters as results arrive.
+        // ── InsuranceGrokBot: Background Batch Analysis (RQ-backed) ──
+        // Queues all uncached contacts to RQ workers via one POST,
+        // then polls the bulk endpoint for results as workers complete.
+        let _igbPollTimer = null;
         async function igbRunBatchAnalysis() {
             if (_igbAnalyzing || !_igbUncachedIds.length) return;
             _igbAnalyzing = true;
-            console.log('[IGB] Starting batch AI analysis for', _igbUncachedIds.length, 'contacts');
+            const totalPending = _igbUncachedIds.length;
+            console.log('[IGB] Queuing', totalPending, 'contacts for RQ AI analysis');
 
-            const BATCH = 5;
-            while (_igbUncachedIds.length > 0) {
-                const batch = _igbUncachedIds.splice(0, BATCH);
+            // Send all uncached IDs to the server — it splits into RQ batches of 10
+            try {
+                const r = await fetch('/voice/contact-intelligence-analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_ids: _igbUncachedIds })
+                });
+                if (!r.ok) { _igbAnalyzing = false; return; }
+                const data = await r.json();
+                console.log('[IGB] Queued', data.queued, 'contacts to RQ workers');
+            } catch(e) {
+                console.error('[IGB] Queue request failed:', e);
+                _igbAnalyzing = false;
+                return;
+            }
+
+            // Poll for results every 4 seconds until all contacts are analyzed
+            _igbPollForResults(_igbUncachedIds.slice()); // copy the array
+        }
+
+        function _igbPollForResults(pendingIds) {
+            if (_igbPollTimer) clearInterval(_igbPollTimer);
+            let pollCount = 0;
+            const maxPolls = 90; // 4s * 90 = 6 minutes max polling
+
+            _igbPollTimer = setInterval(async function() {
+                pollCount++;
+                if (!pendingIds.length || pollCount > maxPolls) {
+                    clearInterval(_igbPollTimer);
+                    _igbPollTimer = null;
+                    _igbAnalyzing = false;
+                    if (pollCount > maxPolls) console.warn('[IGB] Poll timeout — some contacts may not be analyzed');
+                    dialerRenderContacts();
+                    return;
+                }
+
                 try {
-                    const r = await fetch('/voice/contact-intelligence-analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contact_ids: batch })
-                    });
-                    if (!r.ok) continue;
+                    const ids = pendingIds.join(',');
+                    const r = await fetch('/voice/contact-intelligence-bulk?ids=' + encodeURIComponent(ids));
+                    if (!r.ok) return;
                     const data = await r.json();
-                    if (data.results && data.results.length) {
-                        data.results.forEach(function(res) {
-                            _igbIntelCache[res.contact_id] = {
-                                temperature: res.temperature,
-                                score: res.score,
-                                summary: res.summary || '',
-                                temperature_reason: res.temperature_reason || '',
-                            };
+
+                    if (data.cached) {
+                        let newResults = 0;
+                        Object.entries(data.cached).forEach(function([cid, intel]) {
+                            if (!_igbIntelCache[cid]) newResults++;
+                            _igbIntelCache[cid] = intel;
                         });
-                        // Re-render to move analyzed contacts into correct groups
+                        // Remove newly cached from pending
+                        pendingIds = pendingIds.filter(function(id) { return !data.cached[id]; });
+                        // Also remove from global uncached list
+                        _igbUncachedIds = _igbUncachedIds.filter(function(id) { return !data.cached[id]; });
+
+                        if (newResults > 0) {
+                            console.log('[IGB] Poll: +' + newResults + ' analyzed, ' + pendingIds.length + ' remaining');
+                            dialerRenderContacts();
+                        }
+                    }
+
+                    // All done
+                    if (pendingIds.length === 0) {
+                        clearInterval(_igbPollTimer);
+                        _igbPollTimer = null;
+                        _igbAnalyzing = false;
+                        console.log('[IGB] All contacts analyzed. Total cached:', Object.keys(_igbIntelCache).length);
                         dialerRenderContacts();
                     }
                 } catch(e) {
-                    console.error('[IGB] Batch analysis failed:', e);
+                    console.error('[IGB] Poll failed:', e);
                 }
-            }
-
-            _igbAnalyzing = false;
-            console.log('[IGB] Batch AI analysis complete. Total cached:', Object.keys(_igbIntelCache).length);
-            dialerRenderContacts();
+            }, 4000);
         }
 
         // After local counts show, upgrade badges with GHL+WAVV counts from synced DB
