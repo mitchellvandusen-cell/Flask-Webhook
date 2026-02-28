@@ -2331,7 +2331,7 @@ def test_voice_connection():
     data = request.json or {}
     location_id = data.get('location_id', '')
 
-    results = {"xai": False, "twilio": False, "errors": []}
+    results = {"xai": False, "voice_service": False, "errors": []}
 
     # Test XAI API key
     if XAI_API_KEY:
@@ -2360,7 +2360,7 @@ def test_voice_connection():
                 try:
                     client = twilio_provisioning.get_sub_account_client(sub_sid)
                     account = client.api.accounts(sub_sid).fetch()
-                    results["twilio"] = account.status == "active"
+                    results["voice_service"] = account.status == "active"
                     if account.status != "active":
                         results["errors"].append(f"Voice sub-account status: {account.status}")
                 except Exception as e:
