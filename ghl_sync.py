@@ -61,24 +61,23 @@ def _api_get(url, headers, params=None, timeout=15):
     return None, last_err
 
 
+# GHL API V1 (2021-04-15) is end-of-support.  All sync endpoints require
+# V2 (2021-07-28) — using the old version returns empty/wrong results for
+# conversations, opportunities, and phone numbers.
+_GHL_SYNC_API_VERSION = "2021-07-28"
+
+
 def _get_headers(access_token):
-    """Build GHL API headers with auth."""
-    return {**GHL_HEADERS, "Authorization": f"Bearer {access_token}"}
-
-
-# Deep sync uses the current API version (2021-07-28) for conversations.
-# GHL_HEADERS has 2021-04-15 which may return empty/different results
-# for newer conversation types (calls, voicemail, etc.).
-_DEEP_SYNC_API_VERSION = "2021-07-28"
-
-
-def _get_deep_headers(access_token):
-    """Build headers for deep sync with correct API version."""
+    """Build GHL API V2 headers with auth."""
     return {
         "Authorization": f"Bearer {access_token}",
-        "Version": _DEEP_SYNC_API_VERSION,
+        "Version": _GHL_SYNC_API_VERSION,
         "Content-Type": "application/json",
     }
+
+
+# Keep alias for any callers that reference the old name
+_get_deep_headers = _get_headers
 
 
 # ─── Sync State Management ───────────────────────────────────────────────────
@@ -860,20 +859,22 @@ def run_incremental_sync_all():
 
     try:
         cur = conn.cursor()
-        # Get all active subscribers with OAuth tokens
+        # Get all active subscribers with tokens (OAuth or PIT)
+        # PIT (Private Integration Tokens) have no refresh_token — they're
+        # persistent API keys that don't expire.  Previously this query
+        # required refresh_token IS NOT NULL which silently excluded all
+        # PIT-authenticated accounts from the sync pipeline.
         cur.execute("""
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM subscribers
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
-              AND refresh_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')
             UNION ALL
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM agency_billing
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
-              AND refresh_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')
         """)
         rows = cur.fetchall()

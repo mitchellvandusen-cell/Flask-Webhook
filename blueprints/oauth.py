@@ -37,14 +37,16 @@ logger = logging.getLogger(__name__)
 oauth_bp = Blueprint('oauth', __name__)
 
 # ── OAuth scopes ─────────────────────────────────────────────────────────────
-# All scopes approved on the public marketplace app as of 2026-02-27.
+# All scopes approved on the public marketplace app.
+# NOTE: "conversations.readonly" was deprecated by GHL — use
+# "conversations/message.readonly" instead.  Requesting the old scope
+# causes "Invalid scope(s): conversations.readonly" during OAuth.
 GHL_OAUTH_SCOPES = [
     "calendars.readonly",
     "calendars/events.readonly",
     "calendars/events.write",
     "calendars/groups.readonly",
     "contacts.readonly",
-    "conversations.readonly",
     "conversations.write",
     "conversations/message.readonly",
     "conversations/message.write",
