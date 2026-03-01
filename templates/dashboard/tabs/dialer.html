@@ -260,6 +260,30 @@
                     /* Voicemail */
                     .ios-voicemail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;}
                     .ios-voicemail-scroll::-webkit-scrollbar{width:0;}
+
+                    /* iMessage Inbox */
+                    .imsg-filter-pill{background:rgba(255,255,255,0.06);border:none;border-radius:16px;padding:5px 14px;font-size:0.7rem;font-weight:600;color:#8E8E93;cursor:pointer;white-space:nowrap;transition:all 0.2s;}
+                    .imsg-filter-pill.active{background:#007AFF;color:#fff;}
+                    .imsg-filter-pill:hover:not(.active){background:rgba(255,255,255,0.1);}
+                    .imsg-convo-row{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.15s;position:relative;}
+                    .imsg-convo-row:hover{background:rgba(255,255,255,0.03);}
+                    .imsg-convo-row:active{background:rgba(255,255,255,0.06);}
+                    .imsg-convo-row::after{content:'';position:absolute;bottom:0;left:68px;right:0;height:1px;background:rgba(255,255,255,0.06);}
+                    .imsg-convo-row:last-child::after{display:none;}
+                    .imsg-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#5856D6,#AF52DE);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-0.3px;}
+                    .imsg-unread-dot{width:10px;height:10px;border-radius:50%;background:#007AFF;flex-shrink:0;}
+                    .imsg-time{font-size:0.65rem;color:#8E8E93;white-space:nowrap;flex-shrink:0;}
+                    .imsg-name{font-size:0.85rem;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+                    .imsg-preview{font-size:0.75rem;color:#8E8E93;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.3;max-height:2.6em;}
+                    .imsg-chevron{color:#C7C7CC;font-size:0.55rem;flex-shrink:0;}
+                    /* Inbox thread bubbles */
+                    .imsg-bubble{max-width:78%;padding:9px 14px;border-radius:18px;font-size:0.8rem;line-height:1.4;word-wrap:break-word;}
+                    .imsg-bubble.outbound{background:#007AFF;color:#fff;border-bottom-right-radius:6px;margin-left:auto;}
+                    .imsg-bubble.inbound{background:#1C1C1E;color:#fff;border:1px solid rgba(255,255,255,0.08);border-bottom-left-radius:6px;margin-right:auto;}
+                    .imsg-bubble-time{font-size:0.55rem;margin-top:3px;opacity:0.5;text-align:right;}
+                    .imsg-date-sep{text-align:center;padding:12px 0 6px;font-size:0.65rem;color:#8E8E93;font-weight:600;}
+                    .imsg-call-pill{text-align:center;padding:4px 0;}
+                    .imsg-call-pill span{font-size:0.65rem;color:#8E8E93;background:rgba(255,255,255,0.04);padding:4px 12px;border-radius:10px;display:inline-flex;align-items:center;gap:4px;}
                 </style>
 
                 <!-- Top Bar -->
@@ -789,12 +813,12 @@
                                                 <span class="ios-app-label">Recording History</span>
                                                 <span class="ios-badge" id="iosBadgeRecs" style="display:none;">0</span>
                                             </button>
-                                            <!-- Inbox App (Unified Conversations) -->
+                                            <!-- Inbox App (iMessage-style Conversations) -->
                                             <button class="ios-app-icon" onclick="iosOpenApp('inbox')">
-                                                <div class="ios-icon" style="background:linear-gradient(180deg,#5B7FFF 0%,#3B5FE0 100%);">
-                                                    <i class="fa-solid fa-inbox"></i>
+                                                <div class="ios-icon" style="background:linear-gradient(180deg,#34C759 0%,#30B350 100%);">
+                                                    <i class="fa-solid fa-message"></i>
                                                 </div>
-                                                <span class="ios-app-label">Inbox</span>
+                                                <span class="ios-app-label">Messages</span>
                                                 <span class="ios-badge" id="iosBadgeInbox" style="display:none;">0</span>
                                             </button>
                                             <!-- Calendar App (LeadConnector Appointments) -->
@@ -952,46 +976,58 @@
 
                                     <!-- ═══ INBOX APP (Unified Conversations) ═══ -->
                                     <div class="ios-app-view" id="iosAppInbox" style="display:none;">
-                                        <div class="ios-nav-bar">
-                                            <button class="ios-back-btn" onclick="iosGoHome()">
-                                                <i class="fa-solid fa-chevron-left"></i>
-                                            </button>
-                                            <div class="ios-nav-title">
-                                                <div style="font-weight:700;font-size:0.95rem;">Inbox</div>
-                                            </div>
-                                            <div style="display:flex;gap:4px;">
-                                                <button onclick="inboxRefresh()" class="ios-nav-action" title="Refresh">
-                                                    <i class="fa-solid fa-arrows-rotate"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div id="inboxConversationList" class="ios-voicemail-scroll" style="padding:0;">
-                                            <div class="ios-empty-state" style="padding-top:60px;">
-                                                <div class="ios-empty-icon" style="background:rgba(91,127,255,0.08);border-color:rgba(91,127,255,0.15);">
-                                                    <i class="fa-solid fa-inbox" style="color:#5B7FFF;"></i>
-                                                </div>
-                                                <div class="ios-empty-title">No Conversations</div>
-                                                <div class="ios-empty-sub">Synced conversations will appear here</div>
-                                            </div>
-                                        </div>
-                                        <!-- Inbox Thread View (shown when clicking a conversation) -->
-                                        <div id="inboxThreadView" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#000;z-index:2;">
-                                            <div class="ios-nav-bar">
-                                                <button class="ios-back-btn" onclick="inboxBackToList()">
+                                        <!-- iMessage-style header -->
+                                        <div style="padding:12px 16px 0;background:#000;flex-shrink:0;">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                                <button class="ios-back-btn" onclick="iosGoHome()" style="margin:0;">
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                 </button>
-                                                <div class="ios-nav-title">
-                                                    <div id="inboxThreadAvatar" class="ios-contact-avatar-sm" style="width:28px;height:28px;font-size:0.7rem;">?</div>
-                                                    <div>
-                                                        <div id="inboxThreadName" style="font-weight:700;font-size:0.85rem;">Contact</div>
-                                                        <div id="inboxThreadPhone" style="font-size:0.65rem;color:#888;"></div>
+                                                <div style="font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.3px;">Messages</div>
+                                                <button onclick="inboxRefresh()" class="ios-nav-action" title="Refresh" style="margin:0;">
+                                                    <i class="fa-solid fa-arrows-rotate" id="inboxRefreshIcon"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Search bar -->
+                                            <div style="position:relative;margin-bottom:8px;">
+                                                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#666;font-size:0.7rem;"></i>
+                                                <input type="text" id="inboxSearchInput" placeholder="Search" oninput="inboxDebounceSearch()"
+                                                    style="width:100%;box-sizing:border-box;padding:8px 10px 8px 30px;background:rgba(255,255,255,0.07);border:none;border-radius:10px;color:#fff;font-size:0.8rem;outline:none;">
+                                            </div>
+                                            <!-- Filter pills -->
+                                            <div style="display:flex;gap:6px;padding-bottom:8px;overflow-x:auto;" id="inboxFilterRow">
+                                                <button class="imsg-filter-pill active" onclick="inboxSetFilter('all')" data-filter="all">All</button>
+                                                <button class="imsg-filter-pill" onclick="inboxSetFilter('unread')" data-filter="unread">Unread</button>
+                                                <button class="imsg-filter-pill" onclick="inboxSetFilter('inbound')" data-filter="inbound">Received</button>
+                                                <button class="imsg-filter-pill" onclick="inboxSetFilter('outbound')" data-filter="outbound">Sent</button>
+                                            </div>
+                                        </div>
+                                        <!-- Conversation list -->
+                                        <div id="inboxConversationList" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#000;padding:0;">
+                                            <div class="ios-empty-state" style="padding-top:50px;">
+                                                <div class="ios-empty-icon" style="background:rgba(91,127,255,0.08);border-color:rgba(91,127,255,0.15);">
+                                                    <i class="fa-solid fa-message" style="color:#5B7FFF;"></i>
+                                                </div>
+                                                <div class="ios-empty-title">No Messages</div>
+                                                <div class="ios-empty-sub">Conversations will appear here</div>
+                                            </div>
+                                        </div>
+                                        <!-- Inbox Thread View (slide-in from right) -->
+                                        <div id="inboxThreadView" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#000;z-index:2;flex-direction:column;">
+                                            <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+                                                <button onclick="inboxBackToList()" style="background:none;border:none;color:#007AFF;font-size:0.85rem;cursor:pointer;padding:4px;display:flex;align-items:center;gap:4px;">
+                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                    <span style="font-size:0.75rem;">Back</span>
+                                                </button>
+                                                <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;">
+                                                    <div id="inboxThreadAvatar" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#5B7FFF,#3B5FE0);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;color:#fff;flex-shrink:0;">?</div>
+                                                    <div style="text-align:center;">
+                                                        <div id="inboxThreadName" style="font-weight:700;font-size:0.82rem;color:#fff;">Contact</div>
+                                                        <div id="inboxThreadPhone" style="font-size:0.6rem;color:#8E8E93;"></div>
                                                     </div>
                                                 </div>
-                                                <div style="display:flex;gap:4px;align-items:center;">
-                                                    <span id="inboxThreadBadge" style="display:none;font-size:0.6rem;padding:2px 6px;border-radius:6px;font-weight:600;"></span>
-                                                </div>
+                                                <span id="inboxThreadBadge" style="display:none;font-size:0.55rem;padding:2px 6px;border-radius:6px;font-weight:600;"></span>
                                             </div>
-                                            <div id="inboxThreadMessages" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;"></div>
+                                            <div id="inboxThreadMessages" class="ios-thread-scroll" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:4px;"></div>
                                             <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
                                         </div>
                                         <div class="ios-home-indicator-bar"><div class="ios-home-indicator ios-home-indicator-dark"></div></div>
