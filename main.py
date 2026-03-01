@@ -3386,6 +3386,61 @@ def api_sync_deep_pull_status():
         return safe_jsonify({"status": "unknown"})
 
 
+@app.route("/api/sync/deep-pull/reset", methods=["POST"])
+@login_required
+def api_sync_deep_pull_reset():
+    """Reset deep sync state so it can be re-triggered for a full historical re-pull.
+    Resets the sync state to 'pending' and re-queues the deep sync job."""
+    location_id = current_user.location_id
+    if not location_id:
+        return safe_jsonify({"error": "No location connected"}), 400
+
+    try:
+        from ghl_sync import _update_sync_state, deep_sync_conversations
+        conn = get_db_connection()
+        if not conn:
+            return safe_jsonify({"error": "Database error"}), 500
+        try:
+            cur = conn.cursor()
+            # Reset sync state to pending with zeroed counters
+            cur.execute("""
+                UPDATE ghl_sync_state
+                SET sync_status = 'pending', last_cursor = '0', total_synced = 0,
+                    error_message = NULL, last_sync_at = NOW()
+                WHERE location_id = %s AND resource_type = 'conversations_deep'
+            """, (location_id,))
+            conn.commit()
+            cur.close()
+        finally:
+            return_db_connection(conn)
+
+        # Queue the deep sync job
+        ensure_redis()
+        job_id = f"deep-sync-{location_id}"
+        # Cancel any existing job first
+        try:
+            from rq.job import Job as RQJob
+            existing = RQJob.fetch(job_id, connection=redis_conn)
+            if existing and existing.get_status() in ('queued', 'started'):
+                existing.cancel()
+        except Exception:
+            pass
+
+        job = q_production.enqueue(
+            deep_sync_conversations,
+            location_id,
+            job_timeout=7200,
+            result_ttl=86400,
+            job_id=job_id,
+        )
+        logger.info(f"Deep sync reset and re-queued for {location_id}")
+        return safe_jsonify({"status": "reset_and_started", "job_id": job.id})
+
+    except Exception as e:
+        logger.error(f"Deep sync reset failed: {e}", exc_info=True)
+        return safe_jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/admin/send-email", methods=["GET", "POST"])
 def api_admin_send_email():
     """

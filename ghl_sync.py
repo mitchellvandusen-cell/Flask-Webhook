@@ -1155,9 +1155,19 @@ def _deep_list_all_conversations(location_id, headers):
     url = f"{GHL_BASE}/conversations/search"
     params = {"locationId": location_id, "limit": 100}
     max_pages = 200  # 200 pages × 100 = 20,000 conversations (safety)
+    auth_retries = 0
 
     for page in range(max_pages):
         data, err = _api_get_paced(url, headers, params=params)
+        if err == "auth_error" and auth_retries < 3:
+            # Token expired mid-pagination — refresh and retry this page
+            auth_retries += 1
+            logger.info(f"[DEEP_SYNC] {location_id} | Auth error on page {page}, refreshing token (attempt {auth_retries})")
+            if _deep_refresh_token(location_id, headers):
+                data, err = _api_get_paced(url, headers, params=params)
+            else:
+                logger.error(f"[DEEP_SYNC] {location_id} | Token refresh failed, stopping listing")
+                break
         if err:
             logger.warning(f"[DEEP_SYNC] {location_id} | Conversation list error: {err} "
                            f"(page {page}, {len(all_convos)} so far)")
@@ -1170,6 +1180,7 @@ def _deep_list_all_conversations(location_id, headers):
             break
 
         all_convos.extend(convos)
+        auth_retries = 0  # Reset on success
         logger.info(f"[DEEP_SYNC] {location_id} | Listed {len(all_convos)} conversations (page {page+1})")
 
         # Pagination: GHL uses startAfterDate or nextPage for conversation listing
