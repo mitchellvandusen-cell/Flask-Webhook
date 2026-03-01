@@ -153,6 +153,7 @@
                     <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Smart Filters</span>
                     <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Auto-Retry</span>
                     <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Live Intercept</span>
+                    <span class="ps-tag" style="background: rgba(0,217,255,0.08); color: #00d9ff;">Number Rotation</span>
                 </div>
                 <a href="/dialer" style="color: #00d9ff; font-size: 0.82rem; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 10px;">Explore the Dialer <i class="fa-solid fa-arrow-right ms-1" style="font-size: 0.75rem;"></i></a>
             </div>
@@ -191,6 +192,15 @@
             </div>
             <!-- Subtle glow behind image -->
             <div style="position: absolute; inset: 20%; z-index: -1; background: radial-gradient(ellipse, rgba(0,255,136,0.08), transparent 70%); filter: blur(60px);"></div>
+        </div>
+
+        <!-- Video CTA -->
+        <div class="text-center mt-4" data-aos="fade-up" data-aos-delay="200">
+            <a href="/dialer#video" style="display: inline-flex; align-items: center; gap: 10px; padding: 12px 28px; border-radius: 30px; background: rgba(0,217,255,0.06); border: 1px solid rgba(0,217,255,0.18); color: #00d9ff; font-weight: 700; font-size: 0.88rem; text-decoration: none; transition: all 0.3s;">
+                <i class="fa-solid fa-circle-play" style="font-size: 1.2rem;"></i>
+                Watch the Dialer Walkthrough
+                <i class="fa-solid fa-arrow-right" style="font-size: 0.75rem;"></i>
+            </a>
         </div>
     </div>
 </section>
@@ -235,9 +245,14 @@
                 <p>Books directly to your calendar mid-text or mid-call. Confirmed before you see it.</p>
             </div>
             <div class="cap-item">
-                <i class="fa-solid fa-shield-halved" style="color: #00d9ff;"></i>
+                <i class="fa-solid fa-shuffle" style="color: #00d9ff;"></i>
+                <h6>Number Rotation</h6>
+                <p>Smart health scoring, auto-rest burned numbers, state geo-routing, and warm-up stages for max connect rates.</p>
+            </div>
+            <div class="cap-item">
+                <i class="fa-solid fa-shield-halved" style="color: #e91e63;"></i>
                 <h6>Spam Protection</h6>
-                <p>Number reputation tracking, spam score monitoring, and deliverability optimization.</p>
+                <p>Number reputation tracking, spam score monitoring, CNAM caller ID, and deliverability optimization.</p>
             </div>
             <div class="cap-item">
                 <i class="fa-solid fa-building-user" style="color: var(--accent);"></i>
@@ -269,10 +284,10 @@
         <!-- Feature screenshots -->
         <div class="showcase-strip" data-aos="fade-up" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px;">
             <div class="showcase-card" style="border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); transition: transform 0.3s, border-color 0.3s;">
-                <img src="{{ url_for('static', filename='images/spam-protection.png') }}" alt="Spam Protection — STIR/SHAKEN, CNAM, and number reputation tracking" style="width: 100%; display: block;" loading="lazy">
+                <img src="{{ url_for('static', filename='images/spam-protection.png') }}" alt="Number Rotation — health scoring, auto-rest, and state geo-routing" style="width: 100%; display: block;" loading="lazy">
                 <div style="padding: 14px 16px;">
-                    <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Spam Protection</div>
-                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">STIR/SHAKEN, CNAM & number reputation</div>
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Number Rotation</div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">Health scoring, auto-rest & state geo-routing</div>
                 </div>
             </div>
             <div class="showcase-card" style="border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); transition: transform 0.3s, border-color 0.3s;">
@@ -475,7 +490,7 @@
 
                 <ul class="price-features">
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>AI Texting</strong> — outbound, inbound, replies & booking</li>
-                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Smart Dialer</strong> — auto-retry up to 3x per lead</li>
+                    <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Smart Dialer</strong> — number rotation, auto-retry, geo-routing</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>AI Voice Agent</strong> — fully autonomous calling</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Lead Intelligence</strong> — score, timeline & AI summary</li>
                     <li><i class="fa-solid fa-check" style="color: var(--accent);"></i> <strong>Smart Filters</strong> — auto-sort hot, warm & cold</li>
