@@ -1790,7 +1790,7 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     /* Full-screen mobile nav overlay */
     .navbar-collapse {
         position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(5,5,5,0.97); backdrop-filter: blur(20px);
+        background: #050505;
         z-index: 9998; padding: 100px 24px 40px;
         display: flex !important; flex-direction: column;
         opacity: 0; pointer-events: none;
