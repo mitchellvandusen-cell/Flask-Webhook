@@ -316,7 +316,7 @@ def website_bot_webhook():
 
     if user_message == "agency_small":
         return flask_jsonify({
-            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. $797.99/month covers up to 14 agents.",
+            "text": "Perfect size to start. Here's what I solve for you: inconsistent follow-up across your team. Some agents are great, some let leads rot. With me, every sub-account gets the same AI setter - same brain, same methodology, but books to THEIR calendar. You get a dashboard to see everything. Agency Starter covers up to 14 agents — book a call for pricing.",
             "options": [
                 {"label": "How does that work exactly?", "value": "agency_how"},
                 {"label": "Show me the demo",            "value": "demo"},
@@ -326,7 +326,7 @@ def website_bot_webhook():
 
     if user_message in ["agency_medium", "agency_large"]:
         return flask_jsonify({
-            "text": "At your scale, lead leakage is probably costing you six figures a year. Every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Unlimited sub-accounts for $1,597.99/month flat.",
+            "text": "At your scale, lead leakage is probably costing you six figures a year. Every single sub-account gets an AI setter. Same training, same methodology, same quality - but each one books to that agent's calendar. One dashboard for you to monitor everything. Agency Pro gives you unlimited sub-accounts — book a call for pricing.",
             "options": [
                 {"label": "How does multi-tenant work?", "value": "agency_how"},
                 {"label": "Show me the demo",            "value": "demo"},
@@ -365,7 +365,7 @@ def website_bot_webhook():
 
     if user_message == "agency_pro_info":
         return flask_jsonify({
-            "text": "Agency Pro is $1,597.99/month for unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents - scale as big as you want, price stays the same.",
+            "text": "Agency Pro gives you unlimited sub-accounts. Same features plus dedicated high-speed queue (faster responses) and white-glove onboarding. No cap on agents — scale as big as you want. Custom pricing — book a call for details.",
             "options": [
                 {"label": "Get started",    "value": "signup_agency_pro"},
                 {"label": "Try demo first", "value": "demo"}
@@ -431,8 +431,8 @@ def website_bot_webhook():
         return flask_jsonify({
             "text": "Two options: Agency Starter for up to 14 sub-accounts, or Agency Pro for unlimited. Both include the full multi-tenant dashboard and all features. Custom pricing — book a call for details. No contracts, cancel anytime.",
             "options": [
-                {"label": "Agency Starter ($797.99)",  "value": "signup_agency_starter"},
-                {"label": "Agency Pro ($1,597.99)",    "value": "signup_agency_pro"},
+                {"label": "Agency Starter (up to 14)",  "value": "signup_agency_starter"},
+                {"label": "Agency Pro (unlimited)",     "value": "signup_agency_pro"},
                 {"label": "See demo first",            "value": "demo"}
             ]
         })
