@@ -5054,6 +5054,7 @@ def oauth_initiate():
         "opportunities.readonly",           # Pipeline & stage listing for dialer filters
         "users.readonly",                   # User info lookup
         "workflows.readonly",              # Workflow listing
+        "twilioaccount.read",              # GHL phone numbers for sync
     ]
     scope_string = " ".join(scopes)
 

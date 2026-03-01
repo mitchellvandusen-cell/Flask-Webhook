@@ -56,6 +56,7 @@ GHL_OAUTH_SCOPES = [
     "opportunities.readonly",
     "users.readonly",
     "workflows.readonly",
+    "twilioaccount.read",
 ]
 
 
