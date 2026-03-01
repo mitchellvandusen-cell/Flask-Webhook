@@ -1847,7 +1847,7 @@ def dashboard():
         # User needs to subscribe - show subscription required page
         return render_template('dashboard.html',
             needs_subscription=True,
-            subscription_price=98.99,  # Individual plan: $98.99/month
+            subscription_price=149.99,  # Individual plan: $149.99/month
             form=ConfigForm(),  # Empty form
             access_token_display='',
             refresh_token_display='',
@@ -7147,7 +7147,7 @@ Example: {"text": "That's $149.99/month. Unlimited AI texting, smart dialer, AI 
 
     try:
         response = client.chat.completions.create(
-            model="grok-3-mini-fast",
+            model="grok-4-1-fast-non-reasoning",
             messages=messages,
             max_tokens=300,
             temperature=0.7,

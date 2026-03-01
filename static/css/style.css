@@ -1787,17 +1787,26 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
 
 /* ── Tablet (≤991px) ── */
 @media (max-width: 991px) {
-    /* Full-screen mobile nav overlay */
+    /* Full-screen mobile nav overlay — bypasses Bootstrap collapse entirely */
     .navbar-collapse {
         position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
-        background: #050505;
+        width: 100% !important; height: 100vh !important; height: 100dvh !important;
+        background: #050505 !important;
         z-index: 9998; padding: 100px 24px 40px;
-        display: flex !important; flex-direction: column;
-        opacity: 0; pointer-events: none;
-        transition: opacity 0.3s ease;
+        display: none; flex-direction: column;
+        overflow-y: auto;
     }
     .navbar-collapse.show {
-        opacity: 1; pointer-events: auto;
+        display: flex !important;
+    }
+    /* Kill any Bootstrap collapse/collapsing transition interference */
+    .navbar-collapse.collapse,
+    .navbar-collapse.collapsing {
+        display: none;
+    }
+    .navbar-collapse.collapse.show,
+    .navbar-collapse.show {
+        display: flex !important;
     }
     .navbar-collapse .navbar-nav {
         flex-direction: column; gap: 4px; width: 100%;
@@ -1806,7 +1815,7 @@ body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(sa
     .navbar-collapse .nav-link {
         font-size: 1.15rem !important; font-weight: 600 !important;
         padding: 16px 20px !important; border-radius: 12px;
-        display: block; text-align: left;
+        display: block; text-align: left; color: #fff !important;
         transition: background 0.2s;
     }
     .navbar-collapse .nav-link:hover,

@@ -122,7 +122,7 @@ Workers run `process_webhook_task()` from `tasks.py` asynchronously. This is the
 - `CRON_SECRET` — Shared secret for authenticating cron endpoints (passed as `?key=` query param or `Authorization: Bearer` header)
 
 ### Subscription
-- `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 97)
+- `SUBSCRIPTION_PRICE` — Monthly price displayed on checkout (default: 149.99)
 
 ### Cron / Background
 - `CRON_SECRET` — Shared secret for authenticating cron endpoints (`/api/cron/send-reminders`, `/api/cron/refresh-tokens`)
@@ -642,9 +642,9 @@ python worker.py demo
 
 ## Subscription Tiers
 
-- **Individual Plan**: Single agency user, standard features
-- **Agency Starter**: Agency owner + limited sub-users
-- **Agency Pro**: Agency owner + more sub-users + advanced features
+- **Individual Plan**: $149.99/month — single agency user, all features included (AI texting, smart dialer, AI voice, lead intelligence, Smart Filters, unlimited minutes, 5 sales frameworks). No contracts, cancel anytime. No free trial.
+- **Agency Starter**: Agency owner + up to 14 sub-users, multi-tenant dashboard
+- **Agency Pro**: Agency owner + unlimited sub-users + dedicated queue + white-glove onboarding
 - **AI Minutes**: Add-on usage-based billing for AI voice processing
 
 Subscriptions managed via Stripe. Users without active subscriptions see a paywall on the dashboard.

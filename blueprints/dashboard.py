@@ -151,7 +151,7 @@ def dashboard():
     if needs_subscription:
         return render_template('dashboard.html',
             needs_subscription=True,
-            subscription_price=98.99,
+            subscription_price=149.99,
             form=ConfigForm(),
             access_token_display='',
             refresh_token_display='',
