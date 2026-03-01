@@ -29,7 +29,7 @@
         function iosOpenApp(app) {
             _iosCurrentApp = app;
             const home = document.getElementById('iosHome');
-            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', inbox: 'iosAppInbox' };
+            const apps = { messages: 'iosAppMessages', calls: 'iosAppCalls', recordings: 'iosAppRecordings', inbox: 'iosAppInbox', calendar: 'iosAppCalendar' };
             if (home) home.style.display = 'none';
             Object.keys(apps).forEach(k => {
                 const el = document.getElementById(apps[k]);
@@ -40,11 +40,12 @@
             if (app === 'calls') dialerLoadAllCallHistory();
             if (app === 'recordings') dialerLoadRecordings();
             if (app === 'inbox') inboxRefresh();
+            if (app === 'calendar') calendarInit();
         }
 
         function iosGoHome() {
             const home = document.getElementById('iosHome');
-            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppInbox'];
+            const apps = ['iosAppMessages', 'iosAppCalls', 'iosAppRecordings', 'iosAppInbox', 'iosAppCalendar'];
             apps.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
             if (home) home.style.display = 'flex';
             _iosCurrentApp = null;
@@ -61,6 +62,280 @@
             }
             _upd(); setInterval(_upd, 30000);
         })();
+
+        // ── Calendar App Icon: show today's date ──
+        (function _iosCalIcon() {
+            const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+            const d = new Date();
+            const dayEl = document.getElementById('iosCalIconDay');
+            const dateEl = document.getElementById('iosCalIconDate');
+            if (dayEl) dayEl.textContent = days[d.getDay()];
+            if (dateEl) dateEl.textContent = d.getDate();
+        })();
+
+        // ═══════════════════════════════════════════════
+        //  CALENDAR APP — LeadConnector Booking UI
+        // ═══════════════════════════════════════════════
+        let _calViewYear, _calViewMonth;
+        let _calSlotData = {};      // { "2026-03-01": ["iso_time",...], ... }
+        let _calSelectedDate = null;
+        let _calSelectedSlot = null;
+        let _calCalendars = [];
+        let _calActiveCalId = '';
+        let _calInitialized = false;
+
+        async function calendarInit() {
+            if (!_calInitialized) {
+                // Load calendar list
+                try {
+                    const r = await fetch('/api/fetch-calendars');
+                    if (r.ok) {
+                        const d = await r.json();
+                        _calCalendars = d.calendars || [];
+                        const picker = document.getElementById('iosCalendarPicker');
+                        if (picker && _calCalendars.length) {
+                            picker.innerHTML = _calCalendars.map(c =>
+                                `<option value="${c.id}">${c.name}</option>`
+                            ).join('');
+                            _calActiveCalId = _calCalendars[0].id;
+                        } else if (picker) {
+                            picker.innerHTML = '<option value="">No calendars</option>';
+                        }
+                    }
+                } catch(e) { console.warn('[Calendar] Failed to load calendars:', e); }
+                _calInitialized = true;
+            }
+            const now = new Date();
+            _calViewYear = now.getFullYear();
+            _calViewMonth = now.getMonth();
+            _calSelectedDate = null;
+            _calSlotData = {};
+            calendarRenderMonth();
+            calendarFetchSlots();
+        }
+
+        function calendarSwitchCalendar() {
+            const picker = document.getElementById('iosCalendarPicker');
+            if (picker) _calActiveCalId = picker.value;
+            _calSlotData = {};
+            _calSelectedDate = null;
+            calendarRenderMonth();
+            calendarFetchSlots();
+        }
+
+        async function calendarFetchSlots() {
+            const calId = _calActiveCalId;
+            if (!calId) return;
+            try {
+                const r = await fetch(`/api/calendar/slots?calendar_id=${encodeURIComponent(calId)}`);
+                if (r.ok) {
+                    const d = await r.json();
+                    _calSlotData = d.slots || {};
+                    calendarRenderMonth(); // re-render to show dots
+                }
+            } catch(e) { console.warn('[Calendar] Failed to fetch slots:', e); }
+        }
+
+        function calendarPrevMonth() {
+            _calViewMonth--;
+            if (_calViewMonth < 0) { _calViewMonth = 11; _calViewYear--; }
+            _calSelectedDate = null;
+            calendarRenderMonth();
+        }
+
+        function calendarNextMonth() {
+            _calViewMonth++;
+            if (_calViewMonth > 11) { _calViewMonth = 0; _calViewYear++; }
+            _calSelectedDate = null;
+            calendarRenderMonth();
+        }
+
+        function calendarRenderMonth() {
+            const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const title = document.getElementById('iosCalMonthTitle');
+            if (title) title.textContent = `${months[_calViewMonth]} ${_calViewYear}`;
+
+            const grid = document.getElementById('iosCalGrid');
+            if (!grid) return;
+
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+            const firstDay = new Date(_calViewYear, _calViewMonth, 1).getDay();
+            const daysInMonth = new Date(_calViewYear, _calViewMonth + 1, 0).getDate();
+
+            let html = '';
+            // Blank cells for days before the 1st
+            for (let i = 0; i < firstDay; i++) {
+                html += '<div style="aspect-ratio:1;"></div>';
+            }
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${_calViewYear}-${String(_calViewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isToday = dateStr === todayStr;
+                const hasSlots = _calSlotData[dateStr] && _calSlotData[dateStr].length > 0;
+                const isSelected = dateStr === _calSelectedDate;
+                const isPast = new Date(_calViewYear, _calViewMonth, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+                let bg = 'transparent';
+                let color = isPast ? '#444' : '#fff';
+                let border = 'transparent';
+                let cursor = 'default';
+                let dot = '';
+
+                if (isSelected) { bg = '#FF3B30'; color = '#fff'; border = '#FF3B30'; }
+                else if (isToday) { bg = 'rgba(255,59,48,0.15)'; border = 'rgba(255,59,48,0.4)'; color = '#FF3B30'; }
+
+                if (hasSlots && !isPast) {
+                    dot = '<div style="width:4px;height:4px;border-radius:50%;background:#FF3B30;margin:1px auto 0;"></div>';
+                    cursor = 'pointer';
+                }
+
+                const onclick = hasSlots && !isPast ? `calendarSelectDate('${dateStr}')` : '';
+                html += `<div onclick="${onclick}" style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;background:${bg};border:1px solid ${border};cursor:${cursor};transition:all 0.15s;">`;
+                html += `<span style="font-size:0.78rem;font-weight:${isToday||isSelected?'700':'500'};color:${color};line-height:1;">${d}</span>`;
+                html += dot;
+                html += '</div>';
+            }
+            grid.innerHTML = html;
+
+            // Update slot area
+            const dateHdr = document.getElementById('iosCalDateHeader');
+            const slotsDiv = document.getElementById('iosCalSlots');
+            const emptyDiv = document.getElementById('iosCalEmpty');
+            if (_calSelectedDate && _calSlotData[_calSelectedDate]) {
+                if (dateHdr) dateHdr.style.display = 'block';
+                if (emptyDiv) emptyDiv.style.display = 'none';
+                const selDate = new Date(_calSelectedDate + 'T12:00:00');
+                const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const label = document.getElementById('iosCalDateLabel');
+                if (label) label.textContent = `${dayNames[selDate.getDay()]}, ${monthNames[selDate.getMonth()]} ${selDate.getDate()}`;
+                calendarRenderSlots(_calSlotData[_calSelectedDate]);
+            } else {
+                if (dateHdr) dateHdr.style.display = 'none';
+                if (slotsDiv) slotsDiv.innerHTML = '';
+                if (emptyDiv) emptyDiv.style.display = 'flex';
+            }
+        }
+
+        function calendarSelectDate(dateStr) {
+            _calSelectedDate = dateStr;
+            calendarRenderMonth();
+        }
+
+        function calendarRenderSlots(slots) {
+            const container = document.getElementById('iosCalSlots');
+            if (!container) return;
+            if (!slots || !slots.length) {
+                container.innerHTML = '<div style="text-align:center;color:#666;font-size:0.78rem;padding:16px 0;">No available times</div>';
+                return;
+            }
+
+            // Parse and sort
+            const parsed = slots.map(iso => {
+                const dt = new Date(iso);
+                return { iso, dt, hour: dt.getHours(), min: dt.getMinutes() };
+            }).sort((a,b) => a.dt - b.dt);
+
+            // Group into morning/afternoon/evening
+            const morning = parsed.filter(s => s.hour < 12);
+            const afternoon = parsed.filter(s => s.hour >= 12 && s.hour < 17);
+            const evening = parsed.filter(s => s.hour >= 17);
+
+            let html = '';
+            function renderGroup(label, items) {
+                if (!items.length) return '';
+                let h = `<div style="font-size:0.65rem;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;padding:8px 0 4px;">${label}</div>`;
+                h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">';
+                items.forEach(s => {
+                    const ampm = s.hour >= 12 ? 'PM' : 'AM';
+                    const h12 = s.hour > 12 ? s.hour - 12 : (s.hour === 0 ? 12 : s.hour);
+                    const timeStr = `${h12}:${String(s.min).padStart(2,'0')} ${ampm}`;
+                    h += `<button onclick="calendarPickSlot('${s.iso}')" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,59,48,0.2);background:rgba(255,59,48,0.06);color:#fff;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(255,59,48,0.2)'" onmouseout="this.style.background='rgba(255,59,48,0.06)'">${timeStr}</button>`;
+                });
+                h += '</div>';
+                return h;
+            }
+
+            html += renderGroup('Morning', morning);
+            html += renderGroup('Afternoon', afternoon);
+            html += renderGroup('Evening', evening);
+            container.innerHTML = html;
+        }
+
+        function calendarPickSlot(isoTime) {
+            _calSelectedSlot = isoTime;
+            const dt = new Date(isoTime);
+            const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+            const ampm = dt.getHours() >= 12 ? 'PM' : 'AM';
+            const h12 = dt.getHours() > 12 ? dt.getHours() - 12 : (dt.getHours() === 0 ? 12 : dt.getHours());
+            const timeStr = `${h12}:${String(dt.getMinutes()).padStart(2,'0')} ${ampm}`;
+            const dateStr = `${dayNames[dt.getDay()]}, ${monthNames[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+
+            // Contact name
+            const name = dialerActiveContact ? (dialerActiveContact.name || dialerActiveContact.firstName || 'Contact') : 'Contact';
+
+            document.getElementById('iosCalConfirmName').textContent = name;
+            document.getElementById('iosCalConfirmDate').textContent = dateStr;
+            document.getElementById('iosCalConfirmTime').textContent = timeStr;
+
+            // Show confirm overlay
+            document.getElementById('iosCalConfirmContent').style.display = 'block';
+            document.getElementById('iosCalSuccessContent').style.display = 'none';
+            document.getElementById('iosCalErrorContent').style.display = 'none';
+            const overlay = document.getElementById('iosCalConfirm');
+            overlay.style.display = 'flex';
+            overlay.style.animation = 'iosAppOpen 0.25s cubic-bezier(0.2,0.9,0.3,1)';
+        }
+
+        async function calendarConfirmBooking() {
+            if (!_calSelectedSlot || !dialerActiveContact) return;
+            const btn = document.getElementById('iosCalConfirmBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Booking...'; }
+
+            try {
+                const r = await fetch('/api/calendar/book', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contact_id: dialerActiveContact.id,
+                        slot_time: _calSelectedSlot,
+                        calendar_id: _calActiveCalId,
+                        first_name: dialerActiveContact.firstName || dialerActiveContact.name || 'Lead',
+                    })
+                });
+                const d = await r.json();
+                if (r.ok && d.success) {
+                    document.getElementById('iosCalConfirmContent').style.display = 'none';
+                    document.getElementById('iosCalSuccessContent').style.display = 'block';
+                    document.getElementById('iosCalSuccessMsg').textContent = d.message || 'Appointment confirmed';
+                    // Refresh slots
+                    calendarFetchSlots();
+                } else {
+                    document.getElementById('iosCalConfirmContent').style.display = 'none';
+                    document.getElementById('iosCalErrorContent').style.display = 'block';
+                    document.getElementById('iosCalErrorMsg').textContent = d.error || 'Something went wrong';
+                }
+            } catch(e) {
+                document.getElementById('iosCalConfirmContent').style.display = 'none';
+                document.getElementById('iosCalErrorContent').style.display = 'block';
+                document.getElementById('iosCalErrorMsg').textContent = 'Network error. Please try again.';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Book Appointment'; }
+        }
+
+        function calendarDismissConfirm() {
+            const overlay = document.getElementById('iosCalConfirm');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        // Schedule button handler — opens calendar app with current contact
+        function dialerScheduleActiveContact() {
+            if (!dialerActiveContact) return;
+            iosOpenApp('calendar');
+        }
 
         // ── Production-grade fetch wrapper with retry + timeout ──
         async function _fetchRetry(url, opts = {}, { retries = 2, timeout = 15000, label = '' } = {}) {
@@ -634,6 +909,7 @@
                 html += '<button class="igb-action-btn act-call" onclick="dialerCallActiveContact()"><i class="fa-solid fa-phone"></i> Call</button>';
                 html += '<button class="igb-action-btn act-sms" onclick="if(_iosCurrentApp!==\'messages\')iosOpenApp(\'messages\');"><i class="fa-solid fa-message"></i> SMS</button>';
                 html += '<button class="igb-action-btn act-queue" onclick="dialerAddActiveToQueue()"><i class="fa-solid fa-plus"></i> Queue</button>';
+                html += '<button class="igb-action-btn act-schedule" onclick="dialerScheduleActiveContact()"><i class="fa-solid fa-calendar"></i> Schedule</button>';
                 html += '</div>';
 
                 // ── Name Header with Lead Score Ring ──

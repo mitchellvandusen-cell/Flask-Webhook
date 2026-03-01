@@ -66,6 +66,7 @@ from tasks import process_webhook_task
 from memory import get_known_facts, get_narrative, get_recent_messages 
 from individual_profile import build_comprehensive_profile 
 from utils import make_json_serializable, clean_ai_reply
+from ghl_calendar import consolidated_calendar_op
 from prompt import CORE_UNIFIED_MINDSET, DEMO_OPENER_ADDITIONAL_INSTRUCTIONS, build_system_prompt
 from crm_adapters.factory import (CRM_CONFIG_FIELDS, CRM_DISPLAY_NAMES,
                                   list_available_crms, CRM_REGISTRY, get_crm_adapter)
@@ -376,6 +377,192 @@ def fetch_calendars():
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to fetch calendars for location {location_id}: {e}")
         return flask_jsonify({"error": "Failed to fetch calendars from Lead Connector"}), 500
+
+
+@app.route('/api/calendar/slots', methods=['GET'])
+@login_required
+def api_calendar_slots():
+    """
+    Fetch available appointment slots for the user's configured calendar.
+    Returns raw slot times as ISO strings grouped by date.
+    Query params: calendar_id (optional override)
+    """
+    location_id = current_user.location_id
+    access_token = current_user.access_token
+    cal_id = request.args.get('calendar_id') or current_user.calendar_id
+
+    if not location_id or not access_token:
+        return flask_jsonify({"error": "Not connected to Lead Connector"}), 400
+    if not cal_id:
+        return flask_jsonify({"error": "No calendar configured. Set one in Bot Config."}), 400
+
+    subscriber_data = {
+        "location_id": location_id,
+        "calendar_id": cal_id,
+        "crm_user_id": getattr(current_user, 'crm_user_id', None),
+        "timezone": getattr(current_user, 'timezone', None) or "America/Chicago",
+        "access_token": access_token,
+    }
+
+    # Demo mode
+    if access_token == 'DEMO':
+        from datetime import time as _time
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(subscriber_data["timezone"])
+        now = datetime.now(tz)
+        demo_slots = {}
+        for d in range(3):
+            day = now + timedelta(days=d)
+            date_key = day.strftime("%Y-%m-%d")
+            demo_slots[date_key] = [
+                datetime.combine(day.date(), _time(9, 0), tzinfo=tz).isoformat(),
+                datetime.combine(day.date(), _time(10, 30), tzinfo=tz).isoformat(),
+                datetime.combine(day.date(), _time(13, 0), tzinfo=tz).isoformat(),
+                datetime.combine(day.date(), _time(15, 0), tzinfo=tz).isoformat(),
+            ]
+        return flask_jsonify({"slots": demo_slots, "timezone": subscriber_data["timezone"]})
+
+    # Fetch raw slots from GHL using the same endpoint fallback logic
+    from zoneinfo import ZoneInfo
+    local_tz_str = subscriber_data["timezone"]
+    local_tz = ZoneInfo(local_tz_str)
+    now_utc = datetime.now(timezone.utc)
+    start_ts = int(now_utc.timestamp() * 1000)
+    end_ts = int((now_utc + timedelta(days=3)).timestamp() * 1000)
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Version": "2021-04-15",
+        "Content-Type": "application/json",
+    }
+    params = {"startDate": start_ts, "endDate": end_ts, "timezone": local_tz_str}
+    crm_user_id = subscriber_data.get("crm_user_id")
+    if crm_user_id:
+        params["userId"] = crm_user_id
+
+    GHL_BASE = "https://services.leadconnectorhq.com"
+    endpoints = [
+        f"{GHL_BASE}/v2/locations/{location_id}/calendars/{cal_id}/free-slots",
+        f"{GHL_BASE}/locations/{location_id}/calendars/{cal_id}/free-slots",
+        f"{GHL_BASE}/calendars/{cal_id}/free-slots",
+    ]
+
+    raw_slots = []
+    for url in endpoints:
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=20)
+            if resp.status_code in [200, 201]:
+                data = resp.json()
+                if isinstance(data, dict):
+                    for entry in data.values():
+                        if isinstance(entry, list):
+                            raw_slots.extend(entry)
+                        elif isinstance(entry, dict) and "slots" in entry:
+                            raw_slots.extend(entry["slots"])
+                elif isinstance(data, list):
+                    raw_slots = data
+                break
+            if resp.status_code == 422 and "userId" in params:
+                retry_params = {k: v for k, v in params.items() if k != "userId"}
+                resp = requests.get(url, headers=headers, params=retry_params, timeout=20)
+                if resp.status_code in [200, 201]:
+                    data = resp.json()
+                    if isinstance(data, dict):
+                        for entry in data.values():
+                            if isinstance(entry, list):
+                                raw_slots.extend(entry)
+                            elif isinstance(entry, dict) and "slots" in entry:
+                                raw_slots.extend(entry["slots"])
+                    break
+        except Exception:
+            continue
+
+    # Parse and group by date
+    grouped = {}
+    for slot in raw_slots:
+        try:
+            start_str = slot.get("startTime") or slot.get("start") or (slot if isinstance(slot, str) else None)
+            if not start_str:
+                continue
+            if start_str.endswith("Z"):
+                start_str = start_str.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(start_str).astimezone(local_tz)
+            if 9 <= dt.hour < 19:
+                date_key = dt.strftime("%Y-%m-%d")
+                if date_key not in grouped:
+                    grouped[date_key] = []
+                grouped[date_key].append(dt.isoformat())
+        except Exception:
+            continue
+
+    return flask_jsonify({"slots": grouped, "timezone": local_tz_str})
+
+
+@app.route('/api/calendar/book', methods=['POST'])
+@login_required
+def api_calendar_book():
+    """
+    Book an appointment for a contact.
+    Body: { contact_id, slot_time (ISO string), calendar_id (optional) }
+    """
+    data = request.get_json(silent=True) or {}
+    contact_id = data.get("contact_id")
+    slot_time = data.get("slot_time")
+    cal_id = data.get("calendar_id") or current_user.calendar_id
+
+    if not contact_id or not slot_time:
+        return flask_jsonify({"error": "contact_id and slot_time are required"}), 400
+    if not cal_id:
+        return flask_jsonify({"error": "No calendar configured"}), 400
+
+    location_id = current_user.location_id
+    access_token = current_user.access_token
+    if not location_id or not access_token:
+        return flask_jsonify({"error": "Not connected to Lead Connector"}), 400
+
+    subscriber_data = {
+        "location_id": location_id,
+        "calendar_id": cal_id,
+        "crm_user_id": getattr(current_user, 'crm_user_id', None),
+        "timezone": getattr(current_user, 'timezone', None) or "America/Chicago",
+        "access_token": access_token,
+    }
+
+    # Parse ISO slot_time and build a human-readable time string for the calendar op
+    try:
+        from zoneinfo import ZoneInfo
+        local_tz = ZoneInfo(subscriber_data["timezone"])
+        dt = datetime.fromisoformat(slot_time).astimezone(local_tz)
+        time_str = dt.strftime("%-I:%M %p").lower()
+        day_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        today = datetime.now(local_tz).date()
+        diff = (dt.date() - today).days
+        if diff == 0:
+            date_part = "today"
+        elif diff == 1:
+            date_part = "tomorrow"
+        else:
+            date_part = day_names[dt.weekday()]
+        selected_time = f"{time_str} {date_part}"
+    except Exception as e:
+        logger.error(f"Failed to parse slot_time '{slot_time}': {e}")
+        return flask_jsonify({"error": "Invalid slot_time format"}), 400
+
+    # Get contact first name
+    first_name = data.get("first_name", "Lead")
+
+    result = consolidated_calendar_op(
+        operation="book",
+        subscriber_data=subscriber_data,
+        contact_id=contact_id,
+        first_name=first_name,
+        selected_time=selected_time,
+    )
+
+    if result:
+        return flask_jsonify({"success": True, "message": f"Booked {selected_time}"})
+    else:
+        return flask_jsonify({"error": "Booking failed. The slot may no longer be available."}), 422
 
 
 def generate_demo_opener():
