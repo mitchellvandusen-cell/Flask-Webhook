@@ -3765,7 +3765,8 @@
                 const status = await sr.json();
 
                 if (status.status === 'completed') {
-                    // Already done — nothing to show
+                    // Show completion banner briefly (with re-sync button visible)
+                    _deepSyncShowBanner(status);
                     return;
                 }
 
@@ -3802,13 +3803,18 @@
             const bar = document.getElementById('deepSyncBar');
             const detail = document.getElementById('deepSyncDetail');
             const pct = document.getElementById('deepSyncPct');
+            const resyncBtn = document.getElementById('deepSyncResyncBtn');
             if (!label) return;
 
             const convos = status.contacts_processed || 0;
             const msgs = status.messages_synced || 0;
 
+            // Hide re-sync button by default (shown on completed/failed)
+            if (resyncBtn) resyncBtn.style.display = 'none';
+
             if (status.status === 'completed') {
                 bar.style.width = '100%';
+                if (resyncBtn) resyncBtn.style.display = 'inline-block';
                 if (msgs === 0) {
                     label.innerHTML = '<span style="color:#8899aa;">Scan complete</span> — no LeadConnector history found';
                     bar.style.background = 'linear-gradient(90deg,#334,#445)';
@@ -3822,11 +3828,11 @@
                     // Refresh badges with new data
                     dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
                 }
-                // Hide after 8 seconds
+                // Hide after 12 seconds (longer to give time to click re-sync if needed)
                 setTimeout(() => {
                     const banner = document.getElementById('deepSyncBanner');
                     if (banner) banner.style.display = 'none';
-                }, 8000);
+                }, 12000);
                 return;
             }
 
@@ -3834,6 +3840,7 @@
                 label.innerHTML = '<span style="color:#ef4444;">Import paused</span> — will retry automatically';
                 detail.textContent = convos + ' conversations done so far';
                 pct.textContent = '';
+                if (resyncBtn) resyncBtn.style.display = 'inline-block';
                 return;
             }
 
@@ -3843,14 +3850,46 @@
 
             // Estimate progress: typical agency is 500-3000 contacts
             // Use a log curve so progress feels natural even if we're wrong about total
-            if (contacts > 0) {
+            if (convos > 0) {
                 // Asymptotic progress: never shows 100% until actually done
-                const estimated = Math.min(95, Math.round((contacts / (contacts + 50)) * 100));
+                const estimated = Math.min(95, Math.round((convos / (convos + 50)) * 100));
                 bar.style.width = estimated + '%';
                 pct.textContent = estimated + '%';
             } else {
                 bar.style.width = '2%';
                 pct.textContent = 'Starting...';
+            }
+        }
+
+        async function dialerResetDeepSync() {
+            const btn = document.getElementById('deepSyncResyncBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resetting...';
+            }
+            try {
+                const r = await fetch('/api/sync/deep-pull/reset', { method: 'POST' });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    throw new Error(err.error || 'Reset failed');
+                }
+                const result = await r.json();
+                if (result.status === 'reset_and_started') {
+                    // Reset the triggered flag so polling restarts
+                    _deepSyncTriggered = false;
+                    // Show the banner with initial state
+                    _deepSyncShowBanner({ contacts_processed: 0, messages_synced: 0, status: 'running' });
+                    _deepSyncPoll();
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Deep sync reset — re-pulling all history');
+                }
+            } catch(e) {
+                console.error('[DeepSync] Reset failed:', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Reset failed: ' + e.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Re-sync';
+                }
             }
         }
 

@@ -2445,9 +2445,10 @@ def _ghl_request_with_retry(url, headers, params, timeout=15):
     return resp
 
 
-# ── Helper: fetch all contacts from GHL API (paginated) ──
+# ── Helper: fetch all contacts from GHL API (paginated, with token refresh) ──
 def _fetch_all_ghl_contacts(location_id, access_token):
-    """Paginate through GHL contacts API. Returns list of simplified contact dicts."""
+    """Paginate through GHL contacts API. Returns list of simplified contact dicts.
+    Handles 401 mid-pagination by refreshing the token and retrying."""
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Version": GHL_API_VERSION,
@@ -2455,13 +2456,35 @@ def _fetch_all_ghl_contacts(location_id, access_token):
     }
     all_contacts = []
     page_limit = 100
-    max_pages = 50  # 5,000 contacts max
+    max_pages = 100  # 10,000 contacts max
     url = f"{GHL_API_BASE}/contacts/"
     params = {"locationId": location_id, "limit": page_limit}
+    token_refreshed = False
 
-    for _ in range(max_pages):
-        resp = _ghl_request_with_retry(url, headers=headers, params=params, timeout=15)
+    for page_num in range(max_pages):
+        try:
+            resp = _ghl_request_with_retry(url, headers=headers, params=params, timeout=20)
+        except Exception as e:
+            logger.error(f"[Contacts] Page {page_num+1} network error for {location_id}: {e}")
+            break
+
+        # Handle 401 — refresh token once and retry
+        if resp.status_code in (401, 403) and not token_refreshed:
+            logger.warning(f"[Contacts] Page {page_num+1} got {resp.status_code} — refreshing token for {location_id}")
+            new_token = get_valid_token(location_id)
+            if new_token and new_token != access_token:
+                access_token = new_token
+                headers["Authorization"] = f"Bearer {access_token}"
+                token_refreshed = True
+                # Retry the same page
+                try:
+                    resp = _ghl_request_with_retry(url, headers=headers, params=params, timeout=20)
+                except Exception as e:
+                    logger.error(f"[Contacts] Retry after token refresh failed: {e}")
+                    break
+
         if resp.status_code != 200:
+            logger.error(f"[Contacts] Page {page_num+1} returned {resp.status_code} for {location_id}: {resp.text[:200]}")
             break
 
         data = resp.json()
@@ -2470,12 +2493,15 @@ def _fetch_all_ghl_contacts(location_id, access_token):
             break
         all_contacts.extend(contacts)
 
+        if page_num > 0 and page_num % 5 == 0:
+            logger.info(f"[Contacts] {location_id} fetched {len(all_contacts)} contacts so far (page {page_num+1})")
+
         if len(contacts) < page_limit:
             break
 
         # GHL pagination: prefer startAfterId, fall back to nextPageUrl
         meta = data.get("meta", {})
-        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId")
+        start_after = meta.get("startAfterId") or meta.get("nextPageStartAfterId") or meta.get("startAfter")
         next_page_url = meta.get("nextPageUrl") or meta.get("nextPage")
 
         if start_after:
@@ -2484,13 +2510,21 @@ def _fetch_all_ghl_contacts(location_id, access_token):
             url = next_page_url
             params = {}
         else:
+            logger.warning(f"[Contacts] No pagination cursor after page {page_num+1} — stopping at {len(all_contacts)} contacts")
             break
 
-    # Build simplified list (phone required)
+        # Brief pause to be kind to GHL API
+        time.sleep(0.3)
+
+    logger.info(f"[Contacts] {location_id} total raw contacts fetched: {len(all_contacts)}")
+
+    # Build simplified list (phone required for dialer)
     result = []
+    skipped_no_phone = 0
     for c in all_contacts:
         phone = c.get("phone", "")
         if not phone:
+            skipped_no_phone += 1
             continue
         result.append({
             "id": c.get("id", ""),
@@ -2501,7 +2535,12 @@ def _fetch_all_ghl_contacts(location_id, access_token):
             "email": c.get("email", ""),
             "tags": c.get("tags", []),
             "dateAdded": c.get("dateAdded", ""),
+            "dnd": c.get("dnd", False),
         })
+
+    if skipped_no_phone:
+        logger.info(f"[Contacts] {location_id} skipped {skipped_no_phone} contacts without phone numbers")
+    logger.info(f"[Contacts] {location_id} returning {len(result)} contacts with phone numbers")
     return result
 
 
