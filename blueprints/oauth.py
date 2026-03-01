@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 oauth_bp = Blueprint('oauth', __name__)
 
 # ── OAuth scopes ─────────────────────────────────────────────────────────────
-# All scopes approved on the public marketplace app as of 2026-02-27.
+# All scopes approved on the public marketplace app as of 2026-03-01.
 GHL_OAUTH_SCOPES = [
     "calendars.readonly",
     "calendars/events.readonly",
@@ -55,6 +55,7 @@ GHL_OAUTH_SCOPES = [
     "oauth.readonly",
     "opportunities.readonly",
     "users.readonly",
+    "workflows.readonly",
 ]
 
 
