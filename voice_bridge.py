@@ -37,6 +37,7 @@ from ghl_message import send_sms_via_ghl
 from prompt import build_system_prompt
 from openai import OpenAI
 from llm_caller import generate_clean_reply
+from number_health import select_outbound_number, update_number_health
 
 # In-memory call status tracking for the dialer queue
 # { call_sid: { "status": "...", "duration": 0, "contact_id": "...", "phone": "...", "name": "..." } }
@@ -1097,6 +1098,12 @@ def voice_inbound():
         sub_sid = vc.get('twilio_sub_account_sid', '')
         host = request.host
 
+        # Smart number rotation for browser VoIP calls
+        rotation_result = select_outbound_number(location_id, vc, dest_phone=called)
+        if rotation_result:
+            from_number = rotation_result["phone"]
+            logger.info(f"Smart rotation (VoIP) selected {from_number} (reason={rotation_result['reason']})")
+
         if not from_number:
             logger.warning(f"Browser VoIP: no twilio_phone_number in voice_config for location_id={location_id}")
         if not called:
@@ -1169,6 +1176,8 @@ def voice_inbound():
         "phone": caller,
         "name": "",
         "_host": host,
+        "_location_id": subscriber.get('location_id', ''),
+        "_from_number": called,  # The number that received the inbound call
     }
 
     # Respond with TwiML to connect the media stream to AI bridge
@@ -1457,6 +1466,12 @@ def trigger_outbound_call():
     sub_sid       = voice_config.get("twilio_sub_account_sid", "")
     from_number   = voice_config.get("twilio_phone_number", "")
 
+    # Smart number rotation for API-triggered calls
+    rotation_result = select_outbound_number(location_id, voice_config, dest_phone=lead_phone)
+    if rotation_result:
+        from_number = rotation_result["phone"]
+        logger.info(f"Smart rotation (outbound-call API) selected {from_number} (reason={rotation_result['reason']})")
+
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
 
@@ -1499,6 +1514,7 @@ def trigger_outbound_call():
             "_location_id": location_id,
             "_sub_sid": sub_sid,
             "_host": host,
+            "_from_number": from_number,
         }
 
         # Persist to call_history DB
@@ -1579,6 +1595,19 @@ def voice_status():
             update_call_history_status(call_sid, call_status, duration)
         except Exception as e:
             logger.warning(f"call_history update failed for {call_sid}: {e}")
+
+    # Update number health metrics on terminal statuses
+    terminal_statuses = {'completed', 'busy', 'no-answer', 'failed', 'canceled'}
+    if call_status in terminal_statuses and call_sid:
+        call_info = _active_calls.get(call_sid, {})
+        nh_location = call_info.get('_location_id', '')
+        nh_from = call_info.get('_from_number', '')
+        nh_effective = call_info.get('_amd_result', call_status)  # Use AMD result if available
+        if nh_location and nh_from:
+            try:
+                update_number_health(nh_location, nh_from, nh_effective, int(duration or 0))
+            except Exception as e:
+                logger.warning(f"Number health update failed for {nh_from}: {e}")
 
     # Deduct AI minutes for completed calls with duration > 0
     dur_s = int(duration or 0)
@@ -2885,16 +2914,22 @@ def dial_contact():
     sub_sid      = voice_config.get('twilio_sub_account_sid', '')
     from_number  = voice_config.get('twilio_phone_number', '')
 
-    # Local presence: pick a number matching the destination area code
-    local_presence_enabled = voice_config.get('local_presence', False)
-    if local_presence_enabled:
-        dest_area = phone.lstrip('+').lstrip('1')[:3] if phone else ''
-        local_pool = voice_config.get('local_presence_numbers', [])
-        for lp_num in local_pool:
-            lp_area = lp_num.lstrip('+').lstrip('1')[:3]
-            if lp_area == dest_area:
-                from_number = lp_num
-                break
+    # Smart number rotation: if enabled, let the health engine pick the best number
+    rotation_result = select_outbound_number(location_id, voice_config, dest_phone=phone)
+    if rotation_result:
+        from_number = rotation_result["phone"]
+        logger.info(f"Smart rotation selected {from_number} (reason={rotation_result['reason']}, health={rotation_result.get('health_score', '?')}, daily={rotation_result.get('daily_calls', '?')}/{rotation_result.get('daily_cap', '?')})")
+    else:
+        # Rotation disabled — use legacy local presence logic
+        local_presence_enabled = voice_config.get('local_presence', False)
+        if local_presence_enabled:
+            dest_area = phone.lstrip('+').lstrip('1')[:3] if phone else ''
+            local_pool = voice_config.get('local_presence_numbers', [])
+            for lp_num in local_pool:
+                lp_area = lp_num.lstrip('+').lstrip('1')[:3]
+                if lp_area == dest_area:
+                    from_number = lp_num
+                    break
 
     if not sub_sid or not from_number:
         return jsonify({"error": "Voice service not fully provisioned"}), 400
@@ -2945,6 +2980,7 @@ def dial_contact():
             "_location_id": location_id,
             "_sub_sid":     sub_sid,
             "_host":        request.host,
+            "_from_number": from_number,
         }
 
         save_call_to_history(
@@ -4148,6 +4184,134 @@ def set_primary_number():
     logger.info(f"Set primary number to {phone}")
 
     return jsonify({"status": "ok", "phone": phone})
+
+
+# ── Number Health & Smart Rotation API ────────────────────────────────────
+
+@voice_bp.route('/voice/number-health', methods=['GET'])
+@login_required
+def get_number_health():
+    """Return health data for all numbers. Powers the Number Health dashboard."""
+    import number_health as nh
+
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+
+    location_id = getattr(current_user, 'location_id', '')
+    if not location_id:
+        return jsonify({"error": "No location configured"}), 400
+
+    # Ensure records exist for all numbers
+    nh.ensure_number_health_records(location_id, vc)
+
+    # Get per-number health data
+    health_records = nh.get_all_number_health(location_id)
+
+    # Enrich with nicknames and primary flag
+    nicknames = vc.get('number_nicknames', {})
+    primary = vc.get('twilio_phone_number', '')
+    rotation_config = vc.get('number_rotation', {})
+
+    numbers = []
+    for h in health_records:
+        phone = h.get('phone', '')
+        stage = h.get('warmup_stage', 0)
+        stage_info = nh.WARMUP_STAGES.get(stage, nh.WARMUP_STAGES[4])
+        numbers.append({
+            "phone": phone,
+            "nickname": nicknames.get(phone, ''),
+            "is_primary": phone == primary,
+            "status": h.get('status', 'active'),
+            "health_score": float(h.get('health_score', 0)),
+            "warmup_stage": stage,
+            "warmup_label": stage_info["label"],
+            "daily_cap": stage_info["daily_cap"],
+            "daily_calls": h.get('daily_calls_today', 0),
+            "daily_connected": h.get('daily_connected', 0),
+            "daily_no_answer": h.get('daily_no_answer', 0),
+            "daily_failed": h.get('daily_failed', 0),
+            "daily_busy": h.get('daily_busy', 0),
+            "daily_duration_secs": h.get('daily_duration_secs', 0),
+            "total_calls": h.get('total_calls', 0),
+            "total_connected": h.get('total_connected', 0),
+            "total_no_answer": h.get('total_no_answer', 0),
+            "total_failed": h.get('total_failed', 0),
+            "total_busy": h.get('total_busy', 0),
+            "total_duration_secs": h.get('total_duration_secs', 0),
+            "connect_rate": round(h['total_connected'] / h['total_calls'] * 100, 1) if h.get('total_calls') else 0,
+            "daily_connect_rate": round(h['daily_connected'] / h['daily_calls_today'] * 100, 1) if h.get('daily_calls_today') else 0,
+            "rest_until": h.get('rest_until', ''),
+            "last_used_at": str(h.get('last_used_at', '')),
+            "created_at": str(h.get('created_at', '')),
+        })
+
+    # Summary stats
+    summary = nh.get_number_health_summary(location_id)
+
+    return jsonify({
+        "numbers": numbers,
+        "summary": summary,
+        "rotation_enabled": rotation_config.get('enabled', False),
+        "rotation_strategy": rotation_config.get('strategy', 'weighted_health'),
+    })
+
+
+@voice_bp.route('/voice/number-health/toggle', methods=['POST'])
+@login_required
+def toggle_number_rotation():
+    """Enable/disable smart number rotation."""
+    import number_health as nh
+
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+
+    data = request.json or {}
+    enabled = data.get('enabled', False)
+    strategy = data.get('strategy', 'weighted_health')
+
+    rotation_config = vc.get('number_rotation', {})
+    rotation_config['enabled'] = bool(enabled)
+    if strategy in ('weighted_health', 'round_robin', 'highest_health'):
+        rotation_config['strategy'] = strategy
+    vc['number_rotation'] = rotation_config
+    _save_voice_config(current_user.email, vc)
+
+    # Initialize health records when enabling
+    if enabled:
+        location_id = getattr(current_user, 'location_id', '')
+        if location_id:
+            nh.ensure_number_health_records(location_id, vc)
+
+    logger.info(f"Number rotation {'enabled' if enabled else 'disabled'} (strategy={strategy}) for {current_user.email}")
+    return jsonify({"status": "ok", "enabled": enabled, "strategy": strategy})
+
+
+@voice_bp.route('/voice/number-health/set-status', methods=['POST'])
+@login_required
+def set_number_health_status():
+    """Manually set a number's status (freeze/unfreeze/rest)."""
+    import number_health as nh
+
+    data = request.json or {}
+    phone = data.get('phone', '')
+    status = data.get('status', '')
+    rest_hours = data.get('rest_hours')
+
+    if not phone or status not in ('active', 'resting', 'frozen', 'warmup'):
+        return jsonify({"error": "Valid phone and status required"}), 400
+
+    location_id = getattr(current_user, 'location_id', '')
+    if not location_id:
+        return jsonify({"error": "No location configured"}), 400
+
+    success = nh.set_number_status(location_id, phone, status,
+                                    rest_hours=int(rest_hours) if rest_hours else None)
+    if success:
+        logger.info(f"Number {phone} status set to {status} by {current_user.email}")
+        return jsonify({"status": "ok"})
+    return jsonify({"error": "Failed to update status"}), 500
 
 
 @voice_bp.route('/voice/trust-hub/save', methods=['POST'])

@@ -236,6 +236,252 @@
             loadNumbersTab();
         });
 
+        // ===== NUMBER HEALTH & SMART ROTATION =====
+        var _nhData = null;
+
+        async function loadNumberHealth() {
+            const el = document.getElementById('numberHealthContent');
+            if (!el) return;
+            try {
+                const r = await fetch('/voice/number-health');
+                if (!r.ok) { el.innerHTML = ''; return; }
+                const d = await r.json();
+                _nhData = d;
+                _renderNumberHealth(el, d);
+            } catch(e) {
+                console.error('[NumberHealth] Load error:', e);
+                el.innerHTML = '';
+            }
+        }
+
+        function _renderNumberHealth(el, d) {
+            const nums = d.numbers || [];
+            const sum = d.summary || {};
+            const rotationEnabled = d.rotation_enabled;
+            const strategy = d.rotation_strategy || 'weighted_health';
+
+            if (!nums.length && !rotationEnabled) {
+                el.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // ── Header with toggle ──
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+            html += '<h6 style="margin:0;font-weight:700;color:#fff;font-size:.88rem;"><i class="fa-solid fa-heart-pulse me-2" style="color:#ff6b9d;"></i>Number Health & Smart Rotation</h6>';
+            html += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.75rem;color:#aaa;">';
+            html += '<span>' + (rotationEnabled ? 'Enabled' : 'Disabled') + '</span>';
+            html += '<div onclick="nhToggleRotation()" style="width:38px;height:20px;border-radius:10px;background:' + (rotationEnabled ? 'rgba(0,255,136,0.4)' : 'rgba(255,255,255,0.08)') + ';position:relative;cursor:pointer;transition:background .2s;">';
+            html += '<div style="width:16px;height:16px;border-radius:50%;background:' + (rotationEnabled ? '#00ff88' : '#555') + ';position:absolute;top:2px;' + (rotationEnabled ? 'right:2px' : 'left:2px') + ';transition:all .2s;"></div>';
+            html += '</div></label></div>';
+
+            if (!rotationEnabled) {
+                html += '<div style="padding:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;text-align:center;color:#666;font-size:.78rem;">';
+                html += '<i class="fa-solid fa-shield-halved" style="font-size:1.2rem;display:block;margin-bottom:6px;color:#444;"></i>';
+                html += 'Enable Smart Rotation to automatically distribute calls across your numbers,<br>prevent burnout, and maximize connection rates.';
+                html += '</div>';
+                el.innerHTML = html;
+                return;
+            }
+
+            // ── Strategy selector ──
+            html += '<div style="display:flex;gap:6px;margin-bottom:14px;">';
+            var strategies = [
+                { key: 'weighted_health', label: 'Weighted Health', icon: 'fa-scale-balanced', desc: 'Higher health = more calls' },
+                { key: 'round_robin', label: 'Round Robin', icon: 'fa-arrows-spin', desc: 'Even distribution' },
+                { key: 'highest_health', label: 'Top Health', icon: 'fa-trophy', desc: 'Always use healthiest' },
+            ];
+            strategies.forEach(function(s) {
+                var active = strategy === s.key;
+                html += '<button onclick="nhSetStrategy(\'' + s.key + '\')" title="' + _esc(s.desc) + '" style="flex:1;padding:6px 8px;border-radius:6px;font-size:.68rem;font-weight:600;cursor:pointer;border:1px solid ' + (active ? 'rgba(0,217,255,0.3)' : 'rgba(255,255,255,0.06)') + ';background:' + (active ? 'rgba(0,217,255,0.08)' : 'rgba(255,255,255,0.02)') + ';color:' + (active ? '#00d9ff' : '#888') + ';">';
+                html += '<i class="fa-solid ' + s.icon + ' me-1"></i>' + s.label;
+                html += '</button>';
+            });
+            html += '</div>';
+
+            // ── Summary KPIs ──
+            if (sum.total_numbers) {
+                var avgHealthColor = sum.avg_health >= 80 ? '#00ff88' : (sum.avg_health >= 60 ? '#4ade80' : (sum.avg_health >= 40 ? '#ffa500' : '#ef4444'));
+                html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">';
+
+                html += _nhKpiCard('Avg Health', Math.round(sum.avg_health), avgHealthColor, 'fa-heart-pulse');
+                html += _nhKpiCard('Active', sum.active_count + '/' + sum.total_numbers, '#4ade80', 'fa-circle-check');
+                html += _nhKpiCard('Today', sum.daily_calls + ' calls', '#00d9ff', 'fa-phone');
+                html += _nhKpiCard('Connect', (sum.daily_connect_rate || 0) + '%', sum.daily_connect_rate >= 30 ? '#00ff88' : '#ffa500', 'fa-link');
+
+                html += '</div>';
+            }
+
+            // ── Per-number health cards ──
+            if (nums.length) {
+                html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+                nums.forEach(function(n) {
+                    html += _nhNumberCard(n);
+                });
+                html += '</div>';
+            }
+
+            el.innerHTML = html;
+        }
+
+        function _nhKpiCard(label, value, color, icon) {
+            return '<div style="padding:10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;text-align:center;">' +
+                '<div style="font-size:1.1rem;font-weight:800;color:' + color + ';">' +
+                '<i class="fa-solid ' + icon + '" style="font-size:.65rem;opacity:.6;margin-right:3px;"></i>' + value +
+                '</div>' +
+                '<div style="font-size:.62rem;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">' + label + '</div>' +
+                '</div>';
+        }
+
+        function _nhNumberCard(n) {
+            var score = n.health_score || 0;
+            var barColor, statusColor, statusBg, statusIcon;
+
+            if (n.status === 'frozen') {
+                barColor = '#8b5cf6';
+                statusColor = '#8b5cf6';
+                statusBg = 'rgba(139,92,246,0.1)';
+                statusIcon = 'fa-snowflake';
+            } else if (n.status === 'resting') {
+                barColor = '#fbbf24';
+                statusColor = '#fbbf24';
+                statusBg = 'rgba(251,191,36,0.1)';
+                statusIcon = 'fa-moon';
+            } else if (score >= 80) {
+                barColor = '#00ff88';
+                statusColor = '#00ff88';
+                statusBg = 'rgba(0,255,136,0.06)';
+                statusIcon = 'fa-heart';
+            } else if (score >= 60) {
+                barColor = '#4ade80';
+                statusColor = '#4ade80';
+                statusBg = 'rgba(74,222,128,0.06)';
+                statusIcon = 'fa-heart';
+            } else if (score >= 40) {
+                barColor = '#ffa500';
+                statusColor = '#ffa500';
+                statusBg = 'rgba(255,165,0,0.06)';
+                statusIcon = 'fa-heart-crack';
+            } else {
+                barColor = '#ef4444';
+                statusColor = '#ef4444';
+                statusBg = 'rgba(239,68,68,0.06)';
+                statusIcon = 'fa-heart-crack';
+            }
+
+            var dailyPct = n.daily_cap > 0 ? Math.min(100, Math.round(n.daily_calls / n.daily_cap * 100)) : 0;
+            var connectRate = n.connect_rate || 0;
+            var totalCalls = n.total_calls || 0;
+
+            var html = '<div style="padding:10px 12px;background:' + statusBg + ';border:1px solid rgba(255,255,255,0.06);border-radius:8px;">';
+
+            // Row 1: Phone + badges + health score
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            html += '<span style="color:#fff;font-weight:600;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + '</span>';
+            if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;">PRIMARY</span>';
+            if (n.nickname) html += '<span style="color:#666;font-size:.65rem;">(' + _esc(n.nickname) + ')</span>';
+            html += '</div>';
+
+            // Health score badge
+            html += '<div style="display:flex;align-items:center;gap:6px;">';
+            if (n.status === 'frozen' || n.status === 'resting') {
+                html += '<span style="background:' + statusBg + ';color:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;text-transform:uppercase;">';
+                html += '<i class="fa-solid ' + statusIcon + ' me-1"></i>' + n.status;
+                html += '</span>';
+            }
+            html += '<div style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.3);border:2px solid ' + barColor + ';display:flex;align-items:center;justify-content:center;">';
+            html += '<span style="font-size:.65rem;font-weight:800;color:' + barColor + ';">' + Math.round(score) + '</span>';
+            html += '</div></div></div>';
+
+            // Row 2: Metric pills
+            html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">';
+            html += _nhPill('fa-phone', n.daily_calls + '/' + n.daily_cap + ' today', dailyPct >= 80 ? '#ffa500' : '#888');
+            html += _nhPill('fa-link', connectRate.toFixed(0) + '% connect', connectRate >= 30 ? '#4ade80' : (connectRate >= 15 ? '#ffa500' : '#ef4444'));
+            html += _nhPill('fa-chart-line', totalCalls + ' lifetime', '#888');
+            html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, n.warmup_stage >= 4 ? '#4ade80' : '#00d9ff');
+            html += '</div>';
+
+            // Row 3: Health bar
+            html += '<div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">';
+            html += '<div style="height:100%;width:' + score + '%;background:' + barColor + ';border-radius:2px;transition:width .5s ease;"></div>';
+            html += '</div>';
+
+            // Row 4: Actions (only for non-active)
+            if (n.status === 'frozen' || n.status === 'resting') {
+                html += '<div style="margin-top:6px;text-align:right;">';
+                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'active\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-play me-1"></i>Reactivate</button>';
+                html += '</div>';
+            } else if (score < 40 && totalCalls >= 5) {
+                html += '<div style="margin-top:6px;text-align:right;">';
+                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'resting\',24)" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:#fbbf24;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-moon me-1"></i>Rest 24h</button>';
+                html += '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        function _nhPill(icon, text, color) {
+            return '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:4px;padding:2px 6px;font-size:.6rem;color:' + (color || '#888') + ';">' +
+                '<i class="fa-solid ' + icon + '" style="font-size:.5rem;opacity:.7;"></i>' + text +
+                '</span>';
+        }
+
+        async function nhToggleRotation() {
+            var enabled = !(_nhData && _nhData.rotation_enabled);
+            try {
+                var r = await fetch('/voice/number-health/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ enabled: enabled, strategy: (_nhData && _nhData.rotation_strategy) || 'weighted_health' }),
+                });
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Smart Rotation ' + (enabled ? 'enabled' : 'disabled'));
+                    loadNumberHealth();
+                }
+            } catch(e) { console.error('[NumberHealth] Toggle error:', e); }
+        }
+
+        async function nhSetStrategy(strategy) {
+            try {
+                var r = await fetch('/voice/number-health/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ enabled: true, strategy: strategy }),
+                });
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Strategy: ' + strategy.replace('_', ' '));
+                    loadNumberHealth();
+                }
+            } catch(e) { console.error('[NumberHealth] Strategy error:', e); }
+        }
+
+        async function nhSetNumberStatus(phone, status, restHours) {
+            try {
+                var r = await fetch('/voice/number-health/set-status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone: phone, status: status, rest_hours: restHours || null }),
+                });
+                if (r.ok) {
+                    if (typeof _showDashToast === 'function') _showDashToast(true, phone + ' → ' + status);
+                    loadNumberHealth();
+                }
+            } catch(e) { console.error('[NumberHealth] Set status error:', e); }
+        }
+
+        // Auto-load number health when numbers tab renders
+        if (typeof loadNumbersTab === 'function') {
+            var _origLoadNumbersTab = loadNumbersTab;
+            loadNumbersTab = async function() {
+                await _origLoadNumbersTab();
+                loadNumberHealth();
+            };
+        }
+
+
         // ===== A2P 10DLC TAB =====
         var _a2pStatus = null;
         var _a2pNumbersCache = [];

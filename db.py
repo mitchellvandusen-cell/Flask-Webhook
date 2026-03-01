@@ -1424,6 +1424,44 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"sms_send_via migration note: {e}")
 
+        # 24. MIGRATION: Create number_health table for smart number rotation
+        try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS number_health (
+                    id SERIAL PRIMARY KEY,
+                    location_id TEXT NOT NULL,
+                    phone TEXT NOT NULL,
+                    status TEXT DEFAULT 'active',
+                    warmup_stage INTEGER DEFAULT 0,
+                    health_score NUMERIC(5,1) DEFAULT 75.0,
+                    daily_calls_today INTEGER DEFAULT 0,
+                    daily_connected INTEGER DEFAULT 0,
+                    daily_no_answer INTEGER DEFAULT 0,
+                    daily_failed INTEGER DEFAULT 0,
+                    daily_busy INTEGER DEFAULT 0,
+                    daily_duration_secs INTEGER DEFAULT 0,
+                    total_calls INTEGER DEFAULT 0,
+                    total_connected INTEGER DEFAULT 0,
+                    total_no_answer INTEGER DEFAULT 0,
+                    total_failed INTEGER DEFAULT 0,
+                    total_busy INTEGER DEFAULT 0,
+                    total_duration_secs INTEGER DEFAULT 0,
+                    rest_until TIMESTAMP,
+                    last_used_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (location_id, phone)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_number_health_location ON number_health(location_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_number_health_status ON number_health(location_id, status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_number_health_score ON number_health(location_id, health_score DESC)")
+            conn.commit()
+            logger.info("✅ Migration: Created number_health table")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"number_health migration note: {e}")
+
         # Phase 4: CRM email — separate from login email
         try:
             cur.execute("""
