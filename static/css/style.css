@@ -1776,18 +1776,141 @@ body.light-theme .theme-toggle-btn:hover { background: rgba(0,0,0,0.08); color: 
 /* (duplicate popup/offer/close rules removed — defined above) */
 
 /* =========================================
-   18. GLOBAL RESPONSIVE (mobile-first overrides)
+   18. GLOBAL RESPONSIVE — App-like Mobile
    ========================================= */
+
+/* Smooth scroll on all devices */
+html { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+
+/* Safe area insets for notched phones */
+body { padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
+
+/* ── Tablet (≤991px) ── */
 @media (max-width: 991px) {
-    .navbar-collapse .d-flex { flex-direction: column !important; align-items: center !important; width: 100%; padding: 0 20px; }
-    .navbar-collapse .nav-btn { width: 100% !important; max-width: 300px; text-align: center; justify-content: center; padding: 12px 20px !important; }
-    .navbar-nav { text-align: center; width: 100%; }
-    .navbar-nav .nav-item { width: 100%; text-align: center; }
-    .container { overflow-x: hidden; max-width: 100%; padding-left: 15px; padding-right: 15px; }
+    /* Full-screen mobile nav overlay */
+    .navbar-collapse {
+        position: fixed !important; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(5,5,5,0.97); backdrop-filter: blur(20px);
+        z-index: 9998; padding: 100px 24px 40px;
+        display: flex !important; flex-direction: column;
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    .navbar-collapse.show {
+        opacity: 1; pointer-events: auto;
+    }
+    .navbar-collapse .navbar-nav {
+        flex-direction: column; gap: 4px; width: 100%;
+    }
+    .navbar-collapse .nav-item { width: 100%; }
+    .navbar-collapse .nav-link {
+        font-size: 1.15rem !important; font-weight: 600 !important;
+        padding: 16px 20px !important; border-radius: 12px;
+        display: block; text-align: left;
+        transition: background 0.2s;
+    }
+    .navbar-collapse .nav-link:hover,
+    .navbar-collapse .nav-link:active {
+        background: rgba(0,255,136,0.06);
+        color: var(--accent) !important;
+    }
+    .navbar-collapse .d-flex {
+        flex-direction: column !important; width: 100%;
+        gap: 10px !important; margin-top: auto; padding: 0;
+    }
+    .navbar-collapse .nav-btn {
+        width: 100% !important; max-width: none;
+        text-align: center; justify-content: center;
+        padding: 14px 24px !important; font-size: 1rem !important;
+    }
+    .navbar-toggler { z-index: 9999; border: none !important; box-shadow: none !important; }
+    .navbar-toggler:focus { box-shadow: none !important; }
+
+    .container { overflow-x: hidden; max-width: 100%; padding-left: 16px; padding-right: 16px; }
 }
 
+/* ── Phone (≤767px) ── */
+@media (max-width: 767px) {
+    /* Reduce section padding for tighter mobile feel */
+    .hp-section { padding: 48px 0 !important; }
+    .section { padding: 60px 0; }
+
+    /* Hero section */
+    .igb-hero { padding: 120px 0 60px !important; }
+    .hero-h1 { font-size: 2rem !important; }
+    .hero-sub { font-size: 0.95rem !important; }
+    .hero-tag { font-size: 0.7rem; padding: 5px 14px; }
+    .stats-bar { gap: 20px; padding: 24px 0; }
+    .stat-block .num { font-size: 1.6rem; }
+    .stat-block .lbl { font-size: 0.7rem; }
+
+    /* Three Pillars */
+    .platform-strip { border-radius: 14px !important; }
+    .ps-cell { padding: 24px 20px !important; }
+    .ps-cell h4 { font-size: 1rem; }
+    .ps-cell p { font-size: 0.82rem; }
+
+    /* Capabilities grid */
+    .cap-grid { border-radius: 12px !important; }
+    .cap-item { padding: 20px 16px; }
+    .cap-item h6 { font-size: 0.82rem; }
+    .cap-item p { font-size: 0.74rem; }
+
+    /* How it works — stack to single column */
+    .col-lg-7 > div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Pricing — already handled by price-grid media query */
+
+    /* Comparison strips */
+    .cmp-strip { flex-wrap: wrap; text-align: center; gap: 8px !important; padding: 12px 16px !important; }
+
+    /* Social proof scroll — hint at scrollability */
+    .proof-scroll { padding-left: 4px; }
+    .proof-card { min-width: 290px; max-width: 320px; padding: 20px; }
+    .proof-card .mini-stat .val { font-size: 1.1rem; }
+
+    /* Comparison page responsive */
+    .hero-features-grid { grid-template-columns: 1fr !important; }
+    .hero-card { padding: 24px 16px !important; }
+
+    /* Glass cards */
+    .glass-card { padding: 24px 16px; border-radius: 16px; }
+
+    /* Footer */
+    footer { padding: 40px 0; }
+    footer a { margin: 0 6px; font-size: 0.78rem; }
+}
+
+/* ── Small phone (≤576px) ── */
 @media (max-width: 576px) {
     h1, h2, h3, h4, h5, h6, body, p { overflow-wrap: break-word; }
-    .lead { font-size: 1rem !important; }
-    .btn-lg { font-size: 1rem !important; padding: 10px 20px !important; }
+    .lead { font-size: 0.95rem !important; }
+    .btn-lg { font-size: 0.92rem !important; padding: 12px 20px !important; }
+    .btn { padding: 0.5rem 1.2rem; font-size: 0.88rem; }
+
+    /* Tighter hero */
+    .hero-h1 { font-size: 1.75rem !important; line-height: 1.15 !important; }
+    .igb-hero { padding: 100px 0 48px !important; }
+
+    /* Section titles */
+    h2[style*="font-size: 2.2rem"] { font-size: 1.5rem !important; }
+    .section-title { font-size: 1.5rem !important; margin-bottom: 32px; }
+
+    /* Comparison page — screenshots stack on small phones */
+    div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+
+    /* Price cards */
+    .price-grid { gap: 16px !important; }
+    .price-card { padding: 28px 20px !important; border-radius: 16px !important; }
+    .price-amount { font-size: 2.2rem !important; }
+}
+
+/* ── Touch targets — minimum 44px for all tappable elements ── */
+@media (pointer: coarse) {
+    .nav-link { min-height: 44px; display: flex; align-items: center; }
+    .btn { min-height: 44px; }
+    a[class*="cmp-strip"] { min-height: 48px; }
+    .crm-chip { min-height: 44px; }
 }
