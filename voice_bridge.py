@@ -1110,6 +1110,20 @@ def voice_inbound():
             logger.warning(f"Browser VoIP: no destination number (To is empty) for call {call_sid}")
             return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
+        # Track browser VoIP call for number health updates
+        if call_sid:
+            _active_calls[call_sid] = {
+                "status": "initiated",
+                "duration": 0,
+                "contact_id": "",
+                "phone": called,
+                "name": "",
+                "_location_id": location_id,
+                "_sub_sid": sub_sid,
+                "_host": host,
+                "_from_number": from_number,
+            }
+
         # Start recording in background
         if vc.get('auto_record', True) and sub_sid and call_sid:
             def _start_rec():
@@ -1205,6 +1219,21 @@ def voice_dial_status():
     logger.info(f"Browser VoIP dial result: CallSid={call_sid[:16] if call_sid else 'none'} "
                 f"DialStatus={dial_call_status} DialDuration={dial_call_duration}s "
                 f"DialCallSid={dial_call_sid[:16] if dial_call_sid else 'none'}")
+
+    # Update number health for browser VoIP calls
+    if call_sid and dial_call_status:
+        call_info = _active_calls.get(call_sid, {})
+        nh_location = call_info.get('_location_id', '')
+        nh_from = call_info.get('_from_number', '')
+        if nh_location and nh_from:
+            # Map DialCallStatus to standard Twilio status for health tracking
+            status_map = {'completed': 'completed', 'busy': 'busy', 'no-answer': 'no-answer',
+                          'failed': 'failed', 'canceled': 'canceled'}
+            effective_status = status_map.get(dial_call_status, dial_call_status)
+            try:
+                update_number_health(nh_location, nh_from, effective_status, int(dial_call_duration or 0))
+            except Exception as e:
+                logger.warning(f"Number health update (VoIP dial) failed for {nh_from}: {e}")
 
     return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', content_type='text/xml')
 
@@ -4202,8 +4231,10 @@ def get_number_health():
     if not location_id:
         return jsonify({"error": "No location configured"}), 400
 
-    # Ensure records exist for all numbers
-    nh.ensure_number_health_records(location_id, vc)
+    # Ensure health records exist (only when rotation is enabled to avoid needless DB writes)
+    rotation_config = vc.get('number_rotation', {})
+    if rotation_config.get('enabled', False):
+        nh.ensure_number_health_records(location_id, vc)
 
     # Get per-number health data
     health_records = nh.get_all_number_health(location_id)
@@ -4244,7 +4275,7 @@ def get_number_health():
             "total_duration_secs": h.get('total_duration_secs', 0),
             "connect_rate": round(h['total_connected'] / h['total_calls'] * 100, 1) if h.get('total_calls') else 0,
             "daily_connect_rate": round(h['daily_connected'] / h['daily_calls_today'] * 100, 1) if h.get('daily_calls_today') else 0,
-            "rest_until": h.get('rest_until', ''),
+            "rest_until": str(h.get('rest_until', '')) if h.get('rest_until') else '',
             "last_used_at": str(h.get('last_used_at', '')),
             "created_at": str(h.get('created_at', '')),
             "state": state or '',
