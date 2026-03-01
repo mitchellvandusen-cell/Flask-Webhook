@@ -25,6 +25,16 @@
 | 2026-02-27 | Lead Intelligence + Smart Filters, Training integration, persistent contact cache, CRM 429 elimination |
 | 2026-02-28 | GHL Data Sync Engine, SMS channel selection (GHL vs Twilio), unified Inbox app, AI-powered intelligence via xAI Grok |
 | 2026-02-28 | AI-powered Smart Filters (replaced rule-based), training platform recording fix, human-mode recording fix |
+| 2026-03-01 | OAuth flow fixes: removed invalid scopes, synced to 18 approved marketplace scopes, removed unsupported PKCE |
+
+---
+
+## 2026-03-01
+
+### OAuth Flow Fixes — Scope Validation & PKCE Removal
+- **Removed invalid `locations/tasks.readonly` scope**: GHL rejected this scope with 422 during OAuth authorization. Removed from `blueprints/oauth.py`.
+- **Synced OAuth scopes to approved marketplace list**: Both `blueprints/oauth.py` (`GHL_OAUTH_SCOPES`) and legacy `main.py` scope lists now match the 18 approved scopes exactly. Added `workflows.readonly` and `twilioaccount.read` (were approved but missing from blueprint).
+- **Removed PKCE (code_verifier/code_challenge)**: GHL OAuth rejects `code_verifier` with 422 "property code_verifier should not exist" for both public and private apps. PKCE is not supported by GHL's OAuth implementation. Removed code_challenge from authorization request, code_verifier from token exchange, and cleaned up unused `base64`/`hashlib` imports.
 
 ---
 
@@ -132,12 +142,12 @@
 - **3 built-in apps**: Messages (SMS thread), Calls (call history), Voicemail (recordings) — each accessible from the iOS home screen.
 
 ### OAuth Security Hardening
-- **CSRF protection**: OAuth flow now includes state parameter with CSRF token validation.
-- **PKCE (Proof Key for Code Exchange)**: Added code_verifier/code_challenge to OAuth authorization flow.
+- **CSRF protection**: OAuth flow now includes state parameter with cryptographic nonce validation.
 - **Token encryption**: OAuth tokens encrypted at rest in the database using Fernet symmetric encryption. Auto-bootstraps encryption key on Railway deploy.
-- **Scope validation**: Verifies returned OAuth scopes match the requested set.
+- **Scope validation**: Verifies returned OAuth scopes match the requested set. Scopes must match exactly what's approved on the GHL marketplace app.
 - **Updated OAuth scopes**: Aligned with marketplace-approved scope set, defaulting to public app credentials.
 - **Proactive token refresh hardening**: Prevents tokens from ever reaching expiry by refreshing well in advance.
+- **Note**: PKCE was added in this release but later removed (2026-03-01) — GHL rejects `code_verifier` with 422 for both public and private apps.
 
 ### GHL Iframe Embedding Fixes
 - **Cross-origin localStorage safety**: Wrapped localStorage calls in try/catch for cross-origin iframe environments.

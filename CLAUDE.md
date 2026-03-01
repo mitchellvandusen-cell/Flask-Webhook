@@ -551,11 +551,14 @@ The dashboard embeds a Discord team chat panel:
 
 - **PII Redaction**: All logs have phone numbers and emails redacted via `PIIRedactionFilter`
 - **Flask-WTF CSRF**: All forms protected
+- **OAuth CSRF protection**: State parameter with cryptographic nonce validated on callback
+- **OAuth scope validation**: Requested scopes must match exactly what's approved on the GHL marketplace app (18 scopes). No PKCE — GHL rejects `code_verifier`.
 - **itsdangerous tokens**: Password reset tokens expire in 1 hour
 - **Constant-time comparison**: API key authentication uses `hmac.compare_digest`
 - **Admin whitelist**: `ADMIN_EMAILS` controls god-mode access
 - **Webhook signature verification**: GHL webhooks verified with `MARKETPLACE_WEBHOOK_SECRET`
 - **Stripe webhook signature**: Verified with `STRIPE_WEBHOOK_SECRET`
+- **Token encryption**: OAuth tokens encrypted at rest using Fernet symmetric encryption
 - **Token-locked fields**: OAuth tokens hidden/readonly in UI after OAuth connection
 
 ---
