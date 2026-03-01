@@ -7100,7 +7100,7 @@ def website_bot_webhook():
 PRODUCT KNOWLEDGE:
 - InsuranceGrokBot is an all-in-one AI platform built specifically for life insurance agents
 - Three products in one: AI SMS texting, Smart Dialer, and AI Voice Calling
-- Individual plan: $149.99/month. Cancel anytime. No contracts. No free trial.
+- Individual plan: $149.99/month. Unlimited minutes included. Cancel anytime. No contracts. No free trial.
 - Agency plan: Custom pricing — visitors should book a call
 - AI SMS Handler: reads lead messages, understands insurance context, crafts intelligent replies, handles objections, books appointments on the agent's real calendar — all automatically, 24/7
 - Smart Dialer: auto-retry up to 3x per lead, voicemail detection, AI-powered lead scoring (hot/warm/cool/cold from actual conversation analysis), Smart Filters that sort leads by temperature, AI-to-human live handoff
