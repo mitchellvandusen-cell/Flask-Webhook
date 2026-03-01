@@ -322,68 +322,56 @@
                 html += '</div>';
             }
 
-            // ── State Coverage Recommendations ──
-            var recs = d.recommendations || [];
-            if (recs.length) {
-                html += '<div style="margin-top:16px;">';
-                html += '<h6 style="margin:0 0 10px;font-weight:700;color:#fff;font-size:.82rem;"><i class="fa-solid fa-map-location-dot me-2" style="color:#00d9ff;"></i>State Coverage <span style="color:#666;font-weight:400;font-size:.68rem;">(2 numbers per state recommended)</span></h6>';
+            // ── States Licensed In ──
+            html += '<div style="margin-top:16px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+            html += '<h6 style="margin:0;font-weight:700;color:#fff;font-size:.82rem;"><i class="fa-solid fa-id-card me-2" style="color:#a78bfa;"></i>States Licensed In</h6>';
+            html += '<button onclick="nhOpenStatePicker()" style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);color:#a78bfa;border-radius:6px;padding:4px 12px;font-size:.72rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-pen me-1"></i>Edit States</button>';
+            html += '</div>';
 
-                // Critical/High priority — states needing numbers
-                var needAction = recs.filter(function(r) { return r.priority === 'critical' || r.priority === 'high'; });
-                var covered = recs.filter(function(r) { return r.priority === 'good'; });
-                var medium = recs.filter(function(r) { return r.priority === 'medium' || r.priority === 'low'; });
+            var licensedStates = d.licensed_states || [];
+            var licensedCoverage = d.licensed_coverage || [];
 
-                if (needAction.length) {
-                    html += '<div style="margin-bottom:8px;">';
-                    needAction.forEach(function(r) {
-                        var isCritical = r.priority === 'critical';
-                        var bgColor = isCritical ? 'rgba(239,68,68,0.06)' : 'rgba(255,165,0,0.06)';
-                        var borderColor = isCritical ? 'rgba(239,68,68,0.15)' : 'rgba(255,165,0,0.15)';
-                        var textColor = isCritical ? '#ef4444' : '#ffa500';
-                        var icon = isCritical ? 'fa-triangle-exclamation' : 'fa-circle-exclamation';
+            if (!licensedStates.length) {
+                html += '<div style="padding:20px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;text-align:center;">';
+                html += '<i class="fa-solid fa-map-location-dot" style="font-size:1.4rem;display:block;margin-bottom:8px;color:#444;"></i>';
+                html += '<div style="color:#888;font-size:.78rem;margin-bottom:10px;">Select the states you\'re licensed to sell in.<br>We\'ll show your number coverage for each state.</div>';
+                html += '<button onclick="nhOpenStatePicker()" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;border-radius:8px;padding:8px 20px;font-size:.82rem;font-weight:700;cursor:pointer;"><i class="fa-solid fa-plus me-1"></i>Select States</button>';
+                html += '</div>';
+            } else {
+                // Coverage table for licensed states
+                html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+                licensedCoverage.forEach(function(s) {
+                    var covered = s.owned >= 2;
+                    var partial = s.owned === 1;
+                    var bgColor = covered ? 'rgba(0,255,136,0.03)' : (partial ? 'rgba(255,165,0,0.04)' : 'rgba(239,68,68,0.04)');
+                    var borderColor = covered ? 'rgba(0,255,136,0.1)' : (partial ? 'rgba(255,165,0,0.1)' : 'rgba(239,68,68,0.1)');
+                    var statusColor = covered ? '#00ff88' : (partial ? '#ffa500' : '#ef4444');
+                    var statusIcon = covered ? 'fa-circle-check' : (partial ? 'fa-circle-half-stroke' : 'fa-circle-xmark');
+                    var statusText = covered ? s.owned + ' numbers' : (partial ? '1 number' : 'No numbers');
 
-                        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;margin-bottom:4px;">';
-                        html += '<div style="display:flex;align-items:center;gap:8px;">';
-                        html += '<i class="fa-solid ' + icon + '" style="color:' + textColor + ';font-size:.7rem;"></i>';
-                        html += '<span style="color:#ccc;font-size:.75rem;font-weight:600;">' + _esc(r.state_name) + ' <span style="color:#555;">(' + r.state + ')</span></span>';
-                        html += '<span style="color:' + textColor + ';font-size:.65rem;">' + r.owned + '/' + r.recommended + ' numbers</span>';
-                        if (r.contacts > 0) html += '<span style="color:#888;font-size:.6rem;">' + r.contacts + ' contacts</span>';
-                        html += '</div>';
-                        html += '<span style="background:' + bgColor + ';color:' + textColor + ';padding:2px 8px;border-radius:4px;font-size:.6rem;font-weight:700;text-transform:uppercase;">';
-                        html += isCritical ? 'Need ' + r.need + ' numbers' : 'Need ' + r.need + ' more';
-                        html += '</span>';
-                        html += '</div>';
-                    });
+                    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;">';
+                    html += '<div style="display:flex;align-items:center;gap:8px;">';
+                    html += '<i class="fa-solid ' + statusIcon + '" style="color:' + statusColor + ';font-size:.7rem;"></i>';
+                    html += '<span style="color:#ccc;font-size:.78rem;font-weight:600;">' + _esc(s.state_name) + '</span>';
+                    html += '<span style="color:' + statusColor + ';font-size:.65rem;">' + statusText + '</span>';
                     html += '</div>';
-                }
 
-                if (medium.length) {
-                    html += '<div style="margin-bottom:8px;">';
-                    medium.forEach(function(r) {
-                        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.7rem;">';
-                        html += '<div style="display:flex;align-items:center;gap:6px;">';
-                        html += '<span style="color:#aaa;">' + _esc(r.state_name) + '</span>';
-                        html += '<span style="color:#555;">(' + r.owned + '/' + r.recommended + ')</span>';
-                        if (r.contacts > 0) html += '<span style="color:#666;font-size:.6rem;">' + r.contacts + ' contacts</span>';
-                        html += '</div>';
-                        html += '<span style="color:#ffa500;font-size:.6rem;">+' + r.need + ' recommended</span>';
-                        html += '</div>';
-                    });
+                    if (!covered) {
+                        html += '<button onclick="nhBuyForState(\'' + _esc(s.state) + '\')" style="background:linear-gradient(135deg,#00d9ff,#0099cc);border:none;color:#000;border-radius:5px;padding:3px 10px;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">';
+                        html += '<i class="fa-solid fa-plus me-1"></i>Buy Number';
+                        html += '</button>';
+                    }
+
                     html += '</div>';
-                }
-
-                if (covered.length) {
-                    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
-                    covered.forEach(function(r) {
-                        html += '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);border-radius:4px;padding:2px 7px;font-size:.6rem;color:#4ade80;">';
-                        html += '<i class="fa-solid fa-circle-check" style="font-size:.45rem;"></i>' + r.state + ' (' + r.owned + ')';
-                        html += '</span>';
-                    });
-                    html += '</div>';
-                }
-
+                });
                 html += '</div>';
             }
+
+            // State picker modal (hidden by default)
+            html += '<div id="nhStatePickerModal" style="display:none;"></div>';
+
+            html += '</div>';
 
             el.innerHTML = html;
         }
@@ -554,6 +542,115 @@
                 console.error('[NumberHealth] Set status error:', e);
                 if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
             }
+        }
+
+        // ── Licensed States: state picker + buy-for-state ──
+        var _allStates = [
+            ["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],
+            ["CA","California"],["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],
+            ["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],
+            ["IL","Illinois"],["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],
+            ["KY","Kentucky"],["LA","Louisiana"],["ME","Maine"],["MD","Maryland"],
+            ["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],["MS","Mississippi"],
+            ["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],
+            ["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],
+            ["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],
+            ["OR","Oregon"],["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],
+            ["SD","South Dakota"],["TN","Tennessee"],["TX","Texas"],["UT","Utah"],
+            ["VT","Vermont"],["VA","Virginia"],["WA","Washington"],["WV","West Virginia"],
+            ["WI","Wisconsin"],["WY","Wyoming"]
+        ];
+
+        function nhOpenStatePicker() {
+            var modal = document.getElementById('nhStatePickerModal');
+            if (!modal) return;
+            var current = (_nhData && _nhData.licensed_states) || [];
+            var html = '';
+            html += '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9998;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)nhCloseStatePicker()">';
+            html += '<div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;width:520px;max-height:80vh;overflow-y:auto;" onclick="event.stopPropagation()">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+            html += '<h6 style="margin:0;font-weight:700;color:#fff;"><i class="fa-solid fa-id-card me-2" style="color:#a78bfa;"></i>States Licensed In</h6>';
+            html += '<button onclick="nhCloseStatePicker()" style="background:none;border:none;color:#666;cursor:pointer;font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button>';
+            html += '</div>';
+            html += '<p style="color:#888;font-size:.78rem;margin-bottom:14px;">Select every state where you hold an active insurance license. We\'ll track your number coverage for each.</p>';
+
+            // Select all / clear
+            html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=true})" style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:5px;padding:3px 10px;font-size:.7rem;cursor:pointer;">Select All</button>';
+            html += '<button onclick="document.querySelectorAll(\'#nhStateGrid input\').forEach(function(c){c.checked=false})" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#888;border-radius:5px;padding:3px 10px;font-size:.7rem;cursor:pointer;">Clear All</button>';
+            html += '</div>';
+
+            // State grid
+            html += '<div id="nhStateGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:18px;">';
+            _allStates.forEach(function(s) {
+                var code = s[0], name = s[1];
+                var checked = current.indexOf(code) >= 0 ? ' checked' : '';
+                html += '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:.75rem;color:#ccc;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);transition:background .15s;" onmouseover="this.style.background=\'rgba(167,139,250,0.06)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.02)\'">';
+                html += '<input type="checkbox" value="' + code + '"' + checked + ' style="accent-color:#a78bfa;width:14px;height:14px;cursor:pointer;">';
+                html += '<span><strong>' + code + '</strong> ' + name + '</span>';
+                html += '</label>';
+            });
+            html += '</div>';
+
+            // Save button
+            html += '<button onclick="nhSaveLicensedStates()" id="nhSaveStatesBtn" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;color:#fff;border-radius:10px;padding:10px 0;font-size:.88rem;font-weight:700;cursor:pointer;width:100%;"><i class="fa-solid fa-check me-2"></i>Save Licensed States</button>';
+            html += '</div></div>';
+
+            modal.innerHTML = html;
+            modal.style.display = 'block';
+        }
+
+        function nhCloseStatePicker() {
+            var modal = document.getElementById('nhStatePickerModal');
+            if (modal) { modal.innerHTML = ''; modal.style.display = 'none'; }
+        }
+
+        async function nhSaveLicensedStates() {
+            var checkboxes = document.querySelectorAll('#nhStateGrid input:checked');
+            var states = [];
+            checkboxes.forEach(function(c) { states.push(c.value); });
+            var btn = document.getElementById('nhSaveStatesBtn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Saving...'; }
+            try {
+                var r = await fetch('/voice/licensed-states', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ states: states }),
+                });
+                if (r.ok) {
+                    nhCloseStatePicker();
+                    if (typeof _showDashToast === 'function') _showDashToast(true, states.length + ' licensed state' + (states.length !== 1 ? 's' : '') + ' saved');
+                    loadNumberHealth();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to save');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check me-2"></i>Save Licensed States'; }
+                }
+            } catch(e) {
+                console.error('[LicensedStates] Save error:', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check me-2"></i>Save Licensed States'; }
+            }
+        }
+
+        function nhBuyForState(stateCode) {
+            // Open the buy panel with state pre-filled
+            var buyPanel = document.getElementById('vstabBuyPanel');
+            if (buyPanel) buyPanel.style.display = 'block';
+            var stateInput = document.getElementById('buyState');
+            if (stateInput) stateInput.value = stateCode;
+            // Clear other fields so the search is state-only
+            var areaInput = document.getElementById('buyAreaCode');
+            if (areaInput) areaInput.value = '';
+            var cityInput = document.getElementById('buyCity');
+            if (cityInput) cityInput.value = '';
+            var zipInput = document.getElementById('buyZip');
+            if (zipInput) zipInput.value = '';
+            var containsInput = document.getElementById('buyContains');
+            if (containsInput) containsInput.value = '';
+            // Auto-trigger search
+            searchAvailableNumbers();
+            // Scroll buy panel into view
+            buyPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // Auto-load number health when numbers tab renders

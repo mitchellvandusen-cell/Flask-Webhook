@@ -4285,21 +4285,32 @@ def get_number_health():
     # Summary stats
     summary = nh.get_number_health_summary(location_id)
 
-    # State coverage analysis + recommendations
-    # Include all numbers from voice_config (not just those with health records)
+    # Licensed states + state coverage analysis
+    licensed_states = vc.get('licensed_states', [])
     all_vc_numbers = list(set([primary] + (vc.get('local_presence_numbers', []))))
     all_vc_numbers = [p for p in all_vc_numbers if p]
-    contact_states = nh.get_contact_state_distribution(location_id)
     state_coverage = nh.get_state_coverage(all_vc_numbers)
-    recommendations = nh.get_state_coverage_recommendations(all_vc_numbers, contact_states)
+
+    # Build per-licensed-state coverage info
+    licensed_coverage = []
+    for state in sorted(licensed_states):
+        owned_phones = state_coverage.get(state, [])
+        licensed_coverage.append({
+            "state": state,
+            "state_name": nh.STATE_NAMES.get(state, state),
+            "owned": len(owned_phones),
+            "numbers": owned_phones,
+            "need": max(0, nh.RECOMMENDED_NUMBERS_PER_STATE - len(owned_phones)),
+        })
 
     return jsonify({
         "numbers": numbers,
         "summary": summary,
         "rotation_enabled": rotation_config.get('enabled', False),
         "rotation_strategy": rotation_config.get('strategy', 'weighted_health'),
+        "licensed_states": licensed_states,
+        "licensed_coverage": licensed_coverage,
         "state_coverage": {state: len(phones) for state, phones in state_coverage.items()},
-        "recommendations": recommendations,
     })
 
 
@@ -4332,6 +4343,29 @@ def toggle_number_rotation():
 
     logger.info(f"Number rotation {'enabled' if enabled else 'disabled'} (strategy={strategy}) for {current_user.email}")
     return jsonify({"status": "ok", "enabled": enabled, "strategy": strategy})
+
+
+@voice_bp.route('/voice/licensed-states', methods=['POST'])
+@login_required
+def save_licensed_states():
+    """Save the list of states the agent is licensed in."""
+    from number_health import STATE_NAMES
+
+    subscriber, vc, api_key = _get_current_subscriber_voice()
+    if not vc:
+        return jsonify({"error": "Voice config not found"}), 400
+
+    data = request.json or {}
+    states = data.get('states', [])
+
+    # Validate: only accept known 2-letter state codes
+    valid_states = sorted(set(s.upper() for s in states if s.upper() in STATE_NAMES))
+
+    vc['licensed_states'] = valid_states
+    _save_voice_config(current_user.email, vc)
+
+    logger.info(f"Licensed states updated ({len(valid_states)} states) for {current_user.email}")
+    return jsonify({"status": "ok", "licensed_states": valid_states})
 
 
 @voice_bp.route('/voice/number-health/set-status', methods=['POST'])
