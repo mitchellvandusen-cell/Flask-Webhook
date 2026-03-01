@@ -71,6 +71,13 @@
     .crm-chip { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 8px 18px; border-radius: 30px; color: #aaa; font-size: 0.82rem; font-weight: 600; transition: all 0.3s; }
     .crm-chip:hover { background: rgba(0,255,136,0.04); border-color: rgba(0,255,136,0.15); color: #fff; transform: translateY(-2px); }
 
+    /* ── Showcase cards ── */
+    .showcase-card:hover { transform: translateY(-4px); border-color: rgba(0,255,136,0.2) !important; }
+    @media (max-width: 767px) {
+        .showcase-strip { grid-template-columns: 1fr !important; }
+        .hiw-grid { grid-template-columns: 1fr !important; }
+    }
+
     /* ── Section spacing ── */
     .hp-section { padding: 80px 0; }
     .hp-section + .hp-section { padding-top: 0; }
@@ -169,6 +176,26 @@
 </section>
 
 
+<!-- ═══════════════ PRODUCT SHOWCASE ═══════════════ -->
+<section class="hp-section">
+    <div class="container">
+        <div class="text-center mb-5" data-aos="fade-up">
+            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">See It In Action</span>
+            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">Your Command <span style="color: var(--accent);">Center</span></h2>
+            <p style="color: #777; font-size: 0.95rem; max-width: 560px; margin: 8px auto 0;">AI-powered dialer with lead scoring, Smart Filters, and a built-in phone — all from one screen.</p>
+        </div>
+
+        <div data-aos="fade-up" data-aos-delay="100" style="position: relative; max-width: 960px; margin: 0 auto;">
+            <div style="border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 24px 80px rgba(0,255,136,0.06), 0 0 0 1px rgba(255,255,255,0.03);">
+                <img src="{{ url_for('static', filename='images/dialer-overview.png') }}" alt="InsuranceGrokBot Smart Dialer — lead scoring, Smart Filters, and built-in phone" style="width: 100%; display: block;" loading="lazy">
+            </div>
+            <!-- Subtle glow behind image -->
+            <div style="position: absolute; inset: 20%; z-index: -1; background: radial-gradient(ellipse, rgba(0,255,136,0.08), transparent 70%); filter: blur(60px);"></div>
+        </div>
+    </div>
+</section>
+
+
 <!-- ═══════════════ CAPABILITIES GRID ═══════════════ -->
 <section class="hp-section">
     <div class="container">
@@ -239,6 +266,31 @@
             </div>
         </div>
 
+        <!-- Feature screenshots -->
+        <div class="showcase-strip" data-aos="fade-up" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px;">
+            <div class="showcase-card" style="border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); transition: transform 0.3s, border-color 0.3s;">
+                <img src="{{ url_for('static', filename='images/spam-protection.png') }}" alt="Spam Protection — STIR/SHAKEN, CNAM, and number reputation tracking" style="width: 100%; display: block;" loading="lazy">
+                <div style="padding: 14px 16px;">
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Spam Protection</div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">STIR/SHAKEN, CNAM & number reputation</div>
+                </div>
+            </div>
+            <div class="showcase-card" style="border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); transition: transform 0.3s, border-color 0.3s;">
+                <img src="{{ url_for('static', filename='images/carriers-grid.png') }}" alt="Contracted Carriers — 60+ insurance carriers you can select" style="width: 100%; display: block;" loading="lazy">
+                <div style="padding: 14px 16px;">
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Contracted Carriers</div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">Select from 60+ carriers — the AI only references yours</div>
+                </div>
+            </div>
+            <div class="showcase-card" style="border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); transition: transform 0.3s, border-color 0.3s;">
+                <img src="{{ url_for('static', filename='images/activity-log.png') }}" alt="Webhook Activity Log — real-time event monitoring" style="width: 100%; display: block;" loading="lazy">
+                <div style="padding: 14px 16px;">
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Activity Log</div>
+                    <div style="font-size: 0.72rem; color: #666; margin-top: 2px;">Every webhook, message & event logged in real time</div>
+                </div>
+            </div>
+        </div>
+
         <!-- CRM bar -->
         <div class="text-center mt-5" data-aos="fade-up">
             <p style="color: #555; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 16px;">Works with your CRM</p>
@@ -266,7 +318,7 @@
                 <p style="color: #888; font-size: 0.95rem; line-height: 1.7;">No developers. No onboarding calls. Subscribe, connect your CRM, and the AI starts working your leads immediately.</p>
             </div>
             <div class="col-lg-7">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="hiw-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 24px;">
                         <div style="width: 32px; height: 32px; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); font-size: 0.85rem; margin-bottom: 12px;">1</div>
                         <h6 style="font-weight: 700; color: #fff; margin-bottom: 4px;">Subscribe</h6>
@@ -297,12 +349,9 @@
 <!-- ═══════════════ SOCIAL PROOF ═══════════════ -->
 <section class="hp-section">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-end mb-4" data-aos="fade-up">
-            <div>
-                <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Real Results</span>
-                <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">What Agents <span style="color: var(--accent);">Are Seeing</span></h2>
-            </div>
-            <a href="/reviews" style="color: var(--accent); font-size: 0.85rem; font-weight: 600; text-decoration: none; white-space: nowrap;">All Reviews <i class="fa-solid fa-arrow-right ms-1"></i></a>
+        <div class="mb-4" data-aos="fade-up">
+            <span style="color: var(--accent); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;">Real Results</span>
+            <h2 style="font-weight: 900; font-size: 2.2rem; margin-top: 8px;">What Agents <span style="color: var(--accent);">Are Seeing</span></h2>
         </div>
 
         <div class="proof-scroll" data-aos="fade-up">

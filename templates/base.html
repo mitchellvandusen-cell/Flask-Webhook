@@ -2,7 +2,10 @@
 <html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>{% block title %}InsuranceGrokBot{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
@@ -52,7 +55,6 @@
                     <li class="nav-item"><a class="nav-link" href="/comparison">Comparison</a></li>
                     <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
                     <li class="nav-item"><a class="nav-link" href="/demo-chat">Demo</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/reviews">Reviews</a></li>
                     <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
                     <li class="nav-item"><a class="nav-link" href="/support">Support</a></li>
                     {% if current_user.is_authenticated and current_user.is_super_admin %}
@@ -102,7 +104,7 @@
         <div class="container">
             <p style="color:#fff; font-weight:700; font-size:1.2rem; margin-bottom:10px;">Insurance<span class="text-accent">Grok</span>Bot</p>
             <div class="mb-4">
-                <a href="/about">About</a><a href="/reviews">Reviews</a><a href="/integrations">Integrations</a><a href="/comparison">Comparison</a><a href="/support">Support</a><a href="/contact">Contact</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a>
+                <a href="/about">About</a><a href="/integrations">Integrations</a><a href="/comparison">Comparison</a><a href="/support">Support</a><a href="/contact">Contact</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a>
             </div>
             <p style="font-size:0.8rem; margin-top:40px; opacity:0.5;">&copy; 2026 InsuranceGrokBot. All rights reserved.</p>
         </div>
