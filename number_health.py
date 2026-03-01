@@ -6,7 +6,8 @@
 #   - number_health table: per-number daily metrics (calls, connects, duration, status)
 #   - select_outbound_number(): replaces hardcoded from_number selection everywhere
 #   - update_number_health(): called from /voice/status callback on every call outcome
-#   - Warm-up engine: new numbers ramp gradually (5 → 10 → 20 → 40 → unlimited/day)
+#   - Warm-up engine: new numbers ramp 50 → 100 → 200 → 300 → unlimited/day
+#   - State-level geo-routing: calls to NC use NC numbers, calls to TX use TX numbers
 #   - Rest/freeze: burned numbers auto-rest, frozen numbers quarantined
 #   - Cron jobs: daily metric reset, warm-up progression, rest/freeze expiry
 
@@ -26,13 +27,14 @@ HEALTH_WARNING = 40      # Orange — reduced volume
 HEALTH_CRITICAL = 20     # Red — auto-rested
 HEALTH_FROZEN = 0        # Black — quarantined, needs manual unfreeze
 
-# Daily call caps by warm-up stage
+# Daily call caps by warm-up stage — calibrated for power dialing (300 dials/day target)
+# With 6 numbers at stage 0 = 300 dials. At full warm = unlimited across pool.
 WARMUP_STAGES = {
-    0: {"daily_cap": 5,   "label": "Stage 0 — Seeding",    "days_required": 0},
-    1: {"daily_cap": 10,  "label": "Stage 1 — Sprouting",  "days_required": 2},
-    2: {"daily_cap": 20,  "label": "Stage 2 — Growing",    "days_required": 5},
-    3: {"daily_cap": 40,  "label": "Stage 3 — Maturing",   "days_required": 10},
-    4: {"daily_cap": 999, "label": "Stage 4 — Fully Warm", "days_required": 20},
+    0: {"daily_cap": 50,   "label": "Stage 0 — New",       "days_required": 0},
+    1: {"daily_cap": 100,  "label": "Stage 1 — Warming",   "days_required": 3},
+    2: {"daily_cap": 200,  "label": "Stage 2 — Active",    "days_required": 7},
+    3: {"daily_cap": 300,  "label": "Stage 3 — Proven",    "days_required": 14},
+    4: {"daily_cap": 999,  "label": "Stage 4 — Veteran",   "days_required": 30},
 }
 
 # Number statuses
@@ -48,8 +50,289 @@ DEFAULT_FREEZE_HOURS = 72
 # Connection rate floor — below this, number health drops fast
 MIN_CONNECT_RATE = 0.15  # 15%
 
-# Max calls per day before auto-rest (safety valve, even for warm numbers)
-ABSOLUTE_DAILY_CAP = 200
+# Max calls per day before auto-rest (safety valve, even for veteran numbers)
+ABSOLUTE_DAILY_CAP = 500
+
+# Recommended numbers per state for adequate coverage
+RECOMMENDED_NUMBERS_PER_STATE = 2
+
+
+# ── Area Code → State Mapping ──────────────────────────────────────────────
+# Complete US area code to state/territory mapping. Used for state-level
+# geo-routing so calls to a state use only numbers from that state.
+
+AREA_CODE_TO_STATE = {
+    # Alabama
+    205: "AL", 251: "AL", 256: "AL", 334: "AL", 938: "AL",
+    # Alaska
+    907: "AK",
+    # Arizona
+    480: "AZ", 520: "AZ", 602: "AZ", 623: "AZ", 928: "AZ",
+    # Arkansas
+    479: "AR", 501: "AR", 870: "AR",
+    # California
+    209: "CA", 213: "CA", 279: "CA", 310: "CA", 323: "CA", 341: "CA",
+    350: "CA", 408: "CA", 415: "CA", 424: "CA", 442: "CA", 510: "CA",
+    530: "CA", 559: "CA", 562: "CA", 619: "CA", 626: "CA", 628: "CA",
+    650: "CA", 657: "CA", 661: "CA", 669: "CA", 707: "CA", 714: "CA",
+    747: "CA", 760: "CA", 805: "CA", 818: "CA", 820: "CA", 831: "CA",
+    840: "CA", 858: "CA", 909: "CA", 916: "CA", 925: "CA", 949: "CA",
+    951: "CA",
+    # Colorado
+    303: "CO", 719: "CO", 720: "CO", 970: "CO",
+    # Connecticut
+    203: "CT", 475: "CT", 860: "CT", 959: "CT",
+    # Delaware
+    302: "DE",
+    # Florida
+    239: "FL", 305: "FL", 321: "FL", 352: "FL", 386: "FL", 407: "FL",
+    448: "FL", 561: "FL", 727: "FL", 754: "FL", 772: "FL", 786: "FL",
+    813: "FL", 850: "FL", 863: "FL", 904: "FL", 941: "FL", 954: "FL",
+    # Georgia
+    229: "GA", 404: "GA", 470: "GA", 478: "GA", 678: "GA", 706: "GA",
+    762: "GA", 770: "GA", 912: "GA", 943: "GA",
+    # Hawaii
+    808: "HI",
+    # Idaho
+    208: "ID", 986: "ID",
+    # Illinois
+    217: "IL", 224: "IL", 309: "IL", 312: "IL", 331: "IL", 447: "IL",
+    464: "IL", 618: "IL", 630: "IL", 708: "IL", 773: "IL", 779: "IL",
+    815: "IL", 847: "IL", 872: "IL",
+    # Indiana
+    219: "IN", 260: "IN", 317: "IN", 463: "IN", 574: "IN", 765: "IN",
+    812: "IN", 930: "IN",
+    # Iowa
+    319: "IA", 515: "IA", 563: "IA", 641: "IA", 712: "IA",
+    # Kansas
+    316: "KS", 620: "KS", 785: "KS", 913: "KS",
+    # Kentucky
+    270: "KY", 364: "KY", 502: "KY", 606: "KY", 859: "KY",
+    # Louisiana
+    225: "LA", 318: "LA", 337: "LA", 504: "LA", 985: "LA",
+    # Maine
+    207: "ME",
+    # Maryland
+    240: "MD", 301: "MD", 410: "MD", 443: "MD", 667: "MD",
+    # Massachusetts
+    339: "MA", 351: "MA", 413: "MA", 508: "MA", 617: "MA", 774: "MA",
+    781: "MA", 857: "MA", 978: "MA",
+    # Michigan
+    231: "MI", 248: "MI", 269: "MI", 313: "MI", 517: "MI", 586: "MI",
+    616: "MI", 734: "MI", 810: "MI", 906: "MI", 947: "MI", 989: "MI",
+    # Minnesota
+    218: "MN", 320: "MN", 507: "MN", 612: "MN", 651: "MN", 763: "MN",
+    952: "MN",
+    # Mississippi
+    228: "MS", 601: "MS", 662: "MS", 769: "MS",
+    # Missouri
+    314: "MO", 417: "MO", 573: "MO", 636: "MO", 660: "MO", 816: "MO",
+    975: "MO",
+    # Montana
+    406: "MT",
+    # Nebraska
+    308: "NE", 402: "NE", 531: "NE",
+    # Nevada
+    702: "NV", 725: "NV", 775: "NV",
+    # New Hampshire
+    603: "NH",
+    # New Jersey
+    201: "NJ", 551: "NJ", 609: "NJ", 640: "NJ", 732: "NJ", 848: "NJ",
+    856: "NJ", 862: "NJ", 908: "NJ", 973: "NJ",
+    # New Mexico
+    505: "NM", 575: "NM",
+    # New York
+    212: "NY", 315: "NY", 332: "NY", 347: "NY", 516: "NY", 518: "NY",
+    585: "NY", 607: "NY", 631: "NY", 646: "NY", 680: "NY", 716: "NY",
+    718: "NY", 838: "NY", 845: "NY", 914: "NY", 917: "NY", 929: "NY",
+    934: "NY",
+    # North Carolina
+    252: "NC", 336: "NC", 704: "NC", 743: "NC", 828: "NC", 910: "NC",
+    919: "NC", 980: "NC", 984: "NC",
+    # North Dakota
+    701: "ND",
+    # Ohio
+    216: "OH", 220: "OH", 234: "OH", 326: "OH", 330: "OH", 380: "OH",
+    419: "OH", 440: "OH", 513: "OH", 567: "OH", 614: "OH", 740: "OH",
+    937: "OH",
+    # Oklahoma
+    405: "OK", 539: "OK", 572: "OK", 580: "OK", 918: "OK",
+    # Oregon
+    458: "OR", 503: "OR", 541: "OR", 971: "OR",
+    # Pennsylvania
+    215: "PA", 223: "PA", 267: "PA", 272: "PA", 412: "PA", 445: "PA",
+    484: "PA", 570: "PA", 582: "PA", 610: "PA", 717: "PA", 724: "PA",
+    814: "PA", 835: "PA", 878: "PA",
+    # Rhode Island
+    401: "RI",
+    # South Carolina
+    803: "SC", 839: "SC", 843: "SC", 854: "SC", 864: "SC",
+    # South Dakota
+    605: "SD",
+    # Tennessee
+    423: "TN", 615: "TN", 629: "TN", 731: "TN", 865: "TN", 901: "TN",
+    931: "TN",
+    # Texas
+    210: "TX", 214: "TX", 254: "TX", 281: "TX", 325: "TX", 346: "TX",
+    361: "TX", 409: "TX", 430: "TX", 432: "TX", 469: "TX", 512: "TX",
+    682: "TX", 713: "TX", 726: "TX", 737: "TX", 806: "TX", 817: "TX",
+    830: "TX", 832: "TX", 903: "TX", 915: "TX", 936: "TX", 940: "TX",
+    956: "TX", 972: "TX", 979: "TX",
+    # Utah
+    385: "UT", 435: "UT", 801: "UT",
+    # Vermont
+    802: "VT",
+    # Virginia
+    276: "VA", 434: "VA", 540: "VA", 571: "VA", 703: "VA", 757: "VA",
+    804: "VA", 826: "VA",
+    # Washington
+    206: "WA", 253: "WA", 360: "WA", 425: "WA", 509: "WA", 564: "WA",
+    # Washington DC
+    202: "DC",
+    # West Virginia
+    304: "WV", 681: "WV",
+    # Wisconsin
+    262: "WI", 274: "WI", 414: "WI", 534: "WI", 608: "WI", 715: "WI",
+    920: "WI",
+    # Wyoming
+    307: "WY",
+    # Territories
+    340: "VI", 671: "GU", 684: "AS", 787: "PR", 939: "PR",
+}
+
+# State abbreviation → full name (for UI display)
+STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "DC": "Washington DC", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii",
+    "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine",
+    "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota",
+    "MS": "Mississippi", "MO": "Missouri", "MT": "Montana", "NE": "Nebraska",
+    "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico",
+    "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+    "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island",
+    "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas",
+    "UT": "Utah", "VT": "Vermont", "VA": "Virginia", "WA": "Washington",
+    "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+    "PR": "Puerto Rico", "VI": "US Virgin Islands", "GU": "Guam", "AS": "American Samoa",
+}
+
+
+def phone_to_state(phone):
+    """Extract area code from E.164 phone and return 2-letter state code or None."""
+    if not phone:
+        return None
+    digits = phone.lstrip("+").lstrip("1")
+    if len(digits) < 3:
+        return None
+    try:
+        area_code = int(digits[:3])
+    except ValueError:
+        return None
+    return AREA_CODE_TO_STATE.get(area_code)
+
+
+def get_state_coverage(phones):
+    """
+    Analyze state coverage for a list of phone numbers.
+    Returns dict: { "TX": ["+12105551234", "+12145559999"], "NC": ["+19195551111"], ... }
+    """
+    coverage = {}
+    for phone in phones:
+        state = phone_to_state(phone)
+        if state:
+            coverage.setdefault(state, []).append(phone)
+    return coverage
+
+
+def get_state_coverage_recommendations(phones, contact_states=None):
+    """
+    Generate recommendations for state coverage gaps.
+
+    Args:
+        phones: list of owned phone numbers
+        contact_states: optional dict of {state: contact_count} from call history
+
+    Returns list of recommendations:
+        [{"state": "NC", "state_name": "North Carolina", "owned": 1, "recommended": 2,
+          "need": 1, "contacts": 45, "priority": "high"}, ...]
+    """
+    coverage = get_state_coverage(phones)
+    recommendations = []
+
+    # If we have contact data, prioritize states with more contacts
+    states_to_check = set()
+    if contact_states:
+        states_to_check = set(contact_states.keys())
+    # Also include states we already have numbers in
+    states_to_check |= set(coverage.keys())
+
+    for state in sorted(states_to_check):
+        owned = len(coverage.get(state, []))
+        contacts = contact_states.get(state, 0) if contact_states else 0
+
+        # Determine priority
+        if owned == 0 and contacts > 0:
+            priority = "critical"  # Calling this state with out-of-state numbers
+        elif owned < RECOMMENDED_NUMBERS_PER_STATE and contacts > 10:
+            priority = "high"
+        elif owned < RECOMMENDED_NUMBERS_PER_STATE and contacts > 0:
+            priority = "medium"
+        elif owned < RECOMMENDED_NUMBERS_PER_STATE:
+            priority = "low"
+        else:
+            priority = "good"  # Adequate coverage
+
+        recommendations.append({
+            "state": state,
+            "state_name": STATE_NAMES.get(state, state),
+            "owned": owned,
+            "numbers": coverage.get(state, []),
+            "recommended": RECOMMENDED_NUMBERS_PER_STATE,
+            "need": max(0, RECOMMENDED_NUMBERS_PER_STATE - owned),
+            "contacts": contacts,
+            "priority": priority,
+        })
+
+    # Sort: critical first, then high, then by contact count
+    priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "good": 4}
+    recommendations.sort(key=lambda r: (priority_order.get(r["priority"], 5), -r["contacts"]))
+
+    return recommendations
+
+
+def get_contact_state_distribution(location_id):
+    """
+    Analyze call history to find which states the user's contacts are in.
+    Returns {state_code: contact_count} for states with > 0 calls.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return {}
+    try:
+        cur = conn.cursor()
+        # Get unique destination phones from call history
+        cur.execute("""
+            SELECT phone, COUNT(DISTINCT contact_id) AS contacts
+            FROM call_history
+            WHERE location_id = %s AND direction = 'outbound' AND phone IS NOT NULL
+            GROUP BY phone
+        """, (location_id,))
+        rows = cur.fetchall()
+        cur.close()
+
+        state_counts = {}
+        for row in rows:
+            state = phone_to_state(row["phone"])
+            if state:
+                state_counts[state] = state_counts.get(state, 0) + (row["contacts"] or 1)
+        return state_counts
+    except Exception as e:
+        logger.error(f"Failed to get contact state distribution: {e}")
+        return {}
+    finally:
+        return_db_connection(conn)
 
 
 # ── Health Score Calculator ────────────────────────────────────────────────
@@ -124,13 +407,13 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
     Selection algorithm:
     1. Gather all numbers (primary + local presence pool)
     2. Filter out frozen/resting numbers and numbers at daily cap
-    3. If local_presence enabled and area code matches, prefer that subset
+    3. State-level geo-routing: if dest is TX, only use TX numbers (if available)
     4. Weight remaining numbers by health score (higher health = more likely selected)
     5. Return the selected number
 
     Returns:
-        dict: {"phone": "+1...", "reason": "...", "health_score": N}
-        or None if no numbers available
+        dict: {"phone": "+1...", "reason": "...", "health_score": N, "state_match": bool}
+        or None if rotation disabled
     """
     rotation_config = voice_config.get("number_rotation", {})
     if not rotation_config.get("enabled", False):
@@ -162,6 +445,7 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
                 "daily_cap": WARMUP_STAGES[0]["daily_cap"],
                 "status": STATUS_WARMUP,
                 "warmup_stage": 0,
+                "state": phone_to_state(phone),
             })
             continue
 
@@ -201,20 +485,24 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
             "daily_cap": daily_cap,
             "status": status,
             "warmup_stage": warmup_stage,
+            "state": phone_to_state(phone),
         })
 
     if not candidates:
         # All numbers at cap or frozen — fall back to primary
-        return {"phone": primary, "reason": "fallback_all_exhausted", "health_score": 0}
+        return {"phone": primary, "reason": "fallback_all_exhausted", "health_score": 0, "state_match": False}
 
-    # Local presence filter: if enabled and we have a matching area code, prefer it
-    local_presence_enabled = voice_config.get("local_presence", False)
-    if local_presence_enabled and dest_phone:
-        dest_area = dest_phone.lstrip("+").lstrip("1")[:3]
-        local_matches = [c for c in candidates
-                         if c["phone"].lstrip("+").lstrip("1")[:3] == dest_area]
-        if local_matches:
-            candidates = local_matches
+    # ── State-level geo-routing ──
+    # If dest phone maps to a state, prefer numbers from that same state.
+    # This is statewide local presence — not just area code matching.
+    state_match = False
+    dest_state = phone_to_state(dest_phone) if dest_phone else None
+
+    if dest_state:
+        state_candidates = [c for c in candidates if c.get("state") == dest_state]
+        if state_candidates:
+            candidates = state_candidates
+            state_match = True
 
     # Weighted random selection by health score
     strategy = rotation_config.get("strategy", "weighted_health")
@@ -246,6 +534,9 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
                 break
         reason = "weighted_health"
 
+    if state_match:
+        reason += f"_state_{dest_state}"
+
     return {
         "phone": selected["phone"],
         "reason": reason,
@@ -253,6 +544,8 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
         "daily_calls": selected["daily_calls"],
         "daily_cap": selected["daily_cap"],
         "warmup_stage": selected.get("warmup_stage", 4),
+        "state_match": state_match,
+        "state": selected.get("state", ""),
     }
 
 
@@ -496,7 +789,7 @@ def expire_resting_numbers():
         cur.close()
         total = resting_count + frozen_count
         if total > 0:
-            logger.info(f"Expired {resting_count} resting + {frozen_count} frozen numbers → active")
+            logger.info(f"Expired {resting_count} resting + {frozen_count} frozen numbers -> active")
         return total
     except Exception as e:
         logger.error(f"Failed to expire resting numbers: {e}")
@@ -522,7 +815,7 @@ def advance_warmup_stages():
         now = datetime.utcnow()
         advanced = 0
 
-        for stage in range(4):  # 0→1, 1→2, 2→3, 3→4
+        for stage in range(4):  # 0->1, 1->2, 2->3, 3->4
             next_stage = stage + 1
             days_required = WARMUP_STAGES[next_stage]["days_required"]
             cur.execute("""

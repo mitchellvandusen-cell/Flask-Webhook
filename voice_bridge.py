@@ -4214,10 +4214,13 @@ def get_number_health():
     rotation_config = vc.get('number_rotation', {})
 
     numbers = []
+    all_phones = []
     for h in health_records:
         phone = h.get('phone', '')
+        all_phones.append(phone)
         stage = h.get('warmup_stage', 0)
         stage_info = nh.WARMUP_STAGES.get(stage, nh.WARMUP_STAGES[4])
+        state = nh.phone_to_state(phone)
         numbers.append({
             "phone": phone,
             "nickname": nicknames.get(phone, ''),
@@ -4244,16 +4247,28 @@ def get_number_health():
             "rest_until": h.get('rest_until', ''),
             "last_used_at": str(h.get('last_used_at', '')),
             "created_at": str(h.get('created_at', '')),
+            "state": state or '',
+            "state_name": nh.STATE_NAMES.get(state, '') if state else '',
         })
 
     # Summary stats
     summary = nh.get_number_health_summary(location_id)
+
+    # State coverage analysis + recommendations
+    # Include all numbers from voice_config (not just those with health records)
+    all_vc_numbers = list(set([primary] + (vc.get('local_presence_numbers', []))))
+    all_vc_numbers = [p for p in all_vc_numbers if p]
+    contact_states = nh.get_contact_state_distribution(location_id)
+    state_coverage = nh.get_state_coverage(all_vc_numbers)
+    recommendations = nh.get_state_coverage_recommendations(all_vc_numbers, contact_states)
 
     return jsonify({
         "numbers": numbers,
         "summary": summary,
         "rotation_enabled": rotation_config.get('enabled', False),
         "rotation_strategy": rotation_config.get('strategy', 'weighted_health'),
+        "state_coverage": {state: len(phones) for state, phones in state_coverage.items()},
+        "recommendations": recommendations,
     })
 
 

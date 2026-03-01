@@ -322,6 +322,69 @@
                 html += '</div>';
             }
 
+            // ── State Coverage Recommendations ──
+            var recs = d.recommendations || [];
+            if (recs.length) {
+                html += '<div style="margin-top:16px;">';
+                html += '<h6 style="margin:0 0 10px;font-weight:700;color:#fff;font-size:.82rem;"><i class="fa-solid fa-map-location-dot me-2" style="color:#00d9ff;"></i>State Coverage <span style="color:#666;font-weight:400;font-size:.68rem;">(2 numbers per state recommended)</span></h6>';
+
+                // Critical/High priority — states needing numbers
+                var needAction = recs.filter(function(r) { return r.priority === 'critical' || r.priority === 'high'; });
+                var covered = recs.filter(function(r) { return r.priority === 'good'; });
+                var medium = recs.filter(function(r) { return r.priority === 'medium' || r.priority === 'low'; });
+
+                if (needAction.length) {
+                    html += '<div style="margin-bottom:8px;">';
+                    needAction.forEach(function(r) {
+                        var isCritical = r.priority === 'critical';
+                        var bgColor = isCritical ? 'rgba(239,68,68,0.06)' : 'rgba(255,165,0,0.06)';
+                        var borderColor = isCritical ? 'rgba(239,68,68,0.15)' : 'rgba(255,165,0,0.15)';
+                        var textColor = isCritical ? '#ef4444' : '#ffa500';
+                        var icon = isCritical ? 'fa-triangle-exclamation' : 'fa-circle-exclamation';
+
+                        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:6px;margin-bottom:4px;">';
+                        html += '<div style="display:flex;align-items:center;gap:8px;">';
+                        html += '<i class="fa-solid ' + icon + '" style="color:' + textColor + ';font-size:.7rem;"></i>';
+                        html += '<span style="color:#ccc;font-size:.75rem;font-weight:600;">' + _esc(r.state_name) + ' <span style="color:#555;">(' + r.state + ')</span></span>';
+                        html += '<span style="color:' + textColor + ';font-size:.65rem;">' + r.owned + '/' + r.recommended + ' numbers</span>';
+                        if (r.contacts > 0) html += '<span style="color:#888;font-size:.6rem;">' + r.contacts + ' contacts</span>';
+                        html += '</div>';
+                        html += '<span style="background:' + bgColor + ';color:' + textColor + ';padding:2px 8px;border-radius:4px;font-size:.6rem;font-weight:700;text-transform:uppercase;">';
+                        html += isCritical ? 'Need ' + r.need + ' numbers' : 'Need ' + r.need + ' more';
+                        html += '</span>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                }
+
+                if (medium.length) {
+                    html += '<div style="margin-bottom:8px;">';
+                    medium.forEach(function(r) {
+                        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.7rem;">';
+                        html += '<div style="display:flex;align-items:center;gap:6px;">';
+                        html += '<span style="color:#aaa;">' + _esc(r.state_name) + '</span>';
+                        html += '<span style="color:#555;">(' + r.owned + '/' + r.recommended + ')</span>';
+                        if (r.contacts > 0) html += '<span style="color:#666;font-size:.6rem;">' + r.contacts + ' contacts</span>';
+                        html += '</div>';
+                        html += '<span style="color:#ffa500;font-size:.6rem;">+' + r.need + ' recommended</span>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                }
+
+                if (covered.length) {
+                    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+                    covered.forEach(function(r) {
+                        html += '<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);border-radius:4px;padding:2px 7px;font-size:.6rem;color:#4ade80;">';
+                        html += '<i class="fa-solid fa-circle-check" style="font-size:.45rem;"></i>' + r.state + ' (' + r.owned + ')';
+                        html += '</span>';
+                    });
+                    html += '</div>';
+                }
+
+                html += '</div>';
+            }
+
             el.innerHTML = html;
         }
 
@@ -380,6 +443,7 @@
             html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
             html += '<div style="display:flex;align-items:center;gap:6px;">';
             html += '<span style="color:#fff;font-weight:600;font-size:.8rem;">' + _esc(_fmtPhone(n.phone)) + '</span>';
+            if (n.state) html += '<span style="background:rgba(0,217,255,0.08);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.5rem;font-weight:700;letter-spacing:.3px;">' + _esc(n.state) + '</span>';
             if (n.is_primary) html += '<span style="background:rgba(0,217,255,0.15);color:#00d9ff;padding:1px 5px;border-radius:3px;font-size:.55rem;font-weight:700;">PRIMARY</span>';
             if (n.nickname) html += '<span style="color:#666;font-size:.65rem;">(' + _esc(n.nickname) + ')</span>';
             html += '</div>';
