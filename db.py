@@ -3388,7 +3388,7 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
                 synced_at = CURRENT_TIMESTAMP
         """, values, template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, CURRENT_TIMESTAMP)")
 
-        affected = cur.rowcount
+        total_upserted = len(values)  # cur.rowcount only reflects last execute_values batch
 
         # Remove stale contacts that are no longer in GHL
         if incoming_ids:
@@ -3402,8 +3402,8 @@ def upsert_contact_cache(location_id: str, contacts: list) -> int:
 
         conn.commit()
         cur.close()
-        logger.info(f"Contact cache upserted: {affected} contacts for {location_id}")
-        return affected
+        logger.info(f"Contact cache upserted: {total_upserted} contacts for {location_id}")
+        return total_upserted
     except Exception as e:
         logger.error(f"upsert_contact_cache failed for {location_id}: {e}")
         if conn:
