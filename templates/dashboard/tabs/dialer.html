@@ -465,6 +465,26 @@
                     </div>
                 </div>
 
+                <!-- ═══ Number Rotation Feature Banner ═══ -->
+                <div id="numberRotationBanner" style="display:none;background:linear-gradient(135deg,rgba(0,217,255,0.04),rgba(0,255,136,0.03));border:1px solid rgba(0,217,255,0.12);border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fa-solid fa-shuffle" style="color:#00d9ff;font-size:0.9rem;"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:0.85rem;font-weight:700;color:#fff;">Smart Number Rotation is here</div>
+                            <div style="font-size:0.75rem;color:#888;margin-top:2px;">Health scoring, auto-rest, state geo-routing, and warm-up stages — all automatic. Enable it in <strong style="color:#00d9ff;">Numbers</strong> tab.</div>
+                        </div>
+                        <a href="#" onclick="event.preventDefault();document.querySelector('[data-tab=numbers]').click();" style="padding:5px 14px;border-radius:6px;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;text-decoration:none;white-space:nowrap;">
+                            <i class="fa-solid fa-gear me-1"></i>Configure
+                        </a>
+                        <button onclick="this.closest('#numberRotationBanner').style.display='none';localStorage.setItem('nr_banner_dismissed','1');" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.72rem;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+                <script>
+                    (function(){if(!localStorage.getItem('nr_banner_dismissed')){document.getElementById('numberRotationBanner').style.display='block';}})();
+                </script>
+
                 <!-- ═══ Dialer Statistics Panel ═══ -->
                 <div id="dialerStatsPanel" style="display:none;background:rgba(8,8,16,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px 24px;margin-bottom:12px;">
                     <div class="d-flex align-items-center justify-content-between mb-3">
