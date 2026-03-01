@@ -105,12 +105,14 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
                     p.putconn(conn, close=True)
                 except Exception:
                     pass
-                conn = None
+                # Create a fresh direct connection to use for this request.
+                # Tag it so return_db_connection releases the semaphore slot
+                # even though putconn will fail for this non-pooled connection.
                 conn = psycopg2.connect(
                     DATABASE_URL, connect_timeout=10, cursor_factory=RealDictCursor)
-                # Tag so return_db_connection knows to release the semaphore
-                # even though putconn will fail for this non-pooled connection
                 conn._pool_semaphore_acquired = True
+                conn.autocommit = False
+                return conn
             conn.autocommit = False
             return conn
         except Exception as e:
@@ -120,7 +122,10 @@ def get_db_connection() -> Optional[psycopg2.extensions.connection]:
                 try:
                     p.putconn(conn)
                 except Exception:
-                    pass
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
             logger.warning(f"Pool getconn failed, falling back to direct: {e}")
             return _direct_connect()
     return _direct_connect()
