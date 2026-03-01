@@ -242,15 +242,20 @@
         async function loadNumberHealth() {
             const el = document.getElementById('numberHealthContent');
             if (!el) return;
+            // Show loading spinner
+            el.innerHTML = '<div style="text-align:center;padding:20px;color:#555;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1rem;color:#ff6b9d;display:block;margin-bottom:6px;"></i><span style="font-size:.72rem;">Loading number health...</span></div>';
             try {
                 const r = await fetch('/voice/number-health');
-                if (!r.ok) { el.innerHTML = ''; return; }
+                if (!r.ok) {
+                    el.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.75rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Failed to load number health</div>';
+                    return;
+                }
                 const d = await r.json();
                 _nhData = d;
                 _renderNumberHealth(el, d);
             } catch(e) {
                 console.error('[NumberHealth] Load error:', e);
-                el.innerHTML = '';
+                el.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.75rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading health data</div>';
             }
         }
 
@@ -464,7 +469,8 @@
             html += _nhPill('fa-phone', n.daily_calls + '/' + n.daily_cap + ' today', dailyPct >= 80 ? '#ffa500' : '#888');
             html += _nhPill('fa-link', connectRate.toFixed(0) + '% connect', connectRate >= 30 ? '#4ade80' : (connectRate >= 15 ? '#ffa500' : '#ef4444'));
             html += _nhPill('fa-chart-line', totalCalls + ' lifetime', '#888');
-            html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, n.warmup_stage >= 4 ? '#4ade80' : '#00d9ff');
+            var warmupColors = { 0: '#ef4444', 1: '#ffa500', 2: '#fbbf24', 3: '#00d9ff', 4: '#4ade80' };
+            html += _nhPill('fa-seedling', n.warmup_label || 'Stage ' + n.warmup_stage, warmupColors[n.warmup_stage] || '#00d9ff');
             html += '</div>';
 
             // Row 3: Health bar
@@ -472,14 +478,15 @@
             html += '<div style="height:100%;width:' + score + '%;background:' + barColor + ';border-radius:2px;transition:width .5s ease;"></div>';
             html += '</div>';
 
-            // Row 4: Actions (only for non-active)
+            // Row 4: Actions
             if (n.status === 'frozen' || n.status === 'resting') {
                 html += '<div style="margin-top:6px;text-align:right;">';
                 html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'active\')" style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.15);color:#00ff88;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-play me-1"></i>Reactivate</button>';
                 html += '</div>';
             } else if (score < 40 && totalCalls >= 5) {
-                html += '<div style="margin-top:6px;text-align:right;">';
+                html += '<div style="margin-top:6px;display:flex;justify-content:flex-end;gap:6px;">';
                 html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'resting\',24)" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:#fbbf24;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-moon me-1"></i>Rest 24h</button>';
+                html += '<button onclick="nhSetNumberStatus(\'' + _esc(n.phone) + '\',\'frozen\')" style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.15);color:#8b5cf6;border-radius:4px;padding:3px 10px;font-size:.65rem;font-weight:600;cursor:pointer;"><i class="fa-solid fa-snowflake me-1"></i>Freeze</button>';
                 html += '</div>';
             }
 
@@ -504,8 +511,13 @@
                 if (r.ok) {
                     if (typeof _showDashToast === 'function') _showDashToast(true, 'Smart Rotation ' + (enabled ? 'enabled' : 'disabled'));
                     loadNumberHealth();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to toggle rotation');
                 }
-            } catch(e) { console.error('[NumberHealth] Toggle error:', e); }
+            } catch(e) {
+                console.error('[NumberHealth] Toggle error:', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            }
         }
 
         async function nhSetStrategy(strategy) {
@@ -516,13 +528,21 @@
                     body: JSON.stringify({ enabled: true, strategy: strategy }),
                 });
                 if (r.ok) {
-                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Strategy: ' + strategy.replace('_', ' '));
+                    if (typeof _showDashToast === 'function') _showDashToast(true, 'Strategy: ' + strategy.replace(/_/g, ' '));
                     loadNumberHealth();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to set strategy');
                 }
-            } catch(e) { console.error('[NumberHealth] Strategy error:', e); }
+            } catch(e) {
+                console.error('[NumberHealth] Strategy error:', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            }
         }
 
         async function nhSetNumberStatus(phone, status, restHours) {
+            // Confirmation for potentially impactful actions
+            if (status === 'resting' && !confirm('Rest ' + _fmtPhone(phone) + ' for ' + (restHours || 24) + ' hours?\nThis number will be removed from the active rotation pool.')) return;
+            if (status === 'frozen' && !confirm('Freeze ' + _fmtPhone(phone) + '?\nThis number will be quarantined until manually reactivated.')) return;
             try {
                 var r = await fetch('/voice/number-health/set-status', {
                     method: 'POST',
@@ -530,10 +550,15 @@
                     body: JSON.stringify({ phone: phone, status: status, rest_hours: restHours || null }),
                 });
                 if (r.ok) {
-                    if (typeof _showDashToast === 'function') _showDashToast(true, phone + ' → ' + status);
+                    if (typeof _showDashToast === 'function') _showDashToast(true, _fmtPhone(phone) + ' → ' + status);
                     loadNumberHealth();
+                } else {
+                    if (typeof _showDashToast === 'function') _showDashToast(false, 'Failed to update status');
                 }
-            } catch(e) { console.error('[NumberHealth] Set status error:', e); }
+            } catch(e) {
+                console.error('[NumberHealth] Set status error:', e);
+                if (typeof _showDashToast === 'function') _showDashToast(false, 'Network error');
+            }
         }
 
         // Auto-load number health when numbers tab renders

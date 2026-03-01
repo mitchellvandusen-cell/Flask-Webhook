@@ -423,6 +423,7 @@ def select_outbound_number(location_id, voice_config, dest_phone=None):
     primary = voice_config.get("twilio_phone_number", "")
     local_pool = voice_config.get("local_presence_numbers", [])
     all_numbers = list(set([primary] + local_pool)) if primary else list(set(local_pool))
+    all_numbers = [p for p in all_numbers if p]  # Filter empty strings
 
     if not all_numbers:
         return None
@@ -584,7 +585,8 @@ def update_number_health(location_id, phone, call_status, duration=0):
         """, (location_id, phone, now, now, now))
 
         # Determine which counters to increment
-        is_connected = call_status == "completed" and duration > 0
+        # Twilio "completed" means the call was answered, even if duration=0
+        is_connected = call_status == "completed"
         is_no_answer = call_status in ("no-answer", "canceled")
         is_failed = call_status == "failed"
         is_busy = call_status == "busy"
