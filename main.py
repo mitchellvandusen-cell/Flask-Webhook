@@ -3021,6 +3021,69 @@ def api_cron_sync_ghl_data():
         return safe_jsonify({"success": False, "error": str(e)}), 200
 
 
+@app.route("/api/cron/number-health", methods=["GET", "POST"])
+def api_cron_number_health():
+    """
+    Cron-triggered endpoint: daily number health maintenance.
+    - Resets daily call counters
+    - Expires resting/frozen numbers whose rest period ended
+    - Advances warm-up stages for eligible numbers
+    Schedule this once daily (e.g. 00:05 UTC).
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from number_health import reset_daily_metrics, expire_resting_numbers, advance_warmup_stages
+
+        reset_count = reset_daily_metrics()
+        expired_count = expire_resting_numbers()
+        warmup_count = advance_warmup_stages()
+
+        return safe_jsonify({
+            "success": True,
+            "daily_reset": reset_count,
+            "expired_rest": expired_count,
+            "warmup_advanced": warmup_count,
+        })
+    except Exception as e:
+        logger.error(f"Cron number-health crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
+@app.route("/api/cron/number-health-expire", methods=["GET", "POST"])
+def api_cron_number_health_expire():
+    """
+    Cron-triggered endpoint: expire resting/frozen numbers more frequently.
+    Only runs the rest/freeze expiry check (not daily reset or warm-up).
+    Schedule this every 15 minutes.
+    Auth: Bearer {CRON_SECRET} header or ?key={CRON_SECRET} query param.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    auth_header = request.headers.get("Authorization", "")
+    query_key = request.args.get("key", "")
+    authorized = cron_secret and (
+        auth_header == f"Bearer {cron_secret}" or query_key == cron_secret
+    )
+    if not authorized:
+        return safe_jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from number_health import expire_resting_numbers
+        expired_count = expire_resting_numbers()
+        return safe_jsonify({"success": True, "expired": expired_count})
+    except Exception as e:
+        logger.error(f"Cron number-health-expire crashed: {e}", exc_info=True)
+        return safe_jsonify({"success": False, "error": str(e)}), 200
+
+
 @app.route("/api/ghl-phone-numbers", methods=["GET"])
 @login_required
 def api_ghl_phone_numbers():
