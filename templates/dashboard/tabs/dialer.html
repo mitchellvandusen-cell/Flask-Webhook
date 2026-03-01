@@ -523,7 +523,7 @@
                             <div style="font-size:0.85rem;font-weight:700;color:#fff;">Smart Number Rotation is here</div>
                             <div style="font-size:0.75rem;color:#888;margin-top:2px;">Health scoring, auto-rest, state geo-routing, and warm-up stages — all automatic. Enable it in <strong style="color:#00d9ff;">Numbers</strong> tab.</div>
                         </div>
-                        <a href="#" onclick="event.preventDefault();document.querySelector('[data-tab=numbers]').click();" style="padding:5px 14px;border-radius:6px;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;text-decoration:none;white-space:nowrap;">
+                        <a href="#" onclick="event.preventDefault();sidebarNavigate('voice',document.getElementById('sbnVoiceConfig'));switchVoicePanel('numbers');" style="padding:5px 14px;border-radius:6px;background:linear-gradient(135deg,#00d9ff,#0099cc);color:#000;font-weight:700;font-size:0.75rem;text-decoration:none;white-space:nowrap;">
                             <i class="fa-solid fa-gear me-1"></i>Configure
                         </a>
                         <button onclick="this.closest('#numberRotationBanner').style.display='none';localStorage.setItem('nr_banner_dismissed','1');" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.72rem;padding:4px;"><i class="fa-solid fa-xmark"></i></button>
