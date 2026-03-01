@@ -37,16 +37,14 @@ logger = logging.getLogger(__name__)
 oauth_bp = Blueprint('oauth', __name__)
 
 # ── OAuth scopes ─────────────────────────────────────────────────────────────
-# All scopes approved on the public marketplace app.
-# NOTE: "conversations.readonly" was deprecated by GHL — use
-# "conversations/message.readonly" instead.  Requesting the old scope
-# causes "Invalid scope(s): conversations.readonly" during OAuth.
+# All scopes approved on the public marketplace app as of 2026-02-27.
 GHL_OAUTH_SCOPES = [
     "calendars.readonly",
     "calendars/events.readonly",
     "calendars/events.write",
     "calendars/groups.readonly",
     "contacts.readonly",
+    "conversations.readonly",
     "conversations.write",
     "conversations/message.readonly",
     "conversations/message.write",
@@ -211,21 +209,26 @@ def oauth_initiate():
     session["ghl_oauth_state"] = state
 
     # ── PKCE: Proof Key for Code Exchange (RFC 7636) ─────────────────────
-    code_verifier = secrets.token_urlsafe(43)
-    code_challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).decode().rstrip("=")
-    session["ghl_pkce_verifier"] = code_verifier
-
-    oauth_params = urlencode({
+    # GHL private apps reject PKCE with 422: "property code_verifier should
+    # not exist".  Only include PKCE params for public/marketplace flows.
+    oauth_params_dict = {
         'response_type': 'code',
         'redirect_uri': redirect_uri,
         'client_id': client_id,
         'scope': scope_string,
         'state': state,
-        'code_challenge': code_challenge,
-        'code_challenge_method': 'S256',
-    })
+    }
+
+    if not use_private:
+        code_verifier = secrets.token_urlsafe(43)
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode()).digest()
+        ).decode().rstrip("=")
+        session["ghl_pkce_verifier"] = code_verifier
+        oauth_params_dict['code_challenge'] = code_challenge
+        oauth_params_dict['code_challenge_method'] = 'S256'
+
+    oauth_params = urlencode(oauth_params_dict)
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
 
     logger.info(
@@ -396,8 +399,10 @@ def oauth_callback():
                 "code": code,
                 "redirect_uri": f"{domain}/oauth/callback",
             }
-            # Include PKCE verifier if available (website_user / private_app flows)
-            if code_verifier:
+            # Include PKCE verifier for marketplace/public apps only.
+            # GHL private apps reject code_verifier with 422:
+            # "property code_verifier should not exist"
+            if code_verifier and not cred_set.get("is_private"):
                 base_payload["code_verifier"] = code_verifier
 
             for user_type in ["Location", "Company"]:
