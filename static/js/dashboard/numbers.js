@@ -265,11 +265,6 @@
             const rotationEnabled = d.rotation_enabled;
             const strategy = d.rotation_strategy || 'weighted_health';
 
-            if (!nums.length && !rotationEnabled) {
-                el.innerHTML = '';
-                return;
-            }
-
             let html = '';
 
             // ── Header with toggle ──
@@ -283,7 +278,7 @@
 
             if (!rotationEnabled) {
                 html += '<div style="padding:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;text-align:center;color:#666;font-size:.78rem;">';
-                html += '<i class="fa-solid fa-shield-halved" style="font-size:1.2rem;display:block;margin-bottom:6px;color:#444;"></i>';
+                html += '<i class="fa-solid fa-shuffle" style="font-size:1.2rem;display:block;margin-bottom:6px;color:#444;"></i>';
                 html += 'Enable Smart Rotation to automatically distribute calls across your numbers,<br>prevent burnout, and maximize connection rates.';
                 html += '</div>';
                 el.innerHTML = html;
