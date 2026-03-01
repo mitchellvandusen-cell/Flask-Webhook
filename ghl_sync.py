@@ -860,20 +860,22 @@ def run_incremental_sync_all():
 
     try:
         cur = conn.cursor()
-        # Get all active subscribers with OAuth tokens
+        # Get all active subscribers with tokens (OAuth or PIT)
+        # PIT (Private Integration Tokens) have no refresh_token — they're
+        # persistent API keys that don't expire.  Previously this query
+        # required refresh_token IS NOT NULL which silently excluded all
+        # PIT-authenticated accounts from the sync pipeline.
         cur.execute("""
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM subscribers
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
-              AND refresh_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')
             UNION ALL
             SELECT location_id, access_token, refresh_token, token_expires_at
             FROM agency_billing
             WHERE location_id IS NOT NULL
               AND access_token IS NOT NULL
-              AND refresh_token IS NOT NULL
               AND stripe_status IN ('active', 'trialing')
         """)
         rows = cur.fetchall()
