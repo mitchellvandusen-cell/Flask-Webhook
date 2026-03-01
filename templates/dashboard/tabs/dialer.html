@@ -68,6 +68,46 @@
                     .dlr-call-badge{display:inline-flex;align-items:center;justify-content:center;background:rgba(0,217,255,0.15);border:1px solid rgba(0,217,255,0.25);color:#00d9ff;border-radius:6px;padding:1px 7px;font-size:0.88rem;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0;line-height:1.3;white-space:nowrap;gap:4px;}
 
                     /* ═══════════════════════════════════════════════
+                       Jump to Contact
+                       ═══════════════════════════════════════════════ */
+                    @keyframes jtcFlash {
+                        0% { background: rgba(0,217,255,0.2); }
+                        100% { background: transparent; }
+                    }
+                    @keyframes jtcPanelFlash {
+                        0% { box-shadow: inset 0 0 20px rgba(0,217,255,0.15); }
+                        100% { box-shadow: none; }
+                    }
+                    .dlr-contact-row.jtc-flash { animation: jtcFlash 0.6s ease-out; }
+                    .jtc-panel-flash { animation: jtcPanelFlash 0.6s ease-out; }
+                    #jtcPill {
+                        position: fixed;
+                        bottom: 24px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        z-index: 9999;
+                        display: none;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 18px;
+                        background: linear-gradient(135deg, rgba(0,217,255,0.15), rgba(0,255,136,0.1));
+                        border: 1px solid rgba(0,217,255,0.35);
+                        border-radius: 24px;
+                        backdrop-filter: blur(16px);
+                        -webkit-backdrop-filter: blur(16px);
+                        cursor: pointer;
+                        transition: transform 0.15s, box-shadow 0.15s;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                    }
+                    #jtcPill:hover { transform: translateX(-50%) scale(1.04); box-shadow: 0 6px 28px rgba(0,217,255,0.2); }
+                    #jtcPill .jtc-dot { width: 8px; height: 8px; border-radius: 50%; background: #00d9ff; animation: dialerPulse 1.5s infinite; flex-shrink: 0; }
+                    #jtcPill .jtc-name { font-weight: 700; font-size: 0.82rem; color: #fff; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    #jtcPill .jtc-status { font-size: 0.72rem; color: #00d9ff; }
+                    #jtcPill .jtc-icon { color: #00d9ff; font-size: 0.78rem; }
+                    .dlr-queue-row-clickable { cursor: pointer; transition: background 0.12s; }
+                    .dlr-queue-row-clickable:hover { background: rgba(0,217,255,0.06) !important; }
+
+                    /* ═══════════════════════════════════════════════
                        InsuranceGrokBot Dialer Enhancements
                        ═══════════════════════════════════════════════ */
 
@@ -386,7 +426,7 @@
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div id="dialerCallDot" style="width:10px;height:10px;border-radius:50%;background:#00d9ff;animation:dialerPulse 1.5s infinite;flex-shrink:0;"></div>
                         <div style="flex:1;">
-                            <div id="dialerCallName" style="font-weight:700;font-size:1rem;">-</div>
+                            <div id="dialerCallName" onclick="dialerJumpToContact()" style="font-weight:700;font-size:1rem;cursor:pointer;" title="Jump to this contact">-</div>
                             <div id="dialerCallStatus" style="font-size:0.88rem;color:#00d9ff;">Connecting...</div>
                         </div>
                         <div id="dialerBannerTimer" style="font-family:monospace;font-size:0.88rem;color:var(--accent);font-weight:700;display:none;">00:00</div>
@@ -431,6 +471,14 @@
                         </div>
                         <button onclick="dialerDismissDisposition()" style="background:none;border:none;color:#555;cursor:pointer;font-size:0.7rem;"><i class="fa-solid fa-xmark"></i></button>
                     </div>
+                </div>
+
+                <!-- Jump to Contact Pill (appears when navigated away from active call) -->
+                <div id="jtcPill" onclick="dialerJumpToContact()">
+                    <span class="jtc-dot"></span>
+                    <span class="jtc-name" id="jtcPillName">-</span>
+                    <span class="jtc-status" id="jtcPillStatus">Ringing...</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square jtc-icon"></i>
                 </div>
 
                 <!-- VoIP In-Call Bar -->

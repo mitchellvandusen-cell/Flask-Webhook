@@ -817,6 +817,129 @@
             dialerLoadRecordings();
             // Fetch merged GHL + local call count and update badge
             dialerFetchMergedCallCount(c.id);
+            // Auto-scroll contact list to active row
+            _jtcScrollToActiveContact();
+            // Update Jump to Contact pill state
+            _jtcUpdatePill();
+        }
+
+        // ═══════════════════════════════════════════════
+        //   Jump to Contact — WAVV-style active contact tracking
+        // ═══════════════════════════════════════════════
+
+        // The contact ID that the power dialer is currently calling.
+        // This is separate from dialerActiveContact which tracks what the user is VIEWING.
+        let _jtcDialingContactId = null;
+
+        // Jump to the contact that the power dialer is currently calling.
+        // Works from: pill click, banner name click, queue row click.
+        function dialerJumpToContact(targetId) {
+            const id = targetId || _jtcDialingContactId;
+            if (!id) return;
+            const c = dialerContacts.find(x => x.id === id);
+            if (!c) return;
+
+            // Update active contact and reload panels
+            dialerActiveContact = c;
+            _dialerCallHistoryShowAll = false;
+            _dialerRecordingsShowAll = false;
+            dialerRenderContacts();
+            dialerLoadContactDetail(c.id);
+            dialerLoadContactMessages(c.id);
+            dialerLoadAllCallHistory();
+            dialerLoadRecordings();
+            dialerFetchMergedCallCount(c.id);
+
+            // Visual flash on the contact row + detail panel
+            _jtcFlashContact(c.id);
+
+            // Auto-scroll to this contact in the list
+            _jtcScrollToActiveContact();
+
+            // Auto-scroll queue to the active item
+            _jtcScrollToActiveQueueItem();
+
+            // Hide the pill since we just jumped back
+            _jtcUpdatePill();
+        }
+
+        // Flash the contact row and detail panel to show the jump happened
+        function _jtcFlashContact(contactId) {
+            // Flash contact row in left column
+            requestAnimationFrame(() => {
+                const rows = document.querySelectorAll('#dialerContactList .dlr-contact-row');
+                rows.forEach(row => {
+                    if (row.getAttribute('onclick') && row.getAttribute('onclick').includes(contactId)) {
+                        row.classList.remove('jtc-flash');
+                        void row.offsetWidth; // reflow
+                        row.classList.add('jtc-flash');
+                    }
+                });
+                // Flash detail panel
+                const panel = document.getElementById('dlrDetailContent');
+                if (panel) {
+                    panel.classList.remove('jtc-panel-flash');
+                    void panel.offsetWidth;
+                    panel.classList.add('jtc-panel-flash');
+                }
+            });
+        }
+
+        // Scroll the contact list so the active contact row is visible
+        function _jtcScrollToActiveContact() {
+            if (!dialerActiveContact) return;
+            requestAnimationFrame(() => {
+                const list = document.getElementById('dialerContactList');
+                if (!list) return;
+                const rows = list.querySelectorAll('.dlr-contact-row');
+                for (const row of rows) {
+                    const onclick = row.getAttribute('onclick') || '';
+                    if (onclick.includes(dialerActiveContact.id)) {
+                        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        break;
+                    }
+                }
+            });
+        }
+
+        // Scroll the queue list so the active queue item is visible
+        function _jtcScrollToActiveQueueItem() {
+            if (dialerCallIdx < 0) return;
+            requestAnimationFrame(() => {
+                const queueList = document.getElementById('dialerQueueList');
+                if (!queueList) return;
+                const items = queueList.children;
+                if (dialerCallIdx < items.length) {
+                    items[dialerCallIdx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }
+
+        // Show/hide the floating Jump to Contact pill based on whether user
+        // has navigated away from the currently-dialing contact.
+        function _jtcUpdatePill() {
+            const pill = document.getElementById('jtcPill');
+            if (!pill) return;
+
+            // Only show pill when the dialer is actively calling someone
+            // AND the user is viewing a DIFFERENT contact (or no contact)
+            const isDialing = dialerQueueRunning && _jtcDialingContactId && dialerCallSid;
+            const isViewingDifferent = !dialerActiveContact || dialerActiveContact.id !== _jtcDialingContactId;
+
+            if (isDialing && isViewingDifferent) {
+                // Find the dialing contact to show their name
+                const dialingContact = dialerContacts.find(x => x.id === _jtcDialingContactId);
+                if (dialingContact) {
+                    document.getElementById('jtcPillName').textContent = dialingContact.name || 'Unknown';
+                    // Reflect call status
+                    const statusEl = document.getElementById('dialerCallStatus');
+                    const statusText = statusEl ? statusEl.textContent : 'In Call';
+                    document.getElementById('jtcPillStatus').textContent = statusText;
+                    pill.style.display = 'flex';
+                    return;
+                }
+            }
+            pill.style.display = 'none';
         }
 
         // ── InsuranceGrokBot: lead score — AI only, no rule-based heuristic ──
@@ -1827,6 +1950,8 @@
             banner.style.border = '1px solid ' + c.border;
             dot.style.background = c.dot;
             dot.style.animation  = c.anim;
+            // Keep Jump to Contact pill in sync with call state
+            _jtcUpdatePill();
         }
 
         function dialerStartPoll() {
@@ -1935,6 +2060,8 @@
         function dialerHideBanner() {
             document.getElementById('dialerCallBanner').style.display = 'none';
             dialerStopAiTimer();
+            // Clear Jump to Contact state when call ends
+            if (!dialerQueueRunning) { _jtcDialingContactId = null; _jtcUpdatePill(); }
             // Stop live listen if active
             _stopListenStream();
             _dialerListening = false;
@@ -2594,6 +2721,8 @@
         function dialerStopQueue() {
             dialerQueueRunning = false;
             _advanceLocked = false;
+            _jtcDialingContactId = null;
+            _jtcUpdatePill();
             const _wasDialing = _isDialing; // capture before clearing
             _isDialing = false; // release any in-flight dial guard
             dialerUpdateBtn();
@@ -2681,12 +2810,12 @@
             const icons = { pending:'<span style="color:#555;">Wait</span>', initiated:'<i class="fa-solid fa-spinner fa-spin" style="color:#00d9ff;"></i>', ringing:'<span style="color:#00d9ff;">Ring</span>', 'in-progress':'<span style="color:var(--accent);">Live</span>', completed:'<i class="fa-solid fa-check" style="color:var(--accent);"></i>', 'no-answer':'<span style="color:#ffa500;">N/A</span>', busy:'<span style="color:#ffa500;">Busy</span>', failed:'<i class="fa-solid fa-xmark" style="color:#ef4444;"></i>' };
             list.innerHTML = dialerQueue.map((q, i) => {
                 const active = dialerQueueRunning && i === dialerCallIdx;
-                return '<div style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
+                return '<div class="dlr-queue-row-clickable" onclick="dialerJumpToContact(\'' + q.id + '\')" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;font-size:.72rem;' + (active ? 'background:rgba(74,222,128,0.05);' : '') + '">' +
                     '<span style="color:' + (active ? 'var(--accent)' : '#555') + ';font-weight:700;width:16px;text-align:center;">' + (i+1) + '</span>' +
                     '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + dialerEsc(q.name) + '</span>' +
                     ((q.attempts && q.attempts > 1) ? '<span style="color:#888;font-size:.6rem;">' + q.attempts + '/' + dialerMaxAttempts + '</span>' : '') +
                     '<span>' + (icons[q.status] || q.status) + '</span>' +
-                    (!dialerQueueRunning ? '<button onclick="dialerQueue.splice('+i+',1);dialerRenderContacts();dialerRenderQueue();" style="background:none;border:none;color:#444;cursor:pointer;font-size:.6rem;padding:0 2px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
+                    (!dialerQueueRunning ? '<button onclick="event.stopPropagation();dialerQueue.splice('+i+',1);dialerRenderContacts();dialerRenderQueue();" style="background:none;border:none;color:#444;cursor:pointer;font-size:.6rem;padding:0 2px;"><i class="fa-solid fa-xmark"></i></button>' : '') +
                 '</div>';
             }).join('');
         }
@@ -2698,22 +2827,31 @@
             else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
         }
         function dialerToggleQueue() {
-            if (dialerQueueRunning) { dialerQueueRunning = false; _advanceLocked = false; _dialerCancelQueueTimers(); dialerUpdateBtn(); return; }
+            if (dialerQueueRunning) { dialerQueueRunning = false; _advanceLocked = false; _jtcDialingContactId = null; _dialerCancelQueueTimers(); dialerUpdateBtn(); _jtcUpdatePill(); return; }
             dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
             if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
             dialerQueueRunning = true;
+            // Auto-expand queue body so user can see progression
+            const qBody = document.getElementById('dialerQueueBody');
+            if (qBody) qBody.style.display = 'block';
             dialerUpdateBtn();
             dialerDialNext();
         }
         function dialerDialNext() {
-            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
+            if (!dialerQueueRunning || dialerCallIdx < 0 || dialerCallIdx >= dialerQueue.length) { dialerQueueRunning = false; _jtcDialingContactId = null; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); _jtcUpdatePill(); return; }
             const item = dialerQueue[dialerCallIdx];
             if (!item.attempts) item.attempts = 0;
             item.attempts++;
             item.status = 'initiated';
             dialerRenderQueue();
+            // Track dialing contact for Jump to Contact
+            _jtcDialingContactId = item.id;
             // Auto-select contact in detail panel
             dialerSelectContact(item.id);
+            // Flash the contact row + panel to signal the jump
+            _jtcFlashContact(item.id);
+            // Auto-scroll queue to the active item
+            _jtcScrollToActiveQueueItem();
             console.log(`[Dialer] Calling ${item.name} (${item.phone}) — attempt ${item.attempts}/${dialerMaxAttempts}`);
             dialerStartCall(item.phone, item.firstName || item.name, item.id, item.name);
         }
@@ -2745,7 +2883,7 @@
 
             // Move to next pending contact
             dialerCallIdx = dialerQueue.findIndex((q, i) => i > dialerCallIdx && q.status === 'pending');
-            if (dialerCallIdx < 0) { _advanceLocked = false; dialerQueueRunning = false; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); return; }
+            if (dialerCallIdx < 0) { _advanceLocked = false; dialerQueueRunning = false; _jtcDialingContactId = null; dialerUpdateBtn(); dialerHideBanner(); dialerRenderQueue(); _jtcUpdatePill(); return; }
             // Brief 1s pause before next contact; use queue timer so it's cancelable
             _dialerQueueTimeout(() => { _advanceLocked = false; if (dialerQueueRunning) dialerDialNext(); }, 1000);
         }
