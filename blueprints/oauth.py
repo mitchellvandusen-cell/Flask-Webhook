@@ -546,20 +546,28 @@ def oauth_callback():
         else:
             logger.info("No userId in token_data — skipping /users/ call")
 
-        # ── Robust 5-step email recovery chain ────────────────────────────────
-        # OAuth must NEVER fail silently. Try every source; placeholder as last resort.
+        # ── Capture CRM email from GHL ───────────────────────────────────────
+        # The email from /users/{userId} or token_data is the CRM email.
+        # This is stored separately so it never overwrites the login email.
+        crm_email_resolved = user_email  # from /users/{userId} if it worked
+        if not crm_email_resolved:
+            crm_email_resolved = token_data.get('userEmail') or token_data.get('email')
 
-        # Fallback 1: email in token_data
+        # ── Robust email recovery chain ──────────────────────────────────────
+        # OAuth must NEVER fail silently. Try every source; placeholder as last resort.
+        # user_email = the account/login email (what they log in with).
+
+        # Priority 1: logged-in user — their login email is always canonical
+        if current_user.is_authenticated:
+            user_email = current_user.email
+            user_name = current_user.full_name or user_name
+            logger.info(f"Using logged-in user's email: {user_email} (CRM email: {crm_email_resolved})")
+
+        # Fallback 1: email in token_data (marketplace installs — user isn't logged in)
         if not user_email:
             user_email = token_data.get('userEmail') or token_data.get('email')
             if user_email:
                 logger.info(f"Fallback 1: Got email from token_data: {user_email}")
-
-        # Fallback 2: already logged in (website users / private app installs)
-        if not user_email and current_user.is_authenticated:
-            user_email = current_user.email
-            user_name = current_user.full_name or user_name
-            logger.info(f"Fallback 2: Using logged-in user's email: {user_email}")
 
         # Fallback 3: marketplace_installs table bridge
         if not user_email:
@@ -788,11 +796,11 @@ def oauth_callback():
                     INSERT INTO agency_billing (
                         agency_email, location_id, full_name, subscription_tier,
                         max_seats, active_seats, access_token, refresh_token,
-                        token_expires_at, timezone, crm_user_id, oauth_app_type,
-                        created_at, updated_at
+                        token_expires_at, timezone, crm_user_id, crm_email,
+                        oauth_app_type, created_at, updated_at
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
-                        NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
+                        NOW() + interval '%s seconds', %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
                         location_id = EXCLUDED.location_id,
@@ -800,12 +808,14 @@ def oauth_callback():
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
                         crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
+                        crm_email = EXCLUDED.crm_email,
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
                     user_email, primary_location_id, primary_name, plan_tier,
                     max_seats, active_seats, enc_access_token, enc_refresh_token,
-                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
+                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
+                    crm_email_resolved, app_type
                 ))
 
             # B. Reconnect/reinstall sync: update OAuth tokens on existing rows.
@@ -823,10 +833,11 @@ def oauth_callback():
                 existing_by_location = cur.fetchone()
 
             if existing_by_location:
-                # Location already has a subscriber row — update tokens + email
+                # Location already has a subscriber row — update tokens + crm_email.
+                # Never overwrite email (login identity) with CRM email.
                 cur.execute("""
                     UPDATE subscribers
-                    SET email = %s,
+                    SET crm_email = %s,
                         access_token = %s,
                         refresh_token = %s,
                         token_expires_at = NOW() + interval '%s seconds',
@@ -841,14 +852,14 @@ def oauth_callback():
                         updated_at = NOW()
                     WHERE location_id = %s
                 """, (
-                    user_email, enc_access_token, enc_refresh_token,
+                    crm_email_resolved, enc_access_token, enc_refresh_token,
                     expires_in, me_data.get('id'), app_type,
                     sync_role, user_email if use_agency_flow else None,
                     primary_location_id
                 ))
                 logger.info(
                     f"Synced OAuth tokens for existing location {primary_location_id} "
-                    f"(email: {existing_by_location['email']} → {user_email}, app_type={app_type})"
+                    f"(login: {existing_by_location['email']}, crm_email: {crm_email_resolved}, app_type={app_type})"
                 )
             else:
                 # Location doesn't exist yet — check if email owns a different location
@@ -860,11 +871,12 @@ def oauth_callback():
 
                 if existing_by_email and primary_location_id:
                     existing_loc = existing_by_email['location_id']
-                    # Email owns a different location — update tokens there but
-                    # do NOT change the PK. New location gets provisioned in Step 7C.
+                    # Email owns a different location — update tokens + crm_email
+                    # but do NOT change the PK. New location provisioned in Step 7C.
                     cur.execute("""
                         UPDATE subscribers
-                        SET access_token = %s,
+                        SET crm_email = %s,
+                            access_token = %s,
                             refresh_token = %s,
                             token_expires_at = NOW() + interval '%s seconds',
                             crm_user_id = COALESCE(%s, crm_user_id),
@@ -872,12 +884,13 @@ def oauth_callback():
                             updated_at = NOW()
                         WHERE email = %s
                     """, (
-                        enc_access_token, enc_refresh_token,
+                        crm_email_resolved, enc_access_token, enc_refresh_token,
                         expires_in, me_data.get('id'), app_type,
                         user_email
                     ))
                     logger.info(
                         f"Updated tokens for {user_email}'s existing location {existing_loc}. "
+                        f"CRM email: {crm_email_resolved}. "
                         f"New location {primary_location_id} will be provisioned in Step 7C."
                     )
 
@@ -923,16 +936,18 @@ def oauth_callback():
 
                 cur.execute("""
                     INSERT INTO subscribers (
-                        location_id, email, full_name, role, subscription_tier,
-                        parent_agency_email, access_token, refresh_token,
+                        location_id, email, crm_email, full_name, role,
+                        subscription_tier, parent_agency_email,
+                        access_token, refresh_token,
                         token_expires_at, timezone, crm_user_id,
                         onboarding_status, oauth_app_type, created_at, updated_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         NOW() + interval '%s seconds',
                         %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (location_id) DO UPDATE SET
+                        crm_email = EXCLUDED.crm_email,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
@@ -940,8 +955,9 @@ def oauth_callback():
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
-                    sub_id, user_email, sub_name, role, plan_tier,
-                    parent_agency_email, enc_access_token, enc_refresh_token,
+                    sub_id, user_email, crm_email_resolved, sub_name, role,
+                    plan_tier, parent_agency_email,
+                    enc_access_token, enc_refresh_token,
                     expires_in,
                     sub_timezone or 'America/Chicago', me_data.get('id'),
                     'pending', app_type
