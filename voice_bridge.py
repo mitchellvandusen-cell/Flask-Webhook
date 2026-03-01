@@ -2339,7 +2339,7 @@ def test_voice_connection():
             resp = httpx.post(
                 "https://api.x.ai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {XAI_API_KEY}"},
-                json={"model": "grok-3-mini-fast", "messages": [{"role": "user", "content": "test"}], "max_tokens": 5},
+                json={"model": "grok-4-1-fast-non-reasoning", "messages": [{"role": "user", "content": "test"}], "max_tokens": 5},
                 timeout=10,
             )
             results["xai"] = resp.status_code == 200

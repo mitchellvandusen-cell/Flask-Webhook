@@ -26,10 +26,55 @@
 | 2026-02-28 | GHL Data Sync Engine, SMS channel selection (GHL vs Twilio), unified Inbox app, AI-powered intelligence via xAI Grok |
 | 2026-02-28 | AI-powered Smart Filters (replaced rule-based), training platform recording fix, human-mode recording fix |
 | 2026-03-01 | OAuth flow fixes: removed invalid scopes, synced to 18 approved marketplace scopes, removed unsupported PKCE |
+| 2026-03-01 | Website polish: product screenshots, mobile responsive CSS, removed reviews page, Calendar booking app in dialer |
+| 2026-03-01 | Contact sync fixes: 401 token refresh mid-pagination, deep sync reset, progress bar fix |
+| 2026-03-01 | iMessage-style Inbox app redesign with search, filters, date grouping, proper conversation sorting |
+| 2026-03-01 | Mobile nav menu fix: solid background, custom toggle (replaces broken Bootstrap collapse) |
+| 2026-03-01 | Pricing update: $149.99/month across all pages, bot, and documentation |
 
 ---
 
-## 2026-03-01
+## 2026-03-01 (continued)
+
+### Website Polish & Mobile Experience
+- **Product screenshots added**: Large dialer showcase on homepage, 3-up feature strip (spam protection, carriers, activity log), 2x2 screenshot grid on comparison page
+- **Comprehensive mobile responsive CSS**: Full-screen mobile nav overlay, tablet/phone/small-phone breakpoints, touch targets (44px min), safe area insets for notched phones
+- **Reviews page removed**: Removed from navbar and footer until more users acquired (route/template preserved)
+- **Apple web app meta tags**: theme-color, apple-mobile-web-app-capable, viewport-fit=cover
+
+### Calendar Booking App (Dialer iPhone UI)
+- **New Calendar app**: iPhone-style calendar in the dialer phone UI pulling GHL/LeadConnector calendars
+- **Month grid with slot indicators**: Red dots on dates with available slots, today highlight, month navigation
+- **Slot picker**: Time pills grouped by Morning/Afternoon/Evening
+- **Booking flow**: Confirm overlay → API call → success/error state, syncs immediately with GHL CRM
+- **Schedule button**: Added to middle column action strip alongside Call, SMS, Queue
+
+### Contact Sync Fixes
+- **401 token refresh mid-pagination**: `_fetch_all_ghl_contacts()` now detects 401/403 responses during pagination, refreshes OAuth token via `get_valid_token()`, and retries — prevents silent stop at 100 contacts
+- **Pagination limit increased**: From 50 to 100 pages (10,000 contacts max)
+- **Progress bar JS bug fixed**: `_deepSyncUpdateBanner()` referenced undefined `contacts` variable instead of `convos` — progress bar never moved
+- **Deep sync reset endpoint**: `POST /api/sync/deep-pull/reset` resets sync state and re-queues full historical pull
+- **Re-sync button**: Added to deep sync banner (visible on completed/failed states)
+- **Conversation listing auth fix**: `_deep_list_all_conversations()` in ghl_sync.py now handles auth errors with token refresh mid-pagination
+
+### iMessage-Style Inbox App Redesign
+- **Conversation list redesign**: Unique colored avatars per contact (hue derived from name), 2-line message previews with "You:" prefix for outbound, blue unread dots for inbound
+- **Search bar**: 300ms debounce, searches by name or phone via backend query on `/api/inbox/conversations`
+- **Filter pills**: All / Unread / Received / Sent — instant client-side filtering
+- **Date section headers**: Today, Yesterday, This Week, This Month, Earlier
+- **Thread view**: iMessage-style bubbles with date separators between days, call/voicemail pills, styled bubble tails
+- **Green Messages icon**: Matches iOS Messages app (was blue Inbox icon)
+- **Load More pagination**: Button at bottom for large conversation lists
+
+### Mobile Navigation Fix
+- **Replaced Bootstrap collapse**: Bootstrap 5.3 `collapse` class fought with custom CSS (`display: none` vs `display: flex !important`), causing menu to flash/disappear. Replaced with custom `toggleMobileNav()` JS function
+- **Solid black background**: `#050505 !important` with `100vh`/`100dvh` height, no transparency
+- **Auto-close on link click**: Nav links close the mobile menu when tapped
+
+### Pricing Update ($149.99/month)
+- **Updated all stale $98.99 references**: main.py, blueprints/dashboard.py, blueprints/webhooks.py, templates/support.html, templates/setup-guide.html, CLAUDE.md
+- **Chat bot corrected**: Removed "7-day free trial" references from webhooks.py legacy bot. Main bot system prompt already had correct $149.99 and "no free trial"
+- **Agency pricing**: Changed from hardcoded prices to "custom pricing — book a call"
 
 ### OAuth Flow Fixes — Scope Validation & PKCE Removal
 - **Removed invalid `locations/tasks.readonly` scope**: GHL rejected this scope with 422 during OAuth authorization. Removed from `blueprints/oauth.py`.

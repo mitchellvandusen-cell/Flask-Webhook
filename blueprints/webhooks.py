@@ -355,9 +355,9 @@ def website_bot_webhook():
 
     if user_message == "agency_features":
         return flask_jsonify({
-            "text": "Agency Starter ($797.99/mo) includes: Up to 14 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. 7-day free trial.",
+            "text": "Agency Starter includes: Up to 14 sub-accounts, multi-tenant dashboard, shared memory across your agency, priority support, all 5 sales methodologies, auto-booking to each agent's calendar, and underwriting pre-qualification. No contracts, cancel anytime.",
             "options": [
-                {"label": "Start free trial",         "value": "signup_agency_starter"},
+                {"label": "Get started",              "value": "signup_agency_starter"},
                 {"label": "See it work first",        "value": "demo"},
                 {"label": "What if I have more than 10?", "value": "agency_pro_info"}
             ]
@@ -420,16 +420,16 @@ def website_bot_webhook():
 
     if user_message == "pricing_individual" or (("price" in msg_lower or "cost" in msg_lower or "how much" in msg_lower) and "agency" not in msg_lower):
         return flask_jsonify({
-            "text": "$98.99/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic. 7-day free trial.",
+            "text": "$149.99/month. Unlimited conversations, full memory, all 5 sales methodologies, calendar auto-booking, underwriting logic, smart dialer, AI voice agent. No contracts, cancel anytime.",
             "options": [
-                {"label": "Start free trial", "value": "signup_individual"},
+                {"label": "Get started", "value": "signup_individual"},
                 {"label": "See it first",     "value": "demo"}
             ]
         })
 
     if user_message == "pricing_agency" or ("price" in msg_lower and "agency" in msg_lower):
         return flask_jsonify({
-            "text": "Two options: Agency Starter is $797.99/month for up to 14 sub-accounts. Agency Pro is $1,597.99/month for unlimited. Both include the full multi-tenant dashboard and all features. 7-day trial on Starter.",
+            "text": "Two options: Agency Starter for up to 14 sub-accounts, or Agency Pro for unlimited. Both include the full multi-tenant dashboard and all features. Custom pricing — book a call for details. No contracts, cancel anytime.",
             "options": [
                 {"label": "Agency Starter ($797.99)",  "value": "signup_agency_starter"},
                 {"label": "Agency Pro ($1,597.99)",    "value": "signup_agency_pro"},
@@ -443,10 +443,10 @@ def website_bot_webhook():
         return flask_jsonify({"text": "Let's do it. I'll show you exactly how I talk to a cold insurance lead.", "redirect": "/demo-chat"})
 
     if user_message == "signup_individual":
-        return flask_jsonify({"text": "Let's get you set up. 7-day free trial, cancel anytime.", "redirect": "/checkout"})
+        return flask_jsonify({"text": "Let's get you set up. No contracts, cancel anytime.", "redirect": "/checkout"})
 
     if user_message == "signup_agency_starter":
-        return flask_jsonify({"text": "Good choice. 7-day free trial for up to 14 sub-accounts.", "redirect": "/checkout/agency-starter"})
+        return flask_jsonify({"text": "Good choice. Up to 14 sub-accounts, cancel anytime.", "redirect": "/checkout/agency-starter"})
 
     if user_message == "signup_agency_pro":
         return flask_jsonify({"text": "Let's scale. Unlimited sub-accounts, one flat price.", "redirect": "/checkout/agency-pro"})
@@ -455,10 +455,10 @@ def website_bot_webhook():
 
     if "trial" in msg_lower or "free" in msg_lower:
         return flask_jsonify({
-            "text": "7-day free trial on Individual and Agency Starter plans. Full access, no card required to try the demo. Cancel anytime during trial.",
+            "text": "We don't offer a free trial, but you can try the full AI demo right now to see exactly how it works. No signup required for the demo. When you're ready, it's $149.99/month — cancel anytime, no contracts.",
             "options": [
-                {"label": "Start trial",    "value": "signup_individual"},
-                {"label": "Try demo first", "value": "demo"}
+                {"label": "Try the demo",   "value": "demo"},
+                {"label": "Get started",    "value": "signup_individual"}
             ]
         })
 

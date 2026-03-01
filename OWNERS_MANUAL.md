@@ -765,7 +765,7 @@ The `PIIRedactionFilter` on all log handlers means phone numbers and email addre
 | `DISCORD_BOT_TOKEN` | Discord bot token for reading/posting messages |
 | `DISCORD_REDIRECT_URI` | Discord OAuth callback URL |
 | `ADMIN_EMAILS` | Comma-separated list of admin email addresses |
-| `SUBSCRIPTION_PRICE` | Monthly price displayed on marketing pages (default: 97) |
+| `SUBSCRIPTION_PRICE` | Monthly price displayed on marketing pages (default: 149.99) |
 | `GOOGLE_CREDENTIALS` | JSON service account credentials for Google Sheets backup |
 | `SUBSCRIBER_SHEET_EDIT_URL` | Google Sheets URL for legacy subscriber backup |
 | `DB_POOL_MAX` | Max database connections in pool (default: 20) |

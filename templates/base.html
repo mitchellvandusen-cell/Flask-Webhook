@@ -45,10 +45,10 @@
     <nav class="navbar navbar-expand-lg fixed-top" role="navigation" aria-label="Main navigation">
         <div class="container">
             <a class="navbar-brand" href="/">Insurance<span class="text-accent">Grok</span>Bot</a>
-            <button class="navbar-toggler navbar-dark" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler navbar-dark" type="button" onclick="toggleMobileNav()" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
+            <div id="navbarNav" class="navbar-collapse">
                 <ul class="navbar-nav mx-auto align-items-center justify-content-lg-evenly w-100" style="gap: 0;">
                     <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
                     <li class="nav-item"><a class="nav-link" href="/dialer">Dialer</a></li>
@@ -134,6 +134,11 @@
     <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
 
     <script>
+    // Mobile nav toggle — must be global for onclick attribute
+    function toggleMobileNav() {
+        document.getElementById('navbarNav').classList.toggle('show');
+    }
+
     (function() {
         const chatBody = document.getElementById('chatBody');
         const chatWindow = document.getElementById('chatWindow');
@@ -245,6 +250,14 @@
         // Init on page load
         document.addEventListener("DOMContentLoaded", function() {
             AOS.init({ duration: 1000, once: true, offset: 50 });
+
+            // Close mobile nav when a nav link is clicked
+            document.querySelectorAll('#navbarNav .nav-link, #navbarNav .nav-btn').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    var nav = document.getElementById('navbarNav');
+                    if (nav && nav.classList.contains('show')) nav.classList.remove('show');
+                });
+            });
 
             // Pricing Carousel
             const cards = document.querySelectorAll('.pricing-card');
