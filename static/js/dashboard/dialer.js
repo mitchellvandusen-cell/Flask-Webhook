@@ -4125,63 +4125,179 @@
         // ═══════════════════════════════════════════════════════════════════════
 
         let _inboxData = [];
+        let _inboxAllData = [];
+        let _inboxFilter = 'all';
+        let _inboxSearchTimer = null;
+        let _inboxOffset = 0;
+        let _inboxHasMore = false;
+        let _inboxLoading = false;
 
         function inboxRefresh() {
+            _inboxOffset = 0;
+            _inboxHasMore = false;
+            const icon = document.getElementById('inboxRefreshIcon');
+            if (icon) icon.classList.add('fa-spin');
+            _inboxFetch(false).finally(() => {
+                if (icon) icon.classList.remove('fa-spin');
+            });
+        }
+
+        async function _inboxFetch(append) {
+            if (_inboxLoading) return;
+            _inboxLoading = true;
             const list = document.getElementById('inboxConversationList');
-            if (!list) return;
+            if (!list) { _inboxLoading = false; return; }
 
-            list.innerHTML = '<div style="padding:20px;text-align:center;color:#666;"><i class="fa-solid fa-spinner fa-spin me-2"></i>Loading conversations...</div>';
+            if (!append) {
+                list.innerHTML = '<div style="padding:30px;text-align:center;"><div style="width:24px;height:24px;border:2px solid rgba(0,122,255,0.3);border-top-color:#007AFF;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto;"></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style></div>';
+            }
 
-            fetch('/api/inbox/conversations?limit=50')
-                .then(r => r.json())
-                .then(data => {
-                    _inboxData = data.conversations || [];
-                    _renderInboxList();
-                    // Update badge
-                    const badge = document.getElementById('iosBadgeInbox');
-                    if (badge && _inboxData.length > 0) {
-                        badge.textContent = _inboxData.length;
-                        badge.style.display = '';
-                    }
-                })
-                .catch(() => {
-                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:0.85rem;color:#888;">Sync in progress...</div><div style="font-size:0.75rem;color:#555;margin-top:8px;">Conversations will appear once LeadConnector data is synced</div></div>';
-                });
+            const search = (document.getElementById('inboxSearchInput') || {}).value || '';
+            let url = '/api/inbox/conversations?limit=50&offset=' + _inboxOffset;
+            if (search.trim()) url += '&q=' + encodeURIComponent(search.trim());
+
+            try {
+                const r = await fetch(url);
+                const data = await r.json();
+                const convos = data.conversations || [];
+                _inboxHasMore = data.has_more || false;
+
+                if (append) {
+                    _inboxAllData = _inboxAllData.concat(convos);
+                } else {
+                    _inboxAllData = convos;
+                }
+
+                _inboxApplyFilter();
+
+                // Update badge
+                const badge = document.getElementById('iosBadgeInbox');
+                if (badge) {
+                    const total = data.total || _inboxAllData.length;
+                    if (total > 0) { badge.textContent = total > 99 ? '99+' : total; badge.style.display = ''; }
+                    else badge.style.display = 'none';
+                }
+            } catch(e) {
+                if (!append) {
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="color:#8E8E93;font-size:0.85rem;">Waiting for sync...</div><div style="font-size:0.72rem;color:#555;margin-top:6px;">Conversations appear after LeadConnector data syncs</div></div>';
+                }
+            } finally {
+                _inboxLoading = false;
+            }
+        }
+
+        function inboxSetFilter(filter) {
+            _inboxFilter = filter;
+            document.querySelectorAll('#inboxFilterRow .imsg-filter-pill').forEach(b => {
+                b.classList.toggle('active', b.dataset.filter === filter);
+            });
+            _inboxApplyFilter();
+        }
+
+        function _inboxApplyFilter() {
+            if (_inboxFilter === 'all') {
+                _inboxData = [..._inboxAllData];
+            } else if (_inboxFilter === 'unread') {
+                // "Unread" = last message was inbound (they messaged, we haven't replied yet)
+                _inboxData = _inboxAllData.filter(c => c.last_direction === 'inbound');
+            } else {
+                _inboxData = _inboxAllData.filter(c => c.last_direction === _inboxFilter);
+            }
+            _renderInboxList();
+        }
+
+        function inboxDebounceSearch() {
+            clearTimeout(_inboxSearchTimer);
+            _inboxSearchTimer = setTimeout(() => {
+                _inboxOffset = 0;
+                _inboxFetch(false);
+            }, 300);
         }
 
         function _renderInboxList() {
             const list = document.getElementById('inboxConversationList');
-            if (!list || !_inboxData.length) {
-                if (list) list.innerHTML = '<div class="ios-empty-state" style="padding-top:60px;"><div class="ios-empty-icon" style="background:rgba(91,127,255,0.08);border-color:rgba(91,127,255,0.15);"><i class="fa-solid fa-inbox" style="color:#5B7FFF;"></i></div><div class="ios-empty-title">No Conversations</div><div class="ios-empty-sub">Synced conversations will appear here</div></div>';
+            if (!list) return;
+
+            if (!_inboxData.length) {
+                const search = (document.getElementById('inboxSearchInput') || {}).value || '';
+                if (search.trim()) {
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="font-size:2rem;margin-bottom:8px;">🔍</div><div style="color:#8E8E93;font-size:0.82rem;">No results for "' + search.trim().replace(/</g,'&lt;') + '"</div></div>';
+                } else {
+                    list.innerHTML = '<div style="padding:40px 20px;text-align:center;"><div style="width:50px;height:50px;border-radius:50%;background:rgba(0,122,255,0.08);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-message" style="color:#007AFF;font-size:1.1rem;"></i></div><div style="color:#fff;font-size:0.88rem;font-weight:600;">No Messages</div><div style="color:#8E8E93;font-size:0.72rem;margin-top:4px;">Conversations will appear here</div></div>';
+                }
                 return;
             }
 
+            // Group by date sections (Today, Yesterday, This Week, Earlier)
             let html = '';
-            _inboxData.forEach(c => {
-                const initials = (c.contact_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-                const isInbound = c.last_direction === 'inbound';
-                const dirIcon = isInbound ? '<i class="fa-solid fa-arrow-down" style="color:#34C759;font-size:0.55rem;"></i>' : '<i class="fa-solid fa-arrow-up" style="color:#007AFF;font-size:0.55rem;"></i>';
-                const timeStr = _inboxFormatTime(c.date);
+            let lastSection = '';
 
-                html += `
-                <div onclick="inboxOpenThread('${c.contact_id}', '${(c.contact_name || '').replace(/'/g, "\\'")}', '${c.contact_phone || ''}')"
-                     style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;"
-                     onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
-                    <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(91,127,255,0.2),rgba(91,127,255,0.1));display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#5B7FFF;flex-shrink:0;">${initials}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-size:0.82rem;font-weight:600;color:#fff;">${c.contact_name || 'Unknown'}</span>
-                            <span style="font-size:0.6rem;color:#666;">${timeStr}</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
-                            ${dirIcon}
-                            <span style="font-size:0.72rem;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.last_message || 'No message'}</span>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right" style="color:#333;font-size:0.6rem;flex-shrink:0;"></i>
-                </div>`;
+            _inboxData.forEach(c => {
+                const section = _inboxDateSection(c.date);
+                if (section !== lastSection) {
+                    html += '<div style="padding:6px 16px 2px;font-size:0.65rem;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.5px;">' + section + '</div>';
+                    lastSection = section;
+                }
+
+                const cName = c.contact_name || 'Unknown';
+                const initials = cName.split(' ').map(w => (w||'')[0]).join('').slice(0, 2).toUpperCase();
+                const isInbound = c.last_direction === 'inbound';
+                const timeStr = _inboxFormatTime(c.date);
+                const preview = c.last_message || 'No messages yet';
+                // Color hash for avatar
+                const hue = _inboxNameHue(cName);
+
+                html += '<div class="imsg-convo-row" onclick="inboxOpenThread(\'' + c.contact_id + '\', \'' + cName.replace(/'/g, "\\'") + '\', \'' + (c.contact_phone || '') + '\')">' +
+                    '<div class="imsg-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%));">' + initials + '</div>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">' +
+                            '<span class="imsg-name"' + (isInbound ? ' style="font-weight:700;"' : '') + '>' + cName + '</span>' +
+                            '<div style="display:flex;align-items:center;gap:4px;">' +
+                                '<span class="imsg-time">' + timeStr + '</span>' +
+                                '<i class="fa-solid fa-chevron-right imsg-chevron"></i>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="imsg-preview">' + (isInbound ? '' : '<span style="color:#8E8E93;">You: </span>') + preview.replace(/</g,'&lt;') + '</div>' +
+                    '</div>' +
+                    (isInbound ? '<div class="imsg-unread-dot"></div>' : '') +
+                '</div>';
             });
+
+            // Load more sentinel
+            if (_inboxHasMore) {
+                html += '<div id="inboxLoadMore" style="padding:16px;text-align:center;"><button onclick="inboxLoadMore()" style="background:none;border:none;color:#007AFF;font-size:0.75rem;font-weight:600;cursor:pointer;padding:8px 16px;">Load More Conversations</button></div>';
+            }
+
             list.innerHTML = html;
+        }
+
+        function inboxLoadMore() {
+            _inboxOffset += 50;
+            const btn = document.getElementById('inboxLoadMore');
+            if (btn) btn.innerHTML = '<div style="width:18px;height:18px;border:2px solid rgba(0,122,255,0.3);border-top-color:#007AFF;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto;"></div>';
+            _inboxFetch(true);
+        }
+
+        function _inboxDateSection(dateStr) {
+            if (!dateStr) return 'Earlier';
+            try {
+                const d = new Date(dateStr);
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const diffDays = Math.floor((today - msgDay) / 86400000);
+                if (diffDays === 0) return 'Today';
+                if (diffDays === 1) return 'Yesterday';
+                if (diffDays < 7) return 'This Week';
+                if (diffDays < 30) return 'This Month';
+                return 'Earlier';
+            } catch(e) { return 'Earlier'; }
+        }
+
+        function _inboxNameHue(name) {
+            let h = 0;
+            for (let i = 0; i < (name || '').length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+            return Math.abs(h) % 360;
         }
 
         function inboxOpenThread(contactId, contactName, contactPhone) {
@@ -4191,56 +4307,64 @@
             const threadAvatar = document.getElementById('inboxThreadAvatar');
             const msgContainer = document.getElementById('inboxThreadMessages');
 
+            const initials = (contactName || '?').split(' ').map(w => (w||'')[0]).join('').slice(0, 2).toUpperCase();
+            const hue = _inboxNameHue(contactName || '');
+
             if (threadName) threadName.textContent = contactName || 'Contact';
             if (threadPhone) threadPhone.textContent = contactPhone || '';
-            if (threadAvatar) threadAvatar.textContent = (contactName || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-            if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#666;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
-            if (threadView) threadView.style.display = 'flex';
-            threadView.style.flexDirection = 'column';
+            if (threadAvatar) {
+                threadAvatar.textContent = initials;
+                threadAvatar.style.background = 'linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%))';
+            }
+            if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#8E8E93;"><i class="fa-solid fa-spinner fa-spin"></i></div>';
+            if (threadView) { threadView.style.display = 'flex'; threadView.style.flexDirection = 'column'; }
 
-            fetch(`/api/inbox/thread/${contactId}?limit=100`)
+            fetch('/api/inbox/thread/' + contactId + '?limit=200')
                 .then(r => r.json())
                 .then(data => {
                     const msgs = data.messages || [];
                     const pipeline = data.pipeline;
-                    let html = '';
 
                     // Pipeline badge
-                    if (pipeline) {
-                        const badgeEl = document.getElementById('inboxThreadBadge');
-                        if (badgeEl) {
-                            badgeEl.textContent = pipeline.stage_name;
-                            badgeEl.style.display = '';
-                            badgeEl.style.background = pipeline.status === 'won' ? 'rgba(52,199,89,0.15)' : pipeline.status === 'lost' ? 'rgba(255,59,48,0.15)' : 'rgba(91,127,255,0.15)';
-                            badgeEl.style.color = pipeline.status === 'won' ? '#34C759' : pipeline.status === 'lost' ? '#FF3B30' : '#5B7FFF';
-                        }
+                    const badgeEl = document.getElementById('inboxThreadBadge');
+                    if (badgeEl && pipeline) {
+                        badgeEl.textContent = pipeline.stage_name;
+                        badgeEl.style.display = '';
+                        badgeEl.style.background = pipeline.status === 'won' ? 'rgba(52,199,89,0.15)' : pipeline.status === 'lost' ? 'rgba(255,59,48,0.15)' : 'rgba(91,127,255,0.15)';
+                        badgeEl.style.color = pipeline.status === 'won' ? '#34C759' : pipeline.status === 'lost' ? '#FF3B30' : '#5B7FFF';
+                    } else if (badgeEl) {
+                        badgeEl.style.display = 'none';
                     }
+
+                    let html = '';
+                    let lastDateLabel = '';
 
                     msgs.forEach(m => {
                         const isOutbound = m.direction === 'outbound';
                         const isCall = m.type === 'call' || m.type === 'voicemail';
 
+                        // Date separator
+                        const dateLabel = _inboxThreadDateLabel(m.date);
+                        if (dateLabel !== lastDateLabel) {
+                            html += '<div class="imsg-date-sep">' + dateLabel + '</div>';
+                            lastDateLabel = dateLabel;
+                        }
+
                         if (isCall) {
-                            html += `<div style="text-align:center;padding:4px 0;">
-                                <span style="font-size:0.65rem;color:#666;background:rgba(255,255,255,0.03);padding:3px 10px;border-radius:8px;">
-                                    <i class="fa-solid fa-phone" style="font-size:0.55rem;margin-right:4px;"></i>${m.type === 'voicemail' ? 'Voicemail' : 'Call'} — ${_inboxFormatTime(m.date)}
-                                </span>
-                            </div>`;
+                            const callIcon = m.type === 'voicemail' ? 'fa-voicemail' : 'fa-phone';
+                            const callLabel = m.type === 'voicemail' ? 'Voicemail' : (isOutbound ? 'Outgoing Call' : 'Incoming Call');
+                            html += '<div class="imsg-call-pill"><span><i class="fa-solid ' + callIcon + '" style="font-size:0.55rem;"></i>' + callLabel + ' · ' + _inboxFormatTimeShort(m.date) + '</span></div>';
                         } else {
-                            const align = isOutbound ? 'flex-end' : 'flex-start';
-                            const bg = isOutbound ? 'linear-gradient(135deg,#007AFF,#0056CC)' : 'rgba(255,255,255,0.08)';
-                            const color = isOutbound ? '#fff' : '#ddd';
-                            html += `<div style="display:flex;justify-content:${align};">
-                                <div style="max-width:80%;padding:8px 12px;border-radius:16px;background:${bg};color:${color};font-size:0.78rem;line-height:1.4;">
-                                    ${(m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-                                    <div style="font-size:0.55rem;color:${isOutbound ? 'rgba(255,255,255,0.5)' : '#555'};margin-top:3px;text-align:right;">${_inboxFormatTime(m.date)}</div>
-                                </div>
-                            </div>`;
+                            const body = (m.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            html += '<div class="imsg-bubble ' + (isOutbound ? 'outbound' : 'inbound') + '">' +
+                                body +
+                                '<div class="imsg-bubble-time">' + _inboxFormatTimeShort(m.date) + '</div>' +
+                            '</div>';
                         }
                     });
 
                     if (!msgs.length) {
-                        html = '<div style="text-align:center;padding:40px;color:#666;">No messages synced yet</div>';
+                        html = '<div style="text-align:center;padding:40px;color:#8E8E93;font-size:0.82rem;">No messages yet</div>';
                     }
 
                     if (msgContainer) {
@@ -4249,7 +4373,7 @@
                     }
                 })
                 .catch(() => {
-                    if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#888;">Failed to load thread</div>';
+                    if (msgContainer) msgContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#8E8E93;">Failed to load messages</div>';
                 });
         }
 
@@ -4265,16 +4389,36 @@
             try {
                 const d = new Date(dateStr);
                 const now = new Date();
-                const diffMs = now - d;
-                const diffMin = Math.floor(diffMs / 60000);
-                if (diffMin < 1) return 'now';
-                if (diffMin < 60) return diffMin + 'm';
-                const diffHr = Math.floor(diffMin / 60);
-                if (diffHr < 24) return diffHr + 'h';
-                const diffDay = Math.floor(diffHr / 24);
-                if (diffDay < 7) return diffDay + 'd';
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const diffDays = Math.floor((today - msgDay) / 86400000);
+                if (diffDays === 0) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                if (diffDays === 1) return 'Yesterday';
+                if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
                 return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             } catch (e) { return ''; }
+        }
+
+        function _inboxFormatTimeShort(dateStr) {
+            if (!dateStr) return '';
+            try {
+                return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            } catch(e) { return ''; }
+        }
+
+        function _inboxThreadDateLabel(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const d = new Date(dateStr);
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const diffDays = Math.floor((today - msgDay) / 86400000);
+                if (diffDays === 0) return 'Today';
+                if (diffDays === 1) return 'Yesterday';
+                if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
+                return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+            } catch(e) { return ''; }
         }
 
 

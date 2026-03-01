@@ -3054,7 +3054,8 @@ def api_ghl_phone_numbers():
 @login_required
 def api_inbox_conversations():
     """
-    Get unified conversation list.
+    Get unified conversation list sorted by most recent message.
+    Supports search by contact name/phone.
     Primary: synced GHL data (ghl_conversations).
     Fallback: local webhook messages (contact_messages via contact_cache).
     """
@@ -3064,6 +3065,7 @@ def api_inbox_conversations():
 
     limit = min(int(request.args.get("limit", 50)), 200)
     offset = int(request.args.get("offset", 0))
+    search = request.args.get("q", "").strip().lower()
 
     conn = get_db_connection()
     if not conn:
@@ -3072,36 +3074,65 @@ def api_inbox_conversations():
     try:
         cur = conn.cursor()
 
-        # Primary: GHL synced conversations
-        cur.execute("""
-            SELECT DISTINCT ON (contact_id)
-                contact_id, contact_name, contact_phone,
-                body as last_message, direction as last_direction,
-                message_type, date_added, source
-            FROM ghl_conversations
-            WHERE location_id = %s AND message_type = 'sms'
-            ORDER BY contact_id, date_added DESC
-        """, (location_id,))
+        # Primary: GHL synced conversations — get latest message per contact
+        if search:
+            cur.execute("""
+                SELECT DISTINCT ON (contact_id)
+                    contact_id, contact_name, contact_phone,
+                    body as last_message, direction as last_direction,
+                    message_type, date_added, source
+                FROM ghl_conversations
+                WHERE location_id = %s AND message_type = 'sms'
+                  AND (lower(contact_name) LIKE %s OR contact_phone LIKE %s)
+                ORDER BY contact_id, date_added DESC
+            """, (location_id, f"%{search}%", f"%{search}%"))
+        else:
+            cur.execute("""
+                SELECT DISTINCT ON (contact_id)
+                    contact_id, contact_name, contact_phone,
+                    body as last_message, direction as last_direction,
+                    message_type, date_added, source
+                FROM ghl_conversations
+                WHERE location_id = %s AND message_type = 'sms'
+                ORDER BY contact_id, date_added DESC
+            """, (location_id,))
         all_convos = cur.fetchall()
 
         source_label = "ghl_sync"
 
         # Fallback: local contact_messages if GHL sync hasn't populated yet
         if not all_convos:
-            cur.execute("""
-                SELECT DISTINCT ON (cm.contact_id)
-                    cm.contact_id,
-                    COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
-                    COALESCE(cc.phone, '') as contact_phone,
-                    cm.message_text as last_message,
-                    CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
-                    'sms' as message_type,
-                    cm.created_at::text as date_added,
-                    'local' as source
-                FROM contact_messages cm
-                JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
-                ORDER BY cm.contact_id, cm.created_at DESC
-            """, (location_id,))
+            if search:
+                cur.execute("""
+                    SELECT DISTINCT ON (cm.contact_id)
+                        cm.contact_id,
+                        COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
+                        COALESCE(cc.phone, '') as contact_phone,
+                        cm.message_text as last_message,
+                        CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
+                        'sms' as message_type,
+                        cm.created_at::text as date_added,
+                        'local' as source
+                    FROM contact_messages cm
+                    JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
+                    WHERE (lower(cc.name) LIKE %s OR cc.phone LIKE %s)
+                    ORDER BY cm.contact_id, cm.created_at DESC
+                """, (location_id, f"%{search}%", f"%{search}%"))
+            else:
+                cur.execute("""
+                    SELECT DISTINCT ON (cm.contact_id)
+                        cm.contact_id,
+                        COALESCE(cc.name, cc.first_name, 'Unknown') as contact_name,
+                        COALESCE(cc.phone, '') as contact_phone,
+                        cm.message_text as last_message,
+                        CASE WHEN cm.message_type = 'lead' THEN 'inbound' ELSE 'outbound' END as last_direction,
+                        'sms' as message_type,
+                        cm.created_at::text as date_added,
+                        'local' as source
+                    FROM contact_messages cm
+                    JOIN contact_cache cc ON cm.contact_id = cc.contact_id AND cc.location_id = %s
+                    ORDER BY cm.contact_id, cm.created_at DESC
+                """, (location_id,))
             all_convos = cur.fetchall()
             source_label = "local"
 
@@ -3109,6 +3140,7 @@ def api_inbox_conversations():
 
         # Sort by most recent message and apply pagination
         all_convos.sort(key=lambda r: r.get('date_added') or '', reverse=True)
+        total = len(all_convos)
         page = all_convos[offset:offset + limit]
 
         conversations = []
@@ -3126,8 +3158,8 @@ def api_inbox_conversations():
 
         return safe_jsonify({
             "conversations": conversations,
-            "total": len(all_convos),
-            "has_more": offset + limit < len(all_convos),
+            "total": total,
+            "has_more": offset + limit < total,
             "data_source": source_label,
         })
 
