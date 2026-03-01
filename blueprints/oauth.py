@@ -52,7 +52,6 @@ GHL_OAUTH_SCOPES = [
     "locations/customFields.readonly",
     "locations/customValues.readonly",
     "locations/tags.readonly",
-    "locations/tasks.readonly",
     "oauth.readonly",
     "opportunities.readonly",
     "users.readonly",
