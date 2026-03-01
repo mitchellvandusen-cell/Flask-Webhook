@@ -1424,6 +1424,22 @@ def init_db() -> bool:
             conn.rollback()
             logger.debug(f"sms_send_via migration note: {e}")
 
+        # Phase 4: CRM email — separate from login email
+        try:
+            cur.execute("""
+                ALTER TABLE subscribers
+                ADD COLUMN IF NOT EXISTS crm_email TEXT
+            """)
+            cur.execute("""
+                ALTER TABLE agency_billing
+                ADD COLUMN IF NOT EXISTS crm_email TEXT
+            """)
+            conn.commit()
+            logger.info("✅ Migration: Added crm_email column")
+        except Exception as e:
+            conn.rollback()
+            logger.debug(f"crm_email migration note: {e}")
+
         return True
     except psycopg2.Error as e:
         logger.critical(f"Database initialization failed: {e}", exc_info=True)
@@ -1445,6 +1461,7 @@ class User(UserMixin):
 
         # Location & GHL identifiers
         self.location_id = data.get('location_id')
+        self.crm_email = data.get('crm_email')
         self.ghl_calendar_id = data.get('ghl_calendar_id')
         self.crm_api_key = data.get('crm_api_key')
         self.crm_user_id = data.get('crm_user_id')

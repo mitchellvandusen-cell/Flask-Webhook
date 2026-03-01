@@ -5437,23 +5437,28 @@ def oauth_callback():
         else:
             logger.info("No userId in token_data — skipping /users/ call")
 
+        # --- CAPTURE CRM EMAIL ---
+        # The email from /users/{userId} or token_data is the CRM email.
+        # Stored separately so it never overwrites the login email.
+        crm_email_resolved = user_email  # from /users/{userId} if it worked
+        if not crm_email_resolved:
+            crm_email_resolved = token_data.get('userEmail') or token_data.get('email')
+
         # --- ROBUST EMAIL RECOVERY CHAIN ---
         # OAuth must NEVER fail. Try every source, create placeholder as last resort.
-        # Each step is independent — if one fails, the next one tries.
+        # user_email = the account/login email (what they log in with).
 
-        # Fallback 1: token_data may include email
+        # Priority 1: logged-in user — their login email is always canonical
+        if current_user.is_authenticated:
+            user_email = current_user.email
+            user_name = current_user.full_name or user_name
+            logger.info(f"Using logged-in user's email: {user_email} (CRM email: {crm_email_resolved})")
+
+        # Fallback 1: token_data may include email (marketplace installs — not logged in)
         if not user_email:
             user_email = token_data.get('userEmail') or token_data.get('email')
             if user_email:
                 logger.info(f"Fallback 1: Got email from token_data: {user_email}")
-
-        # Fallback 2: user is already logged in (website users OR private app installs)
-        # Private app installs come through as marketplace flow (is_website_user=False)
-        # but the user may already be logged in — use their email instead of a placeholder.
-        if not user_email and current_user.is_authenticated:
-            user_email = current_user.email
-            user_name = current_user.full_name or user_name
-            logger.info(f"Fallback 2: Using logged-in user's email: {user_email}")
 
         # Fallback 3: BRIDGE — check marketplace_installs table
         if not user_email:
@@ -5671,11 +5676,11 @@ def oauth_callback():
                     INSERT INTO agency_billing (
                         agency_email, location_id, full_name, subscription_tier,
                         max_seats, active_seats, access_token, refresh_token,
-                        token_expires_at, timezone, crm_user_id, oauth_app_type,
-                        created_at, updated_at
+                        token_expires_at, timezone, crm_user_id, crm_email,
+                        oauth_app_type, created_at, updated_at
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s,
-                        NOW() + interval '%s seconds', %s, %s, %s, NOW(), NOW()
+                        NOW() + interval '%s seconds', %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (agency_email) DO UPDATE SET
                         location_id = EXCLUDED.location_id,
@@ -5683,36 +5688,37 @@ def oauth_callback():
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
                         crm_user_id = COALESCE(EXCLUDED.crm_user_id, agency_billing.crm_user_id),
+                        crm_email = EXCLUDED.crm_email,
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
                     user_email, primary_location_id, primary_name, plan_tier,
                     max_seats, active_seats, access_token, refresh_token,
-                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'), app_type
+                    expires_in, primary_timezone or 'America/Chicago', me_data.get('id'),
+                    crm_email_resolved, app_type
                 ))
 
             # --- B. Reconnect / Reinstall Sync ---
-            # If the user already exists in subscribers (by email OR location_id),
-            # just sync OAuth tokens without wiping any existing data (password,
-            # stripe, voice_config, calendar, bot settings, etc.).
-            # This handles: reinstalls, public→private app switches, re-auths.
+            # Sync OAuth tokens on existing rows without wiping config data.
+            # Look up by location_id (PK) first to avoid PK collision when
+            # email owns a different location.
             app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+            sync_role = 'agency_owner' if use_agency_flow else None
 
-            # B1. Check for existing subscriber by email (covers temp_ and real location_ids)
-            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (user_email,))
-            existing_row = cur.fetchone()
+            existing_by_location = None
+            if primary_location_id:
+                cur.execute(
+                    "SELECT location_id, email FROM subscribers WHERE location_id = %s",
+                    (primary_location_id,)
+                )
+                existing_by_location = cur.fetchone()
 
-            if existing_row and primary_location_id:
-                existing_loc = existing_row['location_id']
-                # Sync OAuth tokens onto existing row — update location_id if it
-                # was a temp placeholder, otherwise keep existing data intact.
-                # Agency owners need role='agency_owner' in subscribers so
-                # is_agency_owner works (User.get checks subscribers first).
-                sync_role = 'agency_owner' if use_agency_flow else None
-
+            if existing_by_location:
+                # Location already has a subscriber row — update tokens + crm_email.
+                # Never overwrite email (login identity) with CRM email.
                 cur.execute("""
                     UPDATE subscribers
-                    SET location_id = %s,
+                    SET crm_email = %s,
                         access_token = %s,
                         refresh_token = %s,
                         token_expires_at = NOW() + interval '%s seconds',
@@ -5725,13 +5731,49 @@ def oauth_callback():
                             ELSE onboarding_status
                         END,
                         updated_at = NOW()
-                    WHERE email = %s
-                """, (primary_location_id, access_token, refresh_token,
+                    WHERE location_id = %s
+                """, (crm_email_resolved, access_token, refresh_token,
                       expires_in, me_data.get('id'), app_type,
                       sync_role, user_email if use_agency_flow else None,
-                      user_email))
-                logger.info(f"Synced OAuth tokens for existing subscriber {user_email} "
-                           f"(location: {existing_loc} → {primary_location_id}, app_type={app_type})")
+                      primary_location_id))
+                logger.info(
+                    f"Synced OAuth tokens for existing location {primary_location_id} "
+                    f"(login: {existing_by_location['email']}, crm_email: {crm_email_resolved}, app_type={app_type})"
+                )
+            else:
+                # Location doesn't exist yet — check if email owns a different location
+                cur.execute(
+                    "SELECT location_id FROM subscribers WHERE email = %s",
+                    (user_email,)
+                )
+                existing_by_email = cur.fetchone()
+
+                if existing_by_email and primary_location_id:
+                    existing_loc = existing_by_email['location_id']
+                    # Email owns a different location — update tokens + crm_email
+                    # but do NOT change the PK. New location provisioned in Step 7C.
+                    cur.execute("""
+                        UPDATE subscribers
+                        SET crm_email = %s,
+                            access_token = %s,
+                            refresh_token = %s,
+                            token_expires_at = NOW() + interval '%s seconds',
+                            crm_user_id = COALESCE(%s, crm_user_id),
+                            oauth_app_type = %s,
+                            updated_at = NOW()
+                        WHERE email = %s
+                    """, (crm_email_resolved, access_token, refresh_token,
+                          expires_in, me_data.get('id'), app_type,
+                          user_email))
+                    logger.info(
+                        f"Updated tokens for {user_email}'s existing location {existing_loc}. "
+                        f"CRM email: {crm_email_resolved}. "
+                        f"New location {primary_location_id} will be provisioned in Step 7C."
+                    )
+
+            # existing_row: controls whether Step 7C skips the primary location.
+            # Only set when the location_id already has a row (already updated above).
+            existing_row = existing_by_location
 
             # --- C. Subscriber rows ---
             # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
@@ -5791,16 +5833,18 @@ def oauth_callback():
 
                 cur.execute("""
                     INSERT INTO subscribers (
-                        location_id, email, full_name, role, subscription_tier,
-                        parent_agency_email, access_token, refresh_token,
+                        location_id, email, crm_email, full_name, role,
+                        subscription_tier, parent_agency_email,
+                        access_token, refresh_token,
                         token_expires_at, timezone, crm_user_id,
                         onboarding_status, oauth_app_type, created_at, updated_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         NOW() + interval '%s seconds',
                         %s, %s, %s, %s, NOW(), NOW()
                     )
                     ON CONFLICT (location_id) DO UPDATE SET
+                        crm_email = EXCLUDED.crm_email,
                         access_token = EXCLUDED.access_token,
                         refresh_token = EXCLUDED.refresh_token,
                         token_expires_at = EXCLUDED.token_expires_at,
@@ -5808,8 +5852,9 @@ def oauth_callback():
                         oauth_app_type = EXCLUDED.oauth_app_type,
                         updated_at = NOW()
                 """, (
-                    sub_id, email_this, agent_name, role, plan_tier,
-                    parent_agency_email, access_token_this, refresh_token_this,
+                    sub_id, email_this, crm_email_resolved, agent_name, role,
+                    plan_tier, parent_agency_email,
+                    access_token_this, refresh_token_this,
                     expires_in,
                     sub_timezone or 'America/Chicago', agent_crm_user_id,
                     'pending', app_type
