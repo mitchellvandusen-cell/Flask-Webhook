@@ -8,8 +8,6 @@
 
 import os
 import json
-import base64
-import hashlib
 import logging
 import secrets
 import requests
@@ -37,7 +35,7 @@ logger = logging.getLogger(__name__)
 oauth_bp = Blueprint('oauth', __name__)
 
 # ── OAuth scopes ─────────────────────────────────────────────────────────────
-# All scopes approved on the public marketplace app as of 2026-02-27.
+# All scopes approved on the public marketplace app as of 2026-03-01.
 GHL_OAUTH_SCOPES = [
     "calendars.readonly",
     "calendars/events.readonly",
@@ -55,6 +53,8 @@ GHL_OAUTH_SCOPES = [
     "oauth.readonly",
     "opportunities.readonly",
     "users.readonly",
+    "workflows.readonly",
+    "twilioaccount.read",
 ]
 
 
@@ -207,9 +207,6 @@ def oauth_initiate():
     state = f"{flow_type}:{nonce}"
     session["ghl_oauth_state"] = state
 
-    # ── PKCE: Proof Key for Code Exchange (RFC 7636) ─────────────────────
-    # GHL private apps reject PKCE with 422: "property code_verifier should
-    # not exist".  Only include PKCE params for public/marketplace flows.
     oauth_params_dict = {
         'response_type': 'code',
         'redirect_uri': redirect_uri,
@@ -217,15 +214,6 @@ def oauth_initiate():
         'scope': scope_string,
         'state': state,
     }
-
-    if not use_private:
-        code_verifier = secrets.token_urlsafe(43)
-        code_challenge = base64.urlsafe_b64encode(
-            hashlib.sha256(code_verifier.encode()).digest()
-        ).decode().rstrip("=")
-        session["ghl_pkce_verifier"] = code_verifier
-        oauth_params_dict['code_challenge'] = code_challenge
-        oauth_params_dict['code_challenge_method'] = 'S256'
 
     oauth_params = urlencode(oauth_params_dict)
     oauth_url = f"https://marketplace.gohighlevel.com/oauth/chooselocation?{oauth_params}"
@@ -284,7 +272,6 @@ def oauth_callback():
         # followed by a nonce) MUST have a matching session state. Marketplace
         # installs arrive with state=None from GHL directly and bypass validation.
         flow_type = None
-        code_verifier = None
 
         if raw_state and ":" in raw_state:
             # New-format state: "flow_type:nonce"
@@ -298,7 +285,7 @@ def oauth_callback():
                 flash("OAuth session expired or invalid. Please try connecting again.", "danger")
                 return redirect(url_for('dashboard.dashboard'))
             flow_type = raw_state.split(":", 1)[0]
-            code_verifier = session.pop("ghl_pkce_verifier", None)
+            session.pop("ghl_pkce_verifier", None)  # Clean up legacy session key
             logger.info(f"OAuth state validated (flow_type={flow_type})")
         elif raw_state in ("website_user", "private_app"):
             # Legacy static state (from sessions started before this update)
@@ -398,12 +385,6 @@ def oauth_callback():
                 "code": code,
                 "redirect_uri": f"{domain}/oauth/callback",
             }
-            # Include PKCE verifier for marketplace/public apps only.
-            # GHL private apps reject code_verifier with 422:
-            # "property code_verifier should not exist"
-            if code_verifier and not cred_set.get("is_private"):
-                base_payload["code_verifier"] = code_verifier
-
             for user_type in ["Location", "Company"]:
                 payload = {**base_payload, "user_type": user_type}
                 logger.info(f"Token exchange attempt with user_type={user_type}, creds={cred_set['label']}")

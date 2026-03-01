@@ -5033,7 +5033,7 @@ def oauth_initiate():
         return redirect(url_for('dashboard'))
     redirect_uri = f"{domain}/oauth/callback"
 
-    # All scopes approved on the public marketplace app as of 2026-02-28.
+    # All scopes approved on the public marketplace app as of 2026-03-01.
     # Must match EXACTLY what's approved — requesting unapproved scopes
     # causes the OAuth flow to fail silently.
     scopes = [
@@ -5053,6 +5053,7 @@ def oauth_initiate():
         "oauth.readonly",                   # Token info check (ghl_calendar.py)
         "opportunities.readonly",           # Pipeline & stage listing for dialer filters
         "users.readonly",                   # User info lookup
+        "workflows.readonly",              # Workflow listing
         "twilioaccount.read",              # GHL phone numbers for sync
     ]
     scope_string = " ".join(scopes)
