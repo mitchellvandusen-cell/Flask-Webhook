@@ -1045,16 +1045,22 @@ def oauth_callback():
                 flash("App installed! Please log in or create a password to access your dashboard.", "success")
                 return redirect(url_for('auth.login'))
 
-        # Private app flow → OAuth loading screen
-        logger.info(f"=== PRIVATE APP OAUTH COMPLETE for {user_email} ===")
+        # Website user flow → dashboard (same as marketplace)
+        app_type_label = 'private' if is_private_app else 'website'
+        logger.info(f"=== {app_type_label.upper()} APP OAUTH COMPLETE for {user_email} ===")
         try:
             log_webhook_event(
                 primary_location_id or "unknown", "oauth_complete", "success",
-                f"Private app OAuth complete for {user_email} (tier={plan_tier})"
+                f"{app_type_label.capitalize()} app OAuth complete for {user_email} (tier={plan_tier})"
             )
         except Exception:
             pass
-        return redirect(url_for('oauth.oauth_loading'))
+        if is_private_app:
+            return redirect(url_for('oauth.oauth_loading'))
+        flash("CRM connected successfully!", "success")
+        if use_agency_flow:
+            return redirect(url_for('agency.agency_dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}", exc_info=True)
