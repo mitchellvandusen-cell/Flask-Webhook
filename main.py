@@ -5692,27 +5692,25 @@ def oauth_callback():
                 ))
 
             # --- B. Reconnect / Reinstall Sync ---
-            # If the user already exists in subscribers (by email OR location_id),
-            # just sync OAuth tokens without wiping any existing data (password,
-            # stripe, voice_config, calendar, bot settings, etc.).
-            # This handles: reinstalls, public→private app switches, re-auths.
+            # Sync OAuth tokens on existing rows without wiping config data.
+            # Look up by location_id (PK) first to avoid PK collision when
+            # email owns a different location.
             app_type = 'private' if is_private_app else ('website' if is_website_user else 'marketplace')
+            sync_role = 'agency_owner' if use_agency_flow else None
 
-            # B1. Check for existing subscriber by email (covers temp_ and real location_ids)
-            cur.execute("SELECT location_id FROM subscribers WHERE email = %s", (user_email,))
-            existing_row = cur.fetchone()
+            existing_by_location = None
+            if primary_location_id:
+                cur.execute(
+                    "SELECT location_id, email FROM subscribers WHERE location_id = %s",
+                    (primary_location_id,)
+                )
+                existing_by_location = cur.fetchone()
 
-            if existing_row and primary_location_id:
-                existing_loc = existing_row['location_id']
-                # Sync OAuth tokens onto existing row — update location_id if it
-                # was a temp placeholder, otherwise keep existing data intact.
-                # Agency owners need role='agency_owner' in subscribers so
-                # is_agency_owner works (User.get checks subscribers first).
-                sync_role = 'agency_owner' if use_agency_flow else None
-
+            if existing_by_location:
+                # Location already has a subscriber row — update tokens + email
                 cur.execute("""
                     UPDATE subscribers
-                    SET location_id = %s,
+                    SET email = %s,
                         access_token = %s,
                         refresh_token = %s,
                         token_expires_at = NOW() + interval '%s seconds',
@@ -5725,13 +5723,47 @@ def oauth_callback():
                             ELSE onboarding_status
                         END,
                         updated_at = NOW()
-                    WHERE email = %s
-                """, (primary_location_id, access_token, refresh_token,
+                    WHERE location_id = %s
+                """, (user_email, access_token, refresh_token,
                       expires_in, me_data.get('id'), app_type,
                       sync_role, user_email if use_agency_flow else None,
-                      user_email))
-                logger.info(f"Synced OAuth tokens for existing subscriber {user_email} "
-                           f"(location: {existing_loc} → {primary_location_id}, app_type={app_type})")
+                      primary_location_id))
+                logger.info(
+                    f"Synced OAuth tokens for existing location {primary_location_id} "
+                    f"(email: {existing_by_location['email']} → {user_email}, app_type={app_type})"
+                )
+            else:
+                # Location doesn't exist yet — check if email owns a different location
+                cur.execute(
+                    "SELECT location_id FROM subscribers WHERE email = %s",
+                    (user_email,)
+                )
+                existing_by_email = cur.fetchone()
+
+                if existing_by_email and primary_location_id:
+                    existing_loc = existing_by_email['location_id']
+                    # Email owns a different location — update tokens but do NOT
+                    # change the PK. New location provisioned in Step 7C.
+                    cur.execute("""
+                        UPDATE subscribers
+                        SET access_token = %s,
+                            refresh_token = %s,
+                            token_expires_at = NOW() + interval '%s seconds',
+                            crm_user_id = COALESCE(%s, crm_user_id),
+                            oauth_app_type = %s,
+                            updated_at = NOW()
+                        WHERE email = %s
+                    """, (access_token, refresh_token,
+                          expires_in, me_data.get('id'), app_type,
+                          user_email))
+                    logger.info(
+                        f"Updated tokens for {user_email}'s existing location {existing_loc}. "
+                        f"New location {primary_location_id} will be provisioned in Step 7C."
+                    )
+
+            # existing_row: controls whether Step 7C skips the primary location.
+            # Only set when the location_id already has a row (already updated above).
+            existing_row = existing_by_location
 
             # --- C. Subscriber rows ---
             # Agency flow: provision ALL sub-accounts (skip primary — handled in agency_billing)
