@@ -511,10 +511,10 @@ def oauth_callback():
         headers_ghl = {'Authorization': f'Bearer {access_token}', 'Version': '2021-07-28'}
 
         # ── Step 2: Get user info ──────────────────────────────────────────────
-        me_resp, me_err = _ghl_api_call(
-            'GET', "https://services.leadconnectorhq.com/users/me",
-            headers=headers_ghl, timeout=10, label="/users/me"
-        )
+        # GHL has no /users/me endpoint. Use GET /users/{userId} with the
+        # userId from the token exchange.  Note: this only works with
+        # Company-scoped tokens; Location-scoped tokens will get 401/403,
+        # which the fallback chain below handles gracefully.
         me_data = {}
         user_email = None
         user_name = None
@@ -522,20 +522,29 @@ def oauth_callback():
         ghl_user_id = token_data.get('userId')
         if ghl_user_id:
             me_data['id'] = ghl_user_id
+            me_resp, me_err = _ghl_api_call(
+                'GET', f"https://services.leadconnectorhq.com/users/{ghl_user_id}",
+                headers=headers_ghl, timeout=10, label=f"/users/{ghl_user_id}"
+            )
 
-        if me_resp and me_resp.ok:
-            try:
-                me_data = me_resp.json()
-                user_email = me_data.get('email')
-                user_name = me_data.get('name')
-            except ValueError:
-                logger.error(f"/users/me returned non-JSON: {me_resp.text[:300]}")
-        elif me_resp:
-            logger.error(f"/users/me failed: {me_resp.status_code} {me_resp.text[:300]}")
-            if me_resp.status_code in (401, 403):
-                logger.error("SCOPE ISSUE: /users/me returned 401/403 — token may lack required scopes")
+            if me_resp and me_resp.ok:
+                try:
+                    me_data = me_resp.json()
+                    user_email = me_data.get('email')
+                    user_name = me_data.get('name') or me_data.get('firstName')
+                except ValueError:
+                    logger.warning(f"/users/{ghl_user_id} returned non-JSON: {me_resp.text[:300]}")
+            elif me_resp and me_resp.status_code in (401, 403):
+                logger.info(
+                    f"/users/{ghl_user_id} returned {me_resp.status_code} — "
+                    f"expected with Location-scoped tokens. Using fallback chain."
+                )
+            elif me_resp:
+                logger.warning(f"/users/{ghl_user_id} failed: {me_resp.status_code} {me_resp.text[:300]}")
+            else:
+                logger.warning(f"/users/{ghl_user_id} unreachable: {me_err}")
         else:
-            logger.error(f"/users/me unreachable: {me_err}")
+            logger.info("No userId in token_data — skipping /users/ call")
 
         # ── Robust 5-step email recovery chain ────────────────────────────────
         # OAuth must NEVER fail silently. Try every source; placeholder as last resort.
@@ -656,44 +665,75 @@ def oauth_callback():
         logger.info(f"Step 2 complete: User info retrieved. email={user_email}")
 
         # ── Step 3: Detect agency status ──────────────────────────────────────
+        # /agencies/ only works with Company-scoped tokens. Location-scoped
+        # tokens will always get 401/403, so skip the call entirely.
         is_agency_owner = False
         agencies = []
 
-        agency_resp, agency_err = _ghl_api_call(
-            'GET', "https://services.leadconnectorhq.com/agencies/",
-            headers=headers_ghl, timeout=10, label="/agencies/"
-        )
+        if token_user_type_used == 'Company':
+            agency_resp, agency_err = _ghl_api_call(
+                'GET', "https://services.leadconnectorhq.com/agencies/",
+                headers=headers_ghl, timeout=10, label="/agencies/"
+            )
 
-        if agency_resp and agency_resp.ok:
-            try:
-                agencies = agency_resp.json().get('agencies', [])
-                is_agency_owner = len(agencies) > 0
-            except (ValueError, KeyError, AttributeError):
-                logger.warning(f"/agencies/ returned unparseable response: {agency_resp.text[:300]}")
-                agencies = []
-        elif agency_resp and agency_resp.status_code < 500:
-            logger.info(f"/agencies/ returned {agency_resp.status_code} — treating as individual user")
+            if agency_resp and agency_resp.ok:
+                try:
+                    agencies = agency_resp.json().get('agencies', [])
+                    is_agency_owner = len(agencies) > 0
+                except (ValueError, KeyError, AttributeError):
+                    logger.warning(f"/agencies/ returned unparseable response: {agency_resp.text[:300]}")
+                    agencies = []
+            elif agency_resp and agency_resp.status_code < 500:
+                logger.info(f"/agencies/ returned {agency_resp.status_code} — treating as individual user")
+            else:
+                logger.warning(f"/agencies/ unavailable ({agency_err}), defaulting to individual classification")
         else:
-            logger.warning(f"/agencies/ unavailable ({agency_err}), defaulting to individual classification")
+            logger.info("Location-scoped token — skipping /agencies/ call")
 
         logger.info(f"Step 3 complete: Agency detection. is_agency={is_agency_owner}, count={len(agencies)}")
 
-        # ── Step 4: Fetch all locations (paginated) ───────────────────────────
-        locations_url = "https://services.leadconnectorhq.com/locations/search"
-        if company_id:
-            locations_url += f"?companyId={company_id}"
-        sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+        # ── Step 4: Fetch all locations ──────────────────────────────────────
+        # /locations/search requires a Company-scoped token.  For Location-
+        # scoped tokens, fetch the single location directly via
+        # GET /locations/{locationId}.
+        sub_accounts = []
+        using_location_fallback = False
+
+        if token_user_type_used == 'Company' and company_id:
+            locations_url = f"https://services.leadconnectorhq.com/locations/search?companyId={company_id}"
+            sub_accounts = fetch_all_ghl_items(locations_url, headers_ghl, item_key='locations')
+        elif primary_location_id:
+            # Location-scoped token — fetch this single location's details
+            loc_resp, loc_err = _ghl_api_call(
+                'GET', f"https://services.leadconnectorhq.com/locations/{primary_location_id}",
+                headers=headers_ghl, timeout=10, label=f"/locations/{primary_location_id}"
+            )
+            if loc_resp and loc_resp.ok:
+                try:
+                    loc_data = loc_resp.json().get('location', loc_resp.json())
+                    sub_accounts = [{
+                        'id': loc_data.get('id', primary_location_id),
+                        'name': loc_data.get('name', user_name or 'Primary Location'),
+                        'timezone': loc_data.get('timezone'),
+                    }]
+                except (ValueError, KeyError):
+                    logger.warning(f"/locations/{primary_location_id} returned unparseable response")
+            else:
+                logger.info(
+                    f"/locations/{primary_location_id} returned "
+                    f"{loc_resp.status_code if loc_resp else loc_err} — using token fallback"
+                )
+
         num_subs = len(sub_accounts)
         logger.info(f"Step 4 complete: {num_subs} locations fetched for {user_email}")
 
-        # Fallback: if /locations/ returned 0 but we have locationId from the token,
+        # Fallback: if API returned 0 but we have locationId from the token,
         # synthesize a minimal entry so onboarding still works.
-        using_location_fallback = False
         if num_subs == 0 and primary_location_id:
             using_location_fallback = True
             logger.warning(
-                f"/locations/ returned 0 results but token has locationId={primary_location_id}. "
-                f"Possible API issue or permissions problem. Using fallback."
+                f"Location API returned 0 results but token has locationId={primary_location_id}. "
+                f"Using token-based fallback."
             )
             sub_accounts = [{'id': primary_location_id,
                              'name': user_name or 'Primary Location',
@@ -1045,16 +1085,22 @@ def oauth_callback():
                 flash("App installed! Please log in or create a password to access your dashboard.", "success")
                 return redirect(url_for('auth.login'))
 
-        # Private app flow → OAuth loading screen
-        logger.info(f"=== PRIVATE APP OAUTH COMPLETE for {user_email} ===")
+        # Website user flow → dashboard (same as marketplace)
+        app_type_label = 'private' if is_private_app else 'website'
+        logger.info(f"=== {app_type_label.upper()} APP OAUTH COMPLETE for {user_email} ===")
         try:
             log_webhook_event(
                 primary_location_id or "unknown", "oauth_complete", "success",
-                f"Private app OAuth complete for {user_email} (tier={plan_tier})"
+                f"{app_type_label.capitalize()} app OAuth complete for {user_email} (tier={plan_tier})"
             )
         except Exception:
             pass
-        return redirect(url_for('oauth.oauth_loading'))
+        if is_private_app:
+            return redirect(url_for('oauth.oauth_loading'))
+        flash("CRM connected successfully!", "success")
+        if use_agency_flow:
+            return redirect(url_for('agency.agency_dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
 
     except requests.RequestException as e:
         logger.error(f"OAuth network error: {e}", exc_info=True)
