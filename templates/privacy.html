@@ -6,7 +6,7 @@
 <div class="container" style="padding-top: 150px; padding-bottom: 80px;">
     <div class="legal-container">
         <h1>Privacy Policy</h1>
-        <p style="text-align: center; color: var(--text-muted); margin-bottom: 40px;">Last Updated: January 12, 2026</p>
+        <p style="text-align: center; color: var(--text-muted); margin-bottom: 40px;">Last Updated: March 2, 2026</p>
 
         <p>InsuranceGrokBot (“we,” “us,” or “our”) operates insuranceregrokbot.click and the associated AI-powered SMS messaging service (the “Service”). We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, dashboard, demo chat, or any connected integrations.</p>
 
@@ -36,6 +36,7 @@
             <li><strong>Lead Connector</strong>: Access/refresh tokens, location ID, CRM user ID, calendar ID, contact data (name, phone, address, DOB), and conversation history when you connect via OAuth or keys</li>
             <li><strong>Stripe</strong>: Payment data (customer ID, subscription status — we do not store card details)</li>
             <li><strong>Google Sheets</strong>: Your entered settings are stored in your linked sheet via authorized service account</li>
+            <li><strong>Google Calendar</strong>: If you connect your Google account, we access your calendar event data (event titles, dates/times, attendees, and descriptions) via the Google Calendar API using OAuth 2.0. See Section 5 for full details on our Google Calendar data practices.</li>
         </ul>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
@@ -47,6 +48,7 @@
             <li>To process payments and manage subscriptions via Stripe</li>
             <li>To sync and store your Lead Connector configuration</li>
             <li>To generate AI responses using Grok (xAI) — conversation data is sent only during active sessions</li>
+            <li>To display your Google Calendar events in our dashboard calendar view, helping you avoid double-booking appointments</li>
             <li>To analyze usage (aggregated/anonymized) and debug issues</li>
             <li>To communicate about your account or support</li>
             <li>For legal compliance, fraud prevention, and enforcing our Terms</li>
@@ -61,6 +63,7 @@
             <li><strong>xAI (Grok)</strong>: Conversation messages are sent to generate replies (real-time only, not used for training)</li>
             <li><strong>Stripe</strong>: Payment processing</li>
             <li><strong>Google</strong>: Your settings in your own Google Sheet</li>
+            <li><strong>Google Calendar API</strong>: We access your calendar data via Google's API solely to display events in our dashboard. Calendar data is not shared with any other third party.</li>
             <li><strong>Service providers</strong>: Hosting (Railway), Redis/RQ, logging — with data processing agreements</li>
             <li><strong>Legal</strong>: If required by law, subpoena, or to protect rights/safety</li>
         </ul>
@@ -77,7 +80,47 @@
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>5. Data Retention</h2>
+        <h2>5. Google Calendar Data (Google API Services)</h2>
+        <p>If you choose to connect your Google account, InsuranceGrokBot accesses your Google Calendar data through the Google Calendar API. Our use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" style="color:var(--accent);" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+        <h3>a. What We Access</h3>
+        <ul>
+            <li>Calendar event details: event titles, start/end times, attendees, descriptions, and event status</li>
+            <li>We use the <code>calendar.events.readonly</code> scope — we can only <strong>read</strong> your calendar data</li>
+            <li>We <strong>cannot</strong> create, modify, or delete any events on your Google Calendar</li>
+        </ul>
+
+        <h3>b. How We Use Google Calendar Data</h3>
+        <ul>
+            <li>To display your existing calendar events in our dashboard calendar view</li>
+            <li>To help you avoid scheduling conflicts and double-booking when setting appointments with insurance leads</li>
+            <li>Calendar data is used <strong>solely</strong> for displaying events to you — it is not used for AI training, advertising, analytics, or any other purpose</li>
+        </ul>
+
+        <h3>c. Storage & Retention</h3>
+        <ul>
+            <li>Calendar event data is cached in our database to provide a responsive calendar view</li>
+            <li>Cached data is refreshed periodically to stay in sync with your Google Calendar</li>
+            <li>If you disconnect your Google account or delete your InsuranceGrokBot account, all cached Google Calendar data is deleted</li>
+        </ul>
+
+        <h3>d. Sharing & Disclosure</h3>
+        <ul>
+            <li>Your Google Calendar data is <strong>never</strong> sold, shared with third parties, or used for advertising</li>
+            <li>Calendar data is displayed only to you (the authenticated user) within your dashboard</li>
+            <li>No Google Calendar data is sent to any AI model, analytics service, or external system</li>
+        </ul>
+
+        <h3>e. Revoking Access</h3>
+        <ul>
+            <li>You can disconnect your Google Calendar at any time from your dashboard settings</li>
+            <li>You can also revoke access directly from your <a href="https://myaccount.google.com/permissions" style="color:var(--accent);" target="_blank" rel="noopener noreferrer">Google Account permissions page</a></li>
+            <li>Upon revocation, all cached calendar data is deleted from our systems</li>
+        </ul>
+
+        <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
+
+        <h2>6. Data Retention</h2>
         <ul>
             <li><strong>Demo chat</strong>: Deleted automatically after 30 minutes of inactivity</li>
             <li><strong>Registered users</strong>: Configuration and profile data retained until account deletion or subscription cancellation</li>
@@ -87,7 +130,7 @@
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>6. Your Rights & Choices</h2>
+        <h2>7. Your Rights & Choices</h2>
         <ul>
             <li>Access, correct, or delete your data — contact support via dashboard</li>
             <li>Opt-out of marketing emails (if any) — use unsubscribe link</li>
@@ -96,27 +139,27 @@
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>7. Security</h2>
+        <h2>8. Security</h2>
         <p>We use reasonable measures (encryption in transit, secure tokens, access controls) to protect your data. No system is 100% secure — we cannot guarantee absolute protection.</p>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>8. Children’s Privacy</h2>
+        <h2>9. Children’s Privacy</h2>
         <p>Our Service is not directed to individuals under 18. We do not knowingly collect data from children.</p>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>9. International Transfers</h2>
+        <h2>10. International Transfers</h2>
         <p>Data may be processed in the United States or other countries. By using the Service, you consent to this transfer.</p>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>10. Changes to This Policy</h2>
+        <h2>11. Changes to This Policy</h2>
         <p>We may update this Privacy Policy. Changes will be posted here with a new “Last Updated” date. Continued use after changes means acceptance.</p>
 
         <hr style="border-color: rgba(255,255,255,0.1); margin: 40px 0;">
 
-        <h2>11. Contact Us</h2>
+        <h2>12. Contact Us</h2>
         <p>For questions about this Privacy Policy or your data, use the support form in your dashboard or email <a href="mailto:support@insuranceregrokbot.click" style="color:var(--accent);">support@insuranceregrokbot.click</a>.</p>
 
         <div class="text-center mt-5">
