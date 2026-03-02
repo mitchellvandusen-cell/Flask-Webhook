@@ -4235,6 +4235,12 @@
                     return;
                 }
 
+                if (status.status === 'stale') {
+                    // Job died — show banner with re-sync button (don't auto-retry)
+                    _deepSyncShowBanner(status);
+                    return;
+                }
+
                 // Not started or failed — trigger it
                 const tr = await fetch('/api/sync/deep-pull', { method: 'POST' });
                 if (!tr.ok) return;
@@ -4294,9 +4300,9 @@
                 return;
             }
 
-            if (status.status === 'failed') {
-                label.innerHTML = '<span style="color:#ef4444;">Import paused</span> — will retry automatically';
-                detail.textContent = convos + ' conversations done so far';
+            if (status.status === 'failed' || status.status === 'stale') {
+                label.innerHTML = '<span style="color:#ef4444;">Import stopped</span> — click Re-sync to retry';
+                detail.textContent = convos + ' conversations processed · ' + msgs.toLocaleString() + ' records';
                 pct.textContent = '';
                 if (resyncBtn) resyncBtn.style.display = 'inline-block';
                 return;
@@ -4360,7 +4366,7 @@
                     const status = await r.json();
                     _deepSyncUpdateBanner(status);
 
-                    if (status.status === 'completed' || status.status === 'not_started' || status.status === 'failed') {
+                    if (status.status === 'completed' || status.status === 'not_started' || status.status === 'failed' || status.status === 'stale') {
                         clearInterval(_deepSyncPollTimer);
                         _deepSyncPollTimer = null;
                     }

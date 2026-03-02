@@ -1316,6 +1316,15 @@ def get_deep_sync_status(location_id):
         cursor = int(row['last_cursor'] or 0)
         total_synced = row['total_synced'] or 0
 
+        # Detect stale "running" state — job crashed/timed out without marking completed
+        if status == 'running' and row['last_sync_at']:
+            last_update = row['last_sync_at']
+            if hasattr(last_update, 'tzinfo') and last_update.tzinfo:
+                last_update = last_update.replace(tzinfo=None)
+            age = datetime.utcnow() - last_update
+            if age > timedelta(minutes=10):
+                status = 'stale'
+
         result = {
             "status": status,
             "contacts_processed": cursor,
@@ -1323,8 +1332,9 @@ def get_deep_sync_status(location_id):
             "last_update": row['last_sync_at'].isoformat() if row['last_sync_at'] else None,
         }
 
-        if status == 'failed':
-            result["error"] = row['error_message']
+        if status in ('failed', 'stale'):
+            result["error"] = row['error_message'] or (
+                "Sync job stopped unexpectedly" if status == 'stale' else None)
 
         return result
     except Exception:
