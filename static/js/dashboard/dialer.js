@@ -108,7 +108,7 @@
                             _calCalendars = d.calendars || [];
                             if (picker && _calCalendars.length) {
                                 picker.innerHTML = _calCalendars.map(c =>
-                                    `<option value="${c.id}">${c.name}</option>`
+                                    `<option value="${dialerEsc(c.id)}">${dialerEsc(c.name)}</option>`
                                 ).join('');
                                 _calActiveCalId = _calCalendars[0].id;
                             } else if (picker) {
@@ -493,6 +493,11 @@
                 return;
             }
 
+            // Reset previous voicemail's button if switching
+            if (_vmPlaying !== null && _vmPlaying !== idx) {
+                const prevBtn = document.getElementById('vmPlayBtn' + _vmPlaying);
+                if (prevBtn) prevBtn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Play';
+            }
             audio.src = vm.recording_url;
             audio.play().catch(e => console.warn('[VM] Play error:', e));
             _vmPlaying = idx;
@@ -611,6 +616,7 @@
             const sel = document.getElementById('dialerPipelineFilter');
             const manualWrap = document.getElementById('dialerPipelineManual');
             const stageSel = document.getElementById('dialerStageFilter');
+            if (!sel || !stageSel) return;
             try {
                 console.log('[Dialer] Fetching pipelines...');
                 const r = await fetch('/voice/pipelines');
@@ -724,7 +730,7 @@
             try {
                 let url = '/voice/contacts?';
                 if (pipeline) url += 'pipeline=' + encodeURIComponent(pipeline) + '&';
-                if (stage) url += 'stage=' + encodeURIComponent(stage);
+                if (stage) url += 'stage=' + encodeURIComponent(stage) + '&';
                 if (forceRefresh) url += 'refresh=1&';
                 const r = await _fetchRetry(url, {}, { retries: 2, timeout: 30000, label: 'contacts' });
                 const d = await r.json();
@@ -929,7 +935,7 @@
             // fall back to temperature + timestamp check
             if (intel.temperature !== 'hot' && intel.temperature !== 'warm') return false;
             const eng = _igbEngagementCache[contactId];
-            if (!eng) return false;
+            if (!eng || !eng.messages) return false;
             const lastLead = eng.messages.last_lead_at;
             const lastBot = eng.messages.last_assistant_at;
             if (lastLead && (!lastBot || lastLead > lastBot)) return true;
@@ -1819,11 +1825,11 @@
                         const hasTx = c.transcript && c.transcript.length > 0;
                         return '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:.78rem;">' +
                             '<div style="width:6px;height:6px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></div>' +
-                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + (c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
-                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + (c.status || '').replace('-',' ') + '</div>' +
+                            '<div style="flex:1;min-width:0;"><div style="font-weight:600;">' + dialerEsc(c.direction || 'outbound') + '</div><div style="font-size:.68rem;color:#555;">' + dt + '</div></div>' +
+                            '<div style="color:' + statusColor + ';font-size:.7rem;font-weight:600;">' + dialerEsc((c.status || '').replace('-',' ')) + '</div>' +
                             '<div style="color:#888;font-size:.7rem;">' + durMin + '</div>' +
                             (hasRec ? '<button onclick="playRecording(\'' + dialerEsc(c.recording_url) + '\')" style="background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.12);color:#00d9ff;border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Play"><i class="fa-solid fa-play"></i></button>' : '') +
-                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/'/g, "\\'") + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
+                            (hasTx ? '<button onclick=\'showTranscript(' + JSON.stringify(c.transcript).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c') + ')\' style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.12);color:var(--accent);border-radius:4px;padding:2px 6px;font-size:.65rem;cursor:pointer;" title="Transcript"><i class="fa-solid fa-file-lines"></i></button>' : '') +
                         '</div>';
                     }).join('');
                 }
@@ -2245,13 +2251,13 @@
                 // Only enforce poll limit while ringing/initiated — once connected, poll indefinitely
                 if (pollCount > MAX_POLLS_RINGING && !_dialerCallConnected) {
                     clearInterval(dialerPollTimer); dialerCallSid = null;
-                    dialerHideBanner(); dialerStopAiTimer();
+                    dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer();
                     if (dialerQueueRunning) dialerAdvance();
                     return;
                 }
                 try {
                     const r = await fetch('/voice/call-status/' + dialerCallSid);
-                    if (!r.ok) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } return; }
+                    if (!r.ok) { if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); } return; }
                     errorCount = 0;
                     const d = await r.json();
                     const el = document.getElementById('dialerCallStatus');
@@ -2267,7 +2273,8 @@
                         if (_dialerMaxCallDuration > 0 && !_dialerCallDurationTimer) {
                             _dialerCallDurationTimer = setTimeout(() => {
                                 console.log('[Dialer] Max call duration reached (' + (_dialerMaxCallDuration / 60000) + ' min), ending call');
-                                dialerHangup();
+                                _dialerClearCallDurationTimer();
+                                dialerStopQueue();
                             }, _dialerMaxCallDuration);
                         }
                         // Pre-warm VoIP device in background so Intercept is instant
@@ -2285,6 +2292,7 @@
                         el.textContent = 'Transferred to Agent'; el.style.color = '#ffa500';
                         _dialerBannerState('connected');
                         // Keep banner visible briefly, then clean up and advance
+                        _dialerClearCallDurationTimer();
                         _dialerQueueTimeout(() => {
                             dialerStopAiTimer();
                             _dialerLastCallSid = dialerCallSid;
@@ -2322,7 +2330,7 @@
                             _dialerQueueTimeout(dialerAdvance, 1200);
                         }
                     }
-                } catch(e) { console.error('[Dialer] Poll fetch error (errorCount=' + (errorCount+1) + '):', e.message || e); if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); } }
+                } catch(e) { console.error('[Dialer] Poll fetch error (errorCount=' + (errorCount+1) + '):', e.message || e); if (++errorCount >= MAX_ERRORS) { clearInterval(dialerPollTimer); dialerCallSid = null; dialerHideBanner(); dialerStopAiTimer(); _dialerClearCallDurationTimer(); } }
             }, 1500);
         }
 
@@ -2865,8 +2873,10 @@
                     else if (ms < 300) { dot.style.background = '#ffa500'; }
                     else { dot.style.background = '#ef4444'; }
                 } catch(e) {
-                    document.getElementById('dialerPingVal').textContent = '--ms';
-                    document.getElementById('dialerPingDot').style.background = '#555';
+                    const elV = document.getElementById('dialerPingVal');
+                    const elD = document.getElementById('dialerPingDot');
+                    if (elV) elV.textContent = '--ms';
+                    if (elD) elD.style.background = '#555';
                 }
             }, 5000);
             // Immediate first ping
@@ -3135,7 +3145,7 @@
             else { btn.innerHTML = '<i class="fa-solid fa-play me-1"></i>Auto-Dial'; btn.style.background = 'linear-gradient(135deg,var(--accent),#00b36b)'; btn.style.color = '#000'; }
         }
         function dialerToggleQueue() {
-            if (dialerQueueRunning) { dialerQueueRunning = false; _advanceLocked = false; _jtcDialingContactId = null; _dialerCancelQueueTimers(); dialerUpdateBtn(); _jtcUpdatePill(); return; }
+            if (dialerQueueRunning) { dialerQueueRunning = false; _advanceLocked = false; _jtcDialingContactId = null; _dialerCancelQueueTimers(); _dialerClearCallDurationTimer(); dialerUpdateBtn(); _jtcUpdatePill(); return; }
             dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending');
             if (dialerCallIdx < 0) { dialerQueue.forEach(q => { if (q.status !== 'completed') q.status = 'pending'; }); dialerCallIdx = dialerQueue.findIndex(q => q.status === 'pending'); if (dialerCallIdx < 0) return; }
             dialerQueueRunning = true;
@@ -4350,7 +4360,7 @@
                     const status = await r.json();
                     _deepSyncUpdateBanner(status);
 
-                    if (status.status === 'completed' || status.status === 'not_started') {
+                    if (status.status === 'completed' || status.status === 'not_started' || status.status === 'failed') {
                         clearInterval(_deepSyncPollTimer);
                         _deepSyncPollTimer = null;
                     }
@@ -4688,6 +4698,7 @@
                 }
 
                 const cName = c.contact_name || 'Unknown';
+                const cNameSafe = dialerEsc(cName);
                 const initials = cName.split(' ').map(w => (w||'')[0]).join('').slice(0, 2).toUpperCase();
                 const isInbound = c.last_direction === 'inbound';
                 const timeStr = _inboxFormatTime(c.date);
@@ -4695,11 +4706,11 @@
                 // Color hash for avatar
                 const hue = _inboxNameHue(cName);
 
-                html += '<div class="imsg-convo-row" onclick="inboxOpenThread(\'' + c.contact_id + '\', \'' + cName.replace(/'/g, "\\'") + '\', \'' + (c.contact_phone || '') + '\')">' +
-                    '<div class="imsg-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%));">' + initials + '</div>' +
+                html += '<div class="imsg-convo-row" onclick="inboxOpenThread(\'' + c.contact_id + '\', \'' + cNameSafe.replace(/'/g, "&#39;") + '\', \'' + (c.contact_phone || '').replace(/'/g, '') + '\')">' +
+                    '<div class="imsg-avatar" style="background:linear-gradient(135deg,hsl(' + hue + ',55%,45%),hsl(' + (hue+30) + ',60%,35%));">' + dialerEsc(initials) + '</div>' +
                     '<div style="flex:1;min-width:0;">' +
                         '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">' +
-                            '<span class="imsg-name"' + (isInbound ? ' style="font-weight:700;"' : '') + '>' + cName + '</span>' +
+                            '<span class="imsg-name"' + (isInbound ? ' style="font-weight:700;"' : '') + '>' + cNameSafe + '</span>' +
                             '<div style="display:flex;align-items:center;gap:4px;">' +
                                 '<span class="imsg-time">' + timeStr + '</span>' +
                                 '<i class="fa-solid fa-chevron-right imsg-chevron"></i>' +
