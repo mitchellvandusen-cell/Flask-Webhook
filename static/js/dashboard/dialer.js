@@ -21,6 +21,8 @@
         let _dialerAllContacts = [];  // Full unfiltered contact list for local search
         let dialerActiveContact = null; // currently selected contact in middle panel
         let dialerPipelines = [];
+        let _dialerFetchGen = 0;       // Generation counter to discard stale contact fetches
+        let _dialerRefreshPoll = null;  // Interval ID for background refresh polling
         let dialerMaxAttempts = (window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.dialMaxAttempts) || 2;
         // Enterprise dialer settings (loaded from voice_config via DASHBOARD_BOOT)
         let _dialerRingTimeout = ((window.DASHBOARD_BOOT && window.DASHBOARD_BOOT.ringTimeout) || 45) * 1000; // ms
@@ -995,6 +997,16 @@
         let _dialerCacheLoaded = false; // Track if we've loaded from cache on first open
 
         async function dialerFetchContacts(forceRefresh) {
+            // Cancel any in-flight background refresh poll (prevents stale data overwriting)
+            if (_dialerRefreshPoll) {
+                clearInterval(_dialerRefreshPoll);
+                _dialerRefreshPoll = null;
+                const syncIcon = document.getElementById('dialerSyncIcon');
+                if (syncIcon) syncIcon.classList.remove('fa-spin');
+            }
+
+            const myGen = ++_dialerFetchGen; // Tag this request
+
             const list = document.getElementById('dialerContactList');
             const btn = document.getElementById('dialerGetContactsBtn');
             const manualWrap = document.getElementById('dialerPipelineManual');
@@ -1018,6 +1030,10 @@
                 if (forceRefresh) url += 'refresh=1&';
                 const r = await _fetchRetry(url, {}, { retries: 2, timeout: 30000, label: 'contacts' });
                 const d = await r.json();
+
+                // Discard if a newer fetch was started while we were waiting
+                if (myGen !== _dialerFetchGen) return;
+
                 if (!r.ok) {
                     if (!_dialerAllContacts.length) {
                         list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (d.error || 'Failed to load contacts') + '</div>';
@@ -1041,9 +1057,10 @@
 
                 // If background refresh is happening, poll for completion
                 if (d.refreshing) {
-                    _dialerPollRefresh(pipeline, stage);
+                    _dialerPollRefresh(pipeline, stage, myGen);
                 }
             } catch(e) {
+                if (myGen !== _dialerFetchGen) return; // Stale — ignore
                 console.error('[Dialer] Contact fetch failed:', e);
                 if (!_dialerAllContacts.length) {
                     list.innerHTML = '<div style="text-align:center;padding:16px;color:#ef4444;font-size:.78rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Network error loading contacts — click Get Contacts to retry</div>';
@@ -1079,14 +1096,25 @@
         }
 
         // ── Poll for background refresh completion ──
-        function _dialerPollRefresh(pipeline, stage) {
+        function _dialerPollRefresh(pipeline, stage, gen) {
+            // Cancel any prior poll
+            if (_dialerRefreshPoll) clearInterval(_dialerRefreshPoll);
+
             const syncIcon = document.getElementById('dialerSyncIcon');
             if (syncIcon) syncIcon.classList.add('fa-spin');
             let attempts = 0;
-            const poll = setInterval(async () => {
+            _dialerRefreshPoll = setInterval(async () => {
+                // Abort if a newer fetch has started (user changed filters)
+                if (gen !== _dialerFetchGen) {
+                    clearInterval(_dialerRefreshPoll);
+                    _dialerRefreshPoll = null;
+                    if (syncIcon) syncIcon.classList.remove('fa-spin');
+                    return;
+                }
                 attempts++;
                 if (attempts > 20) { // 60 seconds max
-                    clearInterval(poll);
+                    clearInterval(_dialerRefreshPoll);
+                    _dialerRefreshPoll = null;
                     if (syncIcon) syncIcon.classList.remove('fa-spin');
                     return;
                 }
@@ -1096,8 +1124,16 @@
                     if (stage) url += 'stage=' + encodeURIComponent(stage);
                     const r = await fetch(url);
                     const d = await r.json();
+                    // Double-check generation is still current before writing results
+                    if (gen !== _dialerFetchGen) {
+                        clearInterval(_dialerRefreshPoll);
+                        _dialerRefreshPoll = null;
+                        if (syncIcon) syncIcon.classList.remove('fa-spin');
+                        return;
+                    }
                     if (r.ok && !d.refreshing) {
-                        clearInterval(poll);
+                        clearInterval(_dialerRefreshPoll);
+                        _dialerRefreshPoll = null;
                         if (syncIcon) syncIcon.classList.remove('fa-spin');
                         // Update contacts with fresh data
                         _dialerAllContacts = d.contacts || [];
@@ -1117,10 +1153,12 @@
             if (syncIcon) syncIcon.classList.add('fa-spin');
             try {
                 await fetch('/voice/contacts/sync', { method: 'POST' });
-                // Poll for completion
+                // Poll for completion using current generation
+                const gen = ++_dialerFetchGen;
                 _dialerPollRefresh(
                     document.getElementById('dialerPipelineFilter').value,
-                    document.getElementById('dialerStageFilter').value
+                    document.getElementById('dialerStageFilter').value,
+                    gen
                 );
             } catch(e) {
                 if (syncIcon) syncIcon.classList.remove('fa-spin');
@@ -4540,11 +4578,7 @@
                         // Refresh contacts + call counts with new data
                         if (status.messages_synced > 0) {
                             dialerFetchCallCounts().then(() => dialerFetchMergedCounts());
-                            dialerLoadContacts(
-                                document.getElementById('dialerPipelineFilter').value,
-                                document.getElementById('dialerStageFilter').value,
-                                true
-                            );
+                            dialerFetchContacts(true);
                         }
                     } else if (status.status === 'failed' || status.status === 'stale' || status.status === 'not_started') {
                         clearInterval(_deepSyncPollTimer);
