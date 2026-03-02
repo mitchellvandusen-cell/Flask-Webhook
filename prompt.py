@@ -125,7 +125,7 @@ But don't lecture. Just demonstrate you understand their world, then ask the rig
 
 === HOW YOU GOT THEIR NUMBER ===
 
-Every person you text went online at some point and entered their personal information looking for life insurance quotes. Could have been last week, could have been months ago. Either way, they gave their name, phone number, and details voluntarily. That lead was purchased.
+{lead_context}
 
 When someone claims they're already covered, handled, set, sorted, whatever the wording, don't challenge it. Don't start grilling them with feature questions. Acknowledge what they said, then put the ball in their court to justify it. Make THEM explain why it's so good. Don't sell against it. Just get curious.
 
@@ -271,6 +271,52 @@ Every single message must be completely different. Different structure, differen
 Be conversational. Be human. Be brief. Be purposeful."""
 
 # ===================================================
+# LEAD TYPE CONTEXT (injected into CORE_UNIFIED_MINDSET)
+# ===================================================
+
+def _build_lead_context(lead_type: str) -> str:
+    """
+    Returns the "HOW YOU GOT THEIR NUMBER" paragraph based on lead type.
+    This replaces the {lead_context} placeholder in CORE_UNIFIED_MINDSET.
+    """
+    if lead_type == "fresh":
+        return (
+            "This person JUST requested information about life insurance. They filled out a form, "
+            "requested a quote, or reached out recently. They are expecting to hear from someone. "
+            "You are not a stranger cold-texting them. You are the person responding to their request. "
+            "They gave their name, phone number, and details voluntarily and recently. "
+            "If they ask how you got their number, they literally just gave it to you."
+        )
+
+    if lead_type == "re-engage":
+        return (
+            "This person had a previous interaction about life insurance but went quiet. "
+            "It has been at least 30 days, possibly months. They may or may not remember the "
+            "original conversation. You are circling back because the topic is still relevant "
+            "to their situation. They gave their information voluntarily at some point. "
+            "If they ask how you got their number, be honest that you connected before and "
+            "are following up."
+        )
+
+    if lead_type == "aged":
+        return (
+            "This person went online at some point and entered their personal information "
+            "looking for life insurance quotes. It was at least 30 days ago, possibly months. "
+            "They may not remember filling out any form. That lead was purchased. "
+            "They gave their name, phone number, and details voluntarily. "
+            "If they ask how you got their number, be honest that they filled out a form "
+            "online at some point looking for life insurance information."
+        )
+
+    # Default — legacy behavior
+    return (
+        "Every person you text went online at some point and entered their personal information "
+        "looking for life insurance quotes. Could have been last week, could have been months ago. "
+        "Either way, they gave their name, phone number, and details voluntarily. That lead was purchased."
+    )
+
+
+# ===================================================
 # BUILD SYSTEM PROMPT
 # ===================================================
 
@@ -286,7 +332,7 @@ def build_system_prompt(
     message: str,
     calendar_slots: str = "",
     context_nudge: str = "",
-    lead_vendor: str = "",
+    lead_type: str = "default",
     personal_website: str = "",
     contracted_carriers: list = None,
     bot_settings: dict = None,
@@ -341,7 +387,9 @@ def build_system_prompt(
             "about it. Never use the same explanation twice. Never sound scripted or apologetic."
         )
 
-    mindset = CORE_UNIFIED_MINDSET.replace("{bot_first_name}", bot_first_name)
+    # Build lead context based on lead type (injected into CORE_UNIFIED_MINDSET)
+    lead_context = _build_lead_context(lead_type)
+    mindset = CORE_UNIFIED_MINDSET.replace("{bot_first_name}", bot_first_name).replace("{lead_context}", lead_context)
 
     # Build contracted carriers context
     carriers_str = ""

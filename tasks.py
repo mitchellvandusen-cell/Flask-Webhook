@@ -655,10 +655,26 @@ def process_webhook_task(payload: dict):
         dob_str = payload.get("age") or ""
         address = payload.get("address") or ""
         intent = payload.get("intent") or ""
-        lead_vendor = payload.get("lead_vendor", "")
         age = calculate_age_from_dob(date_of_birth=dob_str) if dob_str else None
 
-        logger.info(f"✅ USING PAYLOAD DATA | contact_id={contact_id} | first_name={first_name}")
+        # === LEAD TYPE DETECTION (from GHL tags) ===
+        # Tags set by agent via GHL workflow determine how the bot approaches the lead:
+        #   "fresh" anywhere in tag → speed-to-lead (they just requested info)
+        #   "re-engage" anywhere in tag → cold/dormant 30+ day re-engagement
+        #   "aged" anywhere in tag → purchased aged lead, 30+ days old minimum
+        #   no matching tag → default behavior (aged internet lead assumption)
+        lead_type = "default"
+        contact_tags = payload.get("tags") or []
+        if isinstance(contact_tags, list):
+            tags_lower = " ".join(str(t).lower() for t in contact_tags)
+            if "fresh" in tags_lower:
+                lead_type = "fresh"
+            elif "re-engage" in tags_lower or "reengage" in tags_lower:
+                lead_type = "re-engage"
+            elif "aged" in tags_lower:
+                lead_type = "aged"
+
+        logger.info(f"✅ USING PAYLOAD DATA | contact_id={contact_id} | first_name={first_name} | lead_type={lead_type} | tags={contact_tags}")
 
         initial_facts = []
         if first_name: initial_facts.append(f"First name: {first_name}")
@@ -784,6 +800,7 @@ def process_webhook_task(payload: dict):
             age=age,
             address=address,
             bot_settings=bot_settings,
+            lead_type=lead_type,
         )
 
         recent_exchanges = director_output["recent_exchanges"]
@@ -962,7 +979,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
                 message=message,
                 calendar_slots=calendar_slots,
                 context_nudge=final_nudge,
-                lead_vendor=lead_vendor,
+                lead_type=lead_type,
                 personal_website=personal_website,
                 contracted_carriers=contracted_carriers,
                 bot_settings=bot_settings,
@@ -1183,7 +1200,7 @@ Do not continue the sales conversation. The appointment is booked. Confirm it in
             from rq import Queue as _Queue
             _r = _redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'),
                                  socket_timeout=5, socket_connect_timeout=5)
-            _q = _Queue('production', connection=_r)
+            _q = _Queue('website', connection=_r)
             _q.enqueue(
                 analyze_contact_intelligence_task,
                 location_id, contact_id,

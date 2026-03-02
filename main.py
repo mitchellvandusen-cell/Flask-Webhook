@@ -106,6 +106,7 @@ redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
 redis_conn = None
 q_production = None
 q_demo = None
+q_website = None
 
 def get_redis_connection():
     """Create a Redis connection with proper timeouts so it fails fast instead of hanging."""
@@ -119,7 +120,7 @@ def get_redis_connection():
 
 def ensure_redis():
     """Reconnect to Redis if the connection is dead. Returns True if healthy."""
-    global redis_conn, q_production, q_demo
+    global redis_conn, q_production, q_demo, q_website
     try:
         if redis_conn:
             redis_conn.ping()
@@ -133,6 +134,7 @@ def ensure_redis():
         redis_conn.ping()  # Real connectivity check
         q_production = Queue('production', connection=redis_conn)
         q_demo       = Queue('demo',       connection=redis_conn)
+        q_website = Queue('website', connection=redis_conn)
         logger.info("✅ Redis connection established")
         return True
     except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
@@ -140,6 +142,7 @@ def ensure_redis():
         redis_conn = None
         q_production = None
         q_demo = None
+        q_website = None
         return False
 
 # Initial connection at startup
@@ -903,6 +906,22 @@ def normalize_payload_universal(payload):
         value = extract_field_flexible(payload, field, search_nested=True)
         if value is not None:
             normalized[field] = value
+
+    # Extract tags (array field — not handled by extract_field_flexible)
+    tags = None
+    for tags_key in ("tags", "Tags", "TAGS"):
+        if isinstance(payload.get(tags_key), list):
+            tags = payload[tags_key]
+            break
+    if tags is None:
+        # Search nested structures for tags
+        for nested_key in ("contact", "data", "extras"):
+            nested = payload.get(nested_key)
+            if isinstance(nested, dict) and isinstance(nested.get("tags"), list):
+                tags = nested["tags"]
+                break
+    if tags is not None:
+        normalized["tags"] = tags
 
     # Preserve original payload for reference
     normalized["_original_payload"] = payload
@@ -3187,7 +3206,7 @@ def api_cron_backfill_failed_webhooks():
         if not ensure_redis():
             return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
 
-        job = q_production.enqueue(
+        job = q_website.enqueue(
             backfill_failed_webhooks,
             max_age_hours=max_age_hours,
             job_timeout=600,
@@ -3222,7 +3241,7 @@ def api_cron_sync_ghl_data():
             return safe_jsonify({"success": False, "error": "Redis unavailable"}), 503
 
         from ghl_sync import run_incremental_sync_all
-        job = q_production.enqueue(
+        job = q_website.enqueue(
             run_incremental_sync_all,
             job_timeout=1800,  # 30 min max
             result_ttl=86400,
@@ -3663,7 +3682,7 @@ def api_sync_deep_pull():
 
         # Queue background job (long-running, up to 2 hours)
         ensure_redis()
-        job = q_production.enqueue(
+        job = q_website.enqueue(
             deep_sync_conversations,
             location_id,
             job_timeout=7200,  # 2 hour max
@@ -3741,7 +3760,7 @@ def api_sync_deep_pull_reset():
         except Exception:
             pass
 
-        job = q_production.enqueue(
+        job = q_website.enqueue(
             deep_sync_conversations,
             location_id,
             job_timeout=7200,
@@ -4642,7 +4661,7 @@ def demo_chat_api():
             message=message,
             calendar_slots=calendar_slots,
             context_nudge="",
-            lead_vendor=""
+            lead_type="default"
         )
 
         # Demo: replace any unsubstituted {bot_first_name} literals and set identity
