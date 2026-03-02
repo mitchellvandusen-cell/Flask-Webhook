@@ -1521,14 +1521,16 @@ def trigger_outbound_call():
         }
 
         # Create outbound call via Twilio REST API
-        use_amd = voice_config.get('use_amd', False)
+        # AI mode always needs AMD to detect voicemail greetings
+        ring_timeout = voice_config.get('ring_timeout', 45)
         result = twilio_provisioning.create_outbound_call(
             sub_account_sid=sub_sid,
             to=lead_phone,
             from_number=from_number,
             webhook_base_url=webhook_base_url,
-            machine_detection='DetectMessageEnd' if use_amd else None,
+            machine_detection='DetectMessageEnd',
             custom_params=custom_params,
+            ring_timeout=ring_timeout,
         )
         call_sid = result.get('call_sid', '')
 
@@ -2247,7 +2249,6 @@ Every word you output is spoken aloud. Output ONLY what {voice_bot_name} would s
                 try:
                     location_id_cb = subscriber.get('location_id', '')
                     tz_str = subscriber.get('voice_config', {}).get('timezone', 'America/New_York')
-                    import threading
                     threading.Thread(
                         target=_analyze_callback_from_transcript,
                         args=(call_sid, call_transcript, location_id_cb, contact_id, tz_str),
@@ -3583,7 +3584,7 @@ If callback_requested is false, set callback_time to null."""
 
         # Parse JSON response
         import re
-        json_match = re.search(r'\{[^{}]+\}', raw, re.DOTALL)
+        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
         if not json_match:
             logger.debug(f"Auto-callback: no JSON in response for {call_sid}")
             return None
@@ -3602,17 +3603,18 @@ If callback_requested is false, set callback_time to null."""
             logger.debug(f"Auto-callback: low confidence for {call_sid}, skipping")
             return None
 
-        # Parse callback time
+        # Parse callback time (stored as naive TIMESTAMP — subscriber's local time)
         callback_at = None
         if callback_time_str:
             try:
-                naive = datetime.strptime(callback_time_str, '%Y-%m-%d %H:%M')
-                callback_at = tz.localize(naive)
+                callback_at = datetime.strptime(callback_time_str, '%Y-%m-%d %H:%M')
             except ValueError:
                 logger.warning(f"Auto-callback: could not parse time '{callback_time_str}' for {call_sid}")
 
         # Save to DB
         conn = get_db_connection()
+        if not conn:
+            logger.warning(f"Auto-callback: no DB connection for {call_sid}, result not persisted")
         if conn:
             try:
                 cur = conn.cursor()
@@ -3667,15 +3669,18 @@ def get_scheduled_callbacks():
             ORDER BY callback_at ASC
             LIMIT 50
         """, (location_id,))
+        from datetime import datetime as _dt, timezone as _tz
+        _now_naive = _dt.now()  # Server-local naive time (matches TIMESTAMP column)
         callbacks = []
         for r in cur.fetchall():
+            cb_at = r['callback_at']
             callbacks.append({
                 "call_sid": r['call_sid'],
                 "contact_id": r['contact_id'],
                 "contact_name": r['contact_name'],
                 "phone": r['phone'],
-                "callback_at": r['callback_at'].isoformat() if r['callback_at'] else None,
-                "is_past": r['callback_at'] < __import__('datetime').datetime.now(r['callback_at'].tzinfo or __import__('datetime').timezone.utc) if r['callback_at'] else False,
+                "callback_at": cb_at.isoformat() if cb_at else None,
+                "is_past": cb_at < _now_naive if cb_at else False,
             })
         cur.close()
         return jsonify(callbacks)
